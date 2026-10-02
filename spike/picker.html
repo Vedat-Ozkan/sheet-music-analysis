@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; padding: 14px 16px; font: 14px system-ui, sans-serif; background: #fff; color: #111; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  label.button { padding: 8px 14px; border: 1px solid #111; border-radius: 8px; cursor: pointer; font-weight: 600; }
+  label.button:hover { background: #f2f2f2; }
+  input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  #status { color: #444; }
+  #status.error { color: #b3261e; }
+</style>
+</head>
+<body>
+<div class="row">
+  <label class="button">Choose score file<input id="file" type="file" accept=".mxl,.musicxml,.xml"></label>
+  <span id="status">MusicXML (.mxl or .musicxml), up to 10 MB</span>
+</div>
+<script>
+  // Minimal MCP Apps view: lets the user hand a score file to the server without leaving the chat.
+  const UPLOAD_URL = "__UPLOAD_URL__";
+  let nextId = 1;
+  const pending = {};
+
+  function send(message) { window.parent.postMessage(message, "*"); }
+  function request(method, params) {
+    const id = nextId++;
+    send({ jsonrpc: "2.0", id, method, params });
+    return new Promise((resolve, reject) => { pending[id] = { resolve, reject }; });
+  }
+  function reportSize() {
+    const root = document.documentElement;
+    send({ jsonrpc: "2.0", method: "ui/notifications/size-changed",
+           params: { width: root.scrollWidth, height: root.scrollHeight } });
+  }
+  function setStatus(text, isError) {
+    const status = document.getElementById("status");
+    status.textContent = text;
+    status.className = isError ? "error" : "";
+    reportSize();
+  }
+
+  window.addEventListener("message", (event) => {
+    const message = event.data;
+    if (!message || message.jsonrpc !== "2.0" || message.id === undefined || !pending[message.id]) return;
+    const { resolve, reject } = pending[message.id];
+    delete pending[message.id];
+    if (message.error) reject(message.error); else resolve(message.result);
+  });
+
+  // Tell the chat model which score was chosen, so it carries on with the user's request.
+  async function announce(text) {
+    if (window.openai && window.openai.sendFollowUpMessage) {
+      return window.openai.sendFollowUpMessage({ prompt: text });
+    }
+    try {
+      await request("ui/message", { role: "user", content: [{ type: "text", text }] });
+    } catch (error) {
+      await request("ui/message", { role: "user", content: { type: "text", text } });
+    }
+  }
+
+  document.getElementById("file").addEventListener("change", async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    setStatus("Sending " + file.name + "…");
+    try {
+      const response = await fetch(UPLOAD_URL, { method: "POST", body: file });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "upload failed");
+      setStatus("Received " + file.name);
+      await announce('I chose the score file "' + file.name + '". Its score_id is ' + body.score_id +
+                     ". Please continue with what I asked.");
+    } catch (error) {
+      setStatus("Could not send the file: " + (error.message || error), true);
+    }
+  });
+
+  // The host shows nothing until it knows the height, so say it straight away and on every change.
+  reportSize();
+  window.addEventListener("load", reportSize);
+  new ResizeObserver(reportSize).observe(document.body);
+
+  const identity = { name: "score-picker", version: "0.0.1" };
+  request("ui/initialize", { protocolVersion: "2026-01-26", appInfo: identity, clientInfo: identity, appCapabilities: {} })
+    .catch(() => null)
+    .then(() => { send({ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {} }); reportSize(); });
+</script>
+</body>
+</html>

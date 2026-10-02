@@ -1,0 +1,30 @@
+[project]
+name = "sheet-music-analysis"
+version = "0.0.1"
+description = "Harmonic analysis drawn on an engraved score, served over MCP"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Vedat Ozkan" }]
+dependencies = [
+    "music21>=10.5",
+    "verovio>=6.3",
+    "resvg-py>=0.5",
+    "img2pdf>=0.6",
+    "mcp>=2.2",
+    "httpx>=0.28",
+    "uvicorn>=0.30",
+    "pillow>=11",
+    "python-multipart>=0.0.20",
+    "fonttools>=4.50",
+    "pydantic>=2.8",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
