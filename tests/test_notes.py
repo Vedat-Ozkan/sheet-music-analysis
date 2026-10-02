@@ -61,3 +61,11 @@ def test_draft_builds_against_a_decoded_note_list(index):
     opening = {(chord.measure, chord.beat): chord.label for chord in result.chords if 1 <= chord.measure <= 4}
     assert opening[(3, 2.0)] == "V65/vi" and opening[(4, 3.0)] == "I"
     assert [(mark.measure, mark.beat, mark.label) for mark in result.cadences[:2]] == [(4, 3.0, "PAC"), (8, 3.0, "PAC")]
+
+
+def test_grace_notes_after_a_rest_keep_their_place():
+    text = "N1 div=4 ts=4/4 ks=0\nm1 len=16\n1.1: 8 r gA5+B5 4 C6 r"
+    index = notes.decode(text)
+    grace = [event for event in index.measures[0].events if event.grace]
+    assert {event.onset for event in grace} == {2}
+    assert notes.encode(index).splitlines()[2] == "1.1: 2 r gA5+B5 1 C6"  # written in the smallest whole units

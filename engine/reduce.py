@@ -72,7 +72,8 @@ def as_text(index: ScoreIndex, first: int | None = None, last: int | None = None
         f"Key signature: {describe_key_signature(index.key_signature)}. Meter: {index.meter or 'unknown'}; "
         f"one beat = {unit:g} quarter note{'' if unit == 1 else 's'}.",
         f"The score has measures {index.measures[0].number} to {index.measures[-1].number}"
-        + (" (0 is a pickup; its beat 1 is its first note)." if index.measures[0].number == 0 else "."),
+        + (" (0 is a pickup; its beat 1 is its first note)." if index.measures[0].number == 0 else ".")
+        + (" The file's own bar numbers repeat, so bars are counted here in order." if index.renumbered else ""),
         "Each row: beat | lowest note | pitch classes sounding, low to high | notes per staff as pitch@beat-where-it-starts.",
         "",
     ]

@@ -55,6 +55,15 @@ The server needs a public HTTPS address (a tunnel or a host) before Claude or Ch
 
 Results of testing in both apps are in `docs/gate1-results.md`.
 
+## Robustness
+
+```bash
+.venv/bin/python -m tools.robustness            # every score, every stage
+.venv/bin/python -m tools.robustness --matching ravel
+```
+
+Runs 31 scores through reading, the note table, the note list, engraving, the draft model and rendering: Bach chorales, Classical and Romantic quartets, songs and piano music from the music21 corpus, and impressionist and early twentieth-century piano music (Ravel, Debussy, Satie, Scriabin, Rachmaninoff, Prokofiev, Schoenberg) downloaded on first use into `out/`. The downloaded transcriptions are for local testing and are not committed. Results go to `out/robustness/report.json`.
+
 ## Draft model
 
 AnalysisGNN drafts the analysis; the chat model reviews it. It runs in its own environment (`.venv-agnn`, Python 3.11, PyTorch 2.5 CPU) and `engine/draft.py` calls it as a subprocess, so the engine itself needs no ML packages.
@@ -85,7 +94,7 @@ from engine import draft
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 score = open('tests/data/chopin_nocturne_op9_no2.mxl', 'rb').read()
-print(draft.as_text(draft.draft(score, ScoreIndex(load_toolkit(score).getMEI())), 1, 8))
+print(draft.as_text(draft.draft(ScoreIndex(load_toolkit(score).getMEI())), 1, 8))
 "
 ```
 

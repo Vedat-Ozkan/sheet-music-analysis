@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from engine.annotations import AnnotationList, Cadence, Callout, Harmony, NonChordTone, Phrase, VoiceLeading
+from engine.annotations import AnnotationList, Cadence, Callout, Harmony, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
 from engine.render import Engraving, load_toolkit
 from engine.score import PositionError, ScoreIndex
@@ -12,7 +12,7 @@ ANNOTATED_OPTIONS = {
     "svgBoundingBoxes": True,
     "adjustPageHeight": True,
     "spacingSystem": 26,
-    "pageMarginTop": 130,
+    "pageMarginTop": 230,  # two stacked brackets with labels fit above the first system
     "pageMarginBottom": 260,
 }
 
@@ -32,7 +32,7 @@ def check(annotations: AnnotationList, index: ScoreIndex) -> None:
         try:
             if isinstance(annotation, (Harmony, Cadence, Callout)):
                 index.measure(annotation.at.measure).offset_of(annotation.at.beat)
-            elif isinstance(annotation, Phrase):
+            elif isinstance(annotation, (Phrase, Region)):
                 index.measure(annotation.start.measure).offset_of(annotation.start.beat)
                 end = index.measure(annotation.end.measure)
                 if annotation.end.beat is not None:

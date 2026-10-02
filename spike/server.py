@@ -373,7 +373,7 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None) -> str
     if cache.exists():
         raw = json.loads(cache.read_text())
     else:
-        raw = draft.MODELS["analysisgnn"](score)
+        raw = draft.MODELS["analysisgnn"](note_list.encode(index).encode(), "notes")
         cache.write_text(json.dumps(raw))
     result = draft.build(raw, index)
     first, last = measures or (None, None)

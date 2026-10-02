@@ -88,13 +88,13 @@ def _voice(events: list[Event], div: int) -> str:
     for onset, grace in sorted(onsets, key=lambda key: (key[0], not key[1])):  # grace notes come before the beat
         group = onsets[(onset, grace)]
         names = "+".join(event.pitch + ("~" if event.tied else "") for event in group)
+        if onset > cursor:  # silence in this voice, written before whatever starts next, grace notes included
+            gap = _units(onset - cursor, div)
+            tokens += [str(gap), "r"]
+            current, cursor = gap, onset
         if grace:
             tokens.append("g" + names)
             continue
-        if onset > cursor:
-            gap = _units(onset - cursor, div)
-            tokens += [str(gap), "r"]
-            current = gap
         duration = _units(group[0].duration, div)
         if duration != current:
             tokens.append(str(duration))
@@ -141,7 +141,7 @@ def decode(text: str) -> ScoreIndex:
         raise NotesError(f"The note list could not be read: {error}") from error
     if not measures:
         raise NotesError("The note list has no measures")
-    return ScoreIndex.from_measures(measures, meter, key, div)
+    return ScoreIndex.from_measures(measures, meter, key)
 
 
 def _read_voice(tokens: list[str], measure: Measure, staff: int, layer: int, div: int) -> None:

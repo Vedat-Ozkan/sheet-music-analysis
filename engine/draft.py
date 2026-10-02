@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
 
-from engine import notes
+from engine import notes as note_list
 from engine.annotations import AnnotationList
 from engine.score import Measure, ScoreIndex
 
@@ -155,17 +155,25 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
     shifts: dict[int, Fraction] = {}
     for i in range(count):
         number = notes["measure"][i]
-        offset = Fraction(notes["offset"][i]).limit_denominator(96)
+        offset = Fraction(notes["offset"][i])
         shifts[number] = min(shifts.get(number, offset), offset)
     for number, earliest in shifts.items():
         measure = index.measures[number - 1]
         first_event = min((event.onset for event in measure.events), default=Fraction(0))
         shifts[number] = earliest - first_event if earliest >= measure.length else Fraction(0)
 
+    known_onsets = [sorted({event.onset for event in measure.events}) for measure in index.measures]
+
     def place(i: int) -> tuple[Measure, Fraction]:
-        # partitura counts measures from 1 in score order, pickup included
-        number = notes["measure"][i]
-        return index.measures[number - 1], Fraction(notes["offset"][i]).limit_denominator(96) - shifts[number]
+        """The measure and onset of model note i, snapped to an onset the score actually has.
+
+        Files that write tuplets in rounded units give onsets like 21/128 for a sixth of a beat,
+        so the model's positions are matched to the nearest real onset instead of compared exactly.
+        """
+        number = notes["measure"][i]  # counted from 1 in the order of the note list, pickup included
+        offset = Fraction(notes["offset"][i]) - shifts[number]
+        nearest = min(known_onsets[number - 1], key=lambda onset: abs(onset - offset), default=offset)
+        return index.measures[number - 1], nearest if abs(nearest - offset) <= Fraction(1, 32) else offset
 
     starts: list[Fraction] = []  # absolute start of each measure, in quarters
     total = Fraction(0)
@@ -174,19 +182,20 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
         total += measure.length
 
     # one row per onset, in score order
+    placed = [place(i) for i in range(count)]
     onsets: dict[tuple[int, Fraction], list[int]] = {}
     for i in range(count):
-        measure, offset = place(i)
-        onsets.setdefault((measure.index, offset), []).append(i)
+        onsets.setdefault((notes["measure"][i], placed[i][1]), []).append(i)
     ordered = sorted(onsets)
 
     # check the model's note list lines up with the engraved score before trusting positions
-    matched = 0
-    for (measure_index, offset), members in onsets.items():
-        here = {event.pitch for event in index.measures[measure_index - 1].events if event.onset == offset}
-        matched += sum(notes["pitch"][i] in here for i in members)
-    if matched < 0.9 * count:
-        raise DraftError(f"Only {matched} of {count} model notes line up with the engraved score")
+    in_score = [False] * count
+    for (order, offset), members in onsets.items():
+        here = {event.pitch for event in index.measures[order - 1].events if event.onset == offset}
+        for i in members:
+            in_score[i] = notes["pitch"][i] in here
+    if sum(in_score) < 0.9 * count:
+        raise DraftError(f"Only {sum(in_score)} of {count} model notes line up with the engraved score")
 
     chords: list[Chord] = []
     spans: list[tuple[tuple, list[tuple[int, Fraction]]]] = []
@@ -250,13 +259,14 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
         found: dict[tuple, Mark] = {}
         for i in range(count):
             label, probability = best(task, i)
-            if not positive(label) or (per_note and notes["duration"][i] == 0):  # grace notes are not addressable
+            # a note mark must point at a note the score index can find again: no grace notes, no strays
+            if not positive(label) or (per_note and (notes["duration"][i] == 0 or not in_score[i])):
                 continue
-            measure, offset = place(i)
+            measure, offset = placed[i]
             mark = Mark(measure.number, round(measure.beat_of(offset), 2), label, round(probability, 2))
             if per_note:
                 mark.staff, mark.pitch = notes["staff"][i], notes["pitch"][i]
-            identity = (measure.index, offset, mark.pitch)
+            identity = (notes["measure"][i], offset, mark.pitch)
             if identity not in found or found[identity].confidence < mark.confidence:
                 found[identity] = mark
         return [found[identity] for identity in sorted(found, key=lambda k: (k[0], k[1], k[2] or ""))]
@@ -271,14 +281,18 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
     )
 
 
-def draft(score: bytes, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
-    return build(MODELS[model](score), index, model)
+def draft(index: ScoreIndex, model: str = "analysisgnn") -> Draft:
+    """Draft for a score we have indexed ourselves.
+
+    The model is given our own note list rather than the file, so that it sees exactly the notes
+    the index holds: sounding pitches, every instrument on one timeline, split bars joined.
+    """
+    return build(MODELS[model](note_list.encode(index).encode(), "notes"), index, model)
 
 
 def draft_from_notes(text: str, model: str = "analysisgnn") -> Draft:
     """Draft from a note list, for hosts that cannot send the score file itself."""
-    index = notes.decode(text)
-    return build(MODELS[model](text.encode(), "notes"), index, model)
+    return build(MODELS[model](text.encode(), "notes"), note_list.decode(text), model)
 
 
 # ---- draft -> what the chat model reads -----------------------------------------------

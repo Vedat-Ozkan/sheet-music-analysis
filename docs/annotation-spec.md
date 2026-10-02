@@ -32,9 +32,12 @@ A range has `start` (a position) and `end`. An `end` without `beat` runs to the 
 | `harmony` | `at`, `label`, optional `function` (`T`, `PD`, `D`), optional `key` | Roman numeral on one row under the system. `key` (`"Eb"`, `"f"`) is set where the key starts or changes. Consecutive chords with the same `function` share one colour band behind the staves. |
 | `cadence` | `at`, `label` (`PAC`, `IAC`, `HC`, `DC`) | Boxed label under the numerals. |
 | `phrase` | `start`, `end`, `label` | Bracket above the system, continued across system breaks. |
+| `region` | `start`, `end`, `label` | Dashed bracket above the system, for a stretch named by what it is built on: `whole-tone`, `E Dorian`, `pentatonic`, `parallel 9th chords`, `pedal on G`. |
 | `nct` | `note`, `label` (`P`, `N`, `S`, `APP`, ...) | Circle around the note with the letter beside it. |
 | `voice_leading` | `from_note`, `to_note`, optional `label` | Arrow from one note to the other. |
 | `callout` | `at`, `number` | Numbered disc above the staff, matching a numbered paragraph of the written commentary. |
+
+A `harmony` label that is not a Roman numeral is drawn as written, so chord symbols work too: `Gmaj7`, `Em9`, `C7(#11)`, `D9/A`.
 
 Roman numeral labels use RomanText spelling: `I`, `V7`, `V65/ii`, `viio7/V`, `ii/o65` (half-diminished), `bII6`, `Ger65`. One or two figures are raised or stacked. Text after a space is set small beside the numeral (`V7 4–3`).
 
@@ -58,4 +61,4 @@ Unknown fields are rejected, so a misspelled field name fails instead of being i
 
 ## Not in version 1 yet
 
-Pedal-point shading, sequence boxes, form labels above phrases, key-area bands, and note colours.
+Pedal-point shading, sequence boxes, form labels above phrases, key-area bands, and note colours. (A pedal or a sequence can be named with a `region` meanwhile.)
