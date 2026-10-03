@@ -44,6 +44,8 @@ SEVENTH_FIGURES = ["7", "65", "43", "42"]
 DIATONIC_LOWERCASE = {"major": {"2", "3", "6", "7"}, "minor": {"1", "2", "4"}}
 FUNCTIONS = {"1": "T", "3": "T", "6": "T", "2": "PD", "4": "PD", "5": "D", "7": "D"}
 STEPS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
+MINOR_STEPS = {"3": 3, "6": 8, "7": 10}  # semitones above the tonic, for the degrees that differ between the modes
+MAJOR_STEPS = {"3": 4, "6": 9, "7": 11}
 
 
 class DraftError(RuntimeError):
@@ -209,6 +211,35 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
         else:
             spans.append((key, [position]))
 
+    def mode_evidence(local_key: str, degree: str, secondary: str, positions: list) -> int:
+        """Positive when a chord says its key is minor, negative when it says major, 0 when it cannot tell."""
+        if degree == "#7":  # only a minor key has a leading tone to raise
+            return 2
+        if secondary != "None":
+            return 0
+        if degree in ("-3", "-6", "-7"):  # borrowed into a major key; a minor key has them already
+            return -1
+        if degree == "1":
+            quality = best("quality", onsets[positions[0]][0])[0]
+            return 2 if quality in ("minor triad", "minor seventh chord") else -2 if quality in ("major triad", "major seventh chord") else 0
+        if degree in MINOR_STEPS:
+            tonic = STEPS[local_key[0]] + local_key.count("#") - local_key.count("-")
+            heard = {_midi(e.pitch) % 12 for p in positions for e in index.measures[p[0] - 1].events if e.onset == p[1] and e.pitch}
+            as_minor, as_major = (tonic + MINOR_STEPS[degree]) % 12 in heard, (tonic + MAJOR_STEPS[degree]) % 12 in heard
+            return as_minor - as_major
+        return 0
+
+    # The checkpoint names the tonic of each local key but never its mode (C minor comes out as "C"),
+    # while its degrees are counted in the right scale. The mode is read back from the chords around.
+    evidence = [mode_evidence(*key, positions) for key, positions in spans]
+    minor: list[bool] = []
+    for number, ((local_key, _, _), _) in enumerate(spans):
+        near = [e for e, (key, _) in zip(evidence[max(0, number - 8) : number + 9], spans[max(0, number - 8) : number + 9]) if key[0] == local_key]
+        whole = [e for e, (key, _) in zip(evidence, spans) if key[0] == local_key]
+        same_key_before = bool(minor) and spans[number - 1][0][0] == local_key
+        # one stray chord should not flip the mode: it changes only on clear evidence
+        minor.append(sum(near) > 0 if abs(sum(near)) >= 3 else minor[-1] if same_key_before else sum(whole) > 0)
+
     for number, ((local_key, degree, secondary), positions) in enumerate(spans):
         if degree == "None":
             continue
@@ -224,6 +255,8 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
             quality = max(sevenths, key=votes.get)
         inversion = int(float(best("inversion", first)[0]))
         key = local_key.replace("-", "b")
+        if minor[number]:
+            key = key[0].lower() + key[1:]
         measure = index.measures[positions[0][0] - 1]
         start = starts[positions[0][0] - 1] + positions[0][1]
         following = spans[number + 1][1][0] if number + 1 < len(spans) else None

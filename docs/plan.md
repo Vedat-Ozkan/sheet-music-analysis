@@ -69,7 +69,7 @@ Repo layout (the project directory is currently empty):
 
 **4. Accuracy → Gate 3 (owner approves the quality bar)**
 - Score draft-only against draft + chat-model review on held-out pieces from When in Rome and DCML, and on Bach chorales.
-- Run the same pieces through Second Ear and compare.
+- Compare the output on a few well-known pieces against published teacher or textbook analyses of the same pieces (no comparison with other AI tools).
 - Add `claude plugin eval` suites so skill edits can't regress silently.
 
 **5. Package and submit → Gate 4 (owner approves name and listing text)**

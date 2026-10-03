@@ -74,7 +74,12 @@ def load_toolkit(score: bytes, options: dict | None = None) -> verovio.toolkit:
     if score[:2] == b"PK":
         loaded = toolkit.loadZipDataBase64(base64.b64encode(score).decode())
     else:
-        loaded = toolkit.loadData(score.decode("utf-8", errors="replace"))
+        # Older notation programs write a byte-order mark, which Verovio rejects, or Latin-1 text.
+        try:
+            text = score.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            text = score.decode("latin-1")
+        loaded = toolkit.loadData(text)
     if not loaded:
         raise ScoreError("Verovio could not read this file as MusicXML")
     return toolkit
