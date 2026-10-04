@@ -7,10 +7,10 @@ A record of the problems met while building this tool, what was done about each,
 ## At a glance
 
 - **A two-stage analysis pipeline, measured against human experts.** A neural draft followed by a chat-model review, scored by duration against chord-by-chord readings by human analysts on 12 pieces from Bach to Grieg, and against published teacher and textbook analyses for the rest of a 23-piece set.
-- **The review stage raises agreement with experts on every scored piece.** Weighted by length across 12 pieces (1,158 bars), the share of the music where key, chord and bass all match the human analyst rose from 0.53 to 0.66, and the share with the right chord root from 0.81 to 0.88. The largest gains were Schumann (0.61 to 0.92), Mozart K. 545 (0.65 to 0.88) and Haydn (0.43 to 0.66).
-- **Checked against what teachers actually wrote.** Against published analyses of 19 pieces (textbook chapters, exam-board teaching notes, articles and dissertations), our analysis agrees with 52% of 402 checkable claims, partly agrees with 33%, and disagrees with 6%. Every disagreement was read by hand and sorted into four areas to improve.
-- **Measured which chat model to use.** On the three pieces Sonnet handled worst, Opus 5.5 at medium effort raised agreement with the teachers' analyses from 29–40% of claims to 50–86%, and on Beethoven Op. 2 No. 1 raised full agreement with the expert labels from 0.56 to 0.73, at about 56% more cost.
-- **Found and fixed a silent failure in the neural model's output.** The model names each key's tonic but not its mode, so every minor key was read as major. Recovering the mode from the chords lifted key accuracy on minor-key pieces from 0.00 to 0.92 (Chopin Prelude No. 20), 0.27 to 0.79 (Beethoven Op. 2 No. 1) and 0.20 to 0.85 (Tchaikovsky).
+- **The review stage raises agreement with experts on 11 of 12 scored pieces.** Weighted by length across 12 pieces (1,158 bars), the share of the music where key, chord and bass all match the human analyst rose from 0.54 to 0.71, and the share with the right key from 0.81 to 0.89. The largest gains were Schumann (0.61 to 0.92), Haydn (0.42 to 0.72) and Beethoven Op. 2 No. 1 (0.47 to 0.73).
+- **Checked against what teachers actually wrote.** Against published analyses of 19 pieces (textbook chapters, exam-board teaching notes, articles and dissertations), our analysis agrees with 63% of 431 checkable claims, partly agrees with 26%, and disagrees with 4%. Every disagreement was read by hand and sorted into areas to improve.
+- **Measured which chat model to use.** Over the full 23-piece set, Opus 5.5 at medium effort beat Sonnet 5.5 as the reviewer: full agreement with expert labels 0.66 → 0.71, agreement with teachers' claims 52% → 63%, at 36% more cost and 25% less model time.
+- **Found and fixed a silent failure in the neural model's output.** The model names each key's tonic but not its mode, so every minor key was read as major. Recovering the mode from the chords lifted key accuracy on minor-key pieces from 0.00 to 0.92 (Chopin Prelude No. 20), 0.27 to 0.79 (Beethoven Op. 2 No. 1) and 0.20 to 0.89 (Tchaikovsky).
 - **Robust across 31 scores and four centuries.** Monteverdi to Schoenberg, choirs, quartets, songs, piano, transposing instruments: every score passes reading, engraving, drafting and rendering.
 - **Shipped around a platform limit instead of asking users to work around it.** Claude connectors cannot receive chat attachments. Rather than an upload page and a code to paste, the plugin runs the engine as a skill inside Claude's sandbox, where the file already is, and sends only a compact note list (about 1,300 characters for 8 bars) to the server for the neural draft.
 
@@ -18,42 +18,41 @@ A record of the problems met while building this tool, what was done about each,
 
 Score = share of the piece, by duration, where our reading agrees with a human analyst's chord-by-chord reading. *Full* means key, chord and bass all agree. *Fit* is the share of notes that belong to the human's chord: it checks that the reference lines up with the file, so a low value means the comparison itself is unreliable.
 
-Run of 2026-10-02. Draft = AnalysisGNN plus our post-processing. Reviewed = after Claude Sonnet reviews the draft, given only what the skill gives it in real use (no reference analyses, no tools).
+Run of 2026-10-03. Draft = AnalysisGNN plus our post-processing (with the mode fix of that day, challenge 1). Reviewed = after Claude Opus 5.5 at medium effort reviews the draft, given only what the skill gives it in real use (no reference analyses, no tools). The last column is the Sonnet 5.5 review of 2026-10-02, for comparison.
 
-| Piece | Fit | Key: draft → reviewed | Root: draft → reviewed | Full: draft → reviewed |
-|---|---|---|---|---|
-| Bach, Prelude in C major, BWV 846 | 0.97 | 0.77 → 0.77 | 0.91 → 0.98 | 0.68 → 0.69 |
-| Bach, chorale "Aus meines Herzens Grunde", BWV 269 | 0.93 | 1.00 → 1.00 | 0.98 → 0.94 | 0.89 → 0.90 |
-| Mozart, Sonata K. 332, first movement | 0.88 | 0.82 → 0.79 | 0.84 → 0.91 | 0.60 → 0.64 |
-| Mozart, Sonata K. 545, first movement | 0.90 | 0.89 → 0.98 | 0.88 → 0.96 | 0.65 → 0.88 |
-| Chopin, Prelude Op. 28 No. 20 | 0.98 | 0.92 → 0.92 | 0.90 → 0.92 | 0.69 → 0.77 |
-| Beethoven, Sonata Op. 13 "Pathétique", second movement | 0.95 | 0.78 → 0.77 | 0.85 → 0.93 | 0.63 → 0.69 |
-| Beethoven, Sonata Op. 2 No. 1, first movement | 0.89 | 0.79 → 0.79 | 0.78 → 0.82 | 0.47 → 0.56 |
-| Haydn, Symphony No. 104, first movement | 0.91 | 0.68 → 0.91 | 0.75 → 0.85 | 0.43 → 0.66 |
-| Schubert, "Der Lindenbaum", Winterreise No. 5 | 0.95 | 0.81 → 0.87 | 0.87 → 0.86 | 0.59 → 0.66 |
-| Schumann, Kinderszenen Op. 15 No. 1 | 0.96 | 1.00 → 1.00 | 0.96 → 0.96 | 0.61 → 0.92 |
-| Tchaikovsky, "June: Barcarolle", Op. 37a No. 6 | 0.86 | 0.85 → 0.90 | 0.77 → 0.84 | 0.46 → 0.63 |
-| Grieg, Notturno Op. 54 No. 4 | 0.97 | 0.84 → 0.77 | 0.73 → 0.81 | 0.32 → 0.48 |
+| Piece | Fit | Key: draft → reviewed | Root: draft → reviewed | Full: draft → reviewed | Full, Sonnet |
+|---|---|---|---|---|---|
+| Bach, Prelude in C major, BWV 846 | 0.97 | 0.77 → 0.89 | 0.91 → 0.97 | 0.68 → 0.80 | 0.69 |
+| Bach, chorale "Aus meines Herzens Grunde", BWV 269 | 0.93 | 1.00 → 1.00 | 0.98 → 0.98 | 0.89 → 0.91 | 0.90 |
+| Mozart, Sonata K. 332, first movement | 0.88 | 0.87 → 0.77 | 0.85 → 0.89 | 0.63 → 0.62 | 0.64 |
+| Mozart, Sonata K. 545, first movement | 0.90 | 0.89 → 0.97 | 0.88 → 0.98 | 0.65 → 0.85 | 0.88 |
+| Chopin, Prelude Op. 28 No. 20 | 0.98 | 0.92 → 0.92 | 0.90 → 0.96 | 0.69 → 0.85 | 0.77 |
+| Beethoven, Sonata Op. 13 "Pathétique", second movement | 0.95 | 0.78 → 0.91 | 0.85 → 0.95 | 0.63 → 0.81 | 0.69 |
+| Beethoven, Sonata Op. 2 No. 1, first movement | 0.89 | 0.79 → 0.91 | 0.78 → 0.92 | 0.47 → 0.73 | 0.56 |
+| Haydn, Symphony No. 104, first movement | 0.91 | 0.68 → 0.94 | 0.75 → 0.87 | 0.42 → 0.72 | 0.66 |
+| Schubert, "Der Lindenbaum", Winterreise No. 5 | 0.95 | 0.89 → 0.92 | 0.88 → 0.85 | 0.64 → 0.67 | 0.66 |
+| Schumann, Kinderszenen Op. 15 No. 1 | 0.96 | 1.00 → 1.00 | 0.96 → 0.96 | 0.61 → 0.92 | 0.92 |
+| Tchaikovsky, "June: Barcarolle", Op. 37a No. 6 | 0.86 | 0.89 → 0.94 | 0.77 → 0.87 | 0.47 → 0.68 | 0.63 |
+| Grieg, Notturno Op. 54 No. 4 | 0.97 | 0.84 → 0.75 | 0.73 → 0.84 | 0.32 → 0.50 | 0.48 |
 <!-- results-table -->
 
 **Across the 12 pieces**, weighted by length:
 
 | | Key | Root | Chord | Chord and bass | Full |
 |---|---|---|---|---|---|
-| Draft | 0.79 | 0.81 | 0.73 | 0.64 | 0.53 |
-| Reviewed | 0.85 | 0.88 | 0.82 | 0.77 | 0.66 |
+| Draft | 0.81 | 0.81 | 0.73 | 0.64 | 0.54 |
+| Reviewed by Sonnet (2026-10-02) | 0.85 | 0.88 | 0.82 | 0.77 | 0.66 |
+| Reviewed by Opus (2026-10-03) | 0.89 | 0.90 | 0.84 | 0.80 | 0.71 |
 
-*Full* improved on all 12 pieces. The review made some things worse:
-- **Key:** Grieg (0.84 to 0.77), Mozart K. 332 (0.82 to 0.79) and the Pathétique (0.78 to 0.77).
-- **Root:** the Bach chorale (0.98 to 0.94) and Schubert (0.87 to 0.86).
-
-The remaining gap is largely key: on the Bach prelude the root is right 98% of the time after review, but key agreement stays at 0.77, so *full* stays at 0.69.
+*Full* improved on 11 of 12 pieces. The review made some things worse:
+- **Key:** Mozart K. 332 (0.87 to 0.77) and Grieg (0.84 to 0.75). In K. 332 every remaining mode error is a passage Opus calls C minor or F minor (bars 29–40, 58–69, 193–205) where the expert writes the major key with borrowed chords: the chords agree, the key name does not. This is why K. 332's *full* stays at 0.62 while its root rises to 0.89.
+- **Root:** Schubert (0.88 to 0.85).
 
 Pieces without a row have no chord-by-chord human reading; they are checked against prose analyses instead (see "Checking against teachers' prose").
 
 ## Which model should review: Sonnet or Opus
 
-All the results above use Claude Sonnet 5.5 as the reviewer. On 2026-10-02 the three pieces where Sonnet matched the teachers' analyses least well were reviewed again by Claude Opus 5.5 at medium effort, with the same prompt, the same draft and the same judge.
+**First test (2026-10-02).** The three pieces where Sonnet matched the teachers' analyses least well were reviewed again by Opus 5.5 at medium effort, with the same prompt, the same draft and the same judge.
 
 | Piece | Teacher claims agreed: Sonnet → Opus | Agreed or partly: Sonnet → Opus | Full (labels): Sonnet → Opus |
 |---|---|---|---|
@@ -61,14 +60,23 @@ All the results above use Claude Sonnet 5.5 as the reviewer. On 2026-10-02 the t
 | Beethoven, Sonata Op. 2 No. 1, i | 40% → 86% | 80% → 95% | 0.56 → 0.73 |
 | Rachmaninoff, Prelude Op. 23 No. 5 | 29% → 69% | 79% → 100% | no labels |
 
-On Beethoven, where both checks apply, the label scores rose on every measure: key 0.79 → 0.91, root 0.82 → 0.92, full 0.56 → 0.73. Opus also left fewer teacher claims unaddressed (11 of 55 with Sonnet, 5 of 61 with Opus). It cost about 56% more for these passages ($7.70 against $4.94 at list prices) but took less time in total (45 minutes of model time against 54).
+Three pieces chosen because Sonnet did worst on them, so some of the gain could be regression to the mean. **Decision (owner, 2026-10-02):** Opus 5.5 at medium effort is the reviewer from now on.
 
-**Caveats.**
-- Three pieces, one run each.
-- The pieces were chosen because Sonnet did worst on them, so some of the gain may be regression to the mean.
-- The judge extracts its list of claims afresh on each run (21 against 24 claims for the fugue), so the shares above compare similar but not identical lists.
+**Full run (2026-10-03).** All 23 pieces, 85 passages, reviewed by Opus:
 
-**Decision (owner, 2026-10-02):** Opus 5.5 at medium effort is the reviewer from now on, without a full re-run on Sonnet's stronger pieces. The tables earlier in this log remain Sonnet results until the next full run.
+| | Sonnet 5.5 | Opus 5.5, medium effort |
+|---|---|---|
+| Full, 12 pieces with expert labels | 0.66 | 0.71 |
+| Teacher claims agreed, 19 pieces | 52% of 402 | 63% of 431 |
+| Teacher claims disagreed | 6% | 4% |
+| Pieces where Opus did better / same / worse on *full* | | 9 / 1 / 2 |
+| Pieces where Opus agreed with more teacher claims / same / fewer | | 16 / 1 / 2 |
+| Cost at list prices | $30.04 | $40.73 |
+| Model time | 318 min | 239 min |
+
+Opus's two lower *full* scores are small (Mozart K. 545 0.88 → 0.85, K. 332 0.64 → 0.62), and so are its two lower teacher scores (Bach chorale 44% → 42%, Debussy "Des pas sur la neige" 56% → 52%).
+
+**Caveats.** One run each. Sonnet reviewed the drafts from before the 2026-10-03 mode fix; that fix moved the draft's own *full* by only 0.01. The judge extracts its list of claims afresh on each run, so the shares compare similar but not identical lists.
 
 ## Challenges and what we did
 
@@ -89,7 +97,20 @@ On Beethoven, where both checks apply, the label scores rose on every measure: k
 | Mozart, K. 545, i | 0.82 | 0.89 | 0.60 | 0.65 |
 | Mozart, K. 332, i | 0.93 | 0.83 | 0.68 | 0.60 |
 
-**Still open.** Mozart K. 332 got worse: some major-key passages are now read as minor. The evidence threshold needs tuning on more pieces before it is final.
+**Follow-up (2026-10-03): K. 332 got worse.** Some major-key passages were now read as minor. Splitting the draft's key errors into *right tonic, wrong mode* and *wrong tonic* across the 12 pieces showed the mode rule was not the main problem: wrong mode covered 4.4% of the music and wrong tonic 16.7%. Printing the evidence chord by chord found the cause in K. 332, bars 24–28. The model labels viio65/vi, whose C♯ leads to D minor, as a raised leading tone, and the rule counted every such chord as strong proof that the home key, F, had turned minor. Leading tones inside applied chords are now ignored. (A second idea, judging the tonic chord by its sounding third instead of the model's quality, made no difference and was dropped.)
+
+| Draft, 12 pieces | Before | After |
+|---|---|---|
+| Wrong mode, share of the music | 4.4% | 2.8% |
+| Key, weighted | 0.794 | 0.811 |
+| Full, weighted | 0.526 | 0.535 |
+| Mozart K. 332 key | 0.82 | 0.87 |
+| Schubert "Der Lindenbaum" key | 0.81 | 0.89 |
+| Tchaikovsky "June" key | 0.85 | 0.89 |
+
+No other piece changed except Haydn, whose *full* fell from 0.43 to 0.42.
+
+**Still open.** Most of K. 332's remaining mode error (bars 29–40, 58–69) is a difference of convention: the expert labels the C minor passages as C major with borrowed chords (i6, ♭VI, ♭III), while we write C minor, with the same chords. The scorer counts these as key errors. Wrong tonic, at 16.7%, is now the bigger target.
 
 ### 2. What counts as "correct"?
 
@@ -145,47 +166,48 @@ On Beethoven, where both checks apply, the label scores rose on every measure: k
 
 ## Checking against teachers' prose
 
-For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement: every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/sonnet/`).
+For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement: every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
 
-Run of 2026-10-02, 19 pieces with a readable source, 402 claims:
+Run of 2026-10-03, Opus review, 19 pieces with a readable source, 431 claims:
 
-| | Claims | Share |
-|---|---|---|
-| Agree | 210 | 52% |
-| Partly agree | 133 | 33% |
-| Disagree | 24 | 6% |
-| Not addressed | 35 | 9% |
+| | Claims | Share | Sonnet (2026-10-02) |
+|---|---|---|---|
+| Agree | 273 | 63% | 52% |
+| Partly agree | 112 | 26% | 33% |
+| Disagree | 18 | 4% | 6% |
+| Not addressed | 28 | 6% | 9% |
 
-| Piece | Claims | Agree | Partly | Disagree | Not addressed |
-|---|---|---|---|---|---|
-| Bach, Prelude in C major, BWV 846 | 19 | 10 | 5 | 1 | 3 |
-| Bach, chorale 'Aus meines Herzens Grunde', BWV 269 | 25 | 11 | 5 | 2 | 7 |
-| Bach, Fugue in C minor, BWV 847 | 21 | 6 | 8 | 3 | 4 |
-| Mozart, Sonata K. 332, first movement | 25 | 13 | 10 | 2 | 0 |
-| Mozart, Sonata K. 545, first movement | 25 | 17 | 6 | 2 | 0 |
-| Chopin, Prelude Op. 28 No. 20 | 18 | 12 | 3 | 3 | 0 |
-| Chopin, Prelude Op. 28 No. 4 | 20 | 10 | 7 | 1 | 2 |
-| Beethoven, Sonata Op. 13 'Pathétique', second movement | 16 | 11 | 5 | 0 | 0 |
-| Beethoven, Sonata Op. 2 No. 1, first movement | 20 | 8 | 8 | 0 | 4 |
-| Haydn, Symphony No. 104, first movement | 25 | 16 | 9 | 0 | 0 |
-| Schumann, Kinderszenen Op. 15 No. 1 | 14 | 7 | 4 | 1 | 2 |
-| Mendelssohn, Song Without Words Op. 19 No. 1 | 17 | 9 | 6 | 2 | 0 |
-| Brahms, Intermezzo Op. 118 No. 2 | 25 | 17 | 7 | 1 | 0 |
-| Tchaikovsky, 'June: Barcarolle', Op. 37a No. 6 | 24 | 14 | 10 | 0 | 0 |
-| Ravel, Sonatine, first movement | – | – | – | – | – (source blocked, HTTP 403) |
-| Ravel, Jeux d'eau | 22 | 10 | 8 | 2 | 2 |
-| Rachmaninoff, Prelude in B minor Op. 32 No. 10 | 22 | 9 | 9 | 1 | 3 |
-| Rachmaninoff, Prelude in G minor Op. 23 No. 5 | 14 | 4 | 7 | 0 | 3 |
-| Debussy, 'La fille aux cheveux de lin' | 25 | 12 | 11 | 1 | 1 |
-| Debussy, 'Des pas sur la neige' | 25 | 14 | 5 | 2 | 4 |
+| Piece | Claims | Agree | Partly | Disagree | Not addressed | Agreed: Sonnet → Opus |
+|---|---|---|---|---|---|---|
+| Bach, Prelude in C major, BWV 846 | 18 | 13 | 3 | 0 | 2 | 53% → 72% |
+| Bach, chorale "Aus meines Herzens Grunde", BWV 269 | 24 | 10 | 8 | 1 | 5 | 44% → 42% |
+| Bach, Fugue in C minor, BWV 847 | 24 | 12 | 6 | 2 | 4 | 29% → 50% |
+| Mozart, Sonata K. 332, first movement | 25 | 14 | 7 | 2 | 2 | 52% → 56% |
+| Mozart, Sonata K. 545, first movement | 25 | 18 | 7 | 0 | 0 | 68% → 72% |
+| Chopin, Prelude Op. 28 No. 20 | 19 | 13 | 4 | 1 | 1 | 67% → 68% |
+| Chopin, Prelude Op. 28 No. 4 | 25 | 15 | 7 | 1 | 2 | 50% → 60% |
+| Beethoven, Sonata Op. 13 "Pathétique", second movement | 19 | 16 | 2 | 0 | 1 | 69% → 84% |
+| Beethoven, Sonata Op. 2 No. 1, first movement | 21 | 18 | 2 | 0 | 1 | 40% → 86% |
+| Haydn, Symphony No. 104, first movement | 31 | 25 | 5 | 1 | 0 | 64% → 81% |
+| Schumann, Kinderszenen Op. 15 No. 1 | 17 | 10 | 5 | 0 | 2 | 50% → 59% |
+| Mendelssohn, Song Without Words Op. 19 No. 1 | 22 | 14 | 7 | 1 | 0 | 53% → 64% |
+| Brahms, Intermezzo Op. 118 No. 2 | 25 | 18 | 4 | 2 | 1 | 68% → 72% |
+| Tchaikovsky, "June: Barcarolle", Op. 37a No. 6 | 24 | 18 | 5 | 0 | 1 | 58% → 75% |
+| Ravel, Sonatine, first movement | – | – | – | – | – | – (source blocked, HTTP 403) |
+| Ravel, Jeux d"eau | 22 | 10 | 7 | 4 | 1 | 45% → 45% |
+| Rachmaninoff, Prelude in B minor Op. 32 No. 10 | 25 | 12 | 11 | 0 | 2 | 41% → 48% |
+| Rachmaninoff, Prelude in G minor Op. 23 No. 5 | 16 | 11 | 5 | 0 | 0 | 29% → 69% |
+| Debussy, "La fille aux cheveux de lin" | 24 | 13 | 9 | 1 | 1 | 48% → 54% |
+| Debussy, "Des pas sur la neige" | 25 | 13 | 8 | 2 | 2 | 56% → 52% |
 
-**Where we disagree with the teachers** (all 24 disagreements read by hand):
-- **Modulation or tonicization.** The analyst hears a real modulation; we keep the home key with applied chords. Examples: Bach Prelude in C, bars 5–11 (G major); Brahms Op. 118 No. 2, bar 16 (perfect cadence in E, where we mark a half cadence in A).
-- **Cadences at phrase ends.** Mozart K. 332 bars 4 and 12–16, Mendelssohn bar 45: the analyst names a cadence we leave out or label differently.
-- **Chromatic chords.** Chopin Prelude No. 20, bar 5: the analyst names a passing diminished seventh; we read V6 with a suspension.
-- **Modal and colouristic music.** Debussy, Ravel and Rachmaninoff: whole-tone and modal readings (B♭ Lydian, a whole-tone opening, B Aeolian) that our analysis reads diatonically.
+**Where we disagree with the teachers** (all 18 disagreements read by hand):
+- **Modal, whole-tone and colouristic music (7).** Ravel's *Jeux d'eau* (a whole-tone opening read as Emaj9, polytonality at bar 26, the whole-tone root motion at bars 68–69, a decorated V/V–V–I at bars 51–59 heard as a pedal with no cadence) and Debussy (bar 8 of *Des pas*: F♯ and D read as chord tones of a whole-tone chord, not appoggiaturas; bar 34 of *La fille* read as V42 where the analyst hears VII).
+- **Modulation or tonicization (3).** Brahms Op. 118 No. 2 bars 1–16: the analyst hears a move to E with a perfect cadence at bar 16; we stay in A and mark half cadences. In the Bach fugue we go the other way, adding a G minor region the analyst does not hear.
+- **Cadences at phrase ends (3).** Mozart K. 332 bar 4 (analyst: half cadence; we: none) and bar 76 (analyst: imperfect; we: perfect), Mendelssohn bars 44–45.
+- **Chromatic chords (3).** Chopin Prelude No. 20 bar 5 (the analyst's Neapolitan resolving to a dominant of G; we read viio7 with a neighbour note), the Bach fugue bars 26–28 (VI replacing iv), and the Bach chorale's cadential 6/3 at bar 12, a point analysts themselves dispute.
+- **Form (2).** Haydn: where the transition starts (bar 32 or 50; the published text notes both views). Chopin Prelude No. 4: the climax at bar 18 rather than 16–17.
 
-These are the areas to work on next. Some are also points where analysts disagree with each other (the cadential 6/3 in the Bach chorale, the pivot chord in Mozart K. 545).
+Modal and colouristic music is now the largest group, and Ravel is the one piece where Opus did not improve on Sonnet. That is the next area to work on.
 
 ## Reproducing
 

@@ -213,10 +213,10 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
 
     def mode_evidence(local_key: str, degree: str, secondary: str, positions: list) -> int:
         """Positive when a chord says its key is minor, negative when it says major, 0 when it cannot tell."""
+        if secondary != "None":  # an applied chord's leading tone belongs to the chord it leads to
+            return 0
         if degree == "#7":  # only a minor key has a leading tone to raise
             return 2
-        if secondary != "None":
-            return 0
         if degree in ("-3", "-6", "-7"):  # borrowed into a major key; a minor key has them already
             return -1
         if degree == "1":

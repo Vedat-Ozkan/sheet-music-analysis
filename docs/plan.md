@@ -47,7 +47,7 @@ Repo layout (the project directory is currently empty):
 
 **0. Setup**
 - Pick the permanent name (OpenAI limit 30 characters; the Claude slug cannot change; must be distinctive). Register a domain.
-- Download the AnalysisGNN weights from Weights & Biases (`melkisedeath/AnalysisGNN/model-uvj2ddun:v1`).
+- Download the AnalysisGNN weights. Done: the W&B artifact was not accessible, so the checkpoint came from the author's Hugging Face Space `manoskary/analysisgnn` (`checkpoint/model.ckpt`), whose card declares `license: mit` (checked again 2026-10-03).
 
 **1. Platform spike → Gate 1 (owner decides display and upload)**
 - Deploy a throwaway MCP server with one tool that engraves an uploaded score with Verovio and returns it. No analysis yet.
@@ -87,7 +87,7 @@ Repo layout (the project directory is currently empty):
 ## Risks
 
 - **File hand-off from Claude chat to the server** is undocumented. Step 1 exists to settle it.
-- **AnalysisGNN:** unfinished install, weights only on W&B, README says "under construction", no weights licence.
+- **AnalysisGNN:** README says "under construction", and the author calls the public version deprecated ahead of a newer checkpoint. The weights are MIT through the Hugging Face Space. Whether trained weights inherit the training data's terms (DCML corpora CC BY-NC-SA) is unsettled; the tool is free, so this matters only if it is ever charged for.
 - **Recommendation is not guaranteed:** Claude ranks suggestions by usage; ChatGPT's in-chat suggestions and Free-plan access are reported only by secondary sources.
 - **Review times** are unpublished on both sides.
 - **Whole-score accuracy:** frontier models alone score about 38% on harmony from text, and the best draft model 58%. The review loop has to be measured (step 4), not assumed.
