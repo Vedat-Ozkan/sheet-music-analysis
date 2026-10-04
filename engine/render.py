@@ -74,7 +74,12 @@ def load_toolkit(score: bytes, options: dict | None = None) -> verovio.toolkit:
     if score[:2] == b"PK":
         loaded = toolkit.loadZipDataBase64(base64.b64encode(score).decode())
     else:
-        loaded = toolkit.loadData(score.decode("utf-8", errors="replace"))
+        # Older notation programs write a byte-order mark, which Verovio rejects, or Latin-1 text.
+        try:
+            text = score.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            text = score.decode("latin-1")
+        loaded = toolkit.loadData(text)
     if not loaded:
         raise ScoreError("Verovio could not read this file as MusicXML")
     return toolkit
@@ -88,4 +93,14 @@ def engrave(score: bytes, measures: tuple[int, int] | None = None) -> Engraving:
         toolkit = load_toolkit(score, {"adjustPageHeight": True, "pageHeight": 60000})
         toolkit.select({"measureRange": ScoreIndex(toolkit.getMEI()).measure_range(*measures)})
         toolkit.redoLayout()
+    return Engraving([toolkit.renderToSVG(page) for page in range(1, toolkit.getPageCount() + 1)])
+
+
+def engrave_pages(score: bytes, measures: tuple[int, int]) -> Engraving:
+    """Printed measures first..last on ordinary pages, a few systems each, for someone to read.
+
+    `engrave` puts an excerpt on one tall page, which an image viewer shrinks until it cannot be read."""
+    toolkit = load_toolkit(score)
+    toolkit.select({"measureRange": ScoreIndex(toolkit.getMEI()).measure_range(*measures)})
+    toolkit.redoLayout()
     return Engraving([toolkit.renderToSVG(page) for page in range(1, toolkit.getPageCount() + 1)])

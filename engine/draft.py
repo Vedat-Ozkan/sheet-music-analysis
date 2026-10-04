@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
 
-from engine import notes
+from engine import notes as note_list
 from engine.annotations import AnnotationList
 from engine.score import Measure, ScoreIndex
 
@@ -44,6 +44,8 @@ SEVENTH_FIGURES = ["7", "65", "43", "42"]
 DIATONIC_LOWERCASE = {"major": {"2", "3", "6", "7"}, "minor": {"1", "2", "4"}}
 FUNCTIONS = {"1": "T", "3": "T", "6": "T", "2": "PD", "4": "PD", "5": "D", "7": "D"}
 STEPS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
+MINOR_STEPS = {"3": 3, "6": 8, "7": 10}  # semitones above the tonic, for the degrees that differ between the modes
+MAJOR_STEPS = {"3": 4, "6": 9, "7": 11}
 
 
 class DraftError(RuntimeError):
@@ -62,6 +64,8 @@ class Chord:
     bass: str = ""
     pitches: list[str] = field(default_factory=list)
     melody: list[str] = field(default_factory=list)
+    alternative: str = ""  # the model's strongest different reading, where it is a close call
+    alternative_confidence: float = 0.0
 
 
 @dataclass
@@ -138,6 +142,29 @@ def numeral(degree: str, secondary: str | None, quality: str, inversion: int, ke
     return label
 
 
+SPECIAL_RN = {"It": "It6", "Ger": "Ger65", "Fr": "Fr43"}
+MINOR_RN = {"i", "iv", "VI", "III", "VII", "iio", "iiø7", "i7", "iv7", "III+"}  # numerals that only a minor key writes this way
+MAJOR_RN = {"I", "IV", "vi", "iii", "ii", "ii7", "vi7", "IV7", "IM7", "IVM7", "iii7"}
+
+
+def numeral_with_inversion(rn: str, inversion: int) -> str:
+    """The model's Roman numeral head ("V7", "ii%7", "N", "It") with its inversion head applied: "V7", 1 -> "V65"."""
+    if rn in SPECIAL_RN:
+        return SPECIAL_RN[rn]
+    if rn.startswith("Cad"):
+        return rn
+    head, _, target = rn.replace("%", "ø").partition("/")
+    if head == "N":
+        head = "bII"
+    if head.endswith("M7"):
+        base, figures = head[:-2], "M" + SEVENTH_FIGURES[inversion]
+    elif head.endswith("7"):
+        base, figures = head[:-1], SEVENTH_FIGURES[inversion]
+    else:
+        base, figures = head, TRIAD_FIGURES[inversion]
+    return base + figures + (f"/{target}" if target else "")
+
+
 def _midi(pitch: str) -> int:
     accidental = pitch[1:-1] if pitch[-2] != "-" else pitch[1:-2]
     return STEPS[pitch[0]] + accidental.count("#") - accidental.count("b") + 12 * (int(pitch[len(accidental) + 1 :]) + 1)
@@ -150,22 +177,53 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
     def best(task: str, i: int) -> tuple[str, float]:
         return str(tasks[task]["labels"][0][i]), tasks[task]["probabilities"][0][i]
 
+    def ranked(task: str, i: int, depth: int = 2) -> list[tuple[str, float]]:
+        found = tasks[task]["labels"]
+        return [(str(found[k][i]), tasks[task]["probabilities"][k][i]) for k in range(min(depth, len(found)))]
+
+    def alternative(degree: str, secondary: str, label: str, i: int, key: str) -> tuple[str, float]:
+        """The strongest reading other than `label`, from the top two of degree, quality and inversion."""
+        options = {}
+        for d, pd in ranked("degree1", i):
+            for q, pq in ranked("quality", i):
+                for v, pv in ranked("inversion", i):
+                    if d == "None":
+                        continue
+                    try:
+                        text = numeral(d, secondary, q, int(float(v)), key)
+                    except (KeyError, IndexError, ValueError):
+                        continue
+                    options[text] = max(options.get(text, 0.0), pd * pq * pv)
+        options.pop(label, None)
+        if not options:
+            return "", 0.0
+        text = max(options, key=options.get)
+        return (text, round(options[text], 2)) if options[text] >= 0.3 else ("", 0.0)
+
     # partitura places a pickup's notes at the end of an imagined full bar; the score index counts
     # from the pickup's first note. Shift any measure whose offsets overrun its real length.
     shifts: dict[int, Fraction] = {}
     for i in range(count):
         number = notes["measure"][i]
-        offset = Fraction(notes["offset"][i]).limit_denominator(96)
+        offset = Fraction(notes["offset"][i])
         shifts[number] = min(shifts.get(number, offset), offset)
     for number, earliest in shifts.items():
         measure = index.measures[number - 1]
         first_event = min((event.onset for event in measure.events), default=Fraction(0))
         shifts[number] = earliest - first_event if earliest >= measure.length else Fraction(0)
 
+    known_onsets = [sorted({event.onset for event in measure.events}) for measure in index.measures]
+
     def place(i: int) -> tuple[Measure, Fraction]:
-        # partitura counts measures from 1 in score order, pickup included
-        number = notes["measure"][i]
-        return index.measures[number - 1], Fraction(notes["offset"][i]).limit_denominator(96) - shifts[number]
+        """The measure and onset of model note i, snapped to an onset the score actually has.
+
+        Files that write tuplets in rounded units give onsets like 21/128 for a sixth of a beat,
+        so the model's positions are matched to the nearest real onset instead of compared exactly.
+        """
+        number = notes["measure"][i]  # counted from 1 in the order of the note list, pickup included
+        offset = Fraction(notes["offset"][i]) - shifts[number]
+        nearest = min(known_onsets[number - 1], key=lambda onset: abs(onset - offset), default=offset)
+        return index.measures[number - 1], nearest if abs(nearest - offset) <= Fraction(1, 32) else offset
 
     starts: list[Fraction] = []  # absolute start of each measure, in quarters
     total = Fraction(0)
@@ -174,31 +232,108 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
         total += measure.length
 
     # one row per onset, in score order
+    placed = [place(i) for i in range(count)]
     onsets: dict[tuple[int, Fraction], list[int]] = {}
     for i in range(count):
-        measure, offset = place(i)
-        onsets.setdefault((measure.index, offset), []).append(i)
+        onsets.setdefault((notes["measure"][i], placed[i][1]), []).append(i)
     ordered = sorted(onsets)
 
     # check the model's note list lines up with the engraved score before trusting positions
-    matched = 0
-    for (measure_index, offset), members in onsets.items():
-        here = {event.pitch for event in index.measures[measure_index - 1].events if event.onset == offset}
-        matched += sum(notes["pitch"][i] in here for i in members)
-    if matched < 0.9 * count:
-        raise DraftError(f"Only {matched} of {count} model notes line up with the engraved score")
+    in_score = [False] * count
+    for (order, offset), members in onsets.items():
+        here = {event.pitch for event in index.measures[order - 1].events if event.onset == offset}
+        for i in members:
+            in_score[i] = notes["pitch"][i] in here
+    if sum(in_score) < 0.9 * count:
+        raise DraftError(f"Only {sum(in_score)} of {count} model notes line up with the engraved score")
 
     chords: list[Chord] = []
     spans: list[tuple[tuple, list[tuple[int, Fraction]]]] = []
+    # newer checkpoints (RNHybrid) have a working Roman numeral head: chords are read from it, which is
+    # what the model's published accuracy measures; older ones are rebuilt from degree, quality and inversion
+    has_rn = "romanNumeral" in tasks
     for position in ordered:
         i = onsets[position][0]
-        key = (best("localkey", i)[0], best("degree1", i)[0], best("degree2", i)[0])
+        if has_rn:
+            key = (best("localkey", i)[0], best("romanNumeral", i)[0], "RN")
+        else:
+            key = (best("localkey", i)[0], best("degree1", i)[0], best("degree2", i)[0])
         if key[1] == "None" and spans:
             spans[-1][1].append(position)
         elif spans and spans[-1][0] == key:
             spans[-1][1].append(position)
         else:
             spans.append((key, [position]))
+
+    def cadential_split(local_key: str, positions: list) -> int:
+        """Where a V span that opens with a cadential 6/4 turns into V proper (0: it does not open with one).
+
+        A cadential 6/4 is the tonic triad over the dominant bass on a beat, resolving to V as the leading
+        tone arrives. The model labels the whole stretch V; expert corpora and textbooks label the 6/4 apart."""
+        tonic = (STEPS[local_key[0]] + local_key.count("#") - local_key.count("-")) % 12
+        def sounding(position):
+            measure = index.measures[position[0] - 1]
+            return [e for e in measure.events if e.pitch and not e.grace and e.onset <= position[1] < e.onset + e.duration]
+        first = sounding(positions[0])
+        measure = index.measures[positions[0][0] - 1]
+        if not first or measure.beat_of(positions[0][1]) % 1:
+            return 0  # only on a beat
+        pcs = {_midi(e.pitch) % 12 for e in first}
+        bass = _midi(min(first, key=lambda e: _midi(e.pitch)).pitch) % 12
+        thirds = {(tonic + 3) % 12, (tonic + 4) % 12}
+        if bass != (tonic + 7) % 12 or tonic not in pcs or not pcs & thirds or (tonic + 11) % 12 in pcs:
+            return 0
+        for number, position in enumerate(positions[1:], 1):
+            if (tonic + 11) % 12 in {_midi(e.pitch) % 12 for e in sounding(position)}:
+                return number
+        return 0  # the leading tone never comes: not a 6/4 that resolves within the span
+
+    # split a cadential 6/4 off the V the model reads through it (docs/engineering-log.md, challenge 15)
+    split_spans = []
+    for key, positions in spans:
+        local_key, degree, secondary = key
+        at = cadential_split(local_key, positions) if degree == "5" and secondary == "None" else 0
+        if at:
+            split_spans += [((local_key, "Cad", "None"), positions[:at]), (key, positions[at:])]
+        else:
+            split_spans.append((key, positions))
+    spans = split_spans
+
+    def mode_evidence(local_key: str, degree: str, secondary: str, positions: list) -> int:
+        """Positive when a chord says its key is minor, negative when it says major, 0 when it cannot tell."""
+        if degree == "Cad":
+            return 0
+        if secondary == "RN":  # `degree` holds the Roman numeral, whose case and figure show the mode
+            rn = degree.replace("%", "ø").split("/")[0]
+            if "/" in degree:
+                return 0
+            return (2 if rn in ("i", "i7") else 1) if rn in MINOR_RN else (-2 if rn in ("I", "IM7") else -1) if rn in MAJOR_RN else 0
+        if secondary != "None":  # an applied chord's leading tone belongs to the chord it leads to
+            return 0
+        if degree == "#7":  # only a minor key has a leading tone to raise
+            return 2
+        if degree in ("-3", "-6", "-7"):  # borrowed into a major key; a minor key has them already
+            return -1
+        if degree == "1":
+            quality = best("quality", onsets[positions[0]][0])[0]
+            return 2 if quality in ("minor triad", "minor seventh chord") else -2 if quality in ("major triad", "major seventh chord") else 0
+        if degree in MINOR_STEPS:
+            tonic = STEPS[local_key[0]] + local_key.count("#") - local_key.count("-")
+            heard = {_midi(e.pitch) % 12 for p in positions for e in index.measures[p[0] - 1].events if e.onset == p[1] and e.pitch}
+            as_minor, as_major = (tonic + MINOR_STEPS[degree]) % 12 in heard, (tonic + MAJOR_STEPS[degree]) % 12 in heard
+            return as_minor - as_major
+        return 0
+
+    # The checkpoint names the tonic of each local key but never its mode (C minor comes out as "C"),
+    # while its degrees are counted in the right scale. The mode is read back from the chords around.
+    evidence = [mode_evidence(*key, positions) for key, positions in spans]
+    minor: list[bool] = []
+    for number, ((local_key, _, _), _) in enumerate(spans):
+        near = [e for e, (key, _) in zip(evidence[max(0, number - 8) : number + 9], spans[max(0, number - 8) : number + 9]) if key[0] == local_key]
+        whole = [e for e, (key, _) in zip(evidence, spans) if key[0] == local_key]
+        same_key_before = bool(minor) and spans[number - 1][0][0] == local_key
+        # one stray chord should not flip the mode: it changes only on clear evidence
+        minor.append(sum(near) > 0 if abs(sum(near)) >= 3 else minor[-1] if same_key_before else sum(whole) > 0)
 
     for number, ((local_key, degree, secondary), positions) in enumerate(spans):
         if degree == "None":
@@ -215,6 +350,8 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
             quality = max(sevenths, key=votes.get)
         inversion = int(float(best("inversion", first)[0]))
         key = local_key.replace("-", "b")
+        if minor[number]:
+            key = key[0].lower() + key[1:]
         measure = index.measures[positions[0][0] - 1]
         start = starts[positions[0][0] - 1] + positions[0][1]
         following = spans[number + 1][1][0] if number + 1 < len(spans) else None
@@ -230,19 +367,26 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
         for event in sorted(sounding, key=lambda e: _midi(e.pitch)):
             if event.pitch[:-1] not in names:
                 names.append(event.pitch[:-1])
+        if degree == "Cad":
+            label = "Cad64"
+        else:
+            label = numeral_with_inversion(degree, inversion) if secondary == "RN" else numeral(degree, secondary, quality, inversion, key)
+        other, other_confidence = alternative(degree, secondary, label, first, key) if secondary != "RN" and degree != "Cad" else ("", 0.0)
         confidence = min(best("degree1", first)[1], votes[quality] / max(1, sum(1 for p in positions if best("quality", onsets[p][0])[0] == quality)))
         chords.append(
             Chord(
                 measure=measure.number,
                 beat=round(measure.beat_of(positions[0][1]), 2),
                 key=key,
-                label=numeral(degree, secondary, quality, inversion, key),
+                label=label,
                 confidence=round(min(confidence, 1.0), 2),
                 beats=round(float((end - start) / measure.beat_length), 2),
-                function=FUNCTIONS.get(degree) if secondary == "None" else None,
+                function="D" if degree == "Cad" else (FUNCTIONS.get(best("degree1", first)[0]) if "/" not in degree else None) if secondary == "RN" else FUNCTIONS.get(degree) if secondary == "None" else None,
                 bass=lowest.pitch if lowest else "",
                 pitches=names,
                 melody=[e.pitch for e in sounding if e.staff == 1][:8],
+                alternative=other,
+                alternative_confidence=other_confidence,
             )
         )
 
@@ -250,13 +394,14 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
         found: dict[tuple, Mark] = {}
         for i in range(count):
             label, probability = best(task, i)
-            if not positive(label) or (per_note and notes["duration"][i] == 0):  # grace notes are not addressable
+            # a note mark must point at a note the score index can find again: no grace notes, no strays
+            if not positive(label) or (per_note and (notes["duration"][i] == 0 or not in_score[i])):
                 continue
-            measure, offset = place(i)
+            measure, offset = placed[i]
             mark = Mark(measure.number, round(measure.beat_of(offset), 2), label, round(probability, 2))
             if per_note:
                 mark.staff, mark.pitch = notes["staff"][i], notes["pitch"][i]
-            identity = (measure.index, offset, mark.pitch)
+            identity = (notes["measure"][i], offset, mark.pitch)
             if identity not in found or found[identity].confidence < mark.confidence:
                 found[identity] = mark
         return [found[identity] for identity in sorted(found, key=lambda k: (k[0], k[1], k[2] or ""))]
@@ -271,21 +416,26 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
     )
 
 
-def draft(score: bytes, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
-    return build(MODELS[model](score), index, model)
+def draft(index: ScoreIndex, model: str = "analysisgnn") -> Draft:
+    """Draft for a score we have indexed ourselves.
+
+    The model is given our own note list rather than the file, so that it sees exactly the notes
+    the index holds: sounding pitches, every instrument on one timeline, split bars joined.
+    """
+    return build(MODELS[model](note_list.encode(index).encode(), "notes"), index, model)
 
 
 def draft_from_notes(text: str, model: str = "analysisgnn") -> Draft:
     """Draft from a note list, for hosts that cannot send the score file itself."""
-    index = notes.decode(text)
-    return build(MODELS[model](text.encode(), "notes"), index, model)
+    return build(MODELS[model](text.encode(), "notes"), note_list.decode(text), model)
 
 
 # ---- draft -> what the chat model reads -----------------------------------------------
 
 
-def as_text(result: Draft, first: int | None = None, last: int | None = None) -> str:
-    """The draft as a compact table. `first`/`last` limit it to a range of measures."""
+def as_text(result: Draft, first: int | None = None, last: int | None = None, alternatives: bool = False) -> str:
+    """The draft as a compact table. `first`/`last` limit it to a range of measures; `alternatives` adds the
+    model's runner-up reading where it is a close call."""
 
     def wanted(measure: int) -> bool:
         return (first is None or measure >= first) and (last is None or measure <= last)
@@ -294,13 +444,15 @@ def as_text(result: Draft, first: int | None = None, last: int | None = None) ->
         f"Draft analysis from {result.model}. The model's full chord labels are exactly right only about half",
         "the time on its benchmark, so check every line against the notes listed beside it.",
         "",
-        "CHORDS: measure.beat | key | numeral | confidence | length in beats | bass | pitch classes | melody",
+        "CHORDS: measure.beat | key | numeral | confidence | length in beats | bass | pitch classes | melody"
+        + (" | or: the model's runner-up where it is a close call" if alternatives else ""),
     ]
     for chord in result.chords:
         if wanted(chord.measure):
             lines.append(
                 f"m{chord.measure} b{chord.beat:g} | {chord.key} | {chord.label} | {chord.confidence:.2f} | {chord.beats:g} | "
                 f"{chord.bass} | {' '.join(chord.pitches)} | {' '.join(chord.melody)}"
+                + (f" | or {chord.alternative} ({chord.alternative_confidence:.2f})" if alternatives and chord.alternative else "")
             )
     for title, items, show in (
         ("CADENCES", result.cadences, lambda m: f"m{m.measure} b{m.beat:g} {m.label} ({m.confidence:.2f})"),

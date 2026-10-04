@@ -68,6 +68,15 @@ class Phrase(Annotation):
     label: str = ""
 
 
+class Region(Annotation):
+    """A stretch of music named for what it is built on rather than for a chord function."""
+
+    type: Literal["region"]
+    start: Position
+    end: RangeEnd
+    label: str = Field(description='e.g. "whole-tone", "E Dorian", "pentatonic", "parallel 9th chords", "pedal on G"')
+
+
 class NonChordTone(Annotation):
     type: Literal["nct"]
     note: NoteRef
@@ -88,7 +97,7 @@ class Callout(Annotation):
 
 
 AnyAnnotation = Annotated[
-    Harmony | Cadence | Phrase | NonChordTone | VoiceLeading | Callout,
+    Harmony | Cadence | Phrase | Region | NonChordTone | VoiceLeading | Callout,
     Field(discriminator="type"),
 ]
 
@@ -97,6 +106,7 @@ DEFAULT_VIEWS: dict[str, set[str]] = {
     "function": {"harmony"},  # the bands drawn from Harmony.function
     "cadence": {"harmony", "form"},
     "phrase": {"form"},
+    "region": {"harmony", "form"},
     "nct": {"voice_leading"},
     "voice_leading": {"voice_leading"},
     "callout": {"harmony", "voice_leading", "form"},

@@ -12,6 +12,7 @@ SCORE is a MusicXML file, or a note list (engine/notes.py) when its name ends in
 from __future__ import annotations
 
 import json
+import os
 import sys
 import warnings
 from pathlib import Path
@@ -116,7 +117,12 @@ def main(checkpoint: str, score_path: str, out_path: str) -> None:
     else:
         score = pt.load_score(score_path)
     with torch.no_grad():
-        predictions = model.predict(score)
+        # the RNHybrid paper's pipeline smooths predictions within each beat with a trained "voter"
+        voter = os.environ.get("ANALYSISGNN_VOTER")
+        if voter:
+            predictions = model.predict(score, aggregation_spec={"mode": "voter_consistent_beat", "voter_path": voter})
+        else:
+            predictions = model.predict(score)
 
     notes = note_table(score)
     part = score[0]
@@ -133,9 +139,15 @@ def main(checkpoint: str, score_path: str, out_path: str) -> None:
         "tasks": {},
     }
     for task, tensor in predictions.items():
-        if task in SKIP or not torch.is_tensor(tensor) or tensor.dim() != 2 or tensor.shape[0] != len(notes):
+        if not torch.is_tensor(tensor) or tensor.dim() != 2 or tensor.shape[0] != len(notes):
             continue
-        probabilities = undo_softmax(undo_softmax(tensor)) if task in DOUBLE_SOFTMAXED else tensor
+        # the Roman numeral head is kept only where it matches the decoder (RNHybrid: 185 classes both)
+        if task in SKIP and (task not in available_representations or tensor.shape[1] != len(getattr(available_representations[task], "classList", ()))):
+            continue
+        # only undo what was done: newer checkpoints (RNHybrid, the analysisgnn gradio branch) return these
+        # heads as plain probabilities, which undoing would wreck
+        flattened = task in DOUBLE_SOFTMAXED and float((tensor.max(-1).values - tensor.min(-1).values).max()) < 0.05
+        probabilities = undo_softmax(undo_softmax(tensor)) if flattened else tensor
         top = torch.topk(probabilities, k=min(TOP, probabilities.shape[1]), dim=-1)
         result["tasks"][task] = {
             "classes": int(probabilities.shape[1]),

@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 
 from engine import text
-from engine.annotations import AnnotationList, Cadence, Callout, Harmony, NonChordTone, Phrase, VoiceLeading
+from engine.annotations import AnnotationList, Cadence, Callout, Harmony, NonChordTone, Phrase, Region, VoiceLeading
 from engine.score import TOLERANCE, Event, PositionError, ScoreIndex
 
 SVG_NS = "http://www.w3.org/2000/svg"
@@ -152,7 +152,8 @@ class PageLayout:
         self.over = ET.SubElement(self.canvas, f"{S}g", {"class": "analysis-over"})
         self.canvas.insert(0, self.under)
         self._last_measure = max(
-            (measure for measure in index.measures if measure.id in self.measures), key=lambda measure: measure.index
+            (measure for measure in index.measures if any(segment.id in self.measures for segment in measure.segments)),
+            key=lambda measure: measure.index,
         )
 
     # ---- reading Verovio's geometry -------------------------------------------------
@@ -287,14 +288,15 @@ class PageLayout:
 
     def x_at(self, measure_number: int, offset: Fraction) -> tuple[System, float]:
         measure = self.index.measure(measure_number)
-        geometry = self.measures.get(measure.id)
+        segment = measure.segment_at(offset)  # a bar split around a repeat is engraved as two measures
+        geometry = self.measures.get(segment.id)
         if geometry is None:
             raise NotOnPage
         points: dict[Fraction, float] = {}
         end = Fraction(0)
         for event in measure.events:
             box = self.boxes.get(event.id)
-            if box is None or event.grace:
+            if box is None or event.grace or event.segment != segment.id:
                 continue
             points[event.onset] = min(points.get(event.onset, box.x), box.x)
             end = max(end, event.onset + event.duration)
@@ -317,14 +319,13 @@ class PageLayout:
 
     def note_box(self, ref) -> tuple[System, Box, Event]:
         event = self.index.find_note(ref.measure, ref.beat, ref.staff, ref.pitch)
-        measure = self.index.measure(ref.measure)
-        if event.id not in self.boxes or measure.id not in self.measures:
+        if event.id not in self.boxes or event.segment not in self.measures:
             raise NotOnPage
-        return self.systems[self.measures[measure.id].system], self.boxes[event.id], event
+        return self.systems[self.measures[event.segment].system], self.boxes[event.id], event
 
     def _content_left(self, system: System) -> float:
-        first = self.index.measure_by_id(system.measures[0].id)
-        return self.x_at(first.number, Fraction(0))[1] - 90
+        measure, segment = self.index.locate_segment(system.measures[0].id)
+        return self.x_at(measure.number, segment.start)[1] - 90
 
     def segments(self, start, end, gap: float = 70) -> list[Segment]:
         """Split a range into one piece per system. `end` is a position, or a RangeEnd without a beat."""
@@ -337,7 +338,7 @@ class PageLayout:
             first_system, x0, starts = self.systems[0], self._content_left(self.systems[0]), False
         try:
             if getattr(end, "beat", None) is None:
-                geometry = self.measures.get(self.index.measure(end.measure).id)
+                geometry = self.measures.get(self.index.measure(end.measure).segments[-1].id)
                 if geometry is None:
                     raise NotOnPage
                 last_system, x1 = self.systems[geometry.system], geometry.x1 - gap
@@ -350,7 +351,7 @@ class PageLayout:
                     x1 = last_system.right - gap
             ends = True
         except NotOnPage:
-            if self.index.measure(end.measure).index < self.index.measure_by_id(self.systems[0].measures[0].id).index:
+            if self.index.measure(end.measure).last_index < self.index.locate_segment(self.systems[0].measures[0].id)[1].index:
                 raise
             last_system, x1, ends = self.systems[-1], self.systems[-1].right, False
         pieces = []
@@ -413,6 +414,8 @@ class PageLayout:
             self._draw_voice_leading(line)
         for callout in shown("callout", Callout):
             self._draw_callout(callout)
+        for region in shown("region", Region):
+            self._draw_phrase(region, dashed=True)
         for phrase in shown("phrase", Phrase):
             self._draw_phrase(phrase)
         if used_functions:
@@ -560,7 +563,8 @@ class PageLayout:
         self._text(cx, cy + LABEL_SIZE * 0.34, str(callout.number), LABEL_SIZE, bold=True, fill="#ffffff", anchor="middle")
         self._reserve(system, Box(cx - radius, cy - radius, 2 * radius, 2 * radius))
 
-    def _draw_phrase(self, phrase: Phrase) -> None:
+    def _draw_phrase(self, phrase: Phrase | Region, dashed: bool = False) -> None:
+        """A bracket above the music. Phrases are solid with an italic label; regions are dashed and upright."""
         try:
             pieces = self.segments(phrase.start, phrase.end)
         except NotOnPage:
@@ -574,12 +578,13 @@ class PageLayout:
             path += f"L{round(piece.x0)},{round(y)} L{round(piece.x1)},{round(y)}"
             if piece.ends:
                 path += f" L{round(piece.x1)},{round(y + tick)}"
-            self._add("path", d=path, fill="none", stroke=INK, stroke_width=LINE + 4, stroke_linejoin="round")
+            style = {"stroke_dasharray": "110 70"} if dashed else {}
+            self._add("path", d=path, fill="none", stroke=INK, stroke_width=LINE + 4, stroke_linejoin="round", **style)
             box = Box(piece.x0, y, piece.x1 - piece.x0, tick)
             if phrase.label and piece is labelled:
                 # A label wider than its piece is pulled left so it never runs off the page.
                 x = min(piece.x0 + 20, piece.system.right - label_width + 150)
-                label = self._text(x, y - 90, phrase.label, LABEL_SIZE, bold=True, italic=True)
+                label = self._text(x, y - 90, phrase.label, LABEL_SIZE, bold=True, italic=not dashed)
                 box = Box(piece.x0, label.y, piece.x1 - piece.x0, y + tick - label.y)
             piece.system.content.append(box)
 

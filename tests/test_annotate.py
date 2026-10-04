@@ -69,3 +69,19 @@ def test_renders_from_a_worker_thread(chopin, chopin_annotations):
     with ThreadPoolExecutor(max_workers=2) as pool:
         pages = list(pool.map(lambda _: render(chopin, chopin_annotations, measures=(1, 8)).page_count, range(2)))
     assert pages == [1, 1]
+
+
+def test_chord_symbols_and_regions_for_music_roman_numerals_do_not_fit(chopin):
+    annotations = AnnotationList.model_validate(
+        {
+            "annotations": [
+                {"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "Ebmaj7"},
+                {"type": "harmony", "at": {"measure": 2, "beat": 1}, "label": "C7(#11)/E"},
+                {"type": "region", "start": {"measure": 1, "beat": 1}, "end": {"measure": 2}, "label": "pedal on Eb"},
+            ]
+        }
+    )
+    svg = render(chopin, annotations, measures=(1, 2)).svgs[0]
+    assert ">Ebmaj7<" in svg and ">C7(#11)<" in svg and ">E<" in svg  # drawn as written
+    assert "stroke-dasharray" in svg and ">pedal on Eb<" in svg
+    assert "fill-opacity" not in svg  # no function given, so no colour bands

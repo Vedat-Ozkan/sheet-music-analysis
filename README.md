@@ -55,6 +55,30 @@ The server needs a public HTTPS address (a tunnel or a host) before Claude or Ch
 
 Results of testing in both apps are in `docs/gate1-results.md`.
 
+## Robustness
+
+```bash
+.venv/bin/python -m tools.robustness            # every score, every stage
+.venv/bin/python -m tools.robustness --matching ravel
+```
+
+Runs 31 scores through reading, the note table, the note list, engraving, the draft model and rendering: Bach chorales, Classical and Romantic quartets, songs and piano music from the music21 corpus, and impressionist and early twentieth-century piano music (Ravel, Debussy, Satie, Scriabin, Rachmaninoff, Prokofiev, Schoenberg) downloaded on first use into `out/`. The downloaded transcriptions are for local testing and are not committed. Results go to `out/robustness/report.json`.
+
+## Evaluation
+
+```bash
+.venv/bin/python -m eval.run                                   # draft model alone, scored against expert chord labels
+.venv/bin/python -m eval.review                                # Opus at medium effort reviews each passage, as the skill does
+.venv/bin/python -m eval.run --reviewed out/eval/reviewed/opus-medium   # score the reviewed analyses the same way
+.venv/bin/python -m eval.judge                                 # compare with what a teacher wrote about each piece
+```
+
+`eval/pieces.py` lists 23 pieces from Bach to Ravel, each paired with a published human analysis (how they were chosen is in `reports/Scores with published analyses.md`). Twelve have a chord-by-chord reading by a human analyst that a script can compare against; the rest have prose only. Scores, labels and results are kept in `out/eval/` and are not committed. The review and judge steps call `claude -p`, so they use the account Claude Code is signed in with.
+
+Results, and the problems met along the way, are written up in `docs/engineering-log.md`.
+
+The score for a reading is the share of the piece, by duration, where it agrees with the human labels: on the key, on the chord's root, on the whole chord, on the chord with its bass note, and on all of these together (`full`). `reference_fit` is the share of notes that belong to the human's chord; a low value means the bar numbers of the labels and the file do not line up.
+
 ## Draft model
 
 AnalysisGNN drafts the analysis; the chat model reviews it. It runs in its own environment (`.venv-agnn`, Python 3.11, PyTorch 2.5 CPU) and `engine/draft.py` calls it as a subprocess, so the engine itself needs no ML packages.
@@ -85,7 +109,7 @@ from engine import draft
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 score = open('tests/data/chopin_nocturne_op9_no2.mxl', 'rb').read()
-print(draft.as_text(draft.draft(score, ScoreIndex(load_toolkit(score).getMEI())), 1, 8))
+print(draft.as_text(draft.draft(ScoreIndex(load_toolkit(score).getMEI())), 1, 8))
 "
 ```
 

@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "pypdf>=5"]  # pypdf: eval/judge.py reads published analyses
 
 [tool.uv]
 package = false
