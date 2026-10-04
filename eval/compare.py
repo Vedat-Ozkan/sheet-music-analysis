@@ -48,7 +48,9 @@ def sounding(key: str, figure: str) -> Sounding | None:
     """None when the figure is not a Roman numeral music21 can read (a chord symbol, a typo)."""
     try:
         local = m21key.Key(m21key.convertKeyStringToMusic21KeyString(key))
-        chord = roman.RomanNumeral(figure.replace("ø", "/o"), local)
+        # a sharp on vi or vii in a minor context is cautionary (When in Rome writes "#viio7/vi"); music21's
+        # default raises it a second time and puts the root a semitone too high
+        chord = roman.RomanNumeral(figure.replace("ø", "/o"), local, sixthMinor=roman.Minor67Default.CAUTIONARY, seventhMinor=roman.Minor67Default.CAUTIONARY)
         return Sounding(local.tonic.pitchClass, local.mode == "minor", chord.root().pitchClass, frozenset(p.pitchClass for p in chord.pitches), chord.bass().pitchClass)
     except Exception:  # music21 raises many kinds of error on figures it cannot read
         return None

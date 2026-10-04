@@ -9,8 +9,10 @@ committed: several of the files are non-commercial or carry no licence.
 
 from __future__ import annotations
 
+import io
 import os
 import re
+import zipfile
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -227,6 +229,25 @@ PIECES = [
         prose=(TEORIA + "debussy-des-pas-sur-la-neige/index.php",),
         tonal=False,
     ),
+    # added 2026-10-03, to test impressionist music on more than three pieces
+    Piece(
+        "debussy-voiles",
+        "Debussy, 'Voiles'",
+        DCML + "debussy_corpus/l117-02_preludes_voiles.musicxml",
+        prose=(
+            TEORIA + "2020/debussy-preludes/02/index.php",
+            "http://vickyjohnson.altervista.org/Analysis_Debussy_Voiles.pdf",  # 'Parting the Veils of Debussy's Voiles', Scottish Music Review
+        ),
+        tonal=False,
+    ),
+    Piece(
+        "debussy-clair-de-lune",
+        "Debussy, 'Clair de lune', Suite bergamasque",
+        DCML + "debussy_corpus/l075-03_suite_clair.musicxml",
+        "https://raw.githubusercontent.com/DCMLab/debussy_suite_bergamasque/main/harmonies/l075-03_suite_clair.harmonies.tsv",  # DCML experts' labels
+        prose=("https://digital.library.txst.edu/bitstream/handle/10877/4330/FERGUSON-THESIS.pdf",),  # Ferguson, MA thesis, Texas State (2012)
+        fix="harmony",  # the file carries the DCML experts' chord labels
+    ),
 ]
 
 BY_ID = {piece.id: piece for piece in PIECES}
@@ -242,6 +263,19 @@ def _download(source: str, cached: Path) -> bytes:
     return cached.read_bytes()
 
 
+def without_harmony(data: bytes) -> bytes:
+    """The score with every <harmony> element removed (chord symbols, analysts' labels), compressed .mxl or plain."""
+    strip = lambda xml: re.sub(rb"<harmony\b.*?</harmony>\s*", b"", xml, flags=re.DOTALL)
+    if data[:2] != b"PK":
+        return strip(data)
+    source, out = zipfile.ZipFile(io.BytesIO(data)), io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as target:
+        for name in source.namelist():
+            content = source.read(name)
+            target.writestr(name, strip(content) if name.endswith((".xml", ".musicxml")) and "META-INF" not in name else content)
+    return out.getvalue()
+
+
 def score(piece: Piece) -> bytes:
     """The score file, repaired where the manifest says it needs it."""
     data = _download(piece.score, OUT / "scores" / f"{piece.id}{Path(piece.score).suffix}")
@@ -251,6 +285,28 @@ def score(piece: Piece) -> bytes:
 
 
 def labels(piece: Piece) -> str | None:
+    """The expert reading as RomanText; a DCML harmonies table is converted (eval/dcml.py)."""
     if piece.labels is None:
         return None
+    if piece.labels.endswith(".harmonies.tsv"):
+        from engine.render import load_toolkit
+        from engine.score import ScoreIndex
+        from eval import dcml
+
+        table = _download(piece.labels, OUT / "labels" / f"{piece.id}.harmonies.tsv").decode("utf-8")
+        return dcml.to_romantext(table, ScoreIndex(load_toolkit(score(piece)).getMEI()))
     return _download(piece.labels, OUT / "labels" / f"{piece.id}.rntxt").decode("utf-8")
+
+
+def rome_tree() -> list[str]:
+    """Every file path in the When in Rome repository, fetched once from GitHub and cached in out/eval/."""
+    cached = OUT / "when-in-rome-tree.txt"
+    if not cached.exists():
+        import json as _json
+
+        url = "https://api.github.com/repos/MarkGotham/When-in-Rome/git/trees/master?recursive=1"
+        with urllib.request.urlopen(url, timeout=120) as response:
+            tree = _json.loads(response.read())["tree"]
+        cached.parent.mkdir(parents=True, exist_ok=True)
+        cached.write_text("\n".join(item["path"] for item in tree))
+    return cached.read_text().split("\n")

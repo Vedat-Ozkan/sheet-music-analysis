@@ -1,6 +1,6 @@
 """Check the reviewed analyses against what a teacher wrote about the same piece.
 
-    .venv/bin/python -m eval.judge [--only ID] [--reviewer opus-medium] [--jobs 3]
+    .venv/bin/python -m eval.judge [--only ID] [--reviewer opus-medium] [--claims-from opus-medium [--repeats 3]] [--jobs 3]
 
 Chord labels can be scored by a script (eval/run.py); a prose analysis cannot. Here a second
 model reads the published analysis, lists the checkable claims it makes (keys, cadences, form,
@@ -31,6 +31,14 @@ from eval.review import REVIEWED
 
 JUDGED = pieces.OUT / "judged"
 VERDICTS = ("agree", "partly", "disagree", "not_addressed")
+LIST_CLAIMS = """1. List the checkable claims the published analysis makes about this piece, most important first, at most 25: \
+keys and modulations, cadences (type and bar), phrase and form boundaries, notable chords (Neapolitan, augmented \
+sixth, borrowed chords, applied dominants), non-chord tones, pedal points, scales, modes and other named regions. \
+Tie each to its bars. Use only what the published analysis says, not your own knowledge of the piece."""
+GIVEN_CLAIMS = """1. The claims have already been listed from the published analysis. Use exactly these, in this order, \
+with the same bars, kind and wording; do not add, drop or merge any:
+
+{claims}"""
 
 PROMPT = """You are checking a music-analysis tool's reading of a piece against a published human analysis.
 
@@ -40,10 +48,7 @@ Published analysis: its text is given at the end, under "The published analysis"
 not be read in advance are listed here; fetch them yourself, and if one cannot be opened, say so and use the others:
 {references}
 
-1. List the checkable claims the published analysis makes about this piece, most important first, at most 25: \
-keys and modulations, cadences (type and bar), phrase and form boundaries, notable chords (Neapolitan, augmented \
-sixth, borrowed chords, applied dominants), non-chord tones, pedal points, scales, modes and other named regions. \
-Tie each to its bars. Use only what the published analysis says, not your own knowledge of the piece.
+{step1}
 2. For each claim, compare it with the tool's analysis below and give a verdict: "agree", "partly", "disagree", \
 or "not_addressed" when the tool says nothing about it. A different but equivalent label (V/V in C for V in G; \
 perfect cadence for PAC) is agreement.
@@ -105,8 +110,10 @@ def as_text(annotations: list[dict], commentary: str) -> str:
     return "CHORDS (measure: beat label)\n" + "\n".join(lines) + "\n\nCOMMENTARY\n\n" + commentary
 
 
-def judge(piece: pieces.Piece, reviewer: str) -> dict:
-    path = JUDGED / reviewer / f"{piece.id}.json"
+def judge(piece: pieces.Piece, reviewer: str, claims_from: str | None = None, repeat: int | None = None) -> dict:
+    """Judge one piece. With `claims_from`, reuse that run's list of claims so two runs are marked on the same list.
+    `repeat` numbers one of several independent markings, kept in their own folder (see `steady`)."""
+    path = JUDGED / reviewer / (f"repeat{repeat}" if repeat is not None else "") / f"{piece.id}.json"
     if path.exists():
         return json.loads(path.read_text())
     annotations = json.loads((REVIEWED / reviewer / f"{piece.id}.json").read_text())["annotations"]
@@ -123,7 +130,13 @@ def judge(piece: pieces.Piece, reviewer: str) -> dict:
         except Exception as error:
             print(f"{piece.id:26s} could not read {address}: {error}", flush=True)
             unread.append(address)
+    if claims_from:
+        given = [{key: claim[key] for key in ("bars", "kind", "claim")} for claim in json.loads((JUDGED / claims_from / f"{piece.id}.json").read_text())["claims"]]
+        step1 = GIVEN_CLAIMS.format(claims=json.dumps(given, indent=1, ensure_ascii=False))
+    else:
+        step1 = LIST_CLAIMS
     prompt = PROMPT.format(
+        step1=step1,
         title=piece.title,
         note=f"Note on bar numbers: {piece.note}\n" if piece.note else "",
         references="\n".join(f"- {address}" for address in unread) or "(none: all were read)",
@@ -146,17 +159,38 @@ def judge(piece: pieces.Piece, reviewer: str) -> dict:
     return result
 
 
+def steady(piece: pieces.Piece, reviewer: str, claims_from: str, repeats: int) -> dict:
+    """Mark the same claims several times and keep each claim's median verdict.
+
+    One marking is noisy (a control in docs/engineering-log.md, challenge 8, changed 24 of 185
+    verdicts with nothing else changed); the median of several is steadier."""
+    runs = [judge(piece, reviewer, claims_from, repeat) for repeat in range(repeats)]
+    order = ["disagree", "not_addressed", "partly", "agree"]
+    claims = []
+    for marked in zip(*(run["claims"] for run in runs)):
+        verdicts = sorted((claim["verdict"] for claim in marked), key=order.index)
+        claims.append({**marked[0], "verdict": verdicts[len(verdicts) // 2], "verdicts": [claim["verdict"] for claim in marked]})
+    result = {"claims": claims, "repeats": repeats, "cost_usd": round(sum(run.get("cost_usd", 0) for run in runs), 3), "failed": runs[0].get("failed", [])}
+    path = JUDGED / reviewer / f"{piece.id}.json"
+    path.write_text(json.dumps(result, indent=1))
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--only", action="append", help="judge only this piece (repeatable)")
     parser.add_argument("--reviewer", default="opus-medium", help="which reviewed run to judge: a folder in out/eval/reviewed/")
+    parser.add_argument("--claims-from", help="reuse the claims listed in this judged run, so the two runs compare on one list")
+    parser.add_argument("--repeats", type=int, default=1, help="with --claims-from: mark each claim this many times and keep the median verdict")
     parser.add_argument("--jobs", type=int, default=3)
     args = parser.parse_args()
+    if args.repeats > 1 and not args.claims_from:
+        parser.error("--repeats needs --claims-from: the markings must be of one list of claims")
     chosen = [pieces.BY_ID[name] for name in args.only] if args.only else [piece for piece in pieces.PIECES if piece.prose]
 
     def one(piece: pieces.Piece) -> None:
         try:
-            result = judge(piece, args.reviewer)
+            result = steady(piece, args.reviewer, args.claims_from, args.repeats) if args.repeats > 1 else judge(piece, args.reviewer, args.claims_from)
             counts = {verdict: sum(1 for claim in result["claims"] if claim["verdict"] == verdict) for verdict in VERDICTS}
             print(f"{piece.id:26s} " + "  ".join(f"{verdict} {count:2d}" for verdict, count in counts.items()) + f"  unread: {len(result.get('failed', []))}", flush=True)
         except Exception as error:  # a failed call leaves a gap that the next run fills

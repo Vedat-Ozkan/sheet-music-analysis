@@ -94,3 +94,13 @@ def engrave(score: bytes, measures: tuple[int, int] | None = None) -> Engraving:
         toolkit.select({"measureRange": ScoreIndex(toolkit.getMEI()).measure_range(*measures)})
         toolkit.redoLayout()
     return Engraving([toolkit.renderToSVG(page) for page in range(1, toolkit.getPageCount() + 1)])
+
+
+def engrave_pages(score: bytes, measures: tuple[int, int]) -> Engraving:
+    """Printed measures first..last on ordinary pages, a few systems each, for someone to read.
+
+    `engrave` puts an excerpt on one tall page, which an image viewer shrinks until it cannot be read."""
+    toolkit = load_toolkit(score)
+    toolkit.select({"measureRange": ScoreIndex(toolkit.getMEI()).measure_range(*measures)})
+    toolkit.redoLayout()
+    return Engraving([toolkit.renderToSVG(page) for page in range(1, toolkit.getPageCount() + 1)])

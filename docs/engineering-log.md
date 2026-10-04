@@ -8,9 +8,10 @@ A record of the problems met while building this tool, what was done about each,
 
 - **A two-stage analysis pipeline, measured against human experts.** A neural draft followed by a chat-model review, scored by duration against chord-by-chord readings by human analysts on 12 pieces from Bach to Grieg, and against published teacher and textbook analyses for the rest of a 23-piece set.
 - **The review stage raises agreement with experts on 11 of 12 scored pieces.** Weighted by length across 12 pieces (1,158 bars), the share of the music where key, chord and bass all match the human analyst rose from 0.54 to 0.71, and the share with the right key from 0.81 to 0.89. The largest gains were Schumann (0.61 to 0.92), Haydn (0.42 to 0.72) and Beethoven Op. 2 No. 1 (0.47 to 0.73).
-- **Checked against what teachers actually wrote.** Against published analyses of 19 pieces (textbook chapters, exam-board teaching notes, articles and dissertations), our analysis agrees with 63% of 431 checkable claims, partly agrees with 26%, and disagrees with 4%. Every disagreement was read by hand and sorted into areas to improve.
+- **Checked against what teachers actually wrote.** Against published analyses of 19 pieces (textbook chapters, exam-board teaching notes, articles and dissertations), our analysis agrees with 63% of 431 checkable claims, partly agrees with 26%, and disagrees with 4%, on the judge's first marking, which is lenient (a second marking of the same analysis gives 4 to 18 points less; challenge 9). Every disagreement was read by hand and sorted into areas to improve.
 - **Measured which chat model to use.** Over the full 23-piece set, Opus 5.5 at medium effort beat Sonnet 5.5 as the reviewer: full agreement with expert labels 0.66 → 0.71, agreement with teachers' claims 52% → 63%, at 36% more cost and 25% less model time.
 - **Found and fixed a silent failure in the neural model's output.** The model names each key's tonic but not its mode, so every minor key was read as major. Recovering the mode from the chords lifted key accuracy on minor-key pieces from 0.00 to 0.92 (Chopin Prelude No. 20), 0.27 to 0.79 (Beethoven Op. 2 No. 1) and 0.20 to 0.89 (Tchaikovsky).
+- **Matched expert-to-expert agreement on one movement analysed by three expert teams.** On Beethoven's Op. 2 No. 1, first movement, the reviewed analysis agreed with three independent expert analyses at 0.76 full agreement, against 0.78 between the experts themselves (one movement, one review; a single review varies by about 0.04).
 - **Robust across 31 scores and four centuries.** Monteverdi to Schoenberg, choirs, quartets, songs, piano, transposing instruments: every score passes reading, engraving, drafting and rendering.
 - **Shipped around a platform limit instead of asking users to work around it.** Claude connectors cannot receive chat attachments. Rather than an upload page and a code to paste, the plugin runs the engine as a skill inside Claude's sandbox, where the file already is, and sends only a compact note list (about 1,300 characters for 8 bars) to the server for the neural draft.
 
@@ -164,9 +165,176 @@ No other piece changed except Haydn, whose *full* fell from 0.43 to 0.42.
 
 **Result.** Sources read went from 11 of 20 pieces in full to 19 of 20; the one left is behind a site that refuses downloads (HTTP 403). Checkable claims found went from 332 to 402.
 
+### 8. How much of a change is noise? (2026-10-03)
+
+**Problem.** Following the owner's suggestion to base the method on textbooks, the skill gained guidance for modal and impressionist music, drawn from open theory textbooks and Mark DeVoto's definitions (`research_notes/modal/`), and the note table gained a bar-by-bar count of which scale or collection the notes come from (`engine/pitch_collections.py`). Five modal and late-Romantic pieces and four tonal ones were reviewed again, and the judge was changed to re-mark the *same* list of claims (`--claims-from`), so that a new list could not move the score. Teacher claims agreed fell from 60% to 51%. Before believing that, we ran a control: the judge re-marked the unchanged baseline analyses on the same claims.
+
+**Result.** With nothing changed, the judge alone moved agreement from 60% to 53%, and 24 of the 185 verdicts changed. (Challenge 9 found that most of this drop is systematic, not random: the first marking is lenient towards the analysis the claims were written beside. The fair comparison is 53% against 51%.) The modal run's 51% sits inside that noise, as does its small drop on the four tonal pieces (expert-label *full* 0.85 / 0.92 / 0.80 / 0.81 → 0.85 / 0.87 / 0.74 / 0.79). Reading the changed verdicts one by one found one real flaw in the new guidance: it told the model that an unresolved note is a chord tone, so it stopped marking Debussy's unresolved appoggiaturas, which DeVoto names as typical of the style. That was fixed. Most of the other changes were about things the guidance does not touch (registral shape, where a reprise begins), which points to variation between review runs as well.
+
+| Same 9 pieces, 185 claims | Agreed |
+|---|---|
+| Baseline review, first judging | 60% |
+| Baseline review, judged again (control) | 53% |
+| Review with the modal guidance | 51% |
+
+**What it means.**
+- The modal change has no measurable effect yet, good or bad. It is not claimed as an improvement.
+- One judging run carries roughly ±7 points of noise on the share of claims agreed, and per-piece shares far more. The Sonnet → Opus difference (52% → 63% over 400+ claims) is larger than that, but the per-piece teacher tables in this log are single runs and should be read with that in mind.
+- Next: measure how much the review itself varies, by reviewing the same pieces twice, and steady the judge by marking each claim several times and taking the majority.
+
+### 9. Textbook methods, measured fairly (2026-10-03)
+
+**What we tried.** The owner suggested basing the whole method on how textbooks teach analysis. From 38 chapters of *Open Music Theory* (`research_notes/common-practice/`), the skill's tonal method was rewritten: start from phrase endings and work backwards, strict cadence criteria, the tonicization–extended tonicization–modulation spectrum, the textbook procedure for chromatic notes and six-four chords, and sequences. Two widely taught Debussy pieces with good analyses were added to the evaluation, "Voiles" (teoria.com and the *Scottish Music Review*) and "Clair de lune" (an MA thesis), bringing it to 25 pieces.
+
+**Three measurements, each against its noise.**
+- *Expert chord labels, 12 pieces:* *full* 0.708 before, 0.700 after. Reviewing the same five pieces twice with the same skill moved *full* by 0.01 to 0.06 per piece (0.04 on average), as much as the change of method did.
+- *Teacher claims, re-marked on one list:* tonal pieces 64% before, 62% after (294 claims); modal pieces 44% before, 45% after (112); the two new Debussy pieces 33% before, 29% after (49).
+- So neither the modal guidance nor the textbook tonal method made a difference that these measurements can see. Pieces moved both ways (Mozart K. 545 18 → 22 claims agreed, Tchaikovsky 17 → 12).
+
+**A second finding about the judge.** The judge writes its list of claims while it can see the analysis under test, and marks that analysis in the same pass. Re-marking the *same* analysis on the same list later gives lower agreement every time:
+
+| Same analysis, same claims | First marking | Marked again |
+|---|---|---|
+| 13 tonal pieces | 68% | 64% |
+| 5 modal pieces | 53% | 44% |
+| "Voiles" and "Clair de lune" | 51% | 33% |
+
+The first marking is lenient towards the analysis it was written beside. Comparisons must therefore set a re-marked baseline against a re-marked new run, never the first marking against a re-marking (an earlier draft of challenge 8 did the latter). The teacher-agreement figures elsewhere in this log (63% for Opus, 52% for Sonnet) are first markings: the Sonnet–Opus comparison is like with like, but the absolute shares flatter the tool.
+
+**Why the textbook method changed little, we think.** The method it replaced already covered the same ground in fewer words, and the disagreements that remain are mostly interpretive (where a modulation really happens, which mode a passage is in) or about things a note table does not show (register, texture, layers). One review run varies about as much as these prompt changes.
+
+### 10. Better input instead of more rules: facts and the score image (2026-10-03)
+
+**What we tried.** Since rules from textbooks had not helped, two ways of giving the reviewer more to see:
+- *Facts in the note table:* the scale or collection of each bar (per staff where it differs), notes outside the key signature, melody repeats (exact or transposed), and points of arrival.
+- *The engraved score:* the passage rendered as ordinary pages (`engine/render.py`, `engrave_pages`), which the reviewer opens before analysing (`eval.review --image`). Chord symbols printed in some source files are stripped first, including from compressed `.mxl` files, so the image cannot give answers away.
+
+**Results, one review each against the baseline** (owner's request: keep tests cheap, no repeats):
+
+| Piece | Measure | Baseline | Facts | Facts + image | Image only |
+|---|---|---|---|---|---|
+| Bach, Prelude in C | full (labels) | 0.80 | 0.86 | 0.83 | |
+| Mozart, K. 545 | full (labels) | 0.85 | 0.86 | 0.89 | |
+| Chopin, Prelude No. 20 | full (labels) | 0.85 | 0.89 | 0.89 | |
+| Debussy, "Voiles" | teacher claims, median of 3 | 7/24 | 4/24 | 6/24 | |
+| Ravel, *Jeux d'eau* | teacher claims, median of 3 | 9/22 | 10/22 | 12/22 | |
+| Debussy, "Des pas sur la neige" | teacher claims, median of 3 | 11/25 | 12/25 | 12/25* | |
+| Grieg, Notturno | full (labels) | 0.50 | | | 0.46 |
+| Bach, chorale BWV 269 (control) | full (labels) | 0.91 | | | 0.91 |
+| Debussy, "Clair de lune" | teacher claims, one marking | 10/25 | | | 9/25 |
+
+\* The reviewer did not open the pages for "Des pas"; after the instruction was made firmer it opened them in every passage.
+
+**What it means.** Every difference is within what one review varies by on its own (about 0.04 on *full* per piece, a couple of claims on a teacher list). The image's one clear gain, *Jeux d'eau* (+3 claims, the same in all three markings), did not recur on Grieg or "Clair de lune". Looking at the pages added about 30% to the cost where the reviewer opened them in the first test, and nothing measurable in the second. Neither change is adopted; the facts code was removed, and the image rendering stays in the evaluation tools for later tests.
+
+**Overall, from challenges 8 to 10.** Three kinds of change to the reviewer's instructions and input (textbook rules, computed facts, the score image) made no difference these measurements can detect. The changes that did move the numbers earlier were in the engine (recovering the minor mode, challenge 1) and in the choice of reviewing model (Sonnet to Opus). The most useful result of the day is the measurement itself: knowing that one review and one judging each vary by several points, and that the judge's first marking is lenient, is what stopped us from shipping changes that only looked like improvements.
+
+### 11. Where the remaining errors are, and a rule that did not fix them (2026-10-03)
+
+**Breakdown.** Every stretch of music where the Opus review disagrees with the expert labels (29% of the 12 labelled pieces, by duration) was put in one category:
+
+| Category | Share of the music | Share of what is lost |
+|---|---|---|
+| Right chord, key label differs: same tonic, other mode (mostly convention, e.g. C minor against C major with borrowed chords) | 3.3% | 11% |
+| Right chord, key label differs: other tonic (tonicization against modulation) | 5.2% | 18% |
+| Right chord, wrong bass (inversion) | 4.7% | 16% |
+| Seventh added or missing | 3.3% | 11% |
+| Quality of third or fifth | 2.6% | 9% |
+| Related chord (two or more notes in common) | 4.8% | 16% |
+| Different chord | 5.0% | 17% |
+| No label | 0.5% | 2% |
+
+Almost a third of the loss is a correct chord with a different key label. Mozart K. 332 alone has 17% of its length in the "other mode" row, which is the convention difference found in challenge 1.
+
+**A bass check, tried and rejected.** Where only the bass was wrong, the expert's bass was the lowest note sounding in 38% of cases and ours was not, which suggested a mechanical fix (`eval/bass_check.py`): rewrite the inversion when a chord tone other than the labelled bass is lowest. Scored on the existing reviews, at no model cost:
+
+| Rule | Chord and bass | Full |
+|---|---|---|
+| None (Opus review) | 0.797 | 0.708 |
+| Lowest note starting with the chord | 0.748 | 0.663 |
+| Lowest note over the chord's whole duration | 0.789 | 0.700 |
+
+Alberti basses, passing bass notes and song accompaniments defeat both rules; the reviewer's own judgement of the structural bass is better than either. Not adopted.
+
+### 12. RNHybrid, the newer draft model: better keys, worse chords (2026-10-03)
+
+**Where it came from.** RNHybrid, AnalysisGNN's successor (Karystinaios et al., arXiv 2607.13587, July 2026), reports a better Roman numeral score (0.576 against 0.530) and local key (0.872 against 0.828). Its weights on Hugging Face (`manoskary/analysisgnn-hybrid`) carry no licence, but the same full-piece checkpoint, byte for byte (SHA-256 `b4417e1d…`), ships in the author's Scoreprompts space under `license: mit`, the basis on which the current checkpoint was accepted. It pairs the graph network with a frozen MusicBERT-large (`manoskary/musicbert-large`, MIT).
+
+**Setup.** A separate environment (`.venv-rnh`, PyTorch 2.6 CPU, the `gradio` branch of the analysisgnn code in `vendor/analysisgnn-gradio`). It runs our own note list in about 6 s and 2.2 GB for a short piece, 112 s for all 1,158 labelled bars. Two runner fixes were needed, both leaving the current model's output unchanged: undo the old checkpoint's triple softmax only where the probabilities really are flattened (doing it to RNHybrid's plain probabilities scrambled its chord heads to near zero), and keep the Roman numeral head where its size matches the decoder (185 classes). `engine/draft.py` reads chords from that head when a model has a working one.
+
+**Results, draft only, against the expert labels (no chat model involved):**
+
+| Draft, 12 pieces, weighted by length | Key | Root | Chord | Full |
+|---|---|---|---|---|
+| AnalysisGNN (in use) | 0.811 | 0.811 | 0.729 | 0.535 |
+| RNHybrid, chords rebuilt from degree, quality and inversion | 0.866 | 0.748 | 0.637 | 0.493 |
+| RNHybrid, chords from its Roman numeral head | 0.824 | 0.691 | 0.616 | 0.499 |
+| RNHybrid, Roman numeral head with the paper's beat voter | 0.825 | 0.690 | 0.616 | 0.500 |
+
+Checks that the gap is the model and not our pipeline: its own root head alone scores 0.785 against AnalysisGNN's 0.818; feeding it the original file instead of our note list gives identical predictions; the beat voter changes only 2 to 3% of note-level predictions. The paper's gains are on held-out test sets with its own metric; on these pieces RNHybrid is better on key and worse on chords. Not adopted. Its keys could still be combined with AnalysisGNN's chords (not yet tried).
+
+### 13. A scorer bug, an exact reference for "Clair de lune", and two more review ideas (2026-10-04)
+
+**A bug in our own scorer.** Reading the chord disagreements one by one turned up pairs like `#viio7/vi` (expert) against `viio7/vi` (ours): the same chord, scored as different roots. music21 raises a sharp on vi or vii in a minor context a second time by default; When in Rome writes that sharp as a cautionary sign. The scorer now reads both as cautionary (`Minor67Default.CAUTIONARY`). The fix is confirmed by the expert files themselves: their fit (the share of notes in the expert's own chords) rose for Mozart K. 332 from 0.883 to 0.939 and for Tchaikovsky from 0.858 to 0.907. Weighted *full*: draft 0.535 → 0.542, Sonnet 0.657 → 0.664, Opus 0.708 → 0.717. A correction of the measurement, not of the analysis.
+
+**"Clair de lune" scored exactly.** The DCML experts' labels printed inside its MusicXML lose some positions on export (two labels in one voice come out together, with no offset), so they are read instead from DCML's own harmonies table, which gives each label's bar and onset (`eval/dcml.py`). Fit 0.909; all 150 labels read. Draft 0.59, Opus review 0.71.
+
+**Two more review ideas, one review each on Bach's Prelude in C, Grieg's Notturno and Tchaikovsky's "June" (full, exact labels, rescored with the fixed scorer):**
+
+| | Bach | Grieg | Tchaikovsky | Weighted |
+|---|---|---|---|---|
+| Baseline | 0.80 | 0.50 | 0.69 | 0.65 |
+| Whole-piece overview from the draft (key plan, cadences, phrase ends) | 0.69 | 0.54 | 0.66 | 0.63 |
+| The draft model's runner-up where it is a close call | 0.86 | 0.52 | 0.67 | 0.66 |
+
+- *Overview:* worse, and Bach shows why. Its draft key plan is wrong (draft key 0.77), and with that plan in front of it the reviewer's key accuracy fell from 0.89 to exactly 0.77. A summary built from the draft carries the draft's errors to every passage.
+- *Runner-up readings:* where shown, the runner-up was the expert's chord in 19% of cases in which the main label was wrong, but the gain after review (+0.01) is within one review's noise.
+- Neither is adopted. Cost $10.26.
+
+### 14. The human ceiling: how far experts agree with each other (2026-10-04)
+
+**Question.** After a series of changes that made no measurable difference, how much better could the analysis get? Two expert analysts do not agree perfectly either, so agreement with one of them has a ceiling.
+
+**Method (`eval/ceiling.py`).** When in Rome holds independent analyses of the same Beethoven sonata movements by two or three separate teams (DCML, Dmitri Tymoczko's TAOM, BPS-FH). Each pair was scored in both directions with the same scorer used for our own output, and kept only where both analyses fit the score (at least 0.85 of the notes inside their chords), so that a bar-numbering mismatch is not counted as disagreement. 9 of 26 pairs qualified; most of the rest are misaligned conversions. The TAVERN variation pairs could not be used: their score files crash Verovio.
+
+**Expert against expert, 9 pairs, 1,653 bars, weighted by length:**
+
+| Key | Root | Chord | Chord and bass | Full |
+|---|---|---|---|---|
+| 0.804 | 0.859 | 0.775 | 0.701 | 0.596 |
+
+**Head to head on one movement**, Beethoven Op. 2 No. 1, i, which has three aligned expert analyses (fit 0.88 to 0.93):
+
+| Full agreement | When in Rome | DCML | Tymoczko | Average |
+|---|---|---|---|---|
+| Other experts | 0.80, 0.76 | 0.80, 0.77 | 0.76, 0.77 | 0.78 |
+| Opus review | 0.73 | 0.80 | 0.74 | 0.76 |
+| Sonnet review | 0.56 | 0.59 | 0.58 | 0.58 |
+| Draft alone | 0.47 | 0.46 | 0.46 | 0.46 |
+
+**What it means.** On the one movement where the comparison is like with like, the Opus review agreed with the experts about as well as they agree with each other (0.76 against 0.78), and with DCML exactly as well as the When in Rome analyst did (0.80). That is one movement and one review, and the gap is the size of one review's variation, so it shows the reviewed analysis *can* reach expert-to-expert agreement, not that it does in general. The nine-pair figure (experts agree at 0.60 full) comes from different movements from our test set, so it is not a direct comparison with our 0.72; it does show that exact-label agreement between experts is far from 1, which is a likely reason prompt and input changes stopped moving our scores. Making the claim general would need more pieces with several aligned expert analyses, and our reviews of them.
+
+### 15. A survey of 300 pieces, and the cadential 6/4 (2026-10-04)
+
+**Why.** The one change that clearly improved the analysis, recovering the minor mode, came from noticing a systematic error in the draft. Twelve pieces are too few to see more such patterns, so the draft was run on every piece in When in Rome that has a score file beside an expert analysis (`eval/survey.py`): 331 pieces, of which 318 lined up with their scores (Mozart sonatas, Beethoven quartets, Bach preludes, about 180 songs from the OpenScore Lieder corpus), leaving out the evaluation pieces. CPU only, no chat model. The draft model was trained on part of this corpus, so its raw accuracy here is not a fair benchmark; the point was the pattern of errors.
+
+**What it showed.** Draft *full* 0.48 over the survey. Two patterns ran one way across every composer: the draft writes V7 where experts write V (1.3% of all music, against 0.2% the other way), and it reads straight through cadential 6/4s, calling them V or V7 where experts write Cad64 or I64 (about 2.4%). Inversions differ in both directions. Two survey bugs were found and fixed on the way (every song had been read from one shared file).
+
+**Sevenths: not our rule.** Four versions of the rule that upgrades a triad to a seventh chord were scored on all the survey pieces and on the 12 evaluation pieces; the one in use was already the best (*full* 0.473 against 0.467 with the rule off). The extra sevenths come from the model's own quality predictions. Left as it was.
+
+**Cadential 6/4: fixed in the draft.** A V span is now split when it opens, on a beat, with the tonic triad over the dominant bass and no leading tone, and the leading tone then arrives: the opening becomes `Cad64`, the rest stays V or V7 (`engine/draft.py`; tested on a four-bar cadence run through the real model). Deterministic, so the gain is exact rather than within noise:
+
+| Draft | Survey, about 285 pieces | Evaluation, 12 pieces (not used to design it) |
+|---|---|---|
+| Full before | 0.4731 | 0.5423 |
+| Full after | 0.4806 | 0.5481 |
+| Root before → after | 0.772 → 0.780 | 0.821 → 0.827 |
+
+A wider version (6/4s resolving only in the next span, and tonic chords over the dominant bass) gave no further gain and was not kept.
+
 ## Checking against teachers' prose
 
-For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement: every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
+For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
 
 Run of 2026-10-03, Opus review, 19 pieces with a readable source, 431 claims:
 
@@ -217,5 +385,10 @@ Modal and colouristic music is now the largest group, and Ravel is the one piece
 .venv/bin/python -m eval.review --model sonnet --effort none       # the Sonnet runs in this log
 .venv/bin/python -m eval.run --reviewed out/eval/reviewed/opus-medium   # score the reviewed readings
 .venv/bin/python -m eval.judge                                     # compare with published prose analyses
+.venv/bin/python -m eval.judge --reviewer RUN --claims-from opus-medium [--repeats 3]   # re-mark the same claims (challenges 8-9)
+.venv/bin/python -m eval.review --tag NAME [--image] [--overview] [--alternatives]     # a variant run in its own folder
+.venv/bin/python -m eval.ceiling                                   # expert against expert (challenge 14)
+.venv/bin/python -m eval.survey                                    # draft over 300 When in Rome pieces (challenge 15)
+.venv/bin/python -m eval.bass_check                                # the rejected bass rule (challenge 11)
 .venv/bin/python tools/robustness.py                               # 31-score robustness run
 ```

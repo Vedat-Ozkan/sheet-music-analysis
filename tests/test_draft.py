@@ -79,3 +79,17 @@ def test_misaligned_model_output_is_refused(index):
     raw["notes"]["pitch"] = ["C1"] * len(raw["notes"]["pitch"])
     with pytest.raises(draft.DraftError, match="line up"):
         draft.build(raw, index)
+
+
+def test_cadential_six_four_is_split_from_the_dominant():
+    # I | IV | 6/4 over G resolving to V7 on beat 3 | I, with AnalysisGNN's saved output for it
+    data = Path(__file__).parent / "data"
+    index = ScoreIndex(load_toolkit((data / "cadential_64.musicxml").read_bytes()).getMEI())
+    result = draft.build(json.loads((data / "cadential_64_raw.json").read_text()), index)
+    assert [(chord.measure, chord.beat, chord.label) for chord in result.chords] == [
+        (1, 1.0, "I"),
+        (2, 1.0, "IV"),
+        (3, 1.0, "Cad64"),
+        (3, 3.0, "V7"),
+        (4, 1.0, "I"),
+    ]
