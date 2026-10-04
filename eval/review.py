@@ -21,7 +21,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from engine import draft, reduce, render
+from engine import draft, harmony, reduce, render
 from engine.annotate import check
 from engine.annotations import AnnotationList
 from engine.render import load_toolkit
@@ -55,6 +55,21 @@ Note table for these bars. Each row is one beat: the lowest note, the pitch clas
 {overview}{image}
 Reply with the annotation list for bars {first} to {last} as one ```json block, then the commentary as plain \
 text. Give `key` on the first harmony. You have no tools here; do not ask questions."""
+
+SELFCHECK = """
+
+Your previous reply was:
+
+{reply}
+
+A script compared each chord label in it with the notes that sound while the chord lasts. These labels
+contradict the notes:
+
+{problems}
+
+For each one, either correct the label (or its inversion), or keep it if your reading explains it (a
+non-chord tone, an implied note, a pedal, a seventh that only arrives later). Do not change anything else.
+Reply again in full: the corrected annotation list as one ```json block, then the commentary."""
 
 RETRY = """
 
@@ -151,7 +166,7 @@ Do not start the analysis until you have seen all of them. Use the table for exa
 """
 
 
-def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: int, last: int, model: str, effort: str | None = None, tag: str | None = None, image: bool = False, whole: bool = False, alternatives: bool = False) -> dict:
+def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: int, last: int, model: str, effort: str | None = None, tag: str | None = None, image: bool = False, whole: bool = False, alternatives: bool = False, selfcheck: bool = False, start_from: str | None = None) -> dict:
     path = REVIEWED / run_name(model, effort, tag) / "passages" / f"{piece.id}_{first}-{last}.json"
     if path.exists():
         return json.loads(path.read_text())
@@ -167,11 +182,27 @@ def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: 
         files = {f"page-{page}.png": engraving.png(page) for page in range(1, engraving.page_count + 1)}
     prompt = prompt.replace("{image}", IMAGE.format(pages=", ".join(files)) if files else "")
     started, answers = time.time(), []
-    answers.append(ask(prompt, model, effort, files))
+    earlier = REVIEWED / start_from / "passages" / f"{piece.id}_{first}-{last}.json" if start_from else None
+    if earlier and earlier.exists():
+        # reuse an earlier run's first answer, so that only what follows it differs (and is paid for)
+        before = json.loads(earlier.read_text())
+        answers.append({"result": "```json\n" + json.dumps({"annotations": before["annotations"]}) + "\n```\n\n" + before["commentary"], "total_cost_usd": 0})
+    else:
+        answers.append(ask(prompt, model, effort, files))
     data, problems = problems_in(answers[-1]["result"], index)
     if data is None:
         answers.append(ask(prompt + RETRY.format(reply=answers[-1]["result"], problems=problems), model, effort, files))
         data, problems = problems_in(answers[-1]["result"], index)
+    flagged = []
+    if selfcheck and data is not None:
+        flagged = harmony.mismatches(data["annotations"], index)
+        if flagged:
+            answers.append(ask(prompt + SELFCHECK.format(reply=answers[-1]["result"], problems="\n".join(flagged[:25])), model, effort, files))
+            checked, still = problems_in(answers[-1]["result"], index)
+            if checked is not None:
+                data, problems = checked, still
+            else:
+                answers.pop()  # the revision did not validate; the first answer stands
     reply = answers[-1]["result"]
     result = {
         "first": first,
@@ -185,6 +216,7 @@ def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: 
         "models": sorted({name for answer in answers for name in answer.get("modelUsage", {})}),
         "effort": effort,
         "pages_shown": len(files),
+        "selfcheck_flagged": len(flagged),
         "turns": [answer.get("num_turns") for answer in answers],  # above 1 when it used Read to look at the pages
     }
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -201,6 +233,8 @@ def main() -> None:
     parser.add_argument("--jobs", type=int, default=4, help="passages reviewed at once")
     parser.add_argument("--tag", help="name for a variant run (a changed skill, say), kept in its own folder")
     parser.add_argument("--image", action="store_true", help="also give the reviewer the engraved pages of each passage to look at")
+    parser.add_argument("--selfcheck", action="store_true", help="after the review, show it the labels that contradict the notes and let it correct or keep each")
+    parser.add_argument("--start-from", help="reuse this run's first answers instead of reviewing afresh (with --selfcheck: tests the check alone)")
     parser.add_argument("--alternatives", action="store_true", help="show the draft model's runner-up reading where it is a close call")
     parser.add_argument("--overview", action="store_true", help="also give the reviewer the whole piece's draft key plan, cadences and phrase ends")
     args = parser.parse_args()
@@ -210,7 +244,7 @@ def main() -> None:
     for piece in [pieces.BY_ID[name] for name in args.only] if args.only else pieces.PIECES:
         index = ScoreIndex(load_toolkit(pieces.score(piece)).getMEI())
         drafted = cached_draft(piece, index)
-        jobs += [(piece, index, drafted, first, last, args.model, args.effort, args.tag, args.image, args.overview, args.alternatives) for first, last in passages(index, args.bars)]
+        jobs += [(piece, index, drafted, first, last, args.model, args.effort, args.tag, args.image, args.overview, args.alternatives, args.selfcheck, args.start_from) for first, last in passages(index, args.bars)]
     print(f"{len(jobs)} passages", flush=True)
 
     def one(job) -> tuple[pieces.Piece, dict]:

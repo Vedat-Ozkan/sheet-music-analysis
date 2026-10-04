@@ -332,6 +332,14 @@ Checks that the gap is the model and not our pipeline: its own root head alone s
 
 A wider version (6/4s resolving only in the next span, and tonic chords over the dominant bass) gave no further gain and was not kept.
 
+### 16. Letting the reviewer check its labels against the notes (2026-10-04)
+
+**What we tried.** My mechanical bass rule (challenge 11) failed because it decided on its own. The alternative: a script lists only clear factual contradictions between each chord label and the notes sounding while it lasts (a seventh that never sounds, a bass that is never the lowest note, most of the chord missing), and the reviewer corrects each label or keeps it with a reason. This needed a Roman numeral reader that runs without music21, as the skill's sandbox has none (`engine/harmony.py`); it agrees with music21 on 2,962 of 2,967 ordinary labels across our pieces, the survey pieces and our reviews, after three conventions were added (the key's own seventh, so IV7 in C has E; a minor chord's seventh is minor; in minor, a flat on a numeral counts from the major scale).
+
+**Design that removes review noise.** Rather than a fresh review, which varies by about 0.04 on its own, the check was run on the baseline review's first answers (`eval.review --selfcheck --start-from opus-medium`), so any difference comes from the check alone. Four pieces, $3.11.
+
+**Result.** 29 labels flagged in 8 passages. The reviewer kept 18 unchanged and changed 11, of which 7 only added an explanation to the label ("V7 over G pedal", "V (D only)") and 4 changed the chord (V7/iv to IV7, viio7 to V9, bVI43 to V43/bII, I to I64). Full agreement was identical on all four pieces; root, chord and bass moved by at most 0.01. The contradictions that the notes reveal are mostly pedal points and incomplete chords the reviewer had already weighed. Not adopted. The `--start-from` option stays: it reruns only a later stage on fixed first answers, which keeps review noise out of a test.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
@@ -390,5 +398,6 @@ Modal and colouristic music is now the largest group, and Ravel is the one piece
 .venv/bin/python -m eval.ceiling                                   # expert against expert (challenge 14)
 .venv/bin/python -m eval.survey                                    # draft over 300 When in Rome pieces (challenge 15)
 .venv/bin/python -m eval.bass_check                                # the rejected bass rule (challenge 11)
+.venv/bin/python -m eval.review --tag NAME --selfcheck --start-from opus-medium   # the self-check alone (challenge 16)
 .venv/bin/python tools/robustness.py                               # 31-score robustness run
 ```
