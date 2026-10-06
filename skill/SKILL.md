@@ -19,7 +19,7 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
    pip install verovio resvg-py img2pdf pillow fonttools pydantic
    ```
 
-2. **Read the notes.** Run the table script on the user's file. If they named a passage, pass it; otherwise ask which bars they want, or take the first 8 to 16.
+2. **Read the notes.** Run the table script on the user's file, for the passage chosen as the method below says.
 
    ```bash
    python3 scripts/notes_table.py SCORE --measures 1-8
@@ -57,6 +57,7 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
 
 Work in this order. Each step narrows the next.
 
+0. **The passage.** If the user named bars, use them. If not, ask which bars they want, suggesting the first 8 or 16, before analysing anything. At most 32 bars per page; a longer stretch goes passage by passage.
 1. **Key and key areas.** Start from the key signature, the first and last bass notes and the cadences. Decide the local key of each stretch. A new key needs a cadence or a sustained stay; a chord or two borrowed from another key is a tonicization (`V7/ii`), not a modulation.
 2. **Harmonic rhythm.** Decide how often the harmony really changes, usually once or twice a bar, sometimes every beat. Follow the bass. One row of the table is not one chord.
 3. **Function before labels.** For each harmony decide what it does: tonic (T), predominant (PD) or dominant (D). Then choose the numeral that says so.
