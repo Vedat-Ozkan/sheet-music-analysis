@@ -415,9 +415,9 @@ async def draft_analysis(
         "Use this when a skill has produced a compact note list of the user's score (it starts with a line like "
         "'N1 div=48 ts=12/8 ks=3f') because the score file itself cannot be sent. Pass that text unchanged as "
         "`notes`. Returns a neural model's draft analysis (chords, cadences, phrase ends, possible non-chord tones) "
-        "as a table for you to review and correct before you annotate the score. If you cannot run code in this "
-        "chat, the skill cannot read the score: tell the user to turn on Code execution and file creation in "
-        "Settings > Capabilities, then try again."
+        "as a table for you to review and correct before you annotate the score. Without such a note list you "
+        "cannot analyse the score: tell the user that in Claude this needs the Sheet Music Analysis plugin "
+        "(from Claude's directory) and Code execution and file creation turned on in Settings > Capabilities."
     ),
     annotations=READ_ONLY,
 )

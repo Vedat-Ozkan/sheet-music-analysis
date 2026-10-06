@@ -38,15 +38,35 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 
 ## Claude
 
+The plugin is the product in Claude. Its server is also submitted as an MCP connector, as Anthropic asks: registering removes the "unregistered server" warning users would otherwise see when installing the plugin, and gives the server's health and usage dashboard. The connector is paired with the plugin and its listing points people to the plugin; on its own in Claude it offers only `draft_from_notes`, whose description tells Claude to send the user to the plugin.
+
 Requirement to state wherever the form allows: Claude's **Code execution and file creation** setting must be on (Settings → Capabilities), because the skill reads the score in Claude's sandbox.
 
-Only the plugin is listed: the owner does not want the connector on its own in Claude, where it would need a file button. The server shows Claude only `draft_from_notes`, which the plugin's skill calls.
-
-**Carousel screenshots**, if the plugin form asks (3–5 PNGs at least 1000 px wide, the response only, each with its prompt):
+**Carousel screenshots**, if a form asks (3–5 PNGs at least 1000 px wide, the response only, each with its prompt):
 1. "Analyse the harmony of bars 1–8 of this nocturne": the full page.
 2. "Just the harmony, please": the harmony view.
 3. "How do the voices move in bars 5–8?": the voice-leading view.
 4. "Show me the phrase structure": the form view.
+
+## Claude: connector form
+
+- **Connection:** `https://mcp.sheetmusicanalysis.com/mcp`
+- **Name:** Sheet Music Analysis
+- **One-liner:** The server behind the Sheet Music Analysis plugin. Install the plugin to use it in Claude.
+- **Description:**
+
+  > This is the analysis server used by the Sheet Music Analysis plugin. To analyse a score in Claude, install the plugin instead: it reads your attached MusicXML file and draws the analysis on the engraved score. The plugin needs Claude's Code execution and file creation setting (Settings → Capabilities).
+  >
+  > Added on its own, this connector cannot read your score; Claude will point you to the plugin.
+
+- **Categories, docs, privacy, support, icon:** as in Shared above. Slug: `sheet-music-analysis` (permanent).
+- **Use cases:** provides the neural draft analysis for the Sheet Music Analysis plugin. Users need the plugin and Code execution turned on.
+- **Reads or writes:** reads only.
+- **Company:** Sheet Music Analysis, https://sheetmusicanalysis.com.
+- **Authentication:** none.
+- **Data handling:** our own service; no health data; no sponsored content.
+- **Test & launch:** no test account needed. Install the plugin (or add this URL as a custom connector together with the plugin's skill), attach https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl and ask "Analyse the harmony of bars 1–8". The one tool Claude sees, `draft_from_notes`, has been run from Claude.
+- **Pairing:** after both are submitted, pair the connector with the plugin in the portal.
 
 ## Claude: plugin form
 
