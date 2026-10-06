@@ -366,6 +366,8 @@ A wider version (6/4s resolving only in the next span, and tonic chords over the
 
 **Result.** In the next ChatGPT run of bars 1–8 the key appears only at line starts, V65/vi is stacked, and bar 2 is read as ii from beat 3 with the chromatic notes as appoggiaturas, as Sonnet and Opus read it. ChatGPT still wrote explanations into labels ("vii°7 tonic pedal", "ii chromatic APP", "Imaj42"); the shared rules now say a label is the numeral and figures only, with pedals as regions and non-chord tones as `nct`.
 
+**Later the same day.** The file button (`choose_score`), built when Claude connectors could not receive attachments, was removed. Claude now uses the plugin, and ChatGPT passes attached files straight to the server, so the button only covered a forgotten attachment, at the cost of a fourth tool, a card that sized itself badly in ChatGPT and an upload endpoint. Without an attachment, ChatGPT now asks the user to attach the file.
+
 ### 20. Slow deploys (2026-10-06)
 
 **Problem.** Every deploy rebuilt the whole image on Cloud Build, 5.5–6.3 minutes, though nearly every change was to our code. A layer cache with Kaniko made it worse: 10 minutes to fill the cache, then 7 min 58 s with every heavy step a cache hit, because Kaniko unpacks each cached layer (4.5 minutes) and copies the 2 GB of environments into the final stage again (1.5 minutes). Our own code took under a second.

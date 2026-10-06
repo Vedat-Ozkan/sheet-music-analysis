@@ -2,7 +2,6 @@
 
 Claude users reach it through the plugin's skill, which sends a note list to `draft_from_notes`.
 ChatGPT users send the attached score itself to `draft_analysis` and see the page in a card.
-`choose_score` is the fallback for Claude users who have the connector without the skill.
 
 Run locally:  .venv/bin/python -m server.app
 On Cloud Run: see server/deploy.sh. Set BUCKET to keep scores, pages and daily counts in Cloud Storage.
@@ -33,7 +32,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, Icon, ImageContent, TextContent, ToolAnnotations
 from pydantic import BaseModel, ConfigDict
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 
 from engine import draft
 from engine import notes as note_list
@@ -48,10 +47,9 @@ PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", f"http://localhost:{PORT}").
 BUCKET = os.environ.get("BUCKET")
 MAX_SCORE_BYTES = 10 * 1024 * 1024
 # Keeps a month's work inside Cloud Run's free tier (owner's $5 limit, 2026-10-06). Counts reset at midnight UTC.
-DAILY_LIMITS = {"draft": 100, "render": 200, "upload": 200}
+DAILY_LIMITS = {"draft": 100, "render": 200}
 # Hosts keep a card's HTML by its address, so the version goes up whenever the HTML changes.
 CARD_URI = "ui://sheet-music-analysis/card-v1.html"
-PICKER_URI = "ui://sheet-music-analysis/picker-v3.html"
 HERE = Path(__file__).parent
 
 def read_only(title: str) -> ToolAnnotations:
@@ -139,10 +137,10 @@ LIMIT_MESSAGE = (
 
 SCORE_INPUT_HELP = (
     "Give the score in exactly one way. score_file: a file the user attached to the chat. "
-    "score_id: the id you were given after the user picked a file with choose_score, or by draft_analysis. "
+    "score_id: the id returned by an earlier draft_analysis. "
     "score_url: a public https link to a .mxl or .musicxml file. "
-    "Never encode, paste or retype a file's contents: if an attached file cannot be passed as score_file, "
-    "call choose_score straight away."
+    "Never encode, paste or retype a file's contents. If the user has not attached a score, ask them to attach "
+    "their MusicXML file (.mxl or .musicxml) to the chat."
 )
 
 
@@ -190,11 +188,11 @@ async def resolve_score(score_file: AttachedFile | None, score_id: str | None, s
     if score_id:
         data = await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(score_id)}")
         if data is None:
-            raise ScoreError(f"No score has the id {score_id!r}; uploaded scores are kept for one day")
+            raise ScoreError(f"No score has the id {score_id!r}; scores are kept for one day")
         return data, "score_id"
     if score_url:
         return await download(score_url), "score_url"
-    raise ScoreError("No score was provided. Call choose_score so the user can pick the file.")
+    raise ScoreError("No score was provided. Ask the user to attach their MusicXML file (.mxl or .musicxml) to the chat.")
 
 
 def publish(data: bytes, extension: str) -> str:
@@ -303,23 +301,6 @@ async def render_analysis(
     )
 
 
-@apps.tool(
-    resource_uri=PICKER_URI,
-    title="Choose a score file",
-    description=(
-        "Use this when the user wants a score analysed and you cannot pass their file as score_file "
-        "(for example the attachment is not available to tools), and you have no sheet-music-analysis skill that reads "
-        "the attached file itself. Shows a file button in the chat. After the user "
-        "picks a file, its score_id is in the app's context with their next message, which says which bars they want."
-    ),
-    annotations=read_only("Choose a score file"),
-    meta={"openai/outputTemplate": PICKER_URI},
-)
-def choose_score(ctx: Context) -> str:
-    log("choose_score", platform=platform(ctx))
-    return "A file button is now shown to the user. Wait for their next message; the chosen file's score_id will be in the app's context."
-
-
 apps.add_html_resource(
     CARD_URI,
     (HERE / "card.html").read_text(),
@@ -328,13 +309,6 @@ apps.add_html_resource(
     prefers_border=True,
 )
 
-apps.add_html_resource(
-    PICKER_URI,
-    (HERE / "picker.html").read_text().replace("__UPLOAD_URL__", f"{PUBLIC_BASE_URL}/upload"),
-    name="Score picker",
-    csp=ResourceCsp(connect_domains=[PUBLIC_BASE_URL]),
-    prefers_border=True,
-)
 
 
 # In Claude the plugin's skill reads the attached file in Claude's sandbox and needs only draft_from_notes;
@@ -375,8 +349,7 @@ mcp = Server(
     description=(
         "Use this when the user wants a harmonic analysis of a MusicXML score (.mxl or .musicxml): Roman numerals, "
         "cadences, phrases, non-chord tones. Returns a neural model's draft as a table for you to review and correct, "
-        "plus a score_id. Follow it with render_analysis. If the user attached a file that you cannot pass as "
-        "score_file, call choose_score first. " + SCORE_INPUT_HELP
+        "plus a score_id. Follow it with render_analysis. " + SCORE_INPUT_HELP
     ),
     annotations=read_only("Draft a harmonic analysis"),
     meta={"openai/fileParams": ["score_file"]},
@@ -438,25 +411,6 @@ async def draft_from_notes(ctx: Context, notes: str) -> CallToolResult:
     text = draft.as_text(result)
     log("draft_from_notes", platform=source, chars_in=len(notes), seconds=round(time.time() - started, 1))
     return CallToolResult(content=[TextContent(type="text", text=text)])
-
-
-CORS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "content-type"}
-
-
-@mcp.custom_route("/upload", methods=["POST", "OPTIONS"])
-async def upload(request: Request) -> Response:
-    """Receives the file the user picks in the choose_score card."""
-    if request.method == "OPTIONS":
-        return Response(status_code=204, headers=CORS)
-    data = await request.body()
-    if not data or len(data) > MAX_SCORE_BYTES:
-        return JSONResponse({"error": "Send one score file of at most 10 MB"}, status_code=400, headers=CORS)
-    if not await take("upload", "card"):
-        return JSONResponse({"error": "The service is at its daily limit; please try again tomorrow"}, status_code=429, headers=CORS)
-    code = secrets.token_hex(3).upper()
-    await anyio.to_thread.run_sync(store.put, f"scores/{code}", data)
-    log("upload", score_bytes=len(data))
-    return JSONResponse({"score_id": code}, headers=CORS)
 
 
 @mcp.custom_route("/files/{name}", methods=["GET"])

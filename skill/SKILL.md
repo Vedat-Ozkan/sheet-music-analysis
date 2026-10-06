@@ -7,7 +7,7 @@ description: Analyse the harmony of sheet music and draw the analysis on the eng
 
 You analyse a score the way a composer or theory teacher would, then have it drawn on the engraved page. You never draw: you write an annotation list that says what to mark and where in the music, and a script engraves it.
 
-The user's attached score is a file in your sandbox; the scripts read it from there. Do not ask the user to upload it again, and do not use the connector's `choose_score`, `draft_analysis` or `render_analysis` tools: those exist for hosts that cannot run this skill.
+The user's attached score is a file in your sandbox; the scripts read it from there. Do not ask the user to upload it again, and do not use the connector's `draft_analysis` or `render_analysis` tools: those exist for hosts that cannot run this skill.
 
 The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_SKILL_DIR}/scripts/`); run them from the skill's folder or by their full path.
 

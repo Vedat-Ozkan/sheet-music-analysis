@@ -96,7 +96,7 @@ OpenAI now takes a plugin ZIP rather than a form: the text below lives in `opena
 2. [same chat] "Now show only the harmony." → `render_analysis` with view `harmony` → the same bars with chords and bands only.
 3. [same chat] "What happens in bars 9–16?" → `draft_analysis`, then `render_analysis` → bars 9–16 annotated, with a commentary.
 4. [same chat] "Show the phrase structure of bars 1–16." → `render_analysis` with view `form` → phrase brackets and cadences.
-5. "I have a MusicXML score I'd like analysed." (no attachment) → `choose_score` → a file button; after a file is picked, the card asks which bars; "Analyse bars 1-8" gives the analysis as in 1.
+5. [same chat] "How do the voices move in bars 5-8?" → `render_analysis` with view `voice_leading` → bars 5–8 with arrows for the resolutions that matter.
 
 **Should not use the app:**
 

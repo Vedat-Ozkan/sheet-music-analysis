@@ -86,10 +86,10 @@
               ]
             },
             {
-              "description": "No file attached yet",
-              "prompt": "I have a MusicXML score I'd like analysed.",
-              "tools_triggered": "choose_score",
-              "expected_behavior": "A card with a file button. After the reviewer picks the sample file, the card confirms it and asks which bars; typing \"Analyse bars 1-8\" gives the analysis as in the first case.",
+              "description": "Voice leading view, same chat as the first case",
+              "prompt": "How do the voices move in bars 5-8?",
+              "tools_triggered": "render_analysis",
+              "expected_behavior": "Bars 5-8 redrawn showing voice leading only (view voice_leading): arrows for the resolutions that matter, with a short explanation.",
               "file_attachment_urls": [
                 "https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl"
               ]
