@@ -38,7 +38,7 @@ done
 if ! gcloud artifacts repositories describe "$SERVICE" --location="$REGION" >/dev/null 2>&1; then
   gcloud artifacts repositories create "$SERVICE" --repository-format=docker --location="$REGION"
 fi
-gcloud builds submit --tag "$IMAGE" --timeout=40m
+gcloud builds submit --config=cloudbuild.yaml --substitutions=_IMAGE="$IMAGE"
 
 # One instance at most and the daily limits in server/app.py keep the cost near zero (owner's $5 limit).
 # Four drafts at about 0.8 GB each fit in 4 GiB alongside the server.
