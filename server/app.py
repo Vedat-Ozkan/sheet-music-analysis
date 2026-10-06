@@ -30,7 +30,7 @@ import uvicorn
 from mcp.server.apps import Apps, ResourceCsp
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
-from mcp.types import CallToolResult, ImageContent, TextContent, ToolAnnotations
+from mcp.types import CallToolResult, Icon, ImageContent, TextContent, ToolAnnotations
 from pydantic import BaseModel, ConfigDict
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -327,9 +327,16 @@ apps.add_html_resource(
 
 
 # The extension's tools are collected when the server is constructed, so this comes after them.
+SITE = "https://sheetmusicanalysis.com"
 mcp = MCPServer(
     "sheet-music-analysis",
     title="Sheet Music Analysis",
+    website_url=SITE,
+    # `theme` names the background the icon is meant for: a dark clef for light hosts, a white one for dark.
+    icons=[
+        Icon(src=f"{SITE}/icons/clef-for-light-512.png", mime_type="image/png", sizes=["512x512"], theme="light"),
+        Icon(src=f"{SITE}/icons/clef-for-dark-512.png", mime_type="image/png", sizes=["512x512"], theme="dark"),
+    ],
     instructions=(
         "Harmonic analysis of MusicXML scores drawn on the engraved page. For an analysis, call draft_analysis, "
         "review the draft, then call render_analysis."
