@@ -15,10 +15,12 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 import warnings
 from pathlib import Path
 
 warnings.filterwarnings("ignore")
+STARTED = time.monotonic()
 
 import numpy as np  # noqa: E402
 import partitura as pt  # noqa: E402
@@ -171,13 +173,18 @@ def serve(checkpoint: str) -> None:
     replies = os.fdopen(os.dup(1), "w")
     os.dup2(2, 1)
     sys.stdout = sys.stderr
+    imported = time.monotonic()
     model = load(checkpoint)
+    # The first draft on a fresh Cloud Run instance was 74 s against 6 s locally; these show where it goes.
+    print(f"analysisgnn: imports {imported - STARTED:.1f} s, model load {time.monotonic() - imported:.1f} s", file=sys.stderr)
     replies.write("ready\n")
     replies.flush()
     for line in sys.stdin:
         score_path, out_path = line.rstrip("\n").split("\t")
         try:
+            begun = time.monotonic()
             analyse(model, score_path, out_path)
+            print(f"analysisgnn: analysis {time.monotonic() - begun:.1f} s", file=sys.stderr)
             replies.write("ok\n")
         except Exception as error:  # report and keep serving; one bad score must not stop the worker
             replies.write("error " + " ".join(f"{type(error).__name__}: {error}".split()) + "\n")
