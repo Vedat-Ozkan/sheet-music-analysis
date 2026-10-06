@@ -138,7 +138,6 @@ LIMIT_MESSAGE = (
 SCORE_INPUT_HELP = (
     "Give the score in exactly one way. score_file: a file the user attached to the chat. "
     "score_id: the id returned by an earlier draft_analysis. "
-    "score_url: a public https link to a .mxl or .musicxml file. "
     "Never encode, paste or retype a file's contents. If the user has not attached a score, ask them to attach "
     "their MusicXML file (.mxl or .musicxml) to the chat."
 )
@@ -168,7 +167,7 @@ def is_public_https(url: str) -> bool:
 
 async def download(url: str) -> bytes:
     if not is_public_https(url):
-        raise ScoreError("The score link must be a public https URL")
+        raise ScoreError("The attached file's link is not a public https URL")
     async with httpx.AsyncClient(follow_redirects=True, timeout=20) as client:
         response = await client.get(url)
     response.raise_for_status()
@@ -181,7 +180,7 @@ def clean_id(score_id: str) -> str:
     return re.sub(r"[^A-Za-z0-9]", "", score_id).upper()
 
 
-async def resolve_score(score_file: AttachedFile | None, score_id: str | None, score_url: str | None) -> tuple[bytes, str]:
+async def resolve_score(score_file: AttachedFile | None, score_id: str | None) -> tuple[bytes, str]:
     """Return the score bytes and which input path supplied them."""
     if score_file:
         return await download(score_file.download_url), "score_file"
@@ -190,8 +189,6 @@ async def resolve_score(score_file: AttachedFile | None, score_id: str | None, s
         if data is None:
             raise ScoreError(f"No score has the id {score_id!r}; scores are kept for one day")
         return data, "score_id"
-    if score_url:
-        return await download(score_url), "score_url"
     raise ScoreError("No score was provided. Ask the user to attach their MusicXML file (.mxl or .musicxml) to the chat.")
 
 
@@ -278,7 +275,7 @@ async def render_analysis(
         log("limit", tool="render_analysis", platform=source)
         return error_result(LIMIT_MESSAGE)
     try:
-        score, _ = await resolve_score(None, score_id, None)
+        score, _ = await resolve_score(None, score_id)
         measures = parse_measures(measure_range)
         engraving = await anyio.to_thread.run_sync(lambda: render(score, annotations, measures=measures, view=view))
     except AnnotationError as error:
@@ -358,14 +355,13 @@ async def draft_analysis(
     ctx: Context,
     score_file: AttachedFile | None = None,
     score_id: str | None = None,
-    score_url: str | None = None,
     measure_range: str = "all",
 ) -> CallToolResult:
     """measure_range limits the table, e.g. "1-8"; the default "all" returns the whole piece."""
     source = platform(ctx)
     started = time.time()
     try:
-        score, given = await resolve_score(score_file, score_id, score_url)
+        score, given = await resolve_score(score_file, score_id)
         if given == "score_id":
             code = clean_id(score_id)
             fresh = await anyio.to_thread.run_sync(store.get, f"scores/{code}.draft.json") is None
