@@ -28,7 +28,12 @@ gcloud storage buckets update "gs://$BUCKET" --lifecycle-file=/tmp/$SERVICE-life
 if ! gcloud iam service-accounts describe "$ACCOUNT" >/dev/null 2>&1; then
   gcloud iam service-accounts create "$SERVICE" --display-name="Sheet Music Analysis server"
 fi
-gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" --member="serviceAccount:$ACCOUNT" --role=roles/storage.objectAdmin >/dev/null
+# A new service account takes a little while to become visible to Cloud Storage, so retry for up to a minute.
+for attempt in 1 2 3 4 5 6; do
+  gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" --member="serviceAccount:$ACCOUNT" --role=roles/storage.objectAdmin >/dev/null && break
+  [ "$attempt" = 6 ] && exit 1
+  sleep 10
+done
 
 if ! gcloud artifacts repositories describe "$SERVICE" --location="$REGION" >/dev/null 2>&1; then
   gcloud artifacts repositories create "$SERVICE" --repository-format=docker --location="$REGION"
