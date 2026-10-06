@@ -16,6 +16,7 @@ This project would not exist without [AnalysisGNN](https://github.com/manoskary/
 | `docs/annotation-spec.md` | The annotation list format the chat model writes. |
 | `examples/` | A hand-written annotation list for Chopin, Nocturne Op. 9 No. 2, measures 1–8. |
 | `skill/`, `tools/build_skill.py` | The skill that runs the engine inside Claude's sandbox on the attached file; the build script bundles the engine with it into `out/sheet-music-analysis.zip`. |
+| `plugin/`, `dist/sheet-music-analysis/` | The plugin: its manifest in `plugin/`, and the built plugin (skill plus a pointer to the connector at mcp.sheetmusicanalysis.com) in `dist/`, written by `tools/build_skill.py` and committed because the Claude plugin directory reads it from GitHub. Rebuild after changing `skill/`, `engine/` or `plugin/`. |
 | `engine/notes.py` | Compact text form of a score's notes, which the skill passes to the server so the draft model can run without the file being uploaded. |
 | `spike/` | Throwaway MCP server (superseded by `server/`) for plan step 1: tests how a score gets in and how a page shows up in each chat app. |
 | `server/`, `Dockerfile` | The production MCP server (`server/app.py`): the four tools the plugin and ChatGPT use, daily limits, storage in a Cloud Storage bucket that deletes scores and pages after a day. `server/deploy.sh PROJECT_ID` builds the image on Cloud Build and deploys it to Cloud Run (one instance at most). Run locally with `.venv/bin/python -m server.app` (port 8080, files under `out/server/`). |

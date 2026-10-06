@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "sheet-music-analysis": {
+      "type": "http",
+      "url": "https://mcp.sheetmusicanalysis.com/mcp"
+    }
+  }
+}

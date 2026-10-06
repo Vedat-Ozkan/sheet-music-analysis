@@ -2,8 +2,8 @@
 
     .venv/bin/python tools/build_skill.py
 
-Writes out/sheet-music-analysis.zip (the skill alone) and out/sheet-music-analysis-plugin.zip (the skill plus
-a pointer to the connector, whose address comes from CONNECTOR_URL or the running tunnel).
+Writes out/sheet-music-analysis.zip (the skill alone) and the plugin (the skill plus a pointer to the connector,
+mcp.sheetmusicanalysis.com unless CONNECTOR_URL says otherwise) to dist/sheet-music-analysis/ and as a zip in out/.
 """
 
 import json
@@ -39,13 +39,10 @@ def main() -> None:
 
 
 def build_plugin(skill: Path) -> None:
-    """The plugin: the same skill plus a pointer to the connector, installed together."""
-    url_file = ROOT / "out" / "tunnel.url"
-    server = os.environ.get("CONNECTOR_URL") or (url_file.read_text().strip() + "/mcp" if url_file.exists() else None)
-    if not server:
-        print("No connector URL (set CONNECTOR_URL or start the tunnel); plugin not built")
-        return
-    target = ROOT / "out" / "plugin" / NAME
+    """The plugin: the same skill plus a pointer to the connector, installed together.
+    It is committed under dist/, because the plugin directory reads it from GitHub."""
+    server = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
+    target = ROOT / "dist" / NAME
     shutil.rmtree(target, ignore_errors=True)
     shutil.copytree(ROOT / "plugin", target)
     shutil.copytree(skill, target / "skills" / NAME)
@@ -55,7 +52,7 @@ def build_plugin(skill: Path) -> None:
         for path in sorted(target.rglob("*")):
             if path.is_file():
                 bundle.write(path, Path(NAME) / path.relative_to(target))
-    print(f"{archive}: {archive.stat().st_size // 1024} KB, connector {server}")
+    print(f"{target}: connector {server}; {archive}: {archive.stat().st_size // 1024} KB")
 
 
 if __name__ == "__main__":

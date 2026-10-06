@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "annotations": [
+    {"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "function": "T", "key": "Eb"},
+    {"type": "harmony", "at": {"measure": 1, "beat": 2}, "label": "viio7", "function": "T", "callout": 1},
+    {"type": "harmony", "at": {"measure": 1, "beat": 3}, "label": "I", "function": "T"},
+    {"type": "harmony", "at": {"measure": 2, "beat": 1}, "label": "V7/ii", "function": "PD"},
+    {"type": "harmony", "at": {"measure": 2, "beat": 3}, "label": "ii", "function": "PD", "callout": 2},
+    {"type": "harmony", "at": {"measure": 3, "beat": 1}, "label": "V7", "function": "D"},
+    {"type": "harmony", "at": {"measure": 3, "beat": 2}, "label": "V65/vi", "callout": 3},
+    {"type": "harmony", "at": {"measure": 3, "beat": 3}, "label": "vi", "function": "T"},
+    {"type": "harmony", "at": {"measure": 3, "beat": 4}, "label": "viio7/V", "function": "PD", "callout": 4},
+    {"type": "harmony", "at": {"measure": 4, "beat": 1}, "label": "V7 4–3", "function": "D"},
+    {"type": "harmony", "at": {"measure": 4, "beat": 3}, "label": "I", "function": "T"},
+
+    {"type": "harmony", "at": {"measure": 5, "beat": 1}, "label": "I", "function": "T"},
+    {"type": "harmony", "at": {"measure": 5, "beat": 2}, "label": "viio7", "function": "T"},
+    {"type": "harmony", "at": {"measure": 5, "beat": 3}, "label": "I", "function": "T"},
+    {"type": "harmony", "at": {"measure": 6, "beat": 1}, "label": "V7/ii", "function": "PD"},
+    {"type": "harmony", "at": {"measure": 6, "beat": 3}, "label": "ii", "function": "PD"},
+    {"type": "harmony", "at": {"measure": 7, "beat": 1}, "label": "V7", "function": "D"},
+    {"type": "harmony", "at": {"measure": 7, "beat": 2}, "label": "V65/vi"},
+    {"type": "harmony", "at": {"measure": 7, "beat": 3}, "label": "vi", "function": "T"},
+    {"type": "harmony", "at": {"measure": 7, "beat": 4}, "label": "viio7/V", "function": "PD"},
+    {"type": "harmony", "at": {"measure": 8, "beat": 1}, "label": "V7 4–3", "function": "D"},
+    {"type": "harmony", "at": {"measure": 8, "beat": 3}, "label": "I", "function": "T"},
+
+    {"type": "cadence", "at": {"measure": 4, "beat": 3}, "label": "PAC"},
+    {"type": "cadence", "at": {"measure": 8, "beat": 3}, "label": "PAC"},
+
+    {"type": "phrase", "start": {"measure": 0, "beat": 1}, "end": {"measure": 4, "beat": 4.67}, "label": "a"},
+    {"type": "phrase", "start": {"measure": 4, "beat": 4.67}, "end": {"measure": 8}, "label": "a′ (ornamented repeat)"},
+
+    {"type": "nct", "note": {"measure": 1, "beat": 4, "staff": 2, "pitch": "D2"}, "label": "P"},
+    {"type": "nct", "note": {"measure": 2, "beat": 3, "staff": 1, "pitch": "Bb5"}, "label": "APP"},
+    {"type": "nct", "note": {"measure": 4, "beat": 2.33, "staff": 1, "pitch": "G5"}, "label": "N"},
+    {"type": "nct", "note": {"measure": 4, "beat": 2.67, "staff": 1, "pitch": "C5"}, "label": "P"},
+
+    {"type": "voice_leading", "from_note": {"measure": 4, "beat": 1.33, "staff": 2, "pitch": "Eb4"}, "to_note": {"measure": 4, "beat": 2.33, "staff": 2, "pitch": "D4"}, "label": "4–3"},
+    {"type": "voice_leading", "from_note": {"measure": 4, "beat": 2.67, "staff": 2, "pitch": "Ab4"}, "to_note": {"measure": 4, "beat": 3.67, "staff": 2, "pitch": "G4"}, "label": "7→3"},
+
+    {"type": "callout", "at": {"measure": 1, "beat": 2}, "number": 1},
+    {"type": "callout", "at": {"measure": 2, "beat": 3}, "number": 2},
+    {"type": "callout", "at": {"measure": 3, "beat": 2}, "number": 3},
+    {"type": "callout", "at": {"measure": 3, "beat": 4}, "number": 4}
+  ]
+}
