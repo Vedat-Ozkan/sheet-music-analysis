@@ -42,10 +42,11 @@ gcloud builds submit --tag "$IMAGE" --timeout=40m
 
 # One instance at most and the daily limits in server/app.py keep the cost near zero (owner's $5 limit).
 # Four drafts at about 0.8 GB each fit in 4 GiB alongside the server.
+# gen2: the first-generation sandbox is slow at the many small file reads of loading PyTorch (first draft 78 s).
 URL=$(gcloud run services describe "$SERVICE" --region="$REGION" --format='value(status.url)' 2>/dev/null || true)
 gcloud run deploy "$SERVICE" --image="$IMAGE" --region="$REGION" \
   --service-account="$ACCOUNT" --allow-unauthenticated \
-  --cpu=2 --memory=4Gi --concurrency=4 --min-instances=0 --max-instances=1 --timeout=300 \
+  --execution-environment=gen2 --cpu=2 --memory=4Gi --concurrency=4 --min-instances=0 --max-instances=1 --timeout=300 \
   --set-env-vars="BUCKET=$BUCKET,PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-$URL}"
 
 # On the first deploy the address is only known afterwards, and the server needs it for its links.
