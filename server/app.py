@@ -303,6 +303,7 @@ apps.add_html_resource(
     (HERE / "card.html").read_text(),
     name="Analysis card",
     csp=ResourceCsp(resource_domains=[PUBLIC_BASE_URL]),
+    domain="https://sheetmusicanalysis.com",  # ChatGPT requires a dedicated origin for a submitted plugin's UI
     prefers_border=True,
 )
 
