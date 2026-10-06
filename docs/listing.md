@@ -38,6 +38,8 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 
 ## Claude
 
+Requirement to state wherever the form allows: Claude's **Code execution and file creation** setting must be on (Settings → Capabilities), because the skill reads the score in Claude's sandbox.
+
 Only the plugin is listed: the owner does not want the connector on its own in Claude, where it would need a file button. The server shows Claude only `draft_from_notes`, which the plugin's skill calls.
 
 **Carousel screenshots**, if the plugin form asks (3–5 PNGs at least 1000 px wide, the response only, each with its prompt):
