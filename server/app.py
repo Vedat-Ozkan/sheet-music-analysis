@@ -51,7 +51,7 @@ MAX_SCORE_BYTES = 10 * 1024 * 1024
 DAILY_LIMITS = {"draft": 100, "render": 200, "upload": 200}
 # Hosts keep a card's HTML by its address, so the version goes up whenever the HTML changes.
 CARD_URI = "ui://sheet-music-analysis/card-v1.html"
-PICKER_URI = "ui://sheet-music-analysis/picker-v1.html"
+PICKER_URI = "ui://sheet-music-analysis/picker-v2.html"
 HERE = Path(__file__).parent
 
 def read_only(title: str) -> ToolAnnotations:

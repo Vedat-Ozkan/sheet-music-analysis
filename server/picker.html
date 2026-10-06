@@ -29,10 +29,10 @@
     send({ jsonrpc: "2.0", id, method, params });
     return new Promise((resolve, reject) => { pending[id] = { resolve, reject }; });
   }
+  // Measure the content, not the page: the page is never shorter than the frame, so a tall frame would stay tall.
   function reportSize() {
-    const root = document.documentElement;
     send({ jsonrpc: "2.0", method: "ui/notifications/size-changed",
-           params: { width: root.scrollWidth, height: root.scrollHeight } });
+           params: { width: document.documentElement.scrollWidth, height: Math.ceil(document.body.getBoundingClientRect().height) } });
   }
   function setStatus(text, isError) {
     const status = document.getElementById("status");
