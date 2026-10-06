@@ -340,6 +340,14 @@ A wider version (6/4s resolving only in the next span, and tonic chords over the
 
 **Result.** 29 labels flagged in 8 passages. The reviewer kept 18 unchanged and changed 11, of which 7 only added an explanation to the label ("V7 over G pedal", "V (D only)") and 4 changed the chord (V7/iv to IV7, viio7 to V9, bVI43 to V43/bII, I to I64). Full agreement was identical on all four pieces; root, chord and bass moved by at most 0.01. The contradictions that the notes reveal are mostly pedal points and incomplete chords the reviewer had already weighed. Not adopted. The `--start-from` option stays: it reruns only a later stage on fixed first answers, which keeps review noise out of a test.
 
+### 17. Slow drafts on the hosted server (2026-10-06)
+
+**Problem.** On Cloud Run (2 vCPU, 4 GiB, scale to zero) the first draft after a deploy took 70 s and the next 22 s, against about 5 s on the development machine. Every draft started a fresh Python process that imported PyTorch and loaded the 127 MB checkpoint again, and on Cloud Run those files are read lazily from a 2.9 GB image.
+
+**What we did.** The model runner gained a `--serve` mode that loads the model once and then answers one request per line; `engine/draft.py` keeps one such process per server and restarts it if it dies or hangs. Replies use their own copy of stdout so library output cannot mix with them.
+
+**Result.** Output identical to a one-off run on the Chopin nocturne. In the container under Cloud Run's limits: first draft 5.6 s (model loading included), later drafts 0.4 s from a note list and about 2 s from a score file. On the development machine a repeat draft fell from 6.5 s to 0.5 s.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import json
 import os
+import select
 import subprocess
 import tempfile
+import threading
 from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
@@ -91,25 +93,60 @@ class Draft:
 # ---- running the model ----------------------------------------------------------------
 
 
+class _Worker:
+    """One long-lived runner process (`analysisgnn_runner.py --serve`), so the model loads once, not per draft."""
+
+    def __init__(self):
+        self.process: subprocess.Popen | None = None
+        self.lock = threading.Lock()
+
+    def _start(self) -> None:
+        runner = Path(__file__).parent / "models" / "analysisgnn_runner.py"
+        self.process = subprocess.Popen(
+            [ANALYSISGNN_PYTHON, str(runner), "--serve", ANALYSISGNN_CHECKPOINT],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+        )
+        if self._reply(300) != "ready":
+            self._stop()
+            raise DraftError("AnalysisGNN failed to load")
+
+    def _reply(self, timeout: float) -> str:
+        ready, _, _ = select.select([self.process.stdout], [], [], timeout)
+        return self.process.stdout.readline().strip() if ready else ""
+
+    def _stop(self) -> None:
+        if self.process:
+            self.process.kill()
+            self.process = None
+
+    def run(self, source: Path, result: Path) -> None:
+        with self.lock:
+            if self.process is None or self.process.poll() is not None:
+                self._start()
+            self.process.stdin.write(f"{source}\t{result}\n")
+            self.process.stdin.flush()
+            reply = self._reply(180)
+            if not reply:
+                self._stop()  # hung or died; the next draft starts a fresh one
+                raise DraftError("AnalysisGNN did not answer in time")
+            if reply != "ok":
+                raise DraftError(f"AnalysisGNN failed: {reply.removeprefix('error ')}")
+
+
+_worker = _Worker()
+
+
 def run_analysisgnn(score: bytes, kind: str = "musicxml") -> dict:
     """Raw per-note predictions from AnalysisGNN, which runs in its own environment.
 
     `kind` is "musicxml" for a score file or "notes" for a note list (engine/notes.py).
     """
-    runner = Path(__file__).parent / "models" / "analysisgnn_runner.py"
     with tempfile.TemporaryDirectory() as folder:
         name = "score.notes" if kind == "notes" else "score.mxl" if score[:2] == b"PK" else "score.musicxml"
         source = Path(folder) / name
         source.write_bytes(score)
         result_path = Path(folder) / "raw.json"
-        process = subprocess.run(
-            [ANALYSISGNN_PYTHON, str(runner), ANALYSISGNN_CHECKPOINT, str(source), str(result_path)],
-            capture_output=True,
-            text=True,
-            timeout=180,
-        )
-        if process.returncode != 0 or not result_path.exists():
-            raise DraftError(f"AnalysisGNN failed: {process.stderr.strip().splitlines()[-1:] or 'no output'}")
+        _worker.run(source, result_path)
         return json.loads(result_path.read_text())
 
 

@@ -252,7 +252,8 @@ apps = Apps()
         "Use this after draft_analysis, once you have reviewed the draft, to draw your analysis on the engraved "
         "score. Takes the score_id and your annotation list and returns the page as an image plus PNG and PDF "
         "links, shown to the user in a card. If a position does not exist in the score, the error lists each "
-        "problem so you can fix the list and call again. view is one of all, harmony, voice_leading, form."
+        "problem so you can fix the list and call again. A page shows at most 32 bars: for a longer piece, pass "
+        "measure_range (e.g. 1-16) and draw it passage by passage. view is one of all, harmony, voice_leading, form."
     ),
     annotations=READ_ONLY,
     meta={"openai/outputTemplate": CARD_URI},

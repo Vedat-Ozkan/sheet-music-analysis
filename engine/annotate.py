@@ -7,6 +7,9 @@ from engine.overlay import PageLayout
 from engine.render import Engraving, load_toolkit
 from engine.score import PositionError, ScoreIndex
 
+# A page is an annotated excerpt for study, never a stand-in for the whole score (users send copyrighted music).
+MAX_BARS = 32
+
 # Room for the rows of labels under each system and the brackets above it.
 ANNOTATED_OPTIONS = {
     "svgBoundingBoxes": True,
@@ -55,10 +58,17 @@ def render(
     view: str = "all",
     role: str | None = None,
 ) -> Engraving:
-    """Engrave `measures` (printed numbers, inclusive; the whole score by default) with annotations drawn on."""
+    """Engrave `measures` (printed numbers, inclusive; the whole score by default, if it is short enough) with annotations drawn on."""
     toolkit = load_toolkit(score, ANNOTATED_OPTIONS)
     index = ScoreIndex(toolkit.getMEI())
     check(annotations, index)
+    first, last = measures or (index.measures[0].number, index.measures[-1].number)
+    bars = sum(1 for measure in index.measures if first <= measure.number <= last and measure.number > 0)
+    if bars > MAX_BARS:
+        raise PositionError(
+            f"A page can show at most {MAX_BARS} bars and measures {first}-{last} have {bars}. "
+            f"Draw the analysis passage by passage, {MAX_BARS} bars or fewer each."
+        )
     if measures:
         toolkit.setOptions({"pageHeight": 60000})  # an excerpt is one tall image
         toolkit.select({"measureRange": index.measure_range(*measures)})

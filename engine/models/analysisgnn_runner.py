@@ -5,6 +5,7 @@ graphmuse from GitHub main). From the engine it imports only the note-list
 module, which needs nothing beyond the standard library.
 
     .venv-agnn/bin/python engine/models/analysisgnn_runner.py CHECKPOINT SCORE OUT.json
+    .venv-agnn/bin/python engine/models/analysisgnn_runner.py --serve CHECKPOINT   # stays loaded; see engine/draft.py
 
 SCORE is a MusicXML file, or a note list (engine/notes.py) when its name ends in .notes.
 """
@@ -109,9 +110,13 @@ def decode(task: str, indices: np.ndarray) -> list:
     return [int(index) for index in indices]
 
 
-def main(checkpoint: str, score_path: str, out_path: str) -> None:
+def load(checkpoint: str):
     model = ContinualAnalysisGNN.load_from_checkpoint(checkpoint, map_location="cpu")
     model.eval()
+    return model
+
+
+def analyse(model, score_path: str, out_path: str) -> None:
     if score_path.endswith(".notes"):
         score = score_from_notes(Path(score_path).read_text())
     else:
@@ -159,5 +164,28 @@ def main(checkpoint: str, score_path: str, out_path: str) -> None:
         json.dump(result, out)
 
 
+def serve(checkpoint: str) -> None:
+    """Load the model once, then analyse one "score_path<TAB>out_path" line at a time from stdin.
+    Loading takes most of a one-off run's time, so the server keeps this process alive between drafts."""
+    # Replies get their own copy of stdout; everything else written to stdout, even by C code, goes to stderr.
+    replies = os.fdopen(os.dup(1), "w")
+    os.dup2(2, 1)
+    sys.stdout = sys.stderr
+    model = load(checkpoint)
+    replies.write("ready\n")
+    replies.flush()
+    for line in sys.stdin:
+        score_path, out_path = line.rstrip("\n").split("\t")
+        try:
+            analyse(model, score_path, out_path)
+            replies.write("ok\n")
+        except Exception as error:  # report and keep serving; one bad score must not stop the worker
+            replies.write("error " + " ".join(f"{type(error).__name__}: {error}".split()) + "\n")
+        replies.flush()
+
+
 if __name__ == "__main__":
-    main(*sys.argv[1:4])
+    if sys.argv[1] == "--serve":
+        serve(sys.argv[2])
+    else:
+        analyse(load(sys.argv[1]), sys.argv[2], sys.argv[3])
