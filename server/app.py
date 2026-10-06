@@ -53,7 +53,9 @@ CARD_URI = "ui://sheet-music-analysis/card-v1.html"
 PICKER_URI = "ui://sheet-music-analysis/picker-v1.html"
 HERE = Path(__file__).parent
 
-READ_ONLY = ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False)
+def read_only(title: str) -> ToolAnnotations:
+    # Directories read the name from annotations.title, chat hosts from the tool's own title.
+    return ToolAnnotations(title=title, read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False)
 
 
 class LocalStore:
@@ -262,7 +264,7 @@ apps = Apps()
         "problem so you can fix the list and call again. A page shows at most 32 bars: for a longer piece, pass "
         "measure_range (e.g. 1-16) and draw it passage by passage. view is one of all, harmony, voice_leading, form."
     ),
-    annotations=READ_ONLY,
+    annotations=read_only("Draw the analysis on the score"),
     meta={"openai/outputTemplate": CARD_URI},
 )
 async def render_analysis(
@@ -309,7 +311,7 @@ async def render_analysis(
         "the attached file itself. Shows a file button in the chat. After the user "
         "picks a file, their next message gives you the score_id to use."
     ),
-    annotations=READ_ONLY,
+    annotations=read_only("Choose a score file"),
     meta={"openai/outputTemplate": PICKER_URI},
 )
 def choose_score(ctx: Context) -> str:
@@ -375,7 +377,7 @@ mcp = Server(
         "plus a score_id. Follow it with render_analysis. If the user attached a file that you cannot pass as "
         "score_file, call choose_score first. " + SCORE_INPUT_HELP
     ),
-    annotations=READ_ONLY,
+    annotations=read_only("Draft a harmonic analysis"),
     meta={"openai/fileParams": ["score_file"]},
 )
 async def draft_analysis(
@@ -419,7 +421,7 @@ async def draft_analysis(
         "cannot analyse the score: tell the user that in Claude this needs the Sheet Music Analysis plugin "
         "(from Claude's directory) and Code execution and file creation turned on in Settings > Capabilities."
     ),
-    annotations=READ_ONLY,
+    annotations=read_only("Draft a harmonic analysis from a note list"),
 )
 async def draft_from_notes(ctx: Context, notes: str) -> CallToolResult:
     source = platform(ctx)
