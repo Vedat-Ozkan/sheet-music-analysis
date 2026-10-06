@@ -46,7 +46,7 @@ Repo layout (the project directory is currently empty):
 ## Steps
 
 **0. Setup**
-- Pick the permanent name (OpenAI limit 30 characters; the Claude slug cannot change; must be distinctive). Register a domain.
+- Pick the permanent name and register a domain. Done 2026-10-06: **Sheet Music Analysis**, slug `sheet-music-analysis`, domain `sheetmusicanalysis.com` (Cloudflare Registrar).
 - Download the AnalysisGNN weights. Done: the W&B artifact was not accessible, so the checkpoint came from the author's Hugging Face Space `manoskary/analysisgnn` (`checkpoint/model.ckpt`), whose card declares `license: mit` (checked again 2026-10-03).
 
 **1. Platform spike → Gate 1 (owner decides display and upload)**

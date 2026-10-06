@@ -17,6 +17,7 @@ dependencies = [
     "python-multipart>=0.0.20",
     "fonttools>=4.50",
     "pydantic>=2.8",
+    "google-cloud-storage>=3.16.0",
 ]
 
 [dependency-groups]

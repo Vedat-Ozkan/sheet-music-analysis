@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; font: 14px system-ui, sans-serif; background: #fff; color: #111; }
+  img { display: block; width: 100%; height: auto; }
+  .bar { display: flex; gap: 12px; padding: 8px 12px; align-items: center; justify-content: space-between; }
+  a { color: #0b57d0; cursor: pointer; }
+</style>
+</head>
+<body>
+<img id="page" alt="Engraved score">
+<div class="bar"><span id="info"></span><a id="pdf">Download PDF</a></div>
+<script>
+  // Minimal MCP Apps view: read-only, shows the rendered page and a PDF link.
+  let nextId = 1;
+  const pending = {};
+  let pdfUrl = null;
+
+  function send(message) { window.parent.postMessage(message, "*"); }
+  function request(method, params) {
+    const id = nextId++;
+    send({ jsonrpc: "2.0", id, method, params });
+    return new Promise((resolve) => { pending[id] = resolve; });
+  }
+  function reportSize() {
+    const root = document.documentElement;
+    send({ jsonrpc: "2.0", method: "ui/notifications/size-changed",
+           params: { width: root.scrollWidth, height: root.scrollHeight } });
+  }
+  function show(data) {
+    if (!data || !data.image_url) return;
+    const image = document.getElementById("page");
+    image.onload = reportSize;
+    image.src = data.image_url;
+    pdfUrl = data.pdf_url;
+    document.getElementById("info").textContent = data.caption || "";
+  }
+
+  window.addEventListener("message", (event) => {
+    const message = event.data;
+    if (!message || message.jsonrpc !== "2.0") return;
+    if (message.id !== undefined && pending[message.id]) {
+      pending[message.id](message.result);
+      delete pending[message.id];
+    } else if (message.method === "ui/notifications/tool-result") {
+      show(message.params && message.params.structuredContent);
+    }
+  });
+
+  document.getElementById("pdf").addEventListener("click", () => {
+    if (!pdfUrl) return;
+    if (window.openai && window.openai.openExternal) window.openai.openExternal({ href: pdfUrl });
+    else request("ui/open-link", { url: pdfUrl });
+  });
+
+  reportSize();
+  new ResizeObserver(reportSize).observe(document.body);
+
+  const identity = { name: "score-card", version: "0.0.1" };
+  request("ui/initialize", { protocolVersion: "2026-01-26", appInfo: identity, clientInfo: identity, appCapabilities: {} })
+    .then(() => send({ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {} }));
+
+  // ChatGPT also exposes the tool result directly.
+  if (window.openai && window.openai.toolOutput) show(window.openai.toolOutput);
+  window.addEventListener("openai:set_globals", () => show(window.openai && window.openai.toolOutput));
+</script>
+</body>
+</html>
