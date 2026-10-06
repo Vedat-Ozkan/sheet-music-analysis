@@ -225,8 +225,7 @@ REVIEW_GUIDE = (
     "score_id and your annotation list (its `view` argument draws one layer: harmony, voice_leading or form), "
     "show the page and write the commentary.\n"
     "Positions: `measure` is the printed number (a pickup is 0); `beat` is 1-based in the unit given above; "
-    "`pitch` is like \"Eb4\" at sounding pitch; `staff` 1 is the top staff. Labels are RomanText: V65/vi, "
-    "viio43/ii, It6; anything after a space is drawn small, so keep it for a short note such as 4-3.\n\n"
+    "`pitch` is like \"Eb4\" at sounding pitch; `staff` 1 is the top staff.\n\n"
     "## Method" + SKILL_RULES
 )
 

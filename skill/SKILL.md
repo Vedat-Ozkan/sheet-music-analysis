@@ -81,6 +81,7 @@ Tell the user which of these you judged the passage to be.
 ## Annotations to include
 
 - `harmony` at each real change of chord, with `function` (T, PD, D) wherever it is clear, and `key` on the first chord and at each change of key.
+  Its `label` is the numeral and figures only (`V65/vi`, `viio43/ii`, `I42`); a suspension figure may follow after a space (`V7 4-3`). Pedals go in a `region` and non-chord tones in `nct`, never in the label.
 - `cadence` at each cadence's arrival chord.
 - `phrase` brackets for each phrase.
 - `region` brackets where a scale, mode, parallel motion or pedal explains the passage better than chord labels.
