@@ -1,0 +1,120 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "sheet-music-analysis",
+  "version": "1.0.0",
+  "description": "Harmonic analysis of sheet music, drawn on the engraved score.",
+  "author": {
+    "name": "Sheet Music Analysis",
+    "email": "support@sheetmusicanalysis.com",
+    "url": "https://sheetmusicanalysis.com"
+  },
+  "homepage": "https://sheetmusicanalysis.com",
+  "repository": "https://github.com/Vedat-Ozkan/sheet-music-analysis",
+  "license": "MIT",
+  "keywords": [
+    "music",
+    "music theory",
+    "harmony",
+    "harmonic analysis",
+    "roman numerals",
+    "sheet music",
+    "musicxml",
+    "cadence",
+    "music education"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Sheet Music Analysis",
+        "shortDescription": "Harmony analysis on the score",
+        "longDescription": "Sheet Music Analysis marks up a piece of music the way a theory teacher would pencil it in. Attach a score as a MusicXML file (.mxl or .musicxml, which MuseScore, Sibelius, Finale and Dorico can all export) and ask what is happening in the music.\n\nYou get the engraved score back, as an image and a PDF, with:\n- every chord labelled with a Roman numeral, and coloured bands showing its job: home (tonic), moving away (predominant) or pulling back home (dominant);\n- cadences, the musical commas and full stops, boxed, and brackets showing where each phrase begins and ends;\n- melody notes that don't belong to the chord circled and named;\n- arrows where the way one note moves to the next matters;\n- numbered circles that match a short written explanation in the chat.\n\nA computer model trained on hundreds of expert analyses drafts the analysis; the chat model then checks it against the actual notes and corrects it. On 12 well-known pieces checked beat by beat against experts' analyses, 71% of beats matched after the review (experts match each other on about 78%). Treat it as a well-read study partner, not an answer key: it is least reliable where experts also disagree, such as music in a major key that briefly borrows chords from the minor, and music like Debussy's that doesn't follow the usual chord patterns.\n\nAsk for one layer at a time (harmony, voice leading or form) when a page gets busy. Each page shows up to 32 bars; longer pieces are analysed passage by passage. Free, no account, no ads.",
+        "developerName": "Sheet Music Analysis",
+        "category": "Education",
+        "capabilities": [
+          "Analyse harmony in a MusicXML score",
+          "Draw the analysis on the engraved page"
+        ],
+        "websiteURL": "https://sheetmusicanalysis.com",
+        "supportURL": "https://sheetmusicanalysis.com/#support",
+        "privacyPolicyURL": "https://sheetmusicanalysis.com/privacy.html",
+        "termsOfServiceURL": "https://sheetmusicanalysis.com/terms.html",
+        "defaultPrompt": [
+          "Analyse the harmony of bars 1-8 of this score.",
+          "Show me the phrases and cadences in this piece.",
+          "How do the voices move in bars 5-8?"
+        ],
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/logo.png"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Full analysis of an attached score",
+              "prompt": "Analyse the harmony of bars 1-8 of this.",
+              "tools_triggered": "draft_analysis, render_analysis",
+              "expected_behavior": "A card shows the engraved bars 1-8 with Roman numerals, coloured chord-function bands, boxed cadences and numbered circles, with PNG and PDF links, followed by a short commentary.",
+              "file_attachment_urls": [
+                "https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl"
+              ]
+            },
+            {
+              "description": "One layer only, same chat",
+              "prompt": "Now show only the harmony.",
+              "tools_triggered": "render_analysis",
+              "expected_behavior": "The same bars redrawn with chords and bands only (view harmony).",
+              "file_attachment_urls": [
+                "https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl"
+              ]
+            },
+            {
+              "description": "Next passage, same chat",
+              "prompt": "What happens in bars 9-16?",
+              "tools_triggered": "draft_analysis, render_analysis",
+              "expected_behavior": "Bars 9-16 annotated in a card, with a commentary.",
+              "file_attachment_urls": [
+                "https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl"
+              ]
+            },
+            {
+              "description": "Form view, same chat",
+              "prompt": "Show the phrase structure of bars 1-16.",
+              "tools_triggered": "render_analysis",
+              "expected_behavior": "Bars 1-16 with phrase brackets and cadences (view form).",
+              "file_attachment_urls": [
+                "https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl"
+              ]
+            },
+            {
+              "description": "No file attached yet",
+              "prompt": "I have a MusicXML score I'd like analysed.",
+              "tools_triggered": "choose_score",
+              "expected_behavior": "A card with a file button. After the reviewer picks the sample file, the analysis follows as in the first case.",
+              "file_attachment_urls": [
+                "https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl"
+              ]
+            }
+          ],
+          "negative": [
+            {
+              "description": "General music theory question with no score: answered from general knowledge, no tool call.",
+              "prompt": "What is a Neapolitan sixth chord?"
+            },
+            {
+              "description": "Audio instead of a score: the app needs MusicXML, so no tool call; the reply explains that and suggests exporting MusicXML from notation software.",
+              "prompt": "Here's an MP3 of my piece, can you analyse it?"
+            },
+            {
+              "description": "Editing or rewriting music is outside the app, which only analyses: no tool call.",
+              "prompt": "Transpose this score to D major and send me the new file."
+            }
+          ]
+        },
+        "commerce": false
+      },
+      "publication": {
+        "release_notes": "First release: Roman-numeral analysis, cadences, phrases, non-chord tones and voice leading drawn on the engraved score, with harmony, voice-leading and form views."
+      }
+    }
+  }
+}

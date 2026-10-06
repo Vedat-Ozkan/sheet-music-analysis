@@ -82,6 +82,8 @@ Requirement to state wherever the form allows: Claude's **Code execution and fil
 
 ## ChatGPT: submission form
 
+OpenAI now takes a plugin ZIP rather than a form: the text below lives in `openai-plugin/plugin.json` (see the README), and is uploaded at platform.openai.com/plugins.
+
 - **Name** (30 characters): Sheet Music Analysis (20).
 - **Description:** the shared description above.
 - **Test file for reviewers:** https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl
@@ -98,6 +100,6 @@ Requirement to state wherever the form allows: Claude's **Code execution and fil
 
 1. "What is a Neapolitan sixth chord?" → answered from general knowledge; no tool call (no score is involved).
 2. "Here's an MP3 of my piece, can you analyse it?" → no tool call; explains that the app needs a MusicXML score, not audio.
-3. "Analyse the whole of this 120-bar sonata movement on one page." → `render_analysis` refuses more than 32 bars per page; the reply offers to go passage by passage instead.
+3. "Transpose this score to D major and send me the new file." → no tool call; the app only analyses.
 
 - **Demo video:** a screen recording of cases 1–5 and one of the negative cases in ChatGPT, uploaded as an unlisted video.
