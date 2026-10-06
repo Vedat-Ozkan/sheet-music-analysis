@@ -366,6 +366,14 @@ A wider version (6/4s resolving only in the next span, and tonic chords over the
 
 **Result.** Not yet measured: needs a ChatGPT run of the same passage after the next deploy.
 
+### 20. Slow deploys (2026-10-06)
+
+**Problem.** Every deploy rebuilt the whole image on Cloud Build, 5.5–6.3 minutes, though nearly every change was to our code. A layer cache with Kaniko made it worse: 10 minutes to fill the cache, then 7 min 58 s with every heavy step a cache hit, because Kaniko unpacks each cached layer (4.5 minutes) and copies the 2 GB of environments into the final stage again (1.5 minutes). Our own code took under a second.
+
+**What we did.** The image is split. `Dockerfile.base` holds Python, PyTorch, the model and its weights, tagged by a hash of its inputs and built only when they change; `Dockerfile` copies the code on top with an ordinary Docker build, which reuses the base's layers in the registry.
+
+**Result.** Not yet measured: the first deploy builds the base once.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

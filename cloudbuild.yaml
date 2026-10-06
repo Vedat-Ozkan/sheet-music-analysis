@@ -1,8 +1,10 @@
-# Used by server/deploy.sh. Kaniko keeps every layer in a cache next to the image, so a change to engine/ or
-# server/ rebuilds only the last copies instead of reinstalling PyTorch and downloading the weights (6 min).
+# Used by server/deploy.sh for both images: the base (Dockerfile.base) and the server on top of it (Dockerfile).
 steps:
-  - name: gcr.io/kaniko-project/executor:v1.23.2
-    args: ["--destination=${_IMAGE}", "--cache=true", "--cache-ttl=720h"]
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "${_DOCKERFILE}", "--build-arg", "BASE=${_BASE}", "-t", "${_IMAGE}", "."]
+images: ["${_IMAGE}"]
 substitutions:
+  _DOCKERFILE: Dockerfile
+  _BASE: ""
   _IMAGE: ""
 timeout: 2400s

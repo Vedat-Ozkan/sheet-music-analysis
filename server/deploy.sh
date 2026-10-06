@@ -38,7 +38,13 @@ done
 if ! gcloud artifacts repositories describe "$SERVICE" --location="$REGION" >/dev/null 2>&1; then
   gcloud artifacts repositories create "$SERVICE" --repository-format=docker --location="$REGION"
 fi
-gcloud builds submit --config=cloudbuild.yaml --substitutions=_IMAGE="$IMAGE"
+# The base holds PyTorch, the model and its weights (about 2 GB, 6-8 minutes to build). Its tag is a hash of what
+# goes into it, so it is rebuilt only when that changes; a code change builds just the thin layer on top.
+BASE=$REGION-docker.pkg.dev/$PROJECT/$SERVICE/base:$(cat Dockerfile.base pyproject.toml uv.lock server/requirements-agnn.txt | sha256sum | cut -c1-16)
+if ! gcloud artifacts docker images describe "$BASE" >/dev/null 2>&1; then
+  gcloud builds submit --config=cloudbuild.yaml --substitutions=_DOCKERFILE=Dockerfile.base,_IMAGE="$BASE"
+fi
+gcloud builds submit --config=cloudbuild.yaml --substitutions=_BASE="$BASE",_IMAGE="$IMAGE"
 
 # One instance at most and the daily limits in server/app.py keep the cost near zero (owner's $5 limit).
 # Four drafts at about 0.8 GB each fit in 4 GiB alongside the server.
