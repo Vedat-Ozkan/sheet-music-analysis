@@ -97,10 +97,15 @@ counter_lock = asyncio.Lock()
 
 def platform(ctx: Context | None) -> str:
     try:
-        agent = (dict(ctx.headers or {}) if ctx else {}).get("user-agent") or ""
+        headers = ctx.headers if ctx else None
     except Exception:
-        agent = ""
-    return "claude" if "Claude" in agent else "chatgpt" if "openai" in agent.lower() else "other"
+        headers = None
+    return client_of(headers)
+
+
+def client_of(headers) -> str:
+    agent = (dict(headers or {}).get("user-agent") or "").lower()
+    return "claude" if "claude" in agent else "chatgpt" if "openai" in agent else "other"
 
 
 def log(event: str, **details) -> None:
@@ -329,9 +334,22 @@ apps.add_html_resource(
 )
 
 
+# In Claude the plugin's skill reads the attached file in Claude's sandbox and needs only draft_from_notes;
+# the owner wants no file button or server-side drawing there, so Claude is not offered the other tools.
+CLAUDE_TOOLS = {"draft_from_notes"}
+
+
+class Server(MCPServer):
+    async def _handle_list_tools(self, ctx, params):
+        result = await super()._handle_list_tools(ctx, params)
+        if client_of(getattr(ctx.request, "headers", None)) == "claude":
+            result.tools = [tool for tool in result.tools if tool.name in CLAUDE_TOOLS]
+        return result
+
+
 # The extension's tools are collected when the server is constructed, so this comes after them.
 SITE = "https://sheetmusicanalysis.com"
-mcp = MCPServer(
+mcp = Server(
     "sheet-music-analysis",
     title="Sheet Music Analysis",
     website_url=SITE,
@@ -342,7 +360,8 @@ mcp = MCPServer(
     ],
     instructions=(
         "Harmonic analysis of MusicXML scores drawn on the engraved page. For an analysis, call draft_analysis, "
-        "review the draft, then call render_analysis."
+        "review the draft, then call render_analysis. In Claude, the sheet-music-analysis skill does the analysis "
+        "and calls draft_from_notes."
     ),
     extensions=[apps],
 )

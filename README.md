@@ -59,7 +59,7 @@ The server needs a public HTTPS address (a tunnel or a host) before Claude or Ch
 | `draft_analysis` | Runs the draft model and returns its table for the chat model to review. |
 | `render_analysis` | Draws the reviewed annotation list and shows the page in a card, with a PDF link. |
 | `draft_from_notes` | Runs the draft model on a note list sent by the Claude skill. |
-| `choose_score` | Fallback: a file button in the chat, for Claude users who have the connector but not the skill. |
+| `choose_score` | A file button in the chat, for ChatGPT users who haven't attached a score. |
 | `engrave_score`, `engrave_score_card` | Plain engraving, as an image result or in a card. |
 | `sample_analysis`, `sample_analysis_card` | The hand-annotated Chopin example, needing no file. |
 

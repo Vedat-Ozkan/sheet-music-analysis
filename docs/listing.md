@@ -36,26 +36,22 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 
 **Categories** (Claude, one to five; pick from the portal's list): Education; whichever of Music / Arts / Creative the portal offers.
 
-## Claude: connector form
+## Claude
 
-- **Use cases:** music students checking their own harmonic analysis homework; teachers preparing an annotated example; composers studying how a passage works; amateur players who want to understand what they are playing.
-- **What users need first:** a score as a MusicXML file. With the plugin installed, Claude reads the attached file directly; with the connector alone, a file button appears in the chat. No account.
-- **Reads or writes:** reads only. It sends back an annotated image and PDF; it changes nothing in the user's accounts.
-- **Authentication:** none.
-- **Data handling:** our own service (no partner API); no health data; no sponsored content.
-- **Test & launch:** no test account needed. Add `https://mcp.sheetmusicanalysis.com/mcp` as a custom connector, attach the sample score https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl (public domain), and ask "Analyse the harmony of bars 1–8". Each tool has been run from Claude as a custom connector.
-- **Carousel screenshots** (3–5 PNGs at least 1000 px wide, the response only, each with its prompt):
-  1. "Analyse the harmony of bars 1–8 of this nocturne": the full page.
-  2. "Just the harmony, please": the harmony view.
-  3. "How do the voices move in bars 5–8?": the voice-leading view.
-  4. "Show me the phrase structure": the form view.
+Only the plugin is listed: the owner does not want the connector on its own in Claude, where it would need a file button. The server shows Claude only `draft_from_notes`, which the plugin's skill calls.
+
+**Carousel screenshots**, if the plugin form asks (3–5 PNGs at least 1000 px wide, the response only, each with its prompt):
+1. "Analyse the harmony of bars 1–8 of this nocturne": the full page.
+2. "Just the harmony, please": the harmony view.
+3. "How do the voices move in bars 5–8?": the voice-leading view.
+4. "Show me the phrase structure": the form view.
 
 ## Claude: plugin form
 
 - **Repository:** `Vedat-Ozkan/sheet-music-analysis`, path `dist/sheet-music-analysis`, branch `main`.
 - **Personal data:** none collected. The plugin sends our server a list of the notes in the passage (pitches, timings, staves), not the file; the list is not stored.
 - **Third-party services:** our own server at mcp.sheetmusicanalysis.com, hosted on Google Cloud, behind Cloudflare.
-- **Retention:** note lists are not stored. Files sent through the connector's file button are deleted after one day.
+- **Retention:** note lists are not stored.
 - **Age-appropriateness:** suitable for general audiences, including students under 18.
 
 ## ChatGPT: submission form
