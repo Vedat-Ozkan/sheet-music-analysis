@@ -43,15 +43,10 @@ gcloud builds submit --tag "$IMAGE" --timeout=40m
 # One instance at most and the daily limits in server/app.py keep the cost near zero (owner's $5 limit).
 # Four drafts at about 0.8 GB each fit in 4 GiB alongside the server.
 # gen2: the first-generation sandbox is slow at the many small file reads of loading PyTorch (first draft 78 s).
-URL=$(gcloud run services describe "$SERVICE" --region="$REGION" --format='value(status.url)' 2>/dev/null || true)
+# The Cloudflare Worker in proxy/ serves the server under our domain; links and the cards' CSP use it.
+PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://mcp.sheetmusicanalysis.com}
 gcloud run deploy "$SERVICE" --image="$IMAGE" --region="$REGION" \
   --service-account="$ACCOUNT" --allow-unauthenticated \
   --execution-environment=gen2 --cpu=2 --memory=4Gi --concurrency=4 --min-instances=0 --max-instances=1 --timeout=300 \
-  --set-env-vars="BUCKET=$BUCKET,PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-$URL}"
-
-# On the first deploy the address is only known afterwards, and the server needs it for its links.
-if [ -z "${PUBLIC_BASE_URL:-$URL}" ]; then
-  URL=$(gcloud run services describe "$SERVICE" --region="$REGION" --format='value(status.url)')
-  gcloud run services update "$SERVICE" --region="$REGION" --update-env-vars="PUBLIC_BASE_URL=$URL"
-fi
-echo "Connector URL: ${PUBLIC_BASE_URL:-$(gcloud run services describe "$SERVICE" --region="$REGION" --format='value(status.url)')}/mcp"
+  --set-env-vars="BUCKET=$BUCKET,PUBLIC_BASE_URL=$PUBLIC_BASE_URL"
+echo "Connector URL: $PUBLIC_BASE_URL/mcp"

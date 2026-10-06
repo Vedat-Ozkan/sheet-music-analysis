@@ -1,0 +1,7 @@
+// mcp.sheetmusicanalysis.com, forwarded to Cloud Run. Deploy: npx wrangler@4 deploy -c proxy/wrangler.jsonc
+{
+  "name": "sheet-music-analysis-mcp",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "routes": [{ "pattern": "mcp.sheetmusicanalysis.com", "custom_domain": true }]
+}
