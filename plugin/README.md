@@ -4,7 +4,9 @@ Harmonic analysis of sheet music, drawn on the engraved score, for music student
 
 ## Use it
 
-Attach a MusicXML score (`.mxl` or `.musicxml`; MuseScore, Dorico, Sibelius and Finale can export one) and ask Claude to analyse a passage, for example "Analyse bars 1–8 and show me the annotated score". Claude returns the page as PNG and PDF with Roman numerals, chord functions, cadences, phrase brackets, non-chord tones and voice-leading arrows, plus a short commentary numbered to match the page.
+First turn on **Code execution and file creation** in Claude's Settings → Capabilities: the plugin reads your file in Claude's sandbox.
+
+Attach a MusicXML score (`.mxl` or `.musicxml`; MuseScore, Dorico, Sibelius and Finale can export one) and ask Claude to analyse a passage, for example "Analyse bars 1–8 and show me the annotated score". Claude returns the page as PNG and PDF with Roman numerals, chord functions, cadences, phrase brackets, non-chord tones and voice-leading arrows, plus a short commentary numbered to match the page. Each page shows up to 32 bars; for a longer piece, go passage by passage.
 
 Works with any Claude model; the analysis is most accurate with Claude Opus, since Claude checks and corrects the draft analysis itself (see below).
 
@@ -14,4 +16,10 @@ The skill reads your attached file inside Claude's own sandbox and engraves the 
 
 ## Data
 
-The score file stays in your conversation. The connector receives the notes of the passage (pitches and durations, no titles, lyrics or text) and returns the draft; it keeps nothing afterwards.
+The score file stays in your conversation. The connector receives the notes of the passage (pitches and durations, no titles, lyrics or text) and returns the draft; it keeps nothing afterwards. Privacy policy: https://sheetmusicanalysis.com/privacy.html
+
+## More
+
+- Website and how-to guide: https://sheetmusicanalysis.com
+- Support: support@sheetmusicanalysis.com
+- The draft analysis comes from [AnalysisGNN](https://github.com/manoskary/analysisgnn) by Emmanouil Karystinaios, Johannes Hentschel, Markus Neuwirth and Gerhard Widmer, with our thanks.
