@@ -2,6 +2,12 @@
 
 Harmonic analysis drawn on an engraved score, for use inside Claude and ChatGPT. The plan is in `docs/plan.md`; the research behind it is in `docs/research-2026-10-01.md`.
 
+## Thanks
+
+This project would not exist without [AnalysisGNN](https://github.com/manoskary/analysisgnn), which drafts every analysis it draws. Our sincere thanks to its authors, **Emmanouil Karystinaios, Johannes Hentschel, Markus Neuwirth and Gerhard Widmer**, for releasing the model, its code and its trained weights openly ([code](https://github.com/manoskary/analysisgnn), [weights](https://huggingface.co/spaces/manoskary/analysisgnn)). If you use this project in research, please cite their paper:
+
+> Karystinaios, E., Hentschel, J., Neuwirth, M. and Widmer, G. AnalysisGNN: A Unified Music Analysis Model with Graph Neural Networks. *International Symposium on Computer Music Multidisciplinary Research (CMMR)*, 2025.
+
 ## Layout
 
 | Path | What it is |
