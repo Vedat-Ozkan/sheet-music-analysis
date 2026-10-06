@@ -348,6 +348,16 @@ A wider version (6/4s resolving only in the next span, and tonic chords over the
 
 **Result.** Output identical to a one-off run on the Chopin nocturne. In the container under Cloud Run's limits: first draft 5.6 s (model loading included), later drafts 0.4 s from a note list and about 2 s from a score file. On the development machine a repeat draft fell from 6.5 s to 0.5 s.
 
+**Still open.** On Cloud Run itself the first draft after a deploy still takes about 60 s: importing PyTorch takes 54.6 s there against 3.4 s locally, while loading the model (2.7 s) and the analysis (1.8 s) are quick. The second-generation execution environment did not change this. Later drafts take 0.4–3 s.
+
+### 18. Crowded chord labels (2026-10-06)
+
+**Problem.** Verovio spaces each bar by its notes alone. In a bar with five or six chords (bar 12 of the nocturne, as drawn in a live Claude test) the overlay pushed each numeral right of the one before, so the labels sat next to each other with no clear space, drifted away from their beats, and the last one ran past the end of the staff.
+
+**What we did.** Before laying out the page, `engine/annotate.py` adds an invisible chord symbol (`<harm>`) under the bottom staff for every numeral, padded because Verovio sets chord symbols smaller than our numerals. Verovio widens a bar until its chord symbols fit, and the overlay removes them before drawing the real numerals.
+
+**Result.** In the bars 9–16 test page the crowded bar is wider and every numeral sits under its own beat with clear space, inside the staff. Pages without crowding are spaced as before, apart from small shifts; the reference image for bars 1–8 was regenerated (one system taller).
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

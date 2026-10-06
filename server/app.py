@@ -217,6 +217,8 @@ REVIEW_GUIDE = """HOW TO USE THIS DRAFT
    and drop the false ones.
 4. Add phrases, cadences and a few numbered callouts for what is unusual; say what was expected and what
    the composer did instead in your written commentary, one numbered paragraph per callout.
+   In the commentary, name positions as a musician would ("the last eighth of beat 2" in 12/8, "the second
+   half of beat 3"), never as decimal beats.
 5. Call render_analysis with the score_id below and your annotation list, then show the page.
 Positions: `measure` is the printed number (a pickup is 0); `beat` is 1-based in the unit given below;
 `pitch` is like "Eb4" at sounding pitch; `staff` 1 is the top staff."""

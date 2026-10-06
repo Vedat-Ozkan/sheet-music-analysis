@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import re
+from xml.sax.saxutils import escape
+
 from engine.annotations import AnnotationList, Cadence, Callout, Harmony, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
 from engine.render import Engraving, load_toolkit
@@ -69,6 +72,7 @@ def render(
             f"A page can show at most {MAX_BARS} bars and measures {first}-{last} have {bars}. "
             f"Draw the analysis passage by passage, {MAX_BARS} bars or fewer each."
         )
+    _reserve_numeral_room(toolkit, index, annotations)
     if measures:
         toolkit.setOptions({"pageHeight": 60000})  # an excerpt is one tall image
         toolkit.select({"measureRange": index.measure_range(*measures)})
@@ -79,3 +83,30 @@ def render(
         layout.draw(annotations, view, role)
         pages.append(layout.to_svg())
     return Engraving(pages)
+
+
+def _reserve_numeral_room(toolkit, index: ScoreIndex, annotations: AnnotationList) -> None:
+    """Verovio spaces bars by their notes alone, so a bar with several chords squeezes its numerals together.
+    A hidden chord symbol per numeral makes it widen such bars; the overlay removes them before drawing."""
+    mei = toolkit.getMEI()
+    bottom_staff = max(int(n) for n in re.findall(r'<staffDef\b[^>]*?\bn="(\d+)"', mei))
+    added: dict[str, list[str]] = {}
+    for harmony in annotations.annotations:
+        if not isinstance(harmony, Harmony):
+            continue
+        measure = index.measure(harmony.at.measure)
+        offset = measure.offset_of(harmony.at.beat)
+        segment = measure.segment_at(offset)
+        unit = int(measure.meter.split("/")[1]) if measure.meter else 4
+        tstamp = 1 + (offset - segment.start) * unit / 4
+        # Verovio sets chord symbols smaller than our numerals, hence the padding.
+        added.setdefault(segment.id, []).append(
+            f'<harm staff="{bottom_staff}" tstamp="{float(tstamp):g}" place="below">{escape(harmony.label)}\u00a0\u00a0</harm>'
+        )
+    if not added:
+        return
+    for measure_id, harms in added.items():
+        # MEI measures never nest, so the first closing tag after the opening one is this measure's.
+        end = mei.index("</measure>", mei.index(f'xml:id="{measure_id}"'))
+        mei = mei[:end] + "".join(harms) + mei[end:]
+    toolkit.loadData(mei)

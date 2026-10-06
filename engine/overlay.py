@@ -140,6 +140,7 @@ class PageLayout:
         self.measures: dict[str, MeasureGeometry] = {}
         self.systems: list[System] = []
         self._remove("fing")  # fingering is clutter on an analysis page
+        self._remove("harm")  # hidden placeholders that made Verovio leave room for the numerals (annotate.py)
         for group in self.canvas.iter(f"{S}g"):
             if "system" in group.get("class", "").split() and "bounding-box" not in group.get("class", ""):
                 system = System(len(self.systems))

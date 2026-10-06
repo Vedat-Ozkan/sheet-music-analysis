@@ -94,6 +94,7 @@ Write it after the page, as numbered paragraphs matching the callouts, then one 
 
 - **For a student** (the default): explain each label the first time it appears, show the reasoning ("the bass rises by step, so this is a passing chord"), and keep to what is on the page.
 - **For a composer** (when the user says they write music, or asks how or why it works): skip the definitions, focus on what is unusual, compare with the expected version, and name the technique so it can be reused.
+- **Name positions as a musician would**, never with the decimal beats from the tables: "the downbeat of bar 13", "the last eighth of beat 2" or "the sixth eighth note" in 6/8, 9/8 or 12/8, "the second half of beat 3" in simple time.
 
 Do not claim more certainty than you have. Automatic and human analyses both differ on details; where a second reading is reasonable, name it.
 
