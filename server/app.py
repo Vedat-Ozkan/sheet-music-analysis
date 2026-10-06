@@ -51,7 +51,7 @@ MAX_SCORE_BYTES = 10 * 1024 * 1024
 DAILY_LIMITS = {"draft": 100, "render": 200, "upload": 200}
 # Hosts keep a card's HTML by its address, so the version goes up whenever the HTML changes.
 CARD_URI = "ui://sheet-music-analysis/card-v1.html"
-PICKER_URI = "ui://sheet-music-analysis/picker-v2.html"
+PICKER_URI = "ui://sheet-music-analysis/picker-v3.html"
 HERE = Path(__file__).parent
 
 def read_only(title: str) -> ToolAnnotations:
@@ -310,14 +310,14 @@ async def render_analysis(
         "Use this when the user wants a score analysed and you cannot pass their file as score_file "
         "(for example the attachment is not available to tools), and you have no sheet-music-analysis skill that reads "
         "the attached file itself. Shows a file button in the chat. After the user "
-        "picks a file, their next message gives you the score_id to use."
+        "picks a file, its score_id is in the app's context with their next message, which says which bars they want."
     ),
     annotations=read_only("Choose a score file"),
     meta={"openai/outputTemplate": PICKER_URI},
 )
 def choose_score(ctx: Context) -> str:
     log("choose_score", platform=platform(ctx))
-    return "A file button is now shown to the user. Wait for their next message; it will contain the score_id."
+    return "A file button is now shown to the user. Wait for their next message; the chosen file's score_id will be in the app's context."
 
 
 apps.add_html_resource(

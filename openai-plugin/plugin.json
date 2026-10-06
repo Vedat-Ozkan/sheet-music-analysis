@@ -89,7 +89,7 @@
               "description": "No file attached yet",
               "prompt": "I have a MusicXML score I'd like analysed.",
               "tools_triggered": "choose_score",
-              "expected_behavior": "A card with a file button. After the reviewer picks the sample file, ChatGPT asks which bars to analyse; replying \"bars 1-8\" gives the analysis as in the first case.",
+              "expected_behavior": "A card with a file button. After the reviewer picks the sample file, the card confirms it and asks which bars; typing \"Analyse bars 1-8\" gives the analysis as in the first case.",
               "file_attachment_urls": [
                 "https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl"
               ]

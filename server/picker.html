@@ -31,8 +31,10 @@
   }
   // Measure the content, not the page: the page is never shorter than the frame, so a tall frame would stay tall.
   function reportSize() {
+    const height = Math.ceil(document.body.getBoundingClientRect().height);
+    if (window.openai && window.openai.notifyIntrinsicHeight) window.openai.notifyIntrinsicHeight(height);
     send({ jsonrpc: "2.0", method: "ui/notifications/size-changed",
-           params: { width: document.documentElement.scrollWidth, height: Math.ceil(document.body.getBoundingClientRect().height) } });
+           params: { width: document.documentElement.scrollWidth, height } });
   }
   function setStatus(text, isError) {
     const status = document.getElementById("status");
@@ -49,16 +51,13 @@
     if (message.error) reject(message.error); else resolve(message.result);
   });
 
-  // Tell the chat model which score was chosen, so it carries on with the user's request.
-  async function announce(text) {
-    if (window.openai && window.openai.sendFollowUpMessage) {
-      return window.openai.sendFollowUpMessage({ prompt: text });
+  // Let the chat model see which score was chosen without sending a message: the user goes on to say which bars.
+  async function remember(text) {
+    if (window.openai && window.openai.setWidgetState) {
+      window.openai.setWidgetState({ modelContent: text });
+      return;
     }
-    try {
-      await request("ui/message", { role: "user", content: [{ type: "text", text }] });
-    } catch (error) {
-      await request("ui/message", { role: "user", content: { type: "text", text } });
-    }
+    await request("ui/update-model-context", { content: [{ type: "text", text }] });
   }
 
   document.getElementById("file").addEventListener("change", async (event) => {
@@ -69,9 +68,8 @@
       const response = await fetch(UPLOAD_URL, { method: "POST", body: file });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "upload failed");
-      setStatus("Received " + file.name);
-      await announce('I chose the score file "' + file.name + '". Its score_id is ' + body.score_id +
-                     ". Please continue with what I asked.");
+      await remember('The user chose the score file "' + file.name + '". Its score_id is ' + body.score_id + ".");
+      setStatus("Received " + file.name + ". Now say which bars you'd like analysed.");
     } catch (error) {
       setStatus("Could not send the file: " + (error.message || error), true);
     }
