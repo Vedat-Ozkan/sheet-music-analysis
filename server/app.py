@@ -443,7 +443,7 @@ async def files(request: Request) -> Response:
     return Response(data, media_type="image/png" if name.endswith(".png") else "application/pdf")
 
 
-@mcp.custom_route("/healthz", methods=["GET"])
+@mcp.custom_route("/health", methods=["GET"])
 async def health(request: Request) -> Response:
     return Response("ok")
 
