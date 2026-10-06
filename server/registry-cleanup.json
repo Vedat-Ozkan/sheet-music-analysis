@@ -1,0 +1,5 @@
+[
+  {"name": "keep-recent-server", "action": {"type": "Keep"}, "mostRecentVersions": {"packageNamePrefixes": ["server"], "keepCount": 2}},
+  {"name": "keep-recent-base", "action": {"type": "Keep"}, "mostRecentVersions": {"packageNamePrefixes": ["base"], "keepCount": 2}},
+  {"name": "delete-the-rest", "action": {"type": "Delete"}, "condition": {"tagState": "any"}}
+]
