@@ -39,7 +39,7 @@ Observations from running `docs/gate1-checklist.md`. Server-side facts come from
 **Prompt 6, a real analysis of bars 1–8 (2026-10-01)**
 
 - Claude called `draft_analysis` with the upload code (6.4 s on the server, 3,634 characters returned) and, 41 seconds later, `render_analysis` with 42 annotations. The render succeeded on the first call; no validation errors came back.
-- The owner's verdict on the Claude run as a whole: "works well on claude".
+- The Claude run as a whole was judged to work well.
 - Not recorded: screenshots of the reviewed page and commentary, and what "Show Image" and the tool-row thumbnail display when clicked.
 
 **Summary for Claude**
@@ -105,7 +105,7 @@ On both, the card is the only route that puts the page in the conversation itsel
 
 ## Revision after the owner tried the file button (2026-10-01, late)
 
-The owner's verdict on picking the file a second time: "i don't like this ux. its terrible, i already uploaded the file to the chat, why do i have to redo it like this again?" and then "we should be able to do this without trade offs."
+Verdict on picking the file a second time: rejected, because the user has already attached the file to the chat and should not have to pick it again; the goal is a route with no such trade-off.
 
 What other extensions do, from Claude's documentation: tools that work on an attached file (Anthropic's PDF, Word and Excel skills) run as skills inside Claude's sandbox, where the attachment already is; connectors are for data that lives in an online service. No documented feature passes a chat attachment to a connector.
 
@@ -118,7 +118,7 @@ New design for Claude, built and tested outside Claude, not yet tried in it:
 
 ## Plugin (skill plus connector) on Claude (2026-10-01, 23:06)
 
-- The owner installed the plugin, attached the `.mxl`, and ran the analysis prompt through `/score-analysis`. Verdict: "that's more like it".
+- The owner installed the plugin, attached the `.mxl`, and ran the analysis prompt through `/score-analysis`. Verdict: accepted.
 - No second upload. The skill read the attachment in the sandbox; Claude passed the 1,292-character note list to `draft_from_notes` unchanged (server log: 3.9 s) and reviewed the draft (its commentary says where it overruled the model).
 - The reply came about a minute after the prompt: five numbered points matching the callouts on the page, an overall summary, and one reading it flagged as debatable.
 - Display: Claude showed the PNG as a thumbnail, the PDF as a downloadable file card, and the annotated page in its side panel. No card from the connector is involved on this route.

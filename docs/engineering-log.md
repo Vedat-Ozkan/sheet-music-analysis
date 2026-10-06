@@ -126,11 +126,11 @@ No other piece changed except Haydn, whose *full* fell from 0.43 to 0.42.
 
 ### 3. Getting the score from the chat to the engine
 
-**Problem.** In testing on claude.ai, a `.mxl` attached to the chat never reached the server: Claude connectors cannot receive attachments, and a compressed `.mxl` is not readable as text. A first fix (an upload page that gave the user a code to paste back) worked technically, but the owner rejected it as a workaround. A second (a file button inside the chat) made users pick a file they had already attached: "i already uploaded the file to the chat, why do i have to redo it like this again?"
+**Problem.** In testing on claude.ai, a `.mxl` attached to the chat never reached the server: Claude connectors cannot receive attachments, and a compressed `.mxl` is not readable as text. A first fix (an upload page that gave the user a code to paste back) worked technically, but the owner rejected it as a workaround. A second (a file button inside the chat) was also rejected, because it made users pick a file they had already attached.
 
 **What we did.** Followed the pattern Anthropic's own document skills use: a skill runs the engine inside Claude's sandbox on the attached file, and only a compact note list goes to the server for the neural draft. The model's predictions from the note list matched its predictions from the file on every note of the test nocturne. ChatGPT passes attachments to the server directly, so it keeps the server route.
 
-**Result.** Owner's verdict on the installed plugin: "that's more like it". One upload, an answer in about a minute.
+**Result.** The installed plugin was accepted: one upload, an answer in about a minute.
 
 ### 4. Real-world MusicXML is messy
 
@@ -147,7 +147,7 @@ No other piece changed except Haydn, whose *full* fell from 0.43 to 0.42.
 
 ### 5. Labels that read like a textbook
 
-**Problem.** The first annotated pages had labels touching circles, beams and slurs. Owner: "text like this shouldn't be smushed, it should be clear and be spaced accordingly."
+**Problem.** The first annotated pages had labels touching circles, beams and slurs. The requirement set: label text must never be cramped, and other elements give way to it.
 
 **What we did.** Every label is placed with padded clear space, and that space is reserved; anything drawn later (callouts, brackets, arrows) has to stay outside it (`engine/overlay.py`).
 

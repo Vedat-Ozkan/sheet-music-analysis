@@ -4,7 +4,7 @@
 
 The 2026-10-01 handoff planned a Claude Code plugin that runs everything on the user's machine, with AugmentedNet as the draft model and OpenAI covered in two lines. Research on 2026-10-01 and the owner's answers change the shape of the project:
 
-- **Goal:** a tool that Claude and ChatGPT reach for (and suggest) when a music student or composer asks for an analysis of a score, with real usage numbers for a resume, and analysis good enough to trust.
+- **Goal:** a tool that Claude and ChatGPT reach for (and suggest) when a music student or composer asks for an analysis of a score, with real usage numbers, and analysis good enough to trust.
 - **Owner decisions:** small hosting budget is fine; v1 is a comprehensive *classical* analysis (jazz is v2); MusicXML input first; AnalysisGNN is the v1 engine; quality before deadline; the owner wants to see real examples in both Claude and ChatGPT before any display/UI choice is made.
 
 ## What changed from the handoff

@@ -46,7 +46,7 @@ Summary table (details of each analysis are in key question 2, score files in ke
 - A piano-teaching tutorial on Grieg's Arietta treats harmony for only the first two lines and says: "A full harmonic analysis of the piece would take ages". — [PianoTV, Allysia, March 2019](https://www.pianotv.net/2019/03/griegs-arietta-tutorial-an-intermediate-step-to-liszt/)
 
 ### Inferences
-- The owner's wish for "the way a teacher or textbook might do" (Roman numerals under every chord) is met by none of the free prose analyses found. The closest are: Brahms Op. 118 No. 2 (several sources that together give cadences, keys, phrase lengths and some Roman numerals) and the DCML label files (chord by chord, but no prose).
+- The aim of an analysis like a teacher's or textbook's (Roman numerals under every chord) is met by none of the free prose analyses found. The closest are: Brahms Op. 118 No. 2 (several sources that together give cadences, keys, phrase lengths and some Roman numerals) and the DCML label files (chord by chord, but no prose).
 - A practical pairing for Grieg, Tchaikovsky and Liszt (Années) is "DCML labels as the chord-level reference, prose source as the form/cadence reference".
 - The pieces on the candidate list that I did not find any analysis for, or did not search in depth, are: Brahms Waltz Op. 39 No. 15, Hungarian Dance No. 5; Liszt La Campanella, Un sospiro; Tchaikovsky Swan Lake and Nutcracker numbers; Grieg Morning Mood, Hall of the Mountain King, Holberg Suite; Rachmaninoff Piano Concerto No. 2, Paganini Rhapsody variation 18, Moment musical Op. 16 No. 4.
 
