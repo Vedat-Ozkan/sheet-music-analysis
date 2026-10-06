@@ -13,6 +13,7 @@ Harmonic analysis drawn on an engraved score, for use inside Claude and ChatGPT.
 | `engine/notes.py` | Compact text form of a score's notes, which the skill passes to the server so the draft model can run without the file being uploaded. |
 | `spike/` | Throwaway MCP server (superseded by `server/`) for plan step 1: tests how a score gets in and how a page shows up in each chat app. |
 | `server/`, `Dockerfile` | The production MCP server (`server/app.py`): the four tools the plugin and ChatGPT use, daily limits, storage in a Cloud Storage bucket that deletes scores and pages after a day. `server/deploy.sh PROJECT_ID` builds the image on Cloud Build and deploys it to Cloud Run (one instance at most). Run locally with `.venv/bin/python -m server.app` (port 8080, files under `out/server/`). |
+| `site/`, `wrangler.jsonc` | The website at sheetmusicanalysis.com: landing page, how-to-use, privacy and terms, plus the clef icons the server reports to chat hosts. Static files served by Cloudflare; publish with `npx wrangler@4 deploy`. |
 | `engine/draft.py` | Runs the draft model and condenses its output into chords, cadences, phrase ends and non-chord tones. |
 | `vendor/analysisgnn/` | Clone of the draft model (not committed; see `.gitignore`). |
 
