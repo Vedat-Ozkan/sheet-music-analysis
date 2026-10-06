@@ -472,12 +472,15 @@ class PageLayout:
             if key_at_start[system_index]:
                 self._text(system.left + 80, baseline, text.pretty_key(key_at_start[system_index]) + ":", NUMERAL_SIZE, bold=True)
             cursor = 0.0
+            key = key_at_start[system_index]
             for position, (x, harmony) in enumerate(labels):
                 label = harmony.label
                 x = max(x - 30, cursor)
-                if harmony.key and position:  # a key change inside the system is written in line
+                # Chat models sometimes repeat the key on every chord; only a change is written in line.
+                if harmony.key and harmony.key != key and position:
                     box = self._text(x, baseline, text.pretty_key(harmony.key) + ":", NUMERAL_SIZE, bold=True)
                     x = box.right + 90
+                key = harmony.key or key
                 chunks, total = text.numeral(label, NUMERAL_SIZE)
                 for chunk in chunks:
                     self._text(x + chunk.dx, baseline + chunk.dy, chunk.text, chunk.size, bold=chunk.bold)
