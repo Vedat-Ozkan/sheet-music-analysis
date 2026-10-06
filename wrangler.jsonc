@@ -1,0 +1,12 @@
+// The website (site/), served as static files by Cloudflare. Deploy: npx wrangler@4 deploy
+{
+  "name": "sheet-music-analysis",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "site"
+  },
+  "routes": [
+    { "pattern": "sheetmusicanalysis.com", "custom_domain": true },
+    { "pattern": "www.sheetmusicanalysis.com", "custom_domain": true }
+  ]
+}

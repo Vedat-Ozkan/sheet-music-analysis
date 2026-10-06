@@ -8,3 +8,9 @@ vendor/
 *.ckpt
 *.hdf5
 .env
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
