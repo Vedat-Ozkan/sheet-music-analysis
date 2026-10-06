@@ -37,6 +37,7 @@ from starlette.responses import JSONResponse, Response
 
 from engine import draft
 from engine import notes as note_list
+from engine import reduce
 from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
 from engine.render import ScoreError, load_toolkit
@@ -215,20 +216,19 @@ def parse_measures(measure_range: str) -> tuple[int, int] | None:
     return int(match[1]), int(match[2])
 
 
-REVIEW_GUIDE = """HOW TO USE THIS DRAFT
-1. Check every chord against the pitch classes beside it. Function comes before labels: decide what each
-   chord is doing (tonic, predominant, dominant) before settling its numeral.
-2. Chords shorter than a beat are usually the model reacting to melody notes: fold them into their
-   neighbours unless they are real harmonies. A chord over a held bass note keeps its own root.
-3. Name each real non-chord tone (P passing, N neighbor, S suspension, APP appoggiatura, ANT anticipation)
-   and drop the false ones.
-4. Add phrases, cadences and a few numbered callouts for what is unusual; say what was expected and what
-   the composer did instead in your written commentary, one numbered paragraph per callout.
-   In the commentary, name positions as a musician would ("the last eighth of beat 2" in 12/8, "the second
-   half of beat 3"), never as decimal beats.
-5. Call render_analysis with the score_id below and your annotation list, then show the page.
-Positions: `measure` is the printed number (a pickup is 0); `beat` is 1-based in the unit given below;
-`pitch` is like "Eb4" at sounding pitch; `staff` 1 is the top staff."""
+# The analysis rules are the skill's own (from "## Method" on), so ChatGPT and Claude analyse the same way.
+SKILL_RULES = re.sub(r"<!--.*?-->\n+", "", (HERE.parent / "skill" / "SKILL.md").read_text().split("## Method", 1)[1])
+REVIEW_GUIDE = (
+    "HOW TO USE THIS DRAFT\n"
+    "The draft above is a neural model's starting point, right about half the time on full chord labels. Check "
+    "each line against the NOTES table, analyse following the method below, then call render_analysis with the "
+    "score_id and your annotation list (its `view` argument draws one layer: harmony, voice_leading or form), "
+    "show the page and write the commentary.\n"
+    "Positions: `measure` is the printed number (a pickup is 0); `beat` is 1-based in the unit given above; "
+    "`pitch` is like \"Eb4\" at sounding pitch; `staff` 1 is the top staff. Labels are RomanText: V65/vi, "
+    "viio43/ii, It6; anything after a space is drawn small, so keep it for a short note such as 4-3.\n\n"
+    "## Method" + SKILL_RULES
+)
 
 
 def make_draft(score: bytes, code: str, measures: tuple[int, int] | None) -> str:
@@ -246,6 +246,8 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None) -> str
     return (
         f"score_id: {code}\nThe score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n\n"
         + draft.as_text(result, first, last)
+        + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
+        + reduce.as_text(index, first, last)
         + "\n\n"
         + REVIEW_GUIDE
     )

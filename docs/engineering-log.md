@@ -358,6 +358,14 @@ A wider version (6/4s resolving only in the next span, and tonic chords over the
 
 **Result.** In the bars 9–16 test page the crowded bar is wider and every numeral sits under its own beat with clear space, inside the staff. Pages without crowding are spaced as before, apart from small shifts; the reference image for bars 1–8 was regenerated (one system taller).
 
+### 19. ChatGPT's pages read worse than Claude's (2026-10-06)
+
+**Problem.** The first ChatGPT test (nocturne, bars 1–8) drew the same harmonies as Claude but a messier page: "E♭:" before almost every chord, "V⁶/5/vi" for V65/vi, and "vii°7/ii over F" in bar 2 where Sonnet and Opus read ii arriving early with appoggiaturas above the bass. ChatGPT never sees the skill: it had a 12-line guide sent with the draft and only the draft's chord summary, not the beat-by-beat note table.
+
+**What we did.** The renderer writes a key in the numeral row only where it changes, and reads figures written with a slash (6/5, 4/3) as stacked figures. The server now sends ChatGPT the note table and the skill's own rules (`skill/SKILL.md` from "## Method" on), so both apps analyse by the same method from the same evidence.
+
+**Result.** Not yet measured: needs a ChatGPT run of the same passage after the next deploy.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

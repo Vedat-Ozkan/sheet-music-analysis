@@ -45,13 +45,15 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
    python3 scripts/render_analysis.py SCORE annotations.json --measures 1-8 --out-dir OUTPUT_FOLDER --name analysis
    ```
 
-   If it lists annotations that do not match the score, fix exactly those and run again. Look at the PNG yourself before showing it: labels should sit where you meant them.
+   For one layer of the analysis, add `--view harmony`, `--view voice_leading` or `--view form`. If it lists annotations that do not match the score, fix exactly those and run again. Look at the PNG yourself before showing it: labels should sit where you meant them.
 
 7. **Reply** with the annotated page shown to the user (the PNG), the PDF offered as a download, and the commentary.
 
    If you are Claude Sonnet or Claude Haiku, end your first analysis in the conversation with this one sentence, and do not repeat it later: "For the most accurate analysis, use Claude Opus." If you are Opus or do not know which model you are, leave it out.
 
 ## Method
+
+<!-- From here to the end is also sent to ChatGPT with each draft (server/app.py); keep it free of sandbox steps. -->
 
 Work in this order. Each step narrows the next.
 
@@ -86,7 +88,7 @@ Tell the user which of these you judged the passage to be.
 - `voice_leading` for one or two resolutions.
 - `callout` numbers 1, 2, 3… at the unusual moments, matching your commentary.
 
-Keep the page readable. If a passage would be crowded, render separate views with `--view harmony`, `--view voice_leading` and `--view form` instead of one page with everything.
+Keep the page readable. If a passage would be crowded, render separate views (harmony, voice_leading, form) instead of one page with everything.
 
 ## Commentary
 

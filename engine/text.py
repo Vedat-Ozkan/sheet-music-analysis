@@ -107,6 +107,8 @@ def numeral(label: str, size: float, bold: bool = False) -> tuple[list[Chunk], f
     Returns the chunks and the total width.
     """
     main, _, note = label.partition(" ")
+    # "V6/5" is a common spelling of V65; a secondary never starts with a digit.
+    main = re.sub(r"(\d)/(\d)", r"\1\2", main)
     chunks: list[Chunk] = []
     x = 0.0
     for position, part in enumerate(_split_secondary(main)):

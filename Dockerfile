@@ -37,6 +37,7 @@ COPY --from=build /app/.venv-agnn .venv-agnn
 COPY --from=build /app/artifacts artifacts
 COPY engine engine
 COPY server server
+COPY skill/SKILL.md skill/SKILL.md
 # GitPython (imported by the model code) only needs git for experiment logging, which the server does not use.
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 GIT_PYTHON_REFRESH=quiet
 CMD ["python", "-m", "server.app"]
