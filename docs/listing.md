@@ -60,7 +60,11 @@ Requirement to state wherever the form allows: Claude's **Code execution and fil
   > Added on its own, this connector cannot read your score; Claude will point you to the plugin.
 
 - **Categories, docs, privacy, support, icon:** as in Shared above. Slug: `sheet-music-analysis` (permanent).
-- **Use cases:** provides the neural draft analysis for the Sheet Music Analysis plugin. Users need the plugin and Code execution turned on.
+- **Use cases** (use case → example prompt, with a .mxl attached):
+  - Analyse the harmony of a passage → "Analyse the harmony of bars 1–8 of this nocturne."
+  - Show only one layer of the analysis → "Now show just the harmony, without the voice leading."
+  - Explain the phrases and cadences → "Where are the phrases and cadences in bars 1–16?"
+- **Prerequisites:** the Sheet Music Analysis plugin installed from Claude's directory, and Claude's "Code execution and file creation" setting turned on (Settings → Capabilities). No account or sign-in. The user attaches a MusicXML score (.mxl or .musicxml); a public-domain sample is at https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl
 - **Reads or writes:** reads only.
 - **Company:** Sheet Music Analysis, https://sheetmusicanalysis.com.
 - **Authentication:** none.
