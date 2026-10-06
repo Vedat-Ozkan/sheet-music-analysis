@@ -32,9 +32,11 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 >
 > A computer model trained on hundreds of expert analyses drafts the analysis; the chat model then checks it against the actual notes and corrects it. On 12 well-known pieces checked beat by beat against experts' analyses, 71% of beats matched after the review (experts match each other on about 78%). Treat it as a well-read study partner, not an answer key: it is least reliable where experts also disagree, such as music in a major key that briefly borrows chords from the minor, and music like Debussy's that doesn't follow the usual chord patterns.
 >
-> Ask for one layer at a time (harmony, voice leading or form) when a page gets busy. Each page shows up to 32 bars; longer pieces are analysed passage by passage. Free, no account, no ads.
+> Ask for one layer at a time (harmony, voice leading or form) when a page gets busy. Each page shows up to 32 bars; longer pieces are analysed passage by passage. No account or sign-in needed.
 
 **Categories** (Claude, one to five; pick from the portal's list): Education; whichever of Music / Arts / Creative the portal offers.
+
+**Category** (ChatGPT, one): Education & Research.
 
 ## Claude
 
