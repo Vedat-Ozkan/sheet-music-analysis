@@ -8,6 +8,8 @@
   },
   "homepage": "https://sheetmusicanalysis.com",
   "repository": "https://github.com/Vedat-Ozkan/sheet-music-analysis",
+  "documentationUrl": "https://sheetmusicanalysis.com/docs.html",
+  "supportUrl": "https://sheetmusicanalysis.com/#support",
   "license": "MIT",
   "keywords": [
     "music",
@@ -23,5 +25,6 @@
     "music education",
     "composition"
   ],
-  "privacyPolicyUrl": "https://sheetmusicanalysis.com/privacy.html"
+  "privacyPolicyUrl": "https://sheetmusicanalysis.com/privacy.html",
+  "termsOfServiceUrl": "https://sheetmusicanalysis.com/terms.html"
 }
