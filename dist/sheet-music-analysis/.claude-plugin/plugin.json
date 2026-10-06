@@ -6,6 +6,8 @@
   "author": {
     "name": "Vedat Ozkan"
   },
+  "homepage": "https://sheetmusicanalysis.com",
+  "repository": "https://github.com/Vedat-Ozkan/sheet-music-analysis",
   "license": "MIT",
   "privacyPolicyUrl": "https://sheetmusicanalysis.com/privacy.html"
 }
