@@ -340,6 +340,9 @@ mcp = Server(
     ),
     extensions=[apps],
 )
+# The 2026 protocol lets a client hold a `subscriptions/listen` stream open to hear of tool-list changes. Our tools
+# never change, and Cloud Run bills every second a request is open: Claude's streams cost 4 hours a day (log, 21).
+del mcp._lowlevel_server._request_handlers["subscriptions/listen"]
 
 
 @mcp.tool(

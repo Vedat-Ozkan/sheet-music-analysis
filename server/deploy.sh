@@ -38,6 +38,11 @@ done
 if ! gcloud artifacts repositories describe "$SERVICE" --location="$REGION" >/dev/null 2>&1; then
   gcloud artifacts repositories create "$SERVICE" --repository-format=docker --location="$REGION"
 fi
+# Each deploy leaves the previous server image behind untagged (0.7 GB, billed beyond the 0.5 GB free tier).
+cat > /tmp/$SERVICE-cleanup.json <<'EOF'
+[{"name": "untagged", "action": {"type": "Delete"}, "condition": {"tagState": "UNTAGGED"}}]
+EOF
+gcloud artifacts repositories set-cleanup-policies "$SERVICE" --location="$REGION" --policy=/tmp/$SERVICE-cleanup.json --no-dry-run
 # The base holds PyTorch, the model and its weights (about 2 GB, 6-8 minutes to build). Its tag is a hash of what
 # goes into it, so it is rebuilt only when that changes; a code change builds just the thin layer on top.
 BASE=$REGION-docker.pkg.dev/$PROJECT/$SERVICE/base:$(cat Dockerfile.base pyproject.toml uv.lock server/requirements-agnn.txt | sha256sum | cut -c1-16)

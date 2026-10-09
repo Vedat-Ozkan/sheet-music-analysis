@@ -376,6 +376,16 @@ A wider version (6/4s resolving only in the next span, and tonic chords over the
 
 **Result.** Not yet measured: the first deploy builds the base once.
 
+### 21. Cloud Run billed four hours a day with no analyses (2026-10-09)
+
+**Problem.** Cloud Run reported about 15,450 billable instance-seconds a day on 7 and 8 October (4.3 hours, at 2 vCPU and 4 GiB about US$22 a month after the free tier) while the server drew nothing: no draft or render was logged. The request log showed 123 `POST /mcp` requests from Claude held open for exactly 301 s, one after another around the clock, each ending in Cloud Run's "Truncated response body" warning at the 300 s request timeout. All other requests took under a second; cold starts (about 24 a day, 11 s each) were small.
+
+**Cause.** Claude's connector speaks the 2026-07-28 MCP protocol. After `initialize` it sends `subscriptions/listen`, a request whose response is a server-sent event stream kept open until the client disconnects, so it can be told when the tool list changes. The `mcp` SDK (2.2) serves that method on every `MCPServer` by default, so our server acknowledges and holds the stream; Cloud Run bills the whole time a request is open; at 300 s it cuts the stream and Claude re-listens at once. Cloudflare also keeps its connection to Cloud Run open for the full 300 s after the client drops (a probe closed after 12 s was still logged at 301 s). Reproduced with a hand-made `subscriptions/listen` request against the live server.
+
+**What we did.** `server/app.py` removes the `subscriptions/listen` handler after the server is built. Without it the server advertises no change notifications at the 2026 protocol, so a client has no reason to listen, and a listen request gets an immediate method-not-found instead of a held stream. Nothing else uses the stream: our tool list never changes.
+
+**Result.** To be measured after the deploy: expected billable time of a few hundred seconds a day (cold starts and short requests), inside the free tier.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
