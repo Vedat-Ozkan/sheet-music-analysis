@@ -384,7 +384,7 @@ A wider version (6/4s resolving only in the next span, and tonic chords over the
 
 **What we did.** `server/app.py` removes the `subscriptions/listen` handler after the server is built. Without it the server advertises no change notifications at the 2026 protocol, so a client has no reason to listen, and a listen request gets an immediate method-not-found instead of a held stream. Nothing else uses the stream: our tool list never changes.
 
-**Result.** To be measured after the deploy: expected billable time of a few hundred seconds a day (cold starts and short requests), inside the free tier.
+**Result.** After the deploy a hand-made listen request is refused in 0.3 s, and Claude's next two handshakes (seven requests) all finished in under 10 ms with nothing held open six minutes later. Before: 15,450 billable seconds a day; expected now: a few hundred (cold starts and short requests), inside the free tier. To be confirmed from the next day's metric.
 
 ## Checking against teachers' prose
 
