@@ -92,11 +92,34 @@ def passages(index: ScoreIndex, bars: int) -> list[tuple[int, int]]:
     return [(chunk[0], chunk[-1]) for chunk in chunks]
 
 
+ENV_FILE = Path(__file__).parent.parent / ".env"
+SPEND = Path(__file__).parent.parent / "out" / "api-spend.jsonl"
+
+
+def claude_environment() -> dict[str, str]:
+    """The environment for a `claude -p` run: no CLAUDE* variables from this session, and the project's API key
+    from .env when there is one, so runs bill to the project's monthly API budget, not the owner's weekly limits."""
+    environment = {name: value for name, value in os.environ.items() if not name.startswith("CLAUDE")}
+    if ENV_FILE.exists():
+        for line in ENV_FILE.read_text().splitlines():
+            name, _, value = line.partition("=")
+            if name.strip() == "ANTHROPIC_API_KEY" and value.strip():
+                environment["ANTHROPIC_API_KEY"] = value.strip().strip('"')
+    return environment
+
+
+def record_spend(script: str, answer: dict) -> None:
+    """One line per paid run, so the month's API spend can be added up against the budget."""
+    SPEND.parent.mkdir(exist_ok=True)
+    with SPEND.open("a") as ledger:
+        ledger.write(json.dumps({"time": time.strftime("%Y-%m-%dT%H:%M:%S"), "script": script, "cost_usd": answer.get("total_cost_usd") or 0}) + "\n")
+
+
 def ask(prompt: str, model: str, effort: str | None = None, files: dict[str, bytes] | None = None) -> dict:
     """One answer from Claude Code, in an empty folder so no project context loads.
 
     Without `files` it has no tools. With them, the files are put in the folder and it may only Read."""
-    environment = {name: value for name, value in os.environ.items() if not name.startswith("CLAUDE")}
+    environment = claude_environment()
     with tempfile.TemporaryDirectory() as folder:
         for name, data in (files or {}).items():
             (Path(folder) / name).write_bytes(data)
@@ -116,7 +139,9 @@ def ask(prompt: str, model: str, effort: str | None = None, files: dict[str, byt
         except (ValueError, KeyError, TypeError):
             reason = (process.stderr or process.stdout)[-300:]
         raise RuntimeError(f"claude exited {process.returncode}: {reason}")
-    return json.loads(process.stdout)
+    answer = json.loads(process.stdout)
+    record_spend("review", answer)
+    return answer
 
 
 def problems_in(reply: str, index: ScoreIndex) -> tuple[dict | None, str]:

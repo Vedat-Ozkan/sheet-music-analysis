@@ -18,7 +18,6 @@ import hashlib
 import html
 import io
 import json
-import os
 import re
 import subprocess
 import tempfile
@@ -27,7 +26,7 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import groupby
 
 from eval import pieces
-from eval.review import REVIEWED
+from eval.review import REVIEWED, claude_environment, record_spend
 
 JUDGED = pieces.OUT / "judged"
 VERDICTS = ("agree", "partly", "disagree", "not_addressed")
@@ -143,13 +142,14 @@ def judge(piece: pieces.Piece, reviewer: str, claims_from: str | None = None, re
         analysis=as_text(annotations, commentary),
         published="\n\n".join(texts) or "(none could be read in advance)",
     )
-    environment = {name: value for name, value in os.environ.items() if not name.startswith("CLAUDE")}
+    environment = claude_environment()
     with tempfile.TemporaryDirectory() as folder:
         process = subprocess.run(
             ["claude", "-p", "--output-format", "json", "--allowedTools", "WebFetch", "--disallowedTools", "Bash,Write,Edit,Agent,Task,Skill"],
             input=prompt, capture_output=True, text=True, cwd=folder, env=environment, timeout=1500,
         )  # fmt: skip
     answer = json.loads(process.stdout)
+    record_spend("judge", answer)
     block = re.search(r"```json\s*(.*?)```", answer["result"], re.DOTALL)
     result = json.loads(block.group(1) if block else answer["result"])
     result["cost_usd"] = round(answer.get("total_cost_usd") or 0, 3)
