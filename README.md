@@ -12,15 +12,17 @@ This project would not exist without [AnalysisGNN](https://github.com/manoskary/
 
 | Path | What it is |
 |---|---|
-| `engine/` | Parses MusicXML, engraves it with Verovio, draws an annotation list on the page, exports PNG and PDF. |
+| `engine/` | Parses MusicXML, engraves it with Verovio, draws an annotation list on the page, exports PNG and PDF (vector, through cairo; an image PDF where cairo is missing). |
+| `engine/piano.py` | Reduces a large score to two piano staves for a clearer view; the analysis is still made on the original. Uses music21, loaded only when a reduction is asked for. |
+| `engine/fonts/`, `tools/build_fonts.py` | Fonts for the text on the page. Score Serif is Liberation Serif with DejaVu's ♭ and ♮ added, so text with a flat never switches typeface; the `ScoreSerif-*.ttf` files are generated, so rebuild them with `.venv/bin/python tools/build_fonts.py` rather than editing them. |
 | `docs/annotation-spec.md` | The annotation list format the chat model writes. |
-| `examples/` | A hand-written annotation list for Chopin, Nocturne Op. 9 No. 2, measures 1–8. |
+| `examples/` | Hand-written annotation lists: Chopin, Nocturne Op. 9 No. 2, measures 1–8, and in `examples/engraving/` nine passages used by the engraving check. |
 | `skill/`, `tools/build_skill.py` | The skill that runs the engine inside Claude's sandbox on the attached file; the build script bundles the engine with it into `out/sheet-music-analysis.zip`. |
 | `plugin/`, `dist/sheet-music-analysis/` | The plugin: its manifest in `plugin/`, and the built plugin (skill plus a pointer to the connector at mcp.sheetmusicanalysis.com) in `dist/`, written by `tools/build_skill.py` and committed because the Claude plugin directory reads it from GitHub. Rebuild after changing `skill/`, `engine/` or `plugin/`. |
 | `engine/notes.py` | Compact text form of a score's notes, which the skill passes to the server so the draft model can run without the file being uploaded. |
 | `spike/` | Throwaway MCP server (superseded by `server/`) for plan step 1: tests how a score gets in and how a page shows up in each chat app. |
 | `server/`, `Dockerfile`, `Dockerfile.base` | The production MCP server (`server/app.py`): the three tools the plugin and ChatGPT use, daily limits, storage in a Cloud Storage bucket that deletes scores and pages after a day. `server/deploy.sh PROJECT_ID` builds the image on Cloud Build and deploys it to Cloud Run (one instance at most). Run locally with `.venv/bin/python -m server.app` (port 8080, files under `out/server/`). |
-| `site/`, `wrangler.jsonc` | The website at sheetmusicanalysis.com: landing page, how-to-use, privacy and terms, plus the clef icons the server reports to chat hosts. Static files served by Cloudflare; publish with `npx wrangler@4 deploy`. |
+| `site/`, `wrangler.jsonc` | The website at sheetmusicanalysis.com: landing page, how-to-use, privacy and terms, plus the clef icons the server reports to chat hosts. Static files served by Cloudflare; publish with `npx wrangler@4 deploy`. `site/.assetsignore` keeps local `.uuid` files off the site. |
 | `openai-plugin/` | The ChatGPT listing package: `plugin.json` (listing text, icon, review test cases), `mcp.json` (the server address) and icons. Upload it zipped at platform.openai.com/plugins: `cd openai-plugin && zip -r ../out/sheet-music-analysis-openai.zip plugin.json mcp.json assets`. Bump `version` with each upload. |
 | `proxy/` | A Cloudflare Worker that serves the Cloud Run server at mcp.sheetmusicanalysis.com, the address given to Claude and ChatGPT. Publish with `npx wrangler@4 deploy -c proxy/wrangler.jsonc`. |
 | `engine/draft.py` | Runs the draft model and condenses its output into chords, cadences, phrase ends and non-chord tones. |
@@ -74,6 +76,14 @@ Results of testing in both apps are in `docs/gate1-results.md`.
 ```
 
 Runs 31 scores through reading, the note table, the note list, engraving, the draft model and rendering: Bach chorales, Classical and Romantic quartets, songs and piano music from the music21 corpus, and impressionist and early twentieth-century piano music (Ravel, Debussy, Satie, Scriabin, Rachmaninoff, Prokofiev, Schoenberg) downloaded on first use into `out/`. The downloaded transcriptions are for local testing and are not committed. Results go to `out/robustness/report.json`.
+
+## Engraving check
+
+```bash
+.venv/bin/python -m tools.engraving_check --tag NAME
+```
+
+Draws nine analysed passages, from a Bach chorale to Dvořák's full orchestra, with the annotation lists in `examples/engraving/`. It counts labels that overlap or crowd the music, and places where Verovio sets dynamics, words or clef changes on top of notes. Pages go to `out/engraving/NAME/` as PNG and PDF for comparing rounds; the counts are a first filter, and the pages still need looking at.
 
 ## Evaluation
 
