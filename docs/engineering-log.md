@@ -646,6 +646,14 @@ The engraving faults were:
 
 **Still rough.** Dense inner voices in chamber music (K. 458 bars 5 and 8) turn into tied chord chains. The offer is only for scores with more than four staves, where the textures are fuller and the reduction reads well.
 
+### 29. Deploy of the vector PDF and piano reduction (2026-10-10)
+
+**What was deployed.** `d39c7bb` (logs 23–28: engraving rounds, vector PDF via cairosvg, piano reduction) with `server/deploy.sh`, as revision `sheet-music-analysis-00018-s45`, serving 100% of traffic. Settings unchanged: gen2, 2 vCPU, 4 GiB, concurrency 4, min 0, max 1 instance, 300 s timeout, daily caps in `server/app.py`.
+
+**Base image.** Rebuilt, because `Dockerfile.base` (libcairo2) and the package lists changed: new tag `base:734c41625b5daadb`. Cloud Build: base 6 min 18 s, server 51 s, about 7 build-minutes in all. The old base (`base:d54605c0043b3114`) is still tagged, so the untagged-cleanup policy keeps it; the repository holds 1.3 GB.
+
+**Result.** The new instance started in 7 s with no warnings or import errors in its log. One `render_analysis` call through mcp.sheetmusicanalysis.com (Chopin Op. 9 No. 2, bars 1–8, the score placed in the bucket under a score id) returned in 9.6 s. Its PDF is 95 KB, one page with seven embedded fonts and no images, so it is the vector PDF, not the image fallback. The piano option was not tried on the live server.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
