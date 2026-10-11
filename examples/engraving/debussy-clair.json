@@ -1,0 +1,178 @@
+{
+ "version": 1,
+ "annotations": [
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 1,
+    "beat": 1
+   },
+   "label": "I6",
+   "key": "Db"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 2,
+    "beat": 1
+   },
+   "label": "viio42/vi",
+   "callout": 1
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 3,
+    "beat": 1
+   },
+   "label": "vi43"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 4,
+    "beat": 1
+   },
+   "label": "V43"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 5,
+    "beat": 1
+   },
+   "label": "ii42",
+   "callout": 2
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 5,
+    "beat": 3
+   },
+   "label": "V65"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 6,
+    "beat": 1
+   },
+   "label": "ii43"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 6,
+    "beat": 3
+   },
+   "label": "V65/vi"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 7,
+    "beat": 1
+   },
+   "label": "vi42"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 7,
+    "beat": 3
+   },
+   "label": "ii65"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 8,
+    "beat": 1
+   },
+   "label": "vi43"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 8,
+    "beat": 3
+   },
+   "label": "V7"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 1,
+    "beat": 1
+   },
+   "end": {
+    "measure": 4
+   },
+   "label": "a"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 5,
+    "beat": 1
+   },
+   "end": {
+    "measure": 8
+   },
+   "label": "a′"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 3,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "C5"
+   },
+   "label": "N"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 3,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "Eb5"
+   },
+   "label": "N"
+  },
+  {
+   "type": "voice_leading",
+   "from_note": {
+    "measure": 6,
+    "beat": 3,
+    "staff": 2,
+    "pitch": "A3"
+   },
+   "to_note": {
+    "measure": 7,
+    "beat": 1,
+    "staff": 2,
+    "pitch": "Ab3"
+   },
+   "label": "chromatic"
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 2,
+    "beat": 1
+   },
+   "number": 1
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 5,
+    "beat": 1
+   },
+   "number": 2
+  }
+ ]
+}

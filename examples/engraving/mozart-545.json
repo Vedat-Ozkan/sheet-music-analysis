@@ -1,0 +1,183 @@
+{
+ "version": 1,
+ "annotations": [
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 1,
+    "beat": 1
+   },
+   "label": "I",
+   "function": "T",
+   "key": "C"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 2,
+    "beat": 1
+   },
+   "label": "V43",
+   "function": "D"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 2,
+    "beat": 3
+   },
+   "label": "I",
+   "function": "T"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 3,
+    "beat": 1
+   },
+   "label": "IV64",
+   "function": "PD",
+   "callout": 1
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 3,
+    "beat": 3
+   },
+   "label": "I",
+   "function": "T"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 4,
+    "beat": 1
+   },
+   "label": "V65",
+   "function": "D"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 4,
+    "beat": 3
+   },
+   "label": "I",
+   "function": "T"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 5,
+    "beat": 1
+   },
+   "label": "IV",
+   "function": "PD"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 6,
+    "beat": 1
+   },
+   "label": "I6",
+   "function": "T"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 7,
+    "beat": 1
+   },
+   "label": "viio6",
+   "function": "D"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 8,
+    "beat": 1
+   },
+   "label": "I",
+   "function": "T"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 4,
+    "beat": 3
+   },
+   "label": "IAC"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 1,
+    "beat": 1
+   },
+   "end": {
+    "measure": 4
+   },
+   "label": "a"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 5,
+    "beat": 1
+   },
+   "end": {
+    "measure": 8
+   },
+   "label": "b"
+  },
+  {
+   "type": "voice_leading",
+   "from_note": {
+    "measure": 2,
+    "beat": 2,
+    "staff": 2,
+    "pitch": "F4"
+   },
+   "to_note": {
+    "measure": 2,
+    "beat": 4,
+    "staff": 2,
+    "pitch": "E4"
+   },
+   "label": "7→3"
+  },
+  {
+   "type": "voice_leading",
+   "from_note": {
+    "measure": 4,
+    "beat": 1,
+    "staff": 2,
+    "pitch": "B3"
+   },
+   "to_note": {
+    "measure": 4,
+    "beat": 3,
+    "staff": 2,
+    "pitch": "C4"
+   }
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 3,
+    "beat": 1
+   },
+   "number": 1
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 5,
+    "beat": 1
+   },
+   "number": 2
+  }
+ ]
+}

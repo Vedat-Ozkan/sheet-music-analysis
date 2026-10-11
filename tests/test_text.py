@@ -21,5 +21,6 @@ def test_quality_and_accidental_symbols():
     assert text.numeral("bII6", 400)[0][0].text == "♭II"
 
 
-def test_flat_sign_uses_the_fallback_font():
-    assert text.runs("E♭:") == [("E", text.MAIN), ("♭", text.FALLBACK), (":", text.MAIN)]
+def test_flat_sign_stays_in_the_main_font():
+    # A sign in the fallback font made the renderer set the whole string in it (tools/build_fonts.py).
+    assert text.runs("E♭: V/♮") == [("E♭: V/♮", text.MAIN)]

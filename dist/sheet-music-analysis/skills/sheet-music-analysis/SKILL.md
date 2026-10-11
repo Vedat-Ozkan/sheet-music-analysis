@@ -7,7 +7,7 @@ description: Analyse the harmony of sheet music and draw the analysis on the eng
 
 You analyse a score the way a composer or theory teacher would, then have it drawn on the engraved page. You never draw: you write an annotation list that says what to mark and where in the music, and a script engraves it.
 
-The user's attached score is a file in your sandbox; the scripts read it from there. Do not ask the user to upload it again, and do not use the connector's `choose_score`, `draft_analysis` or `render_analysis` tools: those exist for hosts that cannot run this skill.
+The user's attached score is a file in your sandbox; the scripts read it from there. Do not ask the user to upload it again, and do not use the connector's `draft_analysis` or `render_analysis` tools: those exist for hosts that cannot run this skill.
 
 The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_SKILL_DIR}/scripts/`); run them from the skill's folder or by their full path.
 
@@ -16,10 +16,10 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
 1. **Set up once per conversation.**
 
    ```bash
-   pip install verovio resvg-py img2pdf pillow fonttools pydantic
+   pip install verovio resvg-py cairosvg pikepdf pillow fonttools pydantic
    ```
 
-2. **Read the notes.** Run the table script on the user's file. If they named a passage, pass it; otherwise ask which bars they want, or take the first 8 to 16.
+2. **Read the notes.** Run the table script on the user's file, for the passage chosen as the method below says.
 
    ```bash
    python3 scripts/notes_table.py SCORE --measures 1-8
@@ -45,7 +45,7 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
    python3 scripts/render_analysis.py SCORE annotations.json --measures 1-8 --out-dir OUTPUT_FOLDER --name analysis
    ```
 
-   If it lists annotations that do not match the score, fix exactly those and run again. Look at the PNG yourself before showing it: labels should sit where you meant them.
+   For one layer of the analysis, add `--view harmony`, `--view voice_leading` or `--view form`. If it lists annotations that do not match the score, fix exactly those and run again. Look at the PNG yourself before showing it: labels should sit where you meant them.
 
 7. **Reply** with the annotated page shown to the user (the PNG), the PDF offered as a download, and the commentary.
 
@@ -53,8 +53,11 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
 
 ## Method
 
+<!-- From here to the end is also sent to ChatGPT with each draft (server/app.py); keep it free of sandbox steps. -->
+
 Work in this order. Each step narrows the next.
 
+0. **The passage.** If the user named bars, use them. If not, ask which bars they want, suggesting the first 8 or 16, before analysing anything. At most 32 bars per page; a longer stretch goes passage by passage.
 1. **Key and key areas.** Start from the key signature, the first and last bass notes and the cadences. Decide the local key of each stretch. A new key needs a cadence or a sustained stay; a chord or two borrowed from another key is a tonicization (`V7/ii`), not a modulation.
 2. **Harmonic rhythm.** Decide how often the harmony really changes, usually once or twice a bar, sometimes every beat. Follow the bass. One row of the table is not one chord.
 3. **Function before labels.** For each harmony decide what it does: tonic (T), predominant (PD) or dominant (D). Then choose the numeral that says so.
@@ -78,15 +81,17 @@ Tell the user which of these you judged the passage to be.
 
 ## Annotations to include
 
-- `harmony` at each real change of chord, with `function` (T, PD, D) wherever it is clear, and `key` on the first chord and at each change of key.
+- `harmony` at each real change of chord, with `key` on the first chord and at each change of key. Add `function` (T, PD, D), which colours the music behind the staves, only when the tonic–predominant–dominant cycle is the point of the passage: chorales, Classical phrases, songs built on cadences. Leave it out for modal, impressionist or densely chromatic music, where the colours mislead more than they explain.
+  Its `label` is the numeral and figures only (`V65/vi`, `viio43/ii`, `I42`); a suspension figure may follow after a space (`V7 4-3`). Pedals go in a `region` and non-chord tones in `nct`, never in the label.
 - `cadence` at each cadence's arrival chord.
 - `phrase` brackets for each phrase.
-- `region` brackets where a scale, mode, parallel motion or pedal explains the passage better than chord labels.
-- `nct` for the non-chord tones worth showing: a handful, not every one.
+- `region` brackets where a scale, mode, parallel motion or pedal explains the passage better than chord labels. When the region belongs to one instrument or hand (a theme in the cello, a pedal in the bass), give its `staff` so the bracket sits at that staff, and keep the label short (`theme`, not `theme in the cello`).
+- At most one row of brackets: never a `phrase` and a `region` over the same bars. Keep whichever says more about the passage and put the other in the commentary.
+- `nct` for the non-chord tones worth showing: a handful, not every one. Circle accented ones (suspensions, appoggiaturas), and the first instance of a figure that gives the passage its character (a recurring anticipation, a sighing appoggiatura); mention the later instances in the commentary. Never circle passing or neighbor notes inside a scale run or running figuration: they are the run, not an event in it. Before writing a label, check where the note goes: if the next chord holds the same pitch it is an anticipation (ANT), not a neighbor.
 - `voice_leading` for one or two resolutions.
 - `callout` numbers 1, 2, 3… at the unusual moments, matching your commentary.
 
-Keep the page readable. If a passage would be crowded, render separate views with `--view harmony`, `--view voice_leading` and `--view form` instead of one page with everything.
+Keep the page readable. If a passage would be crowded, render separate views (harmony, voice_leading, form) instead of one page with everything.
 
 ## Commentary
 

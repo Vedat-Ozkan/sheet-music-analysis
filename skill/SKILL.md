@@ -16,7 +16,7 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
 1. **Set up once per conversation.**
 
    ```bash
-   pip install verovio resvg-py img2pdf pillow fonttools pydantic
+   pip install verovio resvg-py cairosvg pikepdf pillow fonttools pydantic
    ```
 
 2. **Read the notes.** Run the table script on the user's file, for the passage chosen as the method below says.
@@ -81,12 +81,13 @@ Tell the user which of these you judged the passage to be.
 
 ## Annotations to include
 
-- `harmony` at each real change of chord, with `function` (T, PD, D) wherever it is clear, and `key` on the first chord and at each change of key.
+- `harmony` at each real change of chord, with `key` on the first chord and at each change of key. Add `function` (T, PD, D), which colours the music behind the staves, only when the tonic–predominant–dominant cycle is the point of the passage: chorales, Classical phrases, songs built on cadences. Leave it out for modal, impressionist or densely chromatic music, where the colours mislead more than they explain.
   Its `label` is the numeral and figures only (`V65/vi`, `viio43/ii`, `I42`); a suspension figure may follow after a space (`V7 4-3`). Pedals go in a `region` and non-chord tones in `nct`, never in the label.
 - `cadence` at each cadence's arrival chord.
 - `phrase` brackets for each phrase.
-- `region` brackets where a scale, mode, parallel motion or pedal explains the passage better than chord labels.
-- `nct` for the non-chord tones worth showing: a handful, not every one.
+- `region` brackets where a scale, mode, parallel motion or pedal explains the passage better than chord labels. When the region belongs to one instrument or hand (a theme in the cello, a pedal in the bass), give its `staff` so the bracket sits at that staff, and keep the label short (`theme`, not `theme in the cello`).
+- At most one row of brackets: never a `phrase` and a `region` over the same bars. Keep whichever says more about the passage and put the other in the commentary.
+- `nct` for the non-chord tones worth showing: a handful, not every one. Circle accented ones (suspensions, appoggiaturas), and the first instance of a figure that gives the passage its character (a recurring anticipation, a sighing appoggiatura); mention the later instances in the commentary. Never circle passing or neighbor notes inside a scale run or running figuration: they are the run, not an event in it. Before writing a label, check where the note goes: if the next chord holds the same pitch it is an anticipation (ANT), not a neighbor.
 - `voice_leading` for one or two resolutions.
 - `callout` numbers 1, 2, 3… at the unusual moments, matching your commentary.
 

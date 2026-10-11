@@ -11,10 +11,11 @@ from fontTools.ttLib import TTFont
 from PIL import ImageFont
 
 FONT_DIR = Path(__file__).parent / "fonts"
-MAIN, FALLBACK = "Liberation Serif", "DejaVu Serif"
+# Score Serif is Liberation Serif (Times metrics, as Verovio assumes) with ♭ and ♮ added; see tools/build_fonts.py.
+MAIN, FALLBACK = "Score Serif", "DejaVu Serif"
 FILES = {
-    (MAIN, False): "LiberationSerif-Regular.ttf",
-    (MAIN, True): "LiberationSerif-Bold.ttf",
+    (MAIN, False): "ScoreSerif-Regular.ttf",
+    (MAIN, True): "ScoreSerif-Bold.ttf",
     (FALLBACK, False): "DejaVuSerif.ttf",
     (FALLBACK, True): "DejaVuSerif-Bold.ttf",
 }

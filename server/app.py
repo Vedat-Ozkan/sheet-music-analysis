@@ -285,7 +285,10 @@ async def render_analysis(
         log("render_analysis", platform=source, error=str(error))
         return error_result(str(error))
     png = engraving.png(1)
-    image_url, pdf_url = await anyio.to_thread.run_sync(lambda: (publish(png, "png"), publish(engraving.pdf(), "pdf")))
+    # The card shows a double-resolution page, sharp on high-density screens; the model gets the small one.
+    image_url, pdf_url = await anyio.to_thread.run_sync(
+        lambda: (publish(engraving.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"))
+    )
     caption = f"Analysis, measures {measure_range}, view {view}"
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png))
     # The card shows the page to the user; the image lets the chat model check its own annotations.

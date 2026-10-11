@@ -1,0 +1,4 @@
+Score Serif (ScoreSerif-*.ttf) is a Modified Version of Liberation Serif, built by tools/build_fonts.py:
+the ♭ and ♮ glyphs of DejaVu Serif are added. It is renamed because the SIL Open Font License reserves
+the name "Liberation", and is distributed under that licence (LICENSE-LiberationFonts.txt). The added
+glyphs come from DejaVu Serif under the Bitstream Vera and DejaVu terms (LICENSE-DejaVu.txt).

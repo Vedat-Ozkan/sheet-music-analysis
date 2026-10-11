@@ -1,0 +1,34 @@
+{
+ "version": 1,
+ "annotations": [
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 1,
+    "beat": 1
+   },
+   "label": "I64",
+   "key": "F"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 7,
+    "beat": 3
+   },
+   "label": "V43"
+  },
+  {
+   "type": "region",
+   "start": {
+    "measure": 1,
+    "beat": 1
+   },
+   "end": {
+    "measure": 8
+   },
+   "label": "theme",
+   "staff": 4
+  }
+ ]
+}

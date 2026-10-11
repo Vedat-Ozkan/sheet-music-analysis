@@ -386,6 +386,230 @@ A wider version (6/4s resolving only in the next span, and tonic chords over the
 
 **Result.** After the deploy a hand-made listen request is refused in 0.3 s, and Claude's next two handshakes (seven requests) all finished in under 10 ms with nothing held open six minutes later. Before: 15,450 billable seconds a day; expected now: a few hundred (cold starts and short requests), inside the free tier. To be confirmed from the next day's metric.
 
+### 22. Labels piled on each other, and lone bars on the last line (2026-10-10)
+
+**Problem.** Five passages from five eras (a Bach chorale, Mozart K. 545, Schubert's "Der Lindenbaum", Brahms Op. 118 No. 2, Debussy's "Clair de lune"), each drawn from a hand-checked analysis, showed three kinds of fault. Labels landed on each other or on the music: "N" over "N" in Debussy bar 3, "APP" over "APP" on a sharp in Brahms bar 8, "chromatic" on a bass clef. Lines were filled greedily, so 8 bars of Mozart came out 4 + 3 + 1 with bar 8 alone. A MuseScore export of the Mozart had no clef on the left hand, and Verovio drew none.
+
+**Cause.** When no spot near a note was clear, `_place_label` returned its first choice anyway. Two notes of one chord with the same label got two circles and two labels. The line joining a distant label to its note was not counted as taken space. Line breaks were Verovio's greedy fill. A staff with no clef is treble in MusicXML, but Verovio leaves it blank.
+
+**What we did.** Label placement now also tries spots to either side, and when nothing is clear it takes the spot that covers the least. Notes of one chord with the same label share a circle and a label, and leader lines are reserved. When the last line is under three-quarters full, `engine/annotate.py` spreads the bars evenly over the same number of lines with encoded system breaks. It uses Verovio's `smart` break mode, because `line` mode drops the last line of a selected excerpt in Verovio 6.3. A staff with no clef gets a treble clef when the file is loaded.
+
+**Result.** An automatic check compares every overlay label with Verovio's boxes and with the other labels. On the five pages, labels overlapping something fell from 4 to 0, and labels with less than half the required clear space fell from 2 to 1. Two labels are still flagged (one overlap with the Mozart "N", one tight "7→3" in Bach); both look clear when zoomed in, so these are the check's own false alarms. Pages with a near-empty last line fell from 3 to 0 (Mozart 3 + 3 + 2, Bach 5 + 4, Schubert 4 + 4). Tests pass (53).
+
+### 23. Pages still looked busy: slurs through beams, broken ties, doubled chords (2026-10-10)
+
+**Problem.** The owner found the pages unprofessional even after the fixes above. Slurs ran through beams, and Brahms bar 5 had a crushed hook. Brahms bar 3's crescendo and diminuendo sat at different heights. Pedal brackets looked like analysis brackets. Too many bracket rows stacked up, and colours were added to music where tonic and dominant roles are not the point. In Clair de lune bars 1–4, a flat line ran along the left hand, the opening chord had doubled ties, a stem crossed "con sordina", and a "p" sat on its hairpin. Two string quartets (Mozart K. 458, Beethoven Op. 59 No. 1) and two full scores (Mozart's "Jupiter", Dvořák's Largo, from the MIT-licensed MCTL dataset) were added to the check. An orchestral score with drums crashed the score reader.
+
+**Cause.** Most of the clutter was in the files or in Verovio, not in our overlay:
+- Verovio keeps each slur on the side the file gives it, even through a beam.
+- Files give every dynamic and hairpin its own vertical group, so they are never aligned.
+- A MuseScore tie with no end gets joined to the next note of that pitch, 12 bars later in Clair de lune.
+- That file writes the opening chord on both staves to fake a cross-staff beam.
+- The overlay never counted the staff lines as taken space, so a label could land between them (the Jupiter "APP").
+- Unpitched notes have no pitch name.
+
+**What we did.**
+- `engine/slurs.py` lays the page out and finds slurs that touch a stem, beam or notehead. It flips them and lays the page out again, keeping a flip only where it helps. Slurs wider than a phrase mark are left alone.
+- `engine/render.py` now does several things when it loads a file:
+  - puts each staff's dynamics on one line;
+  - stops a hairpin at a dynamic inside it;
+  - drops pedal marks;
+  - drops ties that run backwards or skip past the next bar;
+  - silences a cross-staff copy of notes the other staff already plays, and shows the kept chord's stem;
+  - spaces "espressivo (";
+  - sets a wider margin between dynamics and notes;
+  - trims empty space from the PNG.
+- The overlay:
+  - writes the key only when it changes;
+  - treats staves as taken space;
+  - draws a leader to any label that is not directly over, under or beside its circle.
+- The skill now asks for function colours only when the T–PD–D cycle is the point, and for at most one bracket row.
+- `tools/engraving_check.py` runs all nine passages.
+
+**Result.**
+- Colliding slurs in Brahms went from 5 to 0; the other pieces had none.
+- Ties dropped across the nine scores: 3, all broken (Debussy bar 1 → 13, Schubert 45 → 47, and one more). A Brahms tie with a gap of an eighth note inside one bar is kept on purpose.
+- Clair de lune bars 1–4 now have no doubled noteheads or stray lines.
+- The automatic check flags 3 overlapping labels and 2 tight ones across the nine pages:
+  - one is a real problem ("7→3" on a slur in Brahms bar 3);
+  - the Jupiter "APP" now has its leader line;
+  - the rest look clear when zoomed in.
+- The robustness run passes 31 of 31, and 52 tests pass. The golden image is out of date until the new look is approved.
+
+### 24. Slurs on the wrong side, and circles on scale runs (2026-10-10)
+
+**Problem.** The owner compared our pages with printed editions and found several faults:
+- Slurs in Debussy bars 1–2 hung below the notes.
+- A slur in bar 3 crossed the duplet "2"s.
+- The left-hand A♭s in bar 1 were not tied.
+- "7→3" sat in a crowded spot.
+- "Theme in the cello" was bracketed over the whole quartet.
+- P and N were circled on ordinary scale notes in Mozart.
+- Two Brahms "N"s were really anticipations.
+
+Mutopia's engravings of the first editions (Fromont 1905, Simrock 1892) served as the reference.
+
+**Cause.**
+- Verovio picks a slur's side from the first note's stem, and the round 23 pass flipped colliding slurs to whichever side was clear. Neither follows engraving practice.
+- The A♭ tie in the file points 12 bars ahead, and round 23 dropped it.
+- Verovio's staff box takes in ledger lines, so the space under a staff with low notes counted as taken.
+- The non-chord-tone circles in the example lists were picked by hand with no rule.
+- A review by a side agent found that the round 23 duplicate-chord rule had removed 3 Brahms notes nobody had looked at. Their courtesy naturals and slurs went with them in bar 65.
+
+**What we did.**
+- `engine/slurs.py` now sets every slur's side by Gould's rules, judged from the stems as drawn:
+  - two voices: the upper voice above, the lower voice below;
+  - one voice: the notehead side when the stems agree, above when they are mixed.
+
+  A slur that still hits a stem, beam, notehead or tuplet number is raised with MEI `@bulge` instead of being flipped.
+- A broken tie is reconnected to the next note of its pitch on its staff.
+- A removed cross-staff copy now passes its ties, slurs and written accidentals to the note that stays.
+- The overlay measures a staff by its five lines and puts voice-leading labels under the arrow.
+- `region` takes an optional `staff`. Hidden directions make Verovio open the gap above that staff.
+- The skill now says to circle accented non-chord tones and the first instance of a characteristic figure, and never notes inside a run. It also says to check whether a note anticipates the next chord before calling it a neighbour.
+
+**Result.**
+- Debussy bars 1–5 and the Brahms two-note slurs now sit on the same sides as in the first editions, and the bar 3 slur clears the duplets.
+- Brahms bar 65 keeps its naturals.
+- The label check across the nine pages flags 1 overlap (the Jupiter "APP", which has a leader line and reads clearly) and 2 tight labels.
+- 52 tests pass; the golden image is waiting for approval. The robustness run passes 31 of 31.
+
+### 25. Checked against printed editions: the slur rule had never run (2026-10-10)
+
+**Problem.** Nine reviewers each compared one Round 4 page with a printed edition. Where IMSLP was reachable they used scans: Breitkopf 1863 and 1878–82, Peters c. 1890, Eulenburg 1903, NMA. Otherwise they used Mutopia re-engravings of the first editions (Bach, Brahms, Debussy).
+
+None found a wrong pitch or rhythm. Most of what differed came from the files themselves, which our engraving draws faithfully:
+- missing dynamics, slurs and staccatos (K545, Schubert, K458);
+- misspelt lyrics in Schubert;
+- "Andante espressivo" in Debussy where the first edition has "Andante très expressif";
+- wrong horn key signatures, a stray bass note and "muta" texts in the wrong bars in Dvořák.
+
+The engraving faults were:
+- Slurs sat on the wrong side in Schubert, Brahms, K458 and the Beethoven cello.
+- Debussy bar 1 showed the A♭ twice, with a lens of ties, two rests and no cross-staff beam.
+- Jupiter and Dvořák printed part ids ("flute1", "piccolotrumpet1").
+- Jupiter printed its title and composer inside the music.
+- Brahms joined its crescendo and diminuendo into one diamond and set "p" and "dolce" at different heights.
+- Ties coming into the excerpt crossed the "C" time signature.
+
+**Cause.**
+- Verovio boxes notes, never noteheads, so the round 24 stem lookup found nothing. Every single-voice slur went above, and the lift check never saw a note. Round 24's Debussy and Brahms slurs were right by coincidence.
+- The two-voice rule compared average pitches, so the upper voice's low chord notes pulled it under the inner voice.
+- MEI `@bulge` turned out to be about one staff space per unit, not half, so lifted slurs overshot.
+- In Debussy bar 1 the file writes the chord in both hands. The right hand's copy has its stem hidden, and the cross-staff copy carries the beam. Round 23 kept the wrong copy.
+- Verovio does not import `<instrument-name>`, where such files keep the readable name.
+- MuseScore pages write the title block as ordinary directions.
+
+**What we did.**
+- Slurs:
+  - stem directions come from note boxes;
+  - two voices are compared by their top notes;
+  - notes drawn on another staff count on that staff;
+  - the bulge unit is now one staff space.
+- When the staff's own copy of a doubled chord has its stem hidden, it goes, with the rest under the beam. The cross-staff copy and its beam stay.
+- Ties from notes struck together in different voices curve apart.
+- Part names that look like ids are replaced by the instrument name, numbered: "Horn I in C".
+- Text that names the piece or composer from the file's header, and "Movement N" headings, are removed.
+- A hairpin that ends where the next starts stops half a beat short.
+- A word just after a dynamic joins it ("p dolce").
+- Ties into the excerpt from an earlier bar are dropped.
+- Words that a stem runs through move to the other side of their staff.
+
+**Result.**
+- Slurs now match the editions in the four flagged places, and Brahms bars 6–8 arch above.
+- Debussy bar 1 has its cross-staff beam, one rest, and "con sordina" under the left hand as in Fromont.
+- The label check flags 1 overlap and 2 tight labels, as before.
+- 52 tests pass; the golden image still waits for approval. Robustness passes 31 of 31.
+- Still from the files: Dvořák's second-system abbreviations ("Cl. I. II." over "Cl."), and Jupiter's empty horn III–IV staves.
+- Verovio's Leipzig "tr" is heavier than a printed one; Leland's is plain, but changing the music font changes every page.
+- "div." and "a 2" in Dvořák are attached to the right staff but sit midway between staves.
+
+### 26. Owner's look at Round 5: inner-voice slurs, a cramped chord slur, a small note (2026-10-10)
+
+**Problem.**
+- In Brahms bars 1 and 5, the slurs inside the cross-staff beam sat below. The Simrock first edition (1893) puts both above.
+- In Debussy bar 1, the slur from the A♭ chord to the F was squeezed against the chord.
+- In the Beethoven quartet bar 1, the cello's D was drawn small.
+- A side review noted that dropping ties into an excerpt makes a held note look like a new attack.
+
+**Cause.**
+- The two-voice rule treated the beam that crosses the staves as a lower voice.
+- MusicXML puts a chord's slur on its first, lowest note. A slur set above the chord therefore started from inside it, and `@bulge` barely raises a short slur.
+- The music21 file marks that D `<type size="cue">`. The Breitkopf 1863 score prints it full size.
+
+**What we did.**
+- Slurs between notes of one cross-staff beam go above.
+- A slur on one note of a chord is moved to the chord. Verovio then starts it from the outer note on its side.
+- A slur that is still blocked after it has been lifted is raised a step further, up to four passes. Ties now count as obstacles.
+- Any group of two or more ties starting together curves apart, including cross-staff notes.
+- Ties into an excerpt are kept again, as the owner chose. Verovio draws them from the time signature, so the arc seemed to grow out of the "C". Each is now redrawn as a short arc, at most two staff spaces long, starting clear of the time signature and ending on the held note. Such ties are drawn as "spanning" groups named by class rather than id, which is why a first attempt to find them by id missed them all.
+- The cue-size note stays as written, as the owner chose. The trill keeps Verovio's default font.
+
+**Result (v16, ties in v17).**
+- Brahms bars 1 and 5 match Simrock.
+- Debussy's slur clears the chord.
+- The label check finds 1 overlap and 2 tight labels, as before.
+- 52 tests pass, with the golden image deselected. Robustness passes 31 of 31.
+
+### 27. Making the finished page look printed: fonts, PDF, empty staves, line breaks (2026-10-10)
+
+**Problem.**
+- The card image was 1400 px wide, soft on high-density screens, and the PDF was a raster image inside a PDF.
+- Instrument names with a ♭ ("Clarinet in B♭") came out in a different typeface from the rest, so the names looked uneven.
+- A test on 27 more ensembles (concertos, sonatas, band, choir, hymns, lead sheets, guitar, organ, continuo, opera, four hands, two pianos, drums, big band) showed:
+  - labels in some files read "B accidentalFlat" or "&amp;";
+  - two identical marks were printed on top of each other;
+  - "p" and "cresc." at one point were drawn apart;
+  - dynamics a beat apart were forced onto one line and touched;
+  - a clef was immediately cancelled by another clef.
+- Orchestral pages printed every resting staff on every line. Printed scores show all staves on the first system only.
+- Lines broke wherever the bars filled up, sometimes in the middle of a phrase, and could leave one or two bars alone on the last line.
+- The label check only looked at our own labels. Nothing checked the music's own text against the notes.
+
+**Cause.**
+- resvg sets a whole string in the fallback font when one glyph is missing. Liberation Serif has ♯ but not ♭ or ♮.
+- The PDF was made from the PNG.
+- The label and mark problems are in the files. Verovio prints what it is given.
+- Verovio hides empty staves only when asked (`condense`), and its "auto" setting starts on page 2.
+- Verovio's breaks know nothing about phrases.
+
+**What we did.**
+- **Fonts.** tools/build_fonts.py builds Score Serif: Liberation Serif plus DejaVu's ♭ and ♮. It is renamed because the OFL reserves "Liberation". fonts.conf points Times and serif at it.
+- **Image quality.**
+  - The card image is drawn at 2800 px, twice the old width.
+  - The PDF is now vector, built per page with cairosvg and joined with pikepdf. The base image needs libcairo2. cairo is loaded only when a PDF is made, and where it can't load (a skill sandbox without the library, or a base image not yet rebuilt) the PDF falls back to an image PDF at A4 width, so analyses never fail because of it.
+- **File cleanup.**
+  - Labels are cleaned.
+  - Exact duplicate marks are dropped.
+  - A dynamic and a word at the same point on the same staff are joined ("p cresc.").
+  - A dynamic less than a beat after the one before it on its staff is no longer forced into line with it.
+  - A clef cancelled by the next clef is removed.
+  - In chord symbols, a "b" or "#" before a number becomes ♭ or ♯ ("Am7b5" → "Am7♭5"). Verovio converts only the root.
+  - A clef change written before a bar's first note moves to the end of the bar before. Verovio draws such a clef full size after the barline; print sets it small before it (Beethoven trio, cello, bar 3). A first try made it a staff change between the bars, but Verovio draws that full size too.
+- **System divider.** As the owner chose, the "//" between systems is drawn only on scores with more than four staves (orchestra, band, quintets, choir with piano). Solo piano, songs, duos, trios and string quartets leave it out, as their editions do.
+- **Empty staves.** `condense: "encoded"` with `optimize` on the first score definition: the first system names every instrument, and later systems drop resting staves.
+- **Line breaks.**
+  - Bars are measured at natural width on one line.
+  - Line capacity comes from Verovio's fullest line.
+  - A short dynamic-programming pass chooses breaks that fill lines evenly. It prefers breaks at phrase starts and after cadences, avoids breaking just before a cadence, and keeps the last line at least three-quarters full.
+- **Music collision check.** tools/engraving_check.py now also boxes Verovio's own text (dynamics, words, tempo, lyrics, fingering) and clef changes, and reports any that overlap notes, accidentals, rests or other text by more than a tenth of a staff space. Bar numbers are skipped, because their boxes come out unplaced. Lyrics have no boxes in Verovio 6.3, so they can't be checked.
+
+**Result (v21).**
+- Line breaks:
+  - K. 545 now breaks at bar 5, where phrase b starts; before, it broke inside phrase a.
+  - Bach, Schubert and Debussy break at phrase starts.
+  - Dvořák breaks before bar 10, inside phrase a. Breaking after its cadence would need six orchestral bars on one line, 19% over capacity, so the full first line was kept rather than going to three systems.
+- Condensing: on the Dvořák page, the second system shows 7 staves instead of 25.
+- The PDF matches the PNG, and instrument names now share one typeface.
+- The label check finds 1 overlap and 2 tight labels, as before. The music collision check finds 0 collisions on the 9 pieces.
+- Two reviewers checked 15 of the ensemble pages. IMSLP's downloads sit behind a bot check, so they compared against general practice (Gould), not printed editions. I checked their claims against the files:
+  - Ours and fixed: the full-size cello clef in the trio, and "Am7b5".
+  - From the files, not ours: no figured-bass figures in the Bach teaching sheet (it has none; the trombone sonata's 47 figures print correctly), missing hyphens in the Lacrymosa (the file ends the word after "cry"), no instrument groups in the band score, and two identical bass staves in the Bach sonatas.
+  - Not right: the organ "garbled ornaments" are ordinary mordents, and the "//" no longer touches the bar number.
+  - Still open: a resting staff with a clef change at its end stays on the page (Grieg, Piano II). Hiding it would need the clef moved to the next line, which Verovio draws full size. Very long text directions (the Bach teaching sheet) run off the page.
+- Ensembles: 26 of 27 have no music collisions. Autumn Leaves keeps one chord-symbol clash that is in the file. No log of the first ensemble run was kept, so there is no before count.
+- 52 tests pass, with the golden image deselected. Robustness passes 31 of 31.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

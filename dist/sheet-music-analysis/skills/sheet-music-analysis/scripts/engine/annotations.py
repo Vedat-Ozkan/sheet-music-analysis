@@ -75,6 +75,7 @@ class Region(Annotation):
     start: Position
     end: RangeEnd
     label: str = Field(description='e.g. "whole-tone", "E Dorian", "pentatonic", "parallel 9th chords", "pedal on G"')
+    staff: int | None = Field(None, description="Draw the bracket at this staff (1 = top) when the region belongs to one instrument, e.g. a theme in the cello")
 
 
 class NonChordTone(Annotation):

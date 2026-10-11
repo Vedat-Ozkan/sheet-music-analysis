@@ -280,6 +280,8 @@ class ScoreIndex:
             grace = child.get("grace") is not None
             duration = Fraction(0) if grace else _duration(child, ppq)
             notes = child.findall(f"{MEI}note") if tag == "chord" else [child] if tag == "note" else []
+            # Unpitched percussion (drums, cymbals) has no pitch to analyse; it still takes up time.
+            notes = [note for note in notes if note.get("pname")]
             for note in notes:
                 pitch = transpose(_pitch(note), *shift) if shift else _pitch(note)
                 event = Event(note.get(XML_ID), measure.number, staff, cursor, duration, pitch, grace, self._layer)

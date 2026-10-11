@@ -11,10 +11,11 @@ from fontTools.ttLib import TTFont
 from PIL import ImageFont
 
 FONT_DIR = Path(__file__).parent / "fonts"
-MAIN, FALLBACK = "Liberation Serif", "DejaVu Serif"
+# Score Serif is Liberation Serif (Times metrics, as Verovio assumes) with ♭ and ♮ added; see tools/build_fonts.py.
+MAIN, FALLBACK = "Score Serif", "DejaVu Serif"
 FILES = {
-    (MAIN, False): "LiberationSerif-Regular.ttf",
-    (MAIN, True): "LiberationSerif-Bold.ttf",
+    (MAIN, False): "ScoreSerif-Regular.ttf",
+    (MAIN, True): "ScoreSerif-Bold.ttf",
     (FALLBACK, False): "DejaVuSerif.ttf",
     (FALLBACK, True): "DejaVuSerif-Bold.ttf",
 }
@@ -107,6 +108,8 @@ def numeral(label: str, size: float, bold: bool = False) -> tuple[list[Chunk], f
     Returns the chunks and the total width.
     """
     main, _, note = label.partition(" ")
+    # "V6/5" is a common spelling of V65; a secondary never starts with a digit.
+    main = re.sub(r"(\d)/(\d)", r"\1\2", main)
     chunks: list[Chunk] = []
     x = 0.0
     for position, part in enumerate(_split_secondary(main)):
