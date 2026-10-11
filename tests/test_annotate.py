@@ -1,4 +1,5 @@
 import io
+import re
 from pathlib import Path
 
 import pytest
@@ -85,3 +86,14 @@ def test_chord_symbols_and_regions_for_music_roman_numerals_do_not_fit(chopin):
     assert ">Ebmaj7<" in svg and ">C7(#11)<" in svg and ">E<" in svg  # drawn as written
     assert "stroke-dasharray" in svg and ">pedal on Eb<" in svg
     assert "fill-opacity" not in svg  # no function given, so no colour bands
+
+
+def test_piano_reduction_keeps_the_marked_notes():
+    """A string quartet drawn on two piano staves: the analysis written for the four parts still finds its notes."""
+    from tools.robustness import CORPUS
+
+    score = (CORPUS / "mozart/k458/movement1.mxl").read_bytes()
+    annotations = AnnotationList.model_validate_json(Path("examples/engraving/mozart-k458.json").read_text())
+    engraving = render(score, annotations, measures=(0, 8), piano=True)
+    assert engraving.page_count == 1
+    assert set(re.findall(r'class="staff" data-n="(\d+)"', engraving.svgs[0])) == {"1", "2"}

@@ -610,6 +610,42 @@ The engraving faults were:
 - Ensembles: 26 of 27 have no music collisions. Autumn Leaves keeps one chord-symbol clash that is in the file. No log of the first ensemble run was kept, so there is no before count.
 - 52 tests pass, with the golden image deselected. Robustness passes 31 of 31.
 
+### 28. Piano reductions of large scores (2026-10-10)
+
+**Problem.** A full orchestral page is hard to read for most users. Published reductions (Goetschius's 1928 "Analytic Symphony Series") put the same music on two staves. The owner wants users to be able to ask for one.
+
+**Decisions (owner).**
+- The analysis is made on the original score. The reduction is only a clearer view of it.
+- Instrument cues use standard abbreviations (Fl., Ob., Cor. ingl., Vl. I, Str., Tutti).
+- For scores with more than four staves, the original is drawn first and the piano version is offered once. It is drawn only if the user accepts.
+- It runs in the skill and on the server. The server cost was measured before any deploy.
+
+**What we did.**
+- `engine/piano.py` builds on the second prototype:
+  - Melody: the busiest line that stands out (the top line, or another instrument family than the accompaniment) is the tune and goes on top.
+  - Harmony: everything else is merged into chords and split between the hands. Harmony above the tune moves down an octave. Each hand keeps at most four notes, dropping doublings first.
+  - Held chords: a chord held unchanged becomes one long note. Any change of notes strikes a new chord, so no harmony is lost.
+  - Cues: a cue appears where the tune changes hands.
+- Instrument families come from music21's instrument classes. Strings often arrive as a generic "StringInstrument", so the part name is looked up instead.
+- Notes the analysis points at (non-chord tones, voice-leading arrows) are added to the chord material unless the tune already has them, so they are never dropped, thinned or moved. Their marks are then re-pointed to whichever piano staff they land on. A first version added them only where a chord already started, and lost a marked note a sixteenth after the beat (K. 458 bar 5).
+- The time and key signatures are read from the first bar. music21's context search finds neither in a bar cut out of the score, so K. 458 first came out with no key signature and quarter-note beats.
+- `render(..., piano=True)`, the skill's `--piano` and the server's `piano` argument all use the same path. music21 is imported only for a reduction, so the skill installs it only when a user accepts.
+
+**Result.**
+- Jupiter (bars 1–8) and Dvořák (bars 5–12) draw on two staves with all their labels.
+- K. 458 keeps its marked neighbour note.
+- 54 tests pass, including a new end-to-end test.
+- Cost, measured on the development machine:
+
+  | Page | Original | Piano version |
+  |---|---|---|
+  | Jupiter | 15.2 s CPU | 12.4 s CPU |
+  | Dvořák | 9.9 s CPU | 5.5 s CPU |
+
+  Loading music21 adds 0.1 s and 31 MB once per instance. A piano page therefore costs no more than the original page it follows. At the current Cloud Run settings (2 vCPU, 4 GiB) that is about $0.0007 per piano page beyond the free tier, and it counts toward the existing daily render cap.
+
+**Still rough.** Dense inner voices in chamber music (K. 458 bars 5 and 8) turn into tied chord chains. The offer is only for scores with more than four staves, where the textures are fuller and the reduction reads well.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

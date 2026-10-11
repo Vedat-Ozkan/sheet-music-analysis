@@ -7,7 +7,7 @@ import re
 from xml.sax.saxutils import escape
 
 from engine import slurs
-from engine.annotations import AnnotationList, Cadence, Callout, Harmony, NonChordTone, Phrase, Region, VoiceLeading
+from engine.annotations import AnnotationList, Cadence, Callout, Harmony, NoteRef, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
 from engine.render import Engraving, incoming_ties, load_toolkit, shorten_ties
 from engine.score import PositionError, ScoreIndex
@@ -63,8 +63,13 @@ def render(
     measures: tuple[int, int] | None = None,
     view: str = "all",
     role: str | None = None,
+    piano: bool = False,
 ) -> Engraving:
-    """Engrave `measures` (printed numbers, inclusive; the whole score by default, if it is short enough) with annotations drawn on."""
+    """Engrave `measures` (printed numbers, inclusive; the whole score by default, if it is short enough) with annotations drawn on.
+
+    With `piano`, the passage is drawn as a two-staff piano reduction; the annotations still describe the original."""
+    if piano:
+        score, annotations = _piano_version(score, annotations, measures)
     toolkit = load_toolkit(score, ANNOTATED_OPTIONS)
     index = ScoreIndex(toolkit.getMEI())
     check(annotations, index)
@@ -98,6 +103,45 @@ def render(
         layout.draw(annotations, view, role)
         pages.append(layout.to_svg())
     return Engraving(pages)
+
+
+def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[int, int] | None) -> tuple[bytes, AnnotationList]:
+    """The piano reduction, and the annotations pointed at it: a marked note is found again by bar, beat
+    and pitch on whichever piano staff it landed, and a bracket tied to one instrument's staff spans the system."""
+    from engine import piano as piano_reduction  # music21 is loaded only for a reduction; the skill installs it then
+
+    original = ScoreIndex(load_toolkit(score).getMEI())
+    check(annotations, original)
+    refs = [ref for a in annotations.annotations for ref in _note_refs(a)]
+    found = [original.find_note(**ref.model_dump()) for ref in refs]
+    keep = [(ref.measure, event.onset, event.pitch, event.duration) for ref, event in zip(refs, found)]
+    reduced = piano_reduction.reduce(score, measures, keep)
+    index = ScoreIndex(load_toolkit(reduced).getMEI())
+    moved = {}
+    for ref, event in zip(refs, found):
+        try:
+            staff = index.find_note(ref.measure, ref.beat, pitch=event.pitch).staff
+        except PositionError:
+            staff = None  # check() below reports the note as missing
+        moved[id(ref)] = ref.model_copy(update={"staff": staff, "pitch": event.pitch})
+    pointed = []
+    for annotation in annotations.annotations:
+        if isinstance(annotation, NonChordTone):
+            annotation = annotation.model_copy(update={"note": moved[id(annotation.note)]})
+        elif isinstance(annotation, VoiceLeading):
+            annotation = annotation.model_copy(update={"from_note": moved[id(annotation.from_note)], "to_note": moved[id(annotation.to_note)]})
+        elif isinstance(annotation, Region) and annotation.staff:
+            annotation = annotation.model_copy(update={"staff": None})
+        pointed.append(annotation)
+    return reduced, annotations.model_copy(update={"annotations": pointed})
+
+
+def _note_refs(annotation) -> list[NoteRef]:
+    if isinstance(annotation, NonChordTone):
+        return [annotation.note]
+    if isinstance(annotation, VoiceLeading):
+        return [annotation.from_note, annotation.to_note]
+    return []
 
 
 DIR = re.compile(r'<g id="([^"]+)" class="dir">(.*?)</text>', re.S)

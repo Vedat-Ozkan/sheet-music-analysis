@@ -1,6 +1,6 @@
 """Draw an annotation list on the engraved score and save a PNG and a PDF.
 
-    python3 render_analysis.py SCORE ANNOTATIONS.json --out-dir DIR [--measures 1-8] [--view all] [--name analysis]
+    python3 render_analysis.py SCORE ANNOTATIONS.json --out-dir DIR [--measures 1-8] [--view all] [--name analysis] [--piano]
 """
 
 import argparse
@@ -25,6 +25,7 @@ def main() -> int:
     parser.add_argument("--measures", help='printed measure numbers, e.g. "1-8"; default is the whole score')
     parser.add_argument("--view", choices=VIEWS, default="all")
     parser.add_argument("--name", default="analysis", help="file name without extension")
+    parser.add_argument("--piano", action="store_true", help="draw the passage as a two-staff piano reduction")
     args = parser.parse_args()
 
     try:
@@ -40,7 +41,7 @@ def main() -> int:
         first, _, last = args.measures.partition("-")
         measures = (int(first), int(last or first))
     try:
-        engraving = render(args.score.read_bytes(), annotations, measures=measures, view=args.view)
+        engraving = render(args.score.read_bytes(), annotations, measures=measures, view=args.view, piano=args.piano)
     except AnnotationError as error:
         print("Some annotations point at places that are not in the score. Fix these and run again:", file=sys.stderr)
         for problem in error.problems:

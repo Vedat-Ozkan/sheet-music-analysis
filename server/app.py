@@ -258,7 +258,10 @@ apps = Apps()
         "score. Takes the score_id and your annotation list and returns the page as an image plus PNG and PDF "
         "links, shown to the user in a card. If a position does not exist in the score, the error lists each "
         "problem so you can fix the list and call again. A page shows at most 32 bars: for a longer piece, pass "
-        "measure_range (e.g. 1-16) and draw it passage by passage. view is one of all, harmony, voice_leading, form."
+        "measure_range (e.g. 1-16) and draw it passage by passage. view is one of all, harmony, voice_leading, form. "
+        "piano=true draws the same annotation list (written for the original score) on a two-staff piano reduction "
+        "with instrument cues. For a score with more than four staves, draw the original first, then offer the user "
+        "the piano reduction once; call again with piano=true only if they accept."
     ),
     annotations=read_only("Draw the analysis on the score"),
     meta={"openai/outputTemplate": CARD_URI},
@@ -269,6 +272,7 @@ async def render_analysis(
     annotations: AnnotationList,
     measure_range: str = "all",
     view: str = "all",
+    piano: bool = False,
 ) -> CallToolResult:
     source = platform(ctx)
     if not await take("render", source):
@@ -277,7 +281,7 @@ async def render_analysis(
     try:
         score, _ = await resolve_score(None, score_id)
         measures = parse_measures(measure_range)
-        engraving = await anyio.to_thread.run_sync(lambda: render(score, annotations, measures=measures, view=view))
+        engraving = await anyio.to_thread.run_sync(lambda: render(score, annotations, measures=measures, view=view, piano=piano))
     except AnnotationError as error:
         log("render_analysis", platform=source, problems=len(error.problems))
         return error_result("Fix these annotations and call again:\n" + "\n".join(error.problems))
@@ -289,8 +293,8 @@ async def render_analysis(
     image_url, pdf_url = await anyio.to_thread.run_sync(
         lambda: (publish(engraving.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"))
     )
-    caption = f"Analysis, measures {measure_range}, view {view}"
-    log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png))
+    caption = f"Analysis, measures {measure_range}, view {view}" + (", piano reduction" if piano else "")
+    log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano)
     # The card shows the page to the user; the image lets the chat model check its own annotations.
     return CallToolResult(
         content=[
