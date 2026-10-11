@@ -1,6 +1,6 @@
 # Sheet music analysis
 
-Harmonic analysis drawn on an engraved score, for use inside Claude and ChatGPT. The plan is in `docs/plan.md`; the research behind it is in `docs/research-2026-10-01.md`.
+Harmonic analysis drawn on an engraved score, for use inside Claude and ChatGPT. The v1 plan is in `docs/plan.md`, with its research in `docs/research-2026-10-01.md`; the plan for what comes after v1 is in `docs/plan-2026-10-11.md`.
 
 ## Thanks
 
@@ -21,7 +21,7 @@ This project would not exist without [AnalysisGNN](https://github.com/manoskary/
 | `plugin/`, `dist/sheet-music-analysis/` | The plugin: its manifest in `plugin/`, and the built plugin (skill plus a pointer to the connector at mcp.sheetmusicanalysis.com) in `dist/`, written by `tools/build_skill.py` and committed because the Claude plugin directory reads it from GitHub. Rebuild after changing `skill/`, `engine/` or `plugin/`. |
 | `engine/notes.py` | Compact text form of a score's notes, which the skill passes to the server so the draft model can run without the file being uploaded. |
 | `spike/` | Throwaway MCP server (superseded by `server/`) for plan step 1: tests how a score gets in and how a page shows up in each chat app. |
-| `server/`, `Dockerfile`, `Dockerfile.base` | The production MCP server (`server/app.py`): the three tools the plugin and ChatGPT use, daily limits, storage in a Cloud Storage bucket that deletes scores and pages after a day. `server/deploy.sh PROJECT_ID` builds the image on Cloud Build and deploys it to Cloud Run (one instance at most). Run locally with `.venv/bin/python -m server.app` (port 8080, files under `out/server/`). |
+| `server/`, `Dockerfile`, `Dockerfile.base` | The production MCP server (`server/app.py`): the three tools the plugin and ChatGPT use, plus `read_pdf` for ChatGPT (reads a PDF with Audiveris through `engine/read_pdf.py` and shows the engraved result to check before the analysis; `tests/test_read_pdf.py` runs when `AUDIVERIS` points at an Audiveris launcher), daily limits, storage in a Cloud Storage bucket that deletes scores and pages after a day. `server/deploy.sh PROJECT_ID` builds the image on Cloud Build and deploys it to Cloud Run (one instance at most). Run locally with `.venv/bin/python -m server.app` (port 8080, files under `out/server/`). |
 | `site/`, `wrangler.jsonc` | The website at sheetmusicanalysis.com: landing page, how-to-use, privacy and terms, plus the clef icons the server reports to chat hosts. Static files served by Cloudflare; publish with `npx wrangler@4 deploy`. `site/.assetsignore` keeps local `.uuid` files off the site. |
 | `openai-plugin/` | The ChatGPT listing package: `plugin.json` (listing text, icon, review test cases), `mcp.json` (the server address) and icons. Upload it zipped at platform.openai.com/plugins: `cd openai-plugin && zip -r ../out/sheet-music-analysis-openai.zip plugin.json mcp.json assets`. Bump `version` with each upload. |
 | `proxy/` | A Cloudflare Worker that serves the Cloud Run server at mcp.sheetmusicanalysis.com, the address given to Claude and ChatGPT. Publish with `npx wrangler@4 deploy -c proxy/wrangler.jsonc`. |
@@ -94,7 +94,7 @@ Draws nine analysed passages, from a Bach chorale to Dvořák's full orchestra, 
 .venv/bin/python -m eval.judge                                 # compare with what a teacher wrote about each piece
 ```
 
-`eval/pieces.py` lists 23 pieces from Bach to Ravel, each paired with a published human analysis (how they were chosen is in `reports/Scores with published analyses.md`). Twelve have a chord-by-chord reading by a human analyst that a script can compare against; the rest have prose only. Scores, labels and results are kept in `out/eval/` and are not committed. The review and judge steps call `claude -p`, so they use the account Claude Code is signed in with.
+`eval/pieces.py` lists 23 pieces from Bach to Ravel, each paired with a published human analysis (how they were chosen is in `reports/Scores with published analyses.md`). Twelve have a chord-by-chord reading by a human analyst that a script can compare against; the rest have prose only. Scores, labels and results are kept in `out/eval/` and are not committed. The review and judge steps call `claude -p`. With `ANTHROPIC_API_KEY` in `.env` (not committed) they bill to that API key, and each run's cost is added to `out/api-spend.jsonl`; without it they use the account Claude Code is signed in with.
 
 Results, and the problems met along the way, are written up in `docs/engineering-log.md`.
 
@@ -136,4 +136,4 @@ print(draft.as_text(draft.draft(ScoreIndex(load_toolkit(score).getMEI())), 1, 8)
 
 ## Test score
 
-`tests/data/chopin_nocturne_op9_no2.mxl` is a community transcription from the MuseTrainer public-domain library (https://github.com/musetrainer/library).
+`tests/data/chopin_nocturne_op9_no2.mxl` is a community transcription from the MuseTrainer public-domain library (https://github.com/musetrainer/library). `tests/data/chopin_prelude_op28_no4_audiveris.mxl` is Audiveris 5.11.0's reading of the Mutopia Project PDF of Chopin's Prelude Op. 28 No. 4 (Mutopia-2016/10/28-468, placed in the public domain by its typesetter), kept with its reading mistakes for `tests/test_read_pdf.py`.

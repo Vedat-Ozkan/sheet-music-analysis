@@ -654,6 +654,66 @@ The engraving faults were:
 
 **Result.** The new instance started in 7 s with no warnings or import errors in its log. One `render_analysis` call through mcp.sheetmusicanalysis.com (Chopin Op. 9 No. 2, bars 1–8, the score placed in the bucket under a score id) returned in 9.6 s. Its PDF is 95 KB, one page with seven embedded fonts and no images, so it is the vector PDF, not the image fallback. The piano option was not tried on the live server.
 
+### 30. Usage report and a logging redeploy (2026-10-11)
+
+**Problem.** No usage numbers existed, so the order of the next features had nothing to rest on. Both directory listings (Claude and ChatGPT) were submitted and are in review as of today.
+
+**What we did.** `tools/usage_report.py` reads the server's existing Cloud Logging lines (no new cloud cost) and prints drafts, renders, piano renders, views, bar ranges, limit hits and errors per day and per platform. The deployed log lines lacked the view and the bar range, so `render_analysis` now logs `view` and `measure_range`, and `draft_analysis` logs `measure_range`. Deployed as revision `sheet-music-analysis-00019-7n7`; base image `base:734c41625b5daadb` reused, server layer only (Cloud Build 1 min 14 s). Settings unchanged: gen2, 2 vCPU, 4 GiB, concurrency 4, min 0, max 1, 300 s.
+
+**Result.** Before: 14 days of logs showed only launch-day testing (2026-10-06: 30 drafts, 19 renders, 5 errors, which looks like our own launch testing) and no view or range. After: one live `render_analysis` check (Chopin Op. 9 No. 2, bars 1–8, harmony) returned in 11.4 s and the report shows `views [harmony 1]  ranges [1-8 x1]`. The new `measure_range` on `draft_analysis` was not checked live, since that call runs the model.
+
+### 31. PDF reading spike: homr against Audiveris (2026-10-11)
+
+**Problem.** Most people have a PDF, not MusicXML. Before designing a PDF path we needed to know whether optical music recognition (OMR) reads clean PDFs well enough, and which tool to use. Details, scripts and per-file tables are in `spike/omr/RESULTS.md`.
+
+**What we did.** Ground truth: `bach-269.mxl`, `mozart-k545-1.mxl` (73 bars), `chopin-prelude-4.mxl`. Clean PDFs made three ways: our Verovio engine (round 1, too clean to be representative), MuseScore 4.7.4 and Mutopia LilyPond editions (round 2). Scans: archive.org (Peters Mozart, Schirmer Chopin); IMSLP serves a captcha to scripts, which we did not get around. Each output was compared with ground truth on pitch, rhythm, key and meter per bar, and loaded with the engine's `ScoreIndex`. Everything ran locally on CPU, no cloud cost.
+
+**Result.** Pitch agreement on the five MuseScore and Mutopia PDFs: homr mean 97.3% (89.9–100), Audiveris mean 96.9% (91.2–99.6). Key and meter 100% for both on clean PDFs; rhythm 94–100%. Neither tool clears 95% on every clean file. Scans are worse: 84.8–97.3% pitch, and homr read the Mozart scan's meter right in only 39.7% of bars. Speed 6–19 s a page and 0.8–1.5 GB peak RAM for both. homr crashed Verovio (a native segfault, not catchable in Python) on 7 of 27 page files and writes one file per page; Audiveris never crashed, writes one file per PDF, but loses a page holding a single bar ("No system found"; re-exporting the saved `.omr` recovers the other pages). Install: homr 545 MB environment plus 157 MB models; Audiveris 188 MB with its own Java runtime. The confirm-the-score step is needed with either tool.
+
+**Owner's decision (2026-10-11).** Audiveris. Scans are accepted too, with a plain warning that reading errors are likely and the check step matters.
+
+### 32. Where PDF reading runs, and what it costs (2026-10-11)
+
+**Problem.** Claude connectors cannot receive attachments, so in Claude the PDF is only in the sandbox; in ChatGPT the server gets the file. Reading a PDF had to run somewhere without adding a workaround step for the user or breaking the $5 monthly budget. Details in `spike/omr/step2/RESULTS.md`.
+
+**What we did.** Server: Audiveris 5.11.0 timed on this machine limited to 2 CPUs and a 1 GB Java heap, like the Cloud Run instance (Docker was not available, so the image size and memory limit were not measured). Claude: a probe script run in a real claude.ai chat downloaded, unpacked and ran Audiveris on a 1-page PDF, and checked which domains the sandbox can reach.
+
+**Result.** Server: 7.4–13.9 s a page, 1.07–1.33 GB peak, about $0.00055 a page beyond the free tier (Cloud Run $0.000058 per instance-second at 2 vCPU and 4 GiB). Sandbox: download 1.9 s, unpack 0.7 s, the page in 23.9 s at 784 MB peak; Java is already installed; our own domains are blocked (403), so pages cannot be sent from the sandbox to the server. Decision: Claude reads PDFs in the sandbox at no Cloud cost; ChatGPT reads them on the server. **Owner's decision:** a daily cap of 150 PDF pages (a PDF counts its pages; over 12 pages refused). Worst case with every cap hit every day, about $4.45 a month (assumes the server itself stays under 0.8 GB and a $0.50 reserve, both unmeasured). To keep real cost near zero: read pages only until the asked-for bars are reached, and keep a result per file so the same PDF is not read twice.
+
+### 33. Reading PDFs, first version: the check step in both hosts (2026-10-11)
+
+**Problem.** Phase 2 steps 4–5: read a PDF with Audiveris, engrave what was read, ask the user to check it, and analyse only on their go-ahead, in Claude (sandbox) and ChatGPT (server).
+
+**What we did.** `engine/read_pdf.py` runs Audiveris, re-exports the saved `.omr` when a page with no staves stops the export, and reports pages, skipped pages and whether the PDF is a scan (rule: no page paints a vector path; text is ignored because scans often carry an invisible OCR layer). Server tool `read_pdf` (ChatGPT only): 12-page limit, `pdf_page` cap of 150 a day counted per page, one read at a time with a "busy" reply, results kept by the file's SHA-256 under `scores/` (deleted after a day with the scores); returns a score id that `draft_analysis` accepts. Skill script `skill/scripts/read_pdf.py` downloads the Ubuntu 24.04 `.deb` into the temp folder on first use. Two things found that the spike missed: Audiveris asks GTK for the screen scale at startup and crashes where GTK is absent (the slim server image) unless `-Dsun.java2d.uiScale=1` is set, and it refuses to start under the engine's `FONTCONFIG_FILE`; both are handled in the module, so the image needs no X, GTK or sound packages. Its launcher sets an 8 GB heap; `_JAVA_OPTIONS=-Xmx1g` caps it (Mozart scan, 4 pages: 34.5 s, 1.24 GB peak, unchanged result).
+
+**Result.** Local server, through the MCP endpoint: Mutopia Chopin (1 page) 20.4 s; Mozart scan (4 pages) 36.4 s with the scan warning; Verovio Chopin with a 1-bar last page 15.2 s, page 2 reported skipped; same PDF again 1.4 s from the cache; a second read during a read got "busy"; 15 pages refused; cap refused a 5-page read at 148 of 150. A read score id went on to `draft_analysis` (5.8 s). Skill script: 16.7 s for the Chopin page including the first download and unpack, 35.4 s and 1.17 GB peak for the Mozart scan. Not run: the Docker image build (no Docker here), and the real claude.ai and ChatGPT chats.
+
+**What the spike missed (found by the owner on the first demo page).** The engraved Chopin prelude had almost none of its left-hand chords, and from bar 4 the right hand was drawn an octave low. The MusicXML was fine (599 of 606 notes); our Verovio import was not. The spike's `compare.py` counted notes in the raw MusicXML and never what the engine sees, so it scored this file 98.7%. Three Audiveris habits were at fault, all fixed by `clean()` in `engine/read_pdf.py` before the score leaves the module:
+- `<beam>` repeated on every `<chord/>` note: Verovio drops the chord ("Chord starting point has not been found"). Removed from chord notes.
+- Octave lines started and never stopped: Verovio draws the rest of the piece an octave off (pitches were right). Unclosed ones are dropped; closed ones are kept.
+- `<divisions>` changing partway through a part (12, then 8, then 24 in the MuseScore Mozart): Verovio keeps the first value but writes later durations in the new units, so every onset after the change was off by a factor (2/3 in Mozart bar 17 on). Durations are rescaled to one value per part.
+
+`spike/omr/engine_check.py` now compares through `load_toolkit` + `ScoreIndex` (pitch and onset per bar, the events the analysis uses). Notes the engine sees / truth, pitch agreement, pitch+onset agreement, before → after:
+
+| OMR output | Before | After |
+|---|---|---|
+| MuseScore Bach | 228/229, 99.6%, 79.9% | 228/229, 99.6%, 98.7% |
+| MuseScore Mozart | 1183/1281, 88.4%, 30.6% | 1246/1281, 91.0%, 86.5% |
+| MuseScore Chopin | 120/606, 19.8%, 15.3% | 598/606, 98.7%, 98.0% |
+| Mutopia Chopin | 121/606, 19.8%, 19.1%; 87 notes drawn an octave off | 599/606, 98.7%, 98.0%; 0 |
+| Mutopia Mozart | 1203/1281, 91.6%, 47.8% | 1266/1281, 96.5%, 93.4% |
+| Mozart scan | 1172/1281, 81.1%, 59.9% | 1235/1281, 84.8%, 78.3% |
+| Chopin scan | 120/606, 18.8%, 18.0% | 596/606, 95.5%, 94.2% |
+| Verovio Bach (round 1) | 228/229, 97.8%, 96.5% | unchanged |
+| Verovio Mozart (round 1) | 1203/1281, 92.2%, 71.9% | 1266/1281, 97.1%, 93.7% |
+| Verovio Chopin, page 1 only (round 1) | 120/606, 19.8%, 18.0% | 597/606, 97.5%, 91.6% |
+
+After the clean-up every file keeps all its MusicXML notes except the MuseScore Mozart (15 fewer: in bars 59, 60 and 62 Audiveris wrote the same five notes twice, and Verovio drops the copies). The only Verovio messages left are unmatched slurs. The Mozart scan's remaining onset gap is OMR, not import: a missed treble clef in the left hand of bars 1–4 and 42–44 puts those notes a twelfth low. `tests/test_read_pdf.py` now engraves nocturne bars 9–12, where the old import lost 29 of 137 notes, and checks the notes and left-hand chords ScoreIndex sees; with the clean-up disabled it fails (108 against 137).
+
+**Every bar on the check page (owner, 2026-10-11).** The ChatGPT card showed only page 1 of the engraving. It now shows one tall image of the whole score (`engrave_tall` in `engine/render.py`; Mozart scan, 73 bars: 2800 x 13,214 px in the card, staff space 24 px, so about 6.5 CSS px at a 760 px chat column, the same scale as the analysis card); the PDF link keeps ordinary pages. The skill keeps one PNG per page but pulls a last page of one or two bars onto the page before it (Chopin prelude: 2 pages, the second holding bar 25 alone, became 1).
+
+**Naming likely misreads, and leaving out slurs (owner, 2026-10-11).** The owner found misreads in the Chopin that the page did not point to (a turn read as a double sharp in bar 16, lost triplets in bars 12 and 18) and wrong extra slurs. `problem_spots` in `engine/read_pdf.py` now names bars that don't add up and notes with double sharps or flats, and the message lists them (first four, then a count). A bar is named when a voice runs past the meter or a short voice runs on into the place where another voice of the same staff starts after a hidden gap; a voice that merely stops early is not, since that is nearly always a left-out rest (a plain per-voice rule flagged 11 correct bars in the Mutopia Mozart). Short bars are allowed as the opening pickup, a last bar completing it, or two halves of a split bar. Checked against ground truth on eight readings: Chopin (Mutopia, MuseScore) bars 12 and 18 plus the bar 16 double sharp, nothing else; Bach 2 and 9, both wrong; Mozart (Verovio) 8 bars, all wrong; Mozart scan 12 bars, all wrong (31 more wrong bars are not caught, mostly the misread clef); Chopin scan 4, all wrong; Mutopia Mozart 6, one of them (67) actually right. Slurs are removed from every reading unless the user asks (`keep_slurs`, `--keep-slurs`); the cached reading keeps them, so asking costs no second read (server 2.6 s, skill 0.9 s).
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

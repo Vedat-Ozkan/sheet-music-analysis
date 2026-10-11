@@ -31,6 +31,12 @@ RUN mkdir -p artifacts/models \
  && curl -fL -o artifacts/models/model.ckpt https://huggingface.co/spaces/manoskary/analysisgnn/resolve/main/checkpoint/model.ckpt \
  && echo "53d106038fea6a5ab3d4c0a19617736dff5f0299deffaf240ebd484c11f91c67  artifacts/models/model.ckpt" | sha256sum -c
 
+# Audiveris reads PDFs (engine/read_pdf.py). Its .deb carries its own Java runtime and is unpacked rather than
+# installed: the X, GTK and sound libraries it declares are for its window, and batch mode runs without them.
+RUN curl -fL -o /tmp/audiveris.deb https://github.com/Audiveris/audiveris/releases/download/5.11.0/Audiveris-5.11.0-ubuntu24.04-x86_64.deb \
+ && echo "f20113aaa33b3149ec8d6a09b2a7963360e65fafd92d69389987a85bbc3ec7a3  /tmp/audiveris.deb" | sha256sum -c \
+ && dpkg-deb -x /tmp/audiveris.deb /audiveris && rm /tmp/audiveris.deb
+
 FROM python:3.11-slim
 # cairo draws the vector PDF (cairosvg); it brings fontconfig, which reads engine/fonts/fonts.conf.
 RUN apt-get update && apt-get install -y --no-install-recommends libcairo2 && rm -rf /var/lib/apt/lists/*
@@ -38,5 +44,6 @@ WORKDIR /app
 COPY --from=build /app/.venv .venv
 COPY --from=build /app/.venv-agnn .venv-agnn
 COPY --from=build /app/artifacts artifacts
+COPY --from=build /audiveris/opt/audiveris /opt/audiveris
 # GitPython (imported by the model code) only needs git for experiment logging, which the server does not use.
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 GIT_PYTHON_REFRESH=quiet

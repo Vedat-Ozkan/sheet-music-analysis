@@ -7,9 +7,12 @@
   img { display: block; width: 100%; height: auto; }
   .bar { display: flex; gap: 12px; padding: 8px 12px; align-items: center; justify-content: space-between; }
   a { color: #0b57d0; cursor: pointer; }
+  #notice { margin: 0; padding: 10px 12px; font-size: 15px; }
+  #notice:empty { display: none; }
 </style>
 </head>
 <body>
+<p id="notice"></p>
 <img id="page" alt="Engraved score">
 <div class="bar"><span id="info"></span><a id="pdf">Download PDF</a></div>
 <script>
@@ -36,6 +39,7 @@
     image.src = data.image_url;
     pdfUrl = data.pdf_url;
     document.getElementById("info").textContent = data.caption || "";
+    document.getElementById("notice").textContent = data.notice || "";
   }
 
   window.addEventListener("message", (event) => {

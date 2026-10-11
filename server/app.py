@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import ipaddress
 import json
 import os
@@ -36,10 +37,11 @@ from starlette.responses import Response
 
 from engine import draft
 from engine import notes as note_list
+from engine import read_pdf as pdf_reader
 from engine import reduce
 from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
-from engine.render import ScoreError, load_toolkit
+from engine.render import ScoreError, engrave, engrave_tall, load_toolkit
 from engine.score import PositionError, ScoreIndex
 
 PORT = int(os.environ.get("PORT", "8080"))
@@ -47,9 +49,14 @@ PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", f"http://localhost:{PORT}").
 BUCKET = os.environ.get("BUCKET")
 MAX_SCORE_BYTES = 10 * 1024 * 1024
 # Keeps a month's work inside Cloud Run's free tier (owner's $5 limit, 2026-10-06). Counts reset at midnight UTC.
-DAILY_LIMITS = {"draft": 100, "render": 200}
-# Hosts keep a card's HTML by its address, so the version goes up whenever the HTML changes.
+# A PDF read counts its pages (owner, 2026-10-11; cost in log 32).
+DAILY_LIMITS = {"draft": 100, "render": 200, "pdf_page": 150}
+MAX_PDF_PAGES = 12
+# Hosts keep a card's HTML by its address, so the version goes up whenever the HTML changes. The PDF card is the
+# same file under its own address: the notice above the page was added for it, and render results never set one,
+# so hosts still holding the v1 HTML show analyses exactly as before.
 CARD_URI = "ui://sheet-music-analysis/card-v1.html"
+PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v1.html"
 HERE = Path(__file__).parent
 
 def read_only(title: str) -> ToolAnnotations:
@@ -94,6 +101,8 @@ class BucketStore:
 
 store = BucketStore(BUCKET) if BUCKET else LocalStore(Path(os.environ.get("DATA_DIR", "out/server")))
 counter_lock = asyncio.Lock()
+# Audiveris peaks at about 1.3 GB beside up to four drafts in 4 GiB (log 32), so one PDF is read at a time.
+pdf_lock = asyncio.Lock()
 
 
 def platform(ctx: Context | None) -> str:
@@ -114,18 +123,18 @@ def log(event: str, **details) -> None:
     print(json.dumps({"event": event, **details}), file=sys.stdout, flush=True)
 
 
-async def take(kind: str, source: str) -> bool:
-    """Count one unit of work for today; False once the day's limit for that kind is used up.
+async def take(kind: str, source: str, amount: int = 1) -> bool:
+    """Count `amount` units of work for today; False if they would go over the day's limit for that kind.
     The day's file is also the usage record (per kind and platform), so it is kept outside the day-old cleanup."""
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     key = f"usage/{day}.json"
     async with counter_lock:
         raw = await anyio.to_thread.run_sync(store.get, key)
         counts = json.loads(raw) if raw else {}
-        if counts.get(kind, 0) >= DAILY_LIMITS[kind]:
+        if counts.get(kind, 0) + amount > DAILY_LIMITS[kind]:
             return False
-        counts[kind] = counts.get(kind, 0) + 1
-        counts[f"{kind}:{source}"] = counts.get(f"{kind}:{source}", 0) + 1
+        counts[kind] = counts.get(kind, 0) + amount
+        counts[f"{kind}:{source}"] = counts.get(f"{kind}:{source}", 0) + amount
         await anyio.to_thread.run_sync(store.put, key, json.dumps(counts).encode())
     return True
 
@@ -137,7 +146,7 @@ LIMIT_MESSAGE = (
 
 SCORE_INPUT_HELP = (
     "Give the score in exactly one way. score_file: a file the user attached to the chat. "
-    "score_id: the id returned by an earlier draft_analysis. "
+    "score_id: the id returned by an earlier draft_analysis or read_pdf. "
     "Never encode, paste or retype a file's contents. If the user has not attached a score, ask them to attach "
     "their MusicXML file (.mxl or .musicxml) to the chat."
 )
@@ -183,7 +192,10 @@ def clean_id(score_id: str) -> str:
 async def resolve_score(score_file: AttachedFile | None, score_id: str | None) -> tuple[bytes, str]:
     """Return the score bytes and which input path supplied them."""
     if score_file:
-        return await download(score_file.download_url), "score_file"
+        data = await download(score_file.download_url)
+        if data.startswith(b"%PDF"):
+            raise ScoreError("This file is a PDF. Call read_pdf with it first, then use the score_id it returns.")
+        return data, "score_file"
     if score_id:
         data = await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(score_id)}")
         if data is None:
@@ -294,7 +306,8 @@ async def render_analysis(
         lambda: (publish(engraving.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"))
     )
     caption = f"Analysis, measures {measure_range}, view {view}" + (", piano reduction" if piano else "")
-    log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano)
+    log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
+        view=view, measure_range=measure_range)
     # The card shows the page to the user; the image lets the chat model check its own annotations.
     return CallToolResult(
         content=[
@@ -311,6 +324,105 @@ apps.add_html_resource(
     name="Analysis card",
     csp=ResourceCsp(resource_domains=[PUBLIC_BASE_URL]),
     domain="https://sheetmusicanalysis.com",  # ChatGPT requires a dedicated origin for a submitted plugin's UI
+    prefers_border=True,
+)
+
+BUSY_MESSAGE = (
+    "Another PDF is being read right now. Tell the user plainly that the service is busy and to try again in a minute."
+)
+
+
+@apps.tool(
+    resource_uri=PDF_CARD_URI,
+    title="Read a PDF of sheet music",
+    description=(
+        "Use this when the user attaches a PDF of printed sheet music (born-digital or scanned) and wants it analysed. "
+        "Reads the music from the PDF and shows the user the engraved result in a card, so they can check it against "
+        "their copy. Returns a score_id. Do not analyse yet: wait until the user says to go ahead, then call "
+        f"draft_analysis with that score_id. PDFs of more than {MAX_PDF_PAGES} pages are refused. Slurs are left out "
+        "unless keep_slurs is true; set it only when the user asks for them."
+    ),
+    annotations=read_only("Read a PDF of sheet music"),
+    meta={"openai/outputTemplate": PDF_CARD_URI, "openai/fileParams": ["pdf_file"]},
+)
+async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = False) -> CallToolResult:
+    source = platform(ctx)
+    started = time.time()
+    try:
+        data = await download(pdf_file.download_url)
+        if not data.startswith(b"%PDF"):
+            raise ScoreError("This file is not a PDF. Ask the user to attach a PDF of the printed music or a MusicXML file.")
+        # Kept by the file's hash, so the same PDF is never read twice (it expires with the scores, after a day).
+        cache_key = f"scores/pdf-{hashlib.sha256(data).hexdigest()}.json"
+        cached = await anyio.to_thread.run_sync(store.get, cache_key)
+        if cached:
+            reading = json.loads(cached)
+        else:
+            pages = len(pdf_reader.open_pdf(data).pages)
+            if pages > MAX_PDF_PAGES:
+                log("read_pdf", platform=source, error="too many pages", pages=pages)
+                return error_result(
+                    f"This PDF has {pages} pages; the most that can be read is {MAX_PDF_PAGES}. Tell the user plainly, "
+                    f"and suggest they attach a PDF of just the pages they want analysed."
+                )
+            if pdf_lock.locked():
+                log("read_pdf", platform=source, busy=True)
+                return error_result(BUSY_MESSAGE)
+            async with pdf_lock:
+                if not await take("pdf_page", source, pages):
+                    log("limit", tool="read_pdf", platform=source, pages=pages)
+                    return error_result(LIMIT_MESSAGE)
+                result = await anyio.to_thread.run_sync(pdf_reader.read_pdf, data)
+            reading = {"score_id": secrets.token_hex(3).upper(), "pages": result.pages, "scan": result.scan,
+                       "skipped": result.skipped}
+            await anyio.to_thread.run_sync(store.put, f"scores/{reading['score_id']}", result.musicxml)
+            await anyio.to_thread.run_sync(store.put, cache_key, json.dumps(reading).encode())
+        # The cache holds the reading with its slurs; the slur choice is applied on each call, under its own id.
+        score, _ = await resolve_score(None, reading["score_id"])
+        score_id = reading["score_id"] if keep_slurs else reading["score_id"] + "N"
+        if not keep_slurs:
+            score = pdf_reader.without_slurs(score)
+            await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
+        # The card shows every bar in one tall image; the PDF keeps ordinary pages for printing.
+        tall, engraving, notice = await anyio.to_thread.run_sync(
+            lambda: (engrave_tall(score), engrave(score),
+                     pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs))
+        )
+    except (ScoreError, pdf_reader.ReadError, httpx.HTTPError) as error:
+        log("read_pdf", platform=source, error=str(error))
+        return error_result(str(error))
+    # The model gets ordinary pages: one tall image of a long score is shrunk by hosts until notes can't be read.
+    pages = [engraving.png(page) for page in range(1, engraving.page_count + 1)]
+    image_url, pdf_url = await anyio.to_thread.run_sync(
+        lambda: (publish(tall.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"))
+    )
+    caption = "What I read from your PDF, every bar"
+    log("read_pdf", platform=source, pages=reading["pages"], seconds=round(time.time() - started, 1),
+        scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached), keep_slurs=keep_slurs)
+    text = (
+        f"score_id: {score_id}\n"
+        f"The card shows the user every bar of the engraved score read from their {reading['pages']}-page PDF, in one "
+        f"image, with this message above it: \"{notice}\"\n"
+        "Say that message to the user in your reply, then stop and wait. Analyse only after the user says to go ahead: "
+        "then call draft_analysis with this score_id and continue exactly as for an attached MusicXML file."
+        + ("" if keep_slurs else " If the user asks to keep the slurs, call read_pdf again with the same file and "
+           "keep_slurs=true, and use the score_id it returns.")
+    )
+    return CallToolResult(
+        content=[
+            *(ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png") for png in pages),
+            TextContent(type="text", text=f"{text}\nPDF of the engraved score: {pdf_url}"),
+        ],
+        structured_content={"image_url": image_url, "pdf_url": pdf_url, "caption": caption, "notice": notice},
+    )
+
+
+apps.add_html_resource(
+    PDF_CARD_URI,
+    (HERE / "card.html").read_text(),
+    name="PDF reading card",
+    csp=ResourceCsp(resource_domains=[PUBLIC_BASE_URL]),
+    domain="https://sheetmusicanalysis.com",
     prefers_border=True,
 )
 
@@ -388,7 +500,8 @@ async def draft_analysis(
     except (ScoreError, PositionError, draft.DraftError, httpx.HTTPError) as error:
         log("draft_analysis", platform=source, error=str(error))
         return error_result(str(error))
-    log("draft_analysis", platform=source, input=given, score_bytes=len(score), seconds=round(time.time() - started, 1))
+    log("draft_analysis", platform=source, input=given, score_bytes=len(score), measure_range=measure_range,
+        seconds=round(time.time() - started, 1))
     return CallToolResult(content=[TextContent(type="text", text=text)])
 
 

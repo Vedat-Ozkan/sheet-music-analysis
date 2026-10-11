@@ -147,6 +147,10 @@ def load_toolkit(score: bytes, options: dict | None = None) -> verovio.toolkit:
             text = score.decode("utf-8-sig")
         except UnicodeDecodeError:
             text = score.decode("latin-1")
+        # Verovio guesses the format of anything else, and some files (a PDF read as Plaine & Easie) crash it,
+        # taking the whole server down with it.
+        if not re.search(r"<score-(?:partwise|timewise)\b", text[:5000]):
+            raise ScoreError("This file is not MusicXML" + (" but a PDF" if score[:5] == b"%PDF-" else ""))
         loaded = toolkit.loadData(text)
     if not loaded:
         raise ScoreError("Verovio could not read this file as MusicXML")
@@ -625,6 +629,13 @@ def engrave(score: bytes, measures: tuple[int, int] | None = None) -> Engraving:
         toolkit.select({"measureRange": index.measure_range(*measures)})
         toolkit.redoLayout()
         return Engraving([shorten_ties(toolkit.renderToSVG(page), ties) for page in range(1, toolkit.getPageCount() + 1)])
+    return Engraving([toolkit.renderToSVG(page) for page in range(1, toolkit.getPageCount() + 1)])
+
+
+def engrave_tall(score: bytes) -> Engraving:
+    """The whole score on one tall page, so a single image shows every bar (the check step after reading a PDF).
+    Verovio caps the page height, so a very long score can still spill onto a second page."""
+    toolkit = load_toolkit(score, {"adjustPageHeight": True, "pageHeight": 60000})
     return Engraving([toolkit.renderToSVG(page) for page in range(1, toolkit.getPageCount() + 1)])
 
 
