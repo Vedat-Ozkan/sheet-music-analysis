@@ -682,9 +682,11 @@ async def files(request: Request) -> Response:
         return Response("This file has expired; pages are kept for one day.", status_code=404)
     media_types = {"png": "image/png", "pdf": "application/pdf", "musicxml": "application/vnd.recordare.musicxml+xml"}
     extension = name.rsplit(".", 1)[1]
-    # An uploaded score can carry scripts into the export, so files download in a sandbox instead of rendering.
+    # An uploaded score can carry scripts into the export, so files download in a sandbox instead of rendering;
+    # page images stay inline so an image link opens in the browser.
+    disposition = "inline" if extension == "png" else "attachment"
     return Response(data, media_type=media_types[extension], headers={
-        "Content-Disposition": f'attachment; filename="analysis.{extension}"',
+        "Content-Disposition": f'{disposition}; filename="analysis.{extension}"',
         "Content-Security-Policy": "sandbox",
         "X-Content-Type-Options": "nosniff",
     })

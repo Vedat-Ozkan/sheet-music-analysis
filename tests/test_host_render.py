@@ -64,7 +64,8 @@ def test_server_render_style_and_musicxml(chopin, chopin_annotations, tmp_path, 
             response = await app.files(request)
             assert response.status_code == 200
             assert response.body.startswith(signature)
-            assert response.headers['content-disposition'] == f'attachment; filename="analysis.{extension}"'
+            disposition = 'inline' if extension == 'png' else 'attachment'
+            assert response.headers['content-disposition'] == f'{disposition}; filename="analysis.{extension}"'
             assert response.headers['content-security-policy'] == 'sandbox'
             assert response.headers['x-content-type-options'] == 'nosniff'
             if extension == 'musicxml':
