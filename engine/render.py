@@ -584,9 +584,9 @@ def _repair_broken_ties(mei: str) -> str:
     return re.sub(r"<tie\b[^>]*/>", repair, mei)
 
 
-def incoming_ties(toolkit: verovio.toolkit, index: ScoreIndex, first: int) -> set[str]:
+def incoming_ties(toolkit: verovio.toolkit, index: ScoreIndex, first: int, *, include_pickup: bool = True) -> set[str]:
     """Ids of the ties into an excerpt from a bar before it."""
-    start = int(index.measure_range(first, first).split("-")[0])
+    start = int(index.measure_range(first, first, include_pickup=include_pickup).split("-")[0])
     earlier = {e.id for m in index.measures if m.last_index < start for e in m.events}
     return {
         tie for tie, note in re.findall(r'<tie\b[^>]*xml:id="([^"]+)"[^>]*startid="#([^"]+)"', toolkit.getMEI()) if note in earlier
@@ -618,15 +618,15 @@ def shorten_ties(svg: str, ties: set[str]) -> str:
     return re.sub(r'<g class="tie id-([^" ]+) spanning">(?:\s*<g id="bbox-[^"]*"[^>]*>.*?</g>)?\s*<path d="([^"]+)"', shorten, svg, flags=re.S)
 
 
-def engrave(score: bytes, measures: tuple[int, int] | None = None) -> Engraving:
-    """Engrave the whole score, or printed measures first..last on one page cropped to fit."""
+def engrave(score: bytes, measures: tuple[int, int] | None = None, *, include_pickup: bool = True) -> Engraving:
+    """Engrave the score or a cropped range, including the pickup at 1 by default."""
     if not measures:
         toolkit = load_toolkit(score)
     else:
         toolkit = load_toolkit(score, {"adjustPageHeight": True, "pageHeight": 60000})
         index = ScoreIndex(toolkit.getMEI())
-        ties = incoming_ties(toolkit, index, measures[0])
-        toolkit.select({"measureRange": index.measure_range(*measures)})
+        ties = incoming_ties(toolkit, index, measures[0], include_pickup=include_pickup)
+        toolkit.select({"measureRange": index.measure_range(*measures, include_pickup=include_pickup)})
         toolkit.redoLayout()
         return Engraving([shorten_ties(toolkit.renderToSVG(page), ties) for page in range(1, toolkit.getPageCount() + 1)])
     return Engraving([toolkit.renderToSVG(page) for page in range(1, toolkit.getPageCount() + 1)])

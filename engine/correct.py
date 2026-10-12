@@ -21,12 +21,15 @@ import math
 import re
 import xml.etree.ElementTree as ET
 import zipfile
+from collections import Counter
+from dataclasses import dataclass
 from fractions import Fraction
 
+from music21 import meter, note as m21note
 from music21.duration import Duration
 
 from engine import notes
-from engine.render import load_toolkit
+from engine.render import Engraving, engrave, load_toolkit
 from engine.score import ScoreIndex
 
 
@@ -343,6 +346,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                     run = []
                 if ratio and note.find("chord") is None:
                     run.append((ratio, note))
+            _beam_voice(voice_notes, owners[number], number, divisions)
         bar[insertion:insertion] = content
     result = ET.tostring(root, encoding="utf-8", xml_declaration=True)
     _, _, after = _read(result, part)
@@ -352,6 +356,177 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
         if original.number not in changed_numbers and timing(original) != timing(after.measure(original.number)):
             raise CorrectionError("Divisions normalization would change untouched bars' imported timing")
     return result
+
+
+def _beam_voice(voice_notes, measure, segment, divisions):
+    # Verovio imports explicit MusicXML beams; missing beams become flags.
+    signature = meter.TimeSignature(measure.meter)
+    offset = next(s.start for s in measure.segments if s.index == segment)
+    if measure.number == 0:
+        offset += Fraction(signature.barDuration.quarterLength) - measure.length
+    run, start, ratio = [], offset, None
+
+    def finish():
+        if not run:
+            return
+        rhythm = []
+        for element in run:
+            value = m21note.Rest() if element.find("rest") is not None else m21note.Note()
+            value.duration = Duration(Fraction(element.findtext("duration")) / divisions)
+            rhythm.append(value)
+        beams = signature.getBeams(rhythm, measureStartOffset=0 if ratio else start)
+        # A tuplet is one rhythmic group even when it straddles a meter beat.
+        if ratio and len(run) > 1 and all(b is not None for b in beams):
+            for i, beam in enumerate(beams):
+                beam.setByNumber(1, "start" if i == 0 else "stop" if i == len(run) - 1 else "continue")
+        for element, group in zip(run, beams):
+            if group is None or element.find("rest") is not None:
+                continue
+            insertion = next((i for i, child in enumerate(element) if child.tag == "notations"), len(element))
+            for beam in group:
+                value = {"start": "begin", "stop": "end", "continue": "continue",
+                         "partial": "forward hook" if beam.direction == "right" else "backward hook"}[beam.type]
+                mark = ET.Element("beam", number=str(beam.number))
+                mark.text = value
+                element.insert(insertion, mark)
+                insertion += 1
+
+    for element in voice_notes:
+        if element.find("chord") is not None or element.find("grace") is not None:
+            continue
+        mod = element.find("time-modification")
+        current = ET.tostring(mod) if mod is not None else None
+        if run and (current != ratio or element.find("notations/tuplet[@type=\"start\"]") is not None):
+            finish()
+            run = []
+        if not run:
+            start, ratio = offset, current
+        run.append(element)
+        offset += Fraction(element.findtext("duration")) / divisions
+        if element.find("notations/tuplet[@type=\"stop\"]") is not None:
+            finish()
+            run = []
+    finish()
+
+
+@dataclass
+class CorrectionReview:
+    changed_bars: list[int]
+    ranges: list[tuple[int, int]]
+    engravings: list[Engraving]
+    notes: dict[int, str]
+
+
+def review_correction(before: bytes, after: bytes, *, part: str | None = None) -> CorrectionReview:
+    """Redraw only changed bars, with factual notes derived from their events.
+
+    Consecutive changed bars share an engraving. Comparisons ignore XML ids,
+    divisions and engraving details; unchanged music produces an empty review.
+    Both scores must have the same indexed bars in the selected part.
+    """
+    _, _, old = _read(before, part)
+    _, _, new = _read(after, part)
+    if [m.number for m in old.measures] != [m.number for m in new.measures]:
+        raise CorrectionError("A correction review requires the same bars before and after")
+
+    def events(bar):
+        return (Counter((e.staff, e.onset, e.duration, e.pitch, e.tied)
+                        for e in bar.events if not e.grace), _grace_attacks(bar))
+
+    changed, descriptions = [], {}
+    for original, corrected in zip(old.measures, new.measures):
+        if events(original) == events(corrected) and original.length == corrected.length:
+            continue
+        changed.append(corrected.number)
+        descriptions[corrected.number] = _change_note(original, corrected)
+    ranges = []
+    for number in changed:
+        if ranges and number == ranges[-1][1] + 1:
+            ranges[-1] = (ranges[-1][0], number)
+        else:
+            ranges.append((number, number))
+    # Ordinary excerpts include the pickup for context; a review must show only edits.
+    return CorrectionReview(changed, ranges, [engrave(after, bounds, include_pickup=False) for bounds in ranges], descriptions)
+
+
+def _grace_attacks(bar):
+    # Grace notes share an onset; attack order and chord membership carry the
+    # musical difference. Use imported IDs only to group, never to compare.
+    groups = {}
+    for e in bar.events:
+        if e.grace:
+            groups.setdefault((e.staff, e.layer, e.attack), (e.onset, []))[1].append(e.pitch)
+    staves = {}
+    for (staff, _, _), (onset, pitches) in groups.items():
+        staves.setdefault(staff, []).append((onset, tuple(sorted(pitches))))
+    return staves
+
+
+def _change_note(before, after):
+    def attacks(bar):
+        groups = {}
+        for e in bar.events:
+            if e.grace:
+                continue
+            groups.setdefault((e.staff, e.layer), {}).setdefault((e.onset, e.duration, e.grace, e.tied), []).append(e.pitch)
+        return {voice: [(at, duration, grace, tied, sorted(pitches, key=lambda p: p or ""))
+                        for (at, duration, grace, tied), pitches in sorted(group.items())]
+                for voice, group in groups.items()}
+
+    def pitch_name(pitches):
+        if pitches == [None]:
+            return "a rest"
+        return " + ".join(p.replace("#", " sharp ").replace("b", " flat ") for p in pitches if p)
+
+    old, new = attacks(before), attacks(after)
+    changes = []
+    old_graces, new_graces = _grace_attacks(before), _grace_attacks(after)
+    for staff in sorted(old_graces.keys() | new_graces.keys()):
+        a, b = old_graces.get(staff, []), new_graces.get(staff, [])
+        if a != b:
+            def grace_names(groups):
+                return " then ".join(pitch_name(pitches) + (" together" if len(pitches) > 1 else "")
+                                     for _, pitches in groups) or "none"
+            if [pitches for _, pitches in a] == [pitches for _, pitches in b]:
+                changes.append("grace notes start at different times")
+            else:
+                changes.append(f"grace notes changed from {grace_names(a)} to {grace_names(b)}")
+    # Imported voices may overlap and then be merged by a correction. Match
+    # pitched attacks by order on each staff before describing rhythmic changes.
+    for staff in sorted({e.staff for e in before.events + after.events}):
+        a = sorted([item for voice, items in old.items() if voice[0] == staff for item in items if item[4] != [None]])
+        b = sorted([item for voice, items in new.items() if voice[0] == staff for item in items if item[4] != [None]])
+        triplets = set()
+        for i in range(len(b) - 2):
+            group = b[i:i + 3]
+            if (all(item[1] == Fraction(1, 3) and not item[2] for item in group)
+                    and group[1][0] == group[0][0] + Fraction(1, 3)
+                    and group[2][0] == group[0][0] + Fraction(2, 3)
+                    and len(a) == len(b)
+                    and all(a[j][1] == Fraction(1, 2) and a[j][4] == b[j][4] for j in range(i, i + 3))):
+                changes.append("three eighth notes are now a triplet")
+                triplets.update(range(i, i + 3))
+        if len(a) == len(b):
+            for i, (previous, current) in enumerate(zip(a, b)):
+                if previous[4] != current[4]:
+                    changes.append(f"{pitch_name(previous[4])} changed to {pitch_name(current[4])}")
+                if i not in triplets and previous[1] != current[1]:
+                    changes.append("note lengths changed")
+                if i not in triplets and previous[0] != current[0]:
+                    changes.append("notes start at different times")
+                if previous[2] != current[2]:
+                    changes.append("grace notes changed")
+                if previous[3] != current[3]:
+                    changes.append("ties changed")
+        elif len(a) != len(b):
+            changes.append(f"the number of note groups changed from {len(a)} to {len(b)}")
+    rests = lambda bar: Counter((e.staff, e.onset, e.duration) for e in bar.events if e.pitch is None)
+    if rests(before) != rests(after):
+        changes.append("rests changed")
+    if before.length != after.length:
+        changes.append("the bar length changed")
+    text = "; ".join(dict.fromkeys(changes)) or "the notes changed"
+    return f"Bar {after.number}: {text}."
 
 
 def _segment_replacements(index, replacements):
