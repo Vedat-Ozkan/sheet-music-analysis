@@ -118,7 +118,7 @@ def music_collisions(svg: str, skip: frozenset[str] = frozenset()) -> list[str]:
     for match in BBOX.finditer(svg):
         id, kind, x, y, h, w = match.groups()
         # Bar numbers' boxes come out unplaced (x near 0), so they would collide with every clef.
-        if kind in SOLID and kind not in skip and not (kind == "text" and _owner_kind(svg, match.start()) == "mNum"):
+        if kind in SOLID and kind not in skip and not (kind == "text" and _owner_kind(svg, match.start()) in {"mNum"} | skip):
             # The element a text box belongs to: one tempo mark is several boxes ("♩", "= 60").
             owner = next((pid for start, pid in reversed(parents) if start < match.start()), None) if kind == "text" else id
             boxes.append((kind, id, owner, float(x), float(y), float(x) + float(w), float(y) + float(h)))
@@ -154,7 +154,8 @@ def check(name: str, tag: str, style: str = "current") -> dict:
 def collisions(page_count: int) -> dict:
     """Check the recorded pages, including whole numeral labels rather than their stacked chunks."""
     overlapping, tight = [], []
-    for layout in _layouts:
+    # Earlier layouts only measured (line breaks, the room the check page's notes need): nothing of theirs is drawn.
+    for layout in _layouts[-page_count:]:
         labels = layout.labels + layout.harmony_labels
         for i, (string, box) in enumerate(labels):
             others = layout.music + [other for j, (_, other) in enumerate(labels) if j != i]
@@ -165,7 +166,7 @@ def collisions(page_count: int) -> dict:
     # Chord symbols on these pages are hidden placeholders that make room for the numerals.
     # The last layouts are the drawn pages; earlier ones only measured systems for line breaks.
     music = [hit for layout in _layouts[-page_count :] for hit in music_collisions(layout.source, frozenset({"harm"}))]
-    return {"labels": sum(len(layout.labels) + len(layout.harmony_labels) for layout in _layouts), "overlapping": overlapping, "tight": tight, "music": music}
+    return {"labels": sum(len(layout.labels) + len(layout.harmony_labels) for layout in _layouts[-page_count:]), "overlapping": overlapping, "tight": tight, "music": music}
 
 
 def main() -> None:

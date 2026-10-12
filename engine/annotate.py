@@ -30,10 +30,6 @@ ANNOTATED_OPTIONS = {
 }
 
 
-CHECK_SPACING = 34
-CHECK_MARGIN = 500
-
-
 class AnnotationError(ValueError):
     """One or more annotations point at places that are not in the score."""
 
@@ -89,17 +85,13 @@ def render(
     With `student_labels`, the overlay is replaced by the student's labels checked against the annotations."""
     if piano:
         score, annotations = _piano_version(score, annotations, measures)
-    options = ANNOTATED_OPTIONS
-    if student_labels is not None:
-        # The tool's row and the notes sit under the student's row, which is all Verovio reserves.
-        options = {**options, "spacingSystem": CHECK_SPACING, "pageMarginBottom": CHECK_MARGIN}
-    toolkit = load_toolkit(score, options)
+    toolkit = load_toolkit(score, ANNOTATED_OPTIONS)
     index = ScoreIndex(toolkit.getMEI())
     check(annotations, index)
     results = None
     if student_labels is not None:
         from engine import check_analysis, check_display
-        results = check_analysis.compare(student_labels, annotations.model_dump(exclude_none=True), index)
+        results = check_display.compare(student_labels, annotations.model_dump(exclude_none=True), index)
         annotations = check_display.reserve(results)
     first, last = measures or (index.measures[0].number, index.measures[-1].number)
     bars = sum(1 for measure in index.measures if first <= measure.number <= last and measure.number > 0)
@@ -125,15 +117,37 @@ def render(
 
     slurs.untangle(toolkit, relayout)
     _move_text_off_stems(toolkit, relayout)
+    if results is not None:
+        _make_room_for_checks(toolkit, relayout, index, ties, results)
     pages = []
     for page in range(1, toolkit.getPageCount() + 1):
         layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
         if results is None:
             layout.draw(annotations, view, role)
         else:
-            check_display.draw(layout, results)
+            check_display.draw(layout, results, page == toolkit.getPageCount())
         pages.append(layout.to_svg())
     return Engraving(pages)
+
+
+def _make_room_for_checks(toolkit, relayout, index, ties, results) -> None:
+    """The notes under a system and the legend under the last take as much room as they need: draw once to
+    measure, ask Verovio for the missing lines under those systems, and lay out again until everything fits."""
+    from engine import check_display
+
+    base = toolkit.getMEI()
+    bottom_staff = max(int(n) for n in re.findall(r'<staffDef\b[^>]*?\bn="(\d+)"', base))
+    lines: dict[str, int] = {}
+    for _ in range(6):
+        needs: dict[str, int] = {}
+        for page in range(1, toolkit.getPageCount() + 1):
+            layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
+            needs.update(check_display.draw(layout, results, page == toolkit.getPageCount()))
+        if not needs:
+            return
+        for measure_id, more in needs.items():
+            lines[measure_id] = lines.get(measure_id, 0) + more
+        relayout(check_display.with_room(base, lines, bottom_staff))
 
 
 def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[int, int] | None) -> tuple[bytes, AnnotationList]:
