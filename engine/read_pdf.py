@@ -21,6 +21,7 @@ import pikepdf
 from engine.render import ScoreError, load_toolkit
 from engine.score import TOLERANCE, ScoreIndex
 from engine.triplets import infer_triplets
+from engine.tuplet_rests import infer_tuplet_rests
 
 # Where the Docker image unpacks the .deb; the skill and the tests pass their own copy.
 AUDIVERIS = os.environ.get("AUDIVERIS", "/opt/audiveris/bin/Audiveris")
@@ -221,7 +222,7 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
         # A reading that lost pages is never preferred for having fewer bars that don't add up
         best = min([best, *(other for other in others if other)], key=lambda reading: (len(reading[1]), len(reading[2])))
     musicxml, skipped, _ = best
-    musicxml = infer_triplets(musicxml)
+    musicxml = infer_triplets(infer_tuplet_rests(musicxml))
     return PdfReading(musicxml, pages, scan, skipped)
 
 
