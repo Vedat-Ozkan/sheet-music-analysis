@@ -781,22 +781,12 @@ class PageLayout:
         self._place_ring_codes(rings)
 
     def _place_ring_codes(self, rings: list[tuple[System, Box, list[str], tuple]]) -> None:
-        """One group of codes for the rings of a chord that stand together (a crossing and a range fault on
-        neighbouring voices), set beside them as a whole, not repeated per note."""
-        groups: list[list[tuple[System, Box, list[str], tuple]]] = []
-        for ring in sorted(rings, key=lambda r: (r[0].index, r[3], r[1].cy)):
-            near = groups and groups[-1][-1][0] is ring[0] and groups[-1][-1][3] == ring[3] and ring[1].y - groups[-1][-1][1].bottom < 700
-            if near:
-                groups[-1].append(ring)
-            else:
-                groups.append([ring])
-        for group in groups:
-            codes = list(dict.fromkeys(code for _, _, labels, _ in group for code in labels))
-            if codes:
-                anchor = Box(min(r[1].x for r in group), min(r[1].y for r in group), 0, 0)
-                anchor = Box(anchor.x, anchor.y, max(r[1].right for r in group) - anchor.x, max(r[1].bottom for r in group) - anchor.y)
-                word = " ".join(codes)
-                self._label_near(group[0][0], anchor, word, text.width(word, LABEL_SIZE), LABEL_SIZE, right=True)
+        """Each code sits beside its own ring. A code set apart for a group of rings left the reader guessing which
+        note it named."""
+        for system, ring, labels, _ in rings:
+            if labels:
+                word = " ".join(labels)
+                self._label_near(system, ring, word, text.width(word, LABEL_SIZE), LABEL_SIZE, right=True, shared=False)
 
     def _shafts(self, system_a: System, a: Box, system_b: System, b: Box) -> list[tuple[System, float, float, float, float]]:
         if system_a is system_b:
@@ -919,7 +909,7 @@ class PageLayout:
         return box
 
     def _label_near(self, system: System, anchor: Box, string: str, width: float, height: float, right: bool = False,
-                    colour: str = ERROR) -> Box | None:
+                    colour: str = ERROR, shared: bool = True) -> Box | None:
         """A fault word beside its note or ring, never farther than the next side over.
 
         Beside its own note the word may sit on the staff lines, as in a teacher's markup; other marks, stems and
@@ -927,7 +917,7 @@ class PageLayout:
         """
         near = [d for d, other in self._words if other is system and d[0] == string and abs(d[1].cy - anchor.cy) < 700
                 and d[1].x - width < anchor.right and d[1].right + width > anchor.x]
-        if near:  # the same word already stands by the neighbouring notes: one word names the group
+        if near and shared:  # the same word already stands by the neighbouring notes: one word names the group
             return None
         gap = 90
         sides = [(anchor.right + gap + width / 2, anchor.cy), (anchor.x - gap - width / 2, anchor.cy),

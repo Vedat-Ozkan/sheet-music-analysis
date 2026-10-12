@@ -198,10 +198,11 @@ def test_overlap_rings_both_notes_with_one_code_and_no_leader(layouts):
     assert 'stroke-width="20"' not in svg  # no leader line across the lyrics
 
 
-def test_codes_of_rings_on_one_chord_sit_together(chopin):
+def test_each_ring_has_its_own_code_beside_it(chopin):
     svg = _page(chopin, [{"type": "voice_leading", "kind": "ring", "from_note": _ref(1, 1.33, 2, "G3"), "label": "VC"},
                          {"type": "voice_leading", "kind": "ring", "from_note": _ref(1, 1.33, 2, "Eb4"), "label": "r"}]).svgs[0]
-    assert svg.count(">r VC<") == 2 and ">VC<" not in svg  # one group of codes (a halo and the word), not one per note
+    # Each code is a halo and the word itself; a group set apart from the rings left the reader guessing whose it was.
+    assert svg.count(">VC<") == 2 and svg.count(">r<") == 2 and ">r VC<" not in svg
 
 
 def test_direct_octave_word_sits_under_the_lower_voice_when_the_staves_are_apart(layouts):
@@ -267,3 +268,4 @@ def test_unresolved_tendency_tone_gets_a_small_arrow_beside_it_pointing_where_it
         assert x1 == x2 and abs(y2 - y1) < 400  # short and vertical, not a line to the note that follows
         assert (y2 - y1) * sign > 0  # head end is up for "up", down for "down"
     assert ">R<" in up  # the code stays at the tail
+
