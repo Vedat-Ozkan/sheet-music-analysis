@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import io
-import re
 import xml.etree.ElementTree as ET
 import zipfile
 from fractions import Fraction
@@ -189,7 +188,8 @@ def export_musicxml(original: bytes, analysis: dict) -> bytes:
 
 
 def _in_range(measure: int, measures: tuple[int, int] | None) -> bool:
-    return measures is None or measures[0] <= measure <= measures[1]
+    # A range starting at bar 1 includes the pickup, as the MIDI export does.
+    return measures is None or measures[0] <= measure <= measures[1] or (measure == 0 and measures[0] == 1)
 
 
 def export_romantext(original: bytes, analysis: dict, measures: tuple[int, int] | None = None) -> bytes | None:
@@ -214,6 +214,11 @@ def export_romantext(original: bytes, analysis: dict, measures: tuple[int, int] 
         if key is None:
             return None
         beat = annotation['at'].get('beat', 1)
+        measure = index.measure(number)
+        if number == 0:
+            # RomanText counts beats from the bar's metrical start; a pickup's first beat is the last beat(s) of a full bar.
+            full = index.measure(1).length
+            beat += float((full - measure.length) / measure.beat_length)
         if number != bar:
             bar = number
             current = index.measure(number).meter
@@ -224,8 +229,7 @@ def export_romantext(original: bytes, analysis: dict, measures: tuple[int, int] 
         text = annotation['label'].translate(_SUPERSCRIPTS).split()[0]
         if key != shown:
             shown = key
-            tonic = re.sub(r'(?<=[A-Ga-g])b', '-', key)
-            text = f'{tonic}: {text}'
+            text = f'{key}: {text}'
         lines[-1] += (f' b{beat:g}' if beat != 1 or len(lines[-1].split()) > 1 else '') + f' {text}'
     # music21 reads a "b1" right after "m1" as the beat, so the first chord of a bar carries its beat only if later than 1.
     return ('\n'.join(lines) + '\n').encode()

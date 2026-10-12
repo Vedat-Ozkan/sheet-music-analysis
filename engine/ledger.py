@@ -12,6 +12,7 @@ from engine.score import LETTERS, MEI, XML_ID, ScoreIndex
 
 LEDGER_LINES = 3  # as many ledger lines or more is a run an editor would avoid
 MIN_BARS = 2
+KEYBOARDS = {"piano", "keyboard", "harpsichord", "organ"}
 # The diatonic step (letter + 7 * octave) of each clef's bottom line.
 BOTTOM_LINE = {("G", "2"): 4 * 7 + 2, ("F", "4"): 2 * 7 + 4}
 SIDE_NAMES = {"above": ("high above the {clef} staff", {"bass": "treble", "treble": "bass"}),
@@ -42,6 +43,17 @@ def _clefs(root: ET.Element) -> dict[tuple[str, int], tuple[int, str]]:
                     read(clef, int(staff.get("n", "1")))
                 found.update({(element.get(XML_ID), int(staff.get("n", "1"))): current.get(int(staff.get("n", "1")))})
     return found
+
+
+def _part_names(root: ET.Element) -> dict[int, str]:
+    """Staff -> the label of its staff or, for a piano, of the group the two staves share."""
+    names = {}
+    for group in root.iter(f"{MEI}staffGrp"):
+        outer = next((label.text for label in group.findall(f"{MEI}label") if label.text), "")
+        for staff in group.findall(f"{MEI}staffDef"):
+            own = next((label.text for label in staff.findall(f"{MEI}label") if label.text), "")
+            names.setdefault(int(staff.get("n", "1")), own or outer)
+    return names
 
 
 def _steps(pitch: str) -> int:
@@ -95,12 +107,19 @@ def as_text(mei: str, index: ScoreIndex, first: int | None = None, last: int | N
     found = passages(mei, index, first, last)
     if not found:
         return ""
-    hands = len({staff for _, _, staff, _, _ in found} | {event.staff for m in index.measures for event in m.events}) == 2
+    names = _part_names(ET.fromstring(mei))
+    hands = len({event.staff for m in index.measures for event in m.events}) == 2
     lines = []
     for start, end, staff, side, clef in found:
-        who = ("right hand" if staff == 1 else "left hand") if hands else f"staff {staff}"
+        name = names.get(staff, "")
+        keyboard = name.lower() in KEYBOARDS or (not name and hands)
+        # Only a keyboard has hands; a voice, cello or viola part is named by its own label.
+        upper = min(s for s, n in names.items() if n == name) if name else 1
+        who = ("right hand" if staff == upper else "left hand") if keyboard else f"{name} (staff {staff})" if name else f"staff {staff}"
         place, other = SIDE_NAMES[side]
+        # Cello, viola and bassoon parts move to tenor clef before treble; a keyboard's left hand goes straight to treble.
+        switch = "tenor or treble" if clef == "bass" and not keyboard and side == "above" else other[clef]
         lines.append(f"Bars {start}–{end}, {who}: notes sit {place.format(clef=clef)}; "
-                     f"many editions switch to {other[clef]} clef here.")
+                     f"many editions switch to {switch} clef here.")
     return ("LEDGER LINES (the clef is the user's; do not change it. Mention each line below once in your reply.)\n"
             + "\n".join(lines))
