@@ -31,10 +31,22 @@ from engine.score import ScoreIndex
 
 Voice = tuple[int, int]
 RANGES = (("C4", "G5"), ("G3", "D5"), ("C3", "G4"), ("F2", "D4"))
-# Arrow labels in the draft: short enough not to crowd the staff, spelled as the commentary names them
-LABELS = {"parallel_fifths": "P5", "parallel_octaves": "P8", "direct_fifths": "direct 5", "direct_octaves": "direct 8",
-          "voice_crossing": "crossing", "voice_overlap": "overlap", "spacing": "spacing", "range": "range",
-          "doubled_leading_tone": "LT doubled", "unresolved_seventh": "7th", "unresolved_leading_tone": "LT"}
+# Short words drawn at the notes (textbook figures "5–5" and Iowa's "direct 5th"); one per voice pair, not per line
+LABELS = {"parallel_fifths": "5–5", "parallel_octaves": "8–8", "direct_fifths": "direct 5th", "direct_octaves": "direct 8ve",
+          "voice_crossing": "crossed", "voice_overlap": "overlap", "spacing": "spacing", "range": "range",
+          "doubled_leading_tone": "doubled LT", "unresolved_seventh": "7th", "unresolved_leading_tone": "LT"}
+LINES = {"parallel_fifths", "parallel_octaves", "direct_fifths", "direct_octaves"}  # a line along each of the two voices
+ARROWS = {"unresolved_seventh", "unresolved_leading_tone"}  # an arrow to the note that follows
+BRACKETS = {"spacing"}  # everything else rings the notes involved
+
+
+def _names(voices):
+    """Plain voice names: SATB for four voices; otherwise soprano and bass at the ends, 'voice n' between."""
+    if len(voices) == 4:
+        return dict(zip(voices, ("soprano", "alto", "tenor", "bass")))
+    names = {v: f"voice {i + 1}" for i, v in enumerate(voices)}
+    names[voices[0]], names[voices[-1]] = "soprano", "bass"
+    return names
 
 
 @dataclass
@@ -98,6 +110,7 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
     from music21 import chord, interval, key, note, roman, stream, voiceLeading
 
     voices, _, rows = _table(index)
+    name = _names(voices)
     result = []
 
     def add(rule, positions, vs, why):
@@ -160,15 +173,15 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
             else:
                 continue
             if not midi(low) <= midi(row[v].pitch) <= midi(high):
-                add("range", [pos], [v], f"{row[v].pitch} lies outside the exercise range {low}–{high} (Open Music Theory).")
+                add("range", [pos], [v], f"The {name[v]}'s {row[v].pitch} is outside its usual range, {low}–{high} (Open Music Theory).")
         for upper, lower in zip(voices, voices[1:]):
             if upper not in row or lower not in row:
                 continue
             gap = midi(row[upper].pitch) - midi(row[lower].pitch)
             if gap < 0:
-                add("voice_crossing", [pos], [upper, lower], f"The lower voice's {row[lower].pitch} is above the upper voice's {row[upper].pitch}.")
+                add("voice_crossing", [pos], [upper, lower], f"Voice crossing: {name[upper]} and {name[lower]}. The {name[lower]}'s {row[lower].pitch} is higher than the {name[upper]}'s {row[upper].pitch}.")
             if lower != voices[-1] and gap > 12:
-                add("spacing", [pos], [upper, lower], "Adjacent upper voices are more than an octave apart.")
+                add("spacing", [pos], [upper, lower], f"Spacing: {name[upper]} and {name[lower]} are more than an octave apart.")
         if not spans and len(row) != len(voices):
             continue
         k, c = named(pos, row)
@@ -180,7 +193,7 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                 continue
             doubled = [v for v in row if pitch(row[v])[:-1] == leading.name and midi(row[v].pitch) % 12 in c.tones]
             if len(doubled) > 1:
-                add("doubled_leading_tone", [pos], doubled, f"The leading tone {leading.name.replace('-', 'b')} is doubled.")
+                add("doubled_leading_tone", [pos], doubled, f"The leading tone ({leading.name.replace('-', 'b')}) is doubled, in the {' and '.join(name[v] for v in doubled)}; it should appear once.")
 
     for row_number, ((before, arow), (after, brow)) in enumerate(zip(rows, rows[1:])):
         a = {v: es[0] for v, es in arow.items() if len(es) == 1}
@@ -194,14 +207,14 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
             if same:
                 rule = "parallel_fifths" if quartet.parallelFifth() else "parallel_octaves" if quartet.parallelOctave() or quartet.parallelUnison() else None
                 if rule:
-                    add(rule, [before, after], [upper, lower], f"Both voices move in the same direction through perfect {'fifths' if rule == 'parallel_fifths' else 'octaves or unisons'}.")
+                    add(rule, [before, after], [upper, lower], f"Parallel {'fifths' if rule == 'parallel_fifths' else 'octaves'}: {name[upper]} and {name[lower]} move in the same direction from one {'fifth' if rule == 'parallel_fifths' else 'octave'} to another.")
                 elif (upper, lower) == (voices[0], voices[-1]) and abs(bu - au) > 2:
                     arrival = interval.Interval(note.Note(pitch(b[lower])), note.Note(pitch(b[upper]))).semiSimpleName
                     if arrival in ("P5", "P8", "P1"):
-                        add("direct_fifths" if arrival == "P5" else "direct_octaves", [before, after], [upper, lower], "The outer voices approach a perfect interval in similar motion while the soprano leaps.")
+                        add("direct_fifths" if arrival == "P5" else "direct_octaves", [before, after], [upper, lower], f"Direct {'fifth' if arrival == 'P5' else 'octave'}: soprano and bass arrive at {'a fifth' if arrival == 'P5' else 'an octave'} in the same direction while the soprano leaps.")
             # Unisons are noncrossing; overlap still requires moving strictly past.
             if voices.index(lower) == voices.index(upper) + 1 and bu >= bl and au >= al and (bu < al or bl > au):
-                add("voice_overlap", [before, after], [upper, lower], "One voice moves beyond the adjacent voice's previous pitch.")
+                add("voice_overlap", [before, after], [upper, lower], f"Voice overlap: {name[upper]} and {name[lower]}. " + (f"The {name[upper]}'s {b[upper].pitch} falls below the {name[lower]}'s previous {a[lower].pitch}." if bu < al else f"The {name[lower]}'s {b[lower].pitch} rises above the {name[upper]}'s previous {a[upper].pitch}."))
         if not spans and (len(a) != len(voices) or len(b) != len(voices)):
             continue
         ka, ca = named(before, a)
@@ -231,12 +244,12 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                 # A retained common tone may be a consonance in a revoicing, not a failed resolution.
                 retained = a[v].pitch == b[v].pitch and ca.seventh in cb.tones and cb.seventh != ca.seventh
                 if not retained and motion.directedName not in ("m-2", "M-2"):
-                    add("unresolved_seventh", [before, destination], [v], f"The chordal seventh {a[v].pitch} does not resolve down by step.")
+                    add("unresolved_seventh", [before, destination], [v], f"The {name[v]}'s seventh ({a[v].pitch}) should fall by step; it {'moves to ' + target.pitch if target.pitch != a[v].pitch else 'is held'} instead.")
             if ka and kb and v in (voices[0], voices[-1]):
                 tonic = ka.tonic.pitchClass
                 if ca.root == (tonic + 7) % 12 and cb.root == tonic and midi(a[v].pitch) % 12 == ka.getLeadingTone().pitchClass:
                     if motion.directedName != "m2":
-                        add("unresolved_leading_tone", [before, destination], [v], f"The outer voice's leading tone {a[v].pitch} does not rise to the tonic at V–I.")
+                        add("unresolved_leading_tone", [before, destination], [v], f"The {name[v]}'s leading tone ({a[v].pitch}) should rise to the tonic at V–I; it {'moves to ' + target.pitch if target.pitch != a[v].pitch else 'is held'} instead.")
     return result
 
 
@@ -250,7 +263,7 @@ def as_text(index: ScoreIndex, chords=None) -> str:
         return ""
     voices, _, rows = _table(index)
     found = check(index, chords)
-    names = dict(zip(voices, ("S", "A", "T", "B"))) if len(voices) == 4 else {v: f"voice {i + 1}" for i, v in enumerate(voices)}
+    names = _names(voices)
     at = {pos: row for pos, row in rows}
 
     def ref(pos, voice):
@@ -260,35 +273,52 @@ def as_text(index: ScoreIndex, chords=None) -> str:
         e = es[0]
         return json.dumps({"measure": e.measure, "beat": index.measure(e.measure).beat_of(e.onset), "staff": e.staff, "pitch": e.pitch}, separators=(",", ":"))
 
+    def pitch_of(pos, voice):
+        return midi(at[pos][voice][0].pitch) if at[pos].get(voice) else None
+
     lines = [
         "PART-WRITING CHECK (strict classroom rules, not verdicts on the composer; this is a chorale-style score). Your "
         "first reply must include one sentence offering this check, even when it also asks which bars to analyse; "
         "draw it only if the user wants it. One callout per numbered spot, at the "
-        "first note given, explaining every finding listed there; one voice_leading arrow per line under it, with "
-        "that line's label.",
+        "first note given, explaining every finding listed there. Under each spot, draw each 'draw' line as one "
+        "voice_leading annotation: kind line, arrow, ring or bracket, with its from_note, to_note (not for a ring) and "
+        "label exactly as given. Never add labels of your own or join labels with commas.",
     ]
     if not found:
         return lines[0] + "\nNo violations found."
-    spots = {}  # first position -> (findings, {arrow: labels}, callout note)
+    spots = {}  # first position -> (findings, {mark: labels}, callout note)
     for f in found:
         pos = list(zip(f.bars, f.beats))
-        if len(pos) == 2:
-            arrows = [(ref(pos[0], v), ref(pos[1], v)) for v in f.voices]
-        elif len(f.voices) == 2:
-            arrows = [(ref(pos[0], f.voices[0]), ref(pos[0], f.voices[1]))]
-        else:
-            arrows = []
+        label, upper, lower = LABELS[f.rule], f.voices[0], f.voices[-1]
+        marks = []  # (kind, refs, label or None)
+        if f.rule in LINES:
+            # The word goes once, under the lower voice's line, as Milne sets "5 – 5" under the bass.
+            marks = [("line", (ref(pos[0], v), ref(pos[1], v)), label if v == lower else None) for v in f.voices]
+        elif f.rule in ARROWS:
+            marks = [("arrow", (ref(pos[0], upper), ref(pos[1], upper)), label)]
+        elif f.rule in BRACKETS:
+            marks = [("bracket", (ref(pos[0], upper), ref(pos[0], lower)), label)]
+        elif f.rule == "voice_overlap":
+            new = upper if pitch_of(pos[1], upper) < pitch_of(pos[0], lower) else lower
+            old = lower if new == upper else upper
+            marks = [("ring", (ref(pos[1], new),), label), ("ring", (ref(pos[0], old),), None)]
+        else:  # ring each note involved; the word goes at the highest
+            top = max(f.voices, key=lambda v: pitch_of(pos[0], v) or 0)
+            marks = [("ring", (ref(pos[0], v),), label if v == top else None) for v in f.voices]
         findings, drawn, _ = spots.setdefault(pos[0], ([], {}, ref(pos[0], f.voices[0])))
         findings.append(f)
-        for arrow in arrows:
-            if None not in arrow:
-                labels = drawn.setdefault(arrow, [])
-                if LABELS[f.rule] not in labels:
-                    labels.append(LABELS[f.rule])
+        for kind, refs, word in marks:
+            if None not in refs:
+                labels = drawn.setdefault((kind, refs), [])
+                if word and word not in labels:
+                    labels.append(word)
     for n, (pos, (findings, drawn, at_note)) in enumerate(sorted(spots.items()), 1):
         lines.append(f"{n}. m{pos[0]} b{pos[1]:g}, callout at {at_note}")
         for f in findings:
             where = " to ".join(f"m{b} b{beat:g}" for b, beat in zip(f.bars, f.beats))
             lines.append(f"   {f.rule.replace('_', ' ')} {'+'.join(names[v] for v in f.voices)} {where}: {f.why}")
-        lines += [f"   arrow {a} -> {b} label \"{', '.join(sorted(labels))}\"" for (a, b), labels in drawn.items()]
+        for (kind, refs), labels in drawn.items():
+            # A line shared by two pairs is drawn once per label; the copies coincide.
+            for word in labels or [None]:
+                lines.append(f"   draw {kind} {' -> '.join(refs)}" + (f' label "{word}"' if word else ""))
     return "\n".join(lines)

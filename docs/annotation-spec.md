@@ -34,7 +34,7 @@ A range has `start` (a position) and `end`. An `end` without `beat` runs to the 
 | `phrase` | `start`, `end`, `label` | Bracket above the system, continued across system breaks. |
 | `region` | `start`, `end`, `label` | Dashed bracket above the system, for a stretch named by what it is built on: `whole-tone`, `E Dorian`, `pentatonic`, `parallel 9th chords`, `pedal on G`. |
 | `nct` | `note`, `label` (`P`, `N`, `S`, `APP`, ...) | Circle around the note with the letter beside it. |
-| `voice_leading` | `from_note`, `to_note`, optional `label` | Arrow from one note to the other. |
+| `voice_leading` | `kind`, `from_note`, `to_note` (not for a ring), optional `label` | Red, for faults. `arrow` (default): a tendency tone to the note that follows, label at the source. `line`: one voice of a parallel or direct interval, no arrowhead; label it on the lower voice only. `ring`: circle one note. `bracket`: square bracket spanning two notes of one chord. |
 | `callout` | `at`, `number` | Numbered disc above the staff, matching a numbered paragraph of the written commentary. |
 
 A `harmony` label that is not a Roman numeral is drawn as written, so chord symbols work too: `Gmaj7`, `Em9`, `C7(#11)`, `D9/A`.

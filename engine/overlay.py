@@ -28,7 +28,7 @@ FUNCTION_NAMES = {"T": "tonic", "PD": "predominant", "D": "dominant"}
 INK = "#1a1a1a"
 MUTED = "#555555"
 NCT_COLOR = "#CC3311"
-VOICE_COLOR = "#AA3377"
+ERROR = "#D50000"  # faults only (part-writing findings)
 
 # Lengths are in Verovio's SVG units; a staff space is 180.
 NUMERAL_SIZE = 440
@@ -576,39 +576,86 @@ class PageLayout:
         self._reserve(system, label)
 
     def _draw_voice_leading(self, line: VoiceLeading) -> None:
+        """One mark of a part-writing finding: a line or arrow between notes of one voice, a ring, or a bracket."""
         try:
             system_a, a, _ = self.note_box(line.from_note)
-            system_b, b, _ = self.note_box(line.to_note)
+            system_b, b, _ = self.note_box(line.to_note) if line.to_note else (system_a, a, None)
         except NotOnPage:
             return
+        if line.kind == "ring":
+            self._draw_ring(line.label, system_a, a)
+        elif line.kind == "bracket":
+            self._draw_square_bracket(line.label, system_a, a, b)
+        else:
+            self._draw_voice_line(line, system_a, a, system_b, b)
+
+    def _draw_voice_line(self, line: VoiceLeading, system_a: System, a: Box, system_b: System, b: Box) -> None:
+        arrow = line.kind == "arrow"
         if system_a is system_b:
             shafts = [(system_a, a.right + 50, a.cy, b.x - 50, b.cy)]
-        else:  # across a system break: run off the right edge and come back in from the left
+        else:  # across a system break: run off the right edge and come back in from the left, like a tie
             shafts = [
                 (system_a, a.right + 50, a.cy, system_a.right - 40, a.cy),
                 (system_b, self._content_left(system_b) - 250, b.cy, b.x - 50, b.cy),
             ]
-        for system, x0, y0, x1, y1 in shafts:
-            self._arrow(x0, y0, x1, y1)
+        for number, (system, x0, y0, x1, y1) in enumerate(shafts):
+            self._line_or_arrow(x0, y0, x1, y1, head=arrow and number == len(shafts) - 1)
             self._reserve_line(system, x0, y0, x1, y1)
-        if line.label:
-            system, x0, y0, x1, y1 = shafts[0]
-            width, height = text.width(line.label, SMALL_SIZE, bold=True), SMALL_SIZE * 0.68
-            middle = Box((x0 + x1) / 2 - 20, (y0 + y1) / 2 - 20, 40, 40)
-            # Under the arrow, where an analyst writes the interval figures.
-            cx, cy = self._place_label(system, middle, width, height, below=True)
-            self._text(cx, cy + height / 2, line.label, SMALL_SIZE, bold=True, fill=VOICE_COLOR, anchor="middle", halo=True)
-            self._reserve(system, Box(cx - width / 2, cy - height / 2, width, height))
+        if not line.label:
+            return
+        width, height = text.width(line.label, LABEL_SIZE), LABEL_SIZE * 0.68
+        if arrow:  # at the tendency tone itself, above its arrow (MT21C)
+            self._label_near(system_a, a, line.label, width, height)
+            return
+        system, x0, y0, x1, y1 = shafts[0]
+        middle = Box((x0 + x1) / 2 - 20, (y0 + y1) / 2 - 20, 40, 40)
+        # Once per pair, under the line of the lower voice, where an analyst writes the interval figures.
+        cx, cy = self._place_label(system, middle, width, height, below=True)
+        self._error_text(system, cx, cy, line.label, width, height)
 
-    def _arrow(self, x0: float, y0: float, x1: float, y1: float) -> None:
+    def _line_or_arrow(self, x0: float, y0: float, x1: float, y1: float, head: bool) -> None:
         length = max(((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5, 1)
         ux, uy = (x1 - x0) / length, (y1 - y0) / length
-        head, half = 190, 75
-        bx, by = x1 - ux * head, y1 - uy * head
+        size, half = (190, 75) if head else (0, 0)
+        bx, by = x1 - ux * size, y1 - uy * size
         self._add("line", x1=round(x0), y1=round(y0), x2=round(bx), y2=round(by),
-                  stroke=VOICE_COLOR, stroke_width=LINE + 10, stroke_linecap="round")
-        points = [(x1, y1), (bx - uy * half, by + ux * half), (bx + uy * half, by - ux * half)]
-        self._add("polygon", points=" ".join(f"{round(px)},{round(py)}" for px, py in points), fill=VOICE_COLOR)
+                  stroke=ERROR, stroke_width=45, stroke_linecap="round")
+        if head:
+            points = [(x1, y1), (bx - uy * half, by + ux * half), (bx + uy * half, by - ux * half)]
+            self._add("polygon", points=" ".join(f"{round(px)},{round(py)}" for px, py in points), fill=ERROR)
+
+    def _error_text(self, system: System, cx: float, cy: float, string: str, width: float, height: float) -> None:
+        self._text(cx, cy + height / 2, string, LABEL_SIZE, fill=ERROR, anchor="middle", halo=True)
+        self._reserve(system, Box(cx - width / 2, cy - height / 2, width, height))
+
+    def _label_near(self, system: System, anchor: Box, string: str, width: float, height: float, right: bool = False) -> None:
+        """A fault word at its note: to the right when that spot is clear (when `right`), else wherever fits."""
+        spot = (anchor.right + 90 + width / 2, anchor.cy)
+        # Beside its own note the word may sit on the staff lines, as in a teacher's markup; only other marks block it.
+        box = Box(spot[0] - width / 2 - LABEL_PAD, spot[1] - height / 2 - LABEL_PAD, width + 2 * LABEL_PAD, height + 2 * LABEL_PAD)
+        free = right and not any(o.x < box.right and o.right > box.x and o.y < box.bottom and o.bottom > box.y for o in system.content)
+        cx, cy = spot if free else self._place_label(system, anchor, width, height)
+        self._error_text(system, cx, cy, string, width, height)
+
+    def _draw_ring(self, label: str, system: System, note: Box) -> None:
+        rx, ry = max(180, note.width / 2 + 60), max(135, note.height / 2 + 45)
+        ring = Box(note.cx - rx, note.cy - ry, 2 * rx, 2 * ry)
+        self._add("ellipse", cx=round(note.cx), cy=round(note.cy), rx=round(rx), ry=round(ry),
+                  fill="none", stroke=ERROR, stroke_width=30)
+        self._reserve(system, ring, pad=30)
+        if label:
+            self._label_near(system, ring, label, text.width(label, LABEL_SIZE), LABEL_SIZE * 0.68, right=True)
+
+    def _draw_square_bracket(self, label: str, system: System, a: Box, b: Box) -> None:
+        """MT21C's thin bracket right of a chord, spanning the two notes (a spacing fault)."""
+        x, tick = max(a.right, b.right) + 110, 72
+        top, bottom = min(a.cy, b.cy), max(a.cy, b.cy)
+        self._add("path", d=f"M{round(x - tick)},{round(top)} L{round(x)},{round(top)} L{round(x)},{round(bottom)} L{round(x - tick)},{round(bottom)}",
+                  fill="none", stroke=ERROR, stroke_width=30, stroke_linejoin="round")
+        self._reserve(system, Box(x - tick, top, tick, bottom - top), pad=30)
+        if label:
+            width, height = text.width(label, LABEL_SIZE), LABEL_SIZE * 0.68
+            self._label_near(system, Box(x, bottom, 0, 0), label, width, height, right=True)
 
     def _draw_callout(self, callout: Callout) -> None:
         try:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 View = Literal["harmony", "voice_leading", "form"]
 Role = Literal["student", "composer"]
@@ -85,10 +85,23 @@ class NonChordTone(Annotation):
 
 
 class VoiceLeading(Annotation):
+    """A part-writing mark. Faults are drawn red; the label names the fault, once per pair of voices."""
+
     type: Literal["voice_leading"]
+    kind: Literal["arrow", "line", "ring", "bracket"] = Field(
+        "arrow",
+        description="arrow: a tendency tone to the note that follows (to_note); line: one voice of a parallel or "
+        "direct interval, no arrowhead (to_note); ring: circle the note (from_note only); bracket: square bracket "
+        "spanning two notes of one chord (to_note)")
     from_note: NoteRef
-    to_note: NoteRef
+    to_note: NoteRef | None = None
     label: str = ""
+
+    @model_validator(mode="after")
+    def _needs_to_note(self):
+        if (self.kind == "ring") == (self.to_note is not None):
+            raise ValueError("a ring takes only from_note; every other kind needs to_note")
+        return self
 
 
 class Callout(Annotation):
