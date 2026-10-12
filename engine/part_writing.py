@@ -261,8 +261,9 @@ def as_text(index: ScoreIndex, chords=None) -> str:
         return json.dumps({"measure": e.measure, "beat": index.measure(e.measure).beat_of(e.onset), "staff": e.staff, "pitch": e.pitch}, separators=(",", ":"))
 
     lines = [
-        "PART-WRITING CHECK (strict classroom rules, not verdicts on the composer; this is a chorale-style score, so "
-        "offer the check in one line and draw it only if the user wants it). One callout per numbered spot, at the "
+        "PART-WRITING CHECK (strict classroom rules, not verdicts on the composer; this is a chorale-style score). Your "
+        "first reply must include one sentence offering this check, even when it also asks which bars to analyse; "
+        "draw it only if the user wants it. One callout per numbered spot, at the "
         "first note given, explaining every finding listed there; one voice_leading arrow per line under it, with "
         "that line's label.",
     ]

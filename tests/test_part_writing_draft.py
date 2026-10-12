@@ -25,7 +25,7 @@ def test_draft_analysis_lists_planted_motion_errors(local_store):
     assert "voice crossing S+A m13 b1" in section
     assert '(Open Music Theory)' in section
     assert '{"measure":13,"beat":1.0,"staff":2,"pitch":"G4"}' in section
-    assert "say in one line that you can check" in text.split("HOW TO USE", 1)[1]
+    assert "one sentence offering to check the voice leading" in text.split("HOW TO USE", 1)[1]
 
 
 def test_draft_analysis_lists_planted_tendency_errors(local_store):
