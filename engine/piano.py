@@ -14,7 +14,7 @@ import tempfile
 from collections.abc import Iterable
 from fractions import Fraction
 
-from music21 import chord, clef, converter, dynamics, expressions, instrument, key, layout, meter, note, pitch, stream
+from music21 import chord, clef, tie, converter, dynamics, expressions, instrument, key, layout, meter, note, pitch, stream
 from music21.musicxml.m21ToXml import GeneralObjectExporter
 
 # Standard score abbreviations, by music21 instrument class.
@@ -177,17 +177,118 @@ def _blocks(events: list) -> list:
             if same and (not pitches or held):
                 last[1] += length
                 last[4] = None  # a merged note no longer belongs to the beam it started in
-                last[3] = dict(tied)
+                # The joined note comes in the way its first part did and goes out the way its last part does.
+                last[3] = {
+                    ps: _edge_tie(_kind(last[3], ps) in ("stop", "continue"), _kind(tied, ps) in ("start", "continue"))
+                    for ps in tied
+                }
                 continue
         result.append([offset, length, pitches, dict(tied), beams])
     return result
 
 
-def _beam(voice: stream.Stream) -> None:
-    """Beam the short notes in each beat; chords built here have no beams of their own."""
+def _beat(ref: stream.Measure) -> float:
+    """Length in quarter notes of one beam group: a dotted quarter in compound meters, else the beat."""
+    signature = ref.timeSignature or ref.getContextByClass(meter.TimeSignature)
+    if signature is None:
+        return 1.0
+    if signature.denominator == 8 and signature.numerator % 3 == 0:
+        return 1.5
+    return float(signature.beatDuration.quarterLength)
+
+
+def _split_runs(events: list) -> tuple[list, list]:
+    """The lowest notes that keep sounding while the notes above them change are written once, as a voice of their
+    own, the way published reductions do, instead of being tied through every chord. Returns the events without
+    those notes and the held notes as events."""
+    runs, i = [], 0
+    while i < len(events):
+        found = None
+        for count in range(len(events[i][2]), 0, -1):
+            bass = [p.ps for p in events[i][2][:count]]
+            j = i
+            while (
+                j + 1 < len(events)
+                and all(_kind(events[j][3], ps) in ("start", "continue") for ps in bass)
+                and [p.ps for p in events[j + 1][2][:count]] == bass
+            ):
+                j += 1
+            above = {tuple(p.ps for p in e[2][count:]) for e in events[i : j + 1]}
+            # Notes above that are the same and tied all the way through are already one block (see _blocks).
+            struck_again = any(_kind(e[3], p.ps) not in ("stop", "continue") for e in events[i + 1 : j + 1] for p in e[2][count:])
+            # Under two quarter notes a separate voice costs more clarity than the tie does.
+            long_enough = sum(e[1] for e in events[i : j + 1]) >= 2
+            if j > i and long_enough and (len(above) > 1 or struck_again):
+                found = (i, j, count)
+                break
+        if found:
+            runs.append(found)
+        i = found[1] + 1 if found else i + 1
+    held = []
+    for i, j, count in runs:
+        first, last = events[i], events[j]
+        bass = first[2][:count]
+        # The ends of the tie belong to the neighbouring bars, so the held notes keep them.
+        ties = {
+            p.ps: _edge_tie(_kind(first[3], p.ps) in ("stop", "continue"), _kind(last[3], p.ps) in ("start", "continue"))
+            for p in bass
+        }
+        held.append((first[0], sum(e[1] for e in events[i : j + 1]), bass, ties, None))
+        for k in range(i, j + 1):
+            e = events[k]
+            events[k] = (e[0], e[1], e[2][count:], {ps: t for ps, t in e[3].items() if ps not in ties}, e[4])
+    return events, held
+
+
+def _split_held(events: list) -> tuple[list, list, str]:
+    """_split_runs on the bottom notes of each chord, else on the top notes (a held top note under a moving bass).
+    The third value is the stem direction of the held voice."""
+    for top in (False, True):
+        flipped = [(o, n, p[::-1] if top else p, t, b) for o, n, p, t, b in events]
+        rest, held = _split_runs(flipped)
+        if held:
+            order = (lambda p: p[::-1]) if top else (lambda p: p)
+            return [(o, n, order(p), t, b) for o, n, p, t, b in rest], [(o, n, order(p), t, b) for o, n, p, t, b in held], "up" if top else "down"
+    return events, [], "down"
+
+
+def _fill(events: list, held: list, direction: str, target: stream.Stream, flat_key: bool, beat: float, length: float) -> None:
+    """Write a hand's events into `target`; held notes get a voice of their own, stems down, the rest stems up."""
+    voices = [(events, stream.Voice() if held else target)] + ([(held, stream.Voice())] if held else [])
+    for group, voice in voices:
+        for offset, span, pitches, tied, beams in _blocks(group) if group is events else group:
+            voice.insert(offset, _make(pitches, span, tied, beams, flat_key))
+        _beam(voice, beat)
+    if held:
+        stems = ("down", "up") if direction == "up" else ("up", "down")
+        for (group, voice), stem in zip(voices, stems):
+            voice.makeRests(fillGaps=True, inPlace=True, timeRangeFromBarDuration=False)
+            for element in voice.notesAndRests:
+                if element.isRest and group is held:
+                    element.style.hideObjectOnPrint = True
+                elif not element.isRest:
+                    element.stemDirection = stem
+            target.insert(0, voice)
+    if not target.recurse().notesAndRests:
+        target.insert(0, note.Rest(quarterLength=length))
+
+
+def _kind(ties: dict, ps: float):
+    return ties[ps].type if ties.get(ps) is not None else None
+
+
+def _edge_tie(comes_in: bool, goes_out: bool):
+    if comes_in and goes_out:
+        return tie.Tie("continue")
+    return tie.Tie("stop") if comes_in else tie.Tie("start") if goes_out else None
+
+
+def _beam(voice: stream.Stream, beat: float) -> None:
+    """Beam the short notes in each beat group of the meter (a dotted quarter in 6/8, 9/8, 12/8); chords built here
+    have no beams of their own."""
     groups: dict[int, list] = {}
     for element in voice.notesAndRests:
-        groups.setdefault(int(element.offset), []).append(element)
+        groups.setdefault(int(float(element.offset) / beat + 1e-6), []).append(element)
     for group in groups.values():
         run = []
         for element in group + [None]:
@@ -203,6 +304,40 @@ def _beam(voice: stream.Stream) -> None:
                     else:
                         x.beams.append(kind)
             run = []
+
+
+def _real_ties(chords: stream.Measure, sources: list) -> list[dict]:
+    """The tie type of each pitch of each chord. chordify ties a pitch into the next chord whenever it recurs,
+    even where the instrument struck it again; a tie is kept only where one written note sounds across the change."""
+    spans = sorted(
+        (float(n.getOffsetInHierarchy(m)), float(n.getOffsetInHierarchy(m) + n.quarterLength), p.ps,
+         (n.getTie(p) if n.isChord else n.tie) is not None and (n.getTie(p) if n.isChord else n.tie).type in ("stop", "continue"))
+        for m in sources for n in m.recurse().notes for p in n.pitches
+    )
+    # A note tied to the next one in the same part is one sounding.
+    merged: list[list] = []
+    for start, end, ps, continues in spans:
+        for span in merged:
+            if continues and span[2] == ps and abs(span[1] - start) < 1e-6:
+                span[1] = end
+                break
+        else:
+            merged.append([start, end, ps])
+    result = []
+    for c in chords.notesAndRests:
+        result.append({} if c.isRest else {p.ps: (c.getTie(p).type if c.getTie(p) else None) for p in c.pitches})
+    events = list(chords.notesAndRests)
+    for i in range(len(events) - 1):
+        boundary = float(events[i + 1].offset)
+        for ps, kind in result[i].items():
+            if kind in ("start", "continue") and not any(
+                s < boundary - 1e-6 and e > boundary + 1e-6 and q == ps for s, e, q in merged
+            ):
+                result[i][ps] = None if kind == "start" else "stop"
+                after = result[i + 1].get(ps)
+                if after is not None:
+                    result[i + 1][ps] = None if after == "stop" else "start"
+    return result
 
 
 def _make(pitches: list, length: float, tied: dict, beams, flat_key: bool):
@@ -240,7 +375,10 @@ def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, fi
     label = _cue(group if tune else playing, parts) if playing else None
     accompaniment = [n for n in bar if n not in group] if tune else list(bar)
     melody = []
-    for element in (copy.deepcopy(e) for e in bar[best].notesAndRests) if tune else []:
+    for source_element in bar[best].notesAndRests if tune else []:
+        element = copy.deepcopy(source_element)
+        # deepcopy detaches the note from its bar and resets its offset to 0; the tune needs its place in the bar.
+        element.offset = source_element.offset
         if element.isChord:
             top = max(element.pitches, key=lambda p: p.ps)
             single = note.Note(top, quarterLength=element.quarterLength)
@@ -265,12 +403,13 @@ def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, fi
                 return element.pitch.ps
         return None
 
+    ties = _real_ties(chords, sources)
     right, left = stream.Measure(number=ref.number), stream.Measure(number=ref.number)
     upper, lower = stream.Voice(), stream.Voice()
     right_events, left_events = [], []
-    for c in chords.notesAndRests:
+    for index, c in enumerate(chords.notesAndRests):
         pitches = [] if c.isRest else list(c.pitches)
-        tied = {} if c.isRest else {p.ps: c.getTie(p) for p in c.pitches}
+        tied = {} if c.isRest else {ps: tie.Tie(kind) if kind else None for ps, kind in ties[index].items()}
         start = float(c.offset)
         ceiling = tune_at(start)
         keep = {p.ps for offset, p, _ in kept if abs(offset - start) < 1e-6}
@@ -291,12 +430,14 @@ def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, fi
         beams = None if c.isRest else c.beams
         right_events.append((c.offset, c.quarterLength, hand_right, tied, beams))
         left_events.append((c.offset, c.quarterLength, hand_left, tied, beams))
-    for events, target in ((right_events, lower), (left_events, left)):
-        for offset, length, pitches, tied, beams in _blocks(events):
-            target.insert(offset, _make(pitches, length, tied, beams, flat_key))
-        _beam(target)
-    if not left.notesAndRests:
-        left.insert(0, note.Rest(quarterLength=ref.duration.quarterLength))
+    beat = _beat(ref)
+    held_right, side_right = [], "down"
+    if not tune:
+        right_events, held_right, side_right = _split_held(right_events)
+    left_events, held_left, side_left = _split_held(left_events)
+    length = ref.duration.quarterLength
+    _fill(right_events, held_right, side_right, lower if tune else right, flat_key, beat, length)
+    _fill(left_events, held_left, side_left, left, flat_key, beat, length)
     if tune:
         for element in melody:
             upper.insert(element.offset, element)
@@ -306,11 +447,6 @@ def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, fi
             element.stemDirection = "down"
         right.insert(0, upper)
         right.insert(0, lower)
-    else:
-        for element in lower.notesAndRests:
-            right.insert(element.offset, element)
-        if not right.notesAndRests:
-            right.insert(0, note.Rest(quarterLength=ref.duration.quarterLength))
     source = bar[best] if playing else ref
     carrier = upper if tune else right
     for mark in source.recurse().getElementsByClass(dynamics.Dynamic):
