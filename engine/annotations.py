@@ -85,8 +85,14 @@ class NonChordTone(Annotation):
     label: str = Field(description='Open Music Theory abbreviation, e.g. "PT" passing, "NT" neighbor, "SUS" suspension, "APP" appoggiatura, "ET", "ANT", "RET", "PED"; the older "P", "N", "S" are drawn as PT, NT, SUS')
 
 
+# The words part_writing puts on its arrows (an unresolved seventh or leading tone). An arrow with any other label,
+# or none, is an analysis mark the model draws (a resolution) and is not red.
+FAULT_ARROW_LABELS = frozenset({"7th", "LT"})
+
+
 class VoiceLeading(Annotation):
-    """A part-writing mark. Faults are drawn red; the label names the fault, once per pair of voices."""
+    """A part-writing mark. Faults are drawn red (every line, ring and bracket, and an arrow labelled with a fault
+    word); other arrows are analysis marks in magenta. The label names the fault, once per pair of voices."""
 
     type: Literal["voice_leading"]
     kind: Literal["arrow", "line", "ring", "bracket"] = Field(
