@@ -1299,7 +1299,7 @@
   {
     "id": "two-global-keys",
     "text": "key: C; m1 I; key: G",
-    "question": "Where does the key"
+    "question": "Where does the change to"
   },
   {
     "id": "unknown",
@@ -1314,22 +1314,22 @@
   {
     "id": "shortkey-global-conflict",
     "text": "G: m1 I; key: C",
-    "question": "Where does the key"
+    "question": "Where does the change to"
   },
   {
     "id": "in-global-conflict",
     "text": "in G major: m1 I; key: C",
-    "question": "Where does the key"
+    "question": "Where does the change to"
   },
   {
     "id": "two-shortkey-globals",
     "text": "G: m1 I; C:",
-    "question": "Where does the key"
+    "question": "Where does the change to"
   },
   {
     "id": "two-in-globals",
     "text": "in G major: m1 I; in C major:",
-    "question": "Where does the key"
+    "question": "Where does the change to"
   },
   {
     "id": "parentheses-period",
@@ -1432,5 +1432,399 @@
         "ii"
       ]
     ]
+  },
+  {
+    "id": "key-after-numerals",
+    "text": "bar 1 I IV V I bar 2 I V7 G: V7 I",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "IV"
+      ],
+      [
+        1,
+        3,
+        "C",
+        "V"
+      ],
+      [
+        1,
+        4,
+        "C",
+        "I"
+      ],
+      [
+        2,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        2,
+        2,
+        "C",
+        "V7"
+      ],
+      [
+        2,
+        3,
+        "G",
+        "V7"
+      ],
+      [
+        2,
+        4,
+        "G",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "leading-key-then-modulation",
+    "text": "C: bar 1 I IV bar 2 V I G: V7 I",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "IV"
+      ],
+      [
+        2,
+        1,
+        "C",
+        "V"
+      ],
+      [
+        2,
+        2,
+        "C",
+        "I"
+      ],
+      [
+        2,
+        3,
+        "G",
+        "V7"
+      ],
+      [
+        2,
+        4,
+        "G",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "slash-figure-I64",
+    "text": "m1 I6/4",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I64"
+      ]
+    ]
+  },
+  {
+    "id": "slash-figure-V65",
+    "text": "m1 V6/5 V4/2",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V65"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "V42"
+      ]
+    ]
+  },
+  {
+    "id": "slash-figure-then-secondary",
+    "text": "m1 V6/5/V V/V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V65/V"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "V/V"
+      ]
+    ]
+  },
+  {
+    "id": "spaced-slash-dim",
+    "text": "m1 vii° / V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "viio/V"
+      ]
+    ]
+  },
+  {
+    "id": "spaced-slash-dim7",
+    "text": "m1 vii°7 / V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "viio7/V"
+      ]
+    ]
+  },
+  {
+    "id": "spaced-slash-figure",
+    "text": "m1 V 6/5 / V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V65/V"
+      ]
+    ]
+  },
+  {
+    "id": "spaced-slash-ii-of-V",
+    "text": "m1 ii / V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "ii/V"
+      ]
+    ]
+  },
+  {
+    "id": "hyphen-separates",
+    "text": "m1 I, V - vi",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "V"
+      ],
+      [
+        1,
+        3,
+        "C",
+        "vi"
+      ]
+    ]
+  },
+  {
+    "id": "slash-chain-four",
+    "text": "m1 I / IV / V / vi",
+    "question": "use / only for"
+  },
+  {
+    "id": "slash-chain-three",
+    "text": "m1 I / V / vi",
+    "question": "use / only for"
+  },
+  {
+    "id": "slash-chain-I-V-V-I",
+    "text": "m1 I / V / V / I",
+    "question": "use / only for"
+  },
+  {
+    "id": "slash-chain-V-V-I",
+    "text": "m1 V / V / I",
+    "question": "use / only for"
+  },
+  {
+    "id": "slash-tonic-applied",
+    "text": "bar 1: I / V",
+    "question": "use / only for"
+  },
+  {
+    "id": "key-after-last-numeral",
+    "text": "m1 I G: m2 I D:",
+    "question": "Where does the change to"
+  },
+  {
+    "id": "suspension-4-3",
+    "text": "m1 I V7 4-3 I",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "V7"
+      ],
+      [
+        1,
+        3,
+        "C",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "suspension-spaced-figure",
+    "text": "m1 V 4-3",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V"
+      ]
+    ]
+  },
+  {
+    "id": "suspension-en-dash",
+    "text": "m1 V7 4–3",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V7"
+      ]
+    ]
+  },
+  {
+    "id": "cadential-six-four-hyphen",
+    "text": "m1 Cad 6-4 V I",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "Cad64"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "V"
+      ],
+      [
+        1,
+        3,
+        "C",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "lone-trailing-in",
+    "text": "m1 I IV in G",
+    "expected": [
+      [
+        1,
+        1,
+        "G",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "G",
+        "IV"
+      ]
+    ]
+  },
+  {
+    "id": "lone-trailing-minor",
+    "text": "m1 I V7 I key: d minor",
+    "expected": [
+      [
+        1,
+        1,
+        "d",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "d",
+        "V7"
+      ],
+      [
+        1,
+        3,
+        "d",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "lone-trailing-commas",
+    "text": "m1 I, V, I in D",
+    "expected": [
+      [
+        1,
+        1,
+        "D",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "D",
+        "V"
+      ],
+      [
+        1,
+        3,
+        "D",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "second-key-unclear",
+    "text": "C: m1 I V m2 I a:",
+    "question": "Where does the change to a"
+  },
+  {
+    "id": "slash-split-at-spaced",
+    "text": "m1 V/ii / V/V",
+    "question": "V/ii then V/V"
   }
 ]

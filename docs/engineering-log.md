@@ -816,6 +816,10 @@ Six tracks ran overnight in Codex, each built, reviewed twice by a fresh Codex a
 
 All 436 tests pass on main with every track merged.
 
+### 39. Check my analysis: the plumbing (Phase 3, 2026-10-12)
+
+`draft_analysis` and `draft_from_notes` take an optional `student_analysis`. Typed numerals are parsed before the daily limit is charged, so an unclear answer comes back as the parser's question at no cost. The draft gains a STUDENT CHECK section: each of the student's labels beside the draft's chord (confidence, runner-up, bass, pitch classes) and how they compare, with guidance to act as a second reader. Numerals written into the score file are read only when the argument is the word `score`: a published edition carries its own numerals, so reading them unasked would pass them off as the user's answer. In Claude, `skill/scripts/model_notes.py --student-analysis` validates the answer, prints the question if one is needed, and otherwise prints the answer in normalized typed form (stderr) for the tool call, since the draft is made server-side. Test piece: Chopin Op. 9 No. 2, bars 1-8, 20 labels with three planted differences (I53 for I, I6 for I, V65 for V65/vi), found as spelling variant, inversion and chord. No page marks yet, no deploy, SKILL.md untouched (paragraph in `docs/phase3-skill-paragraph.md`).
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
