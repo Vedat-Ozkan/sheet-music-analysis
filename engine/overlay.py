@@ -13,7 +13,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from fractions import Fraction
 
-from engine import text
+from engine import notation, text
 from engine.annotations import AnnotationList, Cadence, Callout, Harmony, NonChordTone, Phrase, Region, VoiceLeading
 from engine.score import TOLERANCE, Event, PositionError, ScoreIndex
 
@@ -142,6 +142,7 @@ class PageLayout:
         self.boxes: dict[str, Box] = {}
         self.measures: dict[str, MeasureGeometry] = {}
         self.systems: list[System] = []
+        self.harmony_labels: list[tuple[str, Box]] = []
         self._remove("fing")  # fingering is clutter on an analysis page
         self._remove("harm")  # hidden placeholders that made Verovio leave room for the numerals (annotate.py)
         self._remove("analysis-room")  # and for brackets drawn at one staff
@@ -432,9 +433,18 @@ class PageLayout:
             return [a for a in annotations.annotations if isinstance(a, cls) and annotations.visible(kind, a, view, role)]
 
         harmonies = sorted(shown("harmony", Harmony), key=lambda h: (self.index.measure(h.at.measure).index, h.at.beat))
+        if annotations.style != "current":
+            # A hidden key declaration still governs the chords visible in this view.
+            active = None
+            keys = {}
+            for harmony in sorted((a for a in annotations.annotations if isinstance(a, Harmony)),
+                                  key=lambda h: (self.index.measure(h.at.measure).index, h.at.beat)):
+                active = harmony.key or active
+                keys[id(harmony)] = active
+            harmonies = [h.model_copy(update={"key": keys[id(h)]}) for h in harmonies]
         banded = [h for h in harmonies if annotations.visible("function", h, view, role)]
         used_functions = self._draw_function_bands(banded)
-        self._draw_harmonies(harmonies)
+        self._draw_harmonies(harmonies, annotations.style)
         for cadence in shown("cadence", Cadence):
             self._draw_cadence(cadence)
         self._draw_ncts(shown("nct", NonChordTone))
@@ -481,7 +491,7 @@ class PageLayout:
             position = following
         return used
 
-    def _draw_harmonies(self, harmonies: list[Harmony]) -> None:
+    def _draw_harmonies(self, harmonies: list[Harmony], style: str = "current") -> None:
         by_system: dict[int, list[tuple[float, Harmony]]] = {}
         key_at_start: dict[int, str] = {}
         key = None
@@ -499,7 +509,9 @@ class PageLayout:
             baseline = system.bottom() + 170 + NUMERAL_SIZE * 0.75
             # A score names its key once; a later line repeats it only when the key has changed.
             if key_at_start[system_index] and key_at_start[system_index] != previous:
-                self._text(system.left + 80, baseline, text.pretty_key(key_at_start[system_index]) + ":", NUMERAL_SIZE, bold=True)
+                label = text.pretty_key(key_at_start[system_index]) + ":"
+                box = self._text(system.left + 80, baseline, label, NUMERAL_SIZE, bold=True)
+                self.harmony_labels.append((label, box))
             cursor = 0.0
             key = key_at_start[system_index]
             for position, (x, harmony) in enumerate(labels):
@@ -508,14 +520,22 @@ class PageLayout:
                 # Chat models sometimes repeat the key on every chord; only a change is written in line.
                 if harmony.key and harmony.key != key and position:
                     box = self._text(x, baseline, text.pretty_key(harmony.key) + ":", NUMERAL_SIZE, bold=True)
+                    self.harmony_labels.append((harmony.key + ":", box))
                     x = box.right + 90
                 key = harmony.key or key
-                chunks, total = text.numeral(label, NUMERAL_SIZE)
+                chunks, total = notation.numeral(label, key, style, NUMERAL_SIZE)
+                boxes = []
                 for chunk in chunks:
-                    self._text(x + chunk.dx, baseline + chunk.dy, chunk.text, chunk.size, bold=chunk.bold)
+                    boxes.append(self._text(x + chunk.dx, baseline + chunk.dy, chunk.text, chunk.size, bold=chunk.bold))
+                if boxes:
+                    top = min(box.y for box in boxes)
+                    bottom = max(box.bottom for box in boxes)
+                    self.harmony_labels.append((label, Box(x, top, total, bottom - top)))
                 cursor = x + total + 110
             previous = key
             system.content.append(Box(system.left, baseline - NUMERAL_SIZE * 0.8, system.right - system.left, NUMERAL_SIZE * 1.05))
+            if style != "current":
+                system.content.extend(box for _, box in self.harmony_labels if baseline - NUMERAL_SIZE < box.y < baseline + NUMERAL_SIZE)
 
     def _draw_cadence(self, cadence: Cadence) -> None:
         try:

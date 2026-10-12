@@ -24,6 +24,7 @@ def main() -> int:
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--measures", help='printed measure numbers, e.g. "1-8"; default is the whole score')
     parser.add_argument("--view", choices=VIEWS, default="all")
+    parser.add_argument("--style", choices=("current", "abrsm", "figured_bass"), help="override the annotation list's notation style")
     parser.add_argument("--name", default="analysis", help="file name without extension")
     parser.add_argument("--piano", action="store_true", help="draw the passage as a two-staff piano reduction")
     args = parser.parse_args()
@@ -35,6 +36,9 @@ def main() -> int:
         for problem in error.errors():
             print(f"  {'.'.join(str(part) for part in problem['loc'])}: {problem['msg']}", file=sys.stderr)
         return 1
+
+    if args.style:
+        annotations = annotations.model_copy(update={"style": args.style})
 
     measures = None
     if args.measures and args.measures != "all":

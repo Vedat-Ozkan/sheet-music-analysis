@@ -121,35 +121,43 @@ def music_collisions(svg: str, skip: frozenset[str] = frozenset()) -> list[str]:
     return hits
 
 
-def check(name: str, tag: str) -> dict:
+def check(name: str, tag: str, style: str = "current") -> dict:
     source, bars = PIECES[name]
     score = fetch(name, source) if isinstance(source, str) else source.read_bytes()
     annotations = AnnotationList.model_validate_json((EXAMPLES / f"{name}.json").read_text())
+    annotations = annotations.model_copy(update={"style": style})
     _layouts.clear()
     page = render(score, annotations, measures=bars)
     folder = OUT / tag
     folder.mkdir(parents=True, exist_ok=True)
     (folder / f"{name}.png").write_bytes(page.png(1))
     (folder / f"{name}.pdf").write_bytes(page.pdf())
+    return collisions(page.page_count)
+
+
+def collisions(page_count: int) -> dict:
+    """Check the recorded pages, including whole numeral labels rather than their stacked chunks."""
     overlapping, tight = [], []
     for layout in _layouts:
-        for i, (string, box) in enumerate(layout.labels):
-            others = layout.music + [other for j, (_, other) in enumerate(layout.labels) if j != i]
+        labels = layout.labels + layout.harmony_labels
+        for i, (string, box) in enumerate(labels):
+            others = layout.music + [other for j, (_, other) in enumerate(labels) if j != i]
             if any(_touches(box, other) for other in others):
                 overlapping.append(string)
             elif any(_touches(box, other, LABEL_PAD / 2) for other in others):
                 tight.append(string)
     # Chord symbols on these pages are hidden placeholders that make room for the numerals.
     # The last layouts are the drawn pages; earlier ones only measured systems for line breaks.
-    music = [hit for layout in _layouts[-page.page_count :] for hit in music_collisions(layout.source, frozenset({"harm"}))]
-    return {"labels": sum(len(layout.labels) for layout in _layouts), "overlapping": overlapping, "tight": tight, "music": music}
+    music = [hit for layout in _layouts[-page_count :] for hit in music_collisions(layout.source, frozenset({"harm"}))]
+    return {"labels": sum(len(layout.labels) + len(layout.harmony_labels) for layout in _layouts), "overlapping": overlapping, "tight": tight, "music": music}
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", default="latest", help="folder under out/engraving/ for this round's pages")
+    parser.add_argument("--style", choices=("current", "abrsm", "figured_bass"), default="current")
     args = parser.parse_args()
-    report = {name: check(name, args.tag) for name in PIECES}
+    report = {name: check(name, args.tag, args.style) for name in PIECES}
     for name, result in report.items():
         print(f"{name:22s} labels {result['labels']:3d}  overlapping {result['overlapping'] or '-'}  tight {result['tight'] or '-'}  music {result['music'] or '-'}")
     print(

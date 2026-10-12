@@ -6,7 +6,7 @@ import math
 import re
 from xml.sax.saxutils import escape
 
-from engine import slurs
+from engine import notation, slurs
 from engine.annotations import AnnotationList, Cadence, Callout, Harmony, NoteRef, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
 from engine.render import Engraving, incoming_ties, load_toolkit, shorten_ties
@@ -37,6 +37,15 @@ class AnnotationError(ValueError):
 def check(annotations: AnnotationList, index: ScoreIndex) -> None:
     """Resolve every position against the score and report all problems at once."""
     problems = []
+    key = None
+    for harmony in sorted((a for a in annotations.annotations if isinstance(a, Harmony)),
+                          key=lambda h: (h.at.measure, h.at.beat)):
+        key = harmony.key or key
+        if annotations.style == "figured_bass":
+            try:
+                notation.numeral(harmony.label, key, annotations.style, 440)
+            except ValueError as error:
+                problems.append(f"harmony at measure {harmony.at.measure} beat {harmony.at.beat}: {error}")
     for number, annotation in enumerate(annotations.annotations):
         try:
             if isinstance(annotation, (Harmony, Cadence, Callout)):
@@ -177,9 +186,16 @@ def _reserve_numeral_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
     mei = toolkit.getMEI()
     bottom_staff = max(int(n) for n in re.findall(r'<staffDef\b[^>]*?\bn="(\d+)"', mei))
     added: dict[str, list[str]] = {}
-    for harmony in annotations.annotations:
-        if not isinstance(harmony, Harmony):
-            continue
+    key = None
+    harmonies = [a for a in annotations.annotations if isinstance(a, Harmony)]
+    if annotations.style != "current":
+        harmonies.sort(key=lambda h: (index.measure(h.at.measure).index, h.at.beat))
+    for harmony in harmonies:
+        key = harmony.key or key
+        label = harmony.label
+        if annotations.style != "current":
+            chunks, _ = notation.numeral(label, key, annotations.style, 440)
+            label = " ".join(chunk.text for chunk in chunks)
         measure = index.measure(harmony.at.measure)
         offset = measure.offset_of(harmony.at.beat)
         segment = measure.segment_at(offset)
@@ -187,7 +203,7 @@ def _reserve_numeral_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
         tstamp = 1 + (offset - segment.start) * unit / 4
         # Verovio sets chord symbols smaller than our numerals, hence the padding.
         added.setdefault(segment.id, []).append(
-            f'<harm staff="{bottom_staff}" tstamp="{float(tstamp):g}" place="below">{escape(harmony.label)}\u00a0\u00a0</harm>'
+            f'<harm staff="{bottom_staff}" tstamp="{float(tstamp):g}" place="below">{escape(label)}\u00a0\u00a0</harm>'
         )
     if not added:
         return
