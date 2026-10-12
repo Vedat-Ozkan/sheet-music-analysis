@@ -22,20 +22,19 @@ S = f"{{{SVG_NS}}}"
 ET.register_namespace("", SVG_NS)
 ET.register_namespace("xlink", "http://www.w3.org/1999/xlink")
 
-# Paul Tol's "bright" scheme, which stays distinguishable with colour-vision deficiencies.
-FUNCTION_COLORS = {"T": "#4477AA", "PD": "#228833", "D": "#EE6677"}
-FUNCTION_NAMES = {"T": "tonic", "PD": "predominant", "D": "dominant"}
+# As labelled in MT21C's function brackets.
+FUNCTION_NAMES = {"T": "tonic", "PD": "pre-dom.", "D": "dominant"}
 INK = "#1a1a1a"
 MUTED = "#555555"
-NCT_COLOR = "#CC3311"
 VOICE_COLOR = "#AA3377"
 
 # Lengths are in Verovio's SVG units; a staff space is 180.
 NUMERAL_SIZE = 440
-LABEL_SIZE = 330
-SMALL_SIZE = 280
+LABEL_SIZE = 330  # the legibility floor: about 11 px at chat size
+SMALL_SIZE = 280  # the check page's notes; raising it to 330 (the floor) is that page's change, its layout overflows the line at 330
 LINE = 26
-BAND_OPACITY = "0.16"
+# Textbook abbreviations (Open Music Theory) for the labels the model may write.
+NCT_NAMES = {"P": "PT", "N": "NT", "S": "SUS", "A": "APP", "E": "ET", "R": "RET"}
 LABEL_PAD = 55  # clear space kept around every overlay label
 
 CONTAINERS = {"system", "measure", "staff", "layer", "chord", "beam", "tuplet", "section", "score"}
@@ -143,6 +142,11 @@ class PageLayout:
         self.measures: dict[str, MeasureGeometry] = {}
         self.systems: list[System] = []
         self.harmony_labels: list[tuple[str, Box]] = []
+        # Each numeral as drawn, by (measure, beat): system, root-letter centre, label extent (x0, x1) and
+        # the lowest point of its figures. Cadence boxes and function brackets hang from these.
+        self.numerals: dict[tuple[int, float], tuple[int, float, float, float, float]] = {}
+        self.numeral_rows: dict[int, float] = {}  # the lowest figure on each system's numeral row
+        self.below_numerals: dict[int, int] = {}  # how many boxes a system held when its numerals were done
         self._remove("fing")  # fingering is clutter on an analysis page
         self._remove("harm")  # hidden placeholders that made Verovio leave room for the numerals (annotate.py)
         self._remove("analysis-room")  # and for brackets drawn at one staff
@@ -443,8 +447,8 @@ class PageLayout:
                 keys[id(harmony)] = active
             harmonies = [h.model_copy(update={"key": keys[id(h)]}) for h in harmonies]
         banded = [h for h in harmonies if annotations.visible("function", h, view, role)]
-        used_functions = self._draw_function_bands(banded)
         self._draw_harmonies(harmonies, annotations.style)
+        self._draw_function_brackets(banded)
         for cadence in shown("cadence", Cadence):
             self._draw_cadence(cadence)
         self._draw_ncts(shown("nct", NonChordTone))
@@ -456,40 +460,49 @@ class PageLayout:
             self._draw_phrase(region, dashed=True)
         for phrase in shown("phrase", Phrase):
             self._draw_phrase(phrase)
-        if used_functions:
-            self._draw_legend(used_functions)
 
-    def _draw_function_bands(self, harmonies: list[Harmony]) -> list[str]:
-        used: list[str] = []
+    def _draw_function_brackets(self, harmonies: list[Harmony]) -> None:
+        """MT21C's function brackets: a thin black bracket under each run of numerals of one function,
+        its name centred beneath. Textbooks print no colour and no legend."""
         position = 0
+        last_right: dict[int, float] = {}
         while position < len(harmonies):
             first = harmonies[position]
             following = position + 1
             while following < len(harmonies) and harmonies[following].function == first.function:
                 following += 1
             if first.function:
-                last = harmonies[following - 1]
-                end = harmonies[following].at if following < len(harmonies) else _MeasureEnd(last.at.measure)
-                try:
-                    pieces = self.segments(first.at, end, gap=0)
-                except NotOnPage:
-                    pieces = []
-                if pieces and first.function not in used:
-                    used.append(first.function)
-                for piece in pieces:
-                    top, bottom = piece.system.staff_top - 90, piece.system.staff_bottom + 90
-                    self._add(
-                        "rect",
-                        self.under,
-                        x=round(piece.x0 - 60),
-                        y=round(top),
-                        width=round(piece.x1 - piece.x0),
-                        height=round(bottom - top),
-                        fill=FUNCTION_COLORS[first.function],
-                        fill_opacity=BAND_OPACITY,
-                    )
+                found = [self.numerals[(h.at.measure, h.at.beat)] for h in harmonies[position:following]
+                         if (h.at.measure, h.at.beat) in self.numerals]
+                for system_index in dict.fromkeys(entry[0] for entry in found):
+                    entries = [entry for entry in found if entry[0] == system_index]
+                    # A little short of each end, so neighbouring brackets stay apart.
+                    x0, x1 = min(e[2] for e in entries) + 20, max(e[3] for e in entries) - 20
+                    system = self.systems[system_index]
+                    hook = NUMERAL_SIZE * 0.2
+                    y = self.numeral_rows[system_index] + NUMERAL_SIZE * 0.25 + hook
+                    self._add("path", d=f"M{round(x0)},{round(y - hook)} L{round(x0)},{round(y)} L{round(x1)},{round(y)} L{round(x1)},{round(y - hook)}",
+                              fill="none", stroke=INK, stroke_width=LINE, stroke_linejoin="round")
+                    name = FUNCTION_NAMES[first.function]
+                    # Two crowded names would run together: the abbreviation (T, PD, D) is also textbook.
+                    if (x0 + x1) / 2 - text.width(name, LABEL_SIZE) / 2 < last_right.get(system_index, -1e9) + 2 * LABEL_PAD:
+                        name = first.function
+                    label = self._text((x0 + x1) / 2, y + NUMERAL_SIZE * 0.2 + LABEL_SIZE * 0.68, name, LABEL_SIZE, anchor="middle")
+                    last_right[system_index] = label.right
+                    system.content.append(Box(min(x0, label.x), y - hook, max(x1, label.right) - min(x0, label.x), label.bottom - (y - hook)))
             position = following
-        return used
+
+    def _bass_centre(self, position, x: float) -> float:
+        """Centre of the bass notehead at a position: the point a numeral's root letters sit under."""
+        measure = self.index.measure(position.measure)
+        offset = measure.offset_of(position.beat)
+        segment = measure.segment_at(offset).id
+        bass = [e for e in measure.events
+                if e.segment == segment and not e.grace and e.pitch and abs(e.onset - offset) <= TOLERANCE and e.id in self.boxes]
+        if not bass:
+            return x + 100  # between notes there is no notehead; about half of one
+        lowest = max(bass, key=lambda e: (e.staff, self.boxes[e.id].y))
+        return self.boxes[lowest.id].cx
 
     def _draw_harmonies(self, harmonies: list[Harmony], style: str = "current") -> None:
         by_system: dict[int, list[tuple[float, Harmony]]] = {}
@@ -501,54 +514,82 @@ class PageLayout:
                 system, x = self.x_of(harmony.at)
             except NotOnPage:
                 continue
-            by_system.setdefault(system.index, []).append((x, harmony))
+            by_system.setdefault(system.index, []).append((self._bass_centre(harmony.at, x), harmony))
             key_at_start.setdefault(system.index, key)
+        gap = NUMERAL_SIZE * 0.3  # at least a letter's width between labels
         previous = None  # the key in force at the end of the last line drawn
         for system_index, labels in by_system.items():
             system = self.systems[system_index]
-            baseline = system.bottom() + 170 + NUMERAL_SIZE * 0.75
+            # Tall figure stacks (three rows in figured-bass style) reach above the capitals; the row sits lower for them.
+            rise, row_key = NUMERAL_SIZE * 0.75, key_at_start[system_index]
+            for _, harmony in labels:
+                row_key = harmony.key or row_key
+                rise = max([rise] + [chunk.size * 0.75 - chunk.dy for chunk in notation.numeral(harmony.label, row_key, style, NUMERAL_SIZE)[0]])
+            baseline = system.bottom() + 170 + rise
+            cursor = 0.0
             # A score names its key once; a later line repeats it only when the key has changed.
             if key_at_start[system_index] and key_at_start[system_index] != previous:
                 label = text.pretty_key(key_at_start[system_index]) + ":"
-                box = self._text(system.left + 80, baseline, label, NUMERAL_SIZE, bold=True)
+                box = self._text(system.left + 80, baseline, label, NUMERAL_SIZE)
                 self.harmony_labels.append((label, box))
-            cursor = 0.0
+                cursor = box.right + gap
             key = key_at_start[system_index]
-            for position, (x, harmony) in enumerate(labels):
-                label = harmony.label
-                x = max(x - 30, cursor)
+            deepest = 0.0
+            drawn: list[tuple[Harmony, float, float, float, float]] = []
+            for position, (centre, harmony) in enumerate(labels):
+                chunks, total = notation.numeral(harmony.label, harmony.key or key, style, NUMERAL_SIZE)
+                x = centre - text.root_centre(chunks)
                 # Chat models sometimes repeat the key on every chord; only a change is written in line.
+                # It hangs to the left of its numeral, so the numeral stays under its chord.
                 if harmony.key and harmony.key != key and position:
-                    box = self._text(x, baseline, text.pretty_key(harmony.key) + ":", NUMERAL_SIZE, bold=True)
+                    name = text.pretty_key(harmony.key) + ":"
+                    room = text.width(name, NUMERAL_SIZE) + gap
+                    x = max(x, cursor + room)
+                    box = self._text(x - room, baseline, name, NUMERAL_SIZE)
                     self.harmony_labels.append((harmony.key + ":", box))
-                    x = box.right + 90
+                else:
+                    x = max(x, cursor)
                 key = harmony.key or key
-                chunks, total = notation.numeral(label, key, style, NUMERAL_SIZE)
-                boxes = []
-                for chunk in chunks:
-                    boxes.append(self._text(x + chunk.dx, baseline + chunk.dy, chunk.text, chunk.size, bold=chunk.bold))
+                boxes = [self._text(x + chunk.dx, baseline + chunk.dy, chunk.text, chunk.size, bold=chunk.bold) for chunk in chunks]
                 if boxes:
                     top = min(box.y for box in boxes)
                     bottom = max(box.bottom for box in boxes)
-                    self.harmony_labels.append((label, Box(x, top, total, bottom - top)))
-                cursor = x + total + 110
+                    self.harmony_labels.append((harmony.label, Box(x, top, total, bottom - top)))
+                low = max(0.0, max(chunk.dy for chunk in chunks))
+                deepest = max(deepest, low)
+                self.numerals[(harmony.at.measure, harmony.at.beat)] = (system_index, x + text.root_centre(chunks), x, x + total, baseline + low)
+                cursor = x + total + gap
             previous = key
-            system.content.append(Box(system.left, baseline - NUMERAL_SIZE * 0.8, system.right - system.left, NUMERAL_SIZE * 1.05))
+            self.numeral_rows[system_index] = baseline + deepest
+            system.content.append(Box(system.left, baseline - rise - NUMERAL_SIZE * 0.05, system.right - system.left,
+                                      rise + NUMERAL_SIZE * 0.05 + max(NUMERAL_SIZE * 0.25, deepest + NUMERAL_SIZE * 0.1)))
             if style != "current":
                 system.content.extend(box for _, box in self.harmony_labels if baseline - NUMERAL_SIZE < box.y < baseline + NUMERAL_SIZE)
+            self.below_numerals[system_index] = len(system.content)
 
     def _draw_cadence(self, cadence: Cadence) -> None:
+        """FFF's cadence label: a small square box, regular weight, centred under the arrival numeral."""
         try:
             system, x = self.x_of(cadence.at)
         except NotOnPage:
             return
-        width = text.width(cadence.label, LABEL_SIZE, bold=True) + 160
-        top = system.bottom(x - 60, x - 60 + width) + 90
-        height = LABEL_SIZE * 1.3
-        self._add("rect", x=round(x - 60), y=round(top), width=round(width), height=round(height), rx=60,
+        width = text.width(cadence.label, LABEL_SIZE) + 2 * NUMERAL_SIZE * 0.2
+        height = LABEL_SIZE * 0.66 + 2 * NUMERAL_SIZE * 0.12  # capital height plus padding
+        entry = self.numerals.get((cadence.at.measure, cadence.at.beat))
+        if entry and entry[0] == system.index:
+            centre = entry[1]
+            top = entry[4] + NUMERAL_SIZE * 0.25 + LABEL_PAD  # clear of the numeral's own box
+            # Whatever else hangs under the numerals here (function brackets, other labels) pushes it down.
+            under = [box for box in system.content[self.below_numerals.get(system.index, 0):] if box.right > centre - width / 2 and box.x < centre + width / 2]
+            top = max([top] + [box.bottom + 60 for box in under])
+        else:
+            centre = self._bass_centre(cadence.at, x)
+            top = system.bottom(centre - width / 2, centre + width / 2) + 90
+        left = centre - width / 2
+        self._add("rect", x=round(left), y=round(top), width=round(width), height=round(height),
                   fill="#ffffff", stroke=INK, stroke_width=LINE)
-        self._text(x - 60 + width / 2, top + height * 0.73, cadence.label, LABEL_SIZE, bold=True, anchor="middle")
-        self._reserve(system, Box(x - 60, top, width, height), pad=30)
+        self._text(centre, top + height / 2 + LABEL_SIZE * 0.33, cadence.label, LABEL_SIZE, anchor="middle")
+        self._reserve(system, Box(left, top, width, height), pad=30)
 
     def _draw_ncts(self, ncts: list[NonChordTone]) -> None:
         """Circle each non-chord tone; notes of one chord with the same label share a circle and a label."""
@@ -571,8 +612,9 @@ class PageLayout:
         rx, ry = (x1 - x0) / 2 + 60, (y1 - y0) / 2 + 60
         circle = Box((x0 + x1) / 2 - rx, (y0 + y1) / 2 - ry, 2 * rx, 2 * ry)
         self._add("ellipse", cx=round(circle.cx), cy=round(circle.cy), rx=round(rx), ry=round(ry),
-                  fill="none", stroke=NCT_COLOR, stroke_width=LINE + 6)
-        width, height = text.width(string, SMALL_SIZE, bold=True), SMALL_SIZE * 0.68
+                  fill="none", stroke=INK, stroke_width=LINE)
+        string = NCT_NAMES.get(string.upper(), string)
+        width, height = text.width(string, LABEL_SIZE), LABEL_SIZE  # the box _text reports: cap top to below the baseline
         cx, cy = self._place_label(system, circle, width, height, below=event.staff > 1)
         label = Box(cx - width / 2, cy - height / 2, width, height)
         over = label.x < circle.right and label.right > circle.x
@@ -589,9 +631,9 @@ class PageLayout:
             line = (circle.cx + dx * t, circle.cy + dy * t, ex, ey)
         if line:
             self._add("line", x1=round(line[0]), y1=round(line[1]), x2=round(line[2]), y2=round(line[3]),
-                      stroke=NCT_COLOR, stroke_width=LINE - 8)
+                      stroke=INK, stroke_width=LINE - 8)
             self._reserve_line(system, *line)
-        self._text(cx, label.bottom, string, SMALL_SIZE, bold=True, fill=NCT_COLOR, anchor="middle", halo=True)
+        self._text(cx, label.bottom - LABEL_SIZE * 0.25, string, LABEL_SIZE, anchor="middle", halo=True)
         self._reserve(system, circle, pad=30)
         self._reserve(system, label)
 
@@ -613,11 +655,11 @@ class PageLayout:
             self._reserve_line(system, x0, y0, x1, y1)
         if line.label:
             system, x0, y0, x1, y1 = shafts[0]
-            width, height = text.width(line.label, SMALL_SIZE, bold=True), SMALL_SIZE * 0.68
+            width, height = text.width(line.label, LABEL_SIZE, bold=True), LABEL_SIZE  # as tall as the box _text reports
             middle = Box((x0 + x1) / 2 - 20, (y0 + y1) / 2 - 20, 40, 40)
             # Under the arrow, where an analyst writes the interval figures.
             cx, cy = self._place_label(system, middle, width, height, below=True)
-            self._text(cx, cy + height / 2, line.label, SMALL_SIZE, bold=True, fill=VOICE_COLOR, anchor="middle", halo=True)
+            self._text(cx, cy + height / 2 - LABEL_SIZE * 0.25, line.label, LABEL_SIZE, bold=True, fill=VOICE_COLOR, anchor="middle", halo=True)
             self._reserve(system, Box(cx - width / 2, cy - height / 2, width, height))
 
     def _arrow(self, x0: float, y0: float, x1: float, y1: float) -> None:
@@ -643,14 +685,14 @@ class PageLayout:
         self._reserve(system, Box(cx - radius, cy - radius, 2 * radius, 2 * radius))
 
     def _draw_phrase(self, phrase: Phrase | Region, dashed: bool = False) -> None:
-        """A bracket above the music. Phrases are solid with an italic label; regions are dashed and upright."""
+        """A thin bracket above the music with a plain upright label centred on it, repeated on each system the
+        bracket continues onto. Regions are dashed."""
         try:
             pieces = self.segments(phrase.start, phrase.end)
         except NotOnPage:
             return
         tick = 150
-        label_width = text.width(phrase.label, LABEL_SIZE, bold=True) + 150
-        labelled = next((piece for piece in pieces if piece.x1 - piece.x0 >= label_width), pieces[0]) if pieces else None
+        label_width = text.width(phrase.label, LABEL_SIZE)
         for piece in pieces:
             y = self._bracket_top(piece, getattr(phrase, "staff", None)) - 230
             path = f"M{round(piece.x0)},{round(y + tick) if piece.starts else round(y)} "
@@ -658,12 +700,17 @@ class PageLayout:
             if piece.ends:
                 path += f" L{round(piece.x1)},{round(y + tick)}"
             style = {"stroke_dasharray": "110 70"} if dashed else {}
-            self._add("path", d=path, fill="none", stroke=INK, stroke_width=LINE + 4, stroke_linejoin="round", **style)
+            self._add("path", d=path, fill="none", stroke=INK, stroke_width=LINE, stroke_linejoin="round", **style)
             box = Box(piece.x0, y, piece.x1 - piece.x0, tick)
-            if phrase.label and piece is labelled:
-                # A label wider than its piece is pulled left so it never runs off the page.
-                x = min(piece.x0 + 20, piece.system.right - label_width + 150)
-                label = self._text(x, y - 90, phrase.label, LABEL_SIZE, bold=True, italic=not dashed)
+            if phrase.label:
+                # A label wider than its piece is pulled in so it never runs off the page.
+                middle = min(max((piece.x0 + piece.x1) / 2, piece.system.left + label_width / 2), piece.system.right - label_width / 2)
+                # Centred, unless a barline or another label is in the way: then the nearest clear spot along the bracket.
+                shifts = [0.0] + [sign * step for step in range(100, 1500, 100) for sign in (-1, 1)]
+                x = next((middle + shift for shift in shifts if piece.x0 <= middle + shift - label_width / 2 and middle + shift + label_width / 2 <= piece.x1 + 1
+                          and self._is_free(piece.system, Box(middle + shift - label_width / 2 - LABEL_PAD, y - 90 - LABEL_SIZE * 0.75 - LABEL_PAD,
+                                                              label_width + 2 * LABEL_PAD, LABEL_SIZE + 2 * LABEL_PAD))), middle)
+                label = self._text(x, y - 90, phrase.label, LABEL_SIZE, anchor="middle")
                 box = Box(piece.x0, label.y, piece.x1 - piece.x0, y + tick - label.y)
             piece.system.content.append(box)
 
@@ -682,22 +729,5 @@ class PageLayout:
         own = [b.y for b in piece.system.content if b.right > piece.x0 and b.x < piece.x1 and b.cy > middle and b.y < line]
         return min([line] + own)
 
-    def _draw_legend(self, functions: list[str]) -> None:
-        system = self.systems[-1]
-        x, y = system.left, system.bottom() + 420
-        for function in functions:
-            self._add("rect", x=round(x), y=round(y - 210), width=260, height=260,
-                      fill=FUNCTION_COLORS[function], fill_opacity="0.45")
-            label = self._text(x + 330, y, FUNCTION_NAMES[function], SMALL_SIZE, fill=MUTED)
-            x = label.right + 330
-
     def to_svg(self) -> str:
         return ET.tostring(self.root, encoding="unicode")
-
-
-@dataclass
-class _MeasureEnd:
-    """A range end at the end of a measure, for the last function band."""
-
-    measure: int
-    beat: None = None

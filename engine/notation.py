@@ -55,18 +55,8 @@ def numeral(label: str, key: str | None, style: str, size: float) -> tuple[list[
         match = text.NUMERAL.fullmatch(part)
         roots.append(match['accidental'].translate(text.SYMBOLS) + match['root']
                      + text.QUALITIES.get(match['quality'], ''))
-    chunks, total = text.numeral('/'.join(roots), size)
-    if figures.lines:
-        figure_size = size * 0.62
-        total += size * 0.25
-        for row, line in enumerate(figures.lines):
-            chunks.append(text.Chunk(line, total, -size * 0.42 + row * figure_size, figure_size))
-        total += max(text.width(line, figure_size) for line in figures.lines)
-    if note:
-        total += size * 0.25
-        chunks.append(text.Chunk(note, total, 0, size * 0.7))
-        total += text.width(note, size * 0.7)
-    return chunks, total
+    # Piston style: the figure stack hangs on the first numeral (V⁶₅/V), as in the other styles.
+    return text.numeral('/'.join(roots) + (' ' + note if note else ''), size, first_rows=figures.lines)
 
 
 def _parts(label: str) -> tuple[list[str], str]:
