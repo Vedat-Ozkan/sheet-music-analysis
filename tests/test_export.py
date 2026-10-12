@@ -59,20 +59,16 @@ def test_placement_and_existing_lyrics():
     assert note_content(original) == note_content(exported)
     root = ET.fromstring(exported)
     added = root.findall(".//lyric[@name='roman-analysis-2']")
-    assert [lyric.findtext('text') for lyric in added] == ['G: V65', 'viiø7/V']
+    assert [lyric.findtext('text') for lyric in added] == ['G: V65']
     assert all(lyric.get('number') == '4' for lyric in added)
     bass = root.findall('part')[-1]
     targets = [n for n in bass.findall('.//note') if n.find("lyric[@name='roman-analysis-2']") is not None]
     assert targets[0].findtext('pitch/octave') == '3'  # chord's lowest note
-    assert targets[1].findtext('voice') == '2'  # next onset wins across voices
-    assert targets[1].findtext('staff') == '2'
     words = bass.findall('measure/direction')
     assert [(d.findtext('direction-type/words'), d.findtext('offset'), d.findtext('staff')) for d in words] == [
-        ('D: I', '8', '2'), ('V7', '12', '2')]
+        ('viiø7/V', '4', '2'), ('D: I', '8', '2'), ('V7', '12', '2')]
     assert root.find(".//lyric[@name='roman-analysis']/text").text == 'song'
     assert 'HC' not in exported.decode()
-    # The exporter anchors beat 2 to the next bass onset, at beat 2.5.
-    analysis['annotations'][1]['at']['beat'] = 2.5
     analysis['annotations'][0]['label'] = 'V65'
     assert from_musicxml(exported) == from_annotations(analysis)
 
@@ -111,7 +107,7 @@ def test_no_harmony_is_unchanged():
 
 
 def test_sounding_pitch_and_shared_anchor():
-    # Real fixture with an octave-transposing upper staff: written G4 sounds G2.
+    # Even an upper staff transposed below the bass cannot take its lyric anchor.
     root = ET.parse(ROOT / 'tests/data/export_placement.musicxml').getroot()
     bass = root.findall('part')[-1]
     transpose = ET.SubElement(bass.find('measure/attributes'), 'transpose', number='1')
@@ -121,13 +117,76 @@ def test_sounding_pitch_and_shared_anchor():
     original = ET.tostring(root)
     analysis = {'annotations': [
         {'type': 'harmony', 'at': {'measure': 1, 'beat': 1}, 'key': 'G', 'label': 'I'},
-        {'type': 'harmony', 'at': {'measure': 1, 'beat': 1.5}, 'key': 'G', 'label': 'V'},
-        {'type': 'harmony', 'at': {'measure': 1, 'beat': 2}, 'label': 'I6'},
+        {'type': 'harmony', 'at': {'measure': 1, 'beat': 2.5}, 'key': 'G', 'label': 'V'},
+        {'type': 'harmony', 'at': {'measure': 1, 'beat': 2.5}, 'label': 'I6'},
     ]}
     exported = export_musicxml(original, analysis)
     assert note_content(exported) == note_content(original)
     bass = ET.fromstring(exported).findall('part')[-1]
-    assert bass.find("measure/note[staff='1']/lyric[@name='roman-analysis-2']/text").text == 'G: I'
+    assert bass.find("measure/note[staff='2']/lyric[@name='roman-analysis-2']/text").text == 'G: I'
     lyric = bass.find(".//lyric[@name='roman-analysis-2'][text='V']")
     assert [text.text for text in lyric.findall('text')] == ['V', 'I6']
     assert lyric.findtext('elision') == ' '
+
+
+def test_debussy_rest_onset_stays_at_reviewed_beat():
+    original = (ROOT / 'tests/data/export-debussy-clair.musicxml').read_bytes()
+    reviewed = json.loads((ROOT / 'examples/engraving/debussy-clair.json').read_text())
+    reviewed['annotations'] = [a for a in reviewed['annotations']
+                               if a['type'] == 'harmony' and a['at']['measure'] == 1]
+    exported = export_musicxml(original, reviewed)
+    assert from_musicxml(exported) == from_annotations(reviewed)
+    assert note_content(original) == note_content(exported)
+    root = ET.fromstring(exported)
+    direction = next(d for d in root.findall('part/measure/direction')
+                     if d.findtext('direction-type/words') == 'Db: I6')
+    assert direction is not None
+    assert direction.findtext('offset') == '0'
+    assert direction.findtext('staff') == '2'
+
+
+def test_debussy_upper_attack_during_bass_sustain_stays_on_bass_staff():
+    original = (ROOT / 'tests/data/export-debussy-clair.musicxml').read_bytes()
+    analysis = {'annotations': [
+        {'type': 'harmony', 'at': {'measure': 2, 'beat': 2},
+         'key': 'Db', 'label': 'viiø42/vi'},
+    ]}
+    exported = export_musicxml(original, analysis)
+    bass = ET.fromstring(exported).findall('part')[-1]
+    assert not bass.findall(".//lyric[@name='roman-analysis']")
+    direction = next(d for d in bass.findall('measure/direction')
+                     if d.findtext('direction-type/words') == 'Db: viiø42/vi')
+    assert direction.findtext('staff') == '2'
+    assert direction.findtext('offset') == '6'
+    assert from_musicxml(exported) == from_annotations(analysis)
+    assert note_content(original) == note_content(exported)
+
+
+def test_brahms_cross_staff_low_pitch_stays_on_bass_staff():
+    original = (ROOT / 'tests/data/export-brahms-118-2.musicxml').read_bytes()
+    reviewed = json.loads((ROOT / 'examples/engraving/brahms-118-2.json').read_text())
+    reviewed['annotations'] = [a for a in reviewed['annotations']
+                               if a['type'] == 'harmony' and a['at']['measure'] == 7]
+    exported = export_musicxml(original, reviewed)
+    targets = [n for n in ET.fromstring(exported).findall('.//note')
+               if n.find("lyric[@name='roman-analysis']") is not None]
+    assert targets
+    assert all(n.findtext('staff') == '2' for n in targets)
+    assert note_content(original) == note_content(exported)
+
+
+def test_mozart_rounded_triplet_uses_existing_onset():
+    original = (ROOT / 'tests/data/export-mozart-k458.musicxml').read_bytes()
+    reviewed = json.loads((ROOT / 'examples/engraving/mozart-k458.json').read_text())
+    reviewed['annotations'] = [a for a in reviewed['annotations']
+                               if a['type'] == 'harmony' and a['at']['measure'] == 7
+                               and a['at'].get('beat') == 2.67]
+    assert reviewed['annotations'][0]['at']['beat'] == 2.67
+    exported = export_musicxml(original, reviewed)
+    bass = ET.fromstring(exported).findall('part')[-1]
+    assert bass.find("measure[@number='7']/note/lyric/text").text == 'V'
+    assert not bass.findall("measure[@number='7']/direction")
+    labels = from_musicxml(exported, default_key='Bb')
+    assert len(labels) == 1
+    assert labels[0].beat == pytest.approx(8 / 3)
+    assert note_content(original) == note_content(exported)
