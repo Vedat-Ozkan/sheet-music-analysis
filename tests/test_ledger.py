@@ -35,3 +35,12 @@ def test_a_bass_clef_string_part_is_named_by_its_part_and_offered_tenor_clef():
     assert result.returncode == 0, result.stderr
     assert "Bars 7–10, Voice (staff 4): notes sit high above the bass staff; many editions switch to tenor or treble clef here." in result.stdout
     assert "hand" not in result.stdout.split("LEDGER LINES")[1]
+
+
+def test_a_run_above_the_treble_staff_is_offered_an_octave_sign_not_a_clef():
+    # No clef sits above treble, so the old "switch to bass clef" advice was backwards.
+    nocturne = ROOT / "tests/data/chopin_nocturne_op9_no2.mxl"
+    result = subprocess.run([sys.executable, str(ROOT / "skill/scripts/notes_table.py"), str(nocturne), "--measures", "28-36"],
+                            capture_output=True, text=True, env={**os.environ, "PYTHONPATH": str(ROOT)})
+    assert result.returncode == 0, result.stderr
+    assert "Bars 31–35, right hand: notes sit high above the treble staff; many editions write them an octave lower under an 8va sign here." in result.stdout

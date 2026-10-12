@@ -15,8 +15,9 @@ MIN_BARS = 2
 KEYBOARDS = {"piano", "keyboard", "harpsichord", "organ"}
 # The diatonic step (letter + 7 * octave) of each clef's bottom line.
 BOTTOM_LINE = {("G", "2"): 4 * 7 + 2, ("F", "4"): 2 * 7 + 4}
-SIDE_NAMES = {"above": ("high above the {clef} staff", {"bass": "treble", "treble": "bass"}),
-              "below": ("far below the {clef} staff", {"bass": "treble", "treble": "bass"})}
+# No clef sits above treble or below bass, so editions write those passages under an octave sign instead.
+SIDE_NAMES = {"above": ("high above the {clef} staff", {"bass": "switch to treble clef", "treble": "write them an octave lower under an 8va sign"}),
+              "below": ("far below the {clef} staff", {"bass": "write them an octave higher under an 8vb sign", "treble": "switch to bass clef"})}
 
 
 def _clefs(root: ET.Element) -> dict[tuple[str, int], tuple[int, str]]:
@@ -118,8 +119,8 @@ def as_text(mei: str, index: ScoreIndex, first: int | None = None, last: int | N
         who = ("right hand" if staff == upper else "left hand") if keyboard else f"{name} (staff {staff})" if name else f"staff {staff}"
         place, other = SIDE_NAMES[side]
         # Cello, viola and bassoon parts move to tenor clef before treble; a keyboard's left hand goes straight to treble.
-        switch = "tenor or treble" if clef == "bass" and not keyboard and side == "above" else other[clef]
+        switch = "switch to tenor or treble clef" if clef == "bass" and not keyboard and side == "above" else other[clef]
         lines.append(f"Bars {start}–{end}, {who}: notes sit {place.format(clef=clef)}; "
-                     f"many editions switch to {switch} clef here.")
+                     f"many editions {switch} here.")
     return ("LEDGER LINES (the clef is the user's; do not change it. Mention each line below once in your reply.)\n"
             + "\n".join(lines))
