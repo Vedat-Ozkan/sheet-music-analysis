@@ -82,7 +82,7 @@ class Region(Annotation):
 class NonChordTone(Annotation):
     type: Literal["nct"]
     note: NoteRef
-    label: str = Field(description='e.g. "P" passing, "N" neighbor, "S" suspension, "APP" appoggiatura')
+    label: str = Field(description='Open Music Theory abbreviation, e.g. "PT" passing, "NT" neighbor, "SUS" suspension, "APP" appoggiatura, "ET", "ANT", "RET", "PED"; the older "P", "N", "S" are drawn as PT, NT, SUS')
 
 
 class VoiceLeading(Annotation):

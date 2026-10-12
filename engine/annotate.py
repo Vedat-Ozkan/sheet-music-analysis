@@ -223,15 +223,11 @@ def _reserve_numeral_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
     bottom_staff = max(int(n) for n in re.findall(r'<staffDef\b[^>]*?\bn="(\d+)"', mei))
     added: dict[str, list[str]] = {}
     key = None
-    harmonies = [a for a in annotations.annotations if isinstance(a, Harmony)]
-    if annotations.style != "current":
-        harmonies.sort(key=lambda h: (index.measure(h.at.measure).index, h.at.beat))
+    harmonies = sorted((a for a in annotations.annotations if isinstance(a, Harmony)),
+                       key=lambda h: (index.measure(h.at.measure).index, h.at.beat))
     for harmony in harmonies:
         key = harmony.key or key
-        label = harmony.label
-        if annotations.style != "current":
-            chunks, _ = notation.numeral(label, key, annotations.style, 440)
-            label = " ".join(chunk.text for chunk in chunks)
+        label = _widest_label(harmony.label, key)
         measure = index.measure(harmony.at.measure)
         offset = measure.offset_of(harmony.at.beat)
         segment = measure.segment_at(offset)
@@ -248,6 +244,20 @@ def _reserve_numeral_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
         end = mei.index("</measure>", mei.index(f'xml:id="{measure_id}"'))
         mei = mei[:end] + "".join(harms) + mei[end:]
     toolkit.loadData(mei)
+
+
+def _widest_label(label: str, key: str | None) -> str:
+    """The numeral's text in whichever style sets it widest. The room reserved for a numeral decides where
+    Verovio breaks lines, so it must not depend on the label style: the same music gets the same lines."""
+    widest, widest_width = label, 0.0
+    for style in ("current", "abrsm", "figured_bass"):
+        try:
+            chunks, total = notation.numeral(label, key, style, 440)
+        except ValueError:  # a form the style cannot set; the others still count
+            continue
+        if total > widest_width:
+            widest, widest_width = "".join(chunk.text for chunk in chunks), total
+    return widest
 
 
 def _reserve_staff_bracket_room(toolkit, index: ScoreIndex, annotations: AnnotationList) -> None:
