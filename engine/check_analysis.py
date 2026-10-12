@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import io
 import re
 import xml.etree.ElementTree as ET
+import zipfile
 from dataclasses import asdict
 from fractions import Fraction
 
 from music21 import key as m21key
 
-from engine.comparison import Label, from_annotations, matches, sounding
+from engine.comparison import Label, from_annotations, from_draft, matches, sounding
 from engine.score import ScoreIndex, beat_length
 
 KEY_NAME = r"[A-Ga-g][#b♯♭-]*(?:\s+(?:major|minor|maj|min))?"
@@ -275,13 +277,16 @@ def from_musicxml(data: str | bytes, default_key: str = 'C', index: ScoreIndex |
 
 
 def compare(student: list[Label], reviewed: dict, index: ScoreIndex) -> list[dict]:
-    """Classify each student onset against the reviewed chord still active there.
+    return compare_labels(student, from_annotations(reviewed), index)
 
-    Keys take precedence over chord differences. Gaps before the first reviewed
+
+def compare_labels(student: list[Label], reference: list[Label], index: ScoreIndex) -> list[dict]:
+    """Classify each student onset against the reference chord still active there.
+
+    Keys take precedence over chord differences. Gaps before the first reference
     label and unreadable reference labels are errors, never fabricated agreement.
     """
     student = _finish(student, index)
-    reference = from_annotations(reviewed)
     numbers = {measure.number for measure in index.measures}
     reference = _finish([item for item in reference if item.measure in numbers], index)
     results = []
@@ -312,3 +317,55 @@ def compare(student: list[Label], reviewed: dict, index: ScoreIndex) -> list[dic
             'matches': agreement,
         })
     return results
+
+
+def from_score(score: bytes, index: ScoreIndex) -> list[Label]:
+    """The numerals written into the score file itself, for a student who annotated it in notation software."""
+    if score[:2] == b'PK':
+        with zipfile.ZipFile(io.BytesIO(score)) as archive:
+            container = ET.fromstring(archive.read('META-INF/container.xml'))
+            score = archive.read(next(e.get('full-path') for e in container.iter() if e.tag.endswith('rootfile')))
+    return from_musicxml(score, index=index)
+
+
+def student_labels(text: str, score: bytes | None, index: ScoreIndex) -> list[Label]:
+    """Typed labels, or, when `text` is the word "score", the numerals written into the score file.
+
+    Numerals in a file are only the user's answer when they say so: a textbook edition carries its own.
+    """
+    if text.strip().lower() == 'score':
+        if score is None:
+            raise ValueError('Numerals inside the score can only be read from the score file; type the labels instead.')
+        return from_score(score, index)
+    return from_text(text, index=index)
+
+
+def as_typed(labels: list[Label]) -> str:
+    """Labels as text `from_text` reads back unchanged, so a script can hand them to a host that has no score file."""
+    return '; '.join(f"m{label.measure} b{label.beat:g} {label.key}: {label.figure}" for label in labels)
+
+
+def as_text(student: list[Label], draft, index: ScoreIndex) -> str:
+    """The STUDENT CHECK section of a draft: each student label beside the draft chord sounding there."""
+    chords = {(chord.measure, chord.beat): chord for chord in draft.chords}
+    lines = [
+        "STUDENT CHECK (the user gave their own Roman numerals and wants a second reader, not an answer key). "
+        "Each line is one of their labels beside the draft's chord at that beat. Start with what they got right. "
+        "Explain every difference in terms of the notes (the bass, which pitch classes are present), say plainly "
+        "when both readings are defensible, and count 'same chord different spelling' as agreement. The draft is "
+        "right only about half the time: where its confidence is low or it lists a runner-up, or on the weak spots "
+        "named in the method, say the reading is a close call instead of claiming the student is wrong.",
+        "",
+        "measure beat | student | draft (confidence) | draft bass | draft pitch classes | how they compare",
+    ]
+    for item in compare_labels(student, from_draft(draft), index):
+        label, expected = item['student'], item['reviewed']
+        chord = chords.get((expected['measure'], expected['beat']))
+        confidence = f" ({chord.confidence:.2f}" + (f", runner-up {chord.alternative} {chord.alternative_confidence:.2f}" if chord.alternative else '') + ')'
+        lines.append(
+            f"m{label['measure']} b{label['beat']:g} | {label['key']}: {label['figure']} | "
+            f"{expected['key']}: {expected['figure']}{confidence if chord else ''} | "
+            f"{chord.bass if chord else ''} | {' '.join(chord.pitches) if chord else ''} | "
+            + item['classification'].replace('_', ' ')
+        )
+    return '\n'.join(lines)
