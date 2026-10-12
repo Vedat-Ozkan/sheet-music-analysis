@@ -92,6 +92,7 @@ class System:
     index: int
     measures: list[MeasureGeometry] = field(default_factory=list)
     content: list[Box] = field(default_factory=list)
+    words: list[Box] = field(default_factory=list)  # lyrics and other score text, estimated; Verovio gives no box for them
 
     @property
     def left(self) -> float:
@@ -143,6 +144,7 @@ class PageLayout:
         self.measures: dict[str, MeasureGeometry] = {}
         self.systems: list[System] = []
         self.harmony_labels: list[tuple[str, Box]] = []
+        self._words: list[tuple[tuple[str, Box], System]] = []  # fault words drawn so far
         self._remove("fing")  # fingering is clutter on an analysis page
         self._remove("harm")  # hidden placeholders that made Verovio leave room for the numerals (annotate.py)
         self._remove("analysis-room")  # and for brackets drawn at one staff
@@ -191,7 +193,24 @@ class PageLayout:
             if child.tag == f"{S}g":
                 self._visit(child, system, measure)
             elif child.tag == f"{S}text":  # text keeps its boxes inside its tspans
-                system.content.extend(filter(None, (self._rect_box(rect) for rect in child.iter(f"{S}rect"))))
+                boxes = list(filter(None, (self._rect_box(rect) for rect in child.iter(f"{S}rect"))))
+                system.content.extend(boxes) if boxes else system.words.extend(self._text_boxes(child))
+
+    @staticmethod
+    def _text_boxes(element: ET.Element) -> list[Box]:
+        """Verovio reports no box for lyrics and other score text, so estimate one from the font metrics."""
+        boxes = []
+        for span in element.iter(f"{S}tspan"):
+            string, size = span.text or "", span.get("font-size", "")
+            if not string.strip() or not size.endswith("px"):
+                continue
+            size = float(size[:-2])
+            width = text.width(string, size)
+            x, y = float(element.get("x", "0")), float(element.get("y", "0"))
+            anchor = element.get("text-anchor", "start")
+            x -= width if anchor == "end" else width / 2 if anchor == "middle" else 0
+            boxes.append(Box(x, y - size * 0.8, width, size * 1.05))
+        return boxes
 
     def _own_box(self, group: ET.Element) -> Box | None:
         for child in group:
@@ -623,7 +642,7 @@ class PageLayout:
             self._reserve_line(system, x0, y0, x1, y1)
         if not line.label:
             return
-        width, height = text.width(line.label, LABEL_SIZE), LABEL_SIZE * 0.68
+        width, height = text.width(line.label, LABEL_SIZE), LABEL_SIZE
         if arrow:  # at the tendency tone itself, above its arrow (MT21C)
             self._label_near(system_a, a, line.label, width, height)
             return
@@ -645,16 +664,36 @@ class PageLayout:
             self._add("polygon", points=" ".join(f"{round(px)},{round(py)}" for px, py in points), fill=ERROR)
 
     def _error_text(self, system: System, cx: float, cy: float, string: str, width: float, height: float) -> None:
-        self._text(cx, cy + height / 2, string, LABEL_SIZE, fill=ERROR, anchor="middle", halo=True)
+        self._text(cx, cy + LABEL_SIZE * 0.34, string, LABEL_SIZE, fill=ERROR, anchor="middle", halo=True)
         self._reserve(system, Box(cx - width / 2, cy - height / 2, width, height))
 
     def _label_near(self, system: System, anchor: Box, string: str, width: float, height: float, right: bool = False) -> None:
-        """A fault word at its note: to the right when that spot is clear (when `right`), else wherever fits."""
-        spot = (anchor.right + 90 + width / 2, anchor.cy)
-        # Beside its own note the word may sit on the staff lines, as in a teacher's markup; only other marks block it.
-        box = Box(spot[0] - width / 2 - LABEL_PAD, spot[1] - height / 2 - LABEL_PAD, width + 2 * LABEL_PAD, height + 2 * LABEL_PAD)
-        free = right and not any(o.x < box.right and o.right > box.x and o.y < box.bottom and o.bottom > box.y for o in system.content)
-        cx, cy = spot if free else self._place_label(system, anchor, width, height)
+        """A fault word beside its note or ring, never farther than the next side over.
+
+        Beside its own note the word may sit on the staff lines, as in a teacher's markup; other marks, stems and
+        lyrics block it. `right` tries the right side first (where the word is read after the note), else above.
+        """
+        near = [d for d, other in self._words if other is system and d[0] == string and abs(d[1].cy - anchor.cy) < 700
+                and d[1].x - width < anchor.right and d[1].right + width > anchor.x]
+        if near:  # the same word already stands by the neighbouring notes: one word names the group
+            return
+        gap = 90
+        sides = [(anchor.right + gap + width / 2, anchor.cy), (anchor.x - gap - width / 2, anchor.cy),
+                 (anchor.cx, anchor.y - gap - height / 2), (anchor.cx, anchor.bottom + gap + height / 2)]
+        if not right:
+            sides = sides[2:] + sides[:2]
+        sides += [(cx, cy + dy) for cx, cy in sides[:2] for dy in (-height, height)]
+
+        def padded(spot):
+            return Box(spot[0] - width / 2 - LABEL_PAD, spot[1] - height / 2 - LABEL_PAD, width + 2 * LABEL_PAD, height + 2 * LABEL_PAD)
+
+        def hit(spot):
+            box = padded(spot)
+            return sum(max(0.0, min(box.right, o.right) - max(box.x, o.x)) * max(0.0, min(box.bottom, o.bottom) - max(box.y, o.y))
+                       for o in system.content + system.words)
+
+        cx, cy = min(sides, key=hit) if all(hit(spot) for spot in sides) else next(spot for spot in sides if not hit(spot))
+        self._words.append(((string, Box(cx - width / 2, cy - height / 2, width, height)), system))
         self._error_text(system, cx, cy, string, width, height)
 
     def _draw_ring(self, label: str, system: System, note: Box) -> None:
@@ -664,7 +703,7 @@ class PageLayout:
                   fill="none", stroke=ERROR, stroke_width=30)
         self._reserve(system, ring, pad=30)
         if label:
-            self._label_near(system, ring, label, text.width(label, LABEL_SIZE), LABEL_SIZE * 0.68, right=True)
+            self._label_near(system, ring, label, text.width(label, LABEL_SIZE), LABEL_SIZE, right=True)
 
     def _draw_square_bracket(self, label: str, system: System, a: Box, b: Box) -> None:
         """MT21C's thin bracket right of a chord, spanning the two notes (a spacing fault)."""
@@ -674,7 +713,7 @@ class PageLayout:
                   fill="none", stroke=ERROR, stroke_width=30, stroke_linejoin="round")
         self._reserve(system, Box(x - tick, top, tick, bottom - top), pad=30)
         if label:
-            width, height = text.width(label, LABEL_SIZE), LABEL_SIZE * 0.68
+            width, height = text.width(label, LABEL_SIZE), LABEL_SIZE
             self._label_near(system, Box(x, bottom, 0, 0), label, width, height, right=True)
 
     def _draw_callout(self, callout: Callout) -> None:
