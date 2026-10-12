@@ -9,7 +9,7 @@ from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
 
 
-@pytest.mark.parametrize('style,expected', [('abrsm', 'V7b'), ('figured_bass', '♮3')])
+@pytest.mark.parametrize('style,expected', [('abrsm', 'b'), ('figured_bass', '♮3')])
 def test_real_analysis_uses_notation_style(chopin, chopin_annotations, style, expected):
     data = chopin_annotations.model_dump()
     data['style'] = style
@@ -17,6 +17,36 @@ def test_real_analysis_uses_notation_style(chopin, chopin_annotations, style, ex
     svg = render(chopin, annotations, measures=(1, 8)).svgs[0]
     assert f'>{expected}<' in svg
     assert '>PAC<' in svg and '>4–3<' in svg
+
+
+@pytest.mark.parametrize('label,letter,target', [
+    ('V7', '', ''), ('V7/vi', '', 'vi'), ('V65/vi', 'b', 'vi'),
+    ('V43', 'c', ''), ('V42/V', 'd', 'V'), ('viio65', 'b', ''),
+    ('ii/o43/V', 'c', 'V'), ('V65/vi 4–3', 'b', 'vi'),
+])
+def test_abrsm_sevenths_are_consistently_raised(chopin, label, letter, target):
+    annotations = AnnotationList.model_validate({'style': 'abrsm', 'annotations': [
+        {'type': 'harmony', 'at': {'measure': 1}, 'label': label},
+    ]})
+    svg = render(chopin, annotations, measures=(1, 1)).svgs[0]
+    nodes = list(ET.fromstring(svg).iter('{http://www.w3.org/2000/svg}text'))
+    seventh = next(node for node in nodes if ''.join(node.itertext()) == '7')
+    root = next(node for node in nodes if ''.join(node.itertext()) == label.split('o')[0].split('/')[0].rstrip('764532'))
+    assert float(seventh.get('y')) < float(root.get('y'))
+    assert float(seventh.get('font-size').removesuffix('px')) == round(
+        float(root.get('font-size').removesuffix('px')) * 0.58)
+    if letter:
+        inversion = next(node for node in nodes if ''.join(node.itertext()) == letter)
+        assert inversion.get('y') == root.get('y')
+        assert inversion.get('font-size') == root.get('font-size')
+        assert float(inversion.get('x')) > float(seventh.get('x'))
+    if target:
+        slash = next(node for node in nodes if ''.join(node.itertext()) == '/')
+        assert slash.get('y') == root.get('y')
+        assert float(slash.get('x')) > float(seventh.get('x'))
+        assert any(''.join(node.itertext()) == target for node in nodes)
+    if ' ' in label:
+        assert any(''.join(node.itertext()) == '4–3' for node in nodes)
 
 
 def test_current_style_is_byte_identical(chopin, chopin_annotations):

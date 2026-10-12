@@ -44,7 +44,7 @@ def numeral(label: str, key: str | None, style: str, size: float) -> tuple[list[
     if style == 'current':
         return current(label, key, size=size)
     if style == 'abrsm':
-        return text.numeral(abrsm(label, key), size)
+        return text.numeral(abrsm(label, key), size, inversion_letters=True)
     parts, note = _parts(label)
     # Chord symbols and unsupported extensions retain their original spelling.
     if not all(_supported(part) for part in parts):
