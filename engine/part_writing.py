@@ -289,5 +289,5 @@ def as_text(index: ScoreIndex, chords=None) -> str:
         for f in findings:
             where = " to ".join(f"m{b} b{beat:g}" for b, beat in zip(f.bars, f.beats))
             lines.append(f"   {f.rule.replace('_', ' ')} {'+'.join(names[v] for v in f.voices)} {where}: {f.why}")
-        lines += [f"   arrow {a} -> {b} label \"{', '.join(labels)}\"" for (a, b), labels in drawn.items()]
+        lines += [f"   arrow {a} -> {b} label \"{', '.join(sorted(labels))}\"" for (a, b), labels in drawn.items()]
     return "\n".join(lines)
