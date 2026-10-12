@@ -38,7 +38,7 @@ from starlette.responses import Response
 from engine import draft
 from engine import notes as note_list
 from engine import read_pdf as pdf_reader
-from engine import reduce
+from engine import part_writing, reduce
 from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
 from engine.render import ScoreError, engrave, engrave_tall, load_toolkit
@@ -233,6 +233,11 @@ REVIEW_GUIDE = (
     "show the page and write the commentary.\n"
     "Positions: `measure` is the printed number (a pickup is 0); `beat` is 1-based in the unit given above; "
     "`pitch` is like \"Eb4\" at sounding pitch; `staff` 1 is the top staff.\n\n"
+    "If the draft has a PART-WRITING CHECK section (chorale-style scores only), say in one line that you can check "
+    "the voice leading, and draw nothing from it unless the user says yes or asked for it. When they want it, add "
+    "one callout per numbered spot and the voice_leading arrows listed under it, with their labels (use the NoteRefs "
+    "given), and explain every finding of a spot in its numbered paragraph of the commentary, in terms of the notes. "
+    "Call these strict classroom rules, not verdicts on a composer.\n\n"
     "## Method" + SKILL_RULES
 )
 
@@ -254,6 +259,7 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None) -> str
         + draft.as_text(result, first, last)
         + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
         + reduce.as_text(index, first, last)
+        + ("\n\n" + section if (section := part_writing.as_text(index, result.chords)) else "")
         + "\n\n"
         + REVIEW_GUIDE
     )
@@ -529,6 +535,8 @@ async def draft_from_notes(ctx: Context, notes: str) -> CallToolResult:
         log("draft_from_notes", platform=source, error=str(error), chars=len(notes))
         return error_result(str(error))
     text = draft.as_text(result)
+    if section := part_writing.as_text(note_list.decode(notes), result.chords):
+        text += "\n\n" + section
     log("draft_from_notes", platform=source, chars_in=len(notes), seconds=round(time.time() - started, 1))
     return CallToolResult(content=[TextContent(type="text", text=text)])
 

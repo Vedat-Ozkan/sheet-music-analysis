@@ -790,6 +790,14 @@ From the start of this work (the released Audiveris, one reading): main 86.6% / 
 - **Tests:** 248 pass.
 - **Not yet wired in:** none of this is in the skill or server. Displays, the ABRSM spellings, voice ranges and the framing text wait for the owner.
 
+### 37. The voice-leading report offered in the chat (Phase 4, 2026-10-11)
+
+**Owner's decisions.** The report is offered, then shown on request: for a chorale-style score (`part_writing.applies`) the model says in one line that it can check the voice leading, and draws nothing unless the user says yes or asked. Ranges are Open Music Theory's (soprano C4–G5, alto G3–D5, tenor C3–G4, bass F2–D4), named in the range finding. A stricter "exam" range set was considered and dropped: no official table to cite, and it flags notes many teachers accept.
+
+**What we did.** Both draft paths (`draft_analysis` and `draft_from_notes`) add a PART-WRITING CHECK section when the texture applies, with the draft's chords passed to the checker. Findings at the same place share one numbered spot (one callout, every finding explained in its paragraph), and each arrow carries a short label ("P5", "P8", "direct 5"): the first example page stacked three callouts on bar 1 with nothing tying a number to a pair of voices. Existing marks only. A piano piece gets no section.
+
+**Not yet live.** Committed separately from the PDF work and not deployed: the pages go to the owner first.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
