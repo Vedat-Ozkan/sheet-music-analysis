@@ -68,18 +68,24 @@ def _mark_count(results):
     return sum(item['classification'] in ('different_chord', 'different_key') for item in results)  # no note number is larger
 
 
-def _row_widths(results, shown=None, marks=None):
-    """Per entry, the width of the student's row and of the tool's, with the keys that precede them."""
+def _row_widths(results, shown=None, marks=None, carry_blue=True):
+    """Per entry, the width of the student's row and of the tool's, with the keys that precede them.
+
+    Without carry_blue, every blue key that differs from the student's is counted: reserve() does not
+    know where lines break, and draw() prints the tool's key again at the start of each line."""
     blue, widths = None, []
     if marks is None:
         marks = _mark_count(results)
     for item in results:
         student, tool = item['student'], item['reviewed']
         top = bottom = 0.0
+        if not carry_blue:
+            blue = None
         if student:
             if student['key'] != shown:
                 top += _key_width(student['key'])
                 shown = student['key']
+                blue = None  # a key just written in black is the one the reader now assumes
             top += _numeral_width(student['figure'], student['key']) + _mark_width(item, marks)
         if tool:
             if tool['key'] != (blue or shown):
@@ -94,7 +100,7 @@ def _row_widths(results, shown=None, marks=None):
 def reserve(results):
     """Hidden numerals as wide as what is drawn under them, so a bar with several labels widens as on a normal page."""
     annotations = []
-    for item, (top, bottom) in zip(results, _row_widths(results)):
+    for item, (top, bottom) in zip(results, _row_widths(results, carry_blue=False)):
         shown = item['student'] or item['reviewed']
         needed = max(top, bottom) + GAP
         filler = max(0, math.ceil((needed - VEROVIO_BASE) / NBSP))
@@ -212,6 +218,7 @@ def draw(layout, results, last_page=True):
                 if student['key'] != shown_key:
                     row.append(_key(layout, at, first, student['key']))
                     shown_key = student['key']
+                    blue_key = None
                     at = row[-1].right + 90
                 row.append(_numeral(layout, at, first, student['figure'], student['key']))
                 if cls != 'different_key':

@@ -142,9 +142,11 @@ def test_legend_lists_only_marks_on_the_page():
     assert legend == ['agrees with the tool']
 
 
-def bach_texts():
+def bach_texts(answer=None, measures=(1, 8)):
     score, annotations, index, labels = passage('bach')
-    svg = ET.fromstring(render(score, annotations, measures=(1, 8), student_labels=labels).svgs[0])
+    if answer:
+        labels = from_text(answer, index=index)
+    svg = ET.fromstring(render(score, annotations, measures=measures, student_labels=labels).svgs[0])
     return [(t.get('fill'), t.text) for g in svg.iter() if g.get('class') == 'analysis-over' for t in g.iter() if t.tag.endswith('text')]
 
 
@@ -156,6 +158,13 @@ def test_blue_key_is_printed_where_the_tools_key_changes_even_under_a_label_that
     assert blue.count('a:') == 1 and 'C:' in blue[:blue.index('a:')]
     assert blue[blue.index('a:') + 1] == 'V'
     assert 'blue key alone: where the tool\'s key changes' in [t for _, t in texts]
+
+
+def test_no_blue_key_under_a_key_the_student_writes_and_the_tool_agrees_with():
+    texts = bach_texts('key: a minor; bar 3 i beat 2 V6 beat 4 III; bar 4 in C: V65/V beat 2 V beat 3 I; '
+                       'bar 5 V beat 2 IV6 beat 3 V6 beat 4 I; bar 6 in a: viio beat 2 i beat 3 V', (3, 6))
+    assert [t for fill, t in texts if fill == '#4477AA' and t == 'a:'] == []
+    assert 'blue key alone: where the tool\'s key changes' not in [t for _, t in texts]
 
 
 def test_a_run_of_key_differences_is_one_note_that_spans_the_run():
