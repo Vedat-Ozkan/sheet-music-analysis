@@ -18,6 +18,8 @@ from engine.render import load_toolkit
 from engine.score import MEI, XML_ID, ScoreIndex
 from server import app
 
+ROOT = Path(__file__).parent.parent
+
 
 def check_export(data, annotations):
     mei = load_toolkit(data).getMEI()
@@ -53,7 +55,8 @@ def test_server_render_style_and_musicxml(chopin, chopin_annotations, tmp_path, 
         assert base64.b64decode(result.content[0].data) == render(
             chopin, annotations, measures=(1, 8)
         ).png(1)
-        assert 'Open in MuseScore' in result.content[1].text
+        assert 'harmony labels (open in MuseScore' in result.content[1].text
+        assert 'standard Roman numerals' in result.content[1].text
         for extension, signature in [('png', b'\x89PNG'), ('pdf', b'%PDF'), ('musicxml', b'<?xml')]:
             url = result.structured_content[f'{"image" if extension == "png" else extension}_url']
             name = url.rsplit('/', 1)[1]
@@ -61,11 +64,37 @@ def test_server_render_style_and_musicxml(chopin, chopin_annotations, tmp_path, 
             response = await app.files(request)
             assert response.status_code == 200
             assert response.body.startswith(signature)
+            assert response.headers['content-disposition'] == f'attachment; filename="analysis.{extension}"'
+            assert response.headers['content-security-policy'] == 'sandbox'
+            assert response.headers['x-content-type-options'] == 'nosniff'
             if extension == 'musicxml':
                 assert response.media_type == 'application/vnd.recordare.musicxml+xml'
                 check_export(response.body, annotations)
 
     asyncio.run(run())
+
+
+def test_server_musicxml_download_is_sandboxed_and_text_is_accurate(tmp_path, monkeypatch):
+    script = b'<credit page="1"><credit-words><h:script xmlns:h="http://www.w3.org/1999/xhtml">alert(1)</h:script></credit-words></credit>'
+    score = (ROOT / 'tests/data/export_placement.musicxml').read_bytes().replace(b'<part-list>', script + b'<part-list>', 1)
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/XSS', score)
+
+    async def run(annotations):
+        result = await app.render_analysis(None, 'XSS', AnnotationList.model_validate(annotations))
+        assert not result.is_error
+        name = result.structured_content['musicxml_url'].rsplit('/', 1)[1]
+        return result, await app.files(Request({'type': 'http', 'path_params': {'name': name}}))
+
+    result, response = asyncio.run(run({'annotations': [{'type': 'harmony', 'at': {'measure': 1}, 'label': 'I'}]}))
+    assert b':script' in response.body  # the payload survives the export, so the headers must contain it
+    assert response.headers['content-disposition'] == 'attachment; filename="analysis.musicxml"'
+    assert response.headers['content-security-policy'] == 'sandbox'
+    assert response.headers['x-content-type-options'] == 'nosniff'
+    assert 'harmony labels' in result.content[1].text
+    result, _ = asyncio.run(run({'annotations': [{'type': 'cadence', 'at': {'measure': 1}, 'label': 'PAC'}]}))
+    assert 'MusicXML (open in MuseScore' in result.content[1].text
+    assert 'harmony labels' not in result.content[1].text
 
 
 @pytest.mark.parametrize('style, override', [
@@ -77,10 +106,10 @@ def test_skill_render_style_and_musicxml(chopin, chopin_annotations, tmp_path, s
     source = tmp_path / 'annotations.json'
     source.write_text((chopin_annotations if override else annotations).model_dump_json())
     result = subprocess.run(
-        [sys.executable, 'skill/scripts/render_analysis.py', 'tests/data/chopin_nocturne_op9_no2.mxl',
+        [sys.executable, str(ROOT / 'skill/scripts/render_analysis.py'), str(ROOT / 'tests/data/chopin_nocturne_op9_no2.mxl'),
          str(source), '--measures', '1-8', '--out-dir', str(tmp_path), '--name', style,
          *(['--style', style] if override else [])],
-        capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(Path.cwd())},
+        capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(ROOT)},
     )
     assert result.returncode == 0, result.stderr
     assert (tmp_path / f'{style}.png').read_bytes() == render(
@@ -94,7 +123,7 @@ def test_skill_render_style_and_musicxml(chopin, chopin_annotations, tmp_path, s
 
 @pytest.mark.parametrize('host', ['server', 'skill'])
 def test_legacy_latin1_render_and_export(tmp_path, monkeypatch, host):
-    score = Path('tests/data/export_placement.musicxml').read_bytes()
+    score = (ROOT / 'tests/data/export_placement.musicxml').read_bytes()
     score = score.replace(b' encoding="utf-8"', b'', 1).replace(
         b'<part-list>', b'<work><work-title>Caf\xe9</work-title></work><part-list>', 1
     )
@@ -123,14 +152,15 @@ def test_legacy_latin1_render_and_export(tmp_path, monkeypatch, host):
         analysis = tmp_path / 'annotations.json'
         analysis.write_text(annotations.model_dump_json())
         result = subprocess.run(
-            [sys.executable, 'skill/scripts/render_analysis.py', str(source), str(analysis),
+            [sys.executable, str(ROOT / 'skill/scripts/render_analysis.py'), str(source), str(analysis),
              '--out-dir', str(tmp_path), '--name', 'legacy'],
-            capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(Path.cwd())},
+            capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(ROOT)},
         )
         assert result.returncode == 0, result.stderr
         assert (tmp_path / 'legacy.png').read_bytes() == expected_png
         assert (tmp_path / 'legacy.pdf').read_bytes().startswith(b'%PDF')
-        exported = (tmp_path / 'legacy.musicxml').read_bytes()
+        # The input is also named legacy.musicxml, so the export takes the -annotated name.
+        exported = (tmp_path / 'legacy-annotated.musicxml').read_bytes()
     assert ET.fromstring(exported).findtext('work/work-title') == 'Café'
     labels = from_musicxml(exported)
     assert [(label.measure, label.beat, label.figure) for label in labels] == [(1, 1, 'I')]
@@ -144,7 +174,7 @@ def test_legacy_latin1_render_and_export(tmp_path, monkeypatch, host):
     pytest.param(b'<step>G</step>', b'', id='missing-step'),
 ])
 def test_malformed_xml_keeps_render_when_export_fails(tmp_path, monkeypatch, host, original, replacement):
-    score = Path('tests/data/export_placement.musicxml').read_bytes().replace(
+    score = (ROOT / 'tests/data/export_placement.musicxml').read_bytes().replace(
         original, replacement
     )
     annotations = AnnotationList.model_validate({'annotations': [
@@ -160,7 +190,8 @@ def test_malformed_xml_keeps_render_when_export_fails(tmp_path, monkeypatch, hos
             assert not result.is_error
             assert base64.b64decode(result.content[0].data) == engraving.png(1)
             assert 'MusicXML export unavailable' in result.content[1].text
-            assert 'Open in MuseScore' not in result.content[1].text
+            assert 'MuseScore' not in result.content[1].text
+            assert 'Python' not in result.content[1].text and 'KeyError' not in result.content[1].text
             assert 'musicxml_url' not in result.structured_content
             for field, signature in [('image_url', b'\x89PNG'), ('pdf_url', b'%PDF')]:
                 name = result.structured_content[field].rsplit('/', 1)[1]
@@ -175,9 +206,9 @@ def test_malformed_xml_keeps_render_when_export_fails(tmp_path, monkeypatch, hos
         analysis = tmp_path / 'annotations.json'
         analysis.write_text(annotations.model_dump_json())
         result = subprocess.run(
-            [sys.executable, 'skill/scripts/render_analysis.py', str(source), str(analysis),
+            [sys.executable, str(ROOT / 'skill/scripts/render_analysis.py'), str(source), str(analysis),
              '--out-dir', str(tmp_path), '--name', 'malformed'],
-            capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(Path.cwd())},
+            capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(ROOT)},
         )
         assert result.returncode == 0, result.stderr
         assert 'MusicXML export unavailable' in result.stderr
@@ -194,7 +225,7 @@ def test_malformed_xml_keeps_render_when_export_fails(tmp_path, monkeypatch, hos
     pytest.param(b'<step>G</step>', b'', id='missing-step'),
 ])
 def test_skill_reused_output_invalidates_failed_export(tmp_path, name, original, replacement):
-    score = Path('tests/data/export_placement.musicxml').read_bytes()
+    score = (ROOT / 'tests/data/export_placement.musicxml').read_bytes()
     source = tmp_path / 'source.musicxml'
     analysis = tmp_path / 'annotations.json'
     output_name = name or 'analysis'
@@ -207,9 +238,9 @@ def test_skill_reused_output_invalidates_failed_export(tmp_path, name, original,
         ]})
         analysis.write_text(annotations.model_dump_json())
         result = subprocess.run(
-            [sys.executable, 'skill/scripts/render_analysis.py', str(source), str(analysis),
+            [sys.executable, str(ROOT / 'skill/scripts/render_analysis.py'), str(source), str(analysis),
              '--out-dir', str(tmp_path), *(['--name', name] if name else [])],
-            capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(Path.cwd())},
+            capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(ROOT)},
         )
         assert result.returncode == 0, result.stderr
         assert (tmp_path / f'{output_name}.png').read_bytes() == render(
@@ -232,7 +263,7 @@ def test_skill_reused_output_invalidates_failed_export(tmp_path, name, original,
 
 @pytest.mark.parametrize('broken', [False, True])
 def test_skill_never_deletes_or_overwrites_its_input_score(tmp_path, broken):
-    score = Path('tests/data/export_placement.musicxml').read_bytes()
+    score = (ROOT / 'tests/data/export_placement.musicxml').read_bytes()
     if broken:
         score = score.replace(b'<octave>4</octave>', b'')
     source = tmp_path / 'analysis.musicxml'
@@ -242,8 +273,8 @@ def test_skill_never_deletes_or_overwrites_its_input_score(tmp_path, broken):
         {'type': 'harmony', 'at': {'measure': 1}, 'label': 'V'},
     ]}).model_dump_json())
     result = subprocess.run(
-        [sys.executable, 'skill/scripts/render_analysis.py', str(source), str(analysis), '--out-dir', str(tmp_path)],
-        capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(Path.cwd())},
+        [sys.executable, str(ROOT / 'skill/scripts/render_analysis.py'), str(source), str(analysis), '--out-dir', str(tmp_path)],
+        capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(ROOT)},
     )
     assert result.returncode == 0, result.stderr
     assert source.read_bytes() == score

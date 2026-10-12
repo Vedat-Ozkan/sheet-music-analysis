@@ -278,6 +278,14 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, studen
 apps = Apps()
 
 
+def musicxml_text(url: str, annotations: AnnotationList) -> str:
+    # Without harmony annotations the export is the unmodified original, so it has no labels to mention.
+    if not any(item.type == "harmony" for item in annotations.annotations):
+        return f"MusicXML (open in MuseScore, Sibelius or Dorico): {url}"
+    return (f"MusicXML with the harmony labels (open in MuseScore, Sibelius or Dorico): {url}\n"
+            "The file uses standard Roman numerals whatever the page style.")
+
+
 @apps.tool(
     resource_uri=CARD_URI,
     title="Draw the analysis on the score",
@@ -287,9 +295,10 @@ apps = Apps()
         "links, shown to the user in a card. If a position does not exist in the score, the error lists each "
         "problem so you can fix the list and call again. A page shows at most 32 bars: for a longer piece, pass "
         "measure_range (e.g. 1-16) and draw it passage by passage. view is one of all, harmony, voice_leading, form. "
-        "Set annotations.style to abrsm when the user mentions ABRSM or grade exams, figured_bass when they ask "
+        "Set annotations.style to abrsm (letter inversions, Ib, Vc) when the user mentions ABRSM, figured_bass when they ask "
         "for figured bass, otherwise leave it out. "
-        "Offer the MusicXML link as 'open in MuseScore'; it contains the harmony labels on the original score. "
+        "Offer the MusicXML link once per conversation, not after every render: it downloads a file for "
+        "MuseScore, Sibelius or Dorico. "
         "piano=true draws the same annotation list (written for the original score) on a two-staff piano reduction "
         "with instrument cues. For a score with more than four staves, draw the original first, then offer the user "
         "the piano reduction once; call again with piano=true only if they accept."
@@ -324,7 +333,7 @@ async def render_analysis(
     try:
         musicxml = await anyio.to_thread.run_sync(export_musicxml, score, annotations.model_dump())
     except Exception as error:
-        export_warning = f"MusicXML export unavailable: {error}. PNG and PDF are available."
+        export_warning = "MusicXML export unavailable for this score. PNG and PDF are available."
         log("render_analysis", platform=source, export_error=str(error))
     png = engraving.png(1)
     # The card shows a double-resolution page, sharp on high-density screens; the model gets the small one.
@@ -343,7 +352,7 @@ async def render_analysis(
         content=[
             ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png"),
             TextContent(type="text", text=f"{caption}, shown in a card. PDF: {pdf_url}\n"
-                        + (export_warning or f"Open in MuseScore (MusicXML, harmony labels): {musicxml_url}")),
+                        + (export_warning or musicxml_text(musicxml_url, annotations))),
         ],
         structured_content=structured_content,
     )
@@ -672,7 +681,13 @@ async def files(request: Request) -> Response:
     if data is None:
         return Response("This file has expired; pages are kept for one day.", status_code=404)
     media_types = {"png": "image/png", "pdf": "application/pdf", "musicxml": "application/vnd.recordare.musicxml+xml"}
-    return Response(data, media_type=media_types[name.rsplit(".", 1)[1]])
+    extension = name.rsplit(".", 1)[1]
+    # An uploaded score can carry scripts into the export, so files download in a sandbox instead of rendering.
+    return Response(data, media_type=media_types[extension], headers={
+        "Content-Disposition": f'attachment; filename="analysis.{extension}"',
+        "Content-Security-Policy": "sandbox",
+        "X-Content-Type-Options": "nosniff",
+    })
 
 
 @mcp.custom_route("/health", methods=["GET"])

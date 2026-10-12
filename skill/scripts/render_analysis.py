@@ -74,7 +74,7 @@ def main() -> int:
     try:
         musicxml = export_musicxml(score, annotations.model_dump())
     except Exception as error:
-        print(f"MusicXML export unavailable: {error}. PNG and PDF are available.", file=sys.stderr)
+        print(f"MusicXML export unavailable for this score ({error}). PNG and PDF are available.", file=sys.stderr)
         return 0
     xml.write_bytes(musicxml)
     print(xml)
