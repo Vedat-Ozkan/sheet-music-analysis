@@ -1,0 +1,192 @@
+import asyncio
+import base64
+import json
+import os
+from pathlib import Path
+import site
+import subprocess
+import sys
+import venv
+
+import pytest
+
+from engine import correct
+from engine.render import load_toolkit
+from engine.score import ScoreIndex
+from server import app
+
+ROOT = Path(__file__).parent.parent
+READING = ROOT / 'tests/data/chopin_prelude_op28_no4_reading.musicxml'
+
+
+def replacement():
+    lines = correct.bars_from_musicxml(READING.read_bytes(), 18).splitlines()
+    return '\n'.join(lines[:2] + ['1.1: 12 D5 C5 8 E5 E4 A4 36 F#4 12 A4']
+                     + [line for line in lines if line.startswith('2.')])
+
+
+def check_correction(after):
+    before = READING.read_bytes()
+    review = correct.review_correction(before, after)
+    assert review.changed_bars == [18]
+    assert 'three eighth notes are now a triplet' in review.notes[18]
+    old = ScoreIndex(load_toolkit(before).getMEI())
+    new = ScoreIndex(load_toolkit(after).getMEI())
+    signature = lambda bar: [(e.staff, e.onset, e.duration, e.pitch) for e in bar.events]
+    assert [signature(m) for m in old.measures if m.number != 18] == [
+        signature(m) for m in new.measures if m.number != 18]
+
+
+def test_server_correct_real_triplet_and_draft_score_loading(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/READ18', READING.read_bytes())
+    result = asyncio.run(app.mcp.call_tool('correct_bars', {
+        'score_id': 'READ18', 'replacement_bars': replacement()}))
+    assert not result.is_error
+    data = result.structured_content
+    assert data['score_id'] != 'READ18'
+    assert data['changed_bars'] == [18]
+    assert 'three eighth notes are now a triplet' in data['notes']['18']
+    assert len(data['image_urls']) == 1
+    png = app.store.get('files/' + data['image_urls'][0].rsplit('/', 1)[1])
+    assert png.startswith(b'\x89PNG')
+    images = [item for item in result.content if item.type == 'image']
+    assert len(images) == 1
+    assert base64.b64decode(images[0].data).startswith(b'\x89PNG')
+    text = next(item.text for item in result.content if item.type == 'text')
+    assert 'your suggestion' in text
+    assert 'only after confirmation' in text
+    assert 'If they decline, keep using score_id READ18.' in text
+    tools = asyncio.run(app.mcp.list_tools())
+    description = next(tool.description for tool in tools if tool.name == 'correct_bars')
+    assert 'read_pdf flagged' in description
+    assert 'you can see is misread' in description
+    assert 'confident' in description
+    assert 'your suggestion' in description
+    assert 'If they decline, keep using the original score_id.' in description
+    # This is draft_analysis's actual score-id loading path, without a model run.
+    after, given = asyncio.run(app.resolve_score(None, data['score_id']))
+    assert given == 'score_id'
+    check_correction(after)
+    assert app.store.get('scores/READ18') == READING.read_bytes()
+    assert app.store.get(f"scores/{data['score_id']}.draft.json") is None
+    counts = json.loads(next((tmp_path / 'usage').glob('*.json')).read_text())
+    assert counts['render'] == 1
+    assert 'draft' not in counts
+
+
+@pytest.mark.parametrize('bad, message', [
+    ('', 'N1 div='),
+    ('N1 ts=2/2 ks=1s\nm18 len=96\n1.1: 96 D5', 'div='),
+    (None, 'voice 1.1 adds up to 7/2; expected 4 quarter notes'),
+    ('N1 div=24 ts=4/0 ks=0\nm18 len=96\n1.1: 96 D5\n2.1: 96 r', 'meter denominator'),
+])
+def test_server_correct_invalid_bars_are_actionable(tmp_path, monkeypatch, bad, message):
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/READ18', READING.read_bytes())
+    text = replacement().replace('36 F#4', '24 F#4') if bad is None else bad
+    result = asyncio.run(app.mcp.call_tool('correct_bars', {
+        'score_id': 'READ18', 'replacement_bars': text}))
+    assert result.is_error
+    assert message in result.content[0].text
+    assert [p.name for p in (tmp_path / 'scores').iterdir()] == ['READ18']
+    assert not (tmp_path / 'files').exists()
+
+
+def test_server_correct_disjoint_bars_and_no_change(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    before = READING.read_bytes()
+    app.store.put('scores/READ18', before)
+    bar2 = correct.bars_from_musicxml(before, 2).replace('B4', 'A4')
+    text = bar2 + '\n' + '\n'.join(replacement().splitlines()[1:])
+    result = asyncio.run(app.mcp.call_tool('correct_bars', {
+        'score_id': 'READ18', 'replacement_bars': text}))
+    assert not result.is_error
+    data = result.structured_content
+    assert data['changed_bars'] == [2, 18]
+    assert len(data['image_urls']) == 2
+    assert len([item for item in result.content if item.type == 'image']) == 2
+    after, _ = asyncio.run(app.resolve_score(None, data['score_id']))
+    assert correct.review_correction(before, after).changed_bars == [2, 18]
+    unchanged = asyncio.run(app.mcp.call_tool('correct_bars', {
+        'score_id': data['score_id'], 'replacement_bars': text}))
+    assert not unchanged.is_error
+    assert unchanged.structured_content['changed_bars'] == []
+    assert unchanged.structured_content['image_urls'] == []
+    assert 'No bars changed.' in unchanged.content[0].text
+
+
+def test_server_correct_missing_score_and_render_limit(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    result = asyncio.run(app.mcp.call_tool('correct_bars', {
+        'score_id': 'MISSING', 'replacement_bars': replacement()}))
+    assert result.is_error
+    assert "No score has the id 'MISSING'" in result.content[0].text
+    assert not (tmp_path / 'usage').exists()
+    app.store.put('scores/READ18', READING.read_bytes())
+    # Use the store's real daily counter so the valid score hits today's limit.
+    asyncio.run(app.take('render', 'other'))
+    usage = next((tmp_path / 'usage').glob('*.json'))
+    usage.write_text(json.dumps({'render': app.DAILY_LIMITS['render']}))
+    limited = asyncio.run(app.mcp.call_tool('correct_bars', {
+        'score_id': 'READ18', 'replacement_bars': replacement()}))
+    assert limited.is_error
+    assert limited.content[0].text == app.LIMIT_MESSAGE
+    assert [p.name for p in (tmp_path / 'scores').iterdir()] == ['READ18']
+    assert not (tmp_path / 'files').exists()
+
+
+def run_script(text, tmp_path):
+    corrections = tmp_path / 'bars.txt'
+    corrections.write_text(text)
+    return subprocess.run([
+        sys.executable, str(ROOT / 'skill/scripts/correct_score.py'), str(READING),
+        str(corrections), '--out-dir', str(tmp_path / 'result')],
+        cwd=ROOT, env={**os.environ, 'PYTHONPATH': str(ROOT)}, capture_output=True, text=True)
+
+
+def test_skill_correct_real_triplet_subprocess(tmp_path):
+    result = run_script(replacement(), tmp_path)
+    assert result.returncode == 0, result.stderr
+    check_correction((tmp_path / 'result/corrected.musicxml').read_bytes())
+    assert (tmp_path / 'result/corrected.png').read_bytes().startswith(b'\x89PNG')
+    assert 'Bar 18: three eighth notes are now a triplet' in result.stdout
+    assert 'confirm against their copy' in result.stdout
+
+
+def test_skill_missing_music21_reports_setup_command(tmp_path):
+    isolated = tmp_path / 'env'
+    venv.EnvBuilder(with_pip=False).create(isolated)
+    packages = next((isolated / 'lib').glob('python*/site-packages'))
+    for source in map(Path, site.getsitepackages()):
+        for package in source.iterdir():
+            if not package.name.startswith('music21') and not (packages / package.name).exists():
+                (packages / package.name).symlink_to(package)
+    bars = tmp_path / 'bars.txt'
+    bars.write_text(replacement())
+    result = subprocess.run([
+        str(isolated / 'bin/python'), str(ROOT / 'skill/scripts/correct_score.py'),
+        str(READING), str(bars), '--out-dir', str(tmp_path / 'result')],
+        cwd=ROOT, env={**os.environ, 'PYTHONPATH': str(ROOT)}, capture_output=True, text=True)
+    assert result.returncode == 1
+    assert 'python3 -m pip install music21' in result.stderr
+    assert 'Traceback' not in result.stderr
+    assert not (tmp_path / 'result').exists()
+
+
+def test_skill_invalid_voice_writes_no_outputs(tmp_path):
+    result = run_script(replacement().replace('36 F#4', '24 F#4'), tmp_path)
+    assert result.returncode == 1
+    assert 'voice 1.1 adds up to 7/2; expected 4 quarter notes' in result.stderr
+    assert not (tmp_path / 'result').exists()
+
+
+@pytest.mark.parametrize('text, message', [
+    ('', 'N1 div='),
+    ('N1 ts=2/2 ks=1s\nm18 len=96\n1.1: 96 D5', 'N1 div='),
+    ('N1 div=bad ts=2/2 ks=1s\nm18 len=96\n1.1: 96 D5', 'N1 div='),
+    ('N1 div=24 ts=4/0 ks=0\nm18 len=96\n1.1: 96 D5\n2.1: 96 r', 'meter denominator'),
+])
+def test_malformed_correction_has_actionable_error(text, message):
+    with pytest.raises(correct.CorrectionError, match=message):
+        correct.replace_bars(READING.read_bytes(), text)

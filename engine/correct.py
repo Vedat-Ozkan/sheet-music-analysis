@@ -114,8 +114,12 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
     A correction must include every staff, but may change its voice count.
     """
     root, selected, index = _read(score, part)
+    corrected = corrected.strip()
     try:
         div = int(corrected.splitlines()[0].split("div=", 1)[1].split()[0])
+    except (IndexError, ValueError) as error:
+        raise CorrectionError('Start with "N1 div=24 ts=4/4 ks=0"; div must be a positive integer') from error
+    try:
         if div <= 0:
             raise CorrectionError("div must be positive")
         decoded = notes.decode(corrected)
@@ -185,6 +189,8 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                 raise CorrectionError(f"Bar {number}: len must match the existing bar length")
     except CorrectionError:
         raise
+    except ZeroDivisionError as error:
+        raise CorrectionError("Use a positive meter denominator, e.g. ts=4/4") from error
     except ValueError as error:
         raise CorrectionError(str(error)) from error
 
