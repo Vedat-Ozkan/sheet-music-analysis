@@ -20,7 +20,7 @@ from pathlib import Path
 
 import verovio
 
-from engine.read_pdf import READER, PdfReading, ReadError, notice, read_pdf, without_slurs
+from engine.read_pdf import PREVIEW_OPTIONS, READER, PdfReading, ReadError, notice, read_pdf, shade, without_slurs
 from engine.render import VEROVIO_OPTIONS, Engraving, ScoreError, load_toolkit
 
 # Verovio's import warnings (an unmatched slur, say) are for developers; Claude would pass them on to the user.
@@ -56,7 +56,7 @@ def audiveris() -> Path:
 def pages(score: bytes) -> Engraving:
     """Ordinary pages, but a last page of one or two bars is pulled onto the page before it, so no page image
     is nearly empty. The page is made taller a step at a time until the page count drops (at most 1.5 times)."""
-    toolkit = load_toolkit(score)
+    toolkit = load_toolkit(score, PREVIEW_OPTIONS)
     height = VEROVIO_OPTIONS["pageHeight"]
     count = toolkit.getPageCount()
     while count > 1 and len(re.findall(r'class="measure"', toolkit.renderToSVG(count))) <= 2:
@@ -67,7 +67,7 @@ def pages(score: bytes) -> Engraving:
         toolkit.redoLayout()
         if toolkit.getPageCount() < count:
             break
-    return Engraving([toolkit.renderToSVG(page) for page in range(1, toolkit.getPageCount() + 1)])
+    return shade(toolkit, score)
 
 
 def main() -> int:

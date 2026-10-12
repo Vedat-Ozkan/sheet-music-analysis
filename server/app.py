@@ -42,7 +42,7 @@ from engine import check_analysis, part_writing, reduce
 from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
 from engine.export import export_musicxml
-from engine.render import ScoreError, engrave, engrave_tall, load_toolkit
+from engine.render import ScoreError, engrave, load_toolkit
 from engine.score import PositionError, ScoreIndex
 
 PORT = int(os.environ.get("PORT", "8080"))
@@ -344,7 +344,11 @@ async def render_analysis(
     caption = f"Analysis, measures {measure_range}, view {view}" + (", piano reduction" if piano else "")
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
         view=view, measure_range=measure_range)
-    structured_content = {"image_url": image_url, "pdf_url": pdf_url, "caption": caption}
+    # The card's heading, in plain words; `caption` stays for the model's own text.
+    kind = {"harmony": "Harmony analysis", "voice_leading": "Voice leading", "form": "Form"}.get(view, "Analysis")
+    bars = "all bars" if measure_range == "all" else "bars " + measure_range.replace("-", "\u2013")
+    title = f"{kind} \u00b7 {bars}" + (" \u00b7 piano reduction" if piano else "")
+    structured_content = {"image_url": image_url, "pdf_url": pdf_url, "caption": caption, "title": title}
     if musicxml_url:
         structured_content["musicxml_url"] = musicxml_url
     # The card shows the page to the user; the image lets the chat model check its own annotations.
@@ -424,15 +428,15 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
             score = pdf_reader.without_slurs(score)
             await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
         # The card shows every bar in one tall image; the PDF keeps ordinary pages for printing.
-        tall, engraving, notice = await anyio.to_thread.run_sync(
-            lambda: (engrave_tall(score), engrave(score),
+        tall, shaded, engraving, notice = await anyio.to_thread.run_sync(
+            lambda: (pdf_reader.preview(score, tall=True), pdf_reader.preview(score), engrave(score),
                      pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs))
         )
     except (ScoreError, pdf_reader.ReadError, httpx.HTTPError) as error:
         log("read_pdf", platform=source, error=str(error))
         return error_result(str(error))
-    # The model gets ordinary pages: one tall image of a long score is shrunk by hosts until notes can't be read.
-    pages = [engraving.png(page) for page in range(1, engraving.page_count + 1)]
+    # The model gets ordinary (shaded) pages: one tall image of a long score is shrunk by hosts until notes can't be read.
+    pages = [shaded.png(page) for page in range(1, shaded.page_count + 1)]
     image_url, pdf_url = await anyio.to_thread.run_sync(
         lambda: (publish(tall.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"))
     )
@@ -453,7 +457,8 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
             *(ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png") for png in pages),
             TextContent(type="text", text=f"{text}\nPDF of the engraved score: {pdf_url}"),
         ],
-        structured_content={"image_url": image_url, "pdf_url": pdf_url, "caption": caption, "notice": notice},
+        structured_content={"image_url": image_url, "pdf_url": pdf_url, "caption": caption, "title": "What I read from your PDF",
+                            "notice": notice},
     )
 
 

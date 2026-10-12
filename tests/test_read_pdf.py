@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from engine.read_pdf import SETTINGS, clean, is_scan, notice, open_pdf, problem_spots, read_pdf, without_slurs
+from engine.read_pdf import SETTINGS, clean, is_scan, notice, open_pdf, preview, problem_spots, read_pdf, without_slurs
 from engine.render import engrave, load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
@@ -52,8 +52,8 @@ def test_names_the_bars_a_reading_likely_got_wrong():
     assert problem_spots(score) == ([12, 18], [(16, "G", "double sharp")])
     assert b"<slur" not in score
     assert notice(score, False, [], False) == (
-        "This is what I read from your PDF; check it against your copy before I analyse it. Bars 12 and 18 don't add "
-        "up to a full bar, so a note or triplet may be misread there. Bar 16: the G has a double sharp, which is rare; "
+        "This is what I read from your PDF; check it against your copy before I analyse it. Bars 12 and 18 (shaded) don't "
+        "add up to a full bar, so a note or triplet may be misread there. Bar 16: the G has a double sharp (circled), which is rare; "
         "please check it. Slurs are left out, because they are often misread from PDFs; ask if you want them kept."
     )
 
@@ -100,3 +100,12 @@ def test_warning_signals_preserve_haydn_reading_selection():
 def test_fractional_durations_do_not_backup_before_the_bar():
     score = (Path(__file__).parent / 'data/pdf_warnings/fractional_durations.musicxml').read_bytes()
     assert problem_spots(score) == ([], [])
+
+
+def test_preview_shades_the_named_bars_and_rings_the_double_sharp():
+    score = without_slurs(clean((Path(__file__).parent / "data/chopin_prelude_op28_no4_audiveris.mxl").read_bytes()))
+    svg = preview(score).svgs[0]
+    # One pale-yellow tint per named bar (12 and 18), one amber ring (bar 16), and a number on every bar.
+    assert svg.count('fill="#FFE066" fill-opacity="0.35"') == 2
+    assert svg.count('stroke="#E69F00"') == 1
+    assert svg.count('mNum') >= 24
