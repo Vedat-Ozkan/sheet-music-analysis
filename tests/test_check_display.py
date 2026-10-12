@@ -66,7 +66,8 @@ def test_typed_comparison_page(name):
     assert any('the tool reads the key' in t if name == 'bach' else 'a different chord' in t for t in strings)
     # The key is written at the start and where it changes, never before every label.
     keys = [t for t in strings if t.endswith(':') and len(t) <= 3]
-    assert len(keys) == 3, keys
+    # Bach also names a: in blue, where the tool's key returns to A minor after C.
+    assert len(keys) == (4 if name == 'bach' else 3), keys
     assert 'a:' in strings if name == 'bach' else 'E♭:' in strings
     assert any(t.get('class') == 'agreement-mark' for t in overlay.iter())
     # Numerals are typeset with raised figures and the diminished sign, not as typed.
@@ -105,6 +106,7 @@ def test_many_notes_keep_clear_of_the_next_system_and_the_legend_fits():
     page_bottom = float(next(e for e in svg.iter() if e.get('class') == 'definition-scale').get('viewBox').split()[3])
     assert all(box.bottom < page_bottom for _, box in drawn.labels)
     assert any("blue: the tool" in t for t in strings)
+    assert '[1] numbered note under the line' in strings
 
 
 def test_dense_answer_keeps_every_label_and_reading_on_the_page():
@@ -119,6 +121,7 @@ def test_pickup_label_before_the_tools_first_chord_is_shown_unmarked():
     results, strings, *_ = typed_page('key: Eb major; bar 0 V; bar 1 I', (0, 2))
     assert results[0]['at']['measure'] == 0 and results[0]['classification'] == 'unchecked'
     assert results[1]['classification'] == 'agrees'
+    assert 'no mark: the tool has no chord there to compare' in strings
 
 
 def test_key_notes_are_numbered_per_run_not_per_passage():
@@ -135,8 +138,43 @@ def test_chord_and_key_both_different_is_a_chord_difference():
 
 def test_legend_lists_only_marks_on_the_page():
     results, strings, *_ = typed_page('key: Eb major; bar 1 I beat 2 viio7 beat 3 I', (1, 1))
-    legend = [t for t in strings if 'agrees with the tool' in t or 'blue' in t or 'check the bass' in t or 'see note' in t]
+    legend = [t for t in strings if 'agrees with the tool' in t or 'blue' in t or 'check the bass' in t or 'numbered note' in t]
     assert legend == ['agrees with the tool']
+
+
+def bach_texts():
+    score, annotations, index, labels = passage('bach')
+    svg = ET.fromstring(render(score, annotations, measures=(1, 8), student_labels=labels).svgs[0])
+    return [(t.get('fill'), t.text) for g in svg.iter() if g.get('class') == 'analysis-over' for t in g.iter() if t.tag.endswith('text')]
+
+
+def test_blue_key_is_printed_where_the_tools_key_changes_even_under_a_label_that_agrees():
+    texts = bach_texts()
+    blue = [t for fill, t in texts if fill == '#4477AA']
+    # The tool returns to A minor at bar 6 beat 1, where the student's vii° agrees: the key stands alone, and the
+    # bar 6 beat 3 reading needs none because the reader has just been shown it.
+    assert blue.count('a:') == 1 and 'C:' in blue[:blue.index('a:')]
+    assert blue[blue.index('a:') + 1] == 'V'
+    assert 'blue key alone: where the tool\'s key changes' in [t for _, t in texts]
+
+
+def test_a_run_of_key_differences_is_one_note_that_spans_the_run():
+    notes = [t for _, t in bach_texts() if t.startswith('[5] ')]
+    assert notes and notes[0].startswith('[5] Bar 5, beats 1–4: ')
+
+
+def test_the_last_label_of_a_system_stays_inside_the_barline():
+    text = 'key: Eb major; ' + '; '.join(f'bar {n} in Bb: V beat 2 vi beat 3 in Eb: IV' for n in range(1, 33))
+    results, strings, drawn, svg = typed_page(text, (1, 32))
+    right = max(system.right for system in drawn.systems)
+    assert all(box.right <= right for _, box in drawn.labels + drawn.harmony_labels)
+
+
+def test_a_score_with_no_reviewed_harmony_is_refused():
+    score = (ROOT / CHOPIN[0]).read_bytes()
+    index = ScoreIndex(load_toolkit(score).getMEI())
+    with pytest.raises(ValueError, match='No Roman numeral labels'):
+        compare(from_text('key: Eb major; bar 1 I', index=index), {'version': 1, 'annotations': []}, index)
 
 
 def test_default_comparison_disabled_bytes(chopin, chopin_annotations):

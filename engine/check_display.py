@@ -53,20 +53,26 @@ def _numeral_width(figure, key):
     return notation.numeral(figure, key, 'current', NUMERAL_SIZE)[1]
 
 
-def _mark_width(item):
+def _mark_width(item, marks):
     cls = item['classification']
     if cls in ('agrees', 'same_chord_different_spelling'):
         return 90 + 220
     if cls == 'different_inversion':
         return 70 + text.width('?', NUMERAL_SIZE, bold=True)
     if cls in ('different_chord', 'different_key'):
-        return 70 + text.width('[9]', SMALL_SIZE)
+        return 70 + text.width(f'[{marks}]', SMALL_SIZE)
     return 0
 
 
-def _row_widths(results):
+def _mark_count(results):
+    return sum(item['classification'] in ('different_chord', 'different_key') for item in results)  # no note number is larger
+
+
+def _row_widths(results, shown=None, marks=None):
     """Per entry, the width of the student's row and of the tool's, with the keys that precede them."""
-    shown, widths = None, []
+    blue, widths = None, []
+    if marks is None:
+        marks = _mark_count(results)
     for item in results:
         student, tool = item['student'], item['reviewed']
         top = bottom = 0.0
@@ -74,11 +80,13 @@ def _row_widths(results):
             if student['key'] != shown:
                 top += _key_width(student['key'])
                 shown = student['key']
-            top += _numeral_width(student['figure'], student['key']) + _mark_width(item)
-        if tool and (not student or item['classification'] in DIFFERS):
-            if tool['key'] != shown:
+            top += _numeral_width(student['figure'], student['key']) + _mark_width(item, marks)
+        if tool:
+            if tool['key'] != (blue or shown):
                 bottom += _key_width(tool['key'])
-            bottom += _numeral_width(tool['figure'], tool['key'])
+                blue = tool['key']
+            if not student or item['classification'] in DIFFERS:
+                bottom += _numeral_width(tool['figure'], tool['key'])
         widths.append((top, bottom))
     return widths
 
@@ -128,20 +136,45 @@ def _tick(layout, left, baseline, register=True):
     return box
 
 
-def _legend_pieces(results):
+def _legend_pieces(results, key_only=False):
     classes = {item['classification'] for item in results}
     pieces = []
     if classes & {'agrees', 'same_chord_different_spelling'}:
         pieces.append('agrees with the tool')
     if classes & set(DIFFERS):
         pieces.append("blue: the tool's reading where it differs")
+    if key_only:
+        pieces.append("blue key alone: where the tool's key changes")
     if UNLABELLED in classes:
         pieces.append("blue on its own: a chord you didn't label")
+    if UNCHECKED in classes:
+        pieces.append('no mark: the tool has no chord there to compare')
     if 'different_inversion' in classes:
         pieces.append('? check the bass (which note is lowest)')
     if classes & {'different_chord', 'different_key'}:
-        pieces.append('[1] see note below')
+        pieces.append('[1] numbered note under the line')
     return pieces
+
+
+def _span(start, end):
+    if start == end:
+        return f'Bar {start["measure"]}, beat {start["beat"]:g}'
+    if start['measure'] == end['measure']:
+        return f'Bar {start["measure"]}, beats {start["beat"]:g}–{end["beat"]:g}'
+    return f'Bar {start["measure"]} beat {start["beat"]:g} to bar {end["measure"]} beat {end["beat"]:g}'
+
+
+def _starts(xs, widths, left, right):
+    """Where each label of a system begins: under its chord, but crowded back from the right edge, because Verovio
+    sets no room past a system's last note and a long final label would run over the barline."""
+    placed = []
+    for x, (top, bottom) in zip(xs, widths):
+        placed.append(max(x - 30, placed[-1] + max(widths[len(placed) - 1]) + 2 * GAP if placed else left))
+    limit = right
+    for i in reversed(range(len(placed))):
+        placed[i] = max(left, min(placed[i], limit - max(widths[i])))
+        limit = placed[i] - 2 * GAP
+    return placed
 
 
 def draw(layout, results, last_page=True):
@@ -155,6 +188,7 @@ def draw(layout, results, last_page=True):
         groups.setdefault(system.index, []).append((x, item))
     results = [item for items in groups.values() for _, item in items]  # what this page shows
     number = 0
+    key_only = False  # a blue key with no numeral: the tool's key changes under a label that agrees
     shown_key = None  # the student's key as last written, carried from one line to the next
     deficits = {}
     bottom = 0
@@ -163,13 +197,15 @@ def draw(layout, results, last_page=True):
         first = system.bottom() + 170 + NUMERAL_SIZE * 0.75
         second = first + ROW
         cursor = system.left
+        widths = _row_widths([item for _, item in items], shown_key, _mark_count(results))
+        starts = _starts([x for x, _ in items], widths, cursor, system.right)
         notes = []
-        tool_key = None
+        blue_key = None  # the last key printed in blue on this line; before one, the student's key is what the reader assumes
         run = None  # (tool key, note number) of the key differences just before this entry
-        blue = any(item['reviewed'] and (not item['student'] or item['classification'] in DIFFERS) for _, item in items)
-        for x, item in items:
+        blue = any(bottom for _, bottom in widths)
+        for (x, item), start in zip(items, starts):
             student, tool, cls = item['student'], item['reviewed'], item['classification']
-            x = max(x - 30, cursor)
+            x = max(start, cursor)
             row, below = [], []
             if student:
                 at = x
@@ -187,35 +223,36 @@ def draw(layout, results, last_page=True):
                 elif cls in ('different_chord', 'different_key'):
                     if cls == 'different_key' and run and run[0] == tool['key']:
                         mark = run[1]
+                        notes[-1][2] = item['at']
                     else:
                         number += 1
                         mark = number
                         kind = cls
                         if cls == 'different_chord' and tool['key'] != student['key']:
                             kind = 'different_chord_and_key'
-                        notes.append(f'[{number}] Bar {item["at"]["measure"]}, beat {item["at"]["beat"]:g}: {NOTES[kind]}')
+                        notes.append([number, item['at'], item['at'], NOTES[kind]])
                     run = (tool['key'], mark) if cls == 'different_key' else None
                     row.append(layout._text(row[-1].right + 70, first, f'[{mark}]', SMALL_SIZE))
-            if tool and (not student or cls in DIFFERS):
+            if tool:
                 at = x
-                if tool['key'] != shown_key and tool['key'] != tool_key:
+                if tool['key'] != (blue_key or shown_key):
                     below.append(_key(layout, at, second, tool['key'], TOOL_COLOR))
-                    tool_key = tool['key']
+                    blue_key = tool['key']
                     at = below[-1].right + 90
-                elif tool['key'] == shown_key:
-                    tool_key = None
-                below.append(_numeral(layout, at, second, tool['figure'], tool['key'], TOOL_COLOR))
+                    key_only = key_only or (student and cls not in DIFFERS)
+                if not student or cls in DIFFERS:
+                    below.append(_numeral(layout, at, second, tool['figure'], tool['key'], TOOL_COLOR))
             cursor = max(box.right for box in row + below) + 2 * GAP
         y = (second if blue else first) + 700
-        for note in notes:
-            layout._text(system.left, y, note, SMALL_SIZE)
+        for number_, start, end, note in notes:
+            layout._text(system.left, y, f'[{number_}] {_span(start, end)}: {note}', SMALL_SIZE)
             bottom = y + 120
             y += NOTE_LINE
         bottom = max(bottom, (second if blue else first) + 200)
         deficits[system_index] = bottom
     last = max(groups) if groups else None
     if last_page and last is not None:
-        bottom = _legend(layout, deficits[last] + NOTE_LINE, _legend_pieces(results))
+        bottom = _legend(layout, deficits[last] + NOTE_LINE, _legend_pieces(results, key_only))
         deficits[last] = bottom
     needs = {}
     for system_index, bottom in deficits.items():
