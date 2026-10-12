@@ -810,9 +810,11 @@ Six tracks ran overnight in Codex, each built, reviewed twice by a fresh Codex a
 - **Check my analysis (Phase 3):** more typed forms (Unicode figures, ø, spaced slashes, augmented-sixth names); ambiguous input asks a question. MuseScore's Roman-numeral export reads all 12 labels, but MuseScore itself loses 5 meanings (ii65 to ii, V7/V to V, It+6 to I6).
 - **PDF warnings (Phase 2):** two new signals, durations that disagree with their note value and backups before the bar. On the 80 benchmark readings: 8 more wrong bars named, no new false warnings (main set recall 41.1% to 41.9%). Clef/key changes, density, short voices and range signals were tried and dropped: each lowered precision. The new signals do not change which reading is chosen (the first version did, and cost the Haydn canzonet 31 correct notes).
 
-**Sent back:**
-- **Voice-leading check:** the Bach audit (330 chorales, 2582 to 2315 reports) removed false unresolved-seventh and doubled-leading-tone reports, 13 of 88 sampled being checker bugs. But the last, unreviewed round added 22 leading-tone reports, most of them III to VI motions in the home key where the note is not a leading tone. Its other change stays.
-- **Numeral styles (Phase 5):** ABRSM and figured bass render with no collisions and the default page is byte-identical; ABRSM sets "V7b/vi" with a plain 7 beside raised ones. The styles also wait for the owner's look.
+**Sent back, then merged after a third round:**
+- **Voice-leading check:** the Bach audit (330 chorales) removed false unresolved-seventh and doubled-leading-tone reports, 13 of 88 sampled being checker bugs. The last overnight round, unreviewed, added 22 leading-tone reports, most of them III to VI motions in the home key where the note is not a leading tone. Sent back: a local dominant now needs evidence of its key. Against the reviewed round, exactly 3 leading-tone reports are added (BWV336, 245.40 and 64.4, all real V–I with the soprano leading tone leaping) and none removed. Reports 2582 to 2296 overall.
+- **Numeral styles (Phase 5):** ABRSM and figured bass render with no collisions and the default page is byte-identical. ABRSM set "V7b/vi" with a plain 7 beside raised ones; fixed. The styles still wait for the owner's look before they are offered.
+
+All 436 tests pass on main with every track merged.
 
 ## Checking against teachers' prose
 
