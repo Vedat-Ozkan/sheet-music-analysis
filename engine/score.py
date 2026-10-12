@@ -316,11 +316,11 @@ class ScoreIndex:
             raise PositionError(f"Measure {number} does not exist; the score has measures {first} to {last}")
         return self._by_number[number]
 
-    def measure_range(self, first: int, last: int) -> str:
-        """Verovio measureRange covering measures first..last, with the pickup when starting at 1."""
+    def measure_range(self, first: int, last: int, *, include_pickup: bool = True) -> str:
+        """Verovio measureRange covering first..last, optionally including the pickup at 1."""
         start = self.measure(first)
         position = self.measures.index(start)
-        if first == 1 and position > 0 and self.measures[position - 1].number == 0:
+        if include_pickup and first == 1 and position > 0 and self.measures[position - 1].number == 0:
             start = self.measures[position - 1]
         return f"{start.index}-{self.measure(last).last_index}"
 
