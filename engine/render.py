@@ -47,6 +47,16 @@ LARGE_SCORE_STAVES = 4  # more staves than a string quartet
 
 ROMAN = {1: "I", 2: "II", 3: "III", 4: "IV"}
 
+# MuseScore's short names for the standard parts, for files that give none. Later systems print
+# them; leaving the names off there is a nineteenth-century habit, the handbook default is short names.
+SHORT_NAMES = {
+    "piano": "Pno.", "violin": "Vln.", "viola": "Vla.", "cello": "Vc.", "violoncello": "Vc.", "double bass": "D.B.",
+    "contrabass": "Cb.", "bass": "B.", "soprano": "S.", "alto": "A.", "tenor": "T.", "baritone": "Bar.",
+    "flute": "Fl.", "oboe": "Ob.", "clarinet": "Cl.", "bassoon": "Bsn.", "horn": "Hn.", "trumpet": "Tpt.",
+    "trombone": "Trb.", "tuba": "Tba.", "timpani": "Timp.", "harp": "Hp.", "organ": "Org.", "guitar": "Gtr.",
+    "harpsichord": "Hpsd.", "voice": "Vo.", "piccolo": "Picc.", "english horn": "E.H.",
+}
+
 
 class ScoreError(ValueError):
     """The input could not be read as a MusicXML score."""
@@ -209,10 +219,13 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str]) -> None:
         lambda m: f'<{m.group(1)} vgrp="{900 + int(m.group(3))}"{m.group(2)}',
         patched,
     )
+    patched = _short_names_and_bracket(patched)
     patched = re.sub(r"<scoreDef\b(?![^>]*\boptimize=)", '<scoreDef optimize="true"', patched, count=1)
     patched = _drop_title_text(patched)
     # Pedal brackets look like analysis brackets on an annotated page, so pedalling is left out.
     patched = re.sub(r"<pedal\b[^>]*/>", "", patched)
+    # The same goes for pedal words ("Ped.", "Ped. simile", "*") that some files write as plain directions.
+    patched = re.sub(r"<dir\b[^>]*>(?:(?!</dir>).)*?\bPed(?:al|\.)(?:(?!</dir>).)*?</dir>", "", patched, flags=re.S)
     # MuseScore stores a tempo's words and its metronome mark as separate runs with no space between.
     patched = re.sub(r"(<tempo\b[^>]*>(?:(?!</tempo>).)*?</rend>)\(", r"\1 (", patched, flags=re.S)
     patched = re.sub(r"<measure\b.*?</measure>", _end_hairpins_at_dynamics, patched, flags=re.S)
@@ -228,6 +241,43 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str]) -> None:
     patched = _clefs_before_barlines(patched)
     if patched != mei:
         toolkit.loadData(patched)
+
+
+def _short_name(name: str) -> str:
+    """Short name for a part name: "Violin 2" -> "Vln. II", "1st Violin" -> "Vln. I"."""
+    name = re.sub(r"<[^>]+>", "", unescape(name)).strip()
+    number = re.search(r"\b([1-4])(?:st|nd|rd|th)?\b|\b(I{1,3}|IV)\b", name)
+    base = re.sub(r"\b(?:[1-4](?:st|nd|rd|th)?|I{1,3}|IV)\b|\bin [A-G][♭♯b#]?\b|[()]", " ", name).strip().lower()
+    base = " ".join(base.split())
+    short = SHORT_NAMES.get(base)
+    if not short and base:
+        # Plurals ("Violins") and names already short ("Cl.") fall back to the first word.
+        word = base.split()[0]
+        short = SHORT_NAMES.get(word) or SHORT_NAMES.get(word.removesuffix("s")) or (word.capitalize() if word.endswith(".") else word[:3].capitalize() + ".")
+    if number and short:
+        short += " " + (ROMAN.get(int(number.group(1))) if number.group(1) else number.group(2))
+    return short or ""
+
+
+def _short_names_and_bracket(mei: str) -> str:
+    """Short names on later systems for every staff, and one bracket over a multi-staff score that groups none.
+
+    Verovio prints a staff's <labelAbbr> on systems 2+ and nothing when there is none."""
+
+    def add_abbr(match: re.Match) -> str:
+        label, abbr = match.group(1), match.group(2)
+        short = _short_name(label)
+        # Audiveris writes the full name as the abbreviation, which would repeat "Piano" on every system.
+        if not short or (abbr and re.sub(r"<[^>]+>", "", abbr).strip() != re.sub(r"<[^>]+>", "", label).strip()):
+            return match.group(0)
+        return label + f"<labelAbbr>{escape(short)}</labelAbbr>"
+
+    # The label sits on a staff, or on the group of a piano's two staves.
+    mei = re.sub(r"(<label\b[^>]*>.*?</label>)\s*(<labelAbbr\b[^>]*>.*?</labelAbbr>)?", add_abbr, mei, flags=re.S)
+    # Piano and other grouped scores keep what the file defines (a piano's brace).
+    if "<grpSym" not in mei and len(re.findall(r"<staffDef\b", mei)) > 2:
+        mei = re.sub(r"(<staffGrp\b[^>]*?)>", r'\1 bar.thru="true"><grpSym symbol="bracket" />', mei, count=1)
+    return mei
 
 
 def _clefs_before_barlines(mei: str) -> str:
