@@ -35,13 +35,7 @@ SCORES = {
     "pdf-reading-overrun": DATA / "awkward" / "kinkel-op8-5-trennung-reading.musicxml",
 }
 # (test name, score id) -> why it fails today
-KNOWN = {
-    ("correct_roundtrip", "pdf-reading-overrun"):
-        "correct.replace_bars rejects its own bars_from_musicxml text for a bar whose notes run past the barline "
-        "(bars 10 and 12: 'duration must be positive')",
-    ("correct_roundtrip", "tuplets-6-8"):
-        "same error on the last bar (39) of this reading; cause not investigated, possibly the same overrun",
-}
+KNOWN: dict[tuple[str, str], str] = {}
 
 score_ids = pytest.mark.parametrize("name", list(SCORES))
 

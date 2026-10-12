@@ -47,11 +47,15 @@ def _read(score: bytes, part: str | None):
     if root.tag != "score-partwise":
         raise CorrectionError("Corrections require unnamespaced partwise MusicXML")
     parts = root.findall("part")
+    names = {sp.get("id"): sp.findtext("part-name", "").strip() for sp in root.iter("score-part")}
+    choices = ", ".join(f"{p.get('id')} {names.get(p.get('id'), '')}".strip() for p in parts)
     if part is None and len(parts) != 1:
-        raise CorrectionError("Choose a part id for a score with multiple parts")
-    selected = next((p for p in parts if part is None or p.get("id") == part), None)
+        raise CorrectionError(f"Choose a part for this score with multiple parts: {choices}")
+    # The model only sees part names from read_pdf, so accept a name as well as an id.
+    selected = next((p for p in parts if part is None or part.casefold() in (
+        p.get("id", "").casefold(), names.get(p.get("id"), "").casefold())), None)
     if selected is None:
-        raise CorrectionError(f"Part {part!r} does not exist")
+        raise CorrectionError(f"Part {part!r} does not exist; choose one of: {choices}")
     isolated = copy.deepcopy(root)
     for p in isolated.findall("part"):
         if p.get("id") != selected.get("id"):
@@ -114,8 +118,12 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
     A correction must include every staff, but may change its voice count.
     """
     root, selected, index = _read(score, part)
+    corrected = corrected.strip()
     try:
         div = int(corrected.splitlines()[0].split("div=", 1)[1].split()[0])
+    except (IndexError, ValueError) as error:
+        raise CorrectionError('Start with "N1 div=24 ts=4/4 ks=0"; div must be a positive integer') from error
+    try:
         if div <= 0:
             raise CorrectionError("div must be positive")
         decoded = notes.decode(corrected)
@@ -185,6 +193,8 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                 raise CorrectionError(f"Bar {number}: len must match the existing bar length")
     except CorrectionError:
         raise
+    except ZeroDivisionError as error:
+        raise CorrectionError("Use a positive meter denominator, e.g. ts=4/4") from error
     except ValueError as error:
         raise CorrectionError(str(error)) from error
 
@@ -523,7 +533,7 @@ def _change_note(before, after):
                 if previous[3] != current[3]:
                     changes.append("ties changed")
         elif len(a) != len(b):
-            changes.append(f"the number of note groups changed from {len(a)} to {len(b)}")
+            changes.append(f"the number of note groups on staff {staff} changed from {len(a)} to {len(b)}")
     rests = lambda bar: Counter((e.staff, e.onset, e.duration) for e in bar.events if e.pitch is None)
     if rests(before) != rests(after):
         changes.append("rests changed")

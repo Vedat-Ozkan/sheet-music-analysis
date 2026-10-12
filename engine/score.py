@@ -245,6 +245,10 @@ class ScoreIndex:
             for position, layer in enumerate(staff.findall(f"{MEI}layer"), start=1):
                 self._layer = position
                 self._read_layer(layer, measure, int(staff.get("n", "1")), Fraction(0))
+        # A whole-bar rest has no events, and a reading's can run past the barline and mark the bar incomplete;
+        # such a bar is as long as its meter, not zero.
+        if not measure.events and full is not None:
+            measure.declared_length = full
         for tie in element.findall(f"{MEI}tie"):
             self._tie_starts.add((tie.get("startid") or "").lstrip("#"))
 

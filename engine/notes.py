@@ -25,6 +25,7 @@ environment imports it too.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from fractions import Fraction
 
@@ -112,7 +113,8 @@ def decode(text: str) -> ScoreIndex:
     """Rebuild a score index (measures and notes, no engraving) from a note list."""
     if len(text) > MAX_CHARS:
         raise NotesError("The note list is too long")
-    lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
+    numbered = [(number, line.strip()) for number, line in enumerate(text.splitlines(), 1) if line.strip()]
+    lines = [line for _, line in numbered]
     if not lines or not lines[0].startswith(VERSION + " "):
         raise NotesError(f'The note list must start with a "{VERSION} div=… ts=… ks=…" line')
     try:
@@ -120,10 +122,14 @@ def decode(text: str) -> ScoreIndex:
         div, meter, key = int(settings["div"]), settings["ts"], settings.get("ks", "0")
         measures: list[Measure] = []
         current_meter = meter
-        for line in lines[1:]:
+        for number, line in numbered[1:]:
             if line.startswith("m"):
                 parts = line.split()
+                if not all("=" in part for part in parts[1:]) or not parts[0][1:].isdigit():
+                    raise NotesError(f"Line {number}: a bar line looks like 'm3 len=96', not {line!r}")
                 fields = dict(part.split("=", 1) for part in parts[1:])
+                if "len" not in fields:
+                    raise NotesError(f"Line {number}: bar line '{parts[0]}' needs len=…, e.g. '{parts[0]} len=96'")
                 current_meter = fields.get("ts", current_meter)
                 count, unit = current_meter.split("/")
                 measure = Measure(
@@ -136,11 +142,17 @@ def decode(text: str) -> ScoreIndex:
                 measure.declared_length = Fraction(int(fields["len"]), div)
                 measures.append(measure)
             else:
+                if not measures:
+                    raise NotesError(f"Line {number}: a voice line needs a bar line like 'm3 len=96' before it")
                 voice, _, body = line.partition(":")
+                if not re.fullmatch(r"\d+\.\d+", voice):
+                    raise NotesError(f"Line {number}: expected 'staff.voice: tokens', e.g. '1.1: 24 C4'")
                 staff, layer = (int(part) for part in voice.split("."))
                 _read_voice(body.split(), measures[-1], staff, layer, div)
         for measure in measures:
             measure.events.sort(key=lambda event: (event.onset, event.staff))
+    except NotesError:
+        raise
     except (KeyError, ValueError, IndexError) as error:
         raise NotesError(f"The note list could not be read: {error}") from error
     if not measures:
