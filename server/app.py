@@ -38,7 +38,7 @@ from starlette.responses import Response
 from engine import correct, draft
 from engine import notes as note_list
 from engine import read_pdf as pdf_reader
-from engine import check_analysis, part_writing, reduce
+from engine import check_analysis, ledger, part_writing, reduce
 from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
 from engine.export import export_midi, export_musicxml, export_romantext
@@ -248,7 +248,8 @@ REVIEW_GUIDE = (
 
 
 def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, student_analysis: str | None = None) -> str:
-    index = ScoreIndex(load_toolkit(score).getMEI())
+    mei = load_toolkit(score).getMEI()
+    index = ScoreIndex(mei)
     cached = store.get(f"scores/{code}.draft.json")
     if cached:
         raw = json.loads(cached)
@@ -265,6 +266,7 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, studen
         + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
         + reduce.as_text(index, first, last)
         + ("\n\n" + section if (section := part_writing.as_text(index, result.chords)) else "")
+        + ("\n\n" + section if (section := ledger.as_text(mei, index, first, last)) else "")
         + (
             "\n\n" + check_analysis.as_text(check_analysis.student_labels(student_analysis, score, index), result, index)
             if student_analysis else ""
