@@ -28,7 +28,7 @@ def test_draft_analysis_lists_planted_motion_errors(local_store):
     assert '(Open Music Theory)' in section
     assert '{"measure":13,"beat":1.0,"staff":2,"pitch":"G4"}' in section
     labels = re.findall(r'label "([^"]*)"', section)
-    assert "5–5" in labels and not any("," in word for word in labels)  # a figure per pair, never a comma list
+    assert "P5" in labels and not any("," in word for word in labels)  # a code per pair, never a comma list
     assert "one sentence offering to check the voice leading" in text.split("HOW TO USE", 1)[1]
 
 

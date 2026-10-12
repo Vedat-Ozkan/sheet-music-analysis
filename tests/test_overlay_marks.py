@@ -47,9 +47,9 @@ def _page(chopin, items, **kwargs):
 
 def test_fault_marks_are_red_and_analysis_arrows_are_not(chopin):
     fault = [
-        {"type": "voice_leading", "kind": "ring", "from_note": EB4, "label": "range"},
+        {"type": "voice_leading", "kind": "ring", "from_note": EB4, "label": "r"},
         {"type": "voice_leading", "kind": "line", "from_note": EB4, "to_note": D4},
-        {"type": "voice_leading", "kind": "arrow", "from_note": EB4, "to_note": D4, "label": "7th"},
+        {"type": "voice_leading", "kind": "arrow", "from_note": EB4, "to_note": D4, "label": "R"},
     ]
     analysis = [{"type": "voice_leading", "kind": "arrow", "from_note": EB4, "to_note": D4, "label": "4–3"}]
     red, plain = _page(chopin, fault), _page(chopin, analysis)
@@ -60,17 +60,17 @@ def test_fault_marks_are_red_and_analysis_arrows_are_not(chopin):
 
 def test_bracket_and_ring_are_drawn_in_red_pixels(chopin):
     page = _page(chopin, [
-        {"type": "voice_leading", "kind": "bracket", "from_note": EB4, "to_note": D4, "label": "spacing"},
-        {"type": "voice_leading", "kind": "ring", "from_note": D4, "label": "range"},
+        {"type": "voice_leading", "kind": "bracket", "from_note": EB4, "to_note": D4, "label": "S"},
+        {"type": "voice_leading", "kind": "ring", "from_note": D4, "label": "r"},
     ])
-    assert _count(page.png(1), RED) > 300
+    assert _count(page.png(1), RED) > 120  # the codes are one letter, so the ring and bracket carry the pixels
 
 
 def test_identical_marks_on_the_same_notes_are_drawn_once(chopin):
-    ring = {"type": "voice_leading", "kind": "ring", "from_note": EB4, "label": "range"}
+    ring = {"type": "voice_leading", "kind": "ring", "from_note": EB4, "label": "r"}
     once = _page(chopin, [ring]).svgs[0]
     twice = _page(chopin, [ring, ring]).svgs[0]
-    assert twice.count("<ellipse") == once.count("<ellipse") and twice.count(">range<") == once.count(">range<") == 2  # a halo and the word itself
+    assert twice.count("<ellipse") == once.count("<ellipse") and twice.count(">r<") == once.count(">r<") == 2  # a halo and the word itself
 
 
 def test_two_callouts_on_one_note_sit_side_by_side(chopin):
@@ -82,11 +82,11 @@ def test_two_callouts_on_one_note_sit_side_by_side(chopin):
 
 def test_parallel_pair_has_one_label_between_its_two_lines(chopin):
     pair = [{"type": "voice_leading", "kind": "line", "from_note": _ref(4, 1.33, 1, "D6"), "to_note": _ref(4, 2.33, 1, "G5")},
-            {"type": "voice_leading", "kind": "line", "from_note": _ref(4, 1.33, 2, "F3"), "to_note": _ref(4, 2.33, 2, "F3"), "label": "5–5"}]
+            {"type": "voice_leading", "kind": "line", "from_note": _ref(4, 1.33, 2, "F3"), "to_note": _ref(4, 2.33, 2, "F3"), "label": "P5"}]
     svg = _page(chopin, pair).svgs[0]
-    assert svg.count(">5–5<") == 2  # one word: a halo and the word itself
+    assert svg.count(">P5<") == 2  # one word: a halo and the word itself
     ys = [float(y) for y in re.findall(r'<line[^>]* y1="([-\d.]+)"', svg)][-2:]
-    text_y = float(re.search(r'<text[^>]* y="([-\d.]+)"[^>]*>5–5<', svg).group(1))
+    text_y = float(re.search(r'<text[^>]* y="([-\d.]+)"[^>]*>P5<', svg).group(1))
     assert min(ys) < text_y < max(ys)
 
 
@@ -181,29 +181,35 @@ def _word(layout, string):
 
 
 def test_spacing_bracket_keeps_off_lyrics_and_its_word_off_the_bracket(layouts):
-    _chorale("bwv245.14", [_vl("bracket", _ref(9, 3.0, 1, "E5"), _ref(9, 3.0, 2, "C#4"), "spacing")], (1, 16))
+    _chorale("bwv245.14", [_vl("bracket", _ref(9, 3.0, 1, "E5"), _ref(9, 3.0, 2, "C#4"), "S")], (1, 16))
     layout = layouts[-1]
     path = next(p for p in layout.over.iter(f"{overlay.S}path") if p.get("d", "").count("L") == 3)
     x, ys = [float(v) for v in re.findall(r"L([-\d.]+),([-\d.]+)", path.get("d"))[0]][0], [float(v) for _, v in re.findall(r"L([-\d.]+),([-\d.]+)", path.get("d"))[:2]]
     words = [w for system in layout.systems for w in system.words]
     assert not any(w.x < x + 30 and w.right > x - 30 and w.y < max(ys) and w.bottom > min(ys) for w in words)
-    word = _word(layout, "spacing")
+    word = _word(layout, "S")
     assert not (word.x - 30 < x < word.right + 30 and word.y < max(ys) and word.bottom > min(ys))
 
 
-def test_overlap_rings_repeat_the_word_and_draw_no_leader(layouts):
-    page = _chorale("bwv64.4", [_vl("ring", _ref(14, 4.0, 1, "A4"), label="overlap"), _vl("ring", _ref(14, 1.0, 2, "B4"))], (13, 14))
+def test_overlap_rings_both_notes_with_one_code_and_no_leader(layouts):
+    page = _chorale("bwv64.4", [_vl("ring", _ref(14, 4.0, 1, "A4"), label="VO"), _vl("ring", _ref(14, 1.0, 2, "B4"))], (13, 14))
     svg = page.svgs[0]
-    assert len(re.findall(r'<ellipse[^>]*stroke="#D50000"', svg)) == 2 and svg.count(">overlap<") == 4  # each ring: a halo and its word
+    assert len(re.findall(r'<ellipse[^>]*stroke="#D50000"', svg)) == 2 and svg.count(">VO<") == 2  # one code: a halo and the code
     assert 'stroke-width="20"' not in svg  # no leader line across the lyrics
+
+
+def test_codes_of_rings_on_one_chord_sit_together(chopin):
+    svg = _page(chopin, [{"type": "voice_leading", "kind": "ring", "from_note": _ref(1, 1.33, 2, "G3"), "label": "VC"},
+                         {"type": "voice_leading", "kind": "ring", "from_note": _ref(1, 1.33, 2, "Eb4"), "label": "r"}]).svgs[0]
+    assert svg.count(">r VC<") == 2 and ">VC<" not in svg  # one group of codes (a halo and the word), not one per note
 
 
 def test_direct_octave_word_sits_under_the_lower_voice_when_the_staves_are_apart(layouts):
     _chorale("bwv418", [_vl("line", _ref(0, 1.0, 1, "E4"), _ref(1, 1.0, 1, "A4")),
-                        _vl("line", _ref(0, 1.0, 4, "A2"), _ref(1, 1.0, 4, "A3"), "direct 8ve")], (0, 1))
+                        _vl("line", _ref(0, 1.0, 4, "A2"), _ref(1, 1.0, 4, "A3"), "H8")], (0, 1))
     layout = layouts[-1]
     lower = max(float(line.get("y1")) for line in layout.over.iter(f"{overlay.S}line"))
-    assert _word(layout, "direct 8ve").y > lower - 200
+    assert _word(layout, "H8").y > lower - 200
 
 
 def _functions(chopin, spec):
@@ -234,3 +240,13 @@ def test_function_words_are_chosen_for_the_whole_page(chopin):
     # One crowded piece (two chords a beat apart) forces letters everywhere; a long run elsewhere must not keep its word.
     svg = _functions(chopin, [(1, 1, "I", "T", "Eb"), (1, 1.33, "V", "D", None), (3, 1, "I", "T", None), (4, 1, "V", "D", None)])
     assert ">tonic<" not in svg and ">dominant<" not in svg and ">T<" in svg and ">D<" in svg
+
+
+def test_cadential_six_four_continues_into_the_next_dominant(chopin):
+    items = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "Cad64", "key": "Eb"},
+             {"type": "harmony", "at": {"measure": 1, "beat": 2}, "label": "V7"},
+             {"type": "harmony", "at": {"measure": 2, "beat": 1}, "label": "I"}]
+    svg = _page(chopin, items).svgs[0]
+    assert svg.count(">V<") == 1 and ">cad.<" not in svg and svg.count(">-<") == 2  # V⁶₄ then dashed ⁷₃; no second V
+    other = _page(chopin, [items[0], {**items[2], "at": {"measure": 1, "beat": 2}}]).svgs[0]
+    assert other.count(">V<") == 1 and ">-<" not in other  # a following chord that is not V keeps its own numeral

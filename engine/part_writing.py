@@ -34,10 +34,11 @@ from engine.score import ScoreIndex
 
 Voice = tuple[int, int]
 RANGES = (("C4", "G5"), ("G3", "D5"), ("C3", "G4"), ("F2", "D4"))
-# Short words drawn at the notes (textbook figures "5–5" and Iowa's "direct 5th"); one per voice pair, not per line
-LABELS = {"parallel_fifths": "5–5", "parallel_octaves": "8–8", "direct_fifths": "direct 5th", "direct_octaves": "direct 8ve",
-          "voice_crossing": "crossed", "voice_overlap": "overlap", "spacing": "spacing", "range": "range",
-          "doubled_leading_tone": "doubled LT", "unresolved_seventh": "7th", "unresolved_leading_tone": "LT"}
+# Robert Kelley's part-writing grading codes (robertkelleyphd.com/home/partwritingnotations.htm), drawn at the marks to keep
+# busy bars clean; the plain-words sentence naming the voices lives in each finding's `why`. One code per pair, not per line.
+LABELS = {"parallel_fifths": "P5", "parallel_octaves": "P8", "direct_fifths": "H5", "direct_octaves": "H8",
+          "voice_crossing": "VC", "voice_overlap": "VO", "spacing": "S", "range": "r",
+          "doubled_leading_tone": "D", "unresolved_seventh": "R", "unresolved_leading_tone": "R"}
 LINES = {"parallel_fifths", "parallel_octaves", "direct_fifths", "direct_octaves"}  # a line along each of the two voices
 ARROWS = {"unresolved_seventh", "unresolved_leading_tone"}  # an arrow to the note that follows
 BRACKETS = {"spacing"}  # everything else rings the notes involved
@@ -408,18 +409,23 @@ def as_text(index: ScoreIndex, chords=None) -> str:
     ]
     if not found:
         return lines[0] + "\nNo violations found."
+    seen = set()
     spots = {}  # first position -> (findings, {mark: labels}, callout note)
     for f in found:
         pos = list(zip(f.bars, f.beats))
         label, upper, lower = LABELS[f.rule], f.voices[0], f.voices[-1]
         marks = []  # (kind, refs, label or None)
         if f.rule in LINES:
-            # The word goes once, under the lower voice's line, as Milne sets "5 – 5" under the bass.
+            # The code goes once, under the lower voice's line, as Milne sets "5 – 5" under the bass.
             marks = [("line", (ref(pos[0], v), ref(pos[1], v)), label if v == lower else None) for v in f.voices]
         elif f.rule in ARROWS:
             marks = [("arrow", (ref(pos[0], upper), ref(pos[1], upper)), label)]
         elif f.rule in BRACKETS:
-            marks = [("bracket", (ref(pos[0], upper), ref(pos[0], lower)), label)]
+            # A bracket between two staves would run through the lyrics between them: ring both notes instead.
+            if at[pos[0]][upper][0].staff == at[pos[0]][lower][0].staff:
+                marks = [("bracket", (ref(pos[0], upper), ref(pos[0], lower)), label)]
+            else:
+                marks = [("ring", (ref(pos[0], v),), label if v == lower else None) for v in (upper, lower)]
         elif f.rule == "voice_overlap":
             new = upper if pitch_of(pos[1], upper) < pitch_of(pos[0], lower) else lower
             old = lower if new == upper else upper
@@ -427,7 +433,13 @@ def as_text(index: ScoreIndex, chords=None) -> str:
         else:  # ring each note involved; the word goes at the highest
             top = max(f.voices, key=lambda v: pitch_of(pos[0], v) or 0)
             marks = [("ring", (ref(pos[0], v),), label if v == top else None) for v in f.voices]
-        findings, drawn, _ = spots.setdefault(pos[0], ([], {}, ref(pos[0], f.voices[0])))
+        # The same fault found at each subdivision of a held pair is one finding; and every chord gets one callout
+        # (the one the motion arrives at), however many faults it has.
+        same = (f.rule, f.voices, f.why, tuple((kind, refs) for kind, refs, _ in marks))
+        if same in seen:
+            continue
+        seen.add(same)
+        findings, drawn, _ = spots.setdefault(pos[-1], ([], {}, ref(pos[0], f.voices[0])))
         findings.append(f)
         for kind, refs, word in marks:
             if None not in refs:

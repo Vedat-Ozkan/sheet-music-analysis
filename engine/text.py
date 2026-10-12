@@ -104,8 +104,8 @@ def _numeral_chunks(part: str, size: float, x: float, bold: bool, inversion_lett
     if not match:
         return [Chunk(part, x, 0, size, bold)], x + width(part, size, bold)
     chunks: list[Chunk] = []
-    # OMT's cadential six-four: lower case with a period.
-    base = match["accidental"].translate(SYMBOLS) + ("cad." if match["root"] == "Cad" else match["root"])
+    # Open Music Theory and FFF write the cadential six-four as the dominant it sounds as: V with 6–4 stacked.
+    base = match["accidental"].translate(SYMBOLS) + ("V" if match["root"] == "Cad" else match["root"])
     chunks.append(Chunk(base, x, 0, size, bold))
     x += width(base, size, bold)
     if match["quality"]:
@@ -127,6 +127,18 @@ def _numeral_chunks(part: str, size: float, x: float, bold: bool, inversion_lett
     return chunks, x
 
 
+CONTINUATION = re.compile(r"^~\d+$")  # drawn only: what a cadential six-four's resolution chord shows in place of "V"
+
+
+def _continuation(digits: str, size: float, bold: bool) -> tuple[list[Chunk], float]:
+    """The figures of a chord that continues the cadential six-four's V (FFF: V⁶₄ - ⁵₃), each row led by the dash that
+    joins it to the row before. The figures come first so they stay centred over the chord's bass note."""
+    dash = width("-", size * FIGURE, bold) + size * 0.12
+    figures, advance = stack(list(digits), dash, size, bold)
+    dashes = [Chunk("-", 0, figure.dy, figure.size, bold) for figure in figures]
+    return figures + dashes, dash + advance
+
+
 def numeral(label: str, size: float, bold: bool = False, *, inversion_letters: bool = False,
             first_rows: list[str] | None = None) -> tuple[list[Chunk], float]:
     """Lay out a RomanText-style label ("V65/ii", "viio7", "bII6") with raised and stacked figures.
@@ -136,6 +148,9 @@ def numeral(label: str, size: float, bold: bool = False, *, inversion_letters: b
     Returns the chunks and the total width.
     """
     main, _, note = label.partition(" ")
+    if CONTINUATION.match(main):
+        return _continuation(main[1:], size, bold)
+    main = re.sub(r"^cad6/?4$", "Cad64", main, flags=re.IGNORECASE)
     # "V6/5" is a common spelling of V65; a secondary never starts with a digit.
     main = re.sub(r"(\d)/(\d)", r"\1\2", main)
     parts = _split_secondary(main)

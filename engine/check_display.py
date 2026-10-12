@@ -19,6 +19,7 @@ ROW = 640  # from the student's baseline to the tool's
 SIZE = 330  # smallest text that reads at chat size (about 11 px)
 STROKE = 30  # the spec's stroke for rings and underlines
 CORNER = 120  # ring corner radius: small enough that the corners of a stacked figure's text box stay inside
+BADGE_GAP = 90  # clear space between a numeral (or its ring) and its note number
 KEY_CLEAR = 40  # extra space between a key label and a ring that follows it
 RING_PAD = 60  # clear space between a label and the ring round it
 NOTE_LINE = 500
@@ -66,11 +67,12 @@ def _badge_radius(number):
 
 
 def _badge(layout, left, cy, number, color):
-    """A note's number in a filled disc, as the analysis page's callouts. A bare raised digit beside a numeral reads
-    as a chord figure (IV³), so a note's number is always a disc."""
+    """A note's number in an outlined circle, set apart from the numeral. A bare raised digit beside a numeral reads
+    as a chord figure (ii⁷ 1), and the analysis page's solid black callouts must not be mistaken for these."""
     radius = _badge_radius(number)
-    layout._add('circle', cx=round(left + radius), cy=round(cy), r=round(radius), fill=color, **{'class': 'note-number'})
-    layout._text(left + radius, cy + SIZE * 0.34, str(number), SIZE, bold=True, fill='#ffffff', anchor='middle')
+    layout._add('circle', cx=round(left + radius), cy=round(cy), r=round(radius), fill='none', stroke=color,
+                stroke_width=STROKE, **{'class': 'note-number'})
+    layout._text(left + radius, cy + SIZE * 0.34, str(number), SIZE, fill=color, anchor='middle')
     return Box(left, cy - radius, 2 * radius, 2 * radius)
 
 
@@ -78,7 +80,7 @@ def _mark_width(item, marks):
     cls = item['classification']
     if cls in ('agrees', 'same_chord_different_spelling'):
         return 90 + 220
-    number = 40 + 2 * _badge_radius(marks)
+    number = BADGE_GAP + 2 * _badge_radius(marks)
     if cls == 'different_chord':
         return 2 * RING_PAD + number
     if cls == 'different_key':
@@ -336,7 +338,7 @@ def draw(layout, results, last_page=True):
                     kind = 'different_chord_and_key' if tool['key'] != student['key'] else cls
                     notes.append([number, item['at'], item['at'], NOTES[kind], ERROR])
                     # Raised clear of the ring.
-                    row.append(_badge(layout, row[-1].right + 40, first - 250, number, ERROR))
+                    row.append(_badge(layout, row[-1].right + BADGE_GAP, first - 130, number, ERROR))
                 elif cls == 'different_key':
                     # The student's chord is right, so: no ring, no tick, and one neutral note for the whole run.
                     pair = (student['figure'], student['key'], tool['figure'], tool['key'])
@@ -347,7 +349,7 @@ def draw(layout, results, last_page=True):
                         number += 1
                         run = [number, item['at'], item['at'], [pair], NEUTRAL]
                         notes.append(run)
-                        row.append(_badge(layout, row[-1].right + 40, first - 250, number, NEUTRAL))
+                        row.append(_badge(layout, row[-1].right + BADGE_GAP, first - 130, number, NEUTRAL))
             else:
                 row.append(layout._text(x, first, '?', NUMERAL_SIZE, bold=True, fill=ERROR))
             if tool and (not student or cls in DIFFERS):

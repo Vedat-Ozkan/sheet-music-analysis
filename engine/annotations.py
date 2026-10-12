@@ -87,7 +87,7 @@ class NonChordTone(Annotation):
 
 # The words part_writing puts on its arrows (an unresolved seventh or leading tone). An arrow with any other label,
 # or none, is an analysis mark the model draws (a resolution) and is not red.
-FAULT_ARROW_LABELS = frozenset({"7th", "LT"})
+FAULT_ARROW_LABELS = frozenset({"R"})  # Kelley's improper-resolution arrow
 
 
 class VoiceLeading(Annotation):

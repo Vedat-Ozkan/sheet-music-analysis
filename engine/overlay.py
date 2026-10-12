@@ -567,6 +567,18 @@ class PageLayout:
                 continue
             by_system.setdefault(system.index, []).append((self._bass_centre(harmony.at, x), harmony))
             key_at_start.setdefault(system.index, key)
+        banded = set(banded)
+        for system_index, labels in by_system.items():
+            # A cadential six-four's V goes on as ⁵₃ (or ⁷₃) over the next chord, not as a second "V" (FFF, OMT).
+            key = key_at_start[system_index]
+            for position, (centre, harmony) in enumerate(labels):
+                if position and re.fullmatch(r"(?i)cad6/?4", labels[position - 1][1].label) and harmony.label in ("V", "V7") \
+                        and (harmony.key or labels[position - 1][1].key or key) == (labels[position - 1][1].key or key):
+                    joined = harmony.model_copy(update={"label": "~53" if harmony.label == "V" else "~73"})
+                    if id(harmony) in banded:
+                        banded.add(id(joined))
+                    labels[position] = (centre, joined)
+                key = harmony.key or key
         gap = NUMERAL_SIZE * 0.3  # at least a letter's width between labels
         previous = None  # the key in force at the end of the last line drawn
         for system_index, labels in by_system.items():
@@ -704,7 +716,7 @@ class PageLayout:
     def _draw_voice_marks(self, marks: list[VoiceLeading]) -> None:
         """Draw the part-writing marks. Identical marks on the same notes are drawn once (a held note must not
         print its ring or word twice); the two lines of one parallel or direct pair share one word, set between
-        them; the second ring of an overlap repeats the word of the first."""
+        them; the codes of rings on one chord are set together."""
         unique: dict[tuple, list] = {}  # (kind, from event, to event) -> [mark, labels]
         for mark in marks:
             try:
@@ -728,7 +740,7 @@ class PageLayout:
                 pairs.setdefault((first.segment, first.onset, second.segment, second.onset), []).append(entry)
         shared = {id(entry): group for group in pairs.values() if len(group) == 2 for entry in group}
         done: set[int] = set()
-        last = None  # (system, labels, position) of the labelled ring just drawn
+        rings: list[tuple[System, Box, list[str], tuple]] = []  # words are placed once every other mark is down
         for entry in entries:
             mark, labels = entry
             if id(entry) in done:
@@ -739,13 +751,8 @@ class PageLayout:
             except NotOnPage:
                 continue
             if mark.kind == "ring":
-                # The unlabelled second ring of an overlap carries the same word as the first: textbooks tie the two
-                # by repeating the word, not by a leader that would run across lyrics and staves.
-                partner = last if not labels and last and last[0] is system_a and last[2] != (mark.from_note.measure, mark.from_note.beat) else None
-                self._draw_ring(partner[1] if partner else labels, system_a, a)
-                last = (system_a, labels, (mark.from_note.measure, mark.from_note.beat)) if labels else None
+                rings.append((system_a, self._draw_ring(system_a, a), labels, (mark.from_note.measure, mark.from_note.beat)))
                 continue
-            last = None
             if mark.kind == "bracket":
                 self._draw_square_bracket(labels, system_a, a, b)
             elif mark.kind == "line" and id(entry) in shared:
@@ -754,6 +761,25 @@ class PageLayout:
                 self._draw_parallel_pair(group)
             else:
                 self._draw_voice_line(mark, labels, system_a, a, system_b, b)
+        self._place_ring_codes(rings)
+
+    def _place_ring_codes(self, rings: list[tuple[System, Box, list[str], tuple]]) -> None:
+        """One group of codes for the rings of a chord that stand together (a crossing and a range fault on
+        neighbouring voices), set beside them as a whole, not repeated per note."""
+        groups: list[list[tuple[System, Box, list[str], tuple]]] = []
+        for ring in sorted(rings, key=lambda r: (r[0].index, r[3], r[1].cy)):
+            near = groups and groups[-1][-1][0] is ring[0] and groups[-1][-1][3] == ring[3] and ring[1].y - groups[-1][-1][1].bottom < 700
+            if near:
+                groups[-1].append(ring)
+            else:
+                groups.append([ring])
+        for group in groups:
+            codes = list(dict.fromkeys(code for _, _, labels, _ in group for code in labels))
+            if codes:
+                anchor = Box(min(r[1].x for r in group), min(r[1].y for r in group), 0, 0)
+                anchor = Box(anchor.x, anchor.y, max(r[1].right for r in group) - anchor.x, max(r[1].bottom for r in group) - anchor.y)
+                word = " ".join(codes)
+                self._label_near(group[0][0], anchor, word, text.width(word, LABEL_SIZE), LABEL_SIZE, right=True)
 
     def _shafts(self, system_a: System, a: Box, system_b: System, b: Box) -> list[tuple[System, float, float, float, float]]:
         if system_a is system_b:
@@ -887,15 +913,13 @@ class PageLayout:
         self._words.append(((string, Box(cx - width / 2, cy - height / 2, width, height)), system))
         return self._error_text(system, cx, cy, string, width, height, colour)
 
-    def _draw_ring(self, labels: list[str], system: System, note: Box) -> None:
-        """A red ring with its word(s) beside it."""
+    def _draw_ring(self, system: System, note: Box) -> Box:
         rx, ry = max(180, note.width / 2 + 60), max(135, note.height / 2 + 45)
         ring = Box(note.cx - rx, note.cy - ry, 2 * rx, 2 * ry)
         self._add("ellipse", cx=round(note.cx), cy=round(note.cy), rx=round(rx), ry=round(ry),
                   fill="none", stroke=ERROR, stroke_width=30)
         self._reserve(system, ring, pad=30)
-        for label in labels:
-            self._label_near(system, ring, label, text.width(label, LABEL_SIZE), LABEL_SIZE, right=True)
+        return ring
 
     def _draw_square_bracket(self, labels: list[str], system: System, a: Box, b: Box) -> None:
         """MT21C's thin bracket right of a chord, spanning the two notes (a spacing fault). It keeps to the
