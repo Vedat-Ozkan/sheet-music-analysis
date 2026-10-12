@@ -99,3 +99,9 @@ def test_other_directions_stay():
     mei = _mei(["Violin"], directions=("dolce", "Pedro", "Ped.", "*"))
     text = re.sub(r"<[^>]+>", "|", mei)
     assert "dolce" in text and "Pedro" in text
+
+
+def test_only_large_scores_hide_resting_staves():
+    # A quartet prints every staff on every system; hiding a resting first violin is for orchestral scores.
+    assert 'optimize="true"' not in _mei(["Violin 1", "Violin 2", "Viola", "Cello"])
+    assert 'optimize="true"' in _mei([f"Part {i}" for i in range(9)])

@@ -256,7 +256,9 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str]) -> None:
         patched,
     )
     patched = _short_names_and_bracket(patched)
-    patched = re.sub(r"<scoreDef\b(?![^>]*\boptimize=)", '<scoreDef optimize="true"', patched, count=1)
+    # Hiding resting staves suits large scores; a quartet or choir prints every staff on every system.
+    if len(re.findall(r"<staffDef\b", patched)) > BRACKET_MAX_STAVES:
+        patched = re.sub(r"<scoreDef\b(?![^>]*\boptimize=)", '<scoreDef optimize="true"', patched, count=1)
     patched = _drop_title_text(patched)
     # Pedal brackets look like analysis brackets on an annotated page, so pedalling is left out.
     patched = re.sub(r"<pedal\b[^>]*/>", "", patched)
