@@ -6,9 +6,10 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from engine.read_pdf import clean, is_scan, notice, open_pdf, problem_spots, read_pdf, without_slurs
+from engine.read_pdf import SETTINGS, clean, is_scan, notice, open_pdf, problem_spots, read_pdf, without_slurs
 from engine.render import engrave, load_toolkit
 from engine.score import ScoreIndex
+from engine.triplets import infer_triplets
 
 # Audiveris is not a Python package; point AUDIVERIS at its launcher, e.g. the spike's unpacked copy:
 # AUDIVERIS=spike/omr/tools/audiveris-deb/x/opt/audiveris/bin/Audiveris
@@ -55,3 +56,47 @@ def test_names_the_bars_a_reading_likely_got_wrong():
         "up to a full bar, so a note or triplet may be misread there. Bar 16: the G has a double sharp, which is rare; "
         "please check it. Slurs are left out, because they are often misread from PDFs; ask if you want them kept."
     )
+
+
+def test_names_bars_with_durations_that_disagree_with_written_notes():
+    # The production reading lost the singer's initial divisions. These bars have
+    # wrong onsets against the benchmark truth but escaped the voice-total check.
+    score = (Path(__file__).parent / 'data/pdf_warnings/schubert_die_stadt_audiveris.musicxml').read_bytes()
+    uneven, doubles = problem_spots(score)
+    assert {5, 7, 8, 10, 11} <= set(uneven)
+    assert doubles == []
+    assert 'Bars 1, 5, 6, 7 and 13 more' in notice(score, False, [], False)
+
+
+def test_accepts_the_correct_schubert_with_dots_and_triplets():
+    score = clean((Path(__file__).parent / 'data/pdf_warnings/schubert_die_stadt.mxl').read_bytes())
+    assert problem_spots(score) == ([], [])
+
+
+@pytest.mark.parametrize('filename', ['haydn_she_never_told_audiveris.musicxml',
+                                     'lang_auf_der_reise_audiveris.musicxml'])
+def test_names_bars_whose_backup_runs_before_the_start(filename):
+    # Both production readings lose notes in bar 1, leaving their second voices
+    # backed up beyond the start; their individual voice totals still look valid.
+    score = (Path(__file__).parent / 'data/pdf_warnings' / filename).read_bytes()
+    assert 1 in problem_spots(score)[0]
+    assert "Bars 1," in notice(score, False, [], False)
+
+
+def test_warning_signals_preserve_haydn_reading_selection():
+    folder = Path(__file__).parent / 'data/pdf_warnings'
+    variants = [(folder / f'haydn_she_never_told_variant{i}.mxl').read_bytes() for i in range(3)]
+
+    def raw(data, audiveris, options, deadline):
+        return variants[SETTINGS.index(options)], []
+
+    # Extra warning signals reversed the ranking and lost 31 correct pitch/onset
+    # events. Replay the real cached outputs through the production selection.
+    reading = read_pdf((folder / 'haydn_she_never_told.pdf').read_bytes(), raw=raw)
+    assert reading.musicxml == infer_triplets(clean(variants[1]))
+    assert 1 in problem_spots(reading.musicxml)[0]
+
+
+def test_fractional_durations_do_not_backup_before_the_bar():
+    score = (Path(__file__).parent / 'data/pdf_warnings/fractional_durations.musicxml').read_bytes()
+    assert problem_spots(score) == ([], [])
