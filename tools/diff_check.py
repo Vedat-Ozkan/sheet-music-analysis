@@ -88,8 +88,8 @@ def area_pdfwarn(args):
     out = {}
     for path in sorted((main_checkout() / "spike/omr").glob("*/cache/runs/results-final--*.musicxml")):
         def one():
-            bars, doubles = problem_spots(path.read_bytes())
-            return {"bars": bars, "doubles": [list(d) for d in doubles]}
+            bars, meter = problem_spots(path.read_bytes())
+            return {"bars": bars, "meter": meter}
         out[f"{path.parents[2].name}/{path.name}"] = _safe(one)
     return out
 

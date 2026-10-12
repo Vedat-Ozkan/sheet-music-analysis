@@ -12,6 +12,7 @@ import tempfile
 import time
 import xml.etree.ElementTree as ET
 import zipfile
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from fractions import Fraction
@@ -49,7 +50,7 @@ _REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_REST, _REST + _SMALL, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
 # Changes when the reading changes (Audiveris build, settings or the repairs after it), so cached readings made before are not reused.
-READER = "5.11.0-sma.1-best3-tuplet-rests"
+READER = "5.11.0-sma.1-best3-tuplet-rests-r2"
 RETRY_ABOVE = 3  # bars that don't add up before the other settings are tried; fewer gained nothing (log 35)
 
 
@@ -71,16 +72,14 @@ def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool, spots
     if skipped:
         pages = ", ".join(str(page) for page in skipped)
         text += f" Page{'s' if len(skipped) > 1 else ''} {pages} could not be read (no staves were found), so that music is missing."
-    uneven, doubles = spots or problem_spots(score)
+    uneven, meter = spots or problem_spots(score)
+    if meter:
+        text += f" No time signature was read; the bars were checked as {meter}."
     if uneven:
         verb = "doesn't" if len(uneven) == 1 else "don't"
         # With some bars left out of the list, "(shaded)" after "and 4 more" read as if only those 4 were shaded.
         who = f"The shaded bars ({_numbers(uneven)[5:]})" if len(uneven) > SHOWN else f"{_numbers(uneven)} (shaded)"
         text += f" {who} {verb} add up to a full bar, so a note or triplet may be misread there."
-    for bar, letter, kind in doubles[:SHOWN]:
-        text += f" Bar {bar}: the {letter} has a {kind} (circled), which is rare; please check it."
-    if len(doubles) > SHOWN:
-        text += f" There are {len(doubles) - SHOWN} more double sharps or flats, circled."
     return text + ("" if slurs_kept else " " + SLURS_LEFT_OUT)
 
 
@@ -93,7 +92,7 @@ def _numbers(bars: list[int]) -> str:
     return f"Bars {', '.join(shown)} and {len(bars) - SHOWN} more"
 
 
-def problem_spots(score: bytes) -> tuple[list[int], list[tuple[int, str, str]]]:
+def problem_spots(score: bytes) -> tuple[list[int], str | None]:
     """Where a reading is likely wrong, by the bar numbers the engraving prints (a pickup is 0).
 
     Bars that don't add up: a voice runs past the bar's meter, or a short voice runs on into the place where another
@@ -101,20 +100,24 @@ def problem_spots(score: bytes) -> tuple[list[int], list[tuple[int, str, str]]]:
     like five eighths where a triplet and two eighths were printed). A voice that just stops early is not counted:
     that is nearly always a rest the reader left out, with the notes right. A bar shorter than its meter in every voice is
     fine as the opening pickup, as a last bar that completes it, or as one half of a bar split in two (at a repeat
-    sign) when the two halves add up to one full bar. Doubles: double sharps and flats, which a reader produces from
-    an ornament's or a neighbouring note's accidental far more often than music has them. A duration inconsistent
-    with its written note value also points to misread timing, even when no meter was read for that part. A backup
-    that runs before the start of the bar means some of its music is missing."""
+    sign) when the two halves add up to one full bar. A duration inconsistent with its written note value also points to
+    misread timing. A backup that runs before the start of the bar means some of its music is missing.
+
+    A part with no time signature (a "C" read as a note) is checked against its most common bar length instead; the
+    second value is that meter as "x/y", or None when every part had one. (Replacing a meter that was read, because most
+    bars disagreed with it, lost 3 readings 3-5% in the benchmark: the mode is often a misread bar length.)"""
     return _problem_spots(score, timing=True)
 
 
-def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], list[tuple[int, str, str]]]:
+def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], str | None]:
     measures = ScoreIndex(load_toolkit(score).getMEI()).measures
     number_at = {segment.index: measure.number for measure in measures for segment in measure.segments}
     bars = []  # (printed number, full length, voice totals) per measure of the file, in order
     timing_errors = set()
+    inferred = None
     for part in ET.fromstring(score).iter("part"):
         divisions, full = 1, None
+        part_bars, guessed = [], False
         for position, measure in enumerate(part.iter("measure"), start=1):
             if measure.find("attributes/divisions") is not None:
                 divisions = int(measure.find("attributes/divisions").text)
@@ -147,10 +150,16 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], list[tuple
                     voices[voice] = voices.get(voice, 0) + length
                     staff_of.setdefault(voice, element.findtext("staff", "1"))
             voices = {(staff_of[voice], voice, gap.get(voice, 0)): length for voice, length in voices.items()}
-            if full and voices:
-                bars.append((position, number_at.get(position), full, voices))
+            if voices:
+                part_bars.append((position, number_at.get(position), full, voices))
+        common = Counter(length for *_, voices in part_bars if (length := max(voices.values())) > 0).most_common(1)
+        if common and not any(full for _, _, full, _ in part_bars):
+            inferred = inferred or _meter(common[0][0])
+            guessed = True
+            part_bars = [(position, number, common[0][0], voices) for position, number, _, voices in part_bars]
+        bars.extend((*bar, guessed) for bar in part_bars if bar[2])
     uneven = []
-    for i, (position, number, full, voices) in enumerate(bars):
+    for i, (position, number, full, voices, guessed) in enumerate(bars):
         longest = max(voices.values())
         overlapping = any(
             staff == other_staff and voice != other and short_length < length - TOLERANCE and gap_after > 0
@@ -158,7 +167,8 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], list[tuple
             for (staff, voice, _), short_length in voices.items()
             for (other_staff, other, gap_after), length in voices.items()
         )
-        short = longest < full - TOLERANCE
+        # A guessed meter says nothing about short bars: a piece that changes meter has them (benchmark: Hensel).
+        short = longest < full - TOLERANCE and not guessed
         neighbours = [bars[j] for j in (i - 1, i + 1) if 0 <= j < len(bars) and bars[j][0] != position]
         halves = any(abs(longest + max(other[3].values()) - full) <= TOLERANCE for other in neighbours)
         first, last = position == 1, position == max(bar[0] for bar in bars)
@@ -167,18 +177,12 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], list[tuple
         if longest > full + TOLERANCE or overlapping or (short and not (first or completes or halves)):
             if number is not None and number not in uneven:
                 uneven.append(number)
-    doubles = []
-    for measure in measures:
-        for event in measure.events:
-            if _is_double(event):
-                spot = (measure.number, event.pitch[0], "double sharp" if "##" in event.pitch else "double flat")
-                if spot not in doubles:
-                    doubles.append(spot)
-    return sorted(set(uneven) | (timing_errors if timing else set())), doubles
+    return sorted(set(uneven) | (timing_errors if timing else set())), inferred
 
 
-def _is_double(event) -> bool:
-    return bool(event.pitch and ("##" in event.pitch or "bb" in event.pitch[1:]))
+def _meter(length: Fraction) -> str:
+    # A length in quarter notes: 3 is 3/4, 3/2 is 3/8.
+    return f"{length.numerator}/{length.denominator * 4}"
 
 
 # The picture the user checks the reading against. Verovio numbers the first bar of each system; `number_bars` adds the
@@ -188,17 +192,10 @@ BAR_NUMBER_SIZE = 300
 
 
 def preview(score: bytes, tall: bool = False, spots=None) -> Engraving:
-    """The reading engraved for checking: bars that don't add up shaded pale yellow and double sharps and flats
-    ringed in amber, which the notice names. `tall` puts every bar on one page, for the card."""
+    """The reading engraved for checking: every bar numbered and bars that don't add up shaded pale yellow, which the
+    notice names. `tall` puts every bar on one page, for the card."""
     tall_page = {"adjustPageHeight": True, "pageHeight": 60000} if tall else {}
     return shade(load_toolkit(score, {**PREVIEW_OPTIONS, **tall_page}), score, spots)
-
-
-def _glyph_at(note, name: str) -> tuple[float, float] | None:
-    """Where Verovio puts the first glyph of a note's notehead or accidental (a translate in its transform)."""
-    use = note.find(f".//{S}g[@class='{name}']/{S}use")
-    found = re.search(r"translate\(([-\d.]+),\s*([-\d.]+)\)", use.get("transform", "")) if use is not None else None
-    return (float(found.group(1)), float(found.group(2))) if found else None
 
 
 def _courtesy_x(layout: PageLayout) -> dict[str, float]:
@@ -238,9 +235,8 @@ def number_bars(layout: PageLayout, index: ScoreIndex) -> None:
 def shade(toolkit, score: bytes, spots=None) -> Engraving:
     """Every page of a toolkit loaded with PREVIEW_OPTIONS, marked as `preview` says. `spots` is `problem_spots(score)`
     when the caller already has it."""
-    uneven, found = spots or problem_spots(score)
+    uneven, _ = spots or problem_spots(score)
     index = ScoreIndex(toolkit.getMEI())
-    doubles = {event.id for measure in index.measures for event in measure.events if _is_double(event)}
     layouts = []
     for page in range(1, toolkit.getPageCount() + 1):
         layout = PageLayout(toolkit.renderToSVG(page), index)
@@ -256,15 +252,6 @@ def shade(toolkit, score: bytes, spots=None) -> Engraving:
                     right = courtesy.get(segment.id, geometry.x1)
                     tint.tint(layout, Box(geometry.x0, top, right - geometry.x0, bottom - top),
                               tint.FLAG_BAR, tint.FLAG_OPACITY, radius=0)
-        for note in layout.root.iter(f"{S}g"):
-            if note.get("id") in doubles:
-                head = _glyph_at(note, "notehead")
-                accidental = _glyph_at(note, "accid")
-                if head:
-                    # The ring takes in the accidental, which is what is rare, as well as the notehead.
-                    left = (accidental or head)[0]
-                    right = head[0] + tint.SPACE * 1.18
-                    tint.ring(layout, (left + right) / 2, head[1], max(tint.SPACE, (right - left) / 2 + 60))
         layouts.append(layout)
     return tint.finish(layouts)
 
@@ -385,7 +372,7 @@ def run(audiveris: str, options: list[str], source: Path, work: str, env: dict, 
 
 
 def clean(mxl: bytes) -> bytes:
-    """Fix two habits of Audiveris's MusicXML that make Verovio lose or misdraw music (log 33).
+    """Fix habits of Audiveris's MusicXML that make Verovio lose or misdraw music (log 33), and drop marks it invents.
 
     It repeats <beam> on every note of a chord; Verovio then drops the chord notes ("Chord starting point has not
     been found"). It starts octave lines it never stops; Verovio draws the rest of the piece an octave off (the note
@@ -399,8 +386,18 @@ def clean(mxl: bytes) -> bytes:
         if note.find("chord") is not None:
             for beam in note.findall("beam"):
                 note.remove(beam)
+    # Without a repeat sign an ending is a phantom (8 of 11 PDFs that had endings); the original has none.
+    if root.find(".//barline/repeat") is None:
+        for barline in root.iter("barline"):
+            for ending in barline.findall("ending"):
+                barline.remove(ending)
+        for measure in root.iter("measure"):
+            for barline in measure.findall("barline"):
+                if len(barline) == 0:
+                    measure.remove(barline)
     for part in root.iter("part"):
         _one_division(part)
+        _drop_restated_keys(part)
         open_lines, unclosed = {}, []
         for measure in part.iter("measure"):
             for direction in measure.findall("direction"):
@@ -417,6 +414,20 @@ def clean(mxl: bytes) -> bytes:
         for measure, direction in unclosed + list(open_lines.values()):
             measure.remove(direction)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _drop_restated_keys(part: ET.Element) -> None:
+    """Audiveris restates the key at page breaks (59 of 80 readings); a key that equals the current one is not a change."""
+    current = {}
+    for measure in part.iter("measure"):
+        for attributes in measure.findall("attributes"):
+            for key in attributes.findall("key"):
+                state = [(child.tag, child.text) for child in key]
+                if current.get(key.get("number")) == state:
+                    attributes.remove(key)
+                current[key.get("number")] = state
+            if len(attributes) == 0:
+                measure.remove(attributes)
 
 
 def _one_division(part: ET.Element) -> None:
