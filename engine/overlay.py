@@ -683,6 +683,11 @@ class PageLayout:
         if not right:
             sides = sides[2:] + sides[:2]
         sides += [(cx, cy + dy) for cx, cy in sides[:2] for dy in (-height, height)]
+        # Still near the note, but further out: higher or lower, and shifted past a stem on either side.
+        up, down = anchor.y - gap - height / 2, anchor.bottom + gap + height / 2
+        for extra in (150, 300, 450, 600):
+            sides += [(anchor.cx, up - extra), (anchor.cx, down + extra)]
+        sides += [(anchor.cx + sign * (width / 2 + shift), y) for shift in (120, 350, 600) for y in (up, down) for sign in (1, -1)]
 
         def padded(spot):
             return Box(spot[0] - width / 2 - LABEL_PAD, spot[1] - height / 2 - LABEL_PAD, width + 2 * LABEL_PAD, height + 2 * LABEL_PAD)
