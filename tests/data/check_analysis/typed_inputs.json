@@ -122,7 +122,20 @@
   {
     "id": "trailing-key",
     "text": "m1 I IV; key: G major",
-    "question": "Where does the change to"
+    "expected": [
+      [
+        1,
+        1,
+        "G",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "G",
+        "IV"
+      ]
+    ]
   },
   {
     "id": "address-key",
@@ -1345,12 +1358,26 @@
   {
     "id": "appended-shortkey",
     "text": "m1 I; G:",
-    "question": "Where does the change to"
+    "expected": [
+      [
+        1,
+        1,
+        "G",
+        "I"
+      ]
+    ]
   },
   {
     "id": "appended-in-key",
     "text": "m1 I; in G major:",
-    "question": "Where does the change to"
+    "expected": [
+      [
+        1,
+        1,
+        "G",
+        "I"
+      ]
+    ]
   },
   {
     "id": "spaced-secondary-seventh",
@@ -1723,5 +1750,81 @@
         "I"
       ]
     ]
+  },
+  {
+    "id": "lone-trailing-in",
+    "text": "m1 I IV in G",
+    "expected": [
+      [
+        1,
+        1,
+        "G",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "G",
+        "IV"
+      ]
+    ]
+  },
+  {
+    "id": "lone-trailing-minor",
+    "text": "m1 I V7 I key: d minor",
+    "expected": [
+      [
+        1,
+        1,
+        "d",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "d",
+        "V7"
+      ],
+      [
+        1,
+        3,
+        "d",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "lone-trailing-commas",
+    "text": "m1 I, V, I in D",
+    "expected": [
+      [
+        1,
+        1,
+        "D",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "D",
+        "V"
+      ],
+      [
+        1,
+        3,
+        "D",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "second-key-unclear",
+    "text": "C: m1 I V m2 I a:",
+    "question": "Where does the change to a"
+  },
+  {
+    "id": "slash-split-at-spaced",
+    "text": "m1 V/ii / V/V",
+    "question": "V/ii then V/V"
   }
 ]

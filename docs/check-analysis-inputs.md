@@ -1,7 +1,7 @@
 # Checking student analysis: input contract and MuseScore export
 
 `engine.check_analysis.from_text` returns sorted `Label(measure, beat, key,
-figure)` objects. `tests/data/check_analysis/typed_inputs.json` specifies 134
+figure)` objects. `tests/data/check_analysis/typed_inputs.json` specifies 139
 complete student answers and their exact expected labels or clarification.
 
 Every answer needs a bar address. After `m1`, `bar 1` or `measure 1`,
@@ -12,12 +12,13 @@ unknown and asks for them. An optional `ScoreIndex` validates positions
 against the actual score, including pickups and compound meter.
 
 Keys use uppercase tonic for major and lowercase for minor; explicit
-major/minor overrides tonic case. Only a key before the first numeral (`key: G major`,
-`G:`, `in G major:`) is the starting key. A key between numerals applies from the
-next numeral on (`bar 2 I V7 G: V7 I` changes key at the third label). A key
-with no numeral after it (`m1 I; G:`) asks where the change occurs, since it
-cannot be a starting key; put it before the first chord in the new key
-(`m3 G: I`). Two starting keys also ask.
+major/minor overrides tonic case. A lone key with no bar/beat address (`key: G major`,
+`G:`, `in G major:`) is the global key wherever it appears, including after the
+answer (`m1 I IV in G`). A lone key between numerals (`bar 2 I V7 G: V7 I`) is a
+modulation applying from the next numeral. When there are several unaddressed
+keys, those before the first numeral are starting keys and one with no numeral
+after it asks where the change occurs (`m1 I G: m2 I D:`); put it before the
+first chord in the new key (`m3 D: I`).
 Roman-numeral case is preserved: `II` and `ii` name different chords, so a
 student's case error belongs in comparison rather than being auto-corrected.
 Mixed case within a numeral (`vIi`, including secondary targets) asks which
