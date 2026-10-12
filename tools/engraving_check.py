@@ -19,6 +19,7 @@ import re
 from pathlib import Path
 
 from engine.annotate import render
+from engine import check_display
 from engine.annotations import AnnotationList
 from engine.overlay import LABEL_PAD, Box, PageLayout
 from tools.robustness import ASAP, CORPUS, MUSETRAINER, fetch
@@ -72,6 +73,21 @@ def _watch_numerals(self, *args, **kwargs):
 
 
 PageLayout.__init__, PageLayout._text, PageLayout._draw_harmonies = _watch_init, _watch_text, _watch_numerals
+
+
+def _whole_label(drawing):
+    def watched(layout, *args, **kwargs):
+        layout.in_numerals = True
+        try:
+            return drawing(layout, *args, **kwargs)
+        finally:
+            layout.in_numerals = False
+    return watched
+
+
+# The check page's numerals and keys are drawn in pieces; the drawing code records each whole label.
+check_display._numeral = _whole_label(check_display._numeral)
+check_display._key = _whole_label(check_display._key)
 
 
 def _touches(a: Box, b: Box, gap: float = 0.0) -> bool:

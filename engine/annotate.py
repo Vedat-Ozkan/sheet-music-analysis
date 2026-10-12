@@ -30,6 +30,10 @@ ANNOTATED_OPTIONS = {
 }
 
 
+CHECK_SPACING = 34
+CHECK_MARGIN = 500
+
+
 class AnnotationError(ValueError):
     """One or more annotations point at places that are not in the score."""
 
@@ -78,27 +82,22 @@ def render(
     role: str | None = None,
     piano: bool = False,
     student_labels: list[Label] | None = None,
-    comparison_variant: str | None = None,
 ) -> Engraving:
     """Engrave `measures` (printed numbers, inclusive; the whole score by default, if it is short enough) with annotations drawn on.
 
     With `piano`, the passage is drawn as a two-staff piano reduction; the annotations still describe the original.
-    Supply `student_labels` and `comparison_variant` (compact or guided) together to
-    replace the annotation overlay with a comparison against the reviewed harmonies."""
-    if comparison_variant not in (None, "compact", "guided"):
-        raise ValueError("comparison_variant must be compact or guided")
-    if (student_labels is None) != (comparison_variant is None):
-        raise ValueError("student_labels and comparison_variant must be supplied together")
+    With `student_labels`, the overlay is replaced by the student's labels checked against the annotations."""
     if piano:
         score, annotations = _piano_version(score, annotations, measures)
     options = ANNOTATED_OPTIONS
-    if comparison_variant:
-        options = {**options, "spacingSystem": 48, "pageMarginBottom": 500}
+    if student_labels is not None:
+        # The tool's row and the notes sit under the student's row, which is all Verovio reserves.
+        options = {**options, "spacingSystem": CHECK_SPACING, "pageMarginBottom": CHECK_MARGIN}
     toolkit = load_toolkit(score, options)
     index = ScoreIndex(toolkit.getMEI())
     check(annotations, index)
     results = None
-    if comparison_variant:
+    if student_labels is not None:
         from engine import check_analysis, check_display
         results = check_analysis.compare(student_labels, annotations.model_dump(exclude_none=True), index)
         annotations = check_display.reserve(results)
@@ -132,7 +131,7 @@ def render(
         if results is None:
             layout.draw(annotations, view, role)
         else:
-            check_display.draw(layout, results, comparison_variant)
+            check_display.draw(layout, results)
         pages.append(layout.to_svg())
     return Engraving(pages)
 
