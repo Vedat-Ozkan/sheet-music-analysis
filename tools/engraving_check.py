@@ -19,6 +19,7 @@ import re
 from pathlib import Path
 
 from engine.annotate import render
+from engine import check_display
 from engine.annotations import AnnotationList
 from engine.overlay import LABEL_PAD, Box, PageLayout
 from tools.robustness import ASAP, CORPUS, MUSETRAINER, fetch
@@ -74,6 +75,21 @@ def _watch_numerals(self, *args, **kwargs):
 PageLayout.__init__, PageLayout._text, PageLayout._draw_harmonies = _watch_init, _watch_text, _watch_numerals
 
 
+def _whole_label(drawing):
+    def watched(layout, *args, **kwargs):
+        layout.in_numerals = True
+        try:
+            return drawing(layout, *args, **kwargs)
+        finally:
+            layout.in_numerals = False
+    return watched
+
+
+# The check page's numerals and keys are drawn in pieces; the drawing code records each whole label.
+check_display._numeral = _whole_label(check_display._numeral)
+check_display._key = _whole_label(check_display._key)
+
+
 def _touches(a: Box, b: Box, gap: float = 0.0) -> bool:
     return a.x - gap < b.right and a.right + gap > b.x and a.y - gap < b.bottom and a.bottom + gap > b.y
 
@@ -102,7 +118,7 @@ def music_collisions(svg: str, skip: frozenset[str] = frozenset()) -> list[str]:
     for match in BBOX.finditer(svg):
         id, kind, x, y, h, w = match.groups()
         # Bar numbers' boxes come out unplaced (x near 0), so they would collide with every clef.
-        if kind in SOLID and kind not in skip and not (kind == "text" and _owner_kind(svg, match.start()) == "mNum"):
+        if kind in SOLID and kind not in skip and not (kind == "text" and _owner_kind(svg, match.start()) in {"mNum"} | skip):
             # The element a text box belongs to: one tempo mark is several boxes ("♩", "= 60").
             owner = next((pid for start, pid in reversed(parents) if start < match.start()), None) if kind == "text" else id
             boxes.append((kind, id, owner, float(x), float(y), float(x) + float(w), float(y) + float(h)))
@@ -138,7 +154,8 @@ def check(name: str, tag: str, style: str = "current") -> dict:
 def collisions(page_count: int) -> dict:
     """Check the recorded pages, including whole numeral labels rather than their stacked chunks."""
     overlapping, tight = [], []
-    for layout in _layouts:
+    # Earlier layouts only measured (line breaks, the room the check page's notes need): nothing of theirs is drawn.
+    for layout in _layouts[-page_count:]:
         labels = layout.labels + layout.harmony_labels
         for i, (string, box) in enumerate(labels):
             others = layout.music + [other for j, (_, other) in enumerate(labels) if j != i]
@@ -149,7 +166,7 @@ def collisions(page_count: int) -> dict:
     # Chord symbols on these pages are hidden placeholders that make room for the numerals.
     # The last layouts are the drawn pages; earlier ones only measured systems for line breaks.
     music = [hit for layout in _layouts[-page_count :] for hit in music_collisions(layout.source, frozenset({"harm"}))]
-    return {"labels": sum(len(layout.labels) + len(layout.harmony_labels) for layout in _layouts), "overlapping": overlapping, "tight": tight, "music": music}
+    return {"labels": sum(len(layout.labels) + len(layout.harmony_labels) for layout in _layouts[-page_count:]), "overlapping": overlapping, "tight": tight, "music": music}
 
 
 def main() -> None:

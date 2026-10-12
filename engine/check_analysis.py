@@ -307,7 +307,8 @@ def compare(student: list[Label], reviewed: dict, index: ScoreIndex) -> list[dic
 def compare_labels(student: list[Label], reference: list[Label], index: ScoreIndex) -> list[dict]:
     """Classify each student onset against the reference chord still active there.
 
-    Keys take precedence over chord differences. Gaps before the first reference
+    A chord that sounds different is a chord difference, whatever key the label names; the same chord named in
+    another key is a key difference. Gaps before the first reference
     label and unreadable reference labels are errors, never fabricated agreement.
     """
     student = _finish(student, index)
@@ -323,10 +324,11 @@ def compare_labels(student: list[Label], reference: list[Label], index: ScoreInd
         if r is None or s is None:
             raise ValueError(f"Unreadable harmony at bar {label.measure} beat {label.beat:g}")
         agreement = matches(r, s)
-        if not agreement['key']:
-            classification = 'different_key'
-        elif not agreement['chord']:
+        if not agreement['chord']:
+            # The label names both the chord and the key, so a chord that sounds different is the first thing to check.
             classification = 'different_chord'
+        elif not agreement['key']:
+            classification = 'different_key'
         elif not agreement['chord_and_bass']:
             classification = 'different_inversion'
         elif expected.figure == label.figure:

@@ -32,7 +32,7 @@ def test_typed_eight_bars(chopin):
     assert [item['classification'] for item in results[:5]] == [
         'same_chord_different_spelling', 'agrees', 'different_inversion', 'different_chord', 'agrees',
     ]
-    assert results[-1]['classification'] == 'different_key'
+    assert results[-1]['classification'] == 'different_chord'  # a B-flat triad is not the tool's B-flat seventh, and the key label differs too
     assert not results[0]['is_error']
     assert results[2]['matches']['chord'] and not results[2]['matches']['chord_and_bass']
     assert results[3]['reviewed']['figure'] == 'V7/ii'

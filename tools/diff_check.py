@@ -8,7 +8,7 @@ Areas (each maps an input name to a JSON-able output):
   partwriting  engine.part_writing findings (rule, bars, beats, voices) over tests/data/part_writing_*.musicxml + --limit Bach chorales
   pdfwarn      engine.read_pdf.problem_spots over the cached final Audiveris readings in the main checkout (read-only)
   export       engine.export.export_musicxml label placement (bar, beat, text) for scores + analyses already in tests/
-  render       SHA-256 of the default PNG of the golden Chopin render
+  render       SHA-256 of the PNG of the 9 engraving pieces (tools/engraving_check.py) in 3 numeral styles, plus the mozart-41 piano reduction
 
 The base ref is exported with `git archive` into a temp dir; each side runs in its own subprocess with PYTHONPATH set to
 its tree. Fixtures always come from the working tree (and, for git-ignored ones, the main checkout), so both sides see
@@ -151,9 +151,30 @@ def area_export(args):
 def area_render(args):
     from engine.annotate import render
     from engine.annotations import AnnotationList
-    score = (HERE / "tests/data/chopin_nocturne_op9_no2.mxl").read_bytes()
-    notes = AnnotationList.model_validate_json((HERE / "examples/chopin_op9_no2_m1-8.json").read_text())
-    return {"chopin m1-8 all": _safe(lambda: hashlib.sha256(render(score, notes, measures=(1, 8)).png(1)).hexdigest())}
+    from tools.engraving_check import PIECES
+    scores = main_checkout() / "out/engraving/scores"
+    out = {}
+    for name, (source, bars) in PIECES.items():
+        # The same cached copies on both sides; a network fetch would add a variable the check is not about.
+        score = (source if isinstance(source, Path) else _cached(scores, name)).read_bytes()
+        notes = AnnotationList.model_validate_json((HERE / f"examples/engraving/{name}.json").read_text())
+        for style in ("current", "abrsm", "figured_bass"):
+            styled = notes.model_copy(update={"style": style})
+            # PNG hashes, not SVG: Verovio's element IDs differ from run to run.
+            out[f"{name} {style}"] = _safe(lambda: hashlib.sha256(render(score, styled, measures=bars).png(1)).hexdigest())
+    for name in ("mozart-41",):
+        source, bars = PIECES[name]
+        score = (source if isinstance(source, Path) else _cached(scores, name)).read_bytes()
+        notes = AnnotationList.model_validate_json((HERE / f"examples/engraving/{name}.json").read_text())
+        out[f"{name} piano"] = _safe(lambda: hashlib.sha256(render(score, notes, measures=bars, piano=True).png(1)).hexdigest())
+    return out
+
+
+def _cached(scores, name):
+    found = next(scores.glob(f"{name}.*"), None)
+    if found is None:
+        raise SystemExit(f"render: no cached score for {name} in {scores}; run tools/engraving_check.py in the main checkout to fetch it")
+    return found
 
 
 def _safe(fn):
