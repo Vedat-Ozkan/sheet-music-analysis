@@ -7,7 +7,7 @@ from PIL import Image, ImageChops, ImageStat
 
 from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
-from engine.overlay import VOICE_COLOR
+from engine.overlay import ERROR
 
 GOLDEN = Path(__file__).parent / "golden" / "chopin_m1-8_all.png"
 
@@ -26,8 +26,8 @@ def test_views_show_different_layers(chopin, chopin_annotations):
     harmony = render(chopin, chopin_annotations, measures=(1, 8), view="harmony").svgs[0]
     voices = render(chopin, chopin_annotations, measures=(1, 8), view="voice_leading").svgs[0]
     form = render(chopin, chopin_annotations, measures=(1, 8), view="form").svgs[0]
-    assert ">tonic<" in harmony and "fill-opacity" not in harmony and VOICE_COLOR not in harmony  # function brackets, no colour, no arrows
-    assert VOICE_COLOR in voices and ">tonic<" not in voices and ">PAC<" not in voices
+    assert ">tonic<" in harmony and "fill-opacity" not in harmony and ERROR not in harmony  # function brackets, no colour, no arrows
+    assert ERROR in voices and ">tonic<" not in voices and ">PAC<" not in voices
     assert ">PAC<" in form and "ornamented repeat" in form and ">vi<" not in form
 
 

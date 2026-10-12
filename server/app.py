@@ -237,7 +237,7 @@ REVIEW_GUIDE = (
     "If the draft has a PART-WRITING CHECK section (chorale-style scores only), your first reply must include one "
     "sentence offering to check the voice leading, even when it also asks which bars to analyse; draw nothing from it "
     "unless the user says yes or asked for it. When they want it, add "
-    "one callout per numbered spot and the voice_leading arrows listed under it, with their labels (use the NoteRefs "
+    "one callout per numbered spot and the voice_leading marks listed under it (kind, notes and label exactly as given; use the NoteRefs "
     "given), and explain every finding of a spot in its numbered paragraph of the commentary, in terms of the notes. "
     "Call these strict classroom rules, not verdicts on a composer.\n\n"
     "If the draft has a STUDENT CHECK section, the user wants their own numerals checked: draw the "

@@ -191,4 +191,4 @@ def test_default_comparison_disabled_bytes(chopin, chopin_annotations):
     assert hashlib.sha256(page.png()).hexdigest() == PNG_HASH
 
 
-PNG_HASH = '087b2c712becc7a07e1a99216d4eec1e8b8c048b6d0be7884a3dd780c0c0314f'
+PNG_HASH = '4ffccea7ea549d595d32c28545080438190e86b90e7b2352665f9e47e2371d52'

@@ -63,7 +63,8 @@ def check(annotations: AnnotationList, index: ScoreIndex) -> None:
                 index.find_note(**annotation.note.model_dump())
             elif isinstance(annotation, VoiceLeading):
                 index.find_note(**annotation.from_note.model_dump())
-                index.find_note(**annotation.to_note.model_dump())
+                if annotation.to_note:
+                    index.find_note(**annotation.to_note.model_dump())
         except PositionError as error:
             problems.append(f"annotations[{number}] ({annotation.type}): {error}")
     if problems:
@@ -174,7 +175,7 @@ def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[in
         if isinstance(annotation, NonChordTone):
             annotation = annotation.model_copy(update={"note": moved[id(annotation.note)]})
         elif isinstance(annotation, VoiceLeading):
-            annotation = annotation.model_copy(update={"from_note": moved[id(annotation.from_note)], "to_note": moved[id(annotation.to_note)]})
+            annotation = annotation.model_copy(update={"from_note": moved[id(annotation.from_note)], "to_note": moved.get(id(annotation.to_note))})
         elif isinstance(annotation, Region) and annotation.staff:
             annotation = annotation.model_copy(update={"staff": None})
         pointed.append(annotation)
@@ -185,7 +186,7 @@ def _note_refs(annotation) -> list[NoteRef]:
     if isinstance(annotation, NonChordTone):
         return [annotation.note]
     if isinstance(annotation, VoiceLeading):
-        return [annotation.from_note, annotation.to_note]
+        return [annotation.from_note, *([annotation.to_note] if annotation.to_note else [])]
     return []
 
 
