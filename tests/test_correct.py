@@ -111,3 +111,11 @@ def test_internal_ties_trailing_rests_and_terminal_ties():
 def test_invalid_voice_data(text, message):
     with pytest.raises(correct.CorrectionError, match=message):
         correct.replace_bars(score(), text, part="P1")
+
+
+def test_replace_bars_survives_notes_running_past_the_bar_end():
+    # Bar 2 of 3/4 holds quarter, quarter and three eighths: a triplet typed without its tuplet.
+    score = (Path(__file__).parent / "data/correct_missed_triplet.musicxml").read_bytes()
+    text = correct.bars_from_musicxml(score, 2)
+    result = correct.replace_bars(score, text.replace("F5", "E5"))
+    assert correct.bars_from_musicxml(result, 2) == text.replace("F5", "E5")

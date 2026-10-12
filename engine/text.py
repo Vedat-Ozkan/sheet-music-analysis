@@ -73,7 +73,11 @@ def pretty_key(key: str) -> str:
     return key[:1] + key[1:].translate(SYMBOLS)
 
 
-def _numeral_chunks(part: str, size: float, x: float, bold: bool) -> tuple[list[Chunk], float]:
+def _numeral_chunks(part: str, size: float, x: float, bold: bool, inversion_letters: bool = False) -> tuple[list[Chunk], float]:
+    letter = ''
+    # ABRSM letters stay on the baseline while the preceding seventh is raised.
+    if inversion_letters and part.endswith(('b', 'c', 'd')) and NUMERAL.fullmatch(part[:-1]):
+        part, letter = part[:-1], part[-1]
     match = NUMERAL.match(part)
     if not match:
         return [Chunk(part, x, 0, size, bold)], x + width(part, size, bold)
@@ -98,10 +102,13 @@ def _numeral_chunks(part: str, size: float, x: float, bold: bool) -> tuple[list[
             for row, figure in enumerate(figures):
                 chunks.append(Chunk(figure, x + size * 0.03, top + row * step, figure_size, bold))
         x += max(width(figure, figure_size, bold) for figure in figures) + size * 0.05
+    if letter:
+        chunks.append(Chunk(letter, x, 0, size, bold))
+        x += width(letter, size, bold)
     return chunks, x
 
 
-def numeral(label: str, size: float, bold: bool = False) -> tuple[list[Chunk], float]:
+def numeral(label: str, size: float, bold: bool = False, *, inversion_letters: bool = False) -> tuple[list[Chunk], float]:
     """Lay out a RomanText-style label ("V65/ii", "viio7", "bII6") with raised and stacked figures.
 
     Anything after the first space is appended as a smaller plain note, e.g. "V7 4–3".
@@ -116,7 +123,7 @@ def numeral(label: str, size: float, bold: bool = False) -> tuple[list[Chunk], f
         if position:
             chunks.append(Chunk("/", x, 0, size, bold))
             x += width("/", size, bold)
-        part_chunks, x = _numeral_chunks(part, size, x, bold)
+        part_chunks, x = _numeral_chunks(part, size, x, bold, inversion_letters)
         chunks.extend(part_chunks)
     if note:
         note_size = size * 0.7

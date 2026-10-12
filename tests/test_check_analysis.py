@@ -1,4 +1,5 @@
 import json
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
@@ -31,7 +32,7 @@ def test_typed_eight_bars(chopin):
     assert [item['classification'] for item in results[:5]] == [
         'same_chord_different_spelling', 'agrees', 'different_inversion', 'different_chord', 'agrees',
     ]
-    assert results[-1]['classification'] == 'different_key'
+    assert results[-1]['classification'] == 'different_chord'  # a B-flat triad is not the tool's B-flat seventh, and the key label differs too
     assert not results[0]['is_error']
     assert results[2]['matches']['chord'] and not results[2]['matches']['chord_and_bass']
     assert results[3]['reviewed']['figure'] == 'V7/ii'
@@ -52,7 +53,7 @@ def test_musicxml_variants(bach):
 
 
 def test_chat_grammar():
-    assert check.from_text('bar 1 I, bar 2 V6 IV, bar 3 beat 3 ii65, key: G major; bar 5 in D: V7/V') == [
+    assert check.from_text('key: G major; bar 1 I, bar 2 V6 IV, bar 3 beat 3 ii65, bar 5 in D: V7/V') == [
         Label(1, 1, 'G', 'I'), Label(2, 1, 'G', 'V6'), Label(2, 2, 'G', 'IV'),
         Label(3, 3, 'G', 'ii65'), Label(5, 1, 'D', 'V7/V'),
     ]
@@ -148,3 +149,40 @@ def test_xml_offset_direction_keys_follow_musical_order():
     assert check.from_musicxml(xml) == [
         Label(1, 1, 'G', 'I'), Label(1, 3, 'D', 'I'), Label(2, 1, 'D', 'V'),
     ]
+
+
+TYPED_INPUTS = json.loads((ROOT / 'tests/data/check_analysis/typed_inputs.json').read_text())
+
+
+@pytest.mark.parametrize('case', TYPED_INPUTS, ids=lambda case: case['id'])
+def test_realistic_typed_inputs(case):
+    if 'question' in case:
+        with pytest.raises(check.ClarificationNeeded) as error:
+            check.from_text(case['text'])
+        assert case['question'] in error.value.question
+        assert error.value.question.endswith('?')
+    else:
+        assert check.from_text(case['text']) == [Label(*item) for item in case['expected']]
+
+
+def test_musescore_mixed_harmonies():
+    data = (ROOT / 'tests/data/check_analysis/musescore-mixed.musicxml').read_bytes()
+    index = ScoreIndex(load_toolkit(data).getMEI())
+    assert check.from_musicxml(data, index=index) == [Label(1, 1, 'G', 'I')]
+
+
+def test_musescore_native_roman_export():
+    data = (ROOT / 'tests/data/check_analysis/musescore-roman.musicxml').read_bytes()
+    index = ScoreIndex(load_toolkit(data).getMEI())
+    figures = ['I', 'V6', 'ii', 'V', 'vii', 'vii', 'bII6', 'N6', 'I6', 'Ger65', 'Fr43', 'I64']
+    labels = check.from_musicxml(data, index=index)
+    assert labels == [Label(bar, 1, 'G', figure) for bar, figure in enumerate(figures, 1)]
+    native = ET.parse(
+        ROOT / 'tests/data/check_analysis/musescore-roman.mscx',
+    )
+    original = [item.text for item in native.findall('.//harmonyInfo/name')]
+    assert [bar for bar, (before, after) in enumerate(zip(original, figures), 1) if before != after] == [3, 4, 5, 6, 9]
+    student = check.from_text('; '.join(f'bar {bar} {figure}' for bar, figure in enumerate(original, 1)), default_key='G', index=index)
+    reviewed = {'annotations': [{'type': 'harmony', 'at': {'measure': item.measure}, 'key': item.key, 'label': item.figure} for item in student]}
+    results = check.compare(labels, reviewed, index)
+    assert [item['at']['measure'] for item in results if item['is_error']] == [3, 4, 5, 6, 9]

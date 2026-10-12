@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import math
 import os
 import re
@@ -21,6 +22,9 @@ import pikepdf
 from engine.render import ScoreError, load_toolkit
 from engine.score import TOLERANCE, ScoreIndex
 from engine.triplets import infer_triplets
+from engine.tuplet_rests import infer_tuplet_rests
+
+log = logging.getLogger(__name__)
 
 # Where the Docker image unpacks the .deb; the skill and the tests pass their own copy.
 AUDIVERIS = os.environ.get("AUDIVERIS", "/opt/audiveris/bin/Audiveris")
@@ -33,6 +37,8 @@ CHECK = "This is what I read from your PDF; check it against your copy before I 
 SCAN_WARNING = "Scanned pages often have reading mistakes, so please check carefully."
 SLURS_LEFT_OUT = "Slurs are left out, because they are often misread from PDFs; ask if you want them kept."
 SHOWN = 4  # problem spots named in the message; the rest are counted
+_LENGTH = {"whole": 4, "half": 2, "quarter": 1, "eighth": Fraction(1, 2),
+           "16th": Fraction(1, 4), "32nd": Fraction(1, 8), "64th": Fraction(1, 16)}
 _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
 # Audiveris drops a rest within half a staff space of a note as a smudge, which loses the rests of a second voice and
 # mistimes the notes after them (log 35). Then the settings tried, in order: grace notes need small heads, and implicit
@@ -40,8 +46,8 @@ _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
 _REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_REST, _REST + _SMALL, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
-# Changes when the reading changes (Audiveris build or settings), so cached readings made before are not reused.
-READER = "5.11.0-sma.1-best3"
+# Changes when the reading changes (Audiveris build, settings or the repairs after it), so cached readings made before are not reused.
+READER = "5.11.0-sma.1-best3-tuplet-rests"
 RETRY_ABOVE = 3  # bars that don't add up before the other settings are tried; fewer gained nothing (log 35)
 
 
@@ -93,10 +99,17 @@ def problem_spots(score: bytes) -> tuple[list[int], list[tuple[int, str, str]]]:
     that is nearly always a rest the reader left out, with the notes right. A bar shorter than its meter in every voice is
     fine as the opening pickup, as a last bar that completes it, or as one half of a bar split in two (at a repeat
     sign) when the two halves add up to one full bar. Doubles: double sharps and flats, which a reader produces from
-    an ornament's or a neighbouring note's accidental far more often than music has them."""
+    an ornament's or a neighbouring note's accidental far more often than music has them. A duration inconsistent
+    with its written note value also points to misread timing, even when no meter was read for that part. A backup
+    that runs before the start of the bar means some of its music is missing."""
+    return _problem_spots(score, timing=True)
+
+
+def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], list[tuple[int, str, str]]]:
     measures = ScoreIndex(load_toolkit(score).getMEI()).measures
     number_at = {segment.index: measure.number for measure in measures for segment in measure.segments}
     bars = []  # (printed number, full length, voice totals) per measure of the file, in order
+    timing_errors = set()
     for part in ET.fromstring(score).iter("part"):
         divisions, full = 1, None
         for position, measure in enumerate(part.iter("measure"), start=1):
@@ -106,11 +119,26 @@ def problem_spots(score: bytes) -> tuple[list[int], list[tuple[int, str, str]]]:
             if time is not None and time.findtext("beats", "").isdigit():
                 full = Fraction(int(time.findtext("beats")) * 4, int(time.findtext("beat-type")))
             voices, staff_of, gap = {}, {}, {}  # gap: the hidden space a voice starts with
+            cursor = Fraction(0)
             for element in measure:
+                if element.tag == "backup" and element.findtext("duration"):
+                    cursor -= Fraction(element.findtext("duration")) / divisions
+                    if cursor < -TOLERANCE and (number := number_at.get(position)) is not None:
+                        timing_errors.add(number)
+                if (element.tag == "note" and element.find("pitch") is not None
+                        and element.find("grace") is None and element.find("time-modification") is None
+                        and element.findtext("duration")):
+                    expected = _LENGTH.get(element.findtext("type"))
+                    if expected is not None:
+                        expected *= 2 - Fraction(1, 2 ** len(element.findall("dot")))
+                        if abs(Fraction(element.findtext("duration")) / divisions - expected) > TOLERANCE:
+                            if (number := number_at.get(position)) is not None:
+                                timing_errors.add(number)
                 timed = element.tag == "forward" or (element.tag == "note" and element.find("chord") is None)
                 if timed and element.find("grace") is None and element.findtext("duration"):
                     voice = element.findtext("voice", "1")
                     length = Fraction(round(float(element.findtext("duration"))), divisions)
+                    cursor += Fraction(element.findtext("duration")) / divisions
                     if element.tag == "forward" and voices.get(voice, 0) == gap.get(voice, 0):
                         gap[voice] = gap.get(voice, 0) + length
                     voices[voice] = voices.get(voice, 0) + length
@@ -143,7 +171,7 @@ def problem_spots(score: bytes) -> tuple[list[int], list[tuple[int, str, str]]]:
                 spot = (measure.number, event.pitch[0], "double sharp" if "##" in event.pitch else "double flat")
                 if spot not in doubles:
                     doubles.append(spot)
-    return sorted(uneven), doubles
+    return sorted(set(uneven) | (timing_errors if timing else set())), doubles
 
 
 def without_slurs(score: bytes) -> bytes:
@@ -197,7 +225,12 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
         # A reading that lost pages is never preferred for having fewer bars that don't add up
         best = min([best, *(other for other in others if other)], key=lambda reading: (len(reading[1]), len(reading[2])))
     musicxml, skipped, _ = best
-    musicxml = infer_triplets(musicxml)
+    for repair in (infer_tuplet_rests, infer_triplets):
+        try:
+            musicxml = repair(musicxml)
+        except Exception:
+            # A repair is an improvement, not a requirement: if it fails, keep the reading as Audiveris gave it.
+            log.exception("PDF reading repair %s failed", repair.__name__)
     return PdfReading(musicxml, pages, scan, skipped)
 
 
@@ -215,7 +248,9 @@ def _read(data: bytes, audiveris: str, options: list[str], deadline: float, raw)
         return None
     mxl, skipped = read
     musicxml = clean(mxl)
-    return musicxml, skipped, problem_spots(musicxml)[0]
+    # The added timing warnings were measured on fixed readings; using them to
+    # rank alternatives can choose a less accurate reading (Haydn canzonet).
+    return musicxml, skipped, _problem_spots(musicxml, timing=False)[0]
 
 
 def audiveris_read(data: bytes, audiveris: str, options: list[str], deadline: float) -> tuple[bytes, list[int]] | None:

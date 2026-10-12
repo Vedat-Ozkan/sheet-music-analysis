@@ -35,12 +35,13 @@ from pydantic import BaseModel, ConfigDict
 from starlette.requests import Request
 from starlette.responses import Response
 
-from engine import draft
+from engine import correct, draft
 from engine import notes as note_list
 from engine import read_pdf as pdf_reader
-from engine import part_writing, reduce
+from engine import check_analysis, part_writing, reduce
 from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
+from engine.export import export_musicxml
 from engine.render import ScoreError, engrave, engrave_tall, load_toolkit
 from engine.score import PositionError, ScoreIndex
 
@@ -146,7 +147,7 @@ LIMIT_MESSAGE = (
 
 SCORE_INPUT_HELP = (
     "Give the score in exactly one way. score_file: a file the user attached to the chat. "
-    "score_id: the id returned by an earlier draft_analysis or read_pdf. "
+    "score_id: the id returned by an earlier draft_analysis, read_pdf or correct_bars. "
     "Never encode, paste or retype a file's contents. If the user has not attached a score, ask them to attach "
     "their MusicXML file (.mxl or .musicxml) to the chat."
 )
@@ -239,11 +240,15 @@ REVIEW_GUIDE = (
     "one callout per numbered spot and the voice_leading arrows listed under it, with their labels (use the NoteRefs "
     "given), and explain every finding of a spot in its numbered paragraph of the commentary, in terms of the notes. "
     "Call these strict classroom rules, not verdicts on a composer.\n\n"
+    "If the draft has a STUDENT CHECK section, the user wants their own numerals checked: draw the "
+    "page as usual from your reviewed analysis (how their numerals are marked on it is not decided yet), and write the commentary as a second "
+    "reader would, not as an answer key, following that section's guidance. This is for learning; if they say it is "
+    "coursework, remind them to check their course's rules on AI help.\n\n"
     "## Method" + SKILL_RULES
 )
 
 
-def make_draft(score: bytes, code: str, measures: tuple[int, int] | None) -> str:
+def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, student_analysis: str | None = None) -> str:
     index = ScoreIndex(load_toolkit(score).getMEI())
     cached = store.get(f"scores/{code}.draft.json")
     if cached:
@@ -261,6 +266,10 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None) -> str
         + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
         + reduce.as_text(index, first, last)
         + ("\n\n" + section if (section := part_writing.as_text(index, result.chords)) else "")
+        + (
+            "\n\n" + check_analysis.as_text(check_analysis.student_labels(student_analysis, score, index), result, index)
+            if student_analysis else ""
+        )
         + "\n\n"
         + REVIEW_GUIDE
     )
@@ -269,15 +278,27 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None) -> str
 apps = Apps()
 
 
+def musicxml_text(url: str, annotations: AnnotationList) -> str:
+    # Without harmony annotations the export is the unmodified original, so it has no labels to mention.
+    if not any(item.type == "harmony" for item in annotations.annotations):
+        return f"MusicXML (open in MuseScore, Sibelius or Dorico): {url}"
+    return (f"MusicXML with the harmony labels (open in MuseScore, Sibelius or Dorico): {url}\n"
+            "The file uses standard Roman numerals whatever the page style.")
+
+
 @apps.tool(
     resource_uri=CARD_URI,
     title="Draw the analysis on the score",
     description=(
         "Use this after draft_analysis, once you have reviewed the draft, to draw your analysis on the engraved "
-        "score. Takes the score_id and your annotation list and returns the page as an image plus PNG and PDF "
+        "score. Takes the score_id and your annotation list and returns the page as an image plus PNG, PDF and MusicXML "
         "links, shown to the user in a card. If a position does not exist in the score, the error lists each "
         "problem so you can fix the list and call again. A page shows at most 32 bars: for a longer piece, pass "
         "measure_range (e.g. 1-16) and draw it passage by passage. view is one of all, harmony, voice_leading, form. "
+        "Set annotations.style to abrsm (letter inversions, Ib, Vc) when the user mentions ABRSM, figured_bass when they ask "
+        "for figured bass, otherwise leave it out. "
+        "Offer the MusicXML link once per conversation, not after every render: it downloads a file for "
+        "MuseScore, Sibelius or Dorico. "
         "piano=true draws the same annotation list (written for the original score) on a two-staff piano reduction "
         "with instrument cues. For a score with more than four staves, draw the original first, then offer the user "
         "the piano reduction once; call again with piano=true only if they accept."
@@ -304,24 +325,36 @@ async def render_analysis(
     except AnnotationError as error:
         log("render_analysis", platform=source, problems=len(error.problems))
         return error_result("Fix these annotations and call again:\n" + "\n".join(error.problems))
-    except (ScoreError, PositionError) as error:
+    except ValueError as error:
         log("render_analysis", platform=source, error=str(error))
         return error_result(str(error))
+    # Optional export failures must not discard an engraving Verovio already accepted.
+    musicxml, export_warning = None, None
+    try:
+        musicxml = await anyio.to_thread.run_sync(export_musicxml, score, annotations.model_dump())
+    except Exception as error:
+        export_warning = "MusicXML export unavailable for this score. PNG and PDF are available."
+        log("render_analysis", platform=source, export_error=str(error))
     png = engraving.png(1)
     # The card shows a double-resolution page, sharp on high-density screens; the model gets the small one.
-    image_url, pdf_url = await anyio.to_thread.run_sync(
-        lambda: (publish(engraving.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"))
+    image_url, pdf_url, musicxml_url = await anyio.to_thread.run_sync(
+        lambda: (publish(engraving.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"),
+                 publish(musicxml, "musicxml") if musicxml is not None else None)
     )
     caption = f"Analysis, measures {measure_range}, view {view}" + (", piano reduction" if piano else "")
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
         view=view, measure_range=measure_range)
+    structured_content = {"image_url": image_url, "pdf_url": pdf_url, "caption": caption}
+    if musicxml_url:
+        structured_content["musicxml_url"] = musicxml_url
     # The card shows the page to the user; the image lets the chat model check its own annotations.
     return CallToolResult(
         content=[
             ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png"),
-            TextContent(type="text", text=f"{caption}, shown in a card. PDF: {pdf_url}"),
+            TextContent(type="text", text=f"{caption}, shown in a card. PDF: {pdf_url}\n"
+                        + (export_warning or musicxml_text(musicxml_url, annotations))),
         ],
-        structured_content={"image_url": image_url, "pdf_url": pdf_url, "caption": caption},
+        structured_content=structured_content,
     )
 
 
@@ -476,7 +509,11 @@ del mcp._lowlevel_server._request_handlers["subscriptions/listen"]
     description=(
         "Use this when the user wants a harmonic analysis of a MusicXML score (.mxl or .musicxml): Roman numerals, "
         "cadences, phrases, non-chord tones. Returns a neural model's draft as a table for you to review and correct, "
-        "plus a score_id. Follow it with render_analysis. " + SCORE_INPUT_HELP
+        "plus a score_id. Follow it with render_analysis. If the user wants their own analysis checked, pass their "
+        "Roman numerals as student_analysis, as they typed them (\"m1 I, m2 V6, m3 beat 3 ii65 ...\"), or the word "
+        "\"score\" when the numerals are written into their score file; the draft then lists, beat by beat, where "
+        "they agree with it. If the result is a question, ask the user that question and call again with their answer. "
+        + SCORE_INPUT_HELP
     ),
     annotations=read_only("Draft a harmonic analysis"),
     meta={"openai/fileParams": ["score_file"]},
@@ -486,12 +523,16 @@ async def draft_analysis(
     score_file: AttachedFile | None = None,
     score_id: str | None = None,
     measure_range: str = "all",
+    student_analysis: str | None = None,
 ) -> CallToolResult:
     """measure_range limits the table, e.g. "1-8"; the default "all" returns the whole piece."""
     source = platform(ctx)
     started = time.time()
     try:
         score, given = await resolve_score(score_file, score_id)
+        if student_analysis and student_analysis.strip().lower() != "score":
+            # Reading the grammar needs no score, so a question costs the user nothing against the limit.
+            check_analysis.from_text(student_analysis)
         if given == "score_id":
             code = clean_id(score_id)
             fresh = await anyio.to_thread.run_sync(store.get, f"scores/{code}.draft.json") is None
@@ -503,13 +544,85 @@ async def draft_analysis(
         if fresh and not await take("draft", source):
             log("limit", tool="draft_analysis", platform=source)
             return error_result(LIMIT_MESSAGE)
-        text = await anyio.to_thread.run_sync(make_draft, score, code, parse_measures(measure_range))
-    except (ScoreError, PositionError, draft.DraftError, httpx.HTTPError) as error:
+        text = await anyio.to_thread.run_sync(make_draft, score, code, parse_measures(measure_range), student_analysis)
+    except check_analysis.ClarificationNeeded as error:
+        return error_result(error.question)
+    except (ScoreError, PositionError, ValueError, draft.DraftError, httpx.HTTPError) as error:
         log("draft_analysis", platform=source, error=str(error))
         return error_result(str(error))
     log("draft_analysis", platform=source, input=given, score_bytes=len(score), measure_range=measure_range,
         seconds=round(time.time() - started, 1))
     return CallToolResult(content=[TextContent(type="text", text=text)])
+
+
+@mcp.tool(
+    title="Correct misread bars",
+    description=(
+        "Use this after read_pdf for a misread bar the user describes, or one read_pdf flagged or "
+        "you can see is misread when you are confident what it should be. Pass its score_id and replacement_bars "
+        "in N1 format, replacing every voice of each listed bar and including every staff. Example:\n"
+        "N1 div=24 ts=4/4 ks=0\nm3 len=96\n1.1: 24 C4 D4 48 E4\n"
+        "div is units per quarter note; m3 is printed bar 3; len is its length in those units. "
+        "Each staff.voice line uses numbers to set the duration for following tokens, + for chords, r for rests, "
+        "g for grace notes and ~ for ties to the next note; pitches are sounding pitches (e.g. F#4, Bb3). "
+        "Every voice must explicitly fill the existing bar, including rests. Header key/meter do not change the score. "
+        "Use part (a part id or name) in a score with multiple parts; staff numbers count within that part. Returns a new score_id, PNGs of only changed bars "
+        "and a note per bar; runs no model. If you proposed the correction, say it is your suggestion. "
+        "Show the redrawn bars and note; ask the user to confirm against their copy. "
+        "Only after confirmation analyse with draft_analysis using the new score_id. "
+        "If they decline, keep using the original score_id."
+    ),
+    annotations=read_only("Correct misread bars"),
+)
+async def correct_bars(
+    ctx: Context, score_id: str, replacement_bars: str, part: str | None = None,
+) -> CallToolResult:
+    source = platform(ctx)
+    try:
+        before, _ = await resolve_score(None, score_id)
+        # Parse and validate first so a bad replacement costs nothing; engraving is what the render limit covers.
+        after = await anyio.to_thread.run_sync(lambda: correct.replace_bars(before, replacement_bars, part=part))
+        if not await take("render", source):
+            log("limit", tool="correct_bars", platform=source)
+            return error_result(LIMIT_MESSAGE)
+        review = await anyio.to_thread.run_sync(lambda: correct.review_correction(before, after, part=part))
+        if not review.changed_bars:
+            log("correct_bars", platform=source, changed=0)
+            return CallToolResult(
+                content=[TextContent(type="text", text=f"No bars changed: the replacement matches the score. "
+                                     f"Nothing to confirm; keep using score_id {score_id}.")],
+                structured_content={"score_id": score_id, "changed_bars": [], "image_urls": [], "notes": {}},
+            )
+        pages = await anyio.to_thread.run_sync(
+            lambda: [engraving.png(page) for engraving in review.engravings
+                     for page in range(1, engraving.page_count + 1)]
+        )
+        urls = await anyio.to_thread.run_sync(
+            lambda: [publish(engraving.png(page, width=2800, colors=256), "png")
+                     for engraving in review.engravings for page in range(1, engraving.page_count + 1)]
+        )
+        # Stored last so a failed engraving leaves no unconfirmed score behind.
+        code = secrets.token_hex(3).upper()
+        await anyio.to_thread.run_sync(store.put, f"scores/{code}", after)
+    except (correct.CorrectionError, ScoreError, PositionError) as error:
+        log("correct_bars", platform=source, error=str(error))
+        return error_result("Fix the replacement bars and call correct_bars again: " + str(error))
+    log("correct_bars", platform=source, changed=len(review.changed_bars), pages=len(pages))
+    descriptions = list(review.notes.values())
+    text = (
+        f"score_id: {code}\n" + "\n".join(descriptions)
+        + "\nIf you proposed the correction, tell the user it is your suggestion. "
+        "Show the redrawn bars and note. Ask them to confirm against their copy; "
+        "only after confirmation call draft_analysis with this new score_id."
+        + f" If they decline, keep using score_id {score_id}."
+        + ("\nPNGs: " + " ".join(urls) if urls else "")
+    )
+    return CallToolResult(
+        content=[*(ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png")
+                   for png in pages), TextContent(type="text", text=text)],
+        structured_content={"score_id": code, "changed_bars": review.changed_bars,
+                            "image_urls": urls, "notes": {str(n): note for n, note in review.notes.items()}},
+    )
 
 
 @mcp.tool(
@@ -520,24 +633,41 @@ async def draft_analysis(
         "`notes`. Returns a neural model's draft analysis (chords, cadences, phrase ends, possible non-chord tones) "
         "as a table for you to review and correct before you annotate the score. Without such a note list you "
         "cannot analyse the score: tell the user that in Claude this needs the Sheet Music Analysis plugin "
-        "(from Claude's directory) and Code execution and file creation turned on in Settings > Capabilities."
+        "(from Claude's directory) and Code execution and file creation turned on in Settings > Capabilities. "
+        "If the user wants their own Roman numerals checked, pass them as student_analysis (the skill's script prints "
+        "the exact text); if the result is a question, ask the user that question and call again."
     ),
     annotations=read_only("Draft a harmonic analysis from a note list"),
 )
-async def draft_from_notes(ctx: Context, notes: str) -> CallToolResult:
+async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | None = None) -> CallToolResult:
     source = platform(ctx)
+    try:
+        # Reading the grammar needs no score, so a question costs the user nothing against the limit.
+        if student_analysis:
+            check_analysis.student_labels(student_analysis, None, None)
+    except check_analysis.ClarificationNeeded as error:
+        return error_result(error.question)
+    except ValueError as error:
+        return error_result(str(error))
     if not await take("draft", source):
         log("limit", tool="draft_from_notes", platform=source)
         return error_result(LIMIT_MESSAGE)
     started = time.time()
     try:
         result = await anyio.to_thread.run_sync(draft.draft_from_notes, notes)
-    except (note_list.NotesError, draft.DraftError) as error:
+        index = note_list.decode(notes)
+        if student_analysis:
+            student = check_analysis.student_labels(student_analysis, None, index)
+    except check_analysis.ClarificationNeeded as error:
+        return error_result(error.question)
+    except (note_list.NotesError, draft.DraftError, PositionError, ValueError) as error:
         log("draft_from_notes", platform=source, error=str(error), chars=len(notes))
         return error_result(str(error))
     text = draft.as_text(result)
-    if section := part_writing.as_text(note_list.decode(notes), result.chords):
+    if section := part_writing.as_text(index, result.chords):
         text += "\n\n" + section
+    if student_analysis:
+        text += "\n\n" + check_analysis.as_text(student, result, index)
     log("draft_from_notes", platform=source, chars_in=len(notes), seconds=round(time.time() - started, 1))
     return CallToolResult(content=[TextContent(type="text", text=text)])
 
@@ -546,11 +676,20 @@ async def draft_from_notes(ctx: Context, notes: str) -> CallToolResult:
 async def files(request: Request) -> Response:
     name = request.path_params["name"]
     data = None
-    if re.fullmatch(r"[A-Za-z0-9_-]+\.(png|pdf)", name):
+    if re.fullmatch(r"[A-Za-z0-9_-]+\.(png|pdf|musicxml)", name):
         data = await anyio.to_thread.run_sync(store.get, f"files/{name}")
     if data is None:
         return Response("This file has expired; pages are kept for one day.", status_code=404)
-    return Response(data, media_type="image/png" if name.endswith(".png") else "application/pdf")
+    media_types = {"png": "image/png", "pdf": "application/pdf", "musicxml": "application/vnd.recordare.musicxml+xml"}
+    extension = name.rsplit(".", 1)[1]
+    # An uploaded score can carry scripts into the export, so files download in a sandbox instead of rendering;
+    # page images stay inline so an image link opens in the browser.
+    disposition = "inline" if extension == "png" else "attachment"
+    return Response(data, media_type=media_types[extension], headers={
+        "Content-Disposition": f'{disposition}; filename="analysis.{extension}"',
+        "Content-Security-Policy": "sandbox",
+        "X-Content-Type-Options": "nosniff",
+    })
 
 
 @mcp.custom_route("/health", methods=["GET"])

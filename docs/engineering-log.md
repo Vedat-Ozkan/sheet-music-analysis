@@ -800,6 +800,28 @@ From the start of this work (the released Audiveris, one reading): main 86.6% / 
 
 **Not yet live.** Committed separately from the PDF work and not deployed: the pages go to the owner first.
 
+### 38. A night of Codex work on later phases, checked by Claude (2026-10-12)
+
+Six tracks ran overnight in Codex, each built, reviewed twice by a fresh Codex and fixed twice. Usage ran out at 02:04; the runner read the reset time (06:40), waited and resumed, and all six finished by 07:19.
+
+**Merged after Claude's check** (all 422 tests pass on the merged result):
+- **Corrected bars (Phase 2):** replaced bars get proper beams, triplets included, and `review_correction` returns only the changed bars, drawn alone, with a plain note ("Bar 18: three eighth notes are now a triplet."). Chopin bar 18 matches the PDF's rhythm; the bass beams 4 eighths together where Chopin beams 2+2.
+- **Export (Phase 6):** labels stay on their reviewed beat instead of moving to the next note. MuseScore 4.7.5 round trip keeps 128/128 labels on 10 scores (126/128 before).
+- **Check my analysis (Phase 3):** more typed forms (Unicode figures, ø, spaced slashes, augmented-sixth names); ambiguous input asks a question. MuseScore's Roman-numeral export reads all 12 labels, but MuseScore itself loses 5 meanings (ii65 to ii, V7/V to V, It+6 to I6).
+- **PDF warnings (Phase 2):** two new signals, durations that disagree with their note value and backups before the bar. On the 80 benchmark readings: 8 more wrong bars named, no new false warnings (main set recall 41.1% to 41.9%). Clef/key changes, density, short voices and range signals were tried and dropped: each lowered precision. The new signals do not change which reading is chosen (the first version did, and cost the Haydn canzonet 31 correct notes).
+
+**Sent back, then merged after a third round:**
+- **Voice-leading check:** the Bach audit (330 chorales) removed false unresolved-seventh and doubled-leading-tone reports, 13 of 88 sampled being checker bugs. The last overnight round, unreviewed, added 22 leading-tone reports, most of them III to VI motions in the home key where the note is not a leading tone. Sent back: a local dominant now needs evidence of its key. Against the reviewed round, exactly 3 leading-tone reports are added (BWV336, 245.40 and 64.4, all real V–I with the soprano leading tone leaping) and none removed. Reports 2582 to 2296 overall.
+- **Numeral styles (Phase 5):** ABRSM and figured bass render with no collisions and the default page is byte-identical. ABRSM set "V7b/vi" with a plain 7 beside raised ones; fixed. The styles still wait for the owner's look before they are offered.
+
+All 436 tests pass on main with every track merged.
+
+### 39. Check my analysis: the plumbing (Phase 3, 2026-10-12)
+
+`draft_analysis` and `draft_from_notes` take an optional `student_analysis`. Typed numerals are parsed before the daily limit is charged, so an unclear answer comes back as the parser's question at no cost. The draft gains a STUDENT CHECK section: each of the student's labels beside the draft's chord (confidence, runner-up, bass, pitch classes) and how they compare, with guidance to act as a second reader. Numerals written into the score file are read only when the argument is the word `score`: a published edition carries its own numerals, so reading them unasked would pass them off as the user's answer. In Claude, `skill/scripts/model_notes.py --student-analysis` validates the answer, prints the question if one is needed, and otherwise prints the answer in normalized typed form (stderr) for the tool call, since the draft is made server-side. Test piece: Chopin Op. 9 No. 2, bars 1-8, 20 labels with three planted differences (I53 for I, I6 for I, V65 for V65/vi), found as spelling variant, inversion and chord. No page marks yet, no deploy, SKILL.md untouched (paragraph in `docs/phase3-skill-paragraph.md`).
+
+`compare_labels` now classifies "key and chord both differ" as a different chord (it was a key difference), which also changes the STUDENT CHECK rows in the server and skill drafts.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
