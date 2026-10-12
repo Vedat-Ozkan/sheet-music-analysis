@@ -96,21 +96,25 @@ def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None
     text = text.translate(str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', '01234567890123456789'))
     # "/" always means "of", so spaces around it are tightened; a spaced hyphen between chords separates them.
     text = re.sub(r'\s*/\s*', '/', text)
+    text = re.sub(r'\bCad\s*6\s*[-–—]\s*4', 'Cad64', text, flags=re.IGNORECASE)
     text = re.sub(r'(?<=\S)\s+[-–—]\s+(?=\S)', ' ', text)
     tokens = list(TOKEN.finditer(text))
     key = _key(default_key)
-    # A key before the first numeral, or with no numeral before the next key, is the starting key;
-    # between numerals it is a modulation.
+    # Only a key before the first numeral is the starting key; after numerals it is a modulation that
+    # needs a numeral to apply to.
     initial_keys = set()
+    kinds = [t.lastgroup for t in tokens]
     for position, token in enumerate(tokens):
-        addressed = position > 0 and tokens[position - 1].lastgroup in ('bar', 'beat')
-        if token.lastgroup not in ('key', 'shortkey') or addressed:
+        addressed = position > 0 and kinds[position - 1] in ('bar', 'beat')
+        if kinds[position] not in ('key', 'shortkey') or addressed:
             continue
-        kinds = [t.lastgroup for t in tokens]
+        name = _key(re.sub(r'^(?:key\s*:?|in)\s*', '', token.group(), flags=re.I).rstrip(':'))
+        if 'label' not in kinds[:position]:
+            initial_keys.add(name)
+            continue
         stop = next((i for i in range(position + 1, len(kinds)) if kinds[i] in ('key', 'shortkey')), len(kinds))
-        following = kinds[position + 1:stop]
-        if 'label' not in following or 'label' not in kinds[:position]:
-            initial_keys.add(_key(re.sub(r'^(?:key\s*:?|in)\s*', '', token.group(), flags=re.I).rstrip(':')))
+        if 'label' not in kinds[position + 1:stop]:
+            raise ClarificationNeeded(f'Key {name} has no chord after it', f'Put the key just before the first chord in the new key, e.g. m3 {name}: I. Where does the change to {name} occur?')
     if len(initial_keys) > 1:
         raise ClarificationNeeded('Multiple unaddressed keys', 'Where does the key change occur (bar and beat)?')
     if initial_keys:
@@ -127,6 +131,9 @@ def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None
             key = _key(re.sub(r'^(?:key\s*:?|in)\s*', '', value, flags=re.I).rstrip(':'))
         else:
             value = value.strip('()[]\"\'.!')
+            if re.fullmatch(r'\d[-–—]\d', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label':
+                # A suspension (4-3) ornaments the chord before it, so it is not a chord of its own.
+                continue
             if re.fullmatch(r'(?:6|64|7|65|43|42)(?:/\S+)?', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label' and text[tokens[position - 1].end():token.start()].isspace():
                 previous = labels.pop()
                 labels.append(Label(previous.measure, previous.beat, previous.key, _figure(previous.figure + value, previous.key)))

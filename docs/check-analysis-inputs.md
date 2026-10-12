@@ -1,7 +1,7 @@
 # Checking student analysis: input contract and MuseScore export
 
 `engine.check_analysis.from_text` returns sorted `Label(measure, beat, key,
-figure)` objects. `tests/data/check_analysis/typed_inputs.json` specifies 129
+figure)` objects. `tests/data/check_analysis/typed_inputs.json` specifies 134
 complete student answers and their exact expected labels or clarification.
 
 Every answer needs a bar address. After `m1`, `bar 1` or `measure 1`,
@@ -12,12 +12,12 @@ unknown and asks for them. An optional `ScoreIndex` validates positions
 against the actual score, including pickups and compound meter.
 
 Keys use uppercase tonic for major and lowercase for minor; explicit
-major/minor overrides tonic case. A key before the first numeral (`key: G major`,
-`G:`, `in G major:`), or one with no numeral after it before the next key
-(including one appended to an answer), is the starting key. A key between
-numerals applies from the next numeral on (`bar 2 I V7 G: V7 I` changes key at
-the third label); give its bar/beat when it must start elsewhere. Conflicting
-starting keys ask where the change occurs.
+major/minor overrides tonic case. Only a key before the first numeral (`key: G major`,
+`G:`, `in G major:`) is the starting key. A key between numerals applies from the
+next numeral on (`bar 2 I V7 G: V7 I` changes key at the third label). A key
+with no numeral after it (`m1 I; G:`) asks where the change occurs, since it
+cannot be a starting key; put it before the first chord in the new key
+(`m3 G: I`). Two starting keys also ask.
 Roman-numeral case is preserved: `II` and `ii` name different chords, so a
 student's case error belongs in comparison rather than being auto-corrected.
 Mixed case within a numeral (`vIi`, including secondary targets) asks which
@@ -30,6 +30,9 @@ cannot (`V, 6`).
 
 Convention: chords are separated by spaces or commas; a hyphen with a chord
 on each side (`V - vi`) also separates, but never inside a figure (`V 4-3`).
+A digit pair joined by a hyphen or en dash right after a chord (`V7 4-3`)
+is a suspension: the label is the chord and the suspension is dropped.
+`Cad 6-4` reads as `Cad64`.
 A slash always means "of", spaced or not: `V7 / V` is `V7/V`, `ii / V` is
 `ii/V`, `V 7 / V`, `V ⁶₅ / ii`, `vii° / V` likewise. A slash between figure
 digits is a figure: `I6/4`, `V6/5`, `V4/2` read as `I64`, `V65`, `V42`, and
