@@ -41,6 +41,7 @@ from engine import read_pdf as pdf_reader
 from engine import part_writing, reduce
 from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
+from engine.export import export_musicxml
 from engine.render import ScoreError, engrave, engrave_tall, load_toolkit
 from engine.score import PositionError, ScoreIndex
 
@@ -274,10 +275,13 @@ apps = Apps()
     title="Draw the analysis on the score",
     description=(
         "Use this after draft_analysis, once you have reviewed the draft, to draw your analysis on the engraved "
-        "score. Takes the score_id and your annotation list and returns the page as an image plus PNG and PDF "
+        "score. Takes the score_id and your annotation list and returns the page as an image plus PNG, PDF and MusicXML "
         "links, shown to the user in a card. If a position does not exist in the score, the error lists each "
         "problem so you can fix the list and call again. A page shows at most 32 bars: for a longer piece, pass "
         "measure_range (e.g. 1-16) and draw it passage by passage. view is one of all, harmony, voice_leading, form. "
+        "Set annotations.style to abrsm when the user mentions ABRSM or grade exams, figured_bass when they ask "
+        "for figured bass, otherwise leave it out. "
+        "Offer the MusicXML link as 'open in MuseScore'; it contains the harmony labels on the original score. "
         "piano=true draws the same annotation list (written for the original score) on a two-staff piano reduction "
         "with instrument cues. For a score with more than four staves, draw the original first, then offer the user "
         "the piano reduction once; call again with piano=true only if they accept."
@@ -304,24 +308,36 @@ async def render_analysis(
     except AnnotationError as error:
         log("render_analysis", platform=source, problems=len(error.problems))
         return error_result("Fix these annotations and call again:\n" + "\n".join(error.problems))
-    except (ScoreError, PositionError) as error:
+    except ValueError as error:
         log("render_analysis", platform=source, error=str(error))
         return error_result(str(error))
+    # Optional export failures must not discard an engraving Verovio already accepted.
+    musicxml, export_warning = None, None
+    try:
+        musicxml = await anyio.to_thread.run_sync(export_musicxml, score, annotations.model_dump())
+    except Exception as error:
+        export_warning = f"MusicXML export unavailable: {error}. PNG and PDF are available."
+        log("render_analysis", platform=source, export_error=str(error))
     png = engraving.png(1)
     # The card shows a double-resolution page, sharp on high-density screens; the model gets the small one.
-    image_url, pdf_url = await anyio.to_thread.run_sync(
-        lambda: (publish(engraving.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"))
+    image_url, pdf_url, musicxml_url = await anyio.to_thread.run_sync(
+        lambda: (publish(engraving.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"),
+                 publish(musicxml, "musicxml") if musicxml is not None else None)
     )
     caption = f"Analysis, measures {measure_range}, view {view}" + (", piano reduction" if piano else "")
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
         view=view, measure_range=measure_range)
+    structured_content = {"image_url": image_url, "pdf_url": pdf_url, "caption": caption}
+    if musicxml_url:
+        structured_content["musicxml_url"] = musicxml_url
     # The card shows the page to the user; the image lets the chat model check its own annotations.
     return CallToolResult(
         content=[
             ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png"),
-            TextContent(type="text", text=f"{caption}, shown in a card. PDF: {pdf_url}"),
+            TextContent(type="text", text=f"{caption}, shown in a card. PDF: {pdf_url}\n"
+                        + (export_warning or f"Open in MuseScore (MusicXML, harmony labels): {musicxml_url}")),
         ],
-        structured_content={"image_url": image_url, "pdf_url": pdf_url, "caption": caption},
+        structured_content=structured_content,
     )
 
 
@@ -546,11 +562,12 @@ async def draft_from_notes(ctx: Context, notes: str) -> CallToolResult:
 async def files(request: Request) -> Response:
     name = request.path_params["name"]
     data = None
-    if re.fullmatch(r"[A-Za-z0-9_-]+\.(png|pdf)", name):
+    if re.fullmatch(r"[A-Za-z0-9_-]+\.(png|pdf|musicxml)", name):
         data = await anyio.to_thread.run_sync(store.get, f"files/{name}")
     if data is None:
         return Response("This file has expired; pages are kept for one day.", status_code=404)
-    return Response(data, media_type="image/png" if name.endswith(".png") else "application/pdf")
+    media_types = {"png": "image/png", "pdf": "application/pdf", "musicxml": "application/vnd.recordare.musicxml+xml"}
+    return Response(data, media_type=media_types[name.rsplit(".", 1)[1]])
 
 
 @mcp.custom_route("/health", methods=["GET"])
