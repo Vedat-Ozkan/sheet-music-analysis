@@ -77,7 +77,6 @@ def test_planted_tendency_errors():
         ("voice_crossing", (7,), (A, T)),
         ("voice_overlap", (5, 5), (A, T)),
         ("voice_overlap", (4, 4), (T, B)),  # B3 unison: tenor falls to A3.
-        ("unresolved_leading_tone", (5, 6), (S,)),  # E–A–D: outer C#5 falls to A4.
     }),
     ("bwv269", {("voice_overlap", (2, 3), (A, T)),
                 ("voice_overlap", (2, 2), (T, B))}),  # G3 unison: tenor falls to F#3.
@@ -323,3 +322,20 @@ def test_successive_dominants_are_not_a_tonic_arrival():
     assert applies(index)
     assert not any(h.rule == 'unresolved_leading_tone' and h.bars == (11, 11)
                    and h.beats == (2.0, 3.0) and h.voices == (B,) for h in check(index))
+
+
+@pytest.mark.parametrize('name, bar, beats, expected', [
+    ('bwv84.5', 4, (3.0, 4.0), False),
+    ('bwv418', 15, (1.5, 2.0), False),
+    ('bwv419', 11, (1.0, 2.0), False),
+    ('bwv336', 2, (3.0, 4.0), True),
+    ('bwv245.40', 18, (3.0, 4.0), True),
+    ('bwv64.4', 12, (1.0, 4.0), True),
+])
+def test_local_dominant_requires_key_evidence(name, bar, beats, expected):
+    # Diatonic III–VI in minor has no local leading-tone obligation.
+    index = read(DATA / f'part_writing_{name}.musicxml')
+    assert applies(index)
+    found = any(h.rule == 'unresolved_leading_tone' and h.bars == (bar, bar)
+                and h.beats == beats and h.voices == (S,) for h in check(index))
+    assert found == expected

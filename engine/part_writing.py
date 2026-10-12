@@ -173,17 +173,23 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
     sonorities = [(p, {v: es[0] for v, es in row.items() if len(es) == 1}) for p, row in rows]
     spans = sorted(chords or [], key=lambda c: (index.measure(c.measure).index, c.beat))
     keys = {}
+    context = stream.Stream()
     if not spans:
         for start in range(0, len(index.measures), 4):
             phrase = stream.Stream()
             for m in index.measures[start:start + 4]:
                 for e in m.events:
                     if e.pitch and not e.grace and e.duration > 0:
-                        phrase.append(note.Note(pitch(e), quarterLength=float(e.duration)))
+                        sounding_note = note.Note(pitch(e), quarterLength=float(e.duration))
+                        phrase.append(sounding_note)
+                        context.append(sounding_note)
             if phrase.notes:
                 estimated = phrase.analyze("key")
                 for m in index.measures[start:start + 4]:
                     keys[m.number] = estimated
+
+    context_key = context.analyze("key") if context.notes else None
+    context_tones = {p.pitchClass for p in context_key.pitches} if context_key else set()
 
     inferred = {}
     previous, local_key = None, None
@@ -338,9 +344,12 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                 if not retained and motion.directedName not in ("m-2", "M-2"):
                     add("unresolved_seventh", [before, destination], [v], f"The chordal seventh {a[v].pitch} does not resolve down by step.")
             if ka and kb and cb and v in (voices[0], voices[-1]):
-                # Successive tonicizations can make the previous local tonic a dominant again.
+                # A fifth-related diatonic III–VI motion is not evidence of tonicization.
+                # Require the wider tonic or chromatic evidence in the applied dominant.
                 if (not spans and ka.tonic.pitchClass == ca.root and ka != keys.get(before[0])
                         and cb.root == kb.tonic.pitchClass
+                        and context_key and (cb.root == context_key.tonic.pitchClass
+                                             or not ca.tones <= context_tones)
                         and cb.seventh != (cb.root + 10) % 12
                         and ca.root == (cb.root + 7) % 12 and ca.third == kb.getLeadingTone().pitchClass):
                     ka = kb
