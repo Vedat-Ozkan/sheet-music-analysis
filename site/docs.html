@@ -24,13 +24,21 @@
     <p class="lede">Attach a score, say which bars you want, and ask your question. The rest happens in the chat.</p>
   </section>
 
-  <h2>1. Get a MusicXML file</h2>
-  <p>The tool reads <strong>MusicXML</strong>: <code>.mxl</code> (compressed) or <code>.musicxml</code> / <code>.xml</code>, up to 10 MB.</p>
+  <h2>1. Get a score file</h2>
+  <p>The tool reads <strong>MusicXML</strong>, a file format that stores the notes and other details of a score: <code>.mxl</code> (compressed) or <code>.musicxml</code> / <code>.xml</code>, up to 10 MB.</p>
   <ul>
     <li>From notation software: MuseScore, Sibelius, Finale and Dorico all export MusicXML (usually under File → Export).</li>
     <li>From online libraries: MuseScore.com and OpenScore offer MusicXML downloads for many public-domain works.</li>
   </ul>
-  <p>PDFs, photos of printed music and audio are not supported yet.</p>
+  <p>You can also attach a <strong>PDF of printed sheet music</strong>. PDFs saved directly from music-writing software work best. Scanned printed pages can be read too, but tend to have more reading mistakes. Handwritten music, photos and audio are not supported.</p>
+  <ol>
+    <li>Attach the PDF in the chat and say which bars you want analysed.</li>
+    <li>The tool shows you a copy of the music it read from the PDF, before adding any analysis.</li>
+    <li>Compare <strong>every bar</strong> with your original, checking the notes, rests and rhythm. It points out some possible mistakes and tells you if pages could not be read, but it cannot catch every mistake. If something is wrong, say which bar and what differs before asking it to continue.</li>
+    <li>When you have checked the music, tell it to go ahead. It then analyses the music it read.</li>
+  </ol>
+  <p>Slurs—the curved lines that group notes into a smooth phrase—are left out because they are often misread. Ask if you want them kept.</p>
+  <p>A PDF can have <strong>up to 12 pages</strong>. For a longer score, attach just the pages you need. A daily limit may apply; the chat will tell you if it has been reached.</p>
 
   <h2>2. Ask in the chat</h2>
   <p><strong>In Claude</strong>, first turn on <em>Code execution and file creation</em> in Settings → Capabilities. The plugin needs it to read your file.</p>
@@ -79,13 +87,14 @@
   <ul>
     <li><strong>Best at:</strong> tonal music from Bach to the late nineteenth century, for piano, voices, chamber groups and orchestra.</li>
     <li><strong>Less precise:</strong> modal and impressionist music (Debussy, Ravel, Satie), where it names passages by their scale or texture rather than forcing Roman numerals; and borrowed chords in a major key, which it sometimes reads as a move to the minor.</li>
-    <li><strong>Not yet:</strong> jazz and popular-music chord symbols as the main lens, PDF or image input, and audio.</li>
+    <li><strong>Not yet:</strong> jazz and popular-music chord symbols as the main lens, photos, handwritten music, and audio.</li>
     <li><strong>Daily limit:</strong> the service is free and has a daily capacity. If it is reached, the chat will tell you; it resets at midnight UTC.</li>
   </ul>
   <p>The analysis is a starting point for your own reading. If you think a label is wrong, say so in the chat: the model will reconsider it against the notes.</p>
 
   <h2>Questions</h2>
-  <p>Email <a href="mailto:support@sheetmusicanalysis.com">support@sheetmusicanalysis.com</a>.</p>
+  <p><strong>Why does it ask me to check the score when I attach a PDF?</strong> A PDF shows what the music looks like, so the tool has to read the notes and rhythm from the page before it can analyse them. It can miss notes or read them incorrectly, especially on scanned pages, and those mistakes can change the analysis. Compare every bar of the copy it shows you with your original, even bars without a warning; tell it about any differences, then say to go ahead when you have checked it.</p>
+  <p>Other questions: email <a href="mailto:support@sheetmusicanalysis.com">support@sheetmusicanalysis.com</a>.</p>
 </main>
 
 <footer class="site"><div class="wrap">
