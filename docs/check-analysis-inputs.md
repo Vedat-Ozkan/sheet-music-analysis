@@ -1,7 +1,7 @@
 # Checking student analysis: input contract and MuseScore export
 
 `engine.check_analysis.from_text` returns sorted `Label(measure, beat, key,
-figure)` objects. `tests/data/check_analysis/typed_inputs.json` specifies 113
+figure)` objects. `tests/data/check_analysis/typed_inputs.json` specifies 139
 complete student answers and their exact expected labels or clarification.
 
 Every answer needs a bar address. After `m1`, `bar 1` or `measure 1`,
@@ -12,9 +12,13 @@ unknown and asks for them. An optional `ScoreIndex` validates positions
 against the actual score, including pickups and compound meter.
 
 Keys use uppercase tonic for major and lowercase for minor; explicit
-major/minor overrides tonic case. An unaddressed `key: G major`, `G:` or
-`in G major:`, including one appended to an answer, sets the initial key. Put a modulation after its
-bar/beat address. Conflicting unaddressed keys ask where the change occurs.
+major/minor overrides tonic case. A lone key with no bar/beat address (`key: G major`,
+`G:`, `in G major:`) is the global key wherever it appears, including after the
+answer (`m1 I IV in G`). A lone key between numerals (`bar 2 I V7 G: V7 I`) is a
+modulation applying from the next numeral. When there are several unaddressed
+keys, those before the first numeral are starting keys and one with no numeral
+after it asks where the change occurs (`m1 I G: m2 I D:`); put it before the
+first chord in the new key (`m3 D: I`).
 Roman-numeral case is preserved: `II` and `ii` name different chords, so a
 student's case error belongs in comparison rather than being auto-corrected.
 Mixed case within a numeral (`vIi`, including secondary targets) asks which
@@ -23,9 +27,22 @@ case was intended.
 Figures normalize Unicode digits, accidentals, ° and /o; letter inversions
 become figures (`Ib` → `I6`, `V7c` → `V43`). `It+6` becomes `It6`.
 A space may separate a numeral from its inversion (`V 6`), but a comma
-cannot (`V, 6`). Spaces around secondary slashes are accepted, including
-combined forms such as `V 7 / V` and `V ⁶₅ / ii`. Parentheses,
-brackets, quotes, periods and exclamation marks around a label are accepted.
+cannot (`V, 6`).
+
+Convention: chords are separated by spaces or commas; a hyphen with a chord
+on each side (`V - vi`) also separates, but never inside a figure (`V 4-3`).
+A digit pair joined by a hyphen or en dash right after a chord (`V7 4-3`)
+is a suspension: the label is the chord and the suspension is dropped.
+`Cad 6-4` reads as `Cad64`.
+A slash always means "of", spaced or not: `V7 / V` is `V7/V`, `ii / V` is
+`ii/V`, `V 7 / V`, `V ⁶₅ / ii`, `vii° / V` likewise. A slash between figure
+digits is a figure: `I6/4`, `V6/5`, `V4/2` read as `I64`, `V65`, `V42`, and
+`V6/5/V` is `V65/V`. A joined chord that is implausible asks a question
+instead of guessing: more than one applied target (`I / ii / V / I`,
+`V / V / I`), a tonic as the applied chord (`I / V`), or a target that cannot
+be tonicized (I, i, vii, a diminished target).
+Parentheses, brackets, quotes, periods and exclamation marks around a label
+are accepted.
 `I64` stays literal second-inversion I: the parser does not infer a cadential
 function. `V64-53` asks for the two onset beats rather than inventing them.
 

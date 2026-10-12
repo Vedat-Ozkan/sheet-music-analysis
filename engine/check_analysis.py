@@ -44,7 +44,10 @@ def _key(text: str) -> str:
 
 
 def _figure(text: str, key: str) -> str:
+    groups = text.split('/\0')
+    text = text.replace('\0', '')
     figure = text.translate(str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', '01234567890123456789'))
+    figure = re.sub(r'(?<=\d)/(?=\d)', '', figure)
     figure = figure.replace('°', 'o').replace('♯', '#').replace('♭', 'b').replace('/o', 'ø')
     figure = {'It+6': 'It6', 'Ger+6': 'Ger6', 'Fr+6': 'Fr6'}.get(figure, figure)
     if re.fullmatch(r'[Vv]64[-–—]53', figure):
@@ -65,6 +68,12 @@ def _figure(text: str, key: str) -> str:
     valid = all(ROMAN.fullmatch(part) for part in parts)
     if not valid and figure not in ('N', 'N6', 'Cad64', 'It6', 'Ger6', 'Ger65', 'Fr6', 'Fr43'):
         raise ClarificationNeeded(f"Cannot read Roman numeral {text!r} in {key}", f'Which Roman numeral did you mean by {text!r}?')
+    if len(parts) > 1:
+        head = re.match(r'[#b-]*([ivIV]+)', parts[0])[1].lower()
+        if len(parts) > 2 or head == 'i' or not re.fullmatch(r'[#b-]*(?:ii|iii|iv|v|vi|VII)', parts[1], re.IGNORECASE) or parts[1] == 'vii':
+            raise ClarificationNeeded(
+                f'Implausible applied chord {text!r}',
+                f"Separate chords with spaces or commas; use / only for 'of', as in V/V. Did you mean {figure} as one chord, or {' then '.join(groups if len(groups) > 1 else parts)} as separate chords?")
     if sounding(key, figure) is None:
         raise ClarificationNeeded(f"Cannot read Roman numeral {text!r} in {key}", f'Which Roman numeral did you mean by {text!r}?')
     return figure
@@ -87,15 +96,27 @@ def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
 def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None) -> list[Label]:
     """Unmarked successive labels occupy beats 1, 2, ...; an unaddressed key is the initial key."""
     text = text.translate(str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', '01234567890123456789'))
+    # "/" always means "of", so spaces around it are tightened; a spaced hyphen between chords separates them.
+    # \0 remembers a spaced slash so a question can offer to split the answer there.
+    text = re.sub(r'(?:\s+/\s*|\s*/\s+)(?=[#b-]*[ivIV])', '/\0', text)
     text = re.sub(r'\s*/\s*', '/', text)
+    text = re.sub(r'\bCad\s*6\s*[-–—]\s*4', 'Cad64', text, flags=re.IGNORECASE)
+    text = re.sub(r'(?<=\S)\s+[-–—]\s+(?=\S)', ' ', text)
     tokens = list(TOKEN.finditer(text))
     key = _key(default_key)
-    # An unaddressed key often follows the student's answer rather than preceding it.
+    # Only a key before the first numeral is the starting key; after numerals it is a modulation that
+    # needs a numeral to apply to.
     initial_keys = set()
-    for position, token in enumerate(tokens):
-        addressed = position > 0 and tokens[position - 1].lastgroup in ('bar', 'beat')
-        if token.lastgroup in ('key', 'shortkey') and not addressed:
-            initial_keys.add(_key(re.sub(r'^(?:key\s*:?|in)\s*', '', token.group(), flags=re.I).rstrip(':')))
+    kinds = [t.lastgroup for t in tokens]
+    unaddressed = [i for i, k in enumerate(kinds) if k in ('key', 'shortkey') and not (i > 0 and kinds[i - 1] in ('bar', 'beat'))]
+    for position in unaddressed:
+        name = _key(re.sub(r'^(?:key\s*:?|in)\s*', '', tokens[position].group(), flags=re.I).rstrip(':'))
+        stop = next((i for i in range(position + 1, len(kinds)) if kinds[i] in ('key', 'shortkey')), len(kinds))
+        # A lone key is the global key wherever it appears, unless numerals on both sides make it a modulation.
+        if 'label' not in kinds[:position] or ('label' not in kinds[position + 1:stop] and len(unaddressed) == 1):
+            initial_keys.add(name)
+        elif 'label' not in kinds[position + 1:stop]:
+            raise ClarificationNeeded(f'Key {name} has no chord after it', f'Put the key just before the first chord in the new key, e.g. m3 {name}: I. Where does the change to {name} occur?')
     if len(initial_keys) > 1:
         raise ClarificationNeeded('Multiple unaddressed keys', 'Where does the key change occur (bar and beat)?')
     if initial_keys:
@@ -112,6 +133,9 @@ def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None
             key = _key(re.sub(r'^(?:key\s*:?|in)\s*', '', value, flags=re.I).rstrip(':'))
         else:
             value = value.strip('()[]\"\'.!')
+            if re.fullmatch(r'\d[-–—]\d', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label':
+                # A suspension (4-3) ornaments the chord before it, so it is not a chord of its own.
+                continue
             if re.fullmatch(r'(?:6|64|7|65|43|42)(?:/\S+)?', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label' and text[tokens[position - 1].end():token.start()].isspace():
                 previous = labels.pop()
                 labels.append(Label(previous.measure, previous.beat, previous.key, _figure(previous.figure + value, previous.key)))
