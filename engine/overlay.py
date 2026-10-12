@@ -192,7 +192,7 @@ class PageLayout:
         if box and group.get("id"):
             self.boxes[group.get("id")] = box
         if "note" in classes or "chord" in classes:
-            self._read_stem(group)
+            system.content.extend(self._read_stem(group))
         if CURVES & set(classes):
             # A slur's box covers everything under its arc; follow the curve itself instead.
             system.content.extend(self._curve_boxes(group) or ([box] if box else []))
@@ -216,19 +216,22 @@ class PageLayout:
                 boxes = list(filter(None, (self._rect_box(rect) for rect in child.iter(f"{S}rect"))))
                 system.content.extend(boxes) if boxes else system.words.extend(self._text_boxes(child))
 
-    def _read_stem(self, group: ET.Element) -> None:
+    def _read_stem(self, group: ET.Element) -> list[Box]:
         """A stem is drawn from its notehead end to its tip, so the way it runs is the way it points; a chord's
-        one stem serves every note in it."""
+        one stem serves every note in it. Verovio reports no box for it, so its box is returned for the marks to avoid."""
         for child in group:
             if "stem" in child.get("class", "").split():
                 path = child.find(f"{S}path")
-                found = re.match(r"M[-\d.]+ ([-\d.]+) L[-\d.]+ ([-\d.]+)", path.get("d", "")) if path is not None else None
+                found = re.match(r"M([-\d.]+) ([-\d.]+) L[-\d.]+ ([-\d.]+)", path.get("d", "")) if path is not None else None
                 if found:
-                    direction = "up" if float(found.group(2)) < float(found.group(1)) else "down"
+                    x, start, end = (float(v) for v in found.groups())
+                    direction = "up" if end < start else "down"
                     for note in [group, *group.iter(f"{S}g")]:
                         if "note" in note.get("class", "").split() and note.get("id"):
                             self.stems[note.get("id")] = direction
-                return
+                    return [Box(x - 15, min(start, end), 30, abs(end - start))]
+                return []
+        return []
 
     @staticmethod
     def _text_boxes(element: ET.Element) -> list[Box]:
@@ -781,12 +784,44 @@ class PageLayout:
         self._place_ring_codes(rings)
 
     def _place_ring_codes(self, rings: list[tuple[System, Box, list[str], tuple]]) -> None:
-        """Each code sits beside its own ring. A code set apart for a group of rings left the reader guessing which
-        note it named."""
+        """Each code sits beside its own ring. Rings of different voices stack a few staff spaces apart, so a spot is
+        only taken when its own ring is the nearest one, and it may slide along the ring to dodge a staff line."""
         for system, ring, labels, _ in rings:
-            if labels:
-                word = " ".join(labels)
-                self._label_near(system, ring, word, text.width(word, LABEL_SIZE), LABEL_SIZE, right=True, shared=False)
+            if not labels:
+                continue
+            word = " ".join(labels)
+            width, height = text.width(word, LABEL_SIZE), LABEL_SIZE
+            others = [other for other_system, other, _, _ in rings if other_system is system and other is not ring]
+            slide = [0.0] + [sign * step for step in range(60, int(ring.height / 2 + height / 2), 60) for sign in (-1, 1)]
+            bar = next(((m.x0, m.x1) for m in system.measures if m.x0 <= ring.cx <= m.x1), (ring.x, ring.right))
+
+            def box_at(spot, pad):
+                return Box(spot[0] - width / 2 - pad, spot[1] - height / 2 - pad, width + 2 * pad, height + 2 * pad)
+
+            def own(spot):
+                """Nearer its own ring than any other (clearly so than another voice's), and not over a barline."""
+                box = box_at(spot, 0)
+                return bar[0] <= box.x and box.right <= bar[1] and all((1 if abs(other.cy - ring.cy) < ring.height / 2 else 1.5) * self._gap(box, ring) < self._gap(box, other) for other in others)
+
+            # Spots in order: right, left, above, below. The first with clear space round it wins, off the staff lines
+            # if one is; less clear space only when the rings of a run leave no more.
+            def spots_at(pad):
+                gap = pad + 35  # the ring's own reserved margin is 30
+                return ([[(ring.right + gap + width / 2, ring.cy + dy) for dy in slide] + [(ring.x - gap - width / 2, ring.cy + dy) for dy in slide],
+                         [(ring.cx + shift, y) for y in (ring.y - gap - height / 2, ring.bottom + gap + height / 2) for shift in (0, width / 2, -width / 2)]])
+
+            for pad in (LABEL_PAD, LABEL_PAD / 2, 0):
+                # Beside the ring first, off the staff lines if there is a spot; only then above or below it.
+                found = [[spot for spot in group if own(spot) and not self._touching(system, box_at(spot, pad))] for group in spots_at(pad)]
+                for group in found:
+                    spot = next((s for s in group if not self._on_staff(system, box_at(s, 0))), None) or (group[0] if group else None)
+                    if spot:
+                        break
+                if spot:
+                    break
+            else:
+                spot = spots_at(LABEL_PAD)[0][0]
+            self._error_text(system, *spot, word, width, height)
 
     def _shafts(self, system_a: System, a: Box, system_b: System, b: Box) -> list[tuple[System, float, float, float, float]]:
         if system_a is system_b:
@@ -858,31 +893,55 @@ class PageLayout:
 
     def _draw_unresolved(self, mark: VoiceLeading, system: System, note: Box) -> None:
         """Kelley's R: a small arrow on the sensitive note pointing the way it should have resolved, the code at its
-        tail. It sits on the side of the notehead away from the stem, as an articulation does, and off the staff
-        where there is room."""
+        tail. In order of preference, taking the first spot with clear space (nothing within a stretch ahead
+        of its head, no stem, note or lyric on it): (1) on the side of the notehead away from the stem, as an
+        articulation sits, outside the staff, but no farther than two steps from the note, since a farther arrow
+        belongs to nothing; (2) the same side straight off the notehead, inside the staff; (3) just beside the
+        notehead, on the side away from the stem (right unless the stem is up). With no clear spot, the least crowded."""
         up = mark.direction == "up"
         _, _, event = self.note_box(mark.from_note)
-        sides = ["below", "above"] if self.stems.get(event.id) == "up" else ["above", "below"]
+        stem = self.stems.get(event.id)
+        sides = ["below", "above"] if stem == "up" else ["above", "below"]
         length, word = 420, text.width("R", LABEL_SIZE)
-        candidates = []
-        # Nearest first: the arrow moves away from the note only to clear the staff lines and other marks.
-        for distance in (110, 220, 330, 450, 600):
+        pad = LABEL_PAD
+        placements = []  # (x of the shaft, top, bottom, side the code takes, whether staff lines count as obstacles)
+        for distance in (110, 220):
             for side in sides:
                 near = note.y - distance if side == "above" else note.bottom + distance
-                top, bottom = (near - length, near) if side == "above" else (near, near + length)
-                tail, head = (bottom, top) if up else (top, bottom)
-                for beside in (1, -1):  # the code at the tail's right, else its left
-                    x = note.cx + beside * (75 + word / 2 + LABEL_PAD)
-                    arrow = Box(note.cx - 100, top, 200, length)
-                    code = Box(x - word / 2 - LABEL_PAD, tail - LABEL_SIZE / 2 - LABEL_PAD, word + 2 * LABEL_PAD, LABEL_SIZE + 2 * LABEL_PAD)
-                    # Lyrics are not in the obstacles, and an arrow or code on a syllable is unreadable.
-                    lyrics = sum(box.width * box.height for box in system.words for mark_box in (arrow, code)
-                                 if box.x < mark_box.right and box.right > mark_box.x and box.y < mark_box.bottom and box.bottom > mark_box.y)
-                    candidates.append((self._overlap(system, arrow) + self._overlap(system, code) + lyrics, arrow, x, tail, head))
-        cost, arrow, x, tail, head = next((c for c in candidates if c[0] == 0), None) or min(candidates, key=lambda c: c[0])
-        self._line_or_arrow(note.cx, tail, note.cx, head, head=True, colour=ERROR)
-        self._reserve(system, arrow, pad=30)
-        self._error_text(system, x, tail, "R", word, LABEL_SIZE)
+                top = near - length if side == "above" else near
+                placements += [(note.cx, top, top + length, beside, True) for beside in (1, -1)]
+        # Next, straight off the notehead away from the stem even where that is inside the staff: still its own note's.
+        for shaft in (length, 300):  # shorter when a note lies not far beyond the longer arrow's head
+            top = note.y - 110 - shaft if sides[0] == "above" else note.bottom + 110
+            placements += [(note.cx, top, top + shaft, beside, False) for beside in (1, -1)]
+        for gap in (110, 60):  # the closer one only when the first crowds a neighbour
+            for arrow_side in ((-1, 1) if stem == "up" else (1, -1)):
+                x = note.right + gap + 75 if arrow_side == 1 else note.x - gap - 75
+                top = note.cy - length / 2
+                # Beside its own notehead the staff lines cannot be avoided; the code goes to whichever side of the arrow is freer.
+                placements += [(x, top, top + length, beside, False) for beside in (arrow_side, -arrow_side)]
+        candidates = []
+        # The code at the tail; half way along the shaft only when that is crowded.
+        for along, (x, top, bottom, beside, off_staff) in [(a, p) for a in (0, 0.5) for p in placements]:
+            tail, head = (bottom, top) if up else (top, bottom)
+            code_x = x + beside * (75 + word / 2 + LABEL_PAD)
+            # An arrow points at whatever lies ahead of its head, so that stretch must be empty for a good way beyond it.
+            ahead = 450
+            arrow = Box(x - 100 - pad, top - pad, 200 + 2 * pad, bottom - top + 2 * pad)
+            strip = Box(x - 100 - pad, top - ahead if up else bottom, 200 + 2 * pad, ahead)
+            code_y = tail + (head - tail) * along
+            code = Box(code_x - word / 2 - LABEL_PAD, code_y - LABEL_SIZE / 2 - LABEL_PAD, word + 2 * LABEL_PAD, LABEL_SIZE + 2 * LABEL_PAD)
+            # Lyrics are not in the obstacles, and an arrow or code on a syllable is unreadable. A thin stem is a small
+            # area but a real collision, so the number of things touched comes before the area.
+            things = system.content + system.words + ([box for measure in system.measures for box in measure.lines] if off_staff else [])
+            hits = sum((o.x < mark_box.right and o.right > mark_box.x and o.y < mark_box.bottom and o.bottom > mark_box.y)
+                       for o in things for mark_box in (arrow, code, strip))
+            area = self._covered(system, arrow) + self._covered(system, code)
+            candidates.append((hits * 1e9 + area, arrow, x, code_x, code_y, tail, head))
+        cost, arrow, x, code_x, code_y, tail, head = next((c for c in candidates if c[0] == 0), None) or min(candidates, key=lambda c: c[0])
+        self._line_or_arrow(x, tail, x, head, head=True, colour=ERROR)
+        self._reserve(system, Box(x - 100, min(tail, head), 200, abs(head - tail)), pad=30)
+        self._error_text(system, code_x, code_y, "R", word, LABEL_SIZE)
 
     @staticmethod
     def _is_shaft_piece(box: Box, shaft) -> bool:
@@ -935,14 +994,10 @@ class PageLayout:
             return Box(spot[0] - width / 2 - LABEL_PAD, spot[1] - height / 2 - LABEL_PAD, width + 2 * LABEL_PAD, height + 2 * LABEL_PAD)
 
         def hit(spot):
-            box = padded(spot)
-            return sum(max(0.0, min(box.right, o.right) - max(box.x, o.x)) * max(0.0, min(box.bottom, o.bottom) - max(box.y, o.y))
-                       for o in system.content + system.words)
+            return self._covered(system, padded(spot))
 
         def on_staff(spot):
-            box = padded(spot)
-            return any(o.x < box.right and o.right > box.x and o.y < box.bottom and o.bottom > box.y
-                       for measure in system.measures for o in measure.lines)
+            return self._on_staff(system, padded(spot))
 
         # A halo cutting the staff lines hides notes' lines, so the nearest spot clear of the staves wins; only when
         # every spot is on a staff does the word sit on the lines, as in a teacher's markup.
@@ -950,6 +1005,25 @@ class PageLayout:
         cx, cy = next((spot for spot in clear if not on_staff(spot)), None) or (clear[0] if clear else min(sides, key=hit))
         self._words.append(((string, Box(cx - width / 2, cy - height / 2, width, height)), system))
         return self._error_text(system, cx, cy, string, width, height, colour)
+
+    @staticmethod
+    def _gap(a: Box, b: Box) -> float:
+        return math.hypot(max(a.x - b.right, b.x - a.right, 0), max(a.y - b.bottom, b.y - a.bottom, 0))
+
+    def _covered(self, system: System, box: Box) -> float:
+        """Area of the box lying on drawn content or lyrics."""
+        return sum(max(0.0, min(box.right, o.right) - max(box.x, o.x)) * max(0.0, min(box.bottom, o.bottom) - max(box.y, o.y))
+                   for o in system.content + system.words)
+
+    @staticmethod
+    def _touching(system: System, box: Box) -> int:
+        """How many drawn things or lyrics the box meets; a thin stem is a small area but a real collision."""
+        return sum(o.x < box.right and o.right > box.x and o.y < box.bottom and o.bottom > box.y for o in system.content + system.words)
+
+    @staticmethod
+    def _on_staff(system: System, box: Box) -> bool:
+        return any(o.x < box.right and o.right > box.x and o.y < box.bottom and o.bottom > box.y
+                   for measure in system.measures for o in measure.lines)
 
     def _draw_ring(self, system: System, note: Box) -> Box:
         rx, ry = max(180, note.width / 2 + 60), max(135, note.height / 2 + 45)
