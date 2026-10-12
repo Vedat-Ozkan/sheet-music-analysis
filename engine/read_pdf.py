@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import math
 import os
 import re
@@ -21,6 +22,9 @@ import pikepdf
 from engine.render import ScoreError, load_toolkit
 from engine.score import TOLERANCE, ScoreIndex
 from engine.triplets import infer_triplets
+from engine.tuplet_rests import infer_tuplet_rests
+
+log = logging.getLogger(__name__)
 
 # Where the Docker image unpacks the .deb; the skill and the tests pass their own copy.
 AUDIVERIS = os.environ.get("AUDIVERIS", "/opt/audiveris/bin/Audiveris")
@@ -42,8 +46,8 @@ _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
 _REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_REST, _REST + _SMALL, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
-# Changes when the reading changes (Audiveris build or settings), so cached readings made before are not reused.
-READER = "5.11.0-sma.1-best3"
+# Changes when the reading changes (Audiveris build, settings or the repairs after it), so cached readings made before are not reused.
+READER = "5.11.0-sma.1-best3-tuplet-rests"
 RETRY_ABOVE = 3  # bars that don't add up before the other settings are tried; fewer gained nothing (log 35)
 
 
@@ -221,7 +225,12 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
         # A reading that lost pages is never preferred for having fewer bars that don't add up
         best = min([best, *(other for other in others if other)], key=lambda reading: (len(reading[1]), len(reading[2])))
     musicxml, skipped, _ = best
-    musicxml = infer_triplets(musicxml)
+    for repair in (infer_tuplet_rests, infer_triplets):
+        try:
+            musicxml = repair(musicxml)
+        except Exception:
+            # A repair is an improvement, not a requirement: if it fails, keep the reading as Audiveris gave it.
+            log.exception("PDF reading repair %s failed", repair.__name__)
     return PdfReading(musicxml, pages, scan, skipped)
 
 

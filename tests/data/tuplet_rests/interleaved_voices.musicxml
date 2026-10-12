@@ -1,0 +1,24 @@
+<score-partwise version="4.0"><part-list><score-part id="P1">
+<part-name>Piano</part-name></score-part></part-list><part id="P1"><measure number="1">
+<attributes><divisions>24</divisions><time><beats>4</beats><beat-type>4</beat-type></time>
+<staves>2</staves><clef number="1"><sign>G</sign><line>2</line></clef>
+<clef number="2"><sign>F</sign><line>4</line></clef></attributes>
+<note><rest /><duration>6</duration><voice>1</voice><type>16th</type><staff>1</staff></note>
+<note><pitch><step>C</step><octave>4</octave></pitch>
+<duration>4</duration><voice>1</voice><type>16th</type>
+<time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification>
+<staff>1</staff><beam number="1">begin</beam></note><note><pitch><step>C</step><octave>4</octave></pitch>
+<duration>4</duration><voice>1</voice><type>16th</type>
+<time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification>
+<staff>1</staff><beam number="1">continue</beam></note><note><pitch><step>C</step><octave>4</octave></pitch>
+<duration>4</duration><voice>1</voice><type>16th</type>
+<time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification>
+<staff>1</staff><beam number="1">continue</beam></note><note><pitch><step>C</step><octave>4</octave></pitch>
+<duration>4</duration><voice>1</voice><type>16th</type>
+<time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification>
+<staff>1</staff><beam number="1">continue</beam></note><note><pitch><step>C</step><octave>4</octave></pitch>
+<duration>4</duration><voice>1</voice><type>16th</type>
+<time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification>
+<staff>1</staff><beam number="1">end</beam></note><note><pitch><step>G</step><octave>3</octave></pitch><duration>12</duration>
+<voice>2</voice><type>eighth</type><staff>2</staff></note><backup><duration>12</duration></backup><note><rest /><duration>72</duration><voice>1</voice><type>half</type><dot /><staff>1</staff></note>
+</measure></part></score-partwise>
