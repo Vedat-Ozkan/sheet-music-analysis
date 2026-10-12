@@ -66,31 +66,15 @@ def _figure(text: str, key: str) -> str:
     valid = all(ROMAN.fullmatch(part) for part in parts)
     if not valid and figure not in ('N', 'N6', 'Cad64', 'It6', 'Ger6', 'Ger65', 'Fr6', 'Fr43'):
         raise ClarificationNeeded(f"Cannot read Roman numeral {text!r} in {key}", f'Which Roman numeral did you mean by {text!r}?')
+    if len(parts) > 1:
+        head = re.match(r'[#b-]*([ivIV]+)', parts[0])[1].lower()
+        if len(parts) > 2 or head == 'i' or not re.fullmatch(r'[#b-]*(?:ii|iii|iv|v|vi|VII)', parts[1], re.IGNORECASE) or parts[1] == 'vii':
+            raise ClarificationNeeded(
+                f'Implausible applied chord {text!r}',
+                f"Separate chords with spaces or commas; use / only for 'of', as in V/V. Did you mean {figure} as one chord, or {' then '.join(parts)} as separate chords?")
     if sounding(key, figure) is None:
         raise ClarificationNeeded(f"Cannot read Roman numeral {text!r} in {key}", f'Which Roman numeral did you mean by {text!r}?')
     return figure
-
-
-def _join_slashes(text: str) -> str:
-    """Tighten "V7 / V" to V7/V, but read a spaced slash between chords ("I / V") as a separator."""
-    pieces, last, joined = [], 0, False
-    for slash in re.finditer(r'\s*/\s*', text):
-        before, after = text[last:slash.start()], text[slash.end():]
-        left = re.search(r'([^\s/,;]+)(?:\s+\d+)*$', text[:slash.start()])
-        right = re.match(r'[^\s/,;]+', after)
-        chained = joined and re.fullmatch(r'[^\s,;]*', before)
-        spaced = slash.group() != '/'
-        secondary = (left and right and re.fullmatch(r'[#b-]*(?:[Vv]|vii|VII)(?:o|ø|\+)?M?\d*', left[1].strip('()[]"\'.!'))
-                     and re.fullmatch(r'[#b-]*(?:ii|iii|iv|v|vi|VII)', right[0].strip('()[]"\'.!'), re.IGNORECASE))
-        # A second applied target would chain secondaries; "I / ii / V / I" lists chords.
-        if spaced and re.match(r'[#b-]*[ivIV]+', after) and not (secondary and not chained):
-            pieces.append(text[last:slash.start()] + ' ')
-            joined = False
-        else:
-            pieces.append(text[last:slash.start()] + '/')
-            joined = True
-        last = slash.end()
-    return ''.join(pieces) + text[last:]
 
 
 def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
@@ -110,7 +94,9 @@ def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
 def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None) -> list[Label]:
     """Unmarked successive labels occupy beats 1, 2, ...; an unaddressed key is the initial key."""
     text = text.translate(str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', '01234567890123456789'))
-    text = _join_slashes(text)
+    # "/" always means "of", so spaces around it are tightened; a spaced hyphen between chords separates them.
+    text = re.sub(r'\s*/\s*', '/', text)
+    text = re.sub(r'(?<=\S)\s+[-–—]\s+(?=\S)', ' ', text)
     tokens = list(TOKEN.finditer(text))
     key = _key(default_key)
     # A key before the first numeral, or with no numeral before the next key, is the starting key;

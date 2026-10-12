@@ -1,7 +1,7 @@
 # Checking student analysis: input contract and MuseScore export
 
 `engine.check_analysis.from_text` returns sorted `Label(measure, beat, key,
-figure)` objects. `tests/data/check_analysis/typed_inputs.json` specifies 121
+figure)` objects. `tests/data/check_analysis/typed_inputs.json` specifies 129
 complete student answers and their exact expected labels or clarification.
 
 Every answer needs a bar address. After `m1`, `bar 1` or `measure 1`,
@@ -26,14 +26,19 @@ case was intended.
 Figures normalize Unicode digits, accidentals, ° and /o; letter inversions
 become figures (`Ib` → `I6`, `V7c` → `V43`). `It+6` becomes `It6`.
 A space may separate a numeral from its inversion (`V 6`), but a comma
-cannot (`V, 6`). Spaces around secondary slashes are accepted, including
-combined forms such as `V 7 / V` and `V ⁶₅ / ii`, but only when the left
-chord is a V or vii and the right is one tonicizable numeral (ii, iii, IV, V,
-vi, VII) with no earlier applied target. Any other spaced slash separates
-chords: `I / V` is two chords, `I / ii / V / I` four, `V / V / I` is V/V then I.
-A slash between figure digits is a figure: `I6/4`, `V6/5`, `V4/2` read as
-`I64`, `V65`, `V42`; `V6/5/V` is V65/V. Parentheses,
-brackets, quotes, periods and exclamation marks around a label are accepted.
+cannot (`V, 6`).
+
+Convention: chords are separated by spaces or commas; a hyphen with a chord
+on each side (`V - vi`) also separates, but never inside a figure (`V 4-3`).
+A slash always means "of", spaced or not: `V7 / V` is `V7/V`, `ii / V` is
+`ii/V`, `V 7 / V`, `V ⁶₅ / ii`, `vii° / V` likewise. A slash between figure
+digits is a figure: `I6/4`, `V6/5`, `V4/2` read as `I64`, `V65`, `V42`, and
+`V6/5/V` is `V65/V`. A joined chord that is implausible asks a question
+instead of guessing: more than one applied target (`I / ii / V / I`,
+`V / V / I`), a tonic as the applied chord (`I / V`), or a target that cannot
+be tonicized (I, i, vii, a diminished target).
+Parentheses, brackets, quotes, periods and exclamation marks around a label
+are accepted.
 `I64` stays literal second-inversion I: the parser does not infer a cadential
 function. `V64-53` asks for the two onset beats rather than inventing them.
 

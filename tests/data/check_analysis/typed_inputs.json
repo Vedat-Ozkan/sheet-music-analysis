@@ -1530,72 +1530,6 @@
     ]
   },
   {
-    "id": "spaced-slash-chords",
-    "text": "bar 1: I / V",
-    "expected": [
-      [
-        1,
-        1,
-        "C",
-        "I"
-      ],
-      [
-        1,
-        2,
-        "C",
-        "V"
-      ]
-    ]
-  },
-  {
-    "id": "spaced-slash-list",
-    "text": "bar 1: I / ii / V / I",
-    "expected": [
-      [
-        1,
-        1,
-        "C",
-        "I"
-      ],
-      [
-        1,
-        2,
-        "C",
-        "ii"
-      ],
-      [
-        1,
-        3,
-        "C",
-        "V"
-      ],
-      [
-        1,
-        4,
-        "C",
-        "I"
-      ]
-    ]
-  },
-  {
-    "id": "spaced-slash-no-chain",
-    "text": "m1 V / V / I",
-    "expected": [
-      [
-        1,
-        1,
-        "C",
-        "V/V"
-      ],
-      [
-        1,
-        2,
-        "C",
-        "I"
-      ]
-    ]
-  },
-  {
     "id": "slash-figure-I64",
     "text": "m1 I6/4",
     "expected": [
@@ -1642,5 +1576,107 @@
         "V/V"
       ]
     ]
+  },
+  {
+    "id": "spaced-slash-dim",
+    "text": "m1 vii° / V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "viio/V"
+      ]
+    ]
+  },
+  {
+    "id": "spaced-slash-dim7",
+    "text": "m1 vii°7 / V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "viio7/V"
+      ]
+    ]
+  },
+  {
+    "id": "spaced-slash-figure",
+    "text": "m1 V 6/5 / V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V65/V"
+      ]
+    ]
+  },
+  {
+    "id": "spaced-slash-ii-of-V",
+    "text": "m1 ii / V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "ii/V"
+      ]
+    ]
+  },
+  {
+    "id": "hyphen-separates",
+    "text": "m1 I, V - vi",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "V"
+      ],
+      [
+        1,
+        3,
+        "C",
+        "vi"
+      ]
+    ]
+  },
+  {
+    "id": "slash-chain-four",
+    "text": "m1 I / IV / V / vi",
+    "question": "use / only for"
+  },
+  {
+    "id": "slash-chain-three",
+    "text": "m1 I / V / vi",
+    "question": "use / only for"
+  },
+  {
+    "id": "slash-chain-I-V-V-I",
+    "text": "m1 I / V / V / I",
+    "question": "use / only for"
+  },
+  {
+    "id": "slash-chain-V-V-I",
+    "text": "m1 V / V / I",
+    "question": "use / only for"
+  },
+  {
+    "id": "slash-tonic-applied",
+    "text": "bar 1: I / V",
+    "question": "use / only for"
+  },
+  {
+    "id": "hyphen-inside-figure",
+    "text": "m1 V 4-3",
+    "question": "Which Roman numeral"
   }
 ]
