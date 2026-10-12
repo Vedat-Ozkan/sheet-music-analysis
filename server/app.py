@@ -56,8 +56,8 @@ MAX_PDF_PAGES = 12
 # Hosts keep a card's HTML by its address, so the version goes up whenever the HTML changes. The PDF card is the
 # same file under its own address: the notice above the page was added for it, and render results never set one,
 # so hosts still holding the v1 HTML show analyses exactly as before.
-CARD_URI = "ui://sheet-music-analysis/card-v1.html"
-PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v1.html"
+CARD_URI = "ui://sheet-music-analysis/card-v2.html"
+PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v2.html"
 HERE = Path(__file__).parent
 
 def read_only(title: str) -> ToolAnnotations:
@@ -428,10 +428,15 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
             score = pdf_reader.without_slurs(score)
             await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
         # The card shows every bar in one tall image; the PDF keeps ordinary pages for printing.
-        tall, shaded, engraving, notice = await anyio.to_thread.run_sync(
-            lambda: (pdf_reader.preview(score, tall=True), pdf_reader.preview(score), engrave(score),
-                     pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs))
-        )
+        def render():
+            spots = pdf_reader.problem_spots(score)
+            engraving = engrave(score)
+            # With nothing to mark, the plain pages are what the model sees; no second engraving.
+            shaded = pdf_reader.preview(score, spots=spots) if any(spots) else engraving
+            return (pdf_reader.preview(score, tall=True, spots=spots), shaded, engraving,
+                    pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots))
+
+        tall, shaded, engraving, notice = await anyio.to_thread.run_sync(render)
     except (ScoreError, pdf_reader.ReadError, httpx.HTTPError) as error:
         log("read_pdf", platform=source, error=str(error))
         return error_result(str(error))

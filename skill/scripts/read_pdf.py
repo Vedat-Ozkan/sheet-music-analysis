@@ -20,7 +20,7 @@ from pathlib import Path
 
 import verovio
 
-from engine.read_pdf import PREVIEW_OPTIONS, READER, PdfReading, ReadError, notice, read_pdf, shade, without_slurs
+from engine.read_pdf import PREVIEW_OPTIONS, READER, PdfReading, ReadError, notice, problem_spots, read_pdf, shade, without_slurs
 from engine.render import VEROVIO_OPTIONS, Engraving, ScoreError, load_toolkit
 
 # Verovio's import warnings (an unmatched slur, say) are for developers; Claude would pass them on to the user.
@@ -53,7 +53,7 @@ def audiveris() -> Path:
     return launcher
 
 
-def pages(score: bytes) -> Engraving:
+def pages(score: bytes, spots) -> Engraving:
     """Ordinary pages, but a last page of one or two bars is pulled onto the page before it, so no page image
     is nearly empty. The page is made taller a step at a time until the page count drops (at most 1.5 times)."""
     toolkit = load_toolkit(score, PREVIEW_OPTIONS)
@@ -67,7 +67,7 @@ def pages(score: bytes) -> Engraving:
         toolkit.redoLayout()
         if toolkit.getPageCount() < count:
             break
-    return shade(toolkit, score)
+    return shade(toolkit, score, spots)
 
 
 def main() -> int:
@@ -89,8 +89,9 @@ def main() -> int:
             saved = {"musicxml": reading.musicxml.decode(), "pages": reading.pages, "scan": reading.scan, "skipped": reading.skipped}
             cache.write_text(json.dumps(saved))
         shown = reading.musicxml if args.keep_slurs else without_slurs(reading.musicxml)
-        engraving = pages(shown)
-        message = notice(shown, reading.scan, reading.skipped, args.keep_slurs)
+        spots = problem_spots(shown)
+        engraving = pages(shown, spots)
+        message = notice(shown, reading.scan, reading.skipped, args.keep_slurs, spots)
     except (ReadError, ScoreError, OSError, subprocess.CalledProcessError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1

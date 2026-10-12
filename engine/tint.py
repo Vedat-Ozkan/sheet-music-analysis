@@ -17,7 +17,7 @@ SPACE = 180  # a staff space in Verovio's SVG units
 CHANGED = "#FDD478"  # Sibelius's Compare highlight behind the changed notes
 FLAG_BAR = "#FFE066"  # SmartScore-style tint for a bar that needs checking; the picture carries the meaning
 FLAG_OPACITY = "0.35"
-RING = "#E69F00"  # amber: "check", not "wrong", so not the red of a fault
+RING = "#B07800"  # dark amber: "check", not "wrong", so not red; #E69F00 was about 2:1 against the pale tint
 MARGIN = 500  # the page margin Verovio draws the music inside
 
 
@@ -41,7 +41,7 @@ def tint(layout: PageLayout, box: Box, fill: str, opacity: str = "1", radius: fl
 def ring(layout: PageLayout, cx: float, cy: float, rx: float = SPACE) -> None:
     ET.SubElement(layout.over, f"{S}ellipse", {
         "cx": f"{cx:.0f}", "cy": f"{cy:.0f}", "rx": f"{rx:.0f}", "ry": str(round(SPACE * 0.75)),
-        "fill": "none", "stroke": RING, "stroke-width": "30", "style": f"stroke:{RING}",  # see PageLayout._add
+        "fill": "none", "stroke": RING, "stroke-width": "45", "style": f"stroke:{RING}",  # see PageLayout._add
     })
 
 

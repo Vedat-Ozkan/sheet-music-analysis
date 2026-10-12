@@ -682,13 +682,6 @@ def engrave(score: bytes, measures: tuple[int, int] | None = None, *, include_pi
     return Engraving([toolkit.renderToSVG(page) for page in range(1, toolkit.getPageCount() + 1)])
 
 
-def engrave_tall(score: bytes) -> Engraving:
-    """The whole score on one tall page, so a single image shows every bar (the check step after reading a PDF).
-    Verovio caps the page height, so a very long score can still spill onto a second page."""
-    toolkit = load_toolkit(score, {"adjustPageHeight": True, "pageHeight": 60000})
-    return Engraving([toolkit.renderToSVG(page) for page in range(1, toolkit.getPageCount() + 1)])
-
-
 def engrave_pages(score: bytes, measures: tuple[int, int]) -> Engraving:
     """Printed measures first..last on ordinary pages, a few systems each, for someone to read.
 

@@ -473,7 +473,9 @@ def review_correction(before: bytes, after: bytes, *, part: str | None = None) -
 
 
 def _changed_events(old_bar, new_bar):
-    """The notes and rests of the new bar that the old bar did not have."""
+    """The notes of the new bar that the old bar did not have; rests only when no note is new.
+
+    Rests that the user did not touch can still differ, because the round trip re-splits a second voice's rests."""
     key = lambda e: (e.staff, e.onset, e.duration, e.pitch, e.tied, e.grace)
     unused = Counter(key(e) for e in old_bar.events)
     added = []
@@ -482,6 +484,7 @@ def _changed_events(old_bar, new_bar):
             unused[key(event)] -= 1
         else:
             added.append(event)
+    added = [e for e in added if e.pitch is not None] or added
     # Nothing added means something was taken away or only reordered: show the whole bar rather than none.
     return added or new_bar.events
 

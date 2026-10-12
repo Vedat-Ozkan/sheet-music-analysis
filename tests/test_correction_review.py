@@ -4,10 +4,12 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from engine import correct
+from engine import correct, tint
+from engine.read_pdf import without_slurs
 from engine.render import engrave, load_toolkit
 from engine.score import MEI, ScoreIndex
 
+SVG = '{http://www.w3.org/2000/svg}'
 READING = Path(__file__).parent / 'data/chopin_prelude_op28_no4_reading.musicxml'
 
 
@@ -58,9 +60,21 @@ def test_review_real_grace_order_and_chord_corrections(replacement):
 
 
 def same_music(review, plain):
-    # The review is the plain excerpt with a backing behind the changed notes and the blank right side cut off.
-    count = lambda engraving: [svg.count('class="note"') + svg.count('class="rest"') for svg in engraving.svgs]
-    return count(review) == count(plain) and review.png() != plain.png()
+    # The review is the plain excerpt with a backing behind the changed notes and the blank right side cut off, so
+    # once the backings are taken out every drawn glyph is where the plain engraving has it.
+    def glyphs(engraving):
+        found = []
+        for svg in engraving.svgs:
+            root = ET.fromstring(svg)
+            for group in root.iter(f'{SVG}g'):
+                if group.get('class') in {'note', 'rest'}:
+                    found.append((group.get('class'), group.get('id'),
+                                  [use.get('transform') for use in group.iter(f'{SVG}use')]))
+        return found
+
+    backings = lambda engraving: sum(svg.count(f'fill="{tint.CHANGED}"') for svg in engraving.svgs)
+    assert backings(review) > 0 and backings(plain) == 0
+    return glyphs(review) == glyphs(plain) and len(glyphs(plain)) > 0
 
 
 def corrected_bar18():
@@ -173,3 +187,15 @@ def test_triplet_beam_crosses_meter_beat():
     triplet = [n for n in bar.findall('note') if n.find('time-modification') is not None]
     assert [n.findtext('beam') for n in triplet] == ['begin', 'continue', 'end']
     assert engrave(result, (18, 18)).png().startswith(b'\x89PNG')
+
+
+def test_review_does_not_back_rests_the_user_left_alone():
+    # Haydn bar 18 (piano): one chord note edited. The round trip re-splits the second voice's rests; they are not
+    # changes and were backed in amber too (4 backings for one edit).
+    before = (READING.parent / 'pdf_warnings/haydn_she_never_told_audiveris.musicxml').read_bytes()
+    before = without_slurs(before)
+    text = correct.bars_from_musicxml(before, 18, part='P2')
+    after = correct.replace_bars(before, text.replace('C4+Ab4', 'C4+Bb4', 1), part='P2')
+    review = correct.review_correction(before, after, part='P2')
+    assert review.changed_bars == [18]
+    assert review.engravings[0].svgs[0].count(f'fill="{tint.CHANGED}"') == 1
