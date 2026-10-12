@@ -36,8 +36,8 @@
     {"type": "nct", "note": {"measure": 4, "beat": 2.33, "staff": 1, "pitch": "G5"}, "label": "N"},
     {"type": "nct", "note": {"measure": 4, "beat": 2.67, "staff": 1, "pitch": "C5"}, "label": "P"},
 
-    {"type": "voice_leading", "from_note": {"measure": 4, "beat": 1.33, "staff": 2, "pitch": "Eb4"}, "to_note": {"measure": 4, "beat": 2.33, "staff": 2, "pitch": "D4"}, "label": "7th"},
-    {"type": "voice_leading", "from_note": {"measure": 4, "beat": 2.67, "staff": 2, "pitch": "Ab4"}, "to_note": {"measure": 4, "beat": 3.67, "staff": 2, "pitch": "G4"}, "label": "7th"},
+    {"type": "voice_leading", "from_note": {"measure": 4, "beat": 1.33, "staff": 2, "pitch": "Eb4"}, "to_note": {"measure": 4, "beat": 2.33, "staff": 2, "pitch": "D4"}, "label": "4–3"},
+    {"type": "voice_leading", "from_note": {"measure": 4, "beat": 2.67, "staff": 2, "pitch": "Ab4"}, "to_note": {"measure": 4, "beat": 3.67, "staff": 2, "pitch": "G4"}, "label": "7→3"},
 
     {"type": "callout", "at": {"measure": 1, "beat": 2}, "number": 1},
     {"type": "callout", "at": {"measure": 2, "beat": 3}, "number": 2},

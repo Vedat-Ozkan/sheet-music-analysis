@@ -84,8 +84,11 @@ def stack(rows: list[str], x: float, size: float, bold: bool = False, right: boo
     fsize = size * FIGURE
     count = len(rows)
     top = -size * 0.32 if count == 1 else -size * (0.38 if count == 2 else 0.62)
+    step = 0.5
+    if count == 3 and any(sign in row for row in rows for sign in "♭♯♮"):
+        top, step = -size * 0.68, 0.56  # an accidental is as tall as a figure: more air so it touches neither neighbour
     widths = [width(row, fsize, bold) for row in rows]
-    chunks = [Chunk(row, x + size * 0.02 + (max(widths) - widths[number] if right else 0), top + number * size * 0.5, fsize, bold)
+    chunks = [Chunk(row, x + size * 0.02 + (max(widths) - widths[number] if right else 0), top + number * size * step, fsize, bold)
               for number, row in enumerate(rows)]
     return chunks, (max(widths) + size * 0.06) if rows else 0.0
 

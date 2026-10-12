@@ -94,7 +94,7 @@ def test_real_analysis_has_no_engraving_collisions(chopin, chopin_annotations, s
     engraving_check._layouts.clear()
     page = render(chopin, chopin_annotations.model_copy(update={'style': style}), measures=(1, 8))
     result = engraving_check.collisions(page.page_count)
-    assert result['labels'] == 50  # the numerals, keys, cadences, labels and function-bracket names
+    assert result['labels'] == 49  # the numerals, keys, cadences, labels and function-bracket names
     assert result['overlapping'] == result['tight'] == result['music'] == []
 
 
