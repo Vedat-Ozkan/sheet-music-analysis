@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+from typing import TYPE_CHECKING
 from xml.sax.saxutils import escape
 
 from engine import notation, slurs
@@ -11,6 +12,9 @@ from engine.annotations import AnnotationList, Cadence, Callout, Harmony, NoteRe
 from engine.overlay import PageLayout
 from engine.render import Engraving, incoming_ties, load_toolkit, shorten_ties
 from engine.score import PositionError, ScoreIndex
+
+if TYPE_CHECKING:
+    from engine.comparison import Label
 
 # A page is an annotated excerpt for study, never a stand-in for the whole score (users send copyrighted music).
 MAX_BARS = 32
@@ -73,15 +77,31 @@ def render(
     view: str = "all",
     role: str | None = None,
     piano: bool = False,
+    student_labels: list[Label] | None = None,
+    comparison_variant: str | None = None,
 ) -> Engraving:
     """Engrave `measures` (printed numbers, inclusive; the whole score by default, if it is short enough) with annotations drawn on.
 
-    With `piano`, the passage is drawn as a two-staff piano reduction; the annotations still describe the original."""
+    With `piano`, the passage is drawn as a two-staff piano reduction; the annotations still describe the original.
+    Supply `student_labels` and `comparison_variant` (compact or guided) together to
+    replace the annotation overlay with a comparison against the reviewed harmonies."""
+    if comparison_variant not in (None, "compact", "guided"):
+        raise ValueError("comparison_variant must be compact or guided")
+    if (student_labels is None) != (comparison_variant is None):
+        raise ValueError("student_labels and comparison_variant must be supplied together")
     if piano:
         score, annotations = _piano_version(score, annotations, measures)
-    toolkit = load_toolkit(score, ANNOTATED_OPTIONS)
+    options = ANNOTATED_OPTIONS
+    if comparison_variant:
+        options = {**options, "spacingSystem": 48, "pageMarginBottom": 500}
+    toolkit = load_toolkit(score, options)
     index = ScoreIndex(toolkit.getMEI())
     check(annotations, index)
+    results = None
+    if comparison_variant:
+        from engine import check_analysis, check_display
+        results = check_analysis.compare(student_labels, annotations.model_dump(exclude_none=True), index)
+        annotations = check_display.reserve(results)
     first, last = measures or (index.measures[0].number, index.measures[-1].number)
     bars = sum(1 for measure in index.measures if first <= measure.number <= last and measure.number > 0)
     if bars > MAX_BARS:
@@ -109,7 +129,10 @@ def render(
     pages = []
     for page in range(1, toolkit.getPageCount() + 1):
         layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
-        layout.draw(annotations, view, role)
+        if results is None:
+            layout.draw(annotations, view, role)
+        else:
+            check_display.draw(layout, results, comparison_variant)
         pages.append(layout.to_svg())
     return Engraving(pages)
 

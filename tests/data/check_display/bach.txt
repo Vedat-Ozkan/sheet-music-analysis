@@ -1,0 +1,9 @@
+key: a minor;
+bar 1 i53 beat 3 V;
+bar 2 i beat 3 V;
+bar 3 i beat 2 V6 beat 4 III;
+bar 4 iv65 beat 2 VII7 beat 3 III;
+bar 5 VII beat 2 VI6 beat 3 VII6 beat 4 III;
+bar 6 in a: viio beat 2 i beat 3 iv;
+bar 7 beat 2 V65 beat 3 i;
+bar 8 iiø65 beat 2 V beat 3 i

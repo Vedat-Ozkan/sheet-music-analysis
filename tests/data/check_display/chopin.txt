@@ -1,0 +1,6 @@
+key: Eb major;
+bar 1 I53 beat 2 viio7 beat 3 I6;
+bar 2 ii7 beat 3 ii;
+bar 3 V7 beat 2 iii65 beat 3 vi beat 4 viio7/V;
+bar 4 V7 beat 3 I;
+bar 5 I; bar 6 V7/ii; bar 7 V7; bar 8 in Bb: V7 beat 3 I
