@@ -41,7 +41,7 @@ def tint(layout: PageLayout, box: Box, fill: str, opacity: str = "1", radius: fl
 def ring(layout: PageLayout, cx: float, cy: float, rx: float = SPACE) -> None:
     ET.SubElement(layout.over, f"{S}ellipse", {
         "cx": f"{cx:.0f}", "cy": f"{cy:.0f}", "rx": f"{rx:.0f}", "ry": str(round(SPACE * 0.75)),
-        "fill": "none", "stroke": RING, "stroke-width": "30",
+        "fill": "none", "stroke": RING, "stroke-width": "30", "style": f"stroke:{RING}",  # see PageLayout._add
     })
 
 

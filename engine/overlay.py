@@ -425,6 +425,9 @@ class PageLayout:
 
     def _add(self, tag: str, parent: ET.Element | None = None, **attributes) -> ET.Element:
         names = {key.replace("_", "-"): str(value) for key, value in attributes.items()}
+        if "stroke" in names:
+            # Verovio's stylesheet sets stroke:currentColor on shapes, which beats a stroke attribute but not a style.
+            names["style"] = f"stroke:{names['stroke']};" + names.get("style", "")
         return ET.SubElement(self.over if parent is None else parent, f"{S}{tag}", names)
 
     def _text(self, x, y, string, size, *, bold=False, italic=False, fill=INK, anchor="start", halo=False) -> Box:

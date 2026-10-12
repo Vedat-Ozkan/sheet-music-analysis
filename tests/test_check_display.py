@@ -193,4 +193,12 @@ def test_default_comparison_disabled_bytes(chopin, chopin_annotations):
     assert hashlib.sha256(page.png()).hexdigest() == PNG_HASH
 
 
-PNG_HASH = '3f5a7d039cc3b5ccf99a1a419b0570e9afc0b1e5766f1f36ee44cfde934e3c13'
+PNG_HASH = 'ecff800a69dd5b8dc81fac39e7ea59ad96bfbed873206bd3944dc975788cad98'
+
+
+def test_coloured_marks_print_in_colour_not_black():
+    # Verovio's stylesheet once turned every drawn stroke black; the SVG attribute alone proves nothing.
+    score, annotations, index, labels = passage('bach')
+    image = Image.open(io.BytesIO(render(score, annotations, measures=(1, 8), student_labels=labels).png())).convert('RGB')
+    green = sum(1 for r, g, b in image.getdata() if abs(r - 0x22) < 40 and abs(g - 0x88) < 40 and abs(b - 0x33) < 40)
+    assert green > 50
