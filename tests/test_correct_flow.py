@@ -247,3 +247,16 @@ def test_review_note_names_the_staff():
     after = correct.replace_bars(before, text)
     note = correct.review_correction(before, after).notes[18]
     assert 'note groups on staff 1 changed' in note
+
+
+def test_review_is_trimmed_to_the_music_and_backs_only_the_changed_notes():
+    from PIL import Image
+    import io
+    before = READING.read_bytes()
+    after = correct.replace_bars(before, replacement())
+    review = correct.review_correction(before, after)
+    svg = review.engravings[0].svgs[0]
+    # Bar 18's E5 and the two notes of the new triplet, not the unchanged notes or the left hand.
+    assert svg.count('fill="#FDD478"') == 3
+    image = Image.open(io.BytesIO(review.engravings[0].png()))
+    assert image.width < 700

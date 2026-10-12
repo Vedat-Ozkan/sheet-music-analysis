@@ -19,7 +19,9 @@ from pathlib import Path
 
 import pikepdf
 
-from engine.render import ScoreError, load_toolkit
+from engine import tint
+from engine.overlay import S, Box, PageLayout
+from engine.render import Engraving, ScoreError, load_toolkit
 from engine.score import TOLERANCE, ScoreIndex
 from engine.triplets import infer_triplets
 from engine.tuplet_rests import infer_tuplet_rests
@@ -73,11 +75,11 @@ def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool) -> st
     if uneven:
         listed = _numbers(uneven)
         verb = "doesn't" if len(uneven) == 1 else "don't"
-        text += f" {listed} {verb} add up to a full bar, so a note or triplet may be misread there."
+        text += f" {listed} (shaded) {verb} add up to a full bar, so a note or triplet may be misread there."
     for bar, letter, kind in doubles[:SHOWN]:
-        text += f" Bar {bar}: the {letter} has a {kind}, which is rare; please check it."
+        text += f" Bar {bar}: the {letter} has a {kind} (circled), which is rare; please check it."
     if len(doubles) > SHOWN:
-        text += f" There are {len(doubles) - SHOWN} more double sharps or flats."
+        text += f" There are {len(doubles) - SHOWN} more double sharps or flats, circled."
     return text + ("" if slurs_kept else " " + SLURS_LEFT_OUT)
 
 
@@ -167,11 +169,62 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], list[tuple
     doubles = []
     for measure in measures:
         for event in measure.events:
-            if event.pitch and ("##" in event.pitch or "bb" in event.pitch[1:]):
+            if _is_double(event):
                 spot = (measure.number, event.pitch[0], "double sharp" if "##" in event.pitch else "double flat")
                 if spot not in doubles:
                     doubles.append(spot)
     return sorted(set(uneven) | (timing_errors if timing else set())), doubles
+
+
+def _is_double(event) -> bool:
+    return bool(event.pitch and ("##" in event.pitch or "bb" in event.pitch[1:]))
+
+
+# The picture the user checks the reading against: a number on every bar, so "check bar 12" can be followed.
+PREVIEW_OPTIONS = {**tint.BOXES, "mnumInterval": 1}
+
+
+def preview(score: bytes, tall: bool = False) -> Engraving:
+    """The reading engraved for checking: bars that don't add up shaded pale yellow and double sharps and flats
+    ringed in amber, which the notice names. `tall` puts every bar on one page, for the card."""
+    tall_page = {"adjustPageHeight": True, "pageHeight": 60000} if tall else {}
+    return shade(load_toolkit(score, {**PREVIEW_OPTIONS, **tall_page}), score)
+
+
+def _glyph_at(note, name: str) -> tuple[float, float] | None:
+    """Where Verovio puts the first glyph of a note's notehead or accidental (a translate in its transform)."""
+    use = note.find(f".//{S}g[@class='{name}']/{S}use")
+    found = re.search(r"translate\(([-\d.]+),\s*([-\d.]+)\)", use.get("transform", "")) if use is not None else None
+    return (float(found.group(1)), float(found.group(2))) if found else None
+
+
+def shade(toolkit, score: bytes) -> Engraving:
+    """Every page of a toolkit loaded with PREVIEW_OPTIONS, marked as `preview` says."""
+    uneven, _ = problem_spots(score)
+    index = ScoreIndex(toolkit.getMEI())
+    doubles = {event.id for measure in index.measures for event in measure.events if _is_double(event)}
+    layouts = []
+    for page in range(1, toolkit.getPageCount() + 1):
+        layout = PageLayout(toolkit.renderToSVG(page), index)
+        for number in uneven:
+            for segment in index.measure(number).segments:
+                geometry = layout.measures.get(segment.id)
+                if geometry:
+                    system = layout.systems[geometry.system]
+                    top = system.staff_top
+                    tint.tint(layout, Box(geometry.x0, top, geometry.x1 - geometry.x0, system.staff_bottom - top),
+                              tint.FLAG_BAR, tint.FLAG_OPACITY, radius=0)
+        for note in layout.root.iter(f"{S}g"):
+            if note.get("id") in doubles:
+                head = _glyph_at(note, "notehead")
+                accidental = _glyph_at(note, "accid")
+                if head:
+                    # The ring takes in the accidental, which is what is rare, as well as the notehead.
+                    left = (accidental or head)[0]
+                    right = head[0] + tint.SPACE * 1.18
+                    tint.ring(layout, (left + right) / 2, head[1], max(tint.SPACE, (right - left) / 2 + 60))
+        layouts.append(layout)
+    return tint.finish(layouts)
 
 
 def without_slurs(score: bytes) -> bytes:

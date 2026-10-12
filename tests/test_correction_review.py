@@ -51,10 +51,16 @@ def test_review_real_grace_order_and_chord_corrections(replacement):
     assert review.notes == {7: 'Bar 7: grace notes changed from E5 then F5 to '
                             + ('F5 then E5.' if replacement == 'gF5 gE5' else 'E5 + F5 together.')}
     assert len(review.engravings) == 1
-    assert review.engravings[0].png() == engrave(after, (7, 7)).png()
+    assert same_music(review.engravings[0], engrave(after, (7, 7)))
     unchanged = correct.review_correction(before, correct.replace_bars(before, text))
     assert unchanged.changed_bars == unchanged.ranges == unchanged.engravings == []
     assert unchanged.notes == {}
+
+
+def same_music(review, plain):
+    # The review is the plain excerpt with a backing behind the changed notes and the blank right side cut off.
+    count = lambda engraving: [svg.count('class="note"') + svg.count('class="rest"') for svg in engraving.svgs]
+    return count(review) == count(plain) and review.png() != plain.png()
 
 
 def corrected_bar18():
@@ -93,7 +99,7 @@ def test_review_only_changed_bars_and_triplet_note():
     assert 'pitch' not in review.notes[18]
     assert len(review.engravings) == 1
     assert review.engravings[0].png().startswith(b'\x89PNG')
-    assert review.engravings[0].png() == engrave(after, (18, 18)).png()
+    assert same_music(review.engravings[0], engrave(after, (18, 18)))
 
 
 def test_review_ranges_pitch_rest_and_no_change():
@@ -111,7 +117,7 @@ def test_review_ranges_pitch_rest_and_no_change():
     assert 'D5 changed to D sharp 5' in review.notes[18]
     assert len(review.engravings) == 2
     for image, bounds in zip(review.engravings, review.ranges):
-        assert image.png() == engrave(after, bounds).png()
+        assert same_music(image, engrave(after, bounds))
     unchanged = correct.review_correction(before, correct.replace_bars(before, texts[0]))
     assert unchanged.changed_bars == unchanged.ranges == unchanged.engravings == []
     assert unchanged.notes == {}
