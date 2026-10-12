@@ -54,8 +54,7 @@ MAX_SCORE_BYTES = 10 * 1024 * 1024
 DAILY_LIMITS = {"draft": 100, "render": 200, "pdf_page": 150}
 MAX_PDF_PAGES = 12
 # Hosts keep a card's HTML by its address, so the version goes up whenever the HTML changes. The PDF card is the
-# same file under its own address: the notice above the page was added for it, and render results never set one,
-# so hosts still holding the v1 HTML show analyses exactly as before.
+# same file under its own address. The card shows only the page and its downloads; any message goes in the reply.
 CARD_URI = "ui://sheet-music-analysis/card-v2.html"
 PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v2.html"
 HERE = Path(__file__).parent
@@ -451,8 +450,8 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
     text = (
         f"score_id: {score_id}\n"
         f"The card shows the user every bar of the engraved score read from their {reading['pages']}-page PDF, in one "
-        f"image, with this message above it: \"{notice}\"\n"
-        "Say that message to the user in your reply, then stop and wait. Analyse only after the user says to go ahead: "
+        f"image. The card holds no text, so give the user this message in your reply: \"{notice}\"\n"
+        "Then stop and wait. Analyse only after the user says to go ahead: "
         "then call draft_analysis with this score_id and continue exactly as for an attached MusicXML file."
         + ("" if keep_slurs else " If the user asks to keep the slurs, call read_pdf again with the same file and "
            "keep_slurs=true, and use the score_id it returns.")
@@ -462,8 +461,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
             *(ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png") for png in pages),
             TextContent(type="text", text=f"{text}\nPDF of the engraved score: {pdf_url}"),
         ],
-        structured_content={"image_url": image_url, "pdf_url": pdf_url, "caption": caption, "title": "What I read from your PDF",
-                            "notice": notice},
+        structured_content={"image_url": image_url, "pdf_url": pdf_url, "caption": caption, "title": "What I read from your PDF"},
     )
 
 

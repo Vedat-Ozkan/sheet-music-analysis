@@ -12,13 +12,10 @@
   .actions button[hidden] { display: none; }
   #pdf { background: #0d0d0d; color: #fff; }
   #musicxml { background: none; color: #0d0d0d; }
-  #notice { margin: 0; padding: 10px 12px; font-size: 15px; }
-  #notice:empty { display: none; }
 </style>
 </head>
 <body>
 <h1 id="title"></h1>
-<p id="notice"></p>
 <img id="page" alt="Engraved score">
 <div class="actions">
   <button id="pdf">Download PDF</button>
@@ -51,7 +48,6 @@
     musicxmlUrl = data.musicxml_url || null;
     document.getElementById("musicxml").hidden = !musicxmlUrl;
     document.getElementById("title").textContent = data.title || data.caption || "";
-    document.getElementById("notice").textContent = data.notice || "";
   }
 
   window.addEventListener("message", (event) => {
