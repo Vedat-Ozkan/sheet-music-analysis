@@ -45,6 +45,7 @@ def _key(text: str) -> str:
 
 def _figure(text: str, key: str) -> str:
     figure = text.translate(str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', '01234567890123456789'))
+    figure = re.sub(r'(?<=\d)/(?=\d)', '', figure)
     figure = figure.replace('°', 'o').replace('♯', '#').replace('♭', 'b').replace('/o', 'ø')
     figure = {'It+6': 'It6', 'Ger+6': 'Ger6', 'Fr+6': 'Fr6'}.get(figure, figure)
     if re.fullmatch(r'[Vv]64[-–—]53', figure):
@@ -70,6 +71,28 @@ def _figure(text: str, key: str) -> str:
     return figure
 
 
+def _join_slashes(text: str) -> str:
+    """Tighten "V7 / V" to V7/V, but read a spaced slash between chords ("I / V") as a separator."""
+    pieces, last, joined = [], 0, False
+    for slash in re.finditer(r'\s*/\s*', text):
+        before, after = text[last:slash.start()], text[slash.end():]
+        left = re.search(r'([^\s/,;]+)(?:\s+\d+)*$', text[:slash.start()])
+        right = re.match(r'[^\s/,;]+', after)
+        chained = joined and re.fullmatch(r'[^\s,;]*', before)
+        spaced = slash.group() != '/'
+        secondary = (left and right and re.fullmatch(r'[#b-]*(?:[Vv]|vii|VII)(?:o|ø|\+)?M?\d*', left[1].strip('()[]"\'.!'))
+                     and re.fullmatch(r'[#b-]*(?:ii|iii|iv|v|vi|VII)', right[0].strip('()[]"\'.!'), re.IGNORECASE))
+        # A second applied target would chain secondaries; "I / ii / V / I" lists chords.
+        if spaced and re.match(r'[#b-]*[ivIV]+', after) and not (secondary and not chained):
+            pieces.append(text[last:slash.start()] + ' ')
+            joined = False
+        else:
+            pieces.append(text[last:slash.start()] + '/')
+            joined = True
+        last = slash.end()
+    return ''.join(pieces) + text[last:]
+
+
 def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
     found = {}
     for label in labels:
@@ -87,14 +110,20 @@ def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
 def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None) -> list[Label]:
     """Unmarked successive labels occupy beats 1, 2, ...; an unaddressed key is the initial key."""
     text = text.translate(str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', '01234567890123456789'))
-    text = re.sub(r'\s*/\s*', '/', text)
+    text = _join_slashes(text)
     tokens = list(TOKEN.finditer(text))
     key = _key(default_key)
-    # An unaddressed key often follows the student's answer rather than preceding it.
+    # A key before the first numeral, or with no numeral before the next key, is the starting key;
+    # between numerals it is a modulation.
     initial_keys = set()
     for position, token in enumerate(tokens):
         addressed = position > 0 and tokens[position - 1].lastgroup in ('bar', 'beat')
-        if token.lastgroup in ('key', 'shortkey') and not addressed:
+        if token.lastgroup not in ('key', 'shortkey') or addressed:
+            continue
+        kinds = [t.lastgroup for t in tokens]
+        stop = next((i for i in range(position + 1, len(kinds)) if kinds[i] in ('key', 'shortkey')), len(kinds))
+        following = kinds[position + 1:stop]
+        if 'label' not in following or 'label' not in kinds[:position]:
             initial_keys.add(_key(re.sub(r'^(?:key\s*:?|in)\s*', '', token.group(), flags=re.I).rstrip(':')))
     if len(initial_keys) > 1:
         raise ClarificationNeeded('Multiple unaddressed keys', 'Where does the key change occur (bar and beat)?')

@@ -1432,5 +1432,215 @@
         "ii"
       ]
     ]
+  },
+  {
+    "id": "key-after-numerals",
+    "text": "bar 1 I IV V I bar 2 I V7 G: V7 I",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "IV"
+      ],
+      [
+        1,
+        3,
+        "C",
+        "V"
+      ],
+      [
+        1,
+        4,
+        "C",
+        "I"
+      ],
+      [
+        2,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        2,
+        2,
+        "C",
+        "V7"
+      ],
+      [
+        2,
+        3,
+        "G",
+        "V7"
+      ],
+      [
+        2,
+        4,
+        "G",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "leading-key-then-modulation",
+    "text": "C: bar 1 I IV bar 2 V I G: V7 I",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "IV"
+      ],
+      [
+        2,
+        1,
+        "C",
+        "V"
+      ],
+      [
+        2,
+        2,
+        "C",
+        "I"
+      ],
+      [
+        2,
+        3,
+        "G",
+        "V7"
+      ],
+      [
+        2,
+        4,
+        "G",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "spaced-slash-chords",
+    "text": "bar 1: I / V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "V"
+      ]
+    ]
+  },
+  {
+    "id": "spaced-slash-list",
+    "text": "bar 1: I / ii / V / I",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "ii"
+      ],
+      [
+        1,
+        3,
+        "C",
+        "V"
+      ],
+      [
+        1,
+        4,
+        "C",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "spaced-slash-no-chain",
+    "text": "m1 V / V / I",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V/V"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "slash-figure-I64",
+    "text": "m1 I6/4",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I64"
+      ]
+    ]
+  },
+  {
+    "id": "slash-figure-V65",
+    "text": "m1 V6/5 V4/2",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V65"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "V42"
+      ]
+    ]
+  },
+  {
+    "id": "slash-figure-then-secondary",
+    "text": "m1 V6/5/V V/V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V65/V"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "V/V"
+      ]
+    ]
   }
 ]
