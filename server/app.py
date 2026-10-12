@@ -239,8 +239,8 @@ REVIEW_GUIDE = (
     "one callout per numbered spot and the voice_leading arrows listed under it, with their labels (use the NoteRefs "
     "given), and explain every finding of a spot in its numbered paragraph of the commentary, in terms of the notes. "
     "Call these strict classroom rules, not verdicts on a composer.\n\n"
-    "If the draft has a STUDENT CHECK section, the user wants their own numerals checked: show the page with their "
-    "numerals as the analysis and the draft's reading only where it differs, and write the commentary as a second "
+    "If the draft has a STUDENT CHECK section, the user wants their own numerals checked: draw the "
+    "page as usual from your reviewed analysis (how their numerals are marked on it is not decided yet), and write the commentary as a second "
     "reader would, not as an answer key, following that section's guidance. This is for learning; if they say it is "
     "coursework, remind them to check their course's rules on AI help.\n\n"
     "## Method" + SKILL_RULES
