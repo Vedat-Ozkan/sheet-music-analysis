@@ -65,17 +65,18 @@ class PdfReading:
     skipped: list[int] = field(default_factory=list)  # page numbers Audiveris found no staves on
 
 
-def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool) -> str:
+def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool, spots=None) -> str:
     """The message shown above the engraved reading: what to check, and where reading mistakes are likely."""
     text = CHECK + (" " + SCAN_WARNING if scan else "")
     if skipped:
         pages = ", ".join(str(page) for page in skipped)
         text += f" Page{'s' if len(skipped) > 1 else ''} {pages} could not be read (no staves were found), so that music is missing."
-    uneven, doubles = problem_spots(score)
+    uneven, doubles = spots or problem_spots(score)
     if uneven:
-        listed = _numbers(uneven)
         verb = "doesn't" if len(uneven) == 1 else "don't"
-        text += f" {listed} (shaded) {verb} add up to a full bar, so a note or triplet may be misread there."
+        # With some bars left out of the list, "(shaded)" after "and 4 more" read as if only those 4 were shaded.
+        who = f"The shaded bars ({_numbers(uneven)[5:]})" if len(uneven) > SHOWN else f"{_numbers(uneven)} (shaded)"
+        text += f" {who} {verb} add up to a full bar, so a note or triplet may be misread there."
     for bar, letter, kind in doubles[:SHOWN]:
         text += f" Bar {bar}: the {letter} has a {kind} (circled), which is rare; please check it."
     if len(doubles) > SHOWN:
@@ -184,11 +185,11 @@ def _is_double(event) -> bool:
 PREVIEW_OPTIONS = {**tint.BOXES, "mnumInterval": 1}
 
 
-def preview(score: bytes, tall: bool = False) -> Engraving:
+def preview(score: bytes, tall: bool = False, spots=None) -> Engraving:
     """The reading engraved for checking: bars that don't add up shaded pale yellow and double sharps and flats
     ringed in amber, which the notice names. `tall` puts every bar on one page, for the card."""
     tall_page = {"adjustPageHeight": True, "pageHeight": 60000} if tall else {}
-    return shade(load_toolkit(score, {**PREVIEW_OPTIONS, **tall_page}), score)
+    return shade(load_toolkit(score, {**PREVIEW_OPTIONS, **tall_page}), score, spots)
 
 
 def _glyph_at(note, name: str) -> tuple[float, float] | None:
@@ -198,21 +199,42 @@ def _glyph_at(note, name: str) -> tuple[float, float] | None:
     return (float(found.group(1)), float(found.group(2))) if found else None
 
 
-def shade(toolkit, score: bytes) -> Engraving:
-    """Every page of a toolkit loaded with PREVIEW_OPTIONS, marked as `preview` says."""
-    uneven, _ = problem_spots(score)
+def _courtesy_x(layout: PageLayout) -> dict[str, float]:
+    """Where the courtesy key signature starts in each measure that ends a system with one: the key signature drawn
+    after the music, not before it."""
+    found = {}
+    for group in layout.root.iter(f"{S}g"):
+        if "measure" in group.get("class", "").split() and group.get("id") in layout.measures:
+            for staff in group.findall(f"{S}g"):
+                kids = [kid for kid in staff.findall(f"{S}g") if kid.get("class") in {"layer", "keySig"}]
+                for after, kid in zip(kids, kids[1:]):
+                    if kid.get("class") == "keySig" and after.get("class") == "layer" and kid.get("id") in layout.boxes:
+                        found[group.get("id")] = min(found.get(group.get("id"), 1e9), layout.boxes[kid.get("id")].x)
+    return found
+
+
+def shade(toolkit, score: bytes, spots=None) -> Engraving:
+    """Every page of a toolkit loaded with PREVIEW_OPTIONS, marked as `preview` says. `spots` is `problem_spots(score)`
+    when the caller already has it."""
+    uneven, found = spots or problem_spots(score)
+    if not uneven and not found:
+        toolkit.setOptions({"svgBoundingBoxes": False})  # nothing to place, so the boxes would only be drawn
+        return Engraving([toolkit.renderToSVG(page) for page in range(1, toolkit.getPageCount() + 1)])
     index = ScoreIndex(toolkit.getMEI())
     doubles = {event.id for measure in index.measures for event in measure.events if _is_double(event)}
     layouts = []
     for page in range(1, toolkit.getPageCount() + 1):
         layout = PageLayout(toolkit.renderToSVG(page), index)
+        courtesy = _courtesy_x(layout) if uneven else {}
         for number in uneven:
             for segment in index.measure(number).segments:
                 geometry = layout.measures.get(segment.id)
                 if geometry:
-                    system = layout.systems[geometry.system]
-                    top = system.staff_top
-                    tint.tint(layout, Box(geometry.x0, top, geometry.x1 - geometry.x0, system.staff_bottom - top),
+                    # Staff line to staff line, as SmartScore shades; the staves' own boxes also take in ledger lines.
+                    top = min(box.y for box in geometry.lines)
+                    bottom = max(box.bottom for box in geometry.lines)
+                    right = courtesy.get(segment.id, geometry.x1)
+                    tint.tint(layout, Box(geometry.x0, top, right - geometry.x0, bottom - top),
                               tint.FLAG_BAR, tint.FLAG_OPACITY, radius=0)
         for note in layout.root.iter(f"{S}g"):
             if note.get("id") in doubles:

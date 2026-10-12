@@ -1,11 +1,13 @@
 import collections
 import io
 import os
+import re
 from pathlib import Path
 
 import pytest
 from PIL import Image
 
+from engine import tint
 from engine.read_pdf import SETTINGS, clean, is_scan, notice, open_pdf, preview, problem_spots, read_pdf, without_slurs
 from engine.render import engrave, load_toolkit
 from engine.score import ScoreIndex
@@ -65,7 +67,7 @@ def test_names_bars_with_durations_that_disagree_with_written_notes():
     uneven, doubles = problem_spots(score)
     assert {5, 7, 8, 10, 11} <= set(uneven)
     assert doubles == []
-    assert 'Bars 1, 5, 6, 7 and 13 more' in notice(score, False, [], False)
+    assert 'The shaded bars (1, 5, 6, 7 and 13 more) don' in notice(score, False, [], False)
 
 
 def test_accepts_the_correct_schubert_with_dots_and_triplets():
@@ -80,7 +82,7 @@ def test_names_bars_whose_backup_runs_before_the_start(filename):
     # backed up beyond the start; their individual voice totals still look valid.
     score = (Path(__file__).parent / 'data/pdf_warnings' / filename).read_bytes()
     assert 1 in problem_spots(score)[0]
-    assert "Bars 1," in notice(score, False, [], False)
+    assert "(1, " in notice(score, False, [], False)
 
 
 def test_warning_signals_preserve_haydn_reading_selection():
@@ -107,5 +109,26 @@ def test_preview_shades_the_named_bars_and_rings_the_double_sharp():
     svg = preview(score).svgs[0]
     # One pale-yellow tint per named bar (12 and 18), one amber ring (bar 16), and a number on every bar.
     assert svg.count('fill="#FFE066" fill-opacity="0.35"') == 2
-    assert svg.count('stroke="#E69F00"') == 1
+    assert svg.count(f'stroke="{tint.RING}"') == 1
     assert svg.count('mNum') >= 24
+
+
+def test_preview_draws_the_ring_in_amber_and_the_tint_between_the_staff_lines():
+    score = without_slurs(clean((Path(__file__).parent / "data/chopin_prelude_op28_no4_audiveris.mxl").read_bytes()))
+    png = Image.open(io.BytesIO(preview(score).png(1))).convert("RGB")
+    amber = tuple(int(tint.RING[i:i + 2], 16) for i in (1, 3, 5))
+    # Verovio's stylesheet once printed this ring black; check the pixels, not the markup.
+    assert sum(all(abs(a - b) < 12 for a, b in zip(pixel, amber)) for pixel in png.getdata()) > 100
+    # A shaded bar spans the staff lines exactly, not the ledger lines and marks above and below them.
+    svg = preview(score).svgs[0]
+    lines = {float(y) for y in re.findall(r'<path d="M[-\d.]+ ([-\d.]+) L', svg)}
+    shaded = re.findall(r'<rect x="[-\d.]+" y="([-\d.]+)" width="[-\d.]+" height="([-\d.]+)" rx="0" fill="#FFE066"', svg)
+    assert shaded
+    for y, height in shaded:
+        assert float(y) in lines and round(float(y) + float(height)) in {round(line) for line in lines}
+
+
+def test_a_reading_with_no_problems_is_drawn_plain():
+    score = clean((Path(__file__).parent / "data/pdf_warnings/schubert_die_stadt.mxl").read_bytes())
+    svg = preview(score).svgs[0]
+    assert tint.FLAG_BAR not in svg and tint.RING not in svg and "bounding-box" not in svg
