@@ -41,7 +41,7 @@ from engine import read_pdf as pdf_reader
 from engine import check_analysis, part_writing, reduce
 from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
-from engine.export import export_musicxml
+from engine.export import export_midi, export_musicxml, export_romantext
 from engine.render import ScoreError, engrave, load_toolkit
 from engine.score import PositionError, ScoreIndex
 
@@ -204,8 +204,8 @@ async def resolve_score(score_file: AttachedFile | None, score_id: str | None) -
     raise ScoreError("No score was provided. Ask the user to attach their MusicXML file (.mxl or .musicxml) to the chat.")
 
 
-def publish(data: bytes, extension: str) -> str:
-    name = f"{secrets.token_urlsafe(12)}.{extension}"
+def publish(data: bytes, extension: str, suffix: str = "") -> str:
+    name = f"{secrets.token_urlsafe(12)}{suffix}.{extension}"
     store.put(f"files/{name}", data)
     return f"{PUBLIC_BASE_URL}/files/{name}"
 
@@ -285,6 +285,20 @@ def musicxml_text(url: str, annotations: AnnotationList) -> str:
             "The file uses standard Roman numerals whatever the page style.")
 
 
+# Published names carry the kind so the download gets a friendly file name (see `files`).
+EXTRA_FILES = {"worksheet": ("pdf", "-worksheet"), "midi": ("mid", ""), "romantext": ("rntxt", "")}
+
+
+def downloads_text(links: dict[str, str]) -> str:
+    names = {"worksheet_url": "worksheet (the same passage with no analysis, PDF)", "midi_url": "MIDI",
+             "romantext_url": "RomanText (the harmony analysis as .rntxt)"}
+    present = [f"{label}: {links[key]}" for key, label in names.items() if key in links]
+    if not present:
+        return ""
+    return ("\nMore downloads, shown on the card under \"More downloads\"; mention them to the user once per "
+            "conversation, not after every render:\n" + "\n".join(present))
+
+
 @apps.tool(
     resource_uri=CARD_URI,
     title="Draw the analysis on the score",
@@ -297,7 +311,7 @@ def musicxml_text(url: str, annotations: AnnotationList) -> str:
         "Set annotations.style to abrsm (letter inversions, Ib, Vc) when the user mentions ABRSM, figured_bass when they ask "
         "for figured bass, otherwise leave it out. "
         "Offer the MusicXML link once per conversation, not after every render: it downloads a file for "
-        "MuseScore, Sibelius or Dorico. "
+        "MuseScore, Sibelius or Dorico; the result also lists a worksheet PDF, MIDI and RomanText to mention once. "
         "piano=true draws the same annotation list (written for the original score) on a two-staff piano reduction "
         "with instrument cues. For a score with more than four staves, draw the original first, then offer the user "
         "the piano reduction once; call again with piano=true only if they accept."
@@ -327,35 +341,49 @@ async def render_analysis(
     except ValueError as error:
         log("render_analysis", platform=source, error=str(error))
         return error_result(str(error))
-    # Optional export failures must not discard an engraving Verovio already accepted.
+    # Optional exports must not discard an engraving Verovio already accepted.
     musicxml, export_warning = None, None
     try:
         musicxml = await anyio.to_thread.run_sync(export_musicxml, score, annotations.model_dump())
     except Exception as error:
         export_warning = "MusicXML export unavailable for this score. PNG and PDF are available."
         log("render_analysis", platform=source, export_error=str(error))
+
+    def extras() -> dict[str, bytes]:
+        found = {}
+        for name, make in (("worksheet", lambda: render(score, AnnotationList(annotations=[]), measures=measures, piano=piano).pdf()),
+                           ("midi", lambda: export_midi(score, measures)),
+                           ("romantext", lambda: export_romantext(score, annotations.model_dump(), measures))):
+            try:
+                data = make()
+            except Exception as error:
+                log("render_analysis", platform=source, extra_error=f"{name}: {error}")
+                continue
+            if data:
+                found[name] = data
+        return found
+
     png = engraving.png(1)
     # The card shows a double-resolution page, sharp on high-density screens; the model gets the small one.
-    image_url, pdf_url, musicxml_url = await anyio.to_thread.run_sync(
-        lambda: (publish(engraving.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"),
-                 publish(musicxml, "musicxml") if musicxml is not None else None)
-    )
+    def publish_all():
+        links = {"image_url": publish(engraving.png(1, width=2800, colors=256), "png"), "pdf_url": publish(engraving.pdf(), "pdf")}
+        if musicxml is not None:
+            links["musicxml_url"] = publish(musicxml, "musicxml")
+        for name, data in extras().items():
+            links[f"{name}_url"] = publish(data, *EXTRA_FILES[name])
+        return links
+    links = await anyio.to_thread.run_sync(publish_all)
+    pdf_url = links["pdf_url"]
     caption = f"Analysis, measures {measure_range}, view {view}" + (", piano reduction" if piano else "")
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
         view=view, measure_range=measure_range)
-    # The card's heading, in plain words; `caption` stays for the model's own text.
-    kind = {"harmony": "Harmony analysis", "voice_leading": "Voice leading", "form": "Form"}.get(view, "Analysis")
-    bars = "all bars" if measure_range == "all" else "bars " + measure_range.replace("-", "\u2013")
-    title = f"{kind} \u00b7 {bars}" + (" \u00b7 piano reduction" if piano else "")
-    structured_content = {"image_url": image_url, "pdf_url": pdf_url, "caption": caption, "title": title}
-    if musicxml_url:
-        structured_content["musicxml_url"] = musicxml_url
+    structured_content = {**links, "caption": caption}
     # The card shows the page to the user; the image lets the chat model check its own annotations.
     return CallToolResult(
         content=[
             ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png"),
             TextContent(type="text", text=f"{caption}, shown in a card. PDF: {pdf_url}\n"
-                        + (export_warning or musicxml_text(musicxml_url, annotations))),
+                        + (export_warning or musicxml_text(links["musicxml_url"], annotations)) + downloads_text(links)),
         ],
         structured_content=structured_content,
     )
@@ -684,17 +712,19 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
 async def files(request: Request) -> Response:
     name = request.path_params["name"]
     data = None
-    if re.fullmatch(r"[A-Za-z0-9_-]+\.(png|pdf|musicxml)", name):
+    if re.fullmatch(r"[A-Za-z0-9_-]+\.(png|pdf|musicxml|mid|rntxt)", name):
         data = await anyio.to_thread.run_sync(store.get, f"files/{name}")
     if data is None:
         return Response("This file has expired; pages are kept for one day.", status_code=404)
-    media_types = {"png": "image/png", "pdf": "application/pdf", "musicxml": "application/vnd.recordare.musicxml+xml"}
+    media_types = {"png": "image/png", "pdf": "application/pdf", "musicxml": "application/vnd.recordare.musicxml+xml",
+                   "mid": "audio/midi", "rntxt": "text/plain; charset=utf-8"}
     extension = name.rsplit(".", 1)[1]
+    friendly = "worksheet" if name.endswith("-worksheet.pdf") else "analysis"
     # An uploaded score can carry scripts into the export, so files download in a sandbox instead of rendering;
     # page images stay inline so an image link opens in the browser.
     disposition = "inline" if extension == "png" else "attachment"
     return Response(data, media_type=media_types[extension], headers={
-        "Content-Disposition": f'{disposition}; filename="analysis.{extension}"',
+        "Content-Disposition": f'{disposition}; filename="{friendly}.{extension}"',
         "Content-Security-Policy": "sandbox",
         "X-Content-Type-Options": "nosniff",
     })

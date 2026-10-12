@@ -280,3 +280,58 @@ def test_skill_never_deletes_or_overwrites_its_input_score(tmp_path, broken):
     assert result.returncode == 0, result.stderr
     assert source.read_bytes() == score
     assert (tmp_path / 'analysis-annotated.musicxml').exists() != broken
+
+
+def pdf_text(data):
+    import io
+    from pypdf import PdfReader
+    return ''.join(page.extract_text() for page in PdfReader(io.BytesIO(data)).pages)
+
+
+def check_extras(files, annotations, bars):
+    """files maps worksheet/midi/romantext/pdf to the bytes a user would download."""
+    import music21
+    assert files['midi'][:4] == b'MThd'
+    assert 'vii' not in pdf_text(files['worksheet'])
+    assert 'vii' in pdf_text(files['pdf'])  # the analysis PDF does carry its labels, so the check above can fail
+    parsed = music21.converter.parse(files['romantext'].decode(), format='romantext')
+    chords = list(parsed.recurse().getElementsByClass('RomanNumeral'))
+    expected = [a for a in annotations.annotations if a.type == 'harmony' and bars[0] <= a.at.measure <= bars[1]]
+    assert len(chords) == len(expected)
+    assert [round(float(c.getOffsetInHierarchy(parsed)), 2) for c in chords][:3] == [0.0, 1.5, 3.0]  # 12/8: beats of a dotted quarter
+
+
+def test_server_extra_downloads(chopin, chopin_annotations, tmp_path, monkeypatch):
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/REAL', chopin)
+
+    async def run():
+        result = await app.render_analysis(None, 'REAL', chopin_annotations, measure_range='1-8')
+        assert 'once per conversation' in result.content[1].text
+        assert 'title' not in result.structured_content
+        files = {}
+        for key, extension, filename in [('pdf', 'pdf', 'analysis.pdf'), ('worksheet', 'pdf', 'worksheet.pdf'),
+                                         ('midi', 'mid', 'analysis.mid'), ('romantext', 'rntxt', 'analysis.rntxt')]:
+            name = result.structured_content[f'{key}_url'].rsplit('/', 1)[1]
+            response = await app.files(Request({'type': 'http', 'path_params': {'name': name}}))
+            assert response.status_code == 200 and name.endswith(f'.{extension}')
+            assert response.headers['content-disposition'] == f'attachment; filename="{filename}"'
+            assert response.headers['content-security-policy'] == 'sandbox'
+            files[key] = response.body
+        check_extras(files, chopin_annotations, (1, 8))
+
+    asyncio.run(run())
+
+
+def test_skill_extra_downloads(chopin, chopin_annotations, tmp_path):
+    source = tmp_path / 'annotations.json'
+    source.write_text(chopin_annotations.model_dump_json())
+    result = subprocess.run(
+        [sys.executable, str(ROOT / 'skill/scripts/render_analysis.py'), str(ROOT / 'tests/data/chopin_nocturne_op9_no2.mxl'),
+         str(source), '--measures', '1-8', '--out-dir', str(tmp_path), '--name', 'x'],
+        capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(ROOT)},
+    )
+    assert result.returncode == 0, result.stderr
+    check_extras({'pdf': (tmp_path / 'x.pdf').read_bytes(), 'worksheet': (tmp_path / 'x-worksheet.pdf').read_bytes(),
+                  'midi': (tmp_path / 'x.mid').read_bytes(), 'romantext': (tmp_path / 'x.rntxt').read_bytes()},
+                 chopin_annotations, (1, 8))
