@@ -772,6 +772,8 @@ From the start of this work (the released Audiveris, one reading): main 86.6% / 
 
 **Faster benchmark.** `spike/omr/bench/run.py` now caches only Audiveris's own output, per PDF and settings; everything after it runs from the current code. All four sets (80 PDFs) rescore in 41 s instead of a full read (about 25 minutes with 6 readings at a time).
 
+**Deployed** 2026-10-12 from a clean checkout of commit 5027d39 (without the Phase 4 changes): revision `sheet-music-analysis-00024-cgv`, base image `base:5efd7a5f78c06fd5` rebuilt in 6 min 37 s (the patched jar's checksum passed), server layer 1 min 3 s; settings unchanged (gen2, 2 vCPU, 4 GiB, concurrency 4, max 1, 300 s), PDF cap 150 pages a day. Checked on the live server with the Chopin PDF: bar 12's triplet is read, bar 18 and the bar 16 double sharp are named in the message; the same PDF again took 6.9 s (cached reading).
+
 ### 36. Engine work for later phases, written and cross-reviewed by Codex (2026-10-11)
 
 **Problem.** Phase 2 waits on owner decisions (the check step's look and wording), on cost numbers and on the open directory reviews. The owner allowed later phases' engine work to start early in Codex (OpenAI's coding agent, run with `codex exec`), to be corrected later, with no display, site or deploy work ahead of their decisions.
