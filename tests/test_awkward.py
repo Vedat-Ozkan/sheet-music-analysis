@@ -59,7 +59,7 @@ def test_index_loads(name):
 @score_ids
 def test_problem_spots(name):
     data, _ = load(name)
-    bars, doubles = problem_spots(_document(data))
+    bars, _ = problem_spots(_document(data))
     assert all(isinstance(bar, int) for bar in bars)
 
 

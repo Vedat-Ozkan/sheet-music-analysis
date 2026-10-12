@@ -50,7 +50,7 @@ _REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_REST, _REST + _SMALL, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
 # Changes when the reading changes (Audiveris build, settings or the repairs after it), so cached readings made before are not reused.
-READER = "5.11.0-sma.1-best3-tuplet-rests-r2"
+READER = "5.11.0-sma.1-best3-tuplet-rests-r3"
 RETRY_ABOVE = 3  # bars that don't add up before the other settings are tried; fewer gained nothing (log 35)
 
 
@@ -72,9 +72,10 @@ def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool, spots
     if skipped:
         pages = ", ".join(str(page) for page in skipped)
         text += f" Page{'s' if len(skipped) > 1 else ''} {pages} could not be read (no staves were found), so that music is missing."
-    uneven, meter = spots or problem_spots(score)
-    if meter:
-        text += f" No time signature was read; the bars were checked as {meter}."
+    uneven, guessed = spots or problem_spots(score)
+    if guessed:
+        # The meter is not named: a bar length cannot tell 6/8 from 3/4 or 2/2 from 4/4.
+        text += " No time signature was read, so bars were checked against the most common bar length."
     if uneven:
         verb = "doesn't" if len(uneven) == 1 else "don't"
         # With some bars left out of the list, "(shaded)" after "and 4 more" read as if only those 4 were shaded.
@@ -104,17 +105,17 @@ def problem_spots(score: bytes) -> tuple[list[int], str | None]:
     misread timing. A backup that runs before the start of the bar means some of its music is missing.
 
     A part with no time signature (a "C" read as a note) is checked against its most common bar length instead; the
-    second value is that meter as "x/y", or None when every part had one. (Replacing a meter that was read, because most
+    second value is whether any part had to be checked that way. (Replacing a meter that was read, because most
     bars disagreed with it, lost 3 readings 3-5% in the benchmark: the mode is often a misread bar length.)"""
     return _problem_spots(score, timing=True)
 
 
-def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], str | None]:
+def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
     measures = ScoreIndex(load_toolkit(score).getMEI()).measures
     number_at = {segment.index: measure.number for measure in measures for segment in measure.segments}
     bars = []  # (printed number, full length, voice totals) per measure of the file, in order
     timing_errors = set()
-    inferred = None
+    inferred = False
     for part in ET.fromstring(score).iter("part"):
         divisions, full = 1, None
         part_bars, guessed = [], False
@@ -122,8 +123,9 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], str | None
             if measure.find("attributes/divisions") is not None:
                 divisions = int(measure.find("attributes/divisions").text)
             time = measure.find("attributes/time")
-            if time is not None and time.findtext("beats", "").isdigit():
-                full = Fraction(int(time.findtext("beats")) * 4, int(time.findtext("beat-type")))
+            beats = time.findtext("beats", "") if time is not None else ""
+            if beats and all(count.strip().isdigit() for count in beats.split("+")):  # "3+2" is a meter too
+                full = Fraction(sum(int(count) for count in beats.split("+")) * 4, int(time.findtext("beat-type")))
             voices, staff_of, gap = {}, {}, {}  # gap: the hidden space a voice starts with
             cursor = Fraction(0)
             for element in measure:
@@ -154,7 +156,7 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], str | None
                 part_bars.append((position, number_at.get(position), full, voices))
         common = Counter(length for *_, voices in part_bars if (length := max(voices.values())) > 0).most_common(1)
         if common and not any(full for _, _, full, _ in part_bars):
-            inferred = inferred or _meter(common[0][0])
+            inferred = True
             guessed = True
             part_bars = [(position, number, common[0][0], voices) for position, number, _, voices in part_bars]
         bars.extend((*bar, guessed) for bar in part_bars if bar[2])
@@ -180,15 +182,10 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], str | None
     return sorted(set(uneven) | (timing_errors if timing else set())), inferred
 
 
-def _meter(length: Fraction) -> str:
-    # A length in quarter notes: 3 is 3/4, 3/2 is 3/8.
-    return f"{length.numerator}/{length.denominator * 4}"
-
-
 # The picture the user checks the reading against. Verovio numbers the first bar of each system; `number_bars` adds the
 # rest in clear spots, so "check bar 12" can be followed without a number printed over a trill, volta or ledger note.
 PREVIEW_OPTIONS = {**tint.BOXES}
-BAR_NUMBER_SIZE = 300
+BAR_NUMBER_SIZE = 500  # ~10 px tall on a 700 px card; 300 was ~6 px
 
 
 def preview(score: bytes, tall: bool = False, spots=None) -> Engraving:
@@ -213,16 +210,22 @@ def _courtesy_x(layout: PageLayout) -> dict[str, float]:
 
 
 def number_bars(layout: PageLayout, index: ScoreIndex) -> None:
-    """A small number above every bar that does not start a system, in the nearest spot clear of the music."""
+    """A number above every bar after the first, raised until it is clear of the music."""
+    # Verovio's own numbers (first bar of each system) are small and fixed; every number is drawn here, the same size.
+    for parent in list(layout.root.iter()):
+        for child in [c for c in parent if "mNum" in (c.get("class") or "").split()]:
+            parent.remove(child)
     for measure in index.measures:
         geometry = layout.measures.get(measure.segments[0].id)
-        if geometry is None or not measure.number or geometry is layout.systems[geometry.system].measures[0]:
+        if geometry is None or measure.number < 2:
             continue
         system = layout.systems[geometry.system]
         string = str(measure.number)
         width, height = text.width(string, BAR_NUMBER_SIZE), BAR_NUMBER_SIZE
         top = min(box.y for box in geometry.lines)
-        spots = [(geometry.x0 + 60 + dx, top - 90 - rise) for rise in range(0, 1400, 150) for dx in (0, 200, 400)]
+        # Gould (Behind Bars): above the top staff at the barline, raised clear of what is there. Never sideways, where
+        # a number beside noteheads reads as a fingering or tuplet number.
+        spots = [(geometry.x0 + 60, top - 90 - rise) for rise in range(0, 2400, 100)]
 
         def padded(spot):
             return Box(spot[0] - 20, spot[1] - height * 0.75 - 20, width + 40, height + 40)
@@ -388,12 +391,13 @@ def clean(mxl: bytes) -> bytes:
                 note.remove(beam)
     # Without a repeat sign an ending is a phantom (8 of 11 PDFs that had endings); the original has none.
     if root.find(".//barline/repeat") is None:
-        for barline in root.iter("barline"):
-            for ending in barline.findall("ending"):
-                barline.remove(ending)
         for measure in root.iter("measure"):
             for barline in measure.findall("barline"):
-                if len(barline) == 0:
+                endings = barline.findall("ending")
+                for ending in endings:
+                    barline.remove(ending)
+                # Only a barline that held nothing but endings goes; segno and coda marks sit on barlines too.
+                if endings and len(barline) == 0:
                     measure.remove(barline)
     for part in root.iter("part"):
         _one_division(part)
@@ -417,15 +421,24 @@ def clean(mxl: bytes) -> bytes:
 
 
 def _drop_restated_keys(part: ET.Element) -> None:
-    """Audiveris restates the key at page breaks (59 of 80 readings); a key that equals the current one is not a change."""
-    current = {}
+    """Audiveris restates the key at page breaks (59 of 80 readings); a key that equals the current one is not a change.
+
+    A key without a number covers every staff, so it also resets each staff's current key; otherwise it is compared
+    with a stale one and a return to the home key after a single-staff key is dropped (Schubert, Die Stadt)."""
+    whole, per_staff = None, {}
     for measure in part.iter("measure"):
         for attributes in measure.findall("attributes"):
             for key in attributes.findall("key"):
                 state = [(child.tag, child.text) for child in key]
-                if current.get(key.get("number")) == state:
+                staff = key.get("number")
+                if staff is None:
+                    restated = whole == state and all(other == state for other in per_staff.values())
+                    whole, per_staff = state, {number: state for number in per_staff}
+                else:
+                    restated = per_staff.get(staff, whole) == state
+                    per_staff[staff] = state
+                if restated:
                     attributes.remove(key)
-                current[key.get("number")] = state
             if len(attributes) == 0:
                 measure.remove(attributes)
 
