@@ -54,18 +54,31 @@ def compare(student, reviewed, index):
 
 
 def _key_width(key):
-    return text.width(text.pretty_key(key) + ':', NUMERAL_SIZE, bold=True) + 90
+    return text.width(text.pretty_key(key) + ':', NUMERAL_SIZE) + 90
 
 
 def _numeral_width(figure, key, style):
     return notation.numeral(figure, key, style, NUMERAL_SIZE)[1]
 
 
+def _badge_radius(number):
+    return max(190, text.width(str(number), SIZE, bold=True) / 2 + 60)
+
+
+def _badge(layout, left, cy, number, color):
+    """A note's number in a filled disc, as the analysis page's callouts. A bare raised digit beside a numeral reads
+    as a chord figure (IV³), so a note's number is always a disc."""
+    radius = _badge_radius(number)
+    layout._add('circle', cx=round(left + radius), cy=round(cy), r=round(radius), fill=color, **{'class': 'note-number'})
+    layout._text(left + radius, cy + SIZE * 0.34, str(number), SIZE, bold=True, fill='#ffffff', anchor='middle')
+    return Box(left, cy - radius, 2 * radius, 2 * radius)
+
+
 def _mark_width(item, marks):
     cls = item['classification']
     if cls in ('agrees', 'same_chord_different_spelling'):
         return 90 + 220
-    number = 40 + text.width(str(marks), SIZE, bold=True)
+    number = 40 + 2 * _badge_radius(marks)
     if cls == 'different_chord':
         return 2 * RING_PAD + number
     if cls == 'different_key':
@@ -177,7 +190,7 @@ def _ring(layout, box):
 
 
 def _key(layout, x, baseline, key, color=INK):
-    box = layout._text(x, baseline, text.pretty_key(key) + ':', NUMERAL_SIZE, bold=True, fill=color)
+    box = layout._text(x, baseline, text.pretty_key(key) + ':', NUMERAL_SIZE, fill=color)
     layout.harmony_labels.append((key + ':', box))
     return box
 
@@ -322,8 +335,8 @@ def draw(layout, results, last_page=True):
                     number += 1
                     kind = 'different_chord_and_key' if tool['key'] != student['key'] else cls
                     notes.append([number, item['at'], item['at'], NOTES[kind], ERROR])
-                    # Raised like a footnote number, clear of the ring.
-                    row.append(layout._text(row[-1].right + 40, first - 120, str(number), SIZE, bold=True, fill=ERROR))
+                    # Raised clear of the ring.
+                    row.append(_badge(layout, row[-1].right + 40, first - 250, number, ERROR))
                 elif cls == 'different_key':
                     # The student's chord is right, so: no ring, no tick, and one neutral note for the whole run.
                     pair = (student['figure'], student['key'], tool['figure'], tool['key'])
@@ -334,7 +347,7 @@ def draw(layout, results, last_page=True):
                         number += 1
                         run = [number, item['at'], item['at'], [pair], NEUTRAL]
                         notes.append(run)
-                        row.append(layout._text(row[-1].right + 40, first - 120, str(number), SIZE, bold=True, fill=NEUTRAL))
+                        row.append(_badge(layout, row[-1].right + 40, first - 250, number, NEUTRAL))
             else:
                 row.append(layout._text(x, first, '?', NUMERAL_SIZE, bold=True, fill=ERROR))
             if tool and (not student or cls in DIFFERS):
@@ -350,7 +363,7 @@ def draw(layout, results, last_page=True):
         for number_, start, end, note, color in notes:
             if not isinstance(note, str):
                 note = _key_note(note)
-            at = layout._text(system.left, y, str(number_), SIZE, bold=True, fill=color).right + 110
+            at = _badge(layout, system.left, y - 110, number_, color).right + 110
             for line in _wrap(f'{_span(start, end)}: {note}', system.right - at):
                 layout._text(at, y, line, SIZE)
                 bottom = y + 140

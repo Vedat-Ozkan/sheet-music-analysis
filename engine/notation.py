@@ -28,7 +28,7 @@ from dataclasses import dataclass
 
 from engine import text
 
-INVERSIONS = {"": "", "6": "b", "64": "c", "7": "7", "65": "7b", "43": "7c", "42": "7d", "2": "7d"}
+INVERSIONS = {"": "", "53": "", "6": "b", "64": "c", "7": "7", "65": "7b", "43": "7c", "42": "7d", "2": "7d"}
 SPECIAL = {"N": "♭IIb", "N6": "♭IIb", "Cad64": "Ic", "It6": "It+6", "Fr6": "Fr+6", "Fr43": "Fr+6", "Ger6": "Ger+6", "Ger65": "Ger+6"}
 # Bundled fonts lack the single-codepoint double accidentals.
 ACCIDENTALS = {-2: "♭♭", -1: "♭", 0: "♮", 1: "♯", 2: "♯♯"}

@@ -8,7 +8,8 @@ import pytest
 from PIL import Image
 
 from engine import tint
-from engine.read_pdf import SETTINGS, clean, is_scan, notice, open_pdf, preview, problem_spots, read_pdf, without_slurs
+from engine.overlay import Box, PageLayout
+from engine.read_pdf import PREVIEW_OPTIONS, SETTINGS, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, read_pdf, without_slurs
 from engine.render import engrave, load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
@@ -110,7 +111,24 @@ def test_preview_shades_the_named_bars_and_rings_the_double_sharp():
     # One pale-yellow tint per named bar (12 and 18), one amber ring (bar 16), and a number on every bar.
     assert svg.count('fill="#FFE066" fill-opacity="0.35"') == 2
     assert svg.count(f'stroke="{tint.RING}"') == 1
-    assert svg.count('mNum') >= 24
+    assert {str(n) for n in range(1, 25)} <= set(re.findall(r'<(?:text|tspan)[^>]*>(\d+)</', svg))
+
+
+def test_preview_bar_numbers_stay_clear_of_the_music():
+    # A number on every bar is how "check bar 12" is followed; it must not print over a trill, volta or ledger note.
+    score = without_slurs(clean((Path(__file__).parent / "data/chopin_prelude_op28_no4_audiveris.mxl").read_bytes()))
+    toolkit = load_toolkit(score, PREVIEW_OPTIONS)
+    index = ScoreIndex(toolkit.getMEI())
+    layout = PageLayout(toolkit.renderToSVG(1), index)
+    before = [list(system.content) for system in layout.systems]
+    number_bars(layout, index)
+    placed = 0
+    for system, old in zip(layout.systems, before):
+        for box in system.content[len(old):]:
+            placed += 1
+            core = Box(box.x + 21, box.y + 21, box.width - 42, box.height - 42)  # the number itself, without its reserved margin
+            assert not any(o.x < core.right and o.right > core.x and o.y < core.bottom and o.bottom > core.y for o in old), core
+    assert placed >= 15
 
 
 def test_preview_draws_the_ring_in_amber_and_the_tint_between_the_staff_lines():

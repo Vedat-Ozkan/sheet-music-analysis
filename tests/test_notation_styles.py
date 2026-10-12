@@ -162,3 +162,9 @@ def test_skill_script_reports_invalid_figured_bass_key(tmp_path):
     assert result.returncode == 1
     assert 'Invalid active key' in result.stderr and 'Traceback' not in result.stderr
     assert not (tmp_path / 'output').exists()
+
+
+def test_abrsm_drops_an_explicit_root_position_figure():
+    from engine import notation
+    assert [c.text for c in notation.numeral('i53', 'a', 'abrsm', 100)[0]] == ['i']
+    assert [c.text for c in notation.numeral('i6', 'a', 'abrsm', 100)[0]] == ['i', 'b']

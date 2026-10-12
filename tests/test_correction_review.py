@@ -199,3 +199,4 @@ def test_review_does_not_back_rests_the_user_left_alone():
     review = correct.review_correction(before, after, part='P2')
     assert review.changed_bars == [18]
     assert review.engravings[0].svgs[0].count(f'fill="{tint.CHANGED}"') == 1
+    assert 'rests changed' not in review.notes[18]  # a re-split rest covers the same time

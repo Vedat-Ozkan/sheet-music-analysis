@@ -2,11 +2,12 @@
 
 import io
 import re
+from pathlib import Path
 
 import pytest
 from PIL import Image
 
-from engine import overlay
+from engine import overlay, text
 from engine.annotate import render
 from engine.annotations import AnnotationList
 from engine.overlay import ARROW, ERROR, NUMERAL_SIZE, PageLayout
@@ -155,3 +156,81 @@ def test_fault_arrow_words_are_the_ones_part_writing_emits():
     from engine.annotations import FAULT_ARROW_LABELS
 
     assert {part_writing.LABELS[rule] for rule in part_writing.ARROWS} == FAULT_ARROW_LABELS
+
+
+# ---- part-writing marks on the Bach chorales: marks keep off lyrics and off each other ----
+
+DATA = Path(__file__).parent / "data"
+
+
+def _chorale(name, marks, measures):
+    score = (DATA / f"part_writing_{name}.musicxml").read_bytes()
+    return render(score, AnnotationList.model_validate({"annotations": marks}), measures=measures)
+
+
+def _vl(kind, a, b=None, label=""):
+    return {"type": "voice_leading", "kind": kind, "from_note": a, "label": label, **({"to_note": b} if b else {})}
+
+
+def _word(layout, string):
+    """Box of a drawn word (its non-halo copy)."""
+    node = [t for t in layout.over.iter(f"{overlay.S}text") if t.text == string][-1]
+    width = text.width(string, overlay.LABEL_SIZE)
+    y = float(node.get("y"))
+    return overlay.Box(float(node.get("x")), y - overlay.LABEL_SIZE * 0.75, width, overlay.LABEL_SIZE)
+
+
+def test_spacing_bracket_keeps_off_lyrics_and_its_word_off_the_bracket(layouts):
+    _chorale("bwv245.14", [_vl("bracket", _ref(9, 3.0, 1, "E5"), _ref(9, 3.0, 2, "C#4"), "spacing")], (1, 16))
+    layout = layouts[-1]
+    path = next(p for p in layout.over.iter(f"{overlay.S}path") if p.get("d", "").count("L") == 3)
+    x, ys = [float(v) for v in re.findall(r"L([-\d.]+),([-\d.]+)", path.get("d"))[0]][0], [float(v) for _, v in re.findall(r"L([-\d.]+),([-\d.]+)", path.get("d"))[:2]]
+    words = [w for system in layout.systems for w in system.words]
+    assert not any(w.x < x + 30 and w.right > x - 30 and w.y < max(ys) and w.bottom > min(ys) for w in words)
+    word = _word(layout, "spacing")
+    assert not (word.x - 30 < x < word.right + 30 and word.y < max(ys) and word.bottom > min(ys))
+
+
+def test_overlap_rings_repeat_the_word_and_draw_no_leader(layouts):
+    page = _chorale("bwv64.4", [_vl("ring", _ref(14, 4.0, 1, "A4"), label="overlap"), _vl("ring", _ref(14, 1.0, 2, "B4"))], (13, 14))
+    svg = page.svgs[0]
+    assert len(re.findall(r'<ellipse[^>]*stroke="#D50000"', svg)) == 2 and svg.count(">overlap<") == 4  # each ring: a halo and its word
+    assert 'stroke-width="20"' not in svg  # no leader line across the lyrics
+
+
+def test_direct_octave_word_sits_under_the_lower_voice_when_the_staves_are_apart(layouts):
+    _chorale("bwv418", [_vl("line", _ref(0, 1.0, 1, "E4"), _ref(1, 1.0, 1, "A4")),
+                        _vl("line", _ref(0, 1.0, 4, "A2"), _ref(1, 1.0, 4, "A3"), "direct 8ve")], (0, 1))
+    layout = layouts[-1]
+    lower = max(float(line.get("y1")) for line in layout.over.iter(f"{overlay.S}line"))
+    assert _word(layout, "direct 8ve").y > lower - 200
+
+
+def _functions(chopin, spec):
+    items = [{"type": "harmony", "at": {"measure": m, "beat": b}, "label": label, "function": f, **({"key": k} if k else {})}
+             for m, b, label, f, k in spec]
+    return _page(chopin, items, view="harmony").svgs[0]
+
+
+def _function_paths(svg):
+    return [[tuple(map(float, point)) for point in re.findall(r"([-\d.]+),([-\d.]+)", d)]
+            for d in re.findall(r'<path d="(M[\d,. L-]+)"[^>]*stroke-width="26"', svg) if "C" not in d]
+
+
+def test_function_run_ends_where_the_key_changes(chopin):
+    svg = _functions(chopin, [(1, 1, "I", "T", "Eb"), (2, 1, "I", "T", "Bb")])
+    assert svg.count(">tonic<") == 2  # one bracket per key, not one run over both
+
+
+def test_function_bracket_is_open_at_a_system_break_and_names_its_word_without_brackets(chopin):
+    svg = _functions(chopin, [(1, 1, "I", "T", "Eb"), (3, 1, "I", "T", None)])  # bars 1-2 and 3-4 are on different systems
+    first, second = _function_paths(svg)
+    assert first[-1][1] == first[-2][1] and first[0][1] != first[1][1]  # closed at the left, open at the break
+    assert second[0][1] == second[1][1] and second[-1][1] != second[-2][1]  # open where it resumes, closed at its end
+    assert "(tonic)" not in svg and svg.count(">tonic<") == 2
+
+
+def test_function_words_are_chosen_for_the_whole_page(chopin):
+    # One crowded piece (two chords a beat apart) forces letters everywhere; a long run elsewhere must not keep its word.
+    svg = _functions(chopin, [(1, 1, "I", "T", "Eb"), (1, 1.33, "V", "D", None), (3, 1, "I", "T", None), (4, 1, "V", "D", None)])
+    assert ">tonic<" not in svg and ">dominant<" not in svg and ">T<" in svg and ">D<" in svg

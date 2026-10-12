@@ -502,39 +502,42 @@ class PageLayout:
     def _draw_function_brackets(self) -> None:
         """MT21C's function brackets: a thin black bracket under a run of numerals of one function, the whole
         music of the run: from its first numeral's left edge to just before the next numeral (or the system end).
-        The full word sits centred beneath; on a later system the run's piece is named "(pre-dom.)". Words and
-        abbreviations never mix: a system whose pieces cannot all hold their words uses T, PD, D throughout.
+        The full word sits centred beneath; a run that crosses a system break is drawn open at the break and named
+        again on the next line. Words and abbreviations never mix: if any piece on the page cannot hold its word,
+        the whole page uses T, PD, D. A run ends where the key changes.
         Textbooks print no colour and no legend. Only chords that carry `function` get a bracket."""
         sequence = self.numeral_seq
-        pieces: dict[int, list[tuple[float, float, str, bool]]] = {}  # system -> (x0, x1, function, continuation)
+        pieces: dict[int, list[tuple[float, float, str, bool, bool]]] = {}  # system -> (x0, x1, function, continued, runs on)
         position = 0
         while position < len(sequence):
             function = sequence[position][1]
             following = position + 1
-            while following < len(sequence) and function and sequence[following][1] == function:
+            while following < len(sequence) and function and sequence[following][1] == function and sequence[following][-1] == sequence[position][-1]:
                 following += 1
             if function:
                 run = [entry[2:] for entry in sequence[position:following]]
                 after = sequence[following][2:] if following < len(sequence) else None
-                for number, system_index in enumerate(dict.fromkeys(entry[0] for entry in run)):
+                spans = list(dict.fromkeys(entry[0] for entry in run))
+                for number, system_index in enumerate(spans):
                     entries = [entry for entry in run if entry[0] == system_index]
                     x0 = entries[0][2]
                     if after and after[0] == system_index and entries[-1] is run[-1]:
                         x1 = after[2] - 60
                     else:
                         x1 = self.systems[system_index].right - 30
-                    pieces.setdefault(system_index, []).append((x0, max(x1, entries[-1][3]), function, number > 0))
+                    pieces.setdefault(system_index, []).append((x0, max(x1, entries[-1][3]), function, number > 0, number < len(spans) - 1))
             position = following
+        words = all(text.width(FUNCTION_NAMES[f], FUNCTION_SIZE) + 2 * LABEL_PAD <= x1 - x0 for row in pieces.values() for x0, x1, f, _, _ in row)
         for system_index, row in pieces.items():
             system = self.systems[system_index]
-            words = all(text.width(FUNCTION_NAMES[f], FUNCTION_SIZE) + 2 * LABEL_PAD <= x1 - x0 for x0, x1, f, _ in row)
             hook = NUMERAL_SIZE * 0.2
             top = max(self.numeral_rows[system_index] + NUMERAL_SIZE * 0.25, self.cadence_bottom.get(system_index, -1e9) + 70)
             y = top + hook
-            for x0, x1, function, continued in row:
+            for x0, x1, function, continued, runs_on in row:
                 name = FUNCTION_NAMES[function] if words else function
-                name = f"({name})" if continued else name
-                self._add("path", d=f"M{round(x0)},{round(y - hook)} L{round(x0)},{round(y)} L{round(x1)},{round(y)} L{round(x1)},{round(y - hook)}",
+                start = f"M{round(x0)},{round(y)}" if continued else f"M{round(x0)},{round(y - hook)} L{round(x0)},{round(y)}"
+                end = "" if runs_on else f" L{round(x1)},{round(y - hook)}"
+                self._add("path", d=f"{start} L{round(x1)},{round(y)}{end}",
                           fill="none", stroke=INK, stroke_width=LINE, stroke_linejoin="round")
                 label = self._text((x0 + x1) / 2, y + NUMERAL_SIZE * 0.2 + FUNCTION_SIZE * 0.68, name, FUNCTION_SIZE, anchor="middle")
                 system.content.append(Box(x0, y - hook, x1 - x0, label.bottom - (y - hook)))
@@ -612,7 +615,7 @@ class PageLayout:
                 entry = (system_index, x + text.root_centre(chunks), x, x + total, baseline + low)
                 self.numerals[(harmony.at.measure, harmony.at.beat)] = entry
                 self.numeral_seq.append(((self.index.measure(harmony.at.measure).index, harmony.at.beat),
-                                         harmony.function if id(harmony) in banded else None, *entry))
+                                         harmony.function if id(harmony) in banded else None, *entry, key))
                 cursor = x + total + gap
             previous = key
             self.numeral_rows[system_index] = baseline + deepest
@@ -701,7 +704,7 @@ class PageLayout:
     def _draw_voice_marks(self, marks: list[VoiceLeading]) -> None:
         """Draw the part-writing marks. Identical marks on the same notes are drawn once (a held note must not
         print its ring or word twice); the two lines of one parallel or direct pair share one word, set between
-        them; the second ring of an overlap is joined to the word of the first."""
+        them; the second ring of an overlap repeats the word of the first."""
         unique: dict[tuple, list] = {}  # (kind, from event, to event) -> [mark, labels]
         for mark in marks:
             try:
@@ -712,7 +715,8 @@ class PageLayout:
             entry = unique.setdefault((mark.kind, first.id, second.id if second else None), [mark, []])
             if mark.label and mark.label not in entry[1]:
                 entry[1].append(mark.label)
-        entries = list(unique.values())
+        # Brackets first: they claim their line, and every fault word then keeps off it.
+        entries = sorted(unique.values(), key=lambda entry: entry[0].kind != "bracket")
         # Lines of one pair: two lines between the same two moments.
         pairs: dict[tuple, list] = {}
         for entry in entries:
@@ -724,7 +728,7 @@ class PageLayout:
                 pairs.setdefault((first.segment, first.onset, second.segment, second.onset), []).append(entry)
         shared = {id(entry): group for group in pairs.values() if len(group) == 2 for entry in group}
         done: set[int] = set()
-        last = None  # (system, ring box, word box, event) of the labelled ring just drawn
+        last = None  # (system, labels, position) of the labelled ring just drawn
         for entry in entries:
             mark, labels = entry
             if id(entry) in done:
@@ -735,9 +739,11 @@ class PageLayout:
             except NotOnPage:
                 continue
             if mark.kind == "ring":
-                join = last if not labels and last and last[0] is system_a and last[3] != (mark.from_note.measure, mark.from_note.beat) else None
-                ring, word = self._draw_ring(labels, system_a, a, join)
-                last = (system_a, ring, word, (mark.from_note.measure, mark.from_note.beat)) if labels else None
+                # The unlabelled second ring of an overlap carries the same word as the first: textbooks tie the two
+                # by repeating the word, not by a leader that would run across lyrics and staves.
+                partner = last if not labels and last and last[0] is system_a and last[2] != (mark.from_note.measure, mark.from_note.beat) else None
+                self._draw_ring(partner[1] if partner else labels, system_a, a)
+                last = (system_a, labels, (mark.from_note.measure, mark.from_note.beat)) if labels else None
                 continue
             last = None
             if mark.kind == "bracket":
@@ -760,9 +766,10 @@ class PageLayout:
 
     def _draw_parallel_pair(self, group: list) -> None:
         """Both lines of a pair, and their word(s) once, midway between the two voices (never in the numeral row)."""
-        centres, system, labels = [], None, []
+        centres, system, labels, staves = [], None, [], []
         for mark, own in group:
-            system_a, a, _ = self.note_box(mark.from_note)
+            system_a, a, event = self.note_box(mark.from_note)
+            staves.append(event.staff)
             system_b, b, _ = self.note_box(mark.to_note)
             shafts = self._shafts(system_a, a, system_b, b)
             for number, (shaft_system, x0, y0, x1, y1) in enumerate(shafts):
@@ -771,7 +778,13 @@ class PageLayout:
             system, x0, y0, x1, y1 = shafts[0]
             centres.append(((x0 + x1) / 2, (y0 + y1) / 2))
             labels += [label for label in own if label not in labels]
-        middle = Box(sum(x for x, _ in centres) / 2 - 20, sum(y for _, y in centres) / 2 - 20, 40, 40)
+        # Midway only when the voices share a staff or neighbour each other; across inner staves the gap holds other
+        # voices' music, so the word goes under the lower line, where a reader looks for it.
+        if abs(staves[0] - staves[1]) > 1:
+            x, y = max(centres, key=lambda centre: centre[1])
+        else:
+            x, y = sum(c[0] for c in centres) / 2, sum(c[1] for c in centres) / 2
+        middle = Box(x - 20, y - 20, 40, 40)
         for label in labels:
             width = text.width(label, LABEL_SIZE)
             cx, cy = self._place_label(system, middle, width, LABEL_SIZE, below=True, limit=self._numeral_top(system))
@@ -796,7 +809,7 @@ class PageLayout:
             if arrow:  # right of the tendency tone itself, riding just above its arrow (MT21C)
                 spot = (a.right + 55 + width / 2, a.cy - 60 - height / 2)
                 padded = Box(spot[0] - width / 2 - LABEL_PAD, spot[1] - height / 2 - LABEL_PAD, width + 2 * LABEL_PAD, height + 2 * LABEL_PAD)
-                others = [box for box in system_a.content + system_a.words if not self._is_shaft_piece(box, shafts[0])]
+                others = [box for box in self._obstacles(system_a) + system_a.words if not self._is_shaft_piece(box, shafts[0])]
                 if not any(o.x < padded.right and o.right > padded.x and o.y < padded.bottom and o.bottom > padded.y for o in others):
                     self._error_text(system_a, *spot, label, width, height, colour=colour)
                 else:
@@ -862,33 +875,27 @@ class PageLayout:
             return sum(max(0.0, min(box.right, o.right) - max(box.x, o.x)) * max(0.0, min(box.bottom, o.bottom) - max(box.y, o.y))
                        for o in system.content + system.words)
 
-        cx, cy = min(sides, key=hit) if all(hit(spot) for spot in sides) else next(spot for spot in sides if not hit(spot))
+        def on_staff(spot):
+            box = padded(spot)
+            return any(o.x < box.right and o.right > box.x and o.y < box.bottom and o.bottom > box.y
+                       for measure in system.measures for o in measure.lines)
+
+        # A halo cutting the staff lines hides notes' lines, so the nearest spot clear of the staves wins; only when
+        # every spot is on a staff does the word sit on the lines, as in a teacher's markup.
+        clear = [spot for spot in sides if not hit(spot)]
+        cx, cy = next((spot for spot in clear if not on_staff(spot)), None) or (clear[0] if clear else min(sides, key=hit))
         self._words.append(((string, Box(cx - width / 2, cy - height / 2, width, height)), system))
         return self._error_text(system, cx, cy, string, width, height, colour)
 
-    def _draw_ring(self, labels: list[str], system: System, note: Box, join: tuple | None = None) -> tuple[Box, Box | None]:
-        """A red ring with its word(s) beside it. `join` is the labelled ring of an overlap: this ring is the
-        other note of that pair, tied to the word by a thin leader."""
+    def _draw_ring(self, labels: list[str], system: System, note: Box) -> None:
+        """A red ring with its word(s) beside it."""
         rx, ry = max(180, note.width / 2 + 60), max(135, note.height / 2 + 45)
         ring = Box(note.cx - rx, note.cy - ry, 2 * rx, 2 * ry)
         self._add("ellipse", cx=round(note.cx), cy=round(note.cy), rx=round(rx), ry=round(ry),
                   fill="none", stroke=ERROR, stroke_width=30)
         self._reserve(system, ring, pad=30)
-        word = None
         for label in labels:
-            word = self._label_near(system, ring, label, text.width(label, LABEL_SIZE), LABEL_SIZE, right=True) or word
-        if join and join[2]:
-            _, other, target, _ = join
-            # From the nearest points of this ring and of the word, so the leader never crosses the word's letters.
-            ex = min(max(ring.cx, target.x), target.right)
-            ey = min(max(ring.cy, target.y), target.bottom)
-            dx, dy = ex - ring.cx, ey - ring.cy
-            t = 1 / max(math.hypot(dx / rx, dy / ry), 1e-6)
-            if t < 1:
-                self._add("line", x1=round(ring.cx + dx * t), y1=round(ring.cy + dy * t), x2=round(ex), y2=round(ey),
-                          stroke=ERROR, stroke_width=20, stroke_linecap="round")
-                self._reserve_line(system, ring.cx + dx * t, ring.cy + dy * t, ex, ey)
-        return ring, word
+            self._label_near(system, ring, label, text.width(label, LABEL_SIZE), LABEL_SIZE, right=True)
 
     def _draw_square_bracket(self, labels: list[str], system: System, a: Box, b: Box) -> None:
         """MT21C's thin bracket right of a chord, spanning the two notes (a spacing fault). It keeps to the
@@ -896,19 +903,24 @@ class PageLayout:
         top, bottom = min(a.cy, b.cy), max(a.cy, b.cy)
         tick, base = 72, max(a.right, b.right) + 110
         stop = max(m.x1 for m in system.measures if m.x0 <= base <= m.x1 + 1) if any(m.x0 <= base <= m.x1 + 1 for m in system.measures) else base + 900
+
+        def hits(box: Box) -> bool:
+            return any(w.x < box.right and w.right > box.x and w.y < box.bottom and w.bottom > box.y for w in system.words)
+
+        # Only the upright must clear a lyric (it may pass between two syllables); the ticks sit at note height.
         x = base
-        for shift in range(0, 1200, 100):
-            reach = Box(base + shift - tick - LABEL_PAD, top - LABEL_PAD, tick + 2 * LABEL_PAD, bottom - top + 2 * LABEL_PAD)
+        for shift in range(0, 1200, 40):
             if base + shift + LABEL_PAD * 2 > stop:
                 break
-            if not any(w.x < reach.right and w.right > reach.x and w.y < reach.bottom and w.bottom > reach.y for w in system.words):
+            if not hits(Box(base + shift - LABEL_PAD, top - LABEL_PAD, 2 * LABEL_PAD, bottom - top + 2 * LABEL_PAD)):
                 x = base + shift
                 break
         self._add("path", d=f"M{round(x - tick)},{round(top)} L{round(x)},{round(top)} L{round(x)},{round(bottom)} L{round(x - tick)},{round(bottom)}",
                   fill="none", stroke=ERROR, stroke_width=30, stroke_linejoin="round")
         self._reserve(system, Box(x - tick, top, tick, bottom - top), pad=30)
+        # The anchor is the whole bracket, so no fallback spot can land on its own mark.
         for label in labels:
-            self._label_near(system, Box(x, (top + bottom) / 2, 0, 0), label, text.width(label, LABEL_SIZE), LABEL_SIZE, right=True)
+            self._label_near(system, Box(x, top, 0, bottom - top), label, text.width(label, LABEL_SIZE), LABEL_SIZE, right=True)
 
     def _draw_callout(self, callout: Callout) -> None:
         try:

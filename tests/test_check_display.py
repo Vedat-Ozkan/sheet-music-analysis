@@ -1,5 +1,6 @@
 import hashlib
 import io
+import re
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -197,7 +198,7 @@ def test_default_comparison_disabled_bytes(chopin, chopin_annotations):
     assert hashlib.sha256(page.png()).hexdigest() == PNG_HASH
 
 
-PNG_HASH = 'a41f432d1b92430badb3c6deaf3a489cac79d0805410b8c22f67f517d3f8b4cc'
+PNG_HASH = '2bcb4833c27458aeb85afe3ea3c2b063ec5266d5915adcaa8dc28eed7f6e5a8c'
 
 
 def test_coloured_marks_print_in_colour_not_black():
@@ -220,3 +221,11 @@ def test_rings_and_underlines_print_red_and_notes_never_end_on_one_word():
     assert any(t.get('class') == 'wrong-label-ring' for t in overlay.iter())
     from engine.check_display import _wrap
     assert all(' ' in line for line in _wrap('Bar 4, beat 1: the tool reads a different chord and key here. Check the notes of the chord, then to.', 3000))
+
+
+def test_note_numbers_are_discs_and_key_labels_are_regular_weight():
+    # A bare digit beside a numeral reads as a chord figure (IV3); a disc cannot. Key labels match the analysis page.
+    score, annotations, index, labels = passage('bach')
+    svg = render(score, annotations, measures=(1, 8), student_labels=labels).svgs[0]
+    assert 'class="note-number"' in svg
+    assert not re.search(r'font-weight="bold"[^>]*>[^<]*:</text>', svg)

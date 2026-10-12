@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pikepdf
 
-from engine import tint
+from engine import text, tint
 from engine.overlay import S, Box, PageLayout
 from engine.render import Engraving, ScoreError, load_toolkit
 from engine.score import TOLERANCE, ScoreIndex
@@ -181,8 +181,10 @@ def _is_double(event) -> bool:
     return bool(event.pitch and ("##" in event.pitch or "bb" in event.pitch[1:]))
 
 
-# The picture the user checks the reading against: a number on every bar, so "check bar 12" can be followed.
-PREVIEW_OPTIONS = {**tint.BOXES, "mnumInterval": 1}
+# The picture the user checks the reading against. Verovio numbers the first bar of each system; `number_bars` adds the
+# rest in clear spots, so "check bar 12" can be followed without a number printed over a trill, volta or ledger note.
+PREVIEW_OPTIONS = {**tint.BOXES}
+BAR_NUMBER_SIZE = 300
 
 
 def preview(score: bytes, tall: bool = False, spots=None) -> Engraving:
@@ -213,18 +215,36 @@ def _courtesy_x(layout: PageLayout) -> dict[str, float]:
     return found
 
 
+def number_bars(layout: PageLayout, index: ScoreIndex) -> None:
+    """A small number above every bar that does not start a system, in the nearest spot clear of the music."""
+    for measure in index.measures:
+        geometry = layout.measures.get(measure.segments[0].id)
+        if geometry is None or not measure.number or geometry is layout.systems[geometry.system].measures[0]:
+            continue
+        system = layout.systems[geometry.system]
+        string = str(measure.number)
+        width, height = text.width(string, BAR_NUMBER_SIZE), BAR_NUMBER_SIZE
+        top = min(box.y for box in geometry.lines)
+        spots = [(geometry.x0 + 60 + dx, top - 90 - rise) for rise in range(0, 1400, 150) for dx in (0, 200, 400)]
+
+        def padded(spot):
+            return Box(spot[0] - 20, spot[1] - height * 0.75 - 20, width + 40, height + 40)
+
+        spot = next((s for s in spots if layout._is_free(system, padded(s))), None) or min(spots, key=lambda s: layout._overlap(system, padded(s)))
+        box = layout._text(*spot, string, BAR_NUMBER_SIZE, italic=True)
+        layout._reserve(system, box, pad=20)
+
+
 def shade(toolkit, score: bytes, spots=None) -> Engraving:
     """Every page of a toolkit loaded with PREVIEW_OPTIONS, marked as `preview` says. `spots` is `problem_spots(score)`
     when the caller already has it."""
     uneven, found = spots or problem_spots(score)
-    if not uneven and not found:
-        toolkit.setOptions({"svgBoundingBoxes": False})  # nothing to place, so the boxes would only be drawn
-        return Engraving([toolkit.renderToSVG(page) for page in range(1, toolkit.getPageCount() + 1)])
     index = ScoreIndex(toolkit.getMEI())
     doubles = {event.id for measure in index.measures for event in measure.events if _is_double(event)}
     layouts = []
     for page in range(1, toolkit.getPageCount() + 1):
         layout = PageLayout(toolkit.renderToSVG(page), index)
+        number_bars(layout, index)
         courtesy = _courtesy_x(layout) if uneven else {}
         for number in uneven:
             for segment in index.measure(number).segments:

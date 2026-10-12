@@ -580,8 +580,20 @@ def _change_note(before, after):
                     changes.append("ties changed")
         elif len(a) != len(b):
             changes.append(f"the number of note groups on staff {staff} changed from {len(a)} to {len(b)}")
-    rests = lambda bar: Counter((e.staff, e.onset, e.duration) for e in bar.events if e.pitch is None)
-    if rests(before) != rests(after):
+    def rests(bar):
+        """Where each voice rests, as merged spans: splitting one rest into two is not a change."""
+        spans = {}
+        for e in sorted((e for e in bar.events if e.pitch is None), key=lambda e: e.onset):
+            voice = spans.setdefault((e.staff, e.layer), [])
+            if voice and voice[-1][1] >= e.onset:
+                voice[-1][1] = max(voice[-1][1], e.onset + e.duration)
+            else:
+                voice.append([e.onset, e.onset + e.duration])
+        return spans
+    # The round trip writes out rests a voice only implied, so a voice that had none before is not compared.
+    old_rests, new_rests = rests(before), rests(after)
+    if any(old_rests[voice] != new_rests.get(voice) for voice in old_rests) or (
+            not old_rests and new_rests):
         changes.append("rests changed")
     if before.length != after.length:
         changes.append("the bar length changed")
