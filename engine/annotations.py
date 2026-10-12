@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 View = Literal["harmony", "voice_leading", "form"]
 Role = Literal["student", "composer"]
+Style = Literal["current", "abrsm", "figured_bass"]
 
 
 class Position(BaseModel):
@@ -118,6 +119,7 @@ class AnnotationList(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     version: Literal[1] = 1
+    style: Style = "current"
     annotations: list[AnyAnnotation]
 
     def visible(self, kind: str, annotation: Annotation, view: str, role: str | None) -> bool:
