@@ -1,0 +1,27 @@
+{
+ "version": 1,
+ "annotations": [
+  {"type":"harmony","at":{"measure":1},"key":"a","label":"i"},
+  {"type":"harmony","at":{"measure":1,"beat":3},"label":"V"},
+  {"type":"harmony","at":{"measure":2},"label":"i6"},
+  {"type":"harmony","at":{"measure":2,"beat":3},"label":"V"},
+  {"type":"harmony","at":{"measure":3},"label":"i"},
+  {"type":"harmony","at":{"measure":3,"beat":2},"label":"V6"},
+  {"type":"harmony","at":{"measure":3,"beat":4},"key":"C","label":"I"},
+  {"type":"harmony","at":{"measure":4},"label":"V65/V"},
+  {"type":"harmony","at":{"measure":4,"beat":2},"label":"V"},
+  {"type":"harmony","at":{"measure":4,"beat":3},"label":"I"},
+  {"type":"harmony","at":{"measure":5},"label":"V"},
+  {"type":"harmony","at":{"measure":5,"beat":2},"label":"IV6"},
+  {"type":"harmony","at":{"measure":5,"beat":3},"label":"V6"},
+  {"type":"harmony","at":{"measure":5,"beat":4},"label":"I"},
+  {"type":"harmony","at":{"measure":6},"key":"a","label":"viio"},
+  {"type":"harmony","at":{"measure":6,"beat":2},"label":"i"},
+  {"type":"harmony","at":{"measure":6,"beat":3},"label":"V"},
+  {"type":"harmony","at":{"measure":7,"beat":2},"label":"V65"},
+  {"type":"harmony","at":{"measure":7,"beat":3},"label":"i"},
+  {"type":"harmony","at":{"measure":8},"label":"iiø65"},
+  {"type":"harmony","at":{"measure":8,"beat":2},"label":"V"},
+  {"type":"harmony","at":{"measure":8,"beat":3},"label":"i"}
+ ]
+}

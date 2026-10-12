@@ -245,6 +245,10 @@ class ScoreIndex:
             for position, layer in enumerate(staff.findall(f"{MEI}layer"), start=1):
                 self._layer = position
                 self._read_layer(layer, measure, int(staff.get("n", "1")), Fraction(0))
+        # A whole-bar rest has no events, and a reading's can run past the barline and mark the bar incomplete;
+        # such a bar is as long as its meter, not zero.
+        if not measure.events and full is not None:
+            measure.declared_length = full
         for tie in element.findall(f"{MEI}tie"):
             self._tie_starts.add((tie.get("startid") or "").lstrip("#"))
 
@@ -316,11 +320,11 @@ class ScoreIndex:
             raise PositionError(f"Measure {number} does not exist; the score has measures {first} to {last}")
         return self._by_number[number]
 
-    def measure_range(self, first: int, last: int) -> str:
-        """Verovio measureRange covering measures first..last, with the pickup when starting at 1."""
+    def measure_range(self, first: int, last: int, *, include_pickup: bool = True) -> str:
+        """Verovio measureRange covering first..last, optionally including the pickup at 1."""
         start = self.measure(first)
         position = self.measures.index(start)
-        if first == 1 and position > 0 and self.measures[position - 1].number == 0:
+        if include_pickup and first == 1 and position > 0 and self.measures[position - 1].number == 0:
             start = self.measures[position - 1]
         return f"{start.index}-{self.measure(last).last_index}"
 

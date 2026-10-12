@@ -250,3 +250,92 @@ def test_delayed_resolution_cannot_cross_harmony_boundary():
     index = satb([('B4', 'G4', 'D4', 'G2'), ('B4', 'G4', 'E4', 'C3'), ('C5', 'A4', 'F4', 'F3')])
     assert ('unresolved_leading_tone', (1, 2), (S,)) in identities(
         check(index, [span(1, 'V'), span(2, 'I'), span(3, 'IV')]))
+
+
+@pytest.mark.parametrize('name, rule, bars, beats, voices', [
+    # E4 passes D4–E4–F#4; the weak-beat stack is not a new F# minor seventh.
+    ('bwv108.6', 'unresolved_seventh', (7, 7), (2.5, 3.0), (T,)),
+    # A3–G#3–A3 is a neighbour; A2–B2–C#3 is a passing bass, not C# minor seventh.
+    ('bwv386', 'unresolved_seventh', (5, 5), (3.75, 4.0), (B,)),
+    # The passing bass C#3 does not make the held B-minor tones a D augmented seventh.
+    ('bwv99.6', 'unresolved_seventh', (10, 10), (1.5, 2.0), (B,)),
+    # The alto ornaments G4 with A4–G4 before resolving the A7 seventh to F#4.
+    ('bwv282', 'unresolved_seventh', (15, 15), (3.0, 3.5), (A,)),
+    # B7–E establishes E locally: doubled G# is the tonic third, not A's leading tone.
+    ('bwv197.5', 'doubled_leading_tone', (12,), (1.5,), (S, B)),
+    # A held C# over D is a seventh sonority, not a completed V–I arrival.
+    ('bwv303', 'unresolved_leading_tone', (3, 3), (1.0, 1.5), (S,)),
+])
+def test_bach_embellishments_and_local_tonics(name, rule, bars, beats, voices):
+    index = read(DATA / f'part_writing_{name}.musicxml')
+    assert applies(index)
+    assert not any((h.rule, h.bars, h.beats, h.voices) == (rule, bars, beats, voices)
+                   for h in check(index))
+
+
+def test_explicit_dominant_still_reports_doubled_leading_tone():
+    index = read(DATA / 'part_writing_bwv197.5.musicxml')
+    # The same G# doubling is an error when the supplied analysis establishes A, not E, as tonic.
+    assert any(h.rule == 'doubled_leading_tone' and h.bars == (12,) and h.beats == (1.5,)
+               and h.voices == (S, B) for h in check(index, [span(12, 'V6', 'A', 1.5)]))
+
+
+@pytest.mark.parametrize('name, bar', [('bwv244.3', 9), ('bwv168.6', 4)])
+def test_leaping_leading_note_decoration_is_not_a_chordal_seventh(name, bar):
+    # The alto falls a third then rises a semitone into the sustained minor tonic.
+    index = read(DATA / f'part_writing_{name}.musicxml')
+    assert applies(index)
+    assert not any(h.rule == 'unresolved_seventh' and h.bars == (bar, bar)
+                   and h.beats == (1.5, 2.0) and h.voices == (A,) for h in check(index))
+
+
+def test_established_seventh_obligation_survives_decorated_arrival():
+    # Complete Fm7 has Eb4 rising to F4; the soprano's passing D5 cannot erase it.
+    index = read(DATA / 'part_writing_bwv102.7.musicxml')
+    assert applies(index)
+    assert any(h.rule == 'unresolved_seventh' and h.bars == (5, 5)
+               and h.beats == (2.0, 2.5) and h.voices == (A,) for h in check(index))
+
+
+@pytest.mark.parametrize('name, bar, voice', [('bwv85.6', 12, T), ('bwv404', 7, S)])
+def test_anticipations_do_not_create_seventh_obligations(name, bar, voice):
+    # Repeated arrival tones anticipate the new harmony while the dominant resolves.
+    index = read(DATA / f'part_writing_{name}.musicxml')
+    assert applies(index)
+    assert not any(h.rule == 'unresolved_seventh' and h.bars == (bar, bar)
+                   and h.beats == (2.5, 3.0) and h.voices == (voice,) for h in check(index))
+
+
+def test_successive_tonicizations_preserve_outer_leading_tone_obligation():
+    # E7–A tonicizes A, but A–D/F# still requires the soprano C#5 to rise to D5.
+    index = read(DATA / 'part_writing_bwv64.4.musicxml')
+    assert applies(index)
+    chords = [span(11, 'V7/V', 'D', 4), span(12, 'V', 'D'), span(12, 'I6', 'D', 4)]
+    for hits in (check(index, chords), check(index)):
+        assert any(h.rule == 'unresolved_leading_tone' and h.bars == (12, 12)
+                   and h.beats == (1.0, 4.0) and h.voices == (S,) for h in hits)
+
+
+def test_successive_dominants_are_not_a_tonic_arrival():
+    # B7–E–A7 continues the dominant sequence; bass G#3 becomes A7's G3 seventh.
+    index = read(DATA / 'part_writing_bwv245.14.musicxml')
+    assert applies(index)
+    assert not any(h.rule == 'unresolved_leading_tone' and h.bars == (11, 11)
+                   and h.beats == (2.0, 3.0) and h.voices == (B,) for h in check(index))
+
+
+@pytest.mark.parametrize('name, bar, beats, expected', [
+    ('bwv84.5', 4, (3.0, 4.0), False),
+    ('bwv418', 15, (1.5, 2.0), False),
+    ('bwv419', 11, (1.0, 2.0), False),
+    ('bwv336', 2, (3.0, 4.0), True),
+    ('bwv245.40', 18, (3.0, 4.0), True),
+    ('bwv64.4', 12, (1.0, 4.0), True),
+])
+def test_local_dominant_requires_key_evidence(name, bar, beats, expected):
+    # Diatonic III–VI in minor has no local leading-tone obligation.
+    index = read(DATA / f'part_writing_{name}.musicxml')
+    assert applies(index)
+    found = any(h.rule == 'unresolved_leading_tone' and h.bars == (bar, bar)
+                and h.beats == beats and h.voices == (S,) for h in check(index))
+    assert found == expected

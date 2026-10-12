@@ -8,10 +8,13 @@ https://viva.pressbooks.pub/openmusictheorycopy/chapter/roman-numerals/.
 
 Pass draft.Chord spans to reuse the engine's local keys and Roman labels without
 running its model. Without spans, music21 estimates a duration-weighted key in
-four-bar windows (a phrase proxy; fermatas are absent from the note table), and
-recognises only complete triads/sevenths at note onsets. Ambiguous sonorities do
-not get tendency-tone checks. This limits, but cannot eliminate, passing-note misreadings.
-The fallback cannot reliably recognise tonicizations or incomplete chords.
+four-bar windows (a phrase proxy; fermatas are absent from the note table), with
+local dominant resolutions taking precedence. It removes clear unaccented
+passing/neighbor, anticipation and leaping leading-note decorations before recognising complete
+triads/sevenths. Ambiguous sonorities create no new tendency-tone obligations;
+moving sevenths from an established chord still get checked at decorated complete arrivals. This limits, but
+cannot eliminate, passing-note misreadings.
+The fallback cannot reliably recognise every tonicization or incomplete chord.
 
 music21's VoiceLeadingQuartet fits the spelled parallel-interval checks. Direct
 intervals additionally require an outer soprano leap, the usual classroom rule.
@@ -109,7 +112,7 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
         return []
     from music21 import chord, interval, key, note, roman, stream, voiceLeading
 
-    voices, _, rows = _table(index)
+    voices, notes, rows = _table(index)
     name = _names(voices)
     result = []
 
@@ -119,20 +122,121 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
     def pitch(e):
         return e.pitch.replace("b", "-")
 
+    ornaments, neighbors = set(), set()
+    for line in notes.values():
+        for (start, end, previous), (onset, stop, event), (following, _, next_event) in zip(line, line[1:], line[2:]):
+            measure = index.measure(event.measure)
+            if end != onset or stop != following or previous.tied or event.tied:
+                continue
+            if event.duration >= measure.beat_length or (event.onset / measure.beat_length).denominator == 1:
+                continue
+            approach = interval.Interval(note.Note(pitch(previous)), note.Note(pitch(event)))
+            departure = interval.Interval(note.Note(pitch(event)), note.Note(pitch(next_event)))
+            if approach.directedName in ('m-3', 'M-3') and departure.directedName == 'm2':
+                other_lines = [other for v, other in notes.items() if v != (event.staff, event.layer)]
+                held = [[e for begin, finish, e in other if begin <= onset < finish] for other in other_lines]
+                arrival = [[e for begin, finish, e in other if begin <= following < finish] for other in other_lines]
+                if all(len(es) == 1 for es in held + arrival):
+                    tones = [midi(es[0].pitch) % 12 for es in held]
+                    resolved = chord.Chord([pitch(es[0]) for es in held] + [pitch(next_event)])
+                    # A leaping leading-note decoration resolves into an otherwise sustained tonic triad.
+                    if (tones == [midi(es[0].pitch) % 12 for es in arrival]
+                            and resolved.isTriad() and resolved.root().pitchClass == midi(next_event.pitch) % 12):
+                        ornaments.add(event.id)
+            if not all(i.isStep and 0 < abs(i.semitones) <= 2 for i in (approach, departure)):
+                continue
+            neighbor = previous.pitch == next_event.pitch
+            if neighbor or approach.semitones * departure.semitones > 0:
+                ornaments.add(event.id)
+                if neighbor:
+                    neighbors.add(event.id)
+
+    anticipations = {}
+    for line in notes.values():
+        for (_, end, previous), (onset, stop, event) in zip(line, line[1:]):
+            measure = index.measure(event.measure)
+            beat = event.onset / measure.beat_length
+            if (end != onset or previous.tied or event.duration > measure.beat_length
+                    or beat.denominator == 1):
+                continue
+            following = onset + (int(beat) + 1 - beat) * measure.beat_length
+            approach = interval.Interval(note.Note(pitch(previous)), note.Note(pitch(event)))
+            if following > stop or not approach.isStep or not 0 < abs(approach.semitones) <= 2:
+                continue
+            source = [[e for begin, finish, e in other if begin < onset <= finish] for other in notes.values()]
+            arrival = [[e for begin, finish, e in other if begin <= following < finish] for other in notes.values()]
+            if all(len(es) == 1 for es in source + arrival):
+                target = arrival[voices.index((event.staff, event.layer))][0]
+                source_chord = chord.Chord([pitch(es[0]) for es in source])
+                arrival_chord = chord.Chord([pitch(es[0]) for es in arrival])
+                # An anticipation belongs to the arriving chord, whether held or repeated there.
+                if (event.pitch == target.pitch and (source_chord.isTriad() or source_chord.isSeventh())
+                        and (arrival_chord.isTriad() or arrival_chord.isSeventh())
+                        and source_chord.root().pitchClass != arrival_chord.root().pitchClass
+                        and midi(event.pitch) % 12 not in source_chord.pitchClasses
+                        and midi(event.pitch) % 12 in arrival_chord.pitchClasses):
+                    anticipations[event.id] = (event.measure, measure.beat_of(event.onset + following - onset))
+
+    def decorated(pos, event):
+        # A held anticipation is a chord member once its harmony arrives.
+        return event.id in ornaments or (event.id in anticipations
+                                        and pos[0] == anticipations[event.id][0]
+                                        and pos[1] < anticipations[event.id][1])
+
     sonorities = [(p, {v: es[0] for v, es in row.items() if len(es) == 1}) for p, row in rows]
     spans = sorted(chords or [], key=lambda c: (index.measure(c.measure).index, c.beat))
     keys = {}
+    context = stream.Stream()
     if not spans:
         for start in range(0, len(index.measures), 4):
             phrase = stream.Stream()
             for m in index.measures[start:start + 4]:
                 for e in m.events:
                     if e.pitch and not e.grace and e.duration > 0:
-                        phrase.append(note.Note(pitch(e), quarterLength=float(e.duration)))
+                        sounding_note = note.Note(pitch(e), quarterLength=float(e.duration))
+                        phrase.append(sounding_note)
+                        context.append(sounding_note)
             if phrase.notes:
                 estimated = phrase.analyze("key")
                 for m in index.measures[start:start + 4]:
                     keys[m.number] = estimated
+
+    context_key = context.analyze("key") if context.notes else None
+    context_tones = {p.pitchClass for p in context_key.pitches} if context_key else set()
+
+    inferred = {}
+    previous, local_key = None, None
+    if not spans:
+        for pos, row in sonorities:
+            k = keys.get(pos[0])
+            c = chord.Chord([pitch(e) for e in row.values()])
+            if len(row) != len(voices):
+                previous, local_key = None, None
+            if not (c.isTriad() or c.isSeventh()) or len(row) != len(voices):
+                inferred[pos] = (k, None)
+                continue
+            root = c.root().pitchClass
+            # Adding a dominant seventh can reinterpret a recently tonicized chord as V.
+            if c.isDominantSeventh():
+                local_key = None
+            if previous is not None and previous.root != root:
+                local_key = None
+                dominant = previous.root == (root + 7) % 12 and previous.third == (root - 1) % 12
+                diminished = previous.root == (root - 1) % 12 and {(root + 2) % 12, (root + 5) % 12} <= previous.tones
+                # A resolved applied dominant is stronger evidence than a four-bar pitch histogram.
+                if (dominant or diminished) and c.third and (c.third.pitchClass - root) % 12 in (3, 4):
+                    local_key = key.Key(c.root().name, 'minor' if (c.third.pitchClass - root) % 12 == 3 else 'major')
+            previous = harmony.Chord(root, frozenset(p.pitchClass for p in c.pitches),
+                                     c.bass().pitchClass, c.seventh.pitchClass if c.seventh else None,
+                                     c.third.pitchClass if c.third else None)
+            # Embellishing chord members can establish a cadence, but not a new tendency-tone obligation.
+            reduced = chord.Chord([pitch(e) for e in row.values() if not decorated(pos, e)])
+            sounding = None
+            if reduced.isTriad() or reduced.isSeventh():
+                sounding = harmony.Chord(reduced.root().pitchClass, frozenset(p.pitchClass for p in reduced.pitches),
+                                         reduced.bass().pitchClass, reduced.seventh.pitchClass if reduced.seventh else None,
+                                         reduced.third.pitchClass if reduced.third else None)
+            inferred[pos] = (local_key or k, sounding)
 
     def named(pos, row):
         if spans:
@@ -151,13 +255,7 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                 if named_chord.secondaryRomanNumeralKey:
                     k = named_chord.secondaryRomanNumeralKey
             return k, c
-        k = keys.get(pos[0])
-        c = chord.Chord([pitch(e) for e in row.values()])
-        if k is None or not (c.isTriad() or c.isSeventh()):
-            return k, None
-        return k, harmony.Chord(c.root().pitchClass, frozenset(p.pitchClass for p in c.pitches),
-                                c.bass().pitchClass, c.seventh.pitchClass if c.seventh else None,
-                                c.third.pitchClass if c.third else None)
+        return inferred[pos]
 
     for pos, row in sonorities:
         for v in row:
@@ -191,7 +289,8 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
             diminished = c.root == leading.pitchClass and {(c.root + 3) % 12, (c.root + 6) % 12} <= c.tones
             if not (dominant or diminished):
                 continue
-            doubled = [v for v in row if pitch(row[v])[:-1] == leading.name and midi(row[v].pitch) % 12 in c.tones]
+            doubled = [v for v in row if (spans or not decorated(pos, row[v]))
+                       and pitch(row[v])[:-1] == leading.name and midi(row[v].pitch) % 12 in c.tones]
             if len(doubled) > 1:
                 add("doubled_leading_tone", [pos], doubled, f"The leading tone ({leading.name.replace('-', 'b')}) is doubled, in the {' and '.join(name[v] for v in doubled)}; it should appear once.")
 
@@ -219,10 +318,21 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
             continue
         ka, ca = named(before, a)
         kb, cb = named(after, b)
-        if ca is None or cb is None:
+        if ca is None:
             continue
+        if cb is None:
+            arrival = chord.Chord([pitch(e) for e in b.values()])
+            # Reduction must not erase a seventh's resolution at a complete decorated arrival.
+            if not (arrival.isTriad() or arrival.isSeventh()) or ca.tones == frozenset(p.pitchClass for p in arrival.pitches):
+                continue
         for v in voices:
             if v not in a or v not in b:
+                continue
+            # A held tone over an unknown harmony may still be awaiting its resolution.
+            if cb is None and a[v].pitch == b[v].pitch:
+                continue
+            # A neighbour that returns within the same harmony is not the tone's resolution.
+            if b[v].id in neighbors and (cb is None or ca.root == cb.root):
                 continue
             destination, target = after, b[v]
             if a[v].pitch == target.pitch:
@@ -240,14 +350,26 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                             destination, target = later, candidate
                         break
             motion = interval.Interval(note.Note(pitch(a[v])), note.Note(pitch(target)))
-            if ca.seventh is not None and midi(a[v].pitch) % 12 == ca.seventh and ca.tones != cb.tones:
+            if ca.seventh is not None and midi(a[v].pitch) % 12 == ca.seventh and (cb is None or ca.tones != cb.tones):
+                # An ambiguous decorated arrival cannot erase an established seventh's obligation.
                 # A retained common tone may be a consonance in a revoicing, not a failed resolution.
-                retained = a[v].pitch == b[v].pitch and ca.seventh in cb.tones and cb.seventh != ca.seventh
+                retained = cb is not None and a[v].pitch == b[v].pitch and ca.seventh in cb.tones and cb.seventh != ca.seventh
                 if not retained and motion.directedName not in ("m-2", "M-2"):
                     add("unresolved_seventh", [before, destination], [v], f"The {name[v]}'s seventh ({a[v].pitch}) should fall by step; it {'moves to ' + target.pitch if target.pitch != a[v].pitch else 'is held'} instead.")
-            if ka and kb and v in (voices[0], voices[-1]):
+            if ka and kb and cb and v in (voices[0], voices[-1]):
+                # A fifth-related diatonic III–VI motion is not evidence of tonicization.
+                # Require the wider tonic or chromatic evidence in the applied dominant.
+                if (not spans and ka.tonic.pitchClass == ca.root and ka != keys.get(before[0])
+                        and cb.root == kb.tonic.pitchClass
+                        and context_key and (cb.root == context_key.tonic.pitchClass
+                                             or not ca.tones <= context_tones)
+                        and cb.seventh != (cb.root + 10) % 12
+                        and ca.root == (cb.root + 7) % 12 and ca.third == kb.getLeadingTone().pitchClass):
+                    ka = kb
                 tonic = ka.tonic.pitchClass
-                if ca.root == (tonic + 7) % 12 and cb.root == tonic and midi(a[v].pitch) % 12 == ka.getLeadingTone().pitchClass:
+                # A retained leading tone reinterpreted as a chordal seventh has a new resolution obligation.
+                retained = a[v].pitch == b[v].pitch and cb.seventh == ka.getLeadingTone().pitchClass
+                if ca.root == (tonic + 7) % 12 and cb.root == tonic and not retained and midi(a[v].pitch) % 12 == ka.getLeadingTone().pitchClass:
                     if motion.directedName != "m2":
                         add("unresolved_leading_tone", [before, destination], [v], f"The {name[v]}'s leading tone ({a[v].pitch}) should rise to the tonic at V–I; it {'moves to ' + target.pitch if target.pitch != a[v].pitch else 'is held'} instead.")
     return result

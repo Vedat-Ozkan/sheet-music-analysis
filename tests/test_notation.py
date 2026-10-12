@@ -62,8 +62,8 @@ def test_table_covers_every_example_label_and_active_key():
     ('V7', 'Gb', 'V7', '7', 'Db', ''),
     ('ii%43', 'C', 'iiø7c', '4/3', 'Ab', '♭'),
     ('vii°42/V', 'C', 'vii°7d/V', '4/♯2', 'Eb', '♭'),
-    ('V7', 'g#', 'V7', '7/𝄪3', 'D#', ''),
-    ('bviio7', 'C', '♭vii°7', '𝄫7/♭5/♭3', 'Bb', '♭'),
+    ('V7', 'g#', 'V7', '7/♯♯3', 'D#', ''),
+    ('bviio7', 'C', '♭vii°7', '♭♭7/♭5/♭3', 'Bb', '♭'),
 ])
 def test_edge_table(label, key, letters, figures, bass, accidental):
     assert abrsm(label, key) == letters

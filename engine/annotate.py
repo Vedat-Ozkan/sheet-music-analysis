@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import math
 import re
+from typing import TYPE_CHECKING
 from xml.sax.saxutils import escape
 
-from engine import slurs
+from engine import notation, slurs
 from engine.annotations import AnnotationList, Cadence, Callout, Harmony, NoteRef, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
 from engine.render import Engraving, incoming_ties, load_toolkit, shorten_ties
 from engine.score import PositionError, ScoreIndex
+
+if TYPE_CHECKING:
+    from engine.comparison import Label
 
 # A page is an annotated excerpt for study, never a stand-in for the whole score (users send copyrighted music).
 MAX_BARS = 32
@@ -37,6 +41,15 @@ class AnnotationError(ValueError):
 def check(annotations: AnnotationList, index: ScoreIndex) -> None:
     """Resolve every position against the score and report all problems at once."""
     problems = []
+    key = None
+    for harmony in sorted((a for a in annotations.annotations if isinstance(a, Harmony)),
+                          key=lambda h: (h.at.measure, h.at.beat)):
+        key = harmony.key or key
+        if annotations.style == "figured_bass":
+            try:
+                notation.numeral(harmony.label, key, annotations.style, 440)
+            except ValueError as error:
+                problems.append(f"harmony at measure {harmony.at.measure} beat {harmony.at.beat}: {error}")
     for number, annotation in enumerate(annotations.annotations):
         try:
             if isinstance(annotation, (Harmony, Cadence, Callout)):
@@ -65,15 +78,22 @@ def render(
     view: str = "all",
     role: str | None = None,
     piano: bool = False,
+    student_labels: list[Label] | None = None,
 ) -> Engraving:
     """Engrave `measures` (printed numbers, inclusive; the whole score by default, if it is short enough) with annotations drawn on.
 
-    With `piano`, the passage is drawn as a two-staff piano reduction; the annotations still describe the original."""
+    With `piano`, the passage is drawn as a two-staff piano reduction; the annotations still describe the original.
+    With `student_labels`, the overlay is replaced by the student's labels checked against the annotations."""
     if piano:
         score, annotations = _piano_version(score, annotations, measures)
     toolkit = load_toolkit(score, ANNOTATED_OPTIONS)
     index = ScoreIndex(toolkit.getMEI())
     check(annotations, index)
+    results = None
+    if student_labels is not None:
+        from engine import check_analysis, check_display
+        results = check_display.compare(student_labels, annotations.model_dump(exclude_none=True), index)
+        annotations = check_display.reserve(results)
     first, last = measures or (index.measures[0].number, index.measures[-1].number)
     bars = sum(1 for measure in index.measures if first <= measure.number <= last and measure.number > 0)
     if bars > MAX_BARS:
@@ -98,12 +118,37 @@ def render(
 
     slurs.untangle(toolkit, relayout)
     _move_text_off_stems(toolkit, relayout)
+    if results is not None:
+        _make_room_for_checks(toolkit, relayout, index, ties, results)
     pages = []
     for page in range(1, toolkit.getPageCount() + 1):
         layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
-        layout.draw(annotations, view, role)
+        if results is None:
+            layout.draw(annotations, view, role)
+        else:
+            check_display.draw(layout, results, page == toolkit.getPageCount())
         pages.append(layout.to_svg())
     return Engraving(pages)
+
+
+def _make_room_for_checks(toolkit, relayout, index, ties, results) -> None:
+    """The notes under a system and the legend under the last take as much room as they need: draw once to
+    measure, ask Verovio for the missing lines under those systems, and lay out again until everything fits."""
+    from engine import check_display
+
+    base = toolkit.getMEI()
+    bottom_staff = max(int(n) for n in re.findall(r'<staffDef\b[^>]*?\bn="(\d+)"', base))
+    lines: dict[str, int] = {}
+    for _ in range(6):
+        needs: dict[str, int] = {}
+        for page in range(1, toolkit.getPageCount() + 1):
+            layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
+            needs.update(check_display.draw(layout, results, page == toolkit.getPageCount()))
+        if not needs:
+            return
+        for measure_id, more in needs.items():
+            lines[measure_id] = lines.get(measure_id, 0) + more
+        relayout(check_display.with_room(base, lines, bottom_staff))
 
 
 def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[int, int] | None) -> tuple[bytes, AnnotationList]:
@@ -178,9 +223,16 @@ def _reserve_numeral_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
     mei = toolkit.getMEI()
     bottom_staff = max(int(n) for n in re.findall(r'<staffDef\b[^>]*?\bn="(\d+)"', mei))
     added: dict[str, list[str]] = {}
-    for harmony in annotations.annotations:
-        if not isinstance(harmony, Harmony):
-            continue
+    key = None
+    harmonies = [a for a in annotations.annotations if isinstance(a, Harmony)]
+    if annotations.style != "current":
+        harmonies.sort(key=lambda h: (index.measure(h.at.measure).index, h.at.beat))
+    for harmony in harmonies:
+        key = harmony.key or key
+        label = harmony.label
+        if annotations.style != "current":
+            chunks, _ = notation.numeral(label, key, annotations.style, 440)
+            label = " ".join(chunk.text for chunk in chunks)
         measure = index.measure(harmony.at.measure)
         offset = measure.offset_of(harmony.at.beat)
         segment = measure.segment_at(offset)
@@ -188,7 +240,7 @@ def _reserve_numeral_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
         tstamp = 1 + (offset - segment.start) * unit / 4
         # Verovio sets chord symbols smaller than our numerals, hence the padding.
         added.setdefault(segment.id, []).append(
-            f'<harm staff="{bottom_staff}" tstamp="{float(tstamp):g}" place="below">{escape(harmony.label)}\u00a0\u00a0</harm>'
+            f'<harm staff="{bottom_staff}" tstamp="{float(tstamp):g}" place="below">{escape(label)}\u00a0\u00a0</harm>'
         )
     if not added:
         return
