@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import io
 import re
 import xml.etree.ElementTree as ET
+import zipfile
 from dataclasses import asdict
 from fractions import Fraction
 
 from music21 import key as m21key
 
-from engine.comparison import Label, from_annotations, matches, sounding
+from engine.comparison import Label, from_annotations, from_draft, matches, sounding
 from engine.score import ScoreIndex, beat_length
 
 KEY_NAME = r"[A-Ga-g][#b♯♭-]*(?:\s+(?:major|minor|maj|min))?"
@@ -42,7 +44,10 @@ def _key(text: str) -> str:
 
 
 def _figure(text: str, key: str) -> str:
+    groups = text.split('/\0')
+    text = text.replace('\0', '')
     figure = text.translate(str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', '01234567890123456789'))
+    figure = re.sub(r'(?<=\d)/(?=\d)', '', figure)
     figure = figure.replace('°', 'o').replace('♯', '#').replace('♭', 'b').replace('/o', 'ø')
     figure = {'It+6': 'It6', 'Ger+6': 'Ger6', 'Fr+6': 'Fr6'}.get(figure, figure)
     if re.fullmatch(r'[Vv]64[-–—]53', figure):
@@ -63,6 +68,12 @@ def _figure(text: str, key: str) -> str:
     valid = all(ROMAN.fullmatch(part) for part in parts)
     if not valid and figure not in ('N', 'N6', 'Cad64', 'It6', 'Ger6', 'Ger65', 'Fr6', 'Fr43'):
         raise ClarificationNeeded(f"Cannot read Roman numeral {text!r} in {key}", f'Which Roman numeral did you mean by {text!r}?')
+    if len(parts) > 1:
+        head = re.match(r'[#b-]*([ivIV]+)', parts[0])[1].lower()
+        if len(parts) > 2 or head == 'i' or not re.fullmatch(r'[#b-]*(?:ii|iii|iv|v|vi|VII)', parts[1], re.IGNORECASE) or parts[1] == 'vii':
+            raise ClarificationNeeded(
+                f'Implausible applied chord {text!r}',
+                f"Separate chords with spaces or commas; use / only for 'of', as in V/V. Did you mean {figure} as one chord, or {' then '.join(groups if len(groups) > 1 else parts)} as separate chords?")
     if sounding(key, figure) is None:
         raise ClarificationNeeded(f"Cannot read Roman numeral {text!r} in {key}", f'Which Roman numeral did you mean by {text!r}?')
     return figure
@@ -85,15 +96,27 @@ def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
 def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None) -> list[Label]:
     """Unmarked successive labels occupy beats 1, 2, ...; an unaddressed key is the initial key."""
     text = text.translate(str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', '01234567890123456789'))
+    # "/" always means "of", so spaces around it are tightened; a spaced hyphen between chords separates them.
+    # \0 remembers a spaced slash so a question can offer to split the answer there.
+    text = re.sub(r'(?:\s+/\s*|\s*/\s+)(?=[#b-]*[ivIV])', '/\0', text)
     text = re.sub(r'\s*/\s*', '/', text)
+    text = re.sub(r'\bCad\s*6\s*[-–—]\s*4', 'Cad64', text, flags=re.IGNORECASE)
+    text = re.sub(r'(?<=\S)\s+[-–—]\s+(?=\S)', ' ', text)
     tokens = list(TOKEN.finditer(text))
     key = _key(default_key)
-    # An unaddressed key often follows the student's answer rather than preceding it.
+    # Only a key before the first numeral is the starting key; after numerals it is a modulation that
+    # needs a numeral to apply to.
     initial_keys = set()
-    for position, token in enumerate(tokens):
-        addressed = position > 0 and tokens[position - 1].lastgroup in ('bar', 'beat')
-        if token.lastgroup in ('key', 'shortkey') and not addressed:
-            initial_keys.add(_key(re.sub(r'^(?:key\s*:?|in)\s*', '', token.group(), flags=re.I).rstrip(':')))
+    kinds = [t.lastgroup for t in tokens]
+    unaddressed = [i for i, k in enumerate(kinds) if k in ('key', 'shortkey') and not (i > 0 and kinds[i - 1] in ('bar', 'beat'))]
+    for position in unaddressed:
+        name = _key(re.sub(r'^(?:key\s*:?|in)\s*', '', tokens[position].group(), flags=re.I).rstrip(':'))
+        stop = next((i for i in range(position + 1, len(kinds)) if kinds[i] in ('key', 'shortkey')), len(kinds))
+        # A lone key is the global key wherever it appears, unless numerals on both sides make it a modulation.
+        if 'label' not in kinds[:position] or ('label' not in kinds[position + 1:stop] and len(unaddressed) == 1):
+            initial_keys.add(name)
+        elif 'label' not in kinds[position + 1:stop]:
+            raise ClarificationNeeded(f'Key {name} has no chord after it', f'Put the key just before the first chord in the new key, e.g. m3 {name}: I. Where does the change to {name} occur?')
     if len(initial_keys) > 1:
         raise ClarificationNeeded('Multiple unaddressed keys', 'Where does the key change occur (bar and beat)?')
     if initial_keys:
@@ -110,6 +133,9 @@ def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None
             key = _key(re.sub(r'^(?:key\s*:?|in)\s*', '', value, flags=re.I).rstrip(':'))
         else:
             value = value.strip('()[]\"\'.!')
+            if re.fullmatch(r'\d[-–—]\d', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label':
+                # A suspension (4-3) ornaments the chord before it, so it is not a chord of its own.
+                continue
             if re.fullmatch(r'(?:6|64|7|65|43|42)(?:/\S+)?', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label' and text[tokens[position - 1].end():token.start()].isspace():
                 previous = labels.pop()
                 labels.append(Label(previous.measure, previous.beat, previous.key, _figure(previous.figure + value, previous.key)))
@@ -275,13 +301,17 @@ def from_musicxml(data: str | bytes, default_key: str = 'C', index: ScoreIndex |
 
 
 def compare(student: list[Label], reviewed: dict, index: ScoreIndex) -> list[dict]:
-    """Classify each student onset against the reviewed chord still active there.
+    return compare_labels(student, from_annotations(reviewed), index)
 
-    Keys take precedence over chord differences. Gaps before the first reviewed
+
+def compare_labels(student: list[Label], reference: list[Label], index: ScoreIndex) -> list[dict]:
+    """Classify each student onset against the reference chord still active there.
+
+    A chord that sounds different is a chord difference, whatever key the label names; the same chord named in
+    another key is a key difference. Gaps before the first reference
     label and unreadable reference labels are errors, never fabricated agreement.
     """
     student = _finish(student, index)
-    reference = from_annotations(reviewed)
     numbers = {measure.number for measure in index.measures}
     reference = _finish([item for item in reference if item.measure in numbers], index)
     results = []
@@ -294,10 +324,11 @@ def compare(student: list[Label], reviewed: dict, index: ScoreIndex) -> list[dic
         if r is None or s is None:
             raise ValueError(f"Unreadable harmony at bar {label.measure} beat {label.beat:g}")
         agreement = matches(r, s)
-        if not agreement['key']:
-            classification = 'different_key'
-        elif not agreement['chord']:
+        if not agreement['chord']:
+            # The label names both the chord and the key, so a chord that sounds different is the first thing to check.
             classification = 'different_chord'
+        elif not agreement['key']:
+            classification = 'different_key'
         elif not agreement['chord_and_bass']:
             classification = 'different_inversion'
         elif expected.figure == label.figure:
@@ -312,3 +343,55 @@ def compare(student: list[Label], reviewed: dict, index: ScoreIndex) -> list[dic
             'matches': agreement,
         })
     return results
+
+
+def from_score(score: bytes, index: ScoreIndex) -> list[Label]:
+    """The numerals written into the score file itself, for a student who annotated it in notation software."""
+    if score[:2] == b'PK':
+        with zipfile.ZipFile(io.BytesIO(score)) as archive:
+            container = ET.fromstring(archive.read('META-INF/container.xml'))
+            score = archive.read(next(e.get('full-path') for e in container.iter() if e.tag.endswith('rootfile')))
+    return from_musicxml(score, index=index)
+
+
+def student_labels(text: str, score: bytes | None, index: ScoreIndex) -> list[Label]:
+    """Typed labels, or, when `text` is the word "score", the numerals written into the score file.
+
+    Numerals in a file are only the user's answer when they say so: a textbook edition carries its own.
+    """
+    if text.strip().lower() == 'score':
+        if score is None:
+            raise ValueError('Numerals inside the score can only be read from the score file; type the labels instead.')
+        return from_score(score, index)
+    return from_text(text, index=index)
+
+
+def as_typed(labels: list[Label]) -> str:
+    """Labels as text `from_text` reads back unchanged, so a script can hand them to a host that has no score file."""
+    return '; '.join(f"m{label.measure} b{label.beat:g} {label.key}: {label.figure}" for label in labels)
+
+
+def as_text(student: list[Label], draft, index: ScoreIndex) -> str:
+    """The STUDENT CHECK section of a draft: each student label beside the draft chord sounding there."""
+    chords = {(chord.measure, chord.beat): chord for chord in draft.chords}
+    lines = [
+        "STUDENT CHECK (the user gave their own Roman numerals and wants a second reader, not an answer key). "
+        "Each line is one of their labels beside the draft's chord at that beat. Start with what they got right. "
+        "Explain every difference in terms of the notes (the bass, which pitch classes are present), say plainly "
+        "when both readings are defensible, and count 'same chord different spelling' as agreement. The draft is "
+        "right only about half the time: where its confidence is low or it lists a runner-up, or on the weak spots "
+        "named in the method, say the reading is a close call instead of claiming the student is wrong.",
+        "",
+        "measure beat | student | draft (confidence) | draft bass | draft pitch classes | how they compare",
+    ]
+    for item in compare_labels(student, from_draft(draft), index):
+        label, expected = item['student'], item['reviewed']
+        chord = chords.get((expected['measure'], expected['beat']))
+        confidence = f" ({chord.confidence:.2f}" + (f", runner-up {chord.alternative} {chord.alternative_confidence:.2f}" if chord.alternative else '') + ')'
+        lines.append(
+            f"m{label['measure']} b{label['beat']:g} | {label['key']}: {label['figure']} | "
+            f"{expected['key']}: {expected['figure']}{confidence if chord else ''} | "
+            f"{chord.bass if chord else ''} | {' '.join(chord.pitches) if chord else ''} | "
+            + item['classification'].replace('_', ' ')
+        )
+    return '\n'.join(lines)

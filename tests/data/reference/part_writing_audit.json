@@ -1,0 +1,2017 @@
+{
+ "about": "Hand-audited voice-leading findings on music21 Bach corpus chorales (exported with GeneralObjectExporter). 'real' = a genuine instance of the rule (Bach's licence counts) that must stay reported; 'checker bug' = a false report that must stay absent. Source: codex-night partwriting/sample_audit.csv (88 entries) + fix3_leading_tone_audit.csv (3); all 91 are reachable offline.",
+ "entries": [
+  {
+   "chorale": "bwv10.7",
+   "rule": "voice_crossing",
+   "bars": [
+    7
+   ],
+   "beats": [
+    3.0
+   ],
+   "voices": [
+    [
+     3,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv135.6",
+   "rule": "voice_crossing",
+   "bars": [
+    2
+   ],
+   "beats": [
+    2.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv244.54",
+   "rule": "voice_crossing",
+   "bars": [
+    1
+   ],
+   "beats": [
+    3.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv271",
+   "rule": "voice_crossing",
+   "bars": [
+    10
+   ],
+   "beats": [
+    4.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv334",
+   "rule": "voice_crossing",
+   "bars": [
+    9
+   ],
+   "beats": [
+    4.5
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv397",
+   "rule": "voice_crossing",
+   "bars": [
+    6
+   ],
+   "beats": [
+    1.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv57.8",
+   "rule": "voice_crossing",
+   "bars": [
+    3
+   ],
+   "beats": [
+    2.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv96.6",
+   "rule": "voice_crossing",
+   "bars": [
+    8
+   ],
+   "beats": [
+    1.5
+   ],
+   "voices": [
+    [
+     3,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv10.7",
+   "rule": "spacing",
+   "bars": [
+    12
+   ],
+   "beats": [
+    3.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv174.5",
+   "rule": "spacing",
+   "bars": [
+    14
+   ],
+   "beats": [
+    4.5
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv229.2",
+   "rule": "spacing",
+   "bars": [
+    22
+   ],
+   "beats": [
+    2.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv260",
+   "rule": "spacing",
+   "bars": [
+    7
+   ],
+   "beats": [
+    4.5
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv340",
+   "rule": "spacing",
+   "bars": [
+    17
+   ],
+   "beats": [
+    4.5
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv388",
+   "rule": "spacing",
+   "bars": [
+    3
+   ],
+   "beats": [
+    3.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv42.7",
+   "rule": "spacing",
+   "bars": [
+    14
+   ],
+   "beats": [
+    1.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv93.7",
+   "rule": "spacing",
+   "bars": [
+    14
+   ],
+   "beats": [
+    3.5
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv10.7",
+   "rule": "direct_fifths",
+   "bars": [
+    9,
+    10
+   ],
+   "beats": [
+    1.0,
+    1.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv151.5",
+   "rule": "direct_fifths",
+   "bars": [
+    5,
+    5
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv20.11",
+   "rule": "direct_fifths",
+   "bars": [
+    6,
+    6
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv248.64-s",
+   "rule": "direct_fifths",
+   "bars": [
+    6,
+    6
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv311",
+   "rule": "direct_fifths",
+   "bars": [
+    8,
+    8
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv368",
+   "rule": "direct_fifths",
+   "bars": [
+    16,
+    17
+   ],
+   "beats": [
+    1.0,
+    1.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv429",
+   "rule": "direct_fifths",
+   "bars": [
+    2,
+    2
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv99.6",
+   "rule": "direct_fifths",
+   "bars": [
+    8,
+    8
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv10.7",
+   "rule": "voice_overlap",
+   "bars": [
+    17,
+    17
+   ],
+   "beats": [
+    2.0,
+    3.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv158.4",
+   "rule": "voice_overlap",
+   "bars": [
+    4,
+    4
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv24.6",
+   "rule": "voice_overlap",
+   "bars": [
+    12,
+    12
+   ],
+   "beats": [
+    3.5,
+    4.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv265",
+   "rule": "voice_overlap",
+   "bars": [
+    2,
+    2
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv340",
+   "rule": "voice_overlap",
+   "bars": [
+    3,
+    3
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv388",
+   "rule": "voice_overlap",
+   "bars": [
+    4,
+    5
+   ],
+   "beats": [
+    4.5,
+    1.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv46.6",
+   "rule": "voice_overlap",
+   "bars": [
+    1,
+    1
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     3,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv99.6",
+   "rule": "voice_overlap",
+   "bars": [
+    12,
+    12
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv102.7",
+   "rule": "unresolved_seventh",
+   "bars": [
+    5,
+    5
+   ],
+   "beats": [
+    2.0,
+    2.5
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv177.4",
+   "rule": "unresolved_seventh",
+   "bars": [
+    3,
+    3
+   ],
+   "beats": [
+    4.0,
+    4.5
+   ],
+   "voices": [
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv244.40",
+   "rule": "unresolved_seventh",
+   "bars": [
+    9,
+    10
+   ],
+   "beats": [
+    4.5,
+    1.0
+   ],
+   "voices": [
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv282",
+   "rule": "unresolved_seventh",
+   "bars": [
+    15,
+    15
+   ],
+   "beats": [
+    3.0,
+    3.5
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ]
+   ],
+   "verdict": "checker bug",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv339",
+   "rule": "unresolved_seventh",
+   "bars": [
+    12,
+    12
+   ],
+   "beats": [
+    3.0,
+    3.5
+   ],
+   "voices": [
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv386",
+   "rule": "unresolved_seventh",
+   "bars": [
+    5,
+    5
+   ],
+   "beats": [
+    3.75,
+    4.0
+   ],
+   "voices": [
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "checker bug",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv429",
+   "rule": "unresolved_seventh",
+   "bars": [
+    5,
+    5
+   ],
+   "beats": [
+    3.5,
+    4.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv99.6",
+   "rule": "unresolved_seventh",
+   "bars": [
+    10,
+    10
+   ],
+   "beats": [
+    1.5,
+    2.0
+   ],
+   "voices": [
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "checker bug",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv104.6",
+   "rule": "unresolved_leading_tone",
+   "bars": [
+    3,
+    4
+   ],
+   "beats": [
+    4.5,
+    1.0
+   ],
+   "voices": [
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv121.6",
+   "rule": "unresolved_leading_tone",
+   "bars": [
+    4,
+    4
+   ],
+   "beats": [
+    4.0,
+    4.5
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ]
+   ],
+   "verdict": "checker bug",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv245.14",
+   "rule": "unresolved_leading_tone",
+   "bars": [
+    11,
+    11
+   ],
+   "beats": [
+    2.0,
+    3.0
+   ],
+   "voices": [
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "checker bug",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv303",
+   "rule": "unresolved_leading_tone",
+   "bars": [
+    3,
+    3
+   ],
+   "beats": [
+    1.0,
+    1.5
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ]
+   ],
+   "verdict": "checker bug",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv368",
+   "rule": "unresolved_leading_tone",
+   "bars": [
+    28,
+    29
+   ],
+   "beats": [
+    1.0,
+    1.0
+   ],
+   "voices": [
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv391",
+   "rule": "unresolved_leading_tone",
+   "bars": [
+    2,
+    2
+   ],
+   "beats": [
+    1.5,
+    2.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv430",
+   "rule": "unresolved_leading_tone",
+   "bars": [
+    9,
+    9
+   ],
+   "beats": [
+    3.5,
+    4.0
+   ],
+   "voices": [
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv94.8",
+   "rule": "unresolved_leading_tone",
+   "bars": [
+    12,
+    12
+   ],
+   "beats": [
+    1.0,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv108.6",
+   "rule": "range",
+   "bars": [
+    6
+   ],
+   "beats": [
+    4.5
+   ],
+   "voices": [
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv190.7",
+   "rule": "range",
+   "bars": [
+    32
+   ],
+   "beats": [
+    1.0
+   ],
+   "voices": [
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv248.12-2",
+   "rule": "range",
+   "bars": [
+    9
+   ],
+   "beats": [
+    4.5
+   ],
+   "voices": [
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv280",
+   "rule": "range",
+   "bars": [
+    6
+   ],
+   "beats": [
+    2.0
+   ],
+   "voices": [
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv310",
+   "rule": "range",
+   "bars": [
+    9
+   ],
+   "beats": [
+    3.0
+   ],
+   "voices": [
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv368",
+   "rule": "range",
+   "bars": [
+    15
+   ],
+   "beats": [
+    3.0
+   ],
+   "voices": [
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv415",
+   "rule": "range",
+   "bars": [
+    11
+   ],
+   "beats": [
+    3.5
+   ],
+   "voices": [
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv9.7",
+   "rule": "range",
+   "bars": [
+    8
+   ],
+   "beats": [
+    1.0
+   ],
+   "voices": [
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv113.8",
+   "rule": "parallel_fifths",
+   "bars": [
+    12,
+    12
+   ],
+   "beats": [
+    4.0,
+    4.5
+   ],
+   "voices": [
+    [
+     3,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv174.5",
+   "rule": "parallel_fifths",
+   "bars": [
+    17,
+    17
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv194.6",
+   "rule": "parallel_fifths",
+   "bars": [
+    7,
+    7
+   ],
+   "beats": [
+    3.5,
+    4.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv268",
+   "rule": "parallel_fifths",
+   "bars": [
+    3,
+    4
+   ],
+   "beats": [
+    4.5,
+    1.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv301",
+   "rule": "parallel_fifths",
+   "bars": [
+    7,
+    7
+   ],
+   "beats": [
+    3.5,
+    4.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv397",
+   "rule": "parallel_fifths",
+   "bars": [
+    12,
+    12
+   ],
+   "beats": [
+    1.5,
+    2.0
+   ],
+   "voices": [
+    [
+     3,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv415",
+   "rule": "parallel_fifths",
+   "bars": [
+    2,
+    2
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     3,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv99.6",
+   "rule": "parallel_fifths",
+   "bars": [
+    11,
+    11
+   ],
+   "beats": [
+    3.5,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv117.4",
+   "rule": "doubled_leading_tone",
+   "bars": [
+    5
+   ],
+   "beats": [
+    2.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "checker bug",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv157.5",
+   "rule": "doubled_leading_tone",
+   "bars": [
+    4
+   ],
+   "beats": [
+    1.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "checker bug",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv197.5",
+   "rule": "doubled_leading_tone",
+   "bars": [
+    12
+   ],
+   "beats": [
+    1.5
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "checker bug",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv261",
+   "rule": "doubled_leading_tone",
+   "bars": [
+    14
+   ],
+   "beats": [
+    3.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv303",
+   "rule": "doubled_leading_tone",
+   "bars": [
+    7
+   ],
+   "beats": [
+    3.5
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "checker bug",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv367",
+   "rule": "doubled_leading_tone",
+   "bars": [
+    3
+   ],
+   "beats": [
+    2.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "checker bug",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv414",
+   "rule": "doubled_leading_tone",
+   "bars": [
+    7
+   ],
+   "beats": [
+    1.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "checker bug",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv80.8",
+   "rule": "doubled_leading_tone",
+   "bars": [
+    3
+   ],
+   "beats": [
+    1.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "checker bug",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv139.6",
+   "rule": "direct_octaves",
+   "bars": [
+    2,
+    2
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv166.6",
+   "rule": "direct_octaves",
+   "bars": [
+    2,
+    3
+   ],
+   "beats": [
+    3.0,
+    1.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv245.17",
+   "rule": "direct_octaves",
+   "bars": [
+    1,
+    1
+   ],
+   "beats": [
+    3.5,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv263",
+   "rule": "direct_octaves",
+   "bars": [
+    8,
+    8
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv402",
+   "rule": "direct_octaves",
+   "bars": [
+    14,
+    14
+   ],
+   "beats": [
+    3.5,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv64.2",
+   "rule": "direct_octaves",
+   "bars": [
+    8,
+    8
+   ],
+   "beats": [
+    1.0,
+    2.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv9.7",
+   "rule": "direct_octaves",
+   "bars": [
+    7,
+    7
+   ],
+   "beats": [
+    3.5,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv99.6",
+   "rule": "direct_octaves",
+   "bars": [
+    4,
+    5
+   ],
+   "beats": [
+    4.5,
+    1.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv139.6",
+   "rule": "parallel_octaves",
+   "bars": [
+    4,
+    4
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv248.64-s",
+   "rule": "parallel_octaves",
+   "bars": [
+    14,
+    14
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     3,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv268",
+   "rule": "parallel_octaves",
+   "bars": [
+    4,
+    4
+   ],
+   "beats": [
+    2.5,
+    3.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv323",
+   "rule": "parallel_octaves",
+   "bars": [
+    8,
+    8
+   ],
+   "beats": [
+    1.0,
+    3.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv327",
+   "rule": "parallel_octaves",
+   "bars": [
+    8,
+    8
+   ],
+   "beats": [
+    1.0,
+    3.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv39.7",
+   "rule": "parallel_octaves",
+   "bars": [
+    6,
+    6
+   ],
+   "beats": [
+    1.5,
+    2.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv397",
+   "rule": "parallel_octaves",
+   "bars": [
+    12,
+    12
+   ],
+   "beats": [
+    2.5,
+    3.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv436",
+   "rule": "parallel_octaves",
+   "bars": [
+    8,
+    9
+   ],
+   "beats": [
+    3.0,
+    1.0
+   ],
+   "voices": [
+    [
+     2,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "sample_audit"
+  },
+  {
+   "chorale": "bwv245.40",
+   "rule": "unresolved_leading_tone",
+   "bars": [
+    18,
+    18
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "fix3_leading_tone_audit"
+  },
+  {
+   "chorale": "bwv336",
+   "rule": "unresolved_leading_tone",
+   "bars": [
+    2,
+    2
+   ],
+   "beats": [
+    3.0,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "fix3_leading_tone_audit"
+  },
+  {
+   "chorale": "bwv64.4",
+   "rule": "unresolved_leading_tone",
+   "bars": [
+    12,
+    12
+   ],
+   "beats": [
+    1.0,
+    4.0
+   ],
+   "voices": [
+    [
+     1,
+     1
+    ]
+   ],
+   "verdict": "real",
+   "source": "fix3_leading_tone_audit"
+  }
+ ]
+}
