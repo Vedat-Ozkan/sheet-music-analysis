@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<score-partwise version="4.0">
+  <part-list><score-part id="P1"><part-name>Treble</part-name></score-part><score-part id="P2"><part-name>Bass</part-name></score-part></part-list>
+  <part id="P1"><measure number="1"><attributes><divisions>4</divisions><key><fifths>1</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes><note><pitch><step>G</step><octave>5</octave></pitch><duration>16</duration><type>whole</type></note></measure></part>
+  <part id="P2"><measure number="1">
+    <attributes><divisions>4</divisions><key><fifths>1</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time><staves>2</staves><clef number="1"><sign>G</sign><line>2</line></clef><clef number="2"><sign>F</sign><line>4</line></clef></attributes>
+    <note><pitch><step>G</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type><staff>1</staff><lyric number="3" name="roman-analysis"><syllabic>single</syllabic><text>song</text></lyric></note>
+    <backup><duration>16</duration></backup>
+    <note><pitch><step>G</step><octave>4</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/><staff>2</staff></note>
+    <note><chord/><pitch><step>B</step><octave>3</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/><staff>2</staff></note>
+    <note><pitch><step>D</step><octave>3</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type><staff>2</staff></note>
+    <note><rest/><duration>8</duration><voice>2</voice><type>half</type><staff>2</staff></note>
+  </measure></part>
+</score-partwise>

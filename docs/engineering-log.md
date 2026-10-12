@@ -722,6 +722,74 @@ After the clean-up every file keeps all its MusicXML notes except the MuseScore 
 
 **Result.** Before: a PDF sent to `draft_analysis` crashed the instance. After: the same call returns "This file is a PDF. Call read_pdf with it first, then use the score_id it returns." in 0.9 s, with no crash in the logs. All 31 robustness scores and 56 tests still pass. The owner has to refresh the app in ChatGPT for it to see `read_pdf`.
 
+### 35. Why PDF reading loses notes: a benchmark, and retraining ruled out (2026-10-11)
+
+**Problem.** The owner found the Chopin Prelude Op. 28 No. 4 triplets (bars 12 and 18) still read as plain eighths. Audiveris's "implicit tuplets" switch and reading at 400 or 500 DPI changed nothing. The owner asked for reading "as accurate as possible", including retraining Audiveris ourselves.
+
+**What we did.**
+- **Benchmark** (`spike/omr/bench/`): 23 public-domain pieces with known MusicXML, engraved by MuseScore 4, LilyPond and Verovio, plus synthetic and real scans: 57 PDFs, 159 pages. It scores what the engine sees (after `clean`), by kind of mistake. Audiveris gives identical results on repeat runs, so differences between settings are real.
+- **Retraining pilot** (`spike/omr/train/`): Verovio pages with exact symbol boxes, matched to Audiveris's glyphs, and a headless trainer for its classifier (`BasicClassifier`). It raised held-out symbol accuracy on Verovio pages from 95.7% to 99.5%. On the Chopin it added no triplets, and symbols absent from training got worse, because training resets the feature scaling from the new samples only.
+- **The Chopin "3" was never a recognition problem.** The shipped classifier labels it TUPLET_THREE at 0.95. `TupletsBuilder` then takes every note on the same beam as the triplet (five notes: two eighths and the triplet) and rejects it as too many.
+- **Where the lost notes go** (`spike/omr/bench/analysis/`). The pipeline loses 22% of notes by pitch and timing together:
+  - missing note heads: 5.1%, mostly second-voice rests discarded by `RestInter` as too close to a note, after which later notes are mistimed or dropped;
+  - crashes and skipped pages: 4.1%, two Audiveris null-pointer bugs triggered by Verovio layouts;
+  - triplets: 4.5%, signs rejected or invented, and ratios like 5:4 that Audiveris cannot represent;
+  - other timing (voices, dots, grace notes): 3.6%;
+  - pitch: 2.8%, mostly missed mid-staff clef changes;
+  - lost bars: 1.1%, a crash when a hairpin is exported.
+
+**Result.**
+
+| | Notes, right pitch | Notes, right pitch and timing |
+|---|---|---|
+| Audiveris as shipped | 86.6% | 78.3% |
+| Small heads switch on (grace notes 2 → 264 of 451) | 85.1% | 76.4% |
+| Small heads + implicit tuplets | 88.0% | 77.2% |
+| Per PDF, keep whichever of the three has fewest bars that don't add up | 87.3% | 80.6% |
+| Tuplet beam patch (tuplet notes found 838 → 964, invented 190 → 245) | 86.6% | 78.3% |
+| Rest rule off (`RestInter.minInterChordDx=0`; Bach BWV 846 MuseScore 11% → 45%) | 86.9% | 78.8% |
+| Combined: crash fixes (Codex: null guards in `PartwiseBuilder`, `Voices`, `SlurInter`), rest rule, tuplet patch with a bracket/centring guard (838 → 969 found, 190 → 221 invented) | 91.2% | 82.0% |
+| Combined, best of three readings (default, small heads, + implicit tuplets) by fewest uneven bars; extra readings only when the first has more than 3 uneven bars (2.35 readings per page) | 91.4% | 84.3% |
+
+Each switch or patch helps some pieces and hurts others; the gain comes from fixing crashes and from choosing between readings per PDF. Retraining the classifier is dropped, because it does not touch the causes. A Codex review of the scoring found only negligible effects on these totals (ornament counts credit any ornament in the bar, so they are rough). Its review of the patch found two holes in the tuplet guard (bracket span measured too wide; beam ink can count as bracket) and two crash risks; all four were fixed, with no change on the benchmark. The guard's thresholds were tuned on this benchmark, so the patch was also checked on 8 held-out OpenScore songs (11 PDFs), one reading each: right pitch 92.6% → 94.5%, right pitch and timing 70.2% → 75.7%, tuplet notes found 6,685 → 7,547 of 9,982 (invented 13 → 4), no PDF worse.
+
+The patch is published as release `5.11.0-sma.1` of https://github.com/Vedat-Ozkan/audiveris (branch `sma-5.11.0`, AGPL-3.0): `audiveris.jar` replaces the one in the official 5.11.0 package, checksum-pinned in `Dockerfile.base` and `skill/scripts/read_pdf.py`. Cached readings are keyed by `READER`, so readings from before are not reused.
+
+Time and memory on 2 CPUs (the Cloud Run size), measured locally: one reading takes about 9 s a page; a 6-page PDF that needs the two extra readings takes 92 s, an 11-page one 167 s (inside the 240 s budget), and the two parallel readings peak at 1.7 GB together.
+
+**Triplets printed without a "3" (later the same day).** Audiveris finds no triplet when the "3" is left out, the common case in songs. `engine/triplets.py` repairs a voice after reading: when it runs past the bar, or runs into another voice of its staff that starts after a hidden gap, by exactly what turning whole beamed groups of three into triplets would save, each group starting on its own beat or sub-beat, with a printed triplet of the same kind within three bars. Each guard was measured by relaxing it alone; cutting threes out of longer beams and widening the three-bar window cost 8 to 67 wrong notes on the main set for 4 gained, so Chopin Op. 28 No. 4 bar 18 (five eighths under one beam, the last three a triplet) stays unrepaired; the check message names it. A beamed quarter (a misreading) made the repair loop forever; fixed before release. Rejected the same day: a patch to keep the notes Audiveris drops when a bar's rhythm does not add up (`MeasureRhythm`): pitch 91.4% → 93.6% but pitch and timing 84.3% → 83.5% and uneven bars 362 → 426 on the main set; Hensel lost 35 points.
+
+Final, production code on the released build, right pitch / right pitch and timing (each set's notes in brackets):
+
+| Set | Before the triplet repair | After |
+|---|---|---|
+| Main, 57 PDFs (41,371) | 91.4% / 84.3% | 91.4% / 84.5% |
+| Held-out, 11 PDFs (12,942) | 97.4% / 88.1% | 97.4% / 90.2% |
+| Held-out 2, 6 songs read after the rules were frozen (4,222) | 94.1% / 80.6% | 94.1% / 81.0% |
+| Held-out 3, 6 songs full of unprinted triplets, read after the rules were frozen (5,886) | 89.3% / 63.5% | 89.3% / 66.0% |
+
+From the start of this work (the released Audiveris, one reading): main 86.6% / 78.3% → 91.4% / 84.5%; held-out 92.6% / 70.2% → 97.4% / 90.2%.
+
+**Faster benchmark.** `spike/omr/bench/run.py` now caches only Audiveris's own output, per PDF and settings; everything after it runs from the current code. All four sets (80 PDFs) rescore in 41 s instead of a full read (about 25 minutes with 6 readings at a time).
+
+### 36. Engine work for later phases, written and cross-reviewed by Codex (2026-10-11)
+
+**Problem.** Phase 2 waits on owner decisions (the check step's look and wording), on cost numbers and on the open directory reviews. The owner allowed later phases' engine work to start early in Codex (OpenAI's coding agent, run with `codex exec`), to be corrected later, with no display, site or deploy work ahead of their decisions.
+
+**What we did.** Each module was written by one Codex session, reviewed by a fresh one that had to prove every bug with a small counter-example, then fixed, with each counter-example kept as a test:
+- `engine/correct.py`: fix misread bars of a PDF reading from the notes text form (the "correct a bar in the chat" step).
+- `engine/part_writing.py`: voice-leading checks for chorale textures (Phase 4).
+- `engine/check_analysis.py` and `engine/comparison.py`: read a student's numerals, typed or in a MusicXML, and classify each difference from our analysis (Phase 3). `comparison.py` moved out of `eval/compare.py`, and all 13 reference pieces score exactly as before.
+- `engine/notation.py`: ABRSM and figured-bass label text (Phase 5).
+- `engine/export.py`: the numerals written into the user's MusicXML as bass lyrics (Phase 6). The spike in `spike/export/` found MuseScore 4.7 keeps all 22 labels as lyrics, while its `<harmony><numeral>` import turned ii65 into ii76. Dorico was not tested.
+
+**Result.**
+- **Reviews:** they found 13 real bugs (7 in the music-theory modules, 6 in correction and export, counting suspected ones that proved real). All were fixed.
+- **Bar fixer:** taking out any bar and putting it back unchanged changes nothing, across 185 bars of 5 real scores, including split bars, 8va spans and grace notes.
+- **Voice-leading checks:** all 17 planted errors in two exercises were found, with no extras. The 7 hits in three Bach chorales are classroom exceptions Bach wrote, not mistakes.
+- **Tests:** 248 pass.
+- **Not yet wired in:** none of this is in the skill or server. Displays, the ABRSM spellings, voice ranges and the framing text wait for the owner.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

@@ -25,6 +25,10 @@ This project would not exist without [AnalysisGNN](https://github.com/manoskary/
 | `site/`, `wrangler.jsonc` | The website at sheetmusicanalysis.com: landing page, how-to-use, privacy and terms, plus the clef icons the server reports to chat hosts. Static files served by Cloudflare; publish with `npx wrangler@4 deploy`. `site/.assetsignore` keeps local `.uuid` files off the site. |
 | `openai-plugin/` | The ChatGPT listing package: `plugin.json` (listing text, icon, review test cases), `mcp.json` (the server address) and icons. Upload it zipped at platform.openai.com/plugins: `cd openai-plugin && zip -r ../out/sheet-music-analysis-openai.zip plugin.json mcp.json assets`. Bump `version` with each upload. |
 | `proxy/` | A Cloudflare Worker that serves the Cloud Run server at mcp.sheetmusicanalysis.com, the address given to Claude and ChatGPT. Publish with `npx wrangler@4 deploy -c proxy/wrangler.jsonc`. |
+| `engine/read_pdf.py`, `engine/triplets.py` | Reading a PDF: Audiveris from our fork (https://github.com/Vedat-Ozkan/audiveris, release `5.11.0-sma.1`, AGPL-3.0; never delete a release, publish a new one), up to three readings with different settings keeping the one with fewest bars that don't add up, then cleaning and inferring triplets printed without a "3" (log 35). |
+| `engine/correct.py` | Replaces misread bars of a reading with corrected bars in the `engine/notes.py` text form, for fixing a PDF reading in the chat. Engine only; not yet wired into the skill or server. |
+| `engine/part_writing.py`, `engine/check_analysis.py`, `engine/comparison.py`, `engine/notation.py`, `engine/export.py` | Engine work for later phases of `docs/plan-2026-10-11.md`, not yet wired in: voice-leading checks (Phase 4); reading a student's numerals and comparing them with ours (Phase 3; `comparison.py` is shared with `eval/`); ABRSM and figured-bass label text (Phase 5); writing the numerals into the user's MusicXML as bass lyrics (Phase 6, `spike/export/`). |
+| `spike/omr/bench/` | PDF reading benchmark: 23 pieces, 57 PDFs (MuseScore, LilyPond, Verovio, scans), scored at the engine's level by kind of mistake; `bench-heldout*` are unseen sets. Only the scripts are committed: `build.py` rebuilds the pieces and PDFs (some music21 encodings' licences are unverified, so they are not redistributed). |
 | `engine/draft.py` | Runs the draft model and condenses its output into chords, cadences, phrase ends and non-chord tones. |
 | `vendor/analysisgnn/` | Clone of the draft model (not committed; see `.gitignore`). |
 
@@ -76,6 +80,8 @@ Results of testing in both apps are in `docs/gate1-results.md`.
 ```
 
 Runs 31 scores through reading, the note table, the note list, engraving, the draft model and rendering: Bach chorales, Classical and Romantic quartets, songs and piano music from the music21 corpus, and impressionist and early twentieth-century piano music (Ravel, Debussy, Satie, Scriabin, Rachmaninoff, Prokofiev, Schoenberg) downloaded on first use into `out/`. The downloaded transcriptions are for local testing and are not committed. Results go to `out/robustness/report.json`.
+
+Two PDFs in `tests/data` also run through Audiveris and then the same stages, with slurs left out as in the server's default reading. Set `AUDIVERIS` to its launcher (locally, `AUDIVERIS=spike/omr/tools/audiveris-deb/x/opt/audiveris/bin/Audiveris`); when it is unavailable, these cases report `NOT RUN`. The report includes page counts, scan detection, skipped pages and the reading notice.
 
 ## Engraving check
 
@@ -137,3 +143,5 @@ print(draft.as_text(draft.draft(ScoreIndex(load_toolkit(score).getMEI())), 1, 8)
 ## Test score
 
 `tests/data/chopin_nocturne_op9_no2.mxl` is a community transcription from the MuseTrainer public-domain library (https://github.com/musetrainer/library). `tests/data/chopin_prelude_op28_no4_audiveris.mxl` is Audiveris 5.11.0's reading of the Mutopia Project PDF of Chopin's Prelude Op. 28 No. 4 (Mutopia-2016/10/28-468, placed in the public domain by its typesetter), kept with its reading mistakes for `tests/test_read_pdf.py`.
+
+`tests/data/chopin-28-4-mutopia.pdf` is that born-digital public-domain Mutopia PDF (https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=468). `tests/data/mozart-k545-1-scan.pdf` contains pages 234–237 of the public-domain Peters edition of Mozart's sonatas, from the archive.org scan https://archive.org/details/31761034110379. Both were copied from the ignored `spike/omr` inputs documented in `spike/omr/RESULTS.md`.

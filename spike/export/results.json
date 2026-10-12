@@ -1,0 +1,239 @@
+{
+  "a-harmony": {
+    "labels": 21,
+    "beat_positions_preserved": 21,
+    "bass_harmony_types": [
+      "1"
+    ],
+    "exact_text": 20,
+    "mismatches": [
+      {
+        "measure": 6,
+        "beat": "2",
+        "expected": "ii65",
+        "actual": "ii76"
+      }
+    ],
+    "labels_by_position": [
+      {
+        "measure": 1,
+        "beat": "1",
+        "text": "I"
+      },
+      {
+        "measure": 1,
+        "beat": "2",
+        "text": "vi"
+      },
+      {
+        "measure": 1,
+        "beat": "3",
+        "text": "V6"
+      },
+      {
+        "measure": 2,
+        "beat": "1",
+        "text": "I"
+      },
+      {
+        "measure": 2,
+        "beat": "2",
+        "text": "V"
+      },
+      {
+        "measure": 2,
+        "beat": "3",
+        "text": "vi"
+      },
+      {
+        "measure": 3,
+        "beat": "1",
+        "text": "IV"
+      },
+      {
+        "measure": 3,
+        "beat": "5/2",
+        "text": "ii7"
+      },
+      {
+        "measure": 3,
+        "beat": "3",
+        "text": "I"
+      },
+      {
+        "measure": 4,
+        "beat": "1",
+        "text": "V"
+      },
+      {
+        "measure": 4,
+        "beat": "3",
+        "text": "I"
+      },
+      {
+        "measure": 5,
+        "beat": "1",
+        "text": "V6"
+      },
+      {
+        "measure": 5,
+        "beat": "2",
+        "text": "vi6"
+      },
+      {
+        "measure": 5,
+        "beat": "3",
+        "text": "viio6"
+      },
+      {
+        "measure": 6,
+        "beat": "1",
+        "text": "I6"
+      },
+      {
+        "measure": 6,
+        "beat": "2",
+        "text": "ii76"
+      },
+      {
+        "measure": 6,
+        "beat": "3",
+        "text": "V7"
+      },
+      {
+        "measure": 7,
+        "beat": "1",
+        "text": "I"
+      },
+      {
+        "measure": 8,
+        "beat": "1",
+        "text": "I"
+      },
+      {
+        "measure": 8,
+        "beat": "2",
+        "text": "ii"
+      },
+      {
+        "measure": 8,
+        "beat": "3",
+        "text": "I6"
+      }
+    ]
+  },
+  "b-lyrics": {
+    "labels": 21,
+    "beat_positions_preserved": 21,
+    "bass_harmony_types": [],
+    "exact_text": 21,
+    "mismatches": [],
+    "labels_by_position": [
+      {
+        "measure": 1,
+        "beat": "1",
+        "text": "I"
+      },
+      {
+        "measure": 1,
+        "beat": "2",
+        "text": "vi"
+      },
+      {
+        "measure": 1,
+        "beat": "3",
+        "text": "V6"
+      },
+      {
+        "measure": 2,
+        "beat": "1",
+        "text": "I"
+      },
+      {
+        "measure": 2,
+        "beat": "2",
+        "text": "V"
+      },
+      {
+        "measure": 2,
+        "beat": "3",
+        "text": "vi"
+      },
+      {
+        "measure": 3,
+        "beat": "1",
+        "text": "IV"
+      },
+      {
+        "measure": 3,
+        "beat": "5/2",
+        "text": "ii7"
+      },
+      {
+        "measure": 3,
+        "beat": "3",
+        "text": "I"
+      },
+      {
+        "measure": 4,
+        "beat": "1",
+        "text": "V"
+      },
+      {
+        "measure": 4,
+        "beat": "3",
+        "text": "I"
+      },
+      {
+        "measure": 5,
+        "beat": "1",
+        "text": "V6"
+      },
+      {
+        "measure": 5,
+        "beat": "2",
+        "text": "vi6"
+      },
+      {
+        "measure": 5,
+        "beat": "3",
+        "text": "viio6"
+      },
+      {
+        "measure": 6,
+        "beat": "1",
+        "text": "I6"
+      },
+      {
+        "measure": 6,
+        "beat": "2",
+        "text": "ii65"
+      },
+      {
+        "measure": 6,
+        "beat": "3",
+        "text": "V7"
+      },
+      {
+        "measure": 7,
+        "beat": "1",
+        "text": "I"
+      },
+      {
+        "measure": 8,
+        "beat": "1",
+        "text": "I"
+      },
+      {
+        "measure": 8,
+        "beat": "2",
+        "text": "ii"
+      },
+      {
+        "measure": 8,
+        "beat": "3",
+        "text": "I6"
+      }
+    ]
+  }
+}

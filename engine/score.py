@@ -42,6 +42,7 @@ class Event:
     layer: int = 1  # the voice within the staff
     tied: bool = False  # tied to the next note of the same pitch
     segment: str = ""  # id of the engraved measure it sits in
+    attack: str = ""  # identifies a grace attack (chord members share it)
 
 
 @dataclass
@@ -287,6 +288,7 @@ class ScoreIndex:
                 event = Event(note.get(XML_ID), measure.number, staff, cursor, duration, pitch, grace, self._layer)
                 event.tied = note.get("tie") in ("i", "m")
                 event.segment = measure.id
+                event.attack = child.get(XML_ID, "")
                 measure.events.append(event)
             if tag == "rest":
                 rest = Event(child.get(XML_ID), measure.number, staff, cursor, duration, layer=self._layer, segment=measure.id)

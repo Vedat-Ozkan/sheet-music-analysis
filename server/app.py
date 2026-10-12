@@ -353,7 +353,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
         if not data.startswith(b"%PDF"):
             raise ScoreError("This file is not a PDF. Ask the user to attach a PDF of the printed music or a MusicXML file.")
         # Kept by the file's hash, so the same PDF is never read twice (it expires with the scores, after a day).
-        cache_key = f"scores/pdf-{hashlib.sha256(data).hexdigest()}.json"
+        cache_key = f"scores/pdf-{pdf_reader.READER}-{hashlib.sha256(data).hexdigest()}.json"
         cached = await anyio.to_thread.run_sync(store.get, cache_key)
         if cached:
             reading = json.loads(cached)

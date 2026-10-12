@@ -1,0 +1,193 @@
+[
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 1,
+      "beat": 1
+    },
+    "label": "I",
+    "function": "T"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 1,
+      "beat": 2
+    },
+    "label": "vi",
+    "function": "T"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 1,
+      "beat": 3
+    },
+    "label": "V6",
+    "function": "D"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 2,
+      "beat": 1
+    },
+    "label": "I",
+    "function": "T"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 2,
+      "beat": 2
+    },
+    "label": "V",
+    "function": "D"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 2,
+      "beat": 3
+    },
+    "label": "vi",
+    "function": "T"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 3,
+      "beat": 1
+    },
+    "label": "IV",
+    "function": "PD"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 3,
+      "beat": 2.5
+    },
+    "label": "ii7",
+    "function": "PD"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 3,
+      "beat": 3
+    },
+    "label": "I",
+    "function": "T"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 4,
+      "beat": 1
+    },
+    "label": "V",
+    "function": "D",
+    "callout": 1
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 4,
+      "beat": 3
+    },
+    "label": "I",
+    "function": "T"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 5,
+      "beat": 1
+    },
+    "label": "V6",
+    "function": "D"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 5,
+      "beat": 2
+    },
+    "label": "vi6",
+    "function": "T"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 5,
+      "beat": 3
+    },
+    "label": "viio6",
+    "function": "D"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 6,
+      "beat": 1
+    },
+    "label": "I6",
+    "function": "T"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 6,
+      "beat": 2
+    },
+    "label": "ii65",
+    "function": "PD",
+    "callout": 2
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 6,
+      "beat": 3
+    },
+    "label": "V7",
+    "function": "D"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 7,
+      "beat": 1
+    },
+    "label": "I",
+    "function": "T"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 8,
+      "beat": 1
+    },
+    "label": "I",
+    "function": "T"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 8,
+      "beat": 2
+    },
+    "label": "ii",
+    "function": "PD"
+  },
+  {
+    "type": "harmony",
+    "at": {
+      "measure": 8,
+      "beat": 3
+    },
+    "label": "I6",
+    "function": "T"
+  }
+]

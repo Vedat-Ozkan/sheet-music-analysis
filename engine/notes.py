@@ -14,7 +14,10 @@ reads and nothing else: no layout, slurs, dynamics or text.
 Each `staff.voice:` line is one voice. A bare number sets the duration (in
 `div` units per quarter note) for the notes after it. `+` joins a chord, `r` is
 a rest, a leading `g` marks a grace note and a trailing `~` a tie to the next
-note. A measure line repeats `ts=` when the meter changes.
+note. Separate grace attacks use separate tokens (`gD4 gE4`); a grace
+chord uses one token (`gD4+E4`). Existing N1 text remains valid.
+Pitches are sounding pitches, including under octave lines.
+A measure line repeats `ts=` when the meter changes.
 
 This module uses only the standard library, because the model's own
 environment imports it too.
@@ -49,11 +52,12 @@ def encode(index: ScoreIndex, first: int | None = None, last: int | None = None)
     """
     measures = index.measures
     if first is not None or last is not None:
-        start = index.measure(first if first is not None else measures[0].number).index
-        end = index.measure(last if last is not None else measures[-1].number).index
-        if start == 2 and measures[0].number == 0:
-            start = 1
-        measures = measures[start - 1 : end]
+        start = measures.index(index.measure(first if first is not None else measures[0].number))
+        end = measures.index(index.measure(last if last is not None else measures[-1].number))
+        if start == 1 and measures[0].number == 0:
+            start = 0
+        # Measure.index counts XML segments; N1 addresses joined logical bars.
+        measures = measures[start : end + 1]
     div = index.ppq
     lines = [f"{VERSION} div={div} ts={index.meter} ks={index.key_signature or '0'}"]
     meter = index.meter
@@ -82,11 +86,11 @@ def _units(value: Fraction, div: int) -> int:
 def _voice(events: list[Event], div: int) -> str:
     tokens: list[str] = []
     cursor, current = Fraction(0), None
-    onsets: dict[tuple[Fraction, bool], list[Event]] = {}
+    onsets: dict[tuple[Fraction, bool, str], list[Event]] = {}
     for event in events:
-        onsets.setdefault((event.onset, event.grace), []).append(event)
-    for onset, grace in sorted(onsets, key=lambda key: (key[0], not key[1])):  # grace notes come before the beat
-        group = onsets[(onset, grace)]
+        onsets.setdefault((event.onset, event.grace, event.attack if event.grace else ""), []).append(event)
+    for onset, grace, attack in sorted(onsets, key=lambda key: (key[0], not key[1])):  # grace notes come before the beat
+        group = onsets[(onset, grace, attack)]
         names = "+".join(event.pitch + ("~" if event.tied else "") for event in group)
         if onset > cursor:  # silence in this voice, written before whatever starts next, grace notes included
             gap = _units(onset - cursor, div)
@@ -146,7 +150,7 @@ def decode(text: str) -> ScoreIndex:
 
 def _read_voice(tokens: list[str], measure: Measure, staff: int, layer: int, div: int) -> None:
     cursor, duration = Fraction(0), Fraction(0)
-    for token in tokens:
+    for attack, token in enumerate(tokens):
         if token.isdigit():
             duration = Fraction(int(token), div)
             continue
@@ -161,7 +165,7 @@ def _read_voice(tokens: list[str], measure: Measure, staff: int, layer: int, div
                 raise ValueError(f"unknown token {token!r}")
             identity = f"{measure.id}-{staff}.{layer}-{len(measure.events)}"
             measure.events.append(
-                Event(identity, measure.number, staff, cursor, Fraction(0) if grace else duration, pitch, grace, layer, tied)
+                Event(identity, measure.number, staff, cursor, Fraction(0) if grace else duration, pitch, grace, layer, tied, attack=str(attack) if grace else "")
             )
         if not grace:
             cursor += duration

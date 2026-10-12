@@ -1,0 +1,242 @@
+Source: https://raw.githubusercontent.com/musescore/MuseScore/7688c005ad963ba09ee715aae53dbc7e8c9d5ef8/src/importexport/musicxml/internal/export/exportmusicxml.cpp
+
+9122: //---------------------------------------------------------
+9123: 
+9124: void ExportMusicXml::harmony(Harmony const* const h, FretDiagram const* const fd, const Fraction& offset)
+9125: {
+9126:     if (h->chords().empty()) {
+9127:         return;
+9128:     }
+9129:     XmlWriter::Attributes harmonyAttrs;
+9130:     if (h->isPolychord()) {
+9131:         harmonyAttrs.emplace_back(std::make_pair("arrangement", "vertical"));
+9132:     }
+9133:     if (!h->isStyled(Pid::PLACEMENT)) {
+9134:         harmonyAttrs.emplace_back(std::make_pair("placement", TConv::toXml(h->placement())));
+9135:     }
+9136:     if (!h->isStyled(Pid::FONT_FACE)) {
+9137:         harmonyAttrs.emplace_back(std::make_pair("font-family", h->getProperty(Pid::FONT_FACE).value<String>()));
+9138:     }
+9139:     if (!h->isStyled(Pid::FONT_SIZE)) {
+9140:         harmonyAttrs.emplace_back(std::make_pair("font-size", h->getProperty(Pid::FONT_SIZE).toReal()));
+9141:     }
+9142:     harmonyAttrs.emplace_back(std::make_pair("print-frame", h->hasFrame() ? "yes" : "no"));     // .append(relative));
+9143:     if (!h->visible()) {
+9144:         harmonyAttrs.emplace_back(std::make_pair("print-object", "no"));
+9145:     }
+9146:     addColorAttr(h, harmonyAttrs);
+9147:     m_xml.startElement("harmony", harmonyAttrs);
+9148:     if (h->harmonyType() == HarmonyType::STANDARD && tpcIsValid(h->rootTpc())) {
+9149:         for (const HarmonyInfo* info : h->chords()) {
+9150:             if (!info || !tpcIsValid(info->rootTpc())) {
+9151:                 LOGD("invalid HarmonyInfo");
+9152:                 continue; // skip invalid HarmonyInfo
+9153:             }
+9154:             const int rootTpc = info->rootTpc();
+9155:             const int bassTpc = info->bassTpc();
+9156:             m_xml.startElement("root");
+9157:             m_xml.tag("root-step", tpc2stepName(rootTpc));
+9158:             int alter = int(tpc2alter(rootTpc));
+9159:             if (alter) {
+9160:                 m_xml.tag("root-alter", alter);
+9161:             }
+9162:             m_xml.endElement();
+9163: 
+9164:             const String xmlKind = harmonyXmlKind(info);
+9165: 
+9166:             if (!xmlKind.isEmpty()) {
+9167:                 String s = u"kind";
+9168:                 String kindText = harmonyXmlText(info);
+9169:                 if (!harmonyXmlText(info).empty()) {
+9170:                     s += u" text=\"" + kindText + u"\"";
+9171:                 }
+9172:                 if (harmonyXmlSymbols(info) == u"yes") {
+9173:                     s += u" use-symbols=\"yes\"";
+9174:                 }
+9175:                 if (harmonyXmlParens(info) == u"yes") {
+9176:                     s += u" parentheses-degrees=\"yes\"";
+9177:                 }
+9178:                 if (m_score->style().styleB(Sid::verticallyStackModifiers)) {
+9179:                     s += h->getProperty(Pid::HARMONY_DO_NOT_STACK_MODIFIERS).toBool()
+9180:                          ? u" stack-degrees=\"no\"" : u" stack-degrees=\"yes\"";
+9181:                 }
+9182:                 m_xml.tagRaw(s, xmlKind);
+9183: 
+9184:                 if (tpcIsValid(bassTpc)) {
+9185:                     XmlWriter::Attributes bassAttrs
+9186:                         = { { "arrangement", m_score->style().styleB(Sid::chordBassNoteStagger) ? "diagonal" : "horizontal" } };
+9187:                     m_xml.startElement("bass", bassAttrs);
+9188:                     m_xml.tag("bass-step", tpc2stepName(bassTpc));
+9189:                     alter = int(tpc2alter(bassTpc));
+9190:                     if (alter) {
+9191:                         m_xml.tag("bass-alter", alter);
+9192:                     }
+9193:                     m_xml.endElement();
+9194:                 }
+9195: 
+9196:                 StringList l = harmonyXmlDegrees(info);
+9197:                 for (const String& tag : l) {
+9198:                     String degreeText;
+9199:                     if (xmlKind.startsWith(u"suspended")
+9200:                         && tag.startsWith(u"add") && tag.at(3).isDigit()
+9201:                         && !kindText.isEmpty() && kindText.at(0).isDigit()) {
+9202:                         // hack to correct text for suspended chords whose kind text has degree information baked in
+9203:                         // (required by some other applications)
+9204:                         int tagDegree = tag.mid(3).toInt();
+9205:                         String kindTextExtension;
+9206:                         for (size_t i = 0; i < kindText.size() && kindText.at(i).isDigit(); ++i) {
+9207:                             kindTextExtension[i] = kindText[i];
+9208:                         }
+9209:                         int kindExtension = kindTextExtension.toInt();
+9210:                         if (tagDegree <= kindExtension && (tagDegree & 1) && (kindExtension & 1)) {
+9211:                             degreeText = u" text=\"\"";
+9212:                         }
+9213:                     }
+9214:                     m_xml.startElement("degree");
+9215:                     alter = 0;
+9216:                     int idx = 3;
+9217:                     if (tag[idx] == '#') {
+9218:                         alter = 1;
+9219:                         ++idx;
+9220:                     } else if (tag[idx] == 'b') {
+9221:                         alter = -1;
+9222:                         ++idx;
+9223:                     }
+9224:                     m_xml.tagRaw(String(u"degree-value%1").arg(degreeText), tag.mid(idx));
+9225:                     m_xml.tag("degree-alter", alter);               // finale insists on this even if 0
+9226:                     if (tag.startsWith(u"add")) {
+9227:                         m_xml.tagRaw(String(u"degree-type%1").arg(degreeText), "add");
+9228:                     } else if (tag.startsWith(u"sub")) {
+9229:                         m_xml.tag("degree-type", "subtract");
+9230:                     } else if (tag.startsWith(u"alt")) {
+9231:                         m_xml.tag("degree-type", "alter");
+9232:                     }
+9233:                     m_xml.endElement();
+9234:                 }
+9235:             } else {
+9236:                 if (info->textName().empty()) {
+9237:                     m_xml.tag("kind", "none");
+9238:                 } else {
+9239:                     m_xml.tag("kind", { { "text", info->textName() } }, "");
+9240:                 }
+9241: 
+9242:                 if (tpcIsValid(bassTpc)) {
+9243:                     m_xml.startElement("bass");
+9244:                     m_xml.tag("bass-step", tpc2stepName(bassTpc));
+9245:                     alter = int(tpc2alter(bassTpc));
+9246:                     if (alter) {
+9247:                         m_xml.tag("bass-alter", alter);
+9248:                     }
+9249:                     m_xml.endElement();
+9250:                 }
+9251:             }
+9252:         }
+9253:         if (offset.isValid() && offset > Fraction(0, 1)) {
+9254:             m_xml.tag("offset", calculateDurationInDivisions(offset, m_div));
+9255:         } else {
+9256:             LOGD("invalid offset");
+9257:         }
+9258:         if (fd) {
+9259:             writeMusicXml(fd, m_xml);
+9260:         }
+9261:     } else {
+9262:         //
+9263:         // export an unrecognized Chord
+9264:         // which may contain arbitrary text
+9265:         //
+9266:         // No supprt for polychords at the moment. Export the first chord from the list.
+9267:         const HarmonyInfo* info = h->chords().front();
+9268:         const String xmlKind = harmonyXmlKind(info);
+9269:         const String textName = info->textName();
+9270:         switch (h->harmonyType()) {
+9271:         case HarmonyType::NASHVILLE: {
+9272:             String alter;
+9273:             String functionText = harmonyXmlFunction(info, h);
+9274:             if (functionText.empty()) {
+9275:                 // we just dump the text as deprecated function
+9276:                 m_xml.tag("function", textName);
+9277:                 m_xml.tag("kind", "none");
+9278:                 break;
+9279:             } else if (!functionText.at(0).isDigit()) {
+9280:                 alter = functionText.at(0);
+9281:                 functionText = functionText.at(1);
+9282:             }
+9283:             m_xml.startElement("numeral");
+9284:             m_xml.tag("numeral-root", functionText);
+9285:             if (alter == u"b") {
+9286:                 m_xml.tag("numeral-alter", "-1");
+9287:             } else if (alter == u"#") {
+9288:                 m_xml.tag("numeral-alter", "1");
+9289:             }
+9290:             m_xml.endElement();
+9291:             if (!xmlKind.isEmpty()) {
+9292:                 String s = u"kind";
+9293:                 String kindText = harmonyXmlText(info);
+9294:                 if (!harmonyXmlText(info).empty()) {
+9295:                     s += u" text=\"" + kindText + u"\"";
+9296:                 }
+9297:                 if (harmonyXmlSymbols(info) == "yes") {
+9298:                     s += u" use-symbols=\"yes\"";
+9299:                 }
+9300:                 if (harmonyXmlParens(info) == "yes") {
+9301:                     s += u" parentheses-degrees=\"yes\"";
+9302:                 }
+9303:                 m_xml.tagRaw(s, xmlKind);
+9304:             } else {
+9305:                 // default is major
+9306:                 m_xml.tag("kind", "major");
+9307:             }
+9308:         }
+9309:         break;
+9310:         case HarmonyType::ROMAN: {
+9311:             int alter = 0;
+9312:             static const std::wregex roman(L"(b|#)?([ivIV]+)");
+9313:             if (textName.contains(roman)) {
+9314:                 StringList matches = textName.search(roman, { 1, 2 });
+9315:                 m_xml.startElement("numeral");
+9316:                 if (matches.at(0) == u"b") {
+9317:                     alter = -1;
+9318:                 } else if (matches.at(0) == u"#") {
+9319:                     alter = 1;
+9320:                 }
+9321:                 const String numberStr = matches.at(1);
+9322:                 size_t harmony = 1;
+9323:                 if (numberStr.contains(u"v", CaseSensitivity::CaseInsensitive)) {
+9324:                     if (numberStr.startsWith(u"i", CaseSensitivity::CaseInsensitive)) {
+9325:                         harmony = 4;
+9326:                     } else {
+9327:                         harmony = 4 + numberStr.size();
+9328:                     }
+9329:                 } else {
+9330:                     harmony = numberStr.size();
+9331:                 }
+9332:                 m_xml.tag("numeral-root", { { "text", numberStr } }, harmony);
+9333:                 if (alter) {
+9334:                     m_xml.tag("numeral-alter", alter);
+9335:                 }
+9336:                 m_xml.endElement();
+9337:                 // simple check for major or minor
+9338:                 m_xml.tag("kind", numberStr.at(0).isUpper() ? "major" : "minor");
+9339:                 // infer inversion from ending digits
+9340:                 if (textName.endsWith(u"64")) {
+9341:                     m_xml.tag("inversion", 2);
+9342:                 } else if (textName.endsWith(u"6")) {
+9343:                     m_xml.tag("inversion", 1);
+9344:                 }
+9345:                 break;
+9346:             }
+9347:         }
+9348:         // fallthrough
+9349:         case HarmonyType::STANDARD:
+9350:         default: {
+9351:             m_xml.startElement("root");
+9352:             m_xml.tag("root-step", { { "text", "" } }, "C");
+9353:             m_xml.endElement();                   // root
+9354:             m_xml.tag("kind", { { "text", textName } }, "none");
+9355:         }
+9356:         break;
+9357:         }
+9358:     }
+9359:     m_xml.endElement();
+9360: }
+9361: 

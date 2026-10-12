@@ -1,0 +1,127 @@
+{
+ "pieces": {
+  "h3-schumann-fruehlingsnacht": {
+   "kind": "song",
+   "truth": "truth/h3-schumann-fruehlingsnacht.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Schumann,_Robert/Liederkreis,_Op.39/12_Frühlingsnacht/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 32,
+   "truth_counts": {
+    "tuplet_notes": 1252,
+    "ornaments": 0,
+    "grace": 1,
+    "octave_lines": 0,
+    "clef_changes": 10
+   }
+  },
+  "h3-franz-lotosblume": {
+   "kind": "song",
+   "truth": "truth/h3-franz-lotosblume.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Franz,_Robert/6_Lieder,_Op.25/1_Die_Lotosblume/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 32,
+   "truth_counts": {
+    "tuplet_notes": 1093,
+    "ornaments": 0,
+    "grace": 1,
+    "octave_lines": 0,
+    "clef_changes": 4
+   }
+  },
+  "h3-faisst-sehnsucht": {
+   "kind": "song",
+   "truth": "truth/h3-faisst-sehnsucht.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Faisst,_Clara_Mathilda/4_Lieder,_Op.18/3_Sehnsucht/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 32,
+   "truth_counts": {
+    "tuplet_notes": 469,
+    "ornaments": 0,
+    "grace": 0,
+    "octave_lines": 8,
+    "clef_changes": 9
+   }
+  },
+  "h3-schubert-kraehe": {
+   "kind": "song",
+   "truth": "truth/h3-schubert-kraehe.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Schubert,_Franz/Winterreise,_D.911/15_Die_Kraehe/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 32,
+   "truth_counts": {
+    "tuplet_notes": 314,
+    "ornaments": 0,
+    "grace": 4,
+    "octave_lines": 0,
+    "clef_changes": 1
+   }
+  },
+  "h3-lang-auf-der-reise": {
+   "kind": "song",
+   "truth": "truth/h3-lang-auf-der-reise.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Lang,_Josephine/_/Auf_der_Reise,_Op.22/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 32,
+   "truth_counts": {
+    "tuplet_notes": 361,
+    "ornaments": 1,
+    "grace": 1,
+    "octave_lines": 0,
+    "clef_changes": 0
+   }
+  },
+  "h3-hensel-mayenlied": {
+   "kind": "song",
+   "truth": "truth/h3-hensel-mayenlied.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Hensel,_Fanny/6_Lieder,_Op.1/4_Mayenlied/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 32,
+   "truth_counts": {
+    "tuplet_notes": 650,
+    "ornaments": 0,
+    "grace": 3,
+    "octave_lines": 0,
+    "clef_changes": 4
+   }
+  }
+ },
+ "pdfs": [
+  {
+   "pdf": "pdfs/h3-schumann-fruehlingsnacht--ms.pdf",
+   "piece": "h3-schumann-fruehlingsnacht",
+   "engraver": "ms",
+   "pages": 5
+  },
+  {
+   "pdf": "pdfs/h3-franz-lotosblume--ms.pdf",
+   "piece": "h3-franz-lotosblume",
+   "engraver": "ms",
+   "pages": 4
+  },
+  {
+   "pdf": "pdfs/h3-faisst-sehnsucht--ms.pdf",
+   "piece": "h3-faisst-sehnsucht",
+   "engraver": "ms",
+   "pages": 7
+  },
+  {
+   "pdf": "pdfs/h3-schubert-kraehe--ms.pdf",
+   "piece": "h3-schubert-kraehe",
+   "engraver": "ms",
+   "pages": 3
+  },
+  {
+   "pdf": "pdfs/h3-lang-auf-der-reise--ms.pdf",
+   "piece": "h3-lang-auf-der-reise",
+   "engraver": "ms",
+   "pages": 4
+  },
+  {
+   "pdf": "pdfs/h3-hensel-mayenlied--ms.pdf",
+   "piece": "h3-hensel-mayenlied",
+   "engraver": "ms",
+   "pages": 3
+  }
+ ],
+ "not_built": []
+}

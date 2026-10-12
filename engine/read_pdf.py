@@ -8,20 +8,24 @@ import os
 import re
 import subprocess
 import tempfile
+import time
 import xml.etree.ElementTree as ET
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
 
 import pikepdf
 
-from engine.render import load_toolkit
+from engine.render import ScoreError, load_toolkit
 from engine.score import TOLERANCE, ScoreIndex
+from engine.triplets import infer_triplets
 
 # Where the Docker image unpacks the .deb; the skill and the tests pass their own copy.
 AUDIVERIS = os.environ.get("AUDIVERIS", "/opt/audiveris/bin/Audiveris")
-# The Cloud Run request ends at 300 s, and a stuck run would hold the one-read-at-a-time lock.
+# For all readings of one PDF together: the Cloud Run request ends at 300 s, and a stuck run would hold the
+# one-read-at-a-time lock.
 TIMEOUT = 240
 PAINT_OPERATORS = {"S", "s", "f", "F", "f*", "B", "B*", "b", "b*"}
 # Shown above the engraved result in both hosts (owner's wording, 2026-10-11).
@@ -29,6 +33,16 @@ CHECK = "This is what I read from your PDF; check it against your copy before I 
 SCAN_WARNING = "Scanned pages often have reading mistakes, so please check carefully."
 SLURS_LEFT_OUT = "Slurs are left out, because they are often misread from PDFs; ask if you want them kept."
 SHOWN = 4  # problem spots named in the message; the rest are counted
+_SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
+# Audiveris drops a rest within half a staff space of a note as a smudge, which loses the rests of a second voice and
+# mistimes the notes after them (log 35). Then the settings tried, in order: grace notes need small heads, and implicit
+# tuplets finds triplets printed without a "3"; each helps some pieces and hurts others, so they are only alternatives.
+_REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
+_SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
+SETTINGS = [_REST, _REST + _SMALL, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
+# Changes when the reading changes (Audiveris build or settings), so cached readings made before are not reused.
+READER = "5.11.0-sma.1-best3"
+RETRY_ABOVE = 3  # bars that don't add up before the other settings are tried; fewer gained nothing (log 35)
 
 
 class ReadError(ValueError):
@@ -164,9 +178,48 @@ def is_scan(pdf: pikepdf.Pdf) -> bool:
     return not any(paints(page.obj, set()) for page in pdf.pages)
 
 
-def read_pdf(data: bytes, audiveris: str = AUDIVERIS) -> PdfReading:
+def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
+    """Read with the default settings; when that reading has many bars that don't add up, also read with the other
+    settings and keep whichever has fewest (log 35: right pitch and timing 82.0% -> 84.3% on the benchmark).
+
+    `raw` stands in for `audiveris_read`: the benchmark passes one that caches Audiveris's output, so a change to the
+    code after it (cleaning, choosing, triplets) is measured without reading every PDF again."""
     pdf = open_pdf(data)
     pages, scan = len(pdf.pages), is_scan(pdf)
+    deadline = time.monotonic() + TIMEOUT
+    raw = raw or audiveris_read
+    best = _read(data, audiveris, SETTINGS[0], deadline, raw)
+    if best is None:
+        raise ReadError("Reading this PDF took too long")
+    if len(best[2]) > RETRY_ABOVE and deadline - time.monotonic() > 30:
+        with ThreadPoolExecutor(len(SETTINGS) - 1) as pool:
+            others = list(pool.map(lambda options: _retry(data, audiveris, options, deadline, raw), SETTINGS[1:]))
+        # A reading that lost pages is never preferred for having fewer bars that don't add up
+        best = min([best, *(other for other in others if other)], key=lambda reading: (len(reading[1]), len(reading[2])))
+    musicxml, skipped, _ = best
+    musicxml = infer_triplets(musicxml)
+    return PdfReading(musicxml, pages, scan, skipped)
+
+
+def _retry(data: bytes, audiveris: str, options: list[str], deadline: float, raw):
+    try:
+        return _read(data, audiveris, options, deadline, raw)
+    except (ReadError, ScoreError, zipfile.BadZipFile, ET.ParseError):  # the first reading stands
+        return None
+
+
+def _read(data: bytes, audiveris: str, options: list[str], deadline: float, raw):
+    """One reading: (cleaned MusicXML, skipped pages, bars that don't add up), or None if it ran out of time."""
+    read = raw(data, audiveris, options, deadline)
+    if read is None:
+        return None
+    mxl, skipped = read
+    musicxml = clean(mxl)
+    return musicxml, skipped, problem_spots(musicxml)[0]
+
+
+def audiveris_read(data: bytes, audiveris: str, options: list[str], deadline: float) -> tuple[bytes, list[int]] | None:
+    """Audiveris's own .mxl and the pages it found no staves on, or None if it ran out of time."""
     with tempfile.TemporaryDirectory(prefix="read_pdf_") as work:
         source = Path(work) / "score.pdf"
         source.write_bytes(data)
@@ -176,27 +229,28 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS) -> PdfReading:
         # It also needs the system's fonts, not the engine's FONTCONFIG_FILE (engine/render.py), which it rejects.
         env = {key: value for key, value in os.environ.items() if key != "FONTCONFIG_FILE"}
         env.update(HOME=work, _JAVA_OPTIONS="-Xmx1g -Djava.awt.headless=true -Dsun.java2d.uiScale=1")
-        output = run(audiveris, source, work, env)
-        books = sorted(Path(work).glob("*.omr"))
-        if not list(Path(work).glob("*.mxl")) and books:
-            # A page with no staff system ("No system found") stops the export of the whole book, but the
-            # other pages were read and saved in the .omr; exporting from it gives those (spike/omr/RESULTS.md).
-            run(audiveris, books[0], work, env)
+        try:
+            output = run(audiveris, options, source, work, env, deadline)
+            books = sorted(Path(work).glob("*.omr"))
+            if not list(Path(work).glob("*.mxl")) and books:
+                # A page with no staff system ("No system found") stops the export of the whole book, but the
+                # other pages were read and saved in the .omr; exporting from it gives those (spike/omr/RESULTS.md).
+                run(audiveris, options, books[0], work, env, deadline)
+        except subprocess.TimeoutExpired:
+            return None
         scores = sorted(Path(work).glob("*.mxl"))
         if not scores:
             raise ReadError("No music could be read from this PDF")
         skipped = sorted({int(page) for page in re.findall(r"Sheet \S+#(\d+) flagged as invalid", output)})
-        return PdfReading(clean(scores[0].read_bytes()), pages, scan, skipped)
+        return scores[0].read_bytes(), skipped
 
 
-def run(audiveris: str, source: Path, work: str, env: dict) -> str:
-    try:
-        result = subprocess.run(
-            [audiveris, "-batch", "-export", "-output", work, str(source)],
-            capture_output=True, text=True, env=env, timeout=TIMEOUT,
-        )
-    except subprocess.TimeoutExpired as error:
-        raise ReadError("Reading this PDF took too long") from error
+def run(audiveris: str, options: list[str], source: Path, work: str, env: dict, deadline: float) -> str:
+    command = [audiveris, "-batch", *options, "-export", "-output", work, str(source)]
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise subprocess.TimeoutExpired(command, 0)
+    result = subprocess.run(command, capture_output=True, text=True, env=env, timeout=remaining)
     return result.stdout + result.stderr
 
 

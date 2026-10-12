@@ -1,0 +1,127 @@
+{
+ "pieces": {
+  "h2-bantock-ghost-road": {
+   "kind": "song",
+   "truth": "truth/h2-bantock-ghost-road.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Bantock,_Granville/5_Songs_from_the_Chinese_Poets,_1st_Series/2_The_Ghost_Road/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 24,
+   "truth_counts": {
+    "tuplet_notes": 93,
+    "ornaments": 0,
+    "grace": 0,
+    "octave_lines": 2,
+    "clef_changes": 2
+   }
+  },
+  "h2-beach-years-at-spring": {
+   "kind": "song",
+   "truth": "truth/h2-beach-years-at-spring.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Beach,_Amy/3_Browning_Songs,_Op.44/1_The_Year’s_at_the_Spring/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 24,
+   "truth_counts": {
+    "tuplet_notes": 759,
+    "ornaments": 0,
+    "grace": 1,
+    "octave_lines": 0,
+    "clef_changes": 0
+   }
+  },
+  "h2-berg-nacht": {
+   "kind": "song",
+   "truth": "truth/h2-berg-nacht.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Berg,_Alban/7_frühe_Lieder/1_Nacht/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 24,
+   "truth_counts": {
+    "tuplet_notes": 144,
+    "ornaments": 0,
+    "grace": 0,
+    "octave_lines": 1,
+    "clef_changes": 6
+   }
+  },
+  "h2-bizet-adieux": {
+   "kind": "song",
+   "truth": "truth/h2-bizet-adieux.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Bizet,_Georges/Feuilles_d’album/2_Adieux_à_Suzon/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 24,
+   "truth_counts": {
+    "tuplet_notes": 241,
+    "ornaments": 0,
+    "grace": 2,
+    "octave_lines": 0,
+    "clef_changes": 0
+   }
+  },
+  "h2-boulanger-poete": {
+   "kind": "song",
+   "truth": "truth/h2-boulanger-poete.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Boulanger,_Lili/Clairières_dans_le_ciel/04_Un_poète_disait/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 24,
+   "truth_counts": {
+    "tuplet_notes": 359,
+    "ornaments": 0,
+    "grace": 8,
+    "octave_lines": 0,
+    "clef_changes": 0
+   }
+  },
+  "h2-brahms-liebestreu": {
+   "kind": "song",
+   "truth": "truth/h2-brahms-liebestreu.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Brahms,_Johannes/6_Songs,_Op.3/1_Liebestreu/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 24,
+   "truth_counts": {
+    "tuplet_notes": 813,
+    "ornaments": 0,
+    "grace": 0,
+    "octave_lines": 0,
+    "clef_changes": 4
+   }
+  }
+ },
+ "pdfs": [
+  {
+   "pdf": "pdfs/h2-bantock-ghost-road--ms.pdf",
+   "piece": "h2-bantock-ghost-road",
+   "engraver": "ms",
+   "pages": 3
+  },
+  {
+   "pdf": "pdfs/h2-beach-years-at-spring--ms.pdf",
+   "piece": "h2-beach-years-at-spring",
+   "engraver": "ms",
+   "pages": 3
+  },
+  {
+   "pdf": "pdfs/h2-berg-nacht--ms.pdf",
+   "piece": "h2-berg-nacht",
+   "engraver": "ms",
+   "pages": 5
+  },
+  {
+   "pdf": "pdfs/h2-bizet-adieux--ms.pdf",
+   "piece": "h2-bizet-adieux",
+   "engraver": "ms",
+   "pages": 2
+  },
+  {
+   "pdf": "pdfs/h2-boulanger-poete--ms.pdf",
+   "piece": "h2-boulanger-poete",
+   "engraver": "ms",
+   "pages": 4
+  },
+  {
+   "pdf": "pdfs/h2-brahms-liebestreu--ms.pdf",
+   "piece": "h2-brahms-liebestreu",
+   "engraver": "ms",
+   "pages": 3
+  }
+ ],
+ "not_built": []
+}

@@ -1,0 +1,244 @@
+Source: https://raw.githubusercontent.com/musescore/MuseScore/7688c005ad963ba09ee715aae53dbc7e8c9d5ef8/src/importexport/musicxml/internal/import/importmusicxmlpass2.cpp
+
+7781:  */
+7782: 
+7783: void MusicXmlParserPass2::harmony(const String& partId, Measure* measure, const Fraction& sTime, HarmonyMap& harmonyMap)
+7784: {
+7785:     UNUSED(measure);
+7786:     track_idx_t track = m_pass1.trackForPart(partId);
+7787: 
+7788:     Staff* staff = m_score->staff(track2staff(track));
+7789:     Key key = staff ? staff->key(sTime) : Key::INVALID;
+7790: 
+7791:     const Color color = Color::fromString(m_e.asciiAttribute("color").ascii());
+7792:     const String fontFamily = m_e.attribute("font-family");
+7793:     const String placement = m_e.attribute("placement");
+7794:     const bool printObject = m_e.asciiAttribute("print-object") != "no";
+7795: 
+7796:     String kind, kindText, functionText, inversionText, symbols, parens;
+7797:     std::vector<HDegree> degreeList;
+7798: 
+7799:     FretDiagram* fd = nullptr;
+7800:     Harmony* ha = Factory::createHarmony(m_score->dummy()->segment());
+7801:     HarmonyInfo* info = new HarmonyInfo(m_score);
+7802:     Fraction offset;
+7803:     if (!placement.empty()) {
+7804:         ha->setPlacement(placement == "below" ? PlacementV::BELOW : PlacementV::ABOVE);
+7805:         ha->setPropertyFlags(Pid::PLACEMENT, PropertyFlags::UNSTYLED);
+7806:         ha->resetProperty(Pid::OFFSET);
+7807:     }
+7808:     while (m_e.readNextStartElement()) {
+7809:         if (m_e.name() == "root") {
+7810:             if (info->rootTpc() != Tpc::TPC_INVALID) {
+7811:                 const ChordDescription* d = harmonyFromXml(info, m_score, kind, kindText, symbols, parens, degreeList);
+7812:                 info->setId(d->id);
+7813:                 info->setTextName(d->names.front());
+7814:                 ha->addChord(info);
+7815:                 degreeList.clear();
+7816:                 info = new HarmonyInfo(m_score);
+7817:             }
+7818:             String step;
+7819:             int alter = 0;
+7820:             bool invalidRoot = false;
+7821:             while (m_e.readNextStartElement()) {
+7822:                 if (m_e.name() == "root-step") {
+7823:                     // attributes: print-style
+7824:                     step = m_e.readText();
+7825:                     if (m_e.hasAttribute("text")) {
+7826:                         if (m_e.attribute("text").empty()) {
+7827:                             invalidRoot = true;
+7828:                         }
+7829:                     }
+7830:                 } else if (m_e.name() == "root-alter") {
+7831:                     // attributes: print-object, print-style
+7832:                     //             location (left-right)
+7833:                     alter = m_e.readText().trimmed().toInt();
+7834:                 } else {
+7835:                     skipLogCurrElem();
+7836:                 }
+7837:             }
+7838:             if (invalidRoot) {
+7839:                 info->setRootTpc(Tpc::TPC_INVALID);
+7840:             } else {
+7841:                 info->setRootTpc(step2tpc(step, AccidentalVal(alter)));
+7842:             }
+7843:         } else if (m_e.name() == "function") {
+7844:             // deprecated in MusicXML 4.0
+7845:             // attributes: print-style
+7846:             info->setRootTpc(Tpc::TPC_INVALID);
+7847:             info->setBassTpc(Tpc::TPC_INVALID);
+7848:             functionText = m_e.readText();
+7849:             ha->setHarmonyType(HarmonyType::ROMAN);
+7850:         } else if (m_e.name() == "numeral") {
+7851:             info->setRootTpc(Tpc::TPC_INVALID);
+7852:             info->setBassTpc(Tpc::TPC_INVALID);
+7853:             while (m_e.readNextStartElement()) {
+7854:                 if (m_e.name() == "numeral-root") {
+7855:                     functionText = m_e.attribute("text");
+7856:                     const String numeralRoot = m_e.readText();
+7857:                     if (functionText.isEmpty() || functionText.at(0).isDigit()) {
+7858:                         ha->setHarmonyType(HarmonyType::NASHVILLE);
+7859:                         setHarmonyRootTpcFromFunction(info, ha, numeralRoot, key);
+7860:                     } else {
+7861:                         ha->setHarmonyType(HarmonyType::ROMAN);
+7862:                     }
+7863:                 } else if (m_e.name() == "numeral-alter") {
+7864:                     const int alter = m_e.readText().toInt();
+7865:                     switch (alter) {
+7866:                     case -1:
+7867:                         setHarmonyRootTpcFromFunction(info, ha, u"b" + harmonyXmlFunction(info, ha, key), key);
+7868:                         break;
+7869:                     case 1:
+7870:                         setHarmonyRootTpcFromFunction(info, ha, u"#" + harmonyXmlFunction(info, ha, key), key);
+7871:                         break;
+7872:                     default:
+7873:                         break;
+7874:                     }
+7875:                 } else {
+7876:                     skipLogCurrElem();
+7877:                 }
+7878:             }
+7879:         } else if (m_e.name() == "kind") {
+7880:             // attributes: use-symbols  yes-no
+7881:             //             text, stack-degrees, parentheses-degree, bracket-degrees,
+7882:             //             print-style, halign, valign
+7883:             kindText = m_e.attribute("text");
+7884:             symbols = m_e.attribute("use-symbols");
+7885:             parens = m_e.attribute("parentheses-degrees");
+7886:             kind = m_e.readText();
+7887:             if (kind == "none") {
+7888:                 info->setRootTpc(Tpc::TPC_INVALID);
+7889:             }
+7890:         } else if (m_e.name() == "inversion") {
+7891:             const int inversion = m_e.readText().toInt();
+7892:             switch (inversion) {
+7893:             case 1: inversionText = u"6";
+7894:                 break;
+7895:             case 2: inversionText = u"64";
+7896:                 break;
+7897:             default:
+7898:                 inversionText = u"";
+7899:                 break;
+7900:             }
+7901:         } else if (m_e.name() == "bass") {
+7902:             String step;
+7903:             int alter = 0;
+7904:             while (m_e.readNextStartElement()) {
+7905:                 if (m_e.name() == "bass-step") {
+7906:                     // attributes: print-style
+7907:                     step = m_e.readText();
+7908:                 } else if (m_e.name() == "bass-alter") {
+7909:                     // attributes: print-object, print-style
+7910:                     //             location (left-right)
+7911:                     alter = m_e.readText().trimmed().toInt();
+7912:                 } else {
+7913:                     skipLogCurrElem();
+7914:                 }
+7915:             }
+7916:             info->setBassTpc(step2tpc(step, AccidentalVal(alter)));
+7917:         } else if (m_e.name() == "degree") {
+7918:             int degreeValue = 0;
+7919:             int degreeAlter = 0;
+7920:             String degreeType;
+7921:             while (m_e.readNextStartElement()) {
+7922:                 if (m_e.name() == "degree-value") {
+7923:                     degreeValue = m_e.readInt();
+7924:                 } else if (m_e.name() == "degree-alter") {
+7925:                     degreeAlter = m_e.readText().trimmed().toInt();
+7926:                 } else if (m_e.name() == "degree-type") {
+7927:                     degreeType = m_e.readText();
+7928:                 } else {
+7929:                     skipLogCurrElem();
+7930:                 }
+7931:             }
+7932:             if (degreeValue <= 0 || degreeValue > 13
+7933:                 || degreeAlter < -2 || degreeAlter > 2
+7934:                 || (degreeType != u"add" && degreeType != u"alter" && degreeType != u"subtract")) {
+7935:                 m_logger->logError(String(u"incorrect degree: degreeValue=%1 degreeAlter=%2 degreeType=%3")
+7936:                                    .arg(degreeValue).arg(degreeAlter).arg(degreeType), &m_e);
+7937:             } else {
+7938:                 if (degreeType == "add") {
+7939:                     degreeList.emplace_back(degreeValue, degreeAlter, HDegreeType::ADD);
+7940:                 } else if (degreeType == "alter") {
+7941:                     degreeList.emplace_back(degreeValue, degreeAlter, HDegreeType::ALTER);
+7942:                 } else if (degreeType == "subtract") {
+7943:                     degreeList.emplace_back(degreeValue, degreeAlter, HDegreeType::SUBTRACT);
+7944:                 }
+7945:             }
+7946:         } else if (m_e.name() == "frame") {
+7947:             fd = frame();
+7948:         } else if (m_e.name() == "level") {
+7949:             skipLogCurrElem();
+7950:         } else if (m_e.name() == "offset") {
+7951:             offset = m_pass1.calcTicks(m_e.readInt(), m_divs, &m_e);
+7952:             preventNegativeTick(sTime, offset, m_logger);
+7953:         } else if (m_e.name() == "staff") {
+7954:             size_t nstaves = m_pass1.getPart(partId)->nstaves();
+7955:             String strStaff = m_e.readText();
+7956:             int staffIdx = m_pass1.getMusicXmlPart(partId).staffNumberToIndex(strStaff.toInt());
+7957:             if (staffIdx >= 0 && staffIdx < int(nstaves)) {
+7958:                 track += staffIdx * VOICES;
+7959:             } else {
+7960:                 m_logger->logError(String(u"invalid staff %1").arg(strStaff), &m_e);
+7961:             }
+7962:         } else {
+7963:             skipLogCurrElem();
+7964:         }
+7965:     }
+7966: 
+7967:     const ChordDescription* d = nullptr;
+7968:     if (info->rootTpc() != Tpc::TPC_INVALID || ha->harmonyType() == HarmonyType::NASHVILLE) {
+7969:         d = harmonyFromXml(info, m_score, kind, kindText, symbols, parens, degreeList);
+7970:     }
+7971:     if (d) {
+7972:         info->setId(d->id);
+7973:         info->setTextName(d->names.front());
+7974:     } else {
+7975:         info->setId(-1);
+7976:         String textName = functionText + kindText + inversionText;
+7977:         info->setTextName(textName);
+7978:     }
+7979:     ha->addChord(info);
+7980: 
+7981:     ha->setVisible(printObject);
+7982:     if (placement == u"below") {
+7983:         ha->setPlacement(PlacementV::BELOW);
+7984:         ha->resetProperty(Pid::OFFSET);
+7985:     }
+7986:     colorItem(ha, color);
+7987:     if (!fontFamily.empty()) {
+7988:         ha->setFamily(fontFamily);
+7989:         ha->setPropertyFlags(Pid::FONT_FACE, PropertyFlags::UNSTYLED);
+7990:     }
+7991: 
+7992:     const HarmonyDesc newHarmonyDesc(track, ha, fd);
+7993:     bool insert = true;
+7994:     if (m_pass1.sibOrDolet()) {
+7995:         const int ticks = (sTime + offset).ticks();
+7996:         for (auto itr = harmonyMap.begin(); itr != harmonyMap.end(); itr++) {
+7997:             if (itr->first != ticks) {
+7998:                 continue;
+7999:             }
+8000:             HarmonyDesc& foundHarmonyDesc = itr->second;
+8001:             if (track2staff(foundHarmonyDesc.m_track) == track2staff(track) && foundHarmonyDesc.m_harmony
+8002:                 && foundHarmonyDesc.descr() == info->descr()) {
+8003:                 if (foundHarmonyDesc.m_harmony && foundHarmonyDesc.fretDiagramVisible() == newHarmonyDesc.fretDiagramVisible()) {
+8004:                     // Matching harmony with matching visibility of fret diagram.  No need to add
+8005:                     insert = false;
+8006:                 } else if (fd && fd->visible() && !foundHarmonyDesc.fretDiagramVisible()) {
+8007:                     // Matching harmony without a fret diagram found at this tick, replace with this harmony and its fret diagram
+8008:                     foundHarmonyDesc.m_harmony = ha;
+8009:                     foundHarmonyDesc.m_fretDiagram = fd;
+8010:                     foundHarmonyDesc.m_track = track;
+8011:                     insert = false;
+8012:                 }
+8013:             }
+8014:         }
+8015:     }
+8016: 
+8017:     if (insert) {
+8018:         // No harmony at this tick, add to the map
+8019:         harmonyMap.insert(std::pair<int, HarmonyDesc>((sTime + offset).ticks(), newHarmonyDesc));
+8020:     }
+8021: }
+8022: 

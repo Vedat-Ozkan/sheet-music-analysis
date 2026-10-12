@@ -20,14 +20,17 @@ from pathlib import Path
 
 import verovio
 
-from engine.read_pdf import PdfReading, ReadError, notice, read_pdf, without_slurs
+from engine.read_pdf import READER, PdfReading, ReadError, notice, read_pdf, without_slurs
 from engine.render import VEROVIO_OPTIONS, Engraving, ScoreError, load_toolkit
 
 # Verovio's import warnings (an unmatched slur, say) are for developers; Claude would pass them on to the user.
 verovio.enableLog(False)
 
 DEB = "https://github.com/Audiveris/audiveris/releases/download/5.11.0/Audiveris-5.11.0-ubuntu24.04-x86_64.deb"
-HOME = Path(tempfile.gettempdir()) / "audiveris-5.11.0"
+# Our fixes (tuplets sharing a beam, crashes that lost pages and bars), from the sma-5.11.0 branch of this fork.
+JAR = "https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.1/audiveris.jar"
+JAR_SHA256 = "243cc7b7881adbe3a8b73a058ed41a692b67ae780484fbeb26819d9e7ce905ff"
+HOME = Path(tempfile.gettempdir()) / "audiveris-5.11.0-sma.1"
 
 
 def audiveris() -> Path:
@@ -40,6 +43,11 @@ def audiveris() -> Path:
     # comes last, so an interrupted first run is not taken for an installed copy.
     shutil.rmtree(unpacked, ignore_errors=True)
     subprocess.run(["dpkg-deb", "-x", str(deb), str(unpacked)], check=True)
+    jar = unpacked / "opt/audiveris/lib/app/audiveris.jar"
+    urllib.request.urlretrieve(JAR, jar)
+    # A release file can be replaced after publishing; only the build that was tested is run.
+    if hashlib.sha256(jar.read_bytes()).hexdigest() != JAR_SHA256:
+        raise OSError("The downloaded Audiveris does not match the tested build")
     unpacked.rename(HOME)
     deb.unlink()
     return launcher
@@ -72,7 +80,7 @@ def main() -> int:
 
     try:
         data = args.pdf.read_bytes()
-        cache = HOME.parent / f"read-pdf-{hashlib.sha256(data).hexdigest()}.json"
+        cache = HOME.parent / f"read-pdf-{READER}-{hashlib.sha256(data).hexdigest()}.json"
         if cache.exists():
             saved = json.loads(cache.read_text())
             reading = PdfReading(saved["musicxml"].encode(), saved["pages"], saved["scan"], saved["skipped"])

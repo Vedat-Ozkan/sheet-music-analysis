@@ -2,3 +2,13 @@
 !RESULTS.md
 !*.py
 !.gitignore
+# The benchmark's scripts and notes (its pieces, PDFs and readings are rebuilt by build.py, not committed)
+!bench/
+!bench-heldout*/
+bench*/*/
+!bench/analysis*/
+!bench/triplet-evaluation/
+!bench*/README.md
+!bench*/manifest.json
+!bench/analysis*/*.md
+!bench/triplet-evaluation/*.md

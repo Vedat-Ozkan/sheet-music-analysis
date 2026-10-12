@@ -2,8 +2,9 @@
 
     .venv/bin/python tools/robustness.py [--no-model] [--only NAME]
 
-The scores come from the corpus bundled with music21, so nothing is copied into
-this repository. For each score the stages are: read and index, note table,
+The MusicXML scores come from music21's corpus or are downloaded on first use;
+two PDF fixtures live in tests/data and are read with Audiveris first.
+For each score the stages are: read and index, note table,
 note-list round trip, plain engraving, the draft model on the whole piece and on an
 excerpt's note list, and rendering the model's unreviewed draft. Results are written
 to out/robustness/report.json with one PNG per score.
@@ -14,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import time
 import traceback
 import urllib.request
@@ -21,7 +23,7 @@ from pathlib import Path
 
 from music21 import corpus
 
-from engine import draft, notes, reduce
+from engine import draft, notes, read_pdf, reduce
 from engine.annotate import check, render
 from engine.render import engrave, load_toolkit
 from engine.score import ScoreIndex
@@ -68,6 +70,8 @@ SCORES = {
     "prokofiev-toccata": (ASAP + "Prokofiev/Toccata/xml_score.musicxml", "Prokofiev 1912: motoric, dissonant"),
     "schoenberg-op19-2": ("schoenberg/opus19/movement2.mxl", "Schoenberg 1911: atonal"),
     "schoenberg-op19-6": ("schoenberg/opus19/movement6.mxl", "Schoenberg 1911: atonal, very sparse"),
+    "chopin-prelude-pdf": ("tests/data/chopin-28-4-mutopia.pdf", "born-digital PDF, LilyPond engraving, ornaments"),
+    "mozart-sonata-scan-pdf": ("tests/data/mozart-k545-1-scan.pdf", "scanned PDF, four pages, piano sonata"),
 }
 
 
@@ -108,9 +112,27 @@ def summary(index: ScoreIndex) -> list:
 
 def run(name: str, with_model: bool) -> dict:
     path, exercises = SCORES[name]
-    score = fetch(name, path) if path.startswith("https://") else (CORPUS / path).read_bytes()
     results: dict = {"path": path, "exercises": exercises}
     state: dict = {}
+
+    if path.endswith(".pdf"):
+        if not shutil.which(read_pdf.AUDIVERIS):
+            results["read_pdf"] = {"ok": None, "skipped": True,
+                                   "reason": "Audiveris is not installed; set AUDIVERIS to its launcher"}
+            return results
+
+        def pdf():
+            reading = read_pdf.read_pdf((ROOT / path).read_bytes())
+            state["score"] = read_pdf.without_slurs(reading.musicxml)
+            return {"pages": reading.pages, "scan": reading.scan, "skipped_pages": reading.skipped,
+                    "notice": read_pdf.notice(state["score"], reading.scan, reading.skipped, False)}
+
+        stage(results, "read_pdf", pdf)
+        if not results["read_pdf"]["ok"]:
+            return results
+        score = state["score"]
+    else:
+        score = fetch(name, path) if path.startswith("https://") else (CORPUS / path).read_bytes()
 
     def read():
         state["index"] = ScoreIndex(load_toolkit(score).getMEI())
@@ -182,7 +204,9 @@ def main() -> None:
         started = time.time()
         report[name] = run(name, not args.no_model)
         failed = [stage_name for stage_name, result in report[name].items() if isinstance(result, dict) and result.get("ok") is False]
-        print(f"{name:26s} {time.time() - started:5.1f}s  " + ("ok" if not failed else "FAILED: " + ", ".join(failed)), flush=True)
+        skipped = [result["reason"] for result in report[name].values() if isinstance(result, dict) and result.get("skipped")]
+        status = "FAILED: " + ", ".join(failed) if failed else "NOT RUN: " + "; ".join(skipped) if skipped else "ok"
+        print(f"{name:26s} {time.time() - started:5.1f}s  " + status, flush=True)
     path = OUT / "report.json"
     merged = json.loads(path.read_text()) if path.exists() and (args.only or args.matching) else {}
     merged.update(report)

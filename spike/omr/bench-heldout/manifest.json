@@ -1,0 +1,191 @@
+{
+ "pieces": {
+  "h-schubert-aufenthalt": {
+   "kind": "song",
+   "truth": "truth/h-schubert-aufenthalt.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Schubert,_Franz/Schwanengesang,_D.957/05_Aufenthalt/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 40,
+   "truth_counts": {
+    "tuplet_notes": 819,
+    "ornaments": 0,
+    "grace": 0,
+    "octave_lines": 0,
+    "clef_changes": 0
+   }
+  },
+  "h-holmes-barque-des-amours": {
+   "kind": "song",
+   "truth": "truth/h-holmes-barque-des-amours.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Holmès,_Augusta_Mary_Anne/20_Mélodies/03_La_barque_des_amours/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 40,
+   "truth_counts": {
+    "tuplet_notes": 720,
+    "ornaments": 0,
+    "grace": 88,
+    "octave_lines": 0,
+    "clef_changes": 11
+   }
+  },
+  "h-schubert-erlkonig": {
+   "kind": "song",
+   "truth": "truth/h-schubert-erlkonig.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Schubert,_Franz/_/Der_Erlkönig,_D.328/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 40,
+   "truth_counts": {
+    "tuplet_notes": 531,
+    "ornaments": 0,
+    "grace": 3,
+    "octave_lines": 0,
+    "clef_changes": 0
+   }
+  },
+  "h-bizet-absence": {
+   "kind": "song",
+   "truth": "truth/h-bizet-absence.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Bizet,_Georges/20_Mélodies,_Op.21/13_Absence/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 40,
+   "truth_counts": {
+    "tuplet_notes": 1035,
+    "ornaments": 0,
+    "grace": 21,
+    "octave_lines": 0,
+    "clef_changes": 2
+   }
+  },
+  "h-clara-schumann-liebeszauber": {
+   "kind": "song",
+   "truth": "truth/h-clara-schumann-liebeszauber.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Schumann,_Clara/6_Lieder,_Op.13/3_Liebeszauber/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 40,
+   "truth_counts": {
+    "tuplet_notes": 1558,
+    "ornaments": 0,
+    "grace": 0,
+    "octave_lines": 0,
+    "clef_changes": 0
+   }
+  },
+  "h-haydn-o-tuneful-voice": {
+   "kind": "song",
+   "truth": "truth/h-haydn-o-tuneful-voice.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Haydn,_Joseph/10_Canzonets/08_O_tuneful_Voice,_Hob.XXVIa42/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 40,
+   "truth_counts": {
+    "tuplet_notes": 1052,
+    "ornaments": 0,
+    "grace": 13,
+    "octave_lines": 0,
+    "clef_changes": 2
+   }
+  },
+  "h-brahms-fruhlingstrost": {
+   "kind": "song",
+   "truth": "truth/h-brahms-fruhlingstrost.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Brahms,_Johannes/9_Lieder_und_Gesänge,_Op.63/1_Frühlingstrost/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 40,
+   "truth_counts": {
+    "tuplet_notes": 811,
+    "ornaments": 0,
+    "grace": 0,
+    "octave_lines": 0,
+    "clef_changes": 2
+   }
+  },
+  "h-lang-traumbild": {
+   "kind": "song",
+   "truth": "truth/h-lang-traumbild.musicxml",
+   "source_url": "https://github.com/OpenScore/Lieder/tree/main/scores/Lang,_Josephine/2_Lieder,_Op.28/1_Traumbild/",
+   "licence": "CC0 1.0 (OpenScore)",
+   "excerpt_first_bars": 40,
+   "truth_counts": {
+    "tuplet_notes": 1071,
+    "ornaments": 1,
+    "grace": 3,
+    "octave_lines": 0,
+    "clef_changes": 3
+   }
+  }
+ },
+ "pdfs": [
+  {
+   "pdf": "pdfs/h-schubert-aufenthalt--ms.pdf",
+   "piece": "h-schubert-aufenthalt",
+   "engraver": "ms",
+   "pages": 3
+  },
+  {
+   "pdf": "pdfs/h-schubert-aufenthalt--ly.pdf",
+   "piece": "h-schubert-aufenthalt",
+   "engraver": "ly",
+   "pages": 2
+  },
+  {
+   "pdf": "pdfs/h-holmes-barque-des-amours--ms.pdf",
+   "piece": "h-holmes-barque-des-amours",
+   "engraver": "ms",
+   "pages": 7
+  },
+  {
+   "pdf": "pdfs/h-schubert-erlkonig--ms.pdf",
+   "piece": "h-schubert-erlkonig",
+   "engraver": "ms",
+   "pages": 3
+  },
+  {
+   "pdf": "pdfs/h-schubert-erlkonig--ly.pdf",
+   "piece": "h-schubert-erlkonig",
+   "engraver": "ly",
+   "pages": 3
+  },
+  {
+   "pdf": "pdfs/h-bizet-absence--ms.pdf",
+   "piece": "h-bizet-absence",
+   "engraver": "ms",
+   "pages": 5
+  },
+  {
+   "pdf": "pdfs/h-bizet-absence--ly.pdf",
+   "piece": "h-bizet-absence",
+   "engraver": "ly",
+   "pages": 4
+  },
+  {
+   "pdf": "pdfs/h-clara-schumann-liebeszauber--ms.pdf",
+   "piece": "h-clara-schumann-liebeszauber",
+   "engraver": "ms",
+   "pages": 5
+  },
+  {
+   "pdf": "pdfs/h-haydn-o-tuneful-voice--ms.pdf",
+   "piece": "h-haydn-o-tuneful-voice",
+   "engraver": "ms",
+   "pages": 5
+  },
+  {
+   "pdf": "pdfs/h-brahms-fruhlingstrost--ms.pdf",
+   "piece": "h-brahms-fruhlingstrost",
+   "engraver": "ms",
+   "pages": 6
+  },
+  {
+   "pdf": "pdfs/h-lang-traumbild--ms.pdf",
+   "piece": "h-lang-traumbild",
+   "engraver": "ms",
+   "pages": 6
+  }
+ ],
+ "not_built": [
+  {
+   "piece": "h-holmes-barque-des-amours",
+   "engraver": "ly",
+   "reason": "CalledProcessError: bjects...\\nFinding the ideal number of pages...\\nFitting music on 1 or 2 pages...\\nDrawing systems...\\nConverting to `/tmp/tmpcu8g7pcs/s.pdf\\'...\\nfatal error: failed files: \"/tmp/tmpcu8g7pcs/s.ly\"\\n'"
+  }
+ ]
+}
