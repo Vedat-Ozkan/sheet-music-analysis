@@ -38,7 +38,7 @@ from starlette.responses import Response
 from engine import correct, draft
 from engine import notes as note_list
 from engine import read_pdf as pdf_reader
-from engine import part_writing, reduce
+from engine import check_analysis, part_writing, reduce
 from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
 from engine.render import ScoreError, engrave, engrave_tall, load_toolkit
@@ -239,11 +239,15 @@ REVIEW_GUIDE = (
     "one callout per numbered spot and the voice_leading arrows listed under it, with their labels (use the NoteRefs "
     "given), and explain every finding of a spot in its numbered paragraph of the commentary, in terms of the notes. "
     "Call these strict classroom rules, not verdicts on a composer.\n\n"
+    "If the draft has a STUDENT CHECK section, the user wants their own numerals checked: draw the "
+    "page as usual from your reviewed analysis (how their numerals are marked on it is not decided yet), and write the commentary as a second "
+    "reader would, not as an answer key, following that section's guidance. This is for learning; if they say it is "
+    "coursework, remind them to check their course's rules on AI help.\n\n"
     "## Method" + SKILL_RULES
 )
 
 
-def make_draft(score: bytes, code: str, measures: tuple[int, int] | None) -> str:
+def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, student_analysis: str | None = None) -> str:
     index = ScoreIndex(load_toolkit(score).getMEI())
     cached = store.get(f"scores/{code}.draft.json")
     if cached:
@@ -261,6 +265,10 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None) -> str
         + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
         + reduce.as_text(index, first, last)
         + ("\n\n" + section if (section := part_writing.as_text(index, result.chords)) else "")
+        + (
+            "\n\n" + check_analysis.as_text(check_analysis.student_labels(student_analysis, score, index), result, index)
+            if student_analysis else ""
+        )
         + "\n\n"
         + REVIEW_GUIDE
     )
@@ -476,7 +484,11 @@ del mcp._lowlevel_server._request_handlers["subscriptions/listen"]
     description=(
         "Use this when the user wants a harmonic analysis of a MusicXML score (.mxl or .musicxml): Roman numerals, "
         "cadences, phrases, non-chord tones. Returns a neural model's draft as a table for you to review and correct, "
-        "plus a score_id. Follow it with render_analysis. " + SCORE_INPUT_HELP
+        "plus a score_id. Follow it with render_analysis. If the user wants their own analysis checked, pass their "
+        "Roman numerals as student_analysis, as they typed them (\"m1 I, m2 V6, m3 beat 3 ii65 ...\"), or the word "
+        "\"score\" when the numerals are written into their score file; the draft then lists, beat by beat, where "
+        "they agree with it. If the result is a question, ask the user that question and call again with their answer. "
+        + SCORE_INPUT_HELP
     ),
     annotations=read_only("Draft a harmonic analysis"),
     meta={"openai/fileParams": ["score_file"]},
@@ -486,12 +498,16 @@ async def draft_analysis(
     score_file: AttachedFile | None = None,
     score_id: str | None = None,
     measure_range: str = "all",
+    student_analysis: str | None = None,
 ) -> CallToolResult:
     """measure_range limits the table, e.g. "1-8"; the default "all" returns the whole piece."""
     source = platform(ctx)
     started = time.time()
     try:
         score, given = await resolve_score(score_file, score_id)
+        if student_analysis and student_analysis.strip().lower() != "score":
+            # Reading the grammar needs no score, so a question costs the user nothing against the limit.
+            check_analysis.from_text(student_analysis)
         if given == "score_id":
             code = clean_id(score_id)
             fresh = await anyio.to_thread.run_sync(store.get, f"scores/{code}.draft.json") is None
@@ -503,8 +519,10 @@ async def draft_analysis(
         if fresh and not await take("draft", source):
             log("limit", tool="draft_analysis", platform=source)
             return error_result(LIMIT_MESSAGE)
-        text = await anyio.to_thread.run_sync(make_draft, score, code, parse_measures(measure_range))
-    except (ScoreError, PositionError, draft.DraftError, httpx.HTTPError) as error:
+        text = await anyio.to_thread.run_sync(make_draft, score, code, parse_measures(measure_range), student_analysis)
+    except check_analysis.ClarificationNeeded as error:
+        return error_result(error.question)
+    except (ScoreError, PositionError, ValueError, draft.DraftError, httpx.HTTPError) as error:
         log("draft_analysis", platform=source, error=str(error))
         return error_result(str(error))
     log("draft_analysis", platform=source, input=given, score_bytes=len(score), measure_range=measure_range,
@@ -579,24 +597,41 @@ async def correct_bars(
         "`notes`. Returns a neural model's draft analysis (chords, cadences, phrase ends, possible non-chord tones) "
         "as a table for you to review and correct before you annotate the score. Without such a note list you "
         "cannot analyse the score: tell the user that in Claude this needs the Sheet Music Analysis plugin "
-        "(from Claude's directory) and Code execution and file creation turned on in Settings > Capabilities."
+        "(from Claude's directory) and Code execution and file creation turned on in Settings > Capabilities. "
+        "If the user wants their own Roman numerals checked, pass them as student_analysis (the skill's script prints "
+        "the exact text); if the result is a question, ask the user that question and call again."
     ),
     annotations=read_only("Draft a harmonic analysis from a note list"),
 )
-async def draft_from_notes(ctx: Context, notes: str) -> CallToolResult:
+async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | None = None) -> CallToolResult:
     source = platform(ctx)
+    try:
+        # Reading the grammar needs no score, so a question costs the user nothing against the limit.
+        if student_analysis:
+            check_analysis.student_labels(student_analysis, None, None)
+    except check_analysis.ClarificationNeeded as error:
+        return error_result(error.question)
+    except ValueError as error:
+        return error_result(str(error))
     if not await take("draft", source):
         log("limit", tool="draft_from_notes", platform=source)
         return error_result(LIMIT_MESSAGE)
     started = time.time()
     try:
         result = await anyio.to_thread.run_sync(draft.draft_from_notes, notes)
-    except (note_list.NotesError, draft.DraftError) as error:
+        index = note_list.decode(notes)
+        if student_analysis:
+            student = check_analysis.student_labels(student_analysis, None, index)
+    except check_analysis.ClarificationNeeded as error:
+        return error_result(error.question)
+    except (note_list.NotesError, draft.DraftError, PositionError, ValueError) as error:
         log("draft_from_notes", platform=source, error=str(error), chars=len(notes))
         return error_result(str(error))
     text = draft.as_text(result)
-    if section := part_writing.as_text(note_list.decode(notes), result.chords):
+    if section := part_writing.as_text(index, result.chords):
         text += "\n\n" + section
+    if student_analysis:
+        text += "\n\n" + check_analysis.as_text(student, result, index)
     log("draft_from_notes", platform=source, chars_in=len(notes), seconds=round(time.time() - started, 1))
     return CallToolResult(content=[TextContent(type="text", text=text)])
 

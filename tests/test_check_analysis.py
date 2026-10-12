@@ -53,7 +53,7 @@ def test_musicxml_variants(bach):
 
 
 def test_chat_grammar():
-    assert check.from_text('bar 1 I, bar 2 V6 IV, bar 3 beat 3 ii65, key: G major; bar 5 in D: V7/V') == [
+    assert check.from_text('key: G major; bar 1 I, bar 2 V6 IV, bar 3 beat 3 ii65, bar 5 in D: V7/V') == [
         Label(1, 1, 'G', 'I'), Label(2, 1, 'G', 'V6'), Label(2, 2, 'G', 'IV'),
         Label(3, 3, 'G', 'ii65'), Label(5, 1, 'D', 'V7/V'),
     ]

@@ -380,7 +380,11 @@ def _beam_voice(voice_notes, measure, segment, divisions):
             value = m21note.Rest() if element.find("rest") is not None else m21note.Note()
             value.duration = Duration(Fraction(element.findtext("duration")) / divisions)
             rhythm.append(value)
-        beams = signature.getBeams(rhythm, measureStartOffset=0 if ratio else start)
+        try:
+            beams = signature.getBeams(rhythm, measureStartOffset=0 if ratio else start)
+        except meter.MeterException:
+            # Notes running past the bar end (a missed triplet) cannot be placed in the meter; leave them unbeamed.
+            return
         # A tuplet is one rhythmic group even when it straddles a meter beat.
         if ratio and len(run) > 1 and all(b is not None for b in beams):
             for i, beam in enumerate(beams):
