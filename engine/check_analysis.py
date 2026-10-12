@@ -23,6 +23,14 @@ TOKEN = re.compile(
 )
 
 
+class ClarificationNeeded(ValueError):
+    """The caller should show `question` and request a revised student answer."""
+
+    def __init__(self, message: str, question: str):
+        self.question = question
+        super().__init__(f'{message}. {question}')
+
+
 def _key(text: str) -> str:
     parts = text.strip().replace('♯', '#').replace('♭', 'b').replace('-', 'b').split()
     name = parts[0]
@@ -34,21 +42,29 @@ def _key(text: str) -> str:
 
 
 def _figure(text: str, key: str) -> str:
-    figure = text.replace('°', 'o').replace('♯', '#').replace('♭', 'b')
+    figure = text.translate(str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', '01234567890123456789'))
+    figure = figure.replace('°', 'o').replace('♯', '#').replace('♭', 'b').replace('/o', 'ø')
+    figure = {'It+6': 'It6', 'Ger+6': 'Ger6', 'Fr+6': 'Fr6'}.get(figure, figure)
+    if re.fullmatch(r'[Vv]64[-–—]53', figure):
+        raise ClarificationNeeded(f'Unplaced resolution {text!r}', 'At which beats do the cadential 6/4 and its 5/3 resolution occur?')
+    for part in figure.split('/'):
+        numeral = re.match(r'[#b-]*([ivIV]+)', part)
+        if numeral and not (numeral[1].isupper() or numeral[1].islower()):
+            raise ClarificationNeeded(f'Mixed-case numeral {text!r}', f'Should {numeral[1]!r} be uppercase or lowercase?')
     match = re.fullmatch(r"([#b-]*[ivIV]+[oø+]?)(7?)([abcd])(/.*)?", figure)
     if match:
         head, seventh, letter, target = match.groups()
         figures = ('7', '65', '43', '42') if seventh else ('', '6', '64')
         inversion = 'abcd'.index(letter)
         if inversion >= len(figures):
-            raise ValueError(f"Invalid triad inversion in {text!r}")
+            raise ClarificationNeeded(f"Invalid triad inversion in {text!r}", 'Which inversion do you mean (a, b or c for a triad)?')
         figure = head + figures[inversion] + (target or '')
-    parts = figure.replace('/o', 'ø').split('/')
+    parts = figure.split('/')
     valid = all(ROMAN.fullmatch(part) for part in parts)
     if not valid and figure not in ('N', 'N6', 'Cad64', 'It6', 'Ger6', 'Ger65', 'Fr6', 'Fr43'):
-        raise ValueError(f"Cannot read Roman numeral {text!r} in {key}")
+        raise ClarificationNeeded(f"Cannot read Roman numeral {text!r} in {key}", f'Which Roman numeral did you mean by {text!r}?')
     if sounding(key, figure) is None:
-        raise ValueError(f"Cannot read Roman numeral {text!r} in {key}")
+        raise ClarificationNeeded(f"Cannot read Roman numeral {text!r} in {key}", f'Which Roman numeral did you mean by {text!r}?')
     return figure
 
 
@@ -59,7 +75,7 @@ def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
             index.measure(label.measure).offset_of(label.beat)
         position = (label.measure, label.beat)
         if position in found and found[position] != label:
-            raise ValueError(f"Conflicting labels at bar {label.measure} beat {label.beat:g}")
+            raise ClarificationNeeded(f"Conflicting labels at bar {label.measure} beat {label.beat:g}", f'Which label belongs at bar {label.measure} beat {label.beat:g}: {found[position].figure} or {label.figure}?')
         found[position] = label
     if not found:
         raise ValueError('No Roman numeral labels found')
@@ -68,14 +84,20 @@ def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
 
 def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None) -> list[Label]:
     """Unmarked successive labels occupy beats 1, 2, ...; an unaddressed key is the initial key."""
+    text = text.translate(str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', '01234567890123456789'))
+    text = re.sub(r'\s*/\s*', '/', text)
     tokens = list(TOKEN.finditer(text))
     key = _key(default_key)
-    # A standalone "key: G major" often follows the student's answer rather than preceding it.
+    # An unaddressed key often follows the student's answer rather than preceding it.
+    initial_keys = set()
     for position, token in enumerate(tokens):
         addressed = position > 0 and tokens[position - 1].lastgroup in ('bar', 'beat')
-        if token.lastgroup == 'key' and token.group().lower().startswith('key') and not addressed:
-            key = _key(re.sub(r'^key\s*:?\s*', '', token.group(), flags=re.I).rstrip(':'))
-            break
+        if token.lastgroup in ('key', 'shortkey') and not addressed:
+            initial_keys.add(_key(re.sub(r'^(?:key\s*:?|in)\s*', '', token.group(), flags=re.I).rstrip(':')))
+    if len(initial_keys) > 1:
+        raise ClarificationNeeded('Multiple unaddressed keys', 'Where does the key change occur (bar and beat)?')
+    if initial_keys:
+        key = next(iter(initial_keys))
     labels, measure, beat = [], None, 1.0
     for position, token in enumerate(tokens):
         kind, value = token.lastgroup, token.group()
@@ -87,12 +109,13 @@ def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None
         elif kind in ('key', 'shortkey'):
             key = _key(re.sub(r'^(?:key\s*:?|in)\s*', '', value, flags=re.I).rstrip(':'))
         else:
-            if value in ('6', '64', '7', '65', '43', '42') and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label':
+            value = value.strip('()[]\"\'.!')
+            if re.fullmatch(r'(?:6|64|7|65|43|42)(?:/\S+)?', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label' and text[tokens[position - 1].end():token.start()].isspace():
                 previous = labels.pop()
                 labels.append(Label(previous.measure, previous.beat, previous.key, _figure(previous.figure + value, previous.key)))
                 continue
             if measure is None:
-                raise ValueError(f"Give a bar number before {value!r}")
+                raise ClarificationNeeded(f"Give a bar number before {value!r}", 'Which bar and beat does each numeral belong to?')
             if beat < 1:
                 raise ValueError(f"Beat must be at least 1 in bar {measure}")
             labels.append(Label(measure, beat, key, _figure(value, key)))
@@ -213,6 +236,11 @@ def from_musicxml(data: str | bytes, default_key: str = 'C', index: ScoreIndex |
                 elif element.tag == 'harmony' and element.find('numeral') is not None:
                     offset = cursor + Fraction(element.findtext('offset', '0')) / divisions
                     pending.append((offset, 'harmony', element))
+                elif element.tag == 'harmony' and element.findtext('kind') == 'none' and element.find('root/root-step') is not None and element.find('root/root-step').get('text') == '':
+                    # MuseScore uses this shape for both Roman analysis and
+                    # ordinary chord text, so only readable numerals count.
+                    offset = cursor + Fraction(element.findtext('offset', '0')) / divisions
+                    pending.append((offset, 'analysis', element.find('kind').get('text', '')))
                 elif element.tag == 'direction' and part is parts[-1] and element.get('placement') == 'below' and int(element.findtext('staff', '1')) == staves:
                     offset = cursor + Fraction(element.findtext('offset', '0')) / divisions
                     for words in element.findall('direction-type/words'):
@@ -241,7 +269,7 @@ def from_musicxml(data: str | bytes, default_key: str = 'C', index: ScoreIndex |
                     try:
                         key = read_label(value, number, beat_at(offset), key)
                     except ValueError:
-                        if kind != 'direction':
+                        if kind not in ('direction', 'analysis'):
                             raise
     return _finish(labels, index)
 

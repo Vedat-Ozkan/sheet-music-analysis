@@ -1,0 +1,1436 @@
+[
+  {
+    "id": "bar-comma",
+    "text": "bar 1 I, bar 2 V6",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        2,
+        1,
+        "C",
+        "V6"
+      ]
+    ]
+  },
+  {
+    "id": "compact-beat",
+    "text": "m3 b2: ii65",
+    "expected": [
+      [
+        3,
+        2,
+        "C",
+        "ii65"
+      ]
+    ]
+  },
+  {
+    "id": "lines",
+    "text": "bar 1 I\nbar 2 IV\nbar 3 V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        2,
+        1,
+        "C",
+        "IV"
+      ],
+      [
+        3,
+        1,
+        "C",
+        "V"
+      ]
+    ]
+  },
+  {
+    "id": "address-dots",
+    "text": "m.3.2.5 V7",
+    "expected": [
+      [
+        3,
+        2.5,
+        "C",
+        "V7"
+      ]
+    ]
+  },
+  {
+    "id": "measure-word",
+    "text": "measure 4 beat 3 ii6",
+    "expected": [
+      [
+        4,
+        3,
+        "C",
+        "ii6"
+      ]
+    ]
+  },
+  {
+    "id": "address-caps",
+    "text": "BAR 2 BEAT 2 V",
+    "expected": [
+      [
+        2,
+        2,
+        "C",
+        "V"
+      ]
+    ]
+  },
+  {
+    "id": "pickup",
+    "text": "m0 b3 V",
+    "expected": [
+      [
+        0,
+        3,
+        "C",
+        "V"
+      ]
+    ]
+  },
+  {
+    "id": "key-change",
+    "text": "bar 1 G: I; bar 2 D: V",
+    "expected": [
+      [
+        1,
+        1,
+        "G",
+        "I"
+      ],
+      [
+        2,
+        1,
+        "D",
+        "V"
+      ]
+    ]
+  },
+  {
+    "id": "trailing-key",
+    "text": "m1 I IV; key: G major",
+    "expected": [
+      [
+        1,
+        1,
+        "G",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "G",
+        "IV"
+      ]
+    ]
+  },
+  {
+    "id": "address-key",
+    "text": "m1 I; m2 key: G V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        2,
+        1,
+        "G",
+        "V"
+      ]
+    ]
+  },
+  {
+    "id": "in-major",
+    "text": "in G major: bar 1 I IV V",
+    "expected": [
+      [
+        1,
+        1,
+        "G",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "G",
+        "IV"
+      ],
+      [
+        1,
+        3,
+        "G",
+        "V"
+      ]
+    ]
+  },
+  {
+    "id": "short-major",
+    "text": "G: m1 I IV V",
+    "expected": [
+      [
+        1,
+        1,
+        "G",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "G",
+        "IV"
+      ],
+      [
+        1,
+        3,
+        "G",
+        "V"
+      ]
+    ]
+  },
+  {
+    "id": "minor-key",
+    "text": "in g minor: m1 i iv V",
+    "expected": [
+      [
+        1,
+        1,
+        "g",
+        "i"
+      ],
+      [
+        1,
+        2,
+        "g",
+        "iv"
+      ],
+      [
+        1,
+        3,
+        "g",
+        "V"
+      ]
+    ]
+  },
+  {
+    "id": "flat-key",
+    "text": "key: E♭ major; m1 I ii V7",
+    "expected": [
+      [
+        1,
+        1,
+        "Eb",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "Eb",
+        "ii"
+      ],
+      [
+        1,
+        3,
+        "Eb",
+        "V7"
+      ]
+    ]
+  },
+  {
+    "id": "sharp-key",
+    "text": "F♯: bar 1 I V6",
+    "expected": [
+      [
+        1,
+        1,
+        "F#",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "F#",
+        "V6"
+      ]
+    ]
+  },
+  {
+    "id": "minor-sharp",
+    "text": "in c# minor: m1 i iiø65 V7",
+    "expected": [
+      [
+        1,
+        1,
+        "c#",
+        "i"
+      ],
+      [
+        1,
+        2,
+        "c#",
+        "iiø65"
+      ],
+      [
+        1,
+        3,
+        "c#",
+        "V7"
+      ]
+    ]
+  },
+  {
+    "id": "maj-short",
+    "text": "key: Bb maj; m1 I IV",
+    "expected": [
+      [
+        1,
+        1,
+        "Bb",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "Bb",
+        "IV"
+      ]
+    ]
+  },
+  {
+    "id": "min-short",
+    "text": "key: F min; m1 i V",
+    "expected": [
+      [
+        1,
+        1,
+        "f",
+        "i"
+      ],
+      [
+        1,
+        2,
+        "f",
+        "V"
+      ]
+    ]
+  },
+  {
+    "id": "spaces-key",
+    "text": "  in   D   major : m1 I  V  ",
+    "expected": [
+      [
+        1,
+        1,
+        "D",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "D",
+        "V"
+      ]
+    ]
+  },
+  {
+    "id": "figure-I",
+    "text": "m1 I",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "figure-i",
+    "text": "m1 i",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "i"
+      ]
+    ]
+  },
+  {
+    "id": "figure-II",
+    "text": "m1 II",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "II"
+      ]
+    ]
+  },
+  {
+    "id": "figure-ii",
+    "text": "m1 ii",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "ii"
+      ]
+    ]
+  },
+  {
+    "id": "figure-III",
+    "text": "m1 III",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "III"
+      ]
+    ]
+  },
+  {
+    "id": "figure-iii",
+    "text": "m1 iii",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "iii"
+      ]
+    ]
+  },
+  {
+    "id": "figure-IV",
+    "text": "m1 IV",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "IV"
+      ]
+    ]
+  },
+  {
+    "id": "figure-iv",
+    "text": "m1 iv",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "iv"
+      ]
+    ]
+  },
+  {
+    "id": "figure-V",
+    "text": "m1 V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V"
+      ]
+    ]
+  },
+  {
+    "id": "figure-v",
+    "text": "m1 v",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "v"
+      ]
+    ]
+  },
+  {
+    "id": "figure-VI",
+    "text": "m1 VI",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "VI"
+      ]
+    ]
+  },
+  {
+    "id": "figure-vi",
+    "text": "m1 vi",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "vi"
+      ]
+    ]
+  },
+  {
+    "id": "figure-VII",
+    "text": "m1 VII",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "VII"
+      ]
+    ]
+  },
+  {
+    "id": "figure-vii",
+    "text": "m1 vii",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "vii"
+      ]
+    ]
+  },
+  {
+    "id": "figure-V7/V",
+    "text": "m1 V7/V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V7/V"
+      ]
+    ]
+  },
+  {
+    "id": "figure-V/V",
+    "text": "m1 V/V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V/V"
+      ]
+    ]
+  },
+  {
+    "id": "figure-viio7/ii",
+    "text": "m1 viio7/ii",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "viio7/ii"
+      ]
+    ]
+  },
+  {
+    "id": "figure-V65/vi",
+    "text": "m1 V65/vi",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V65/vi"
+      ]
+    ]
+  },
+  {
+    "id": "figure-viiø7",
+    "text": "m1 viiø7",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "viiø7"
+      ]
+    ]
+  },
+  {
+    "id": "figure-vii/o7",
+    "text": "m1 vii/o7",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "viiø7"
+      ]
+    ]
+  },
+  {
+    "id": "figure-ii/o65",
+    "text": "m1 ii/o65",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "iiø65"
+      ]
+    ]
+  },
+  {
+    "id": "figure-viiø65/ii",
+    "text": "m1 viiø65/ii",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "viiø65/ii"
+      ]
+    ]
+  },
+  {
+    "id": "figure-V⁶₅",
+    "text": "m1 V⁶₅",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V65"
+      ]
+    ]
+  },
+  {
+    "id": "figure-I⁶₄",
+    "text": "m1 I⁶₄",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I64"
+      ]
+    ]
+  },
+  {
+    "id": "figure-V₄₃",
+    "text": "m1 V₄₃",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V43"
+      ]
+    ]
+  },
+  {
+    "id": "figure-V⁴₂",
+    "text": "m1 V⁴₂",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V42"
+      ]
+    ]
+  },
+  {
+    "id": "figure-vii°7",
+    "text": "m1 vii°7",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "viio7"
+      ]
+    ]
+  },
+  {
+    "id": "figure-vii°⁶₅",
+    "text": "m1 vii°⁶₅",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "viio65"
+      ]
+    ]
+  },
+  {
+    "id": "figure-♭II6",
+    "text": "m1 ♭II6",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "bII6"
+      ]
+    ]
+  },
+  {
+    "id": "figure-♯iv°7",
+    "text": "m1 ♯iv°7",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "#ivo7"
+      ]
+    ]
+  },
+  {
+    "id": "figure-♭VII",
+    "text": "m1 ♭VII",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "bVII"
+      ]
+    ]
+  },
+  {
+    "id": "figure-♯V/V",
+    "text": "m1 ♯V/V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "#V/V"
+      ]
+    ]
+  },
+  {
+    "id": "figure-Ib",
+    "text": "m1 Ib",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I6"
+      ]
+    ]
+  },
+  {
+    "id": "figure-Vc",
+    "text": "m1 Vc",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V64"
+      ]
+    ]
+  },
+  {
+    "id": "figure-Ia",
+    "text": "m1 Ia",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "figure-ii7b",
+    "text": "m1 ii7b",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "ii65"
+      ]
+    ]
+  },
+  {
+    "id": "figure-V7c",
+    "text": "m1 V7c",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V43"
+      ]
+    ]
+  },
+  {
+    "id": "figure-V7d",
+    "text": "m1 V7d",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V42"
+      ]
+    ]
+  },
+  {
+    "id": "figure-V7a",
+    "text": "m1 V7a",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V7"
+      ]
+    ]
+  },
+  {
+    "id": "figure-Vb/V",
+    "text": "m1 Vb/V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V6/V"
+      ]
+    ]
+  },
+  {
+    "id": "figure-viib",
+    "text": "m1 viib",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "vii6"
+      ]
+    ]
+  },
+  {
+    "id": "figure-N6",
+    "text": "m1 N6",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "N6"
+      ]
+    ]
+  },
+  {
+    "id": "figure-N",
+    "text": "m1 N",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "N"
+      ]
+    ]
+  },
+  {
+    "id": "figure-It+6",
+    "text": "m1 It+6",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "It6"
+      ]
+    ]
+  },
+  {
+    "id": "figure-It6",
+    "text": "m1 It6",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "It6"
+      ]
+    ]
+  },
+  {
+    "id": "figure-Ger65",
+    "text": "m1 Ger65",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "Ger65"
+      ]
+    ]
+  },
+  {
+    "id": "figure-Fr43",
+    "text": "m1 Fr43",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "Fr43"
+      ]
+    ]
+  },
+  {
+    "id": "figure-Ger+6",
+    "text": "m1 Ger+6",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "Ger6"
+      ]
+    ]
+  },
+  {
+    "id": "figure-Fr+6",
+    "text": "m1 Fr+6",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "Fr6"
+      ]
+    ]
+  },
+  {
+    "id": "figure-Cad64",
+    "text": "m1 Cad64",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "Cad64"
+      ]
+    ]
+  },
+  {
+    "id": "figure-I64",
+    "text": "m1 I64",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I64"
+      ]
+    ]
+  },
+  {
+    "id": "figure-V 6",
+    "text": "m1 V 6",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V6"
+      ]
+    ]
+  },
+  {
+    "id": "figure-ii 65",
+    "text": "m1 ii 65",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "ii65"
+      ]
+    ]
+  },
+  {
+    "id": "figure-V7 / V",
+    "text": "m1 V7 / V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V7/V"
+      ]
+    ]
+  },
+  {
+    "id": "figure-vii /o7",
+    "text": "m1 vii /o7",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "viiø7"
+      ]
+    ]
+  },
+  {
+    "id": "figure-V⁶₅ / ii",
+    "text": "m1 V⁶₅ / ii",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V65/ii"
+      ]
+    ]
+  },
+  {
+    "id": "figure-(I)",
+    "text": "m1 (I)",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "figure-[V6]",
+    "text": "m1 [V6]",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V6"
+      ]
+    ]
+  },
+  {
+    "id": "figure-\"ii65\"",
+    "text": "m1 \"ii65\"",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "ii65"
+      ]
+    ]
+  },
+  {
+    "id": "figure-I.",
+    "text": "m1 I.",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "figure-V7!",
+    "text": "m1 V7!",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V7"
+      ]
+    ]
+  },
+  {
+    "id": "commas",
+    "text": "m1 I, IV, V7, I",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "IV"
+      ],
+      [
+        1,
+        3,
+        "C",
+        "V7"
+      ],
+      [
+        1,
+        4,
+        "C",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "semicolon",
+    "text": "m1 I; IV; V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "IV"
+      ],
+      [
+        1,
+        3,
+        "C",
+        "V"
+      ]
+    ]
+  },
+  {
+    "id": "spaces",
+    "text": " m1 :  I   IV  V6  ",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "IV"
+      ],
+      [
+        1,
+        3,
+        "C",
+        "V6"
+      ]
+    ]
+  },
+  {
+    "id": "beat-decimal",
+    "text": "bar 1 beat 2.5 V65",
+    "expected": [
+      [
+        1,
+        2.5,
+        "C",
+        "V65"
+      ]
+    ]
+  },
+  {
+    "id": "spaced-unicode",
+    "text": "m1 V ⁶₅",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V65"
+      ]
+    ]
+  },
+  {
+    "id": "case-error",
+    "text": "m1 i II v VI",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "i"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "II"
+      ],
+      [
+        1,
+        3,
+        "C",
+        "v"
+      ],
+      [
+        1,
+        4,
+        "C",
+        "VI"
+      ]
+    ]
+  },
+  {
+    "id": "quality",
+    "text": "m1 I+ viio7 iiø7 IM7",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I+"
+      ],
+      [
+        1,
+        2,
+        "C",
+        "viio7"
+      ],
+      [
+        1,
+        3,
+        "C",
+        "iiø7"
+      ],
+      [
+        1,
+        4,
+        "C",
+        "IM7"
+      ]
+    ]
+  },
+  {
+    "id": "no-bars",
+    "text": "I IV V",
+    "question": "Which bar"
+  },
+  {
+    "id": "key-no-bars",
+    "text": "G: I IV V",
+    "question": "Which bar"
+  },
+  {
+    "id": "in-no-bars",
+    "text": "in G major: I V",
+    "question": "Which bar"
+  },
+  {
+    "id": "resolution",
+    "text": "m1 V64-53",
+    "question": "At which beats"
+  },
+  {
+    "id": "unicode-resolution",
+    "text": "m1 V⁶₄–⁵₃",
+    "question": "At which beats"
+  },
+  {
+    "id": "mixed-roman",
+    "text": "m1 vIi6",
+    "question": "uppercase or lowercase"
+  },
+  {
+    "id": "mixed-target",
+    "text": "m1 V7/vI",
+    "question": "uppercase or lowercase"
+  },
+  {
+    "id": "unclear-numeral",
+    "text": "m1 VIIX",
+    "question": "Which Roman numeral"
+  },
+  {
+    "id": "bad-triad",
+    "text": "m1 Id",
+    "question": "Which inversion"
+  },
+  {
+    "id": "duplicate",
+    "text": "m1 I; m1 V",
+    "question": "Which label"
+  },
+  {
+    "id": "comma-figure",
+    "text": "m1 V, 6",
+    "question": "Which Roman numeral"
+  },
+  {
+    "id": "two-global-keys",
+    "text": "key: C; m1 I; key: G",
+    "question": "Where does the key"
+  },
+  {
+    "id": "unknown",
+    "text": "m1 potato",
+    "question": "Which Roman numeral"
+  },
+  {
+    "id": "question-mark",
+    "text": "m1 I?",
+    "question": "Which Roman numeral"
+  },
+  {
+    "id": "shortkey-global-conflict",
+    "text": "G: m1 I; key: C",
+    "question": "Where does the key"
+  },
+  {
+    "id": "in-global-conflict",
+    "text": "in G major: m1 I; key: C",
+    "question": "Where does the key"
+  },
+  {
+    "id": "two-shortkey-globals",
+    "text": "G: m1 I; C:",
+    "question": "Where does the key"
+  },
+  {
+    "id": "two-in-globals",
+    "text": "in G major: m1 I; in C major:",
+    "question": "Where does the key"
+  },
+  {
+    "id": "parentheses-period",
+    "text": "m1 (I).",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "brackets-exclamation",
+    "text": "m1 [V6]!",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V6"
+      ]
+    ]
+  },
+  {
+    "id": "appended-shortkey",
+    "text": "m1 I; G:",
+    "expected": [
+      [
+        1,
+        1,
+        "G",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "appended-in-key",
+    "text": "m1 I; in G major:",
+    "expected": [
+      [
+        1,
+        1,
+        "G",
+        "I"
+      ]
+    ]
+  },
+  {
+    "id": "spaced-secondary-seventh",
+    "text": "m1 V 7 / V",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V7/V"
+      ]
+    ]
+  },
+  {
+    "id": "spaced-secondary-sixth",
+    "text": "m1 V 6 / ii",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V6/ii"
+      ]
+    ]
+  },
+  {
+    "id": "spaced-secondary-unicode",
+    "text": "m1 V ⁶₅ / ii",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "V65/ii"
+      ]
+    ]
+  },
+  {
+    "id": "spaced-secondary-next-beat",
+    "text": "m3 b2: V ⁶₅ / ii, ii",
+    "expected": [
+      [
+        3,
+        2,
+        "C",
+        "V65/ii"
+      ],
+      [
+        3,
+        3,
+        "C",
+        "ii"
+      ]
+    ]
+  }
+]
