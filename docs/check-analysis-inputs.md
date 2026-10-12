@@ -1,7 +1,7 @@
 # Checking student analysis: input contract and MuseScore export
 
 `engine.check_analysis.from_text` returns sorted `Label(measure, beat, key,
-figure)` objects. `tests/data/check_analysis/typed_inputs.json` specifies 139
+figure)` objects. `tests/data/check_analysis/typed_inputs.json` specifies 138
 complete student answers and their exact expected labels or clarification.
 
 Every answer needs a bar address. After `m1`, `bar 1` or `measure 1`,
