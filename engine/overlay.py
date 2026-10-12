@@ -162,6 +162,7 @@ class PageLayout:
         self.numeral_rows: dict[int, float] = {}  # the lowest figure on each system's numeral row
         self.below_numerals: dict[int, int] = {}  # how many boxes a system held when its numerals were done
         self._words: list[tuple[tuple[str, Box], System]] = []  # fault words drawn so far
+        self.stems: dict[str, str] = {}  # note id -> "up" or "down", for the marks that sit opposite the stem
         self._remove("fing")  # fingering is clutter on an analysis page
         self._remove("harm")  # hidden placeholders that made Verovio leave room for the numerals (annotate.py)
         self._remove("analysis-room")  # and for brackets drawn at one staff
@@ -190,6 +191,8 @@ class PageLayout:
         box = self._own_box(group)
         if box and group.get("id"):
             self.boxes[group.get("id")] = box
+        if "note" in classes or "chord" in classes:
+            self._read_stem(group)
         if CURVES & set(classes):
             # A slur's box covers everything under its arc; follow the curve itself instead.
             system.content.extend(self._curve_boxes(group) or ([box] if box else []))
@@ -212,6 +215,20 @@ class PageLayout:
             elif child.tag == f"{S}text":  # text keeps its boxes inside its tspans
                 boxes = list(filter(None, (self._rect_box(rect) for rect in child.iter(f"{S}rect"))))
                 system.content.extend(boxes) if boxes else system.words.extend(self._text_boxes(child))
+
+    def _read_stem(self, group: ET.Element) -> None:
+        """A stem is drawn from its notehead end to its tip, so the way it runs is the way it points; a chord's
+        one stem serves every note in it."""
+        for child in group:
+            if "stem" in child.get("class", "").split():
+                path = child.find(f"{S}path")
+                found = re.match(r"M[-\d.]+ ([-\d.]+) L[-\d.]+ ([-\d.]+)", path.get("d", "")) if path is not None else None
+                if found:
+                    direction = "up" if float(found.group(2)) < float(found.group(1)) else "down"
+                    for note in [group, *group.iter(f"{S}g")]:
+                        if "note" in note.get("class", "").split() and note.get("id"):
+                            self.stems[note.get("id")] = direction
+                return
 
     @staticmethod
     def _text_boxes(element: ET.Element) -> list[Box]:
@@ -826,6 +843,9 @@ class PageLayout:
         # A resolution arrow the model draws on its own is an analysis mark.
         fault = not arrow or any(label in FAULT_ARROW_LABELS for label in labels)
         colour = ERROR if fault else ARROW
+        if arrow and "R" in labels:
+            self._draw_unresolved(line, system_a, a)
+            return
         shafts = self._shafts(system_a, a, system_b, b)
         for number, (system, x0, y0, x1, y1) in enumerate(shafts):
             self._line_or_arrow(x0, y0, x1, y1, head=arrow and number == len(shafts) - 1, colour=colour)
@@ -845,6 +865,34 @@ class PageLayout:
             middle = Box((x0 + x1) / 2 - 20, (y0 + y1) / 2 - 20, 40, 40)
             cx, cy = self._place_label(system, middle, width, height, below=True, limit=self._numeral_top(system))
             self._error_text(system, cx, cy, label, width, height)
+
+    def _draw_unresolved(self, mark: VoiceLeading, system: System, note: Box) -> None:
+        """Kelley's R: a small arrow on the sensitive note pointing the way it should have resolved, the code at its
+        tail. It sits on the side of the notehead away from the stem, as an articulation does, and off the staff
+        where there is room."""
+        up = mark.direction == "up"
+        _, _, event = self.note_box(mark.from_note)
+        sides = ["below", "above"] if self.stems.get(event.id) == "up" else ["above", "below"]
+        length, word = 420, text.width("R", LABEL_SIZE)
+        candidates = []
+        # Nearest first: the arrow moves away from the note only to clear the staff lines and other marks.
+        for distance in (110, 220, 330, 450, 600):
+            for side in sides:
+                near = note.y - distance if side == "above" else note.bottom + distance
+                top, bottom = (near - length, near) if side == "above" else (near, near + length)
+                tail, head = (bottom, top) if up else (top, bottom)
+                for beside in (1, -1):  # the code at the tail's right, else its left
+                    x = note.cx + beside * (75 + word / 2 + LABEL_PAD)
+                    arrow = Box(note.cx - 100, top, 200, length)
+                    code = Box(x - word / 2 - LABEL_PAD, tail - LABEL_SIZE / 2 - LABEL_PAD, word + 2 * LABEL_PAD, LABEL_SIZE + 2 * LABEL_PAD)
+                    # Lyrics are not in the obstacles, and an arrow or code on a syllable is unreadable.
+                    lyrics = sum(box.width * box.height for box in system.words for mark_box in (arrow, code)
+                                 if box.x < mark_box.right and box.right > mark_box.x and box.y < mark_box.bottom and box.bottom > mark_box.y)
+                    candidates.append((self._overlap(system, arrow) + self._overlap(system, code) + lyrics, arrow, x, tail, head))
+        cost, arrow, x, tail, head = next((c for c in candidates if c[0] == 0), None) or min(candidates, key=lambda c: c[0])
+        self._line_or_arrow(note.cx, tail, note.cx, head, head=True, colour=ERROR)
+        self._reserve(system, arrow, pad=30)
+        self._error_text(system, x, tail, "R", word, LABEL_SIZE)
 
     @staticmethod
     def _is_shaft_piece(box: Box, shaft) -> bool:

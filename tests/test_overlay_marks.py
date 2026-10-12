@@ -250,3 +250,20 @@ def test_cadential_six_four_continues_into_the_next_dominant(chopin):
     assert svg.count(">V<") == 1 and ">cad.<" not in svg and svg.count(">-<") == 2  # V⁶₄ then dashed ⁷₃; no second V
     other = _page(chopin, [items[0], {**items[2], "at": {"measure": 1, "beat": 2}}]).svgs[0]
     assert other.count(">V<") == 1 and ">-<" not in other  # a following chord that is not V keeps its own numeral
+
+
+def _unresolved(direction):
+    score = (Path(__file__).parent / "data/part_writing_bwv336.musicxml").read_bytes()
+    mark = {"type": "voice_leading", "kind": "arrow", "label": "R", "from_note": _ref(2, 3.0, 1, "G#4"),
+            "to_note": _ref(2, 4.0, 1, "C#5"), **({"direction": direction} if direction else {})}
+    return render(score, AnnotationList.model_validate({"annotations": [mark]}), measures=(1, 3)).svgs[0]
+
+
+def test_unresolved_tendency_tone_gets_a_small_arrow_beside_it_pointing_where_it_should_go():
+    up, down = _unresolved("up"), _unresolved("down")
+    for svg, sign in ((up, -1), (down, 1)):
+        shaft = re.search(rf'<line x1="(\d+)" y1="(\d+)" x2="(\d+)" y2="(\d+)" stroke="{ERROR}"', svg)
+        x1, y1, x2, y2 = map(int, shaft.groups())
+        assert x1 == x2 and abs(y2 - y1) < 400  # short and vertical, not a line to the note that follows
+        assert (y2 - y1) * sign > 0  # head end is up for "up", down for "down"
+    assert ">R<" in up  # the code stays at the tail

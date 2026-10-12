@@ -404,12 +404,13 @@ def as_text(index: ScoreIndex, chords=None) -> str:
         "first reply must include one sentence offering this check, even when it also asks which bars to analyse; "
         "draw it only if the user wants it. One callout per numbered spot, at the "
         "first note given, explaining every finding listed there. Under each spot, draw each 'draw' line as one "
-        "voice_leading annotation: kind line, arrow, ring or bracket, with its from_note, to_note (not for a ring) and "
+        "voice_leading annotation: kind line, arrow, ring or bracket, with its from_note, to_note (not for a ring), direction (when given) and "
         "label exactly as given. Never add labels of your own or join labels with commas.",
     ]
     if not found:
         return lines[0] + "\nNo violations found."
     seen = set()
+    rises = set()
     spots = {}  # first position -> (findings, {mark: labels}, callout note)
     for f in found:
         pos = list(zip(f.bars, f.beats))
@@ -420,6 +421,9 @@ def as_text(index: ScoreIndex, chords=None) -> str:
             marks = [("line", (ref(pos[0], v), ref(pos[1], v)), label if v == lower else None) for v in f.voices]
         elif f.rule in ARROWS:
             marks = [("arrow", (ref(pos[0], upper), ref(pos[1], upper)), label)]
+            # The arrow shows where the tone should have gone: a leading tone up, a seventh down.
+            if f.rule == "unresolved_leading_tone":
+                rises.add(marks[0][:2])
         elif f.rule in BRACKETS:
             # A bracket between two staves would run through the lyrics between them: ring both notes instead.
             if at[pos[0]][upper][0].staff == at[pos[0]][lower][0].staff:
@@ -454,5 +458,6 @@ def as_text(index: ScoreIndex, chords=None) -> str:
         for (kind, refs), labels in drawn.items():
             # A line shared by two pairs is drawn once per label; the copies coincide.
             for word in labels or [None]:
-                lines.append(f"   draw {kind} {' -> '.join(refs)}" + (f' label "{word}"' if word else ""))
+                lines.append(f"   draw {kind} {' -> '.join(refs)}" + (f' label "{word}"' if word else "")
+                             + (' direction "up"' if (kind, refs) in rises else ""))
     return "\n".join(lines)
