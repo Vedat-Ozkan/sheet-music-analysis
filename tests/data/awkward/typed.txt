@@ -1,0 +1,49 @@
+bar 1 I / V, bar 2 vi - IV, bar 3 V7 / I
+m1 I, m2 V6/5, m3 I
+G: m1 I; m2 V6/5; m3 D: I; m4 V
+m1 I V | m2 ii6 V7 | m3 I
+bar 1 beat 1 I, beat 3 V, bar 2 I
+bar 1: I - IV - V - I
+1. I  2. V6  3. I64  4. V7
+m1 I , V , m2 I , IV6
+m1 b1 I, m1 b3 V6/5/V, m2 V
+bar 1 I, bar 2 V⁶₅, bar 3 I
+bar 1 I, bar 2 V⁷, bar 3 I⁶₄
+m1 I, m2 vii°7/V, m3 V
+m1 I, m2 viiø7, m3 I
+m1 I (tonic), m2 V (dominant)
+m1 I, m2 IV6, m3 I64, m4 V7, m5 I.
+Bar 1 I; Bar 2 V/V; Bar 3 V
+Measure 1 I Measure 2 V Measure 3 I
+bar 1 I, m2 V, measure 3 I
+key: G; m1 I; m2 V
+in A minor: m1 i, m2 iv6, m3 V7, m4 i
+a: m1 i - iio6 - V - i
+m1 C: I, m2 G: I, m3 V
+bar 1 C: I V, bar 3 G: I V
+m1 I V6/5 I, m2 ii°6 V7 i
+m1 I / vi / IV / V
+m1 I-IV-V7-I
+bar 1 I , bar 1 beat 3 V
+bar 2 b2.5 V7
+m1 I,m2 V,m3 I
+m1  I   ,  m2   V
+bar 1 I / V / bar 2 I
+bar 1 N6, bar 2 It6, bar 3 V
+bar 1 Ger65, bar 2 V, bar 3 Cad64
+m1 I, m2 V4/2/IV
+m1 I, m2 V4/3/V, m3 V
+m1 I, m2 bVI, m3 #iv°7, m4 V
+m1 I, m2 V7 / V, m3 V
+m 1 I, m 2 V
+bar 1 I, bar 2 V6 4, bar 3 I
+bar 1 I\nbar 2 V, bar 3 I
+m1 I; m2 IV; m3 V; m4 I; m5 ?
+m1 I, m2 V⁴₃, m3 I⁶
+m0 b3 V, m1 I, m2 ii6, m3 V
+bar 1 i, bar 2 iv, bar 3 V, bar 4 VI
+bar 1 I, bar 2 vi, bar 2 beat 3 ii6/5, bar 3 V
+G: bar 1 I, bar 2 IV, D: bar 3 I
+m1 I, m2 V, key: D, m3 I
+bar 1 I, bar 2 V7/ IV, bar 3 IV
+m1 I m2 V m3 I m4 V m5 I m6 IV m7 V m8 I
