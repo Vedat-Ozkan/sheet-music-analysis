@@ -108,12 +108,14 @@ def test_server_correct_disjoint_bars_and_no_change(tmp_path, monkeypatch):
     assert len([item for item in result.content if item.type == 'image']) == 2
     after, _ = asyncio.run(app.resolve_score(None, data['score_id']))
     assert correct.review_correction(before, after).changed_bars == [2, 18]
+    stored = sorted(p.name for p in (tmp_path / 'scores').iterdir())
     unchanged = asyncio.run(app.mcp.call_tool('correct_bars', {
         'score_id': data['score_id'], 'replacement_bars': text}))
     assert not unchanged.is_error
     assert unchanged.structured_content['changed_bars'] == []
     assert unchanged.structured_content['image_urls'] == []
-    assert 'No bars changed.' in unchanged.content[0].text
+    assert f"keep using score_id {data['score_id']}" in unchanged.content[0].text
+    assert sorted(p.name for p in (tmp_path / 'scores').iterdir()) == stored
 
 
 def test_server_correct_missing_score_and_render_limit(tmp_path, monkeypatch):
@@ -190,3 +192,58 @@ def test_skill_invalid_voice_writes_no_outputs(tmp_path):
 def test_malformed_correction_has_actionable_error(text, message):
     with pytest.raises(correct.CorrectionError, match=message):
         correct.replace_bars(READING.read_bytes(), text)
+
+
+KINKEL = ROOT / 'tests/data/awkward/kinkel-op8-5-trennung-reading.musicxml'
+KINKEL_BAR = 'N1 div=2 ts=4/4 ks=4f\nm10 len=8\n1.1: 8 C5'
+
+
+def call(tmp_path, monkeypatch, score, **arguments):
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/SCORE1', score)
+    return asyncio.run(app.mcp.call_tool('correct_bars', {'score_id': 'SCORE1', **arguments}))
+
+
+@pytest.mark.parametrize('part, message', [
+    (None, 'P1 Voice, P2 Piano'),
+    ('Harp', 'P1 Voice, P2 Piano'),
+])
+def test_server_correct_multipart_error_lists_parts(tmp_path, monkeypatch, part, message):
+    result = call(tmp_path, monkeypatch, KINKEL.read_bytes(), replacement_bars=KINKEL_BAR, part=part)
+    assert result.is_error
+    assert message in result.content[0].text
+
+
+@pytest.mark.parametrize('part', ['P1', 'voice'])
+def test_server_correct_multipart_by_id_or_name(tmp_path, monkeypatch, part):
+    # Bar 10 of the voice part is a whole-bar rest that overruns the meter in the file.
+    result = call(tmp_path, monkeypatch, KINKEL.read_bytes(), replacement_bars=KINKEL_BAR, part=part)
+    assert not result.is_error, result.content[0].text
+    assert result.structured_content['changed_bars'] == [10]
+
+
+@pytest.mark.parametrize('text, message', [
+    ('N1 div=24 ts=4/4 ks=0\n1.1: 96 D5', "Line 2: a voice line needs a bar line like 'm3 len=96' before it"),
+    ('N1 div=24 ts=4/4 ks=0\nm18\n1.1: 96 D5', "bar line 'm18' needs len="),
+    ('N1 div=24 ts=4/4 ks=0\nm18 len=96\n1.1 96 r', "Line 3: expected 'staff.voice: tokens', e.g. '1.1: 24 C4'"),
+])
+def test_server_correct_malformed_lines_say_what_to_fix(tmp_path, monkeypatch, text, message):
+    result = call(tmp_path, monkeypatch, READING.read_bytes(), replacement_bars=text)
+    assert result.is_error
+    assert message in result.content[0].text
+
+
+def test_server_correct_invalid_bars_cost_nothing(tmp_path, monkeypatch):
+    result = call(tmp_path, monkeypatch, READING.read_bytes(),
+                  replacement_bars=replacement().replace('36 F#4', '24 F#4'))
+    assert result.is_error
+    assert not (tmp_path / 'usage').exists()
+
+
+def test_review_note_names_the_staff():
+    before = READING.read_bytes()
+    bars = correct.bars_from_musicxml(before, 18).splitlines()
+    text = '\n'.join(bars[:2] + ['1.1: 96 D5'] + [line for line in bars if line.startswith('2.')])
+    after = correct.replace_bars(before, text)
+    note = correct.review_correction(before, after).notes[18]
+    assert 'note groups on staff 1 changed' in note

@@ -541,7 +541,7 @@ async def draft_analysis(
         "Each staff.voice line uses numbers to set the duration for following tokens, + for chords, r for rests, "
         "g for grace notes and ~ for ties to the next note; pitches are sounding pitches (e.g. F#4, Bb3). "
         "Every voice must explicitly fill the existing bar, including rests. Header key/meter do not change the score. "
-        "Use part for a part id in a score with multiple parts. Returns a new score_id, PNGs of only changed bars "
+        "Use part (a part id or name) in a score with multiple parts; staff numbers count within that part. Returns a new score_id, PNGs of only changed bars "
         "and a note per bar; runs no model. If you proposed the correction, say it is your suggestion. "
         "Show the redrawn bars and note; ask the user to confirm against their copy. "
         "Only after confirmation analyse with draft_analysis using the new score_id. "
@@ -555,13 +555,19 @@ async def correct_bars(
     source = platform(ctx)
     try:
         before, _ = await resolve_score(None, score_id)
-        # Corrections import and engrave with Verovio; missing ids do neither.
-        if not await take("render", source):
-            return error_result(LIMIT_MESSAGE)
+        # Parse and validate first so a bad replacement costs nothing; engraving is what the render limit covers.
         after = await anyio.to_thread.run_sync(lambda: correct.replace_bars(before, replacement_bars, part=part))
+        if not await take("render", source):
+            log("limit", tool="correct_bars", platform=source)
+            return error_result(LIMIT_MESSAGE)
         review = await anyio.to_thread.run_sync(lambda: correct.review_correction(before, after, part=part))
-        code = secrets.token_hex(3).upper()
-        await anyio.to_thread.run_sync(store.put, f"scores/{code}", after)
+        if not review.changed_bars:
+            log("correct_bars", platform=source, changed=0)
+            return CallToolResult(
+                content=[TextContent(type="text", text=f"No bars changed: the replacement matches the score. "
+                                     f"Nothing to confirm; keep using score_id {score_id}.")],
+                structured_content={"score_id": score_id, "changed_bars": [], "image_urls": [], "notes": {}},
+            )
         pages = await anyio.to_thread.run_sync(
             lambda: [engraving.png(page) for engraving in review.engravings
                      for page in range(1, engraving.page_count + 1)]
@@ -570,9 +576,14 @@ async def correct_bars(
             lambda: [publish(engraving.png(page, width=2800, colors=256), "png")
                      for engraving in review.engravings for page in range(1, engraving.page_count + 1)]
         )
+        # Stored last so a failed engraving leaves no unconfirmed score behind.
+        code = secrets.token_hex(3).upper()
+        await anyio.to_thread.run_sync(store.put, f"scores/{code}", after)
     except (correct.CorrectionError, ScoreError, PositionError) as error:
+        log("correct_bars", platform=source, error=str(error))
         return error_result("Fix the replacement bars and call correct_bars again: " + str(error))
-    descriptions = list(review.notes.values()) or ["No bars changed."]
+    log("correct_bars", platform=source, changed=len(review.changed_bars), pages=len(pages))
+    descriptions = list(review.notes.values())
     text = (
         f"score_id: {code}\n" + "\n".join(descriptions)
         + "\nIf you proposed the correction, tell the user it is your suggestion. "
