@@ -168,7 +168,10 @@ def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role
     base = toolkit.getMEI()
     lines: dict[tuple[str, str, int, str], int] = {}
     asked: dict[tuple[str, str, int, str], int] = {}  # how many drawings asked for room at each place
-    for _ in range(6):
+    # One room per gap in a bar: a code under the upper staff and one over the lower staff share the gap, and two rooms
+    # there would stack, opening it twice as far as either needs.
+    gaps: dict[tuple[str, int], tuple[str, str, int, str]] = {}
+    for _ in range(7):
         needs: dict[tuple[str, str, int, str], int] = {}
         layouts = []
         for page in range(1, toolkit.getPageCount() + 1):
@@ -180,13 +183,14 @@ def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role
                 segment = next(segment for segment in measure.segments if segment.id == event.segment)
                 unit = int(measure.meter.split("/")[1]) if measure.meter else 4
                 need = (segment.id, f"{float(1 + (event.onset - segment.start) * unit / 4):g}", event.staff, place)
+                need = gaps.setdefault((segment.id, event.staff if place == "below" else event.staff - 1), need)
                 # The first request also fills the free space there; after that the room's lines already fill it.
                 more = short if need in lines else first
                 needs[need] = max(needs.get(need, 0), more)
-        # Each code asks for the lines it measured short, all at once; a third drawing still short means the room is not
-        # making the space (Verovio spent it elsewhere), and the gap closes again.
-        grown = {need: more for need, more in needs.items() if asked.get(need, 0) < 2}
-        given_up = [need for need in needs if asked.get(need, 0) == 2]
+        # Each code asks for the lines it measured short, all at once, and again if the measure fell short; asked four
+        # times, the room is not making the space (Verovio spent it elsewhere), and the gap closes again.
+        grown = {need: more for need, more in needs.items() if asked.get(need, 0) < 4}
+        given_up = [need for need in needs if asked.get(need, 0) == 4]
         if not grown and not given_up:
             return layouts  # drawn on the final layout: render() keeps them
         for need, more in grown.items():
@@ -194,7 +198,7 @@ def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role
             asked[need] = asked.get(need, 0) + 1
         for need in given_up:
             lines.pop(need, None)
-            asked[need] = 3
+            asked[need] = 5
         mei = base
         for (measure_id, tstamp, staff, place), count in lines.items():
             end = mei.index("</measure>", mei.index(f'xml:id="{measure_id}"'))

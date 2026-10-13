@@ -912,6 +912,7 @@ class PageLayout:
                     or next((s for pad in (LABEL_PAD, LABEL_PAD / 2, 0) for s in spots_at(pad) if usable(s, pad)), None) \
                     or self._least_covering(system, spots_at(0), box_at, own)
             self._error_text(system, *spot, word, width, height)
+            self.staff_of[id(system.content[-1])] = event.staff  # the code's reserved box moves with its ring's staff
 
     def _across(self, system: System, event: Event, staff: Box, side: str, staves: dict[int, int]):
         """What lies across the gap on one side of a staff and so moves away when the staves move apart: the other
