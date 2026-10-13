@@ -315,7 +315,7 @@ def downloads_text(links: dict[str, str]) -> str:
         "Offer the MusicXML link once per conversation, not after every render: it downloads a file for "
         "MuseScore, Sibelius or Dorico; the result also lists a worksheet PDF, MIDI and RomanText to mention once. "
         "piano=true draws the same annotation list (written for the original score) on a two-staff piano reduction "
-        "with instrument cues. For a score with more than four staves, draw the original first, then offer the user "
+        "with instrument cues. For a score with six or more instruments (an orchestra, band or large ensemble; not a quartet), draw the original first, then offer the user "
         "the piano reduction once; call again with piano=true only if they accept."
     ),
     annotations=read_only("Draw the analysis on the score"),

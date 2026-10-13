@@ -822,6 +822,14 @@ All 436 tests pass on main with every track merged.
 
 `compare_labels` now classifies "key and chord both differ" as a different chord (it was a key difference), which also changes the STUDENT CHECK rows in the server and skill drafts.
 
+### 40. Piano reduction: one decision per sounding note (2026-10-12)
+
+**Challenge.** The piano view chose octave and hand chord by chord, from the tune at that moment, so a held note could drop an octave or change staff halfway: ties hung in the air or ended on nothing, and an inner part hopped between staves (K.458 bar 8, Mozart 41 bar 24, Dvořák bar 35). Parts in the tune's rhythm were dropped as "doublings" even when they harmonised it in thirds (K.458 bars 1 and 5), and rests were merged across beats.
+
+**What we did.** Each note of the accompaniment, tied notes of a part counted as one, now gets its octave and hand once and keeps them to its release, across the barline too. A part then moves to one staff, or the start or end of it does, where that saves ties or keeps it together, within a ninth per hand, without the hands crossing and without high left-hand notes. Each staff is one voice or two, split by part or by held against moving notes, whichever needs fewer ties. Only true octave doublings (struck and released together) are dropped. Rests and notes are split to show the beat (Gould). The real Dvořák, Mozart 41 and Haydn 104 files are now under `tests/data/piano/`.
+
+**Result.** Reviewer's checker, bars 1–40 (unpaired ties, gaps, voice totals): K.458 20 → 0, Mozart 41 41 → 0, Dvořák 69 → 0, Beethoven Op. 59/1 13 → 0, Haydn 104 37 → 0. Every note of the five scores now sounds in the reduction for its whole length. Reducing Mozart 41 takes 8.1 s for bars 1–8 (was 6.8 s, mostly parsing the 8 MB file) and 11.6 s for bars 1–40 (was 8.7 s).
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
