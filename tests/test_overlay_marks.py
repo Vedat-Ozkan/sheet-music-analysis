@@ -286,20 +286,11 @@ def test_unresolved_tendency_tone_gets_a_small_arrow_beside_it_pointing_where_it
 # ---- the draft's own marks on real chorales: every code and arrow stands by its own note ----
 
 def _draft_marks(name):
-    """The voice-leading marks the part-writing draft proposes for a real chorale."""
-    from engine.part_writing import as_text
-    from engine.render import load_toolkit
-    from engine.score import ScoreIndex
+    """The voice-leading marks the part-writing draft proposes for a real chorale (the parser tools/display_check uses)."""
+    from tools.display_check import draft_marks
 
-    score = (DATA / f"part_writing_{name}.musicxml").read_bytes()
-    marks = []
-    for line in as_text(ScoreIndex(load_toolkit(score).getMEI())).splitlines():
-        found = re.match(r'\s+draw (\w+) (\{.*?\})(?: -> (\{.*?\}))?(?: label "([^"]*)")?(?: direction "(\w+)")?$', line)
-        if found:
-            kind, a, b, label, direction = found.groups()
-            marks.append({"type": "voice_leading", "kind": kind, "label": label or "", "from_note": json.loads(a),
-                          **({"to_note": json.loads(b)} if b else {}), **({"direction": direction} if direction else {})})
-    return score, marks
+    score, marks = draft_marks(DATA.parent.parent, name, callouts=False)
+    return score, [{key: value for key, value in mark.items() if key != "spot"} for mark in marks]
 
 
 @pytest.fixture

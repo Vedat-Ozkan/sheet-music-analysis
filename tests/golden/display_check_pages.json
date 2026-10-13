@@ -1,0 +1,173 @@
+{
+ "ref": "29cbdfe",
+ "bars_per_page": "bars on each page, per entry point",
+ "readings": {
+  "chopin-prelude-4--ms": {
+   "preview-tall": [
+    25
+   ],
+   "preview": [
+    25
+   ],
+   "pages": [
+    25
+   ]
+  },
+  "joplin-maple-leaf-rag--ly": {
+   "preview-tall": [
+    85
+   ],
+   "preview": [
+    36,
+    36,
+    13
+   ],
+   "pages": [
+    36,
+    36,
+    13
+   ]
+  },
+  "mozart-k545-1--scan": {
+   "preview-tall": [
+    73
+   ],
+   "preview": [
+    21,
+    21,
+    22,
+    9
+   ],
+   "pages": [
+    21,
+    21,
+    22,
+    9
+   ]
+  },
+  "schubert-die-stadt--ly": {
+   "preview-tall": [
+    40
+   ],
+   "preview": [
+    14,
+    9,
+    14,
+    3
+   ],
+   "pages": [
+    14,
+    9,
+    14,
+    3
+   ]
+  },
+  "clara-schumann-polonaise-3--ly": {
+   "preview-tall": [
+    52
+   ],
+   "preview": [
+    13,
+    11,
+    13,
+    14,
+    1
+   ],
+   "pages": [
+    13,
+    11,
+    13,
+    15
+   ]
+  },
+  "lehmann-golden-bridges--ms": {
+   "preview-tall": [
+    18
+   ],
+   "preview": [
+    16,
+    2
+   ],
+   "pages": [
+    18
+   ]
+  },
+  "mozart-quartet-k80--ms": {
+   "preview-tall": [
+    28
+   ],
+   "preview": [
+    15,
+    11,
+    2
+   ],
+   "pages": [
+    19,
+    9
+   ]
+  },
+  "mozart-quartet-k80--scan": {
+   "preview-tall": [
+    28
+   ],
+   "preview": [
+    13,
+    8,
+    7
+   ],
+   "pages": [
+    13,
+    8,
+    7
+   ]
+  },
+  "mozart-quartet-k80--vr": {
+   "preview-tall": [
+    28
+   ],
+   "preview": [
+    15,
+    11,
+    2
+   ],
+   "pages": [
+    19,
+    9
+   ]
+  },
+  "bach-chorale-269--ms": {
+   "preview-tall": [
+    24
+   ],
+   "preview": [
+    24
+   ],
+   "pages": [
+    24
+   ]
+  },
+  "chopin-prelude-4--scan": {
+   "preview-tall": [
+    25
+   ],
+   "preview": [
+    25
+   ],
+   "pages": [
+    25
+   ]
+  },
+  "chopin-prelude-4--lilypond-mutopia": {
+   "preview-tall": [
+    26
+   ],
+   "preview": [
+    25,
+    1
+   ],
+   "pages": [
+    26
+   ]
+  }
+ }
+}
