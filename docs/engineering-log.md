@@ -856,6 +856,22 @@ All 436 tests pass on main with every track merged.
 
 **Not yet live.** Releasing the fork, the Docker base image and the reader version wait for the owner's decision.
 
+### 42. Round 2 display polish before the owner's re-review (2026-10-13)
+
+**Challenge.** Seven display defects were flagged on the round 2 "after" images. Each was checked at full size against images re-rendered from the branch (the marks and PDF images reproduced byte for byte).
+
+**Fixed.**
+- **Tendency arrow on the staff (BWV 64.4 bar 7).** The bass D3 sits on the middle line, so no spot within two steps of it is outside the staff; the arrow fell back to inside the staff, on the bottom line, and its R moved half way along the shaft, about 0.6 staff space from it. A new placement starts the arrow straight off the note just past the staff edge, R at its tail, both clear of the lines (decision S). The arrow is now 411 units from its note (the old rule allowed 330 beside a note; 450 is allowed when the arrow is straight off it). No other tendency image changed.
+- **ABRSM cadential six-four.** The default style's continuation (V⁶₄ then –⁷₋₃) ran in every style, so ABRSM pages read "Ic –⁷₋₃". ABRSM teaching writes Ic–V (MyMusicTheory, Grade 6: "Cadential 6/4 = Ic-Va"), so ABRSM now prints "Ic V⁷". Default and figured-bass pages are byte-identical.
+- **Preview bar numbers hitting the system above (Joplin bar 33, and two stems on page 2).** A number raised over a first-ending bracket reached a low left-hand beam of the system above. Placement looked only at its own system, and the 360 units between that beam and the bracket could not hold a 540-unit number with its margin. Previews now use Verovio `spacingSystem` 7 (default 4), and placement also checks the system above. Page counts are unchanged on the four round 2 PDFs; pages are about 4% taller, and K.545 moves systems between pages. Base: 2 numbers touching the system above (Joplin), now 0 of 216 numbers on all four PDFs. Beams are not obstacles anywhere in the overlay (a beam group's box covers its notes), so bar 33 is fixed by the spacing, checked by eye.
+
+**Not changed.**
+- **Ring code on the alto's bottom line (BWV 102.7 bar 2).** Real: the alto's VO sits on a staff line. But the gap between the alto and tenor staves holds one code with clear space, not two. Preferring an off-staff spot first moved the alto's VO into the gap, and the tenor's VO then went onto its staff or against its fermata (two variants tried). The owner had accepted this bar as is. A joint placement of the codes of one chord was not tried.
+- **Rings without a code (BWV 418 bars 8 and 11).** Intended: each is the second note of a pair already coded (bar 8: tenor G♯3 with the bass's VO; bar 11: soprano E5 with the alto's S).
+- **"Ped. simile" gone from the Chopin check page.** Intended: the earlier "no pedal marks" decision, extended to pedal words in commit 74b880b after the "before" image was made.
+- **Bar 1 unnumbered on previews.** Intended: a piece's first bar is not numbered (standard practice). Decision K was about numbering previews that have nothing to flag.
+- **Card phrase bracket.** It ends at the system's last barline, open because the phrase (a′, from the pickup) continues on the next system; it does not run off the page.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
