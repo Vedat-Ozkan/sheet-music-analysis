@@ -47,7 +47,7 @@ _REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_REST, _REST + _SMALL, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
 # Changes when the reading changes (Audiveris build, settings or the repairs after it), so cached readings made before are not reused.
-READER = "5.11.0-sma.1-best3-tuplet-rests"
+READER = "5.11.0-sma.2-best3-tuplet-rests"
 RETRY_ABOVE = 3  # bars that don't add up before the other settings are tried; fewer gained nothing (log 35)
 
 

@@ -38,8 +38,8 @@ RUN curl -fL -o /tmp/audiveris.deb https://github.com/Audiveris/audiveris/releas
  && dpkg-deb -x /tmp/audiveris.deb /audiveris && rm /tmp/audiveris.deb
 # Our fixes to it (tuplets sharing a beam, crashes that lost pages and bars; log 35), built from
 # https://github.com/Vedat-Ozkan/audiveris branch sma-5.11.0 as its licence (AGPL-3.0) requires.
-RUN curl -fL -o /audiveris/opt/audiveris/lib/app/audiveris.jar https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.1/audiveris.jar \
- && echo "243cc7b7881adbe3a8b73a058ed41a692b67ae780484fbeb26819d9e7ce905ff  /audiveris/opt/audiveris/lib/app/audiveris.jar" | sha256sum -c
+RUN curl -fL -o /audiveris/opt/audiveris/lib/app/audiveris.jar https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.2/audiveris.jar \
+ && echo "1fe3060f7cf86d5b7a30daec973107789e1fba85c4e06de70fc9279b1c58edc5  /audiveris/opt/audiveris/lib/app/audiveris.jar" | sha256sum -c
 
 FROM python:3.11-slim
 # cairo draws the vector PDF (cairosvg); it brings fontconfig, which reads engine/fonts/fonts.conf.

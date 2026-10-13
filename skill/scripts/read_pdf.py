@@ -28,9 +28,9 @@ verovio.enableLog(False)
 
 DEB = "https://github.com/Audiveris/audiveris/releases/download/5.11.0/Audiveris-5.11.0-ubuntu24.04-x86_64.deb"
 # Our fixes (tuplets sharing a beam, crashes that lost pages and bars), from the sma-5.11.0 branch of this fork.
-JAR = "https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.1/audiveris.jar"
-JAR_SHA256 = "243cc7b7881adbe3a8b73a058ed41a692b67ae780484fbeb26819d9e7ce905ff"
-HOME = Path(tempfile.gettempdir()) / "audiveris-5.11.0-sma.1"
+JAR = "https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.2/audiveris.jar"
+JAR_SHA256 = "1fe3060f7cf86d5b7a30daec973107789e1fba85c4e06de70fc9279b1c58edc5"
+HOME = Path(tempfile.gettempdir()) / "audiveris-5.11.0-sma.2"
 
 
 def audiveris() -> Path:
