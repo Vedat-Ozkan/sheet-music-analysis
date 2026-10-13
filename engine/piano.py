@@ -11,10 +11,13 @@ from __future__ import annotations
 import copy
 import os
 import tempfile
-from collections.abc import Iterable
+from bisect import bisect_left, bisect_right
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass, field
 from fractions import Fraction
 
 from music21 import chord, clef, tie, converter, dynamics, expressions, instrument, key, layout, meter, note, pitch, stream
+from music21.common.numberTools import opFrac
 from music21.musicxml.m21ToXml import GeneralObjectExporter
 
 # Standard score abbreviations, by music21 instrument class.
@@ -29,6 +32,8 @@ ABBREVIATIONS = {
 STRINGS = {"Violin", "Viola", "Violoncello", "Contrabass"}
 BASS = {"Violoncello", "Contrabass", "Bassoon", "Contrabassoon", "Tuba", "Trombone", "BassTrombone", "BassClarinet", "BaritoneSaxophone"}
 LOWEST_RIGHT_HAND = 55  # G3: harmony below this goes to the left hand
+SPAN = 14  # a ninth: the most one hand holds without a stretch
+HIGHEST_LEFT_HAND = 64  # E4: above it the bass staff needs a ladder of ledger lines
 
 
 def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[int, Fraction, str, Fraction]] = ()) -> bytes:
@@ -45,16 +50,43 @@ def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[
     flat_key = signature is not None and signature.sharps < 0
     right_hand, left_hand = stream.Part(), stream.Part()
     previous_cue = previous_lead = None
+    carried: dict = {}
     for number, ref in enumerate(reference.measures):
         bar = {name: part.measures[number] for name, part in parts.items()}
-        right, left, previous_cue, previous_lead = _reduce_bar(
-            bar, parts, ref, kept.get(ref.number, []), flat_key, previous_cue, previous_lead, first=number == 0
+        right, left, previous_cue, previous_lead, carried = _reduce_bar(
+            bar, parts, ref, kept.get(ref.number, []), flat_key, previous_cue, previous_lead, number == 0, carried
         )
         right_hand.append(right)
         left_hand.append(left)
+    for hand in (right_hand, left_hand):
+        _pair_ties(hand)
     out = stream.Score([right_hand, left_hand])
     out.insert(0, layout.StaffGroup([right_hand, left_hand], symbol="brace", name="Piano"))
     return GeneralObjectExporter(out).parse()
+
+
+def _pair_ties(part: stream.Part) -> None:
+    """A tie only where the next note of the staff goes on with the same pitch: where the tune passes to another part
+    at a barline, or a held note is struck again by another part, the note is struck instead."""
+    heads = []
+    for n in part.recurse().notes:
+        start = opFrac(n.getOffsetInHierarchy(part))
+        heads += [(start, opFrac(start + n.quarterLength), written) for written in (n.notes if n.isChord else [n])]
+    kind = lambda w: w.tie.type if w.tie else None
+    starts = {(s, w.pitch.ps) for s, _, w in heads if kind(w) in ("stop", "continue")}
+    ends = {(e, w.pitch.ps) for _, e, w in heads if kind(w) in ("start", "continue")}
+    last = opFrac(part.highestTime)
+    for s, e, w in heads:
+        # Ties into the first bar and out of the last lead outside the excerpt; the engraving draws them short.
+        goes = kind(w) in ("start", "continue") and ((e, w.pitch.ps) in starts or e == last)
+        comes = kind(w) in ("stop", "continue") and ((s, w.pitch.ps) in ends or s == 0)
+        w.tie = _edge_tie(comes, goes)
+
+
+def _edge_tie(comes_in: bool, goes_out: bool):
+    if comes_in and goes_out:
+        return tie.Tie("continue")
+    return tie.Tie("stop") if comes_in else tie.Tie("start") if goes_out else None
 
 
 class _Part:
@@ -143,17 +175,6 @@ def _cue(names: list[str], parts: dict[str, _Part]) -> str:
     return ", ".join(cues)
 
 
-def _thin(pitches: list, keep: set[float], most: int = 4) -> list:
-    """At most `most` notes, the outer two first, then one of each pitch class; kept notes always stay."""
-    pitches = sorted({p.ps: p for p in pitches}.values(), key=lambda p: p.ps)
-    if len(pitches) <= 2:
-        return pitches
-    chosen = [pitches[0], pitches[-1]] + [p for p in pitches[1:-1] if p.ps in keep]
-    for p in reversed(pitches[1:-1]):
-        if len(chosen) < most and p not in chosen and p.pitchClass not in {k.pitchClass for k in chosen}:
-            chosen.append(p)
-    return sorted(chosen, key=lambda p: p.ps)
-
 
 def _respell(p: pitch.Pitch, flat_key: bool) -> pitch.Pitch:
     """Sounding pitch from some horn transpositions comes out as B triple-flat and the like."""
@@ -165,28 +186,6 @@ def _respell(p: pitch.Pitch, flat_key: bool) -> pitch.Pitch:
     return q
 
 
-def _blocks(events: list) -> list:
-    """Held chords as one long note instead of a chain of ties: an event joins the one before when it has
-    the same notes, all tied over. Any change of notes strikes a new chord, so every harmony is on the page."""
-    result = []
-    for offset, length, pitches, tied, beams in events:
-        if result:
-            last = result[-1]
-            same = [p.ps for p in pitches] == [p.ps for p in last[2]]
-            held = all(last[3].get(p.ps) is not None and last[3][p.ps].type in ("start", "continue") for p in last[2])
-            if same and (not pitches or held):
-                last[1] += length
-                last[4] = None  # a merged note no longer belongs to the beam it started in
-                # The joined note comes in the way its first part did and goes out the way its last part does.
-                last[3] = {
-                    ps: _edge_tie(_kind(last[3], ps) in ("stop", "continue"), _kind(tied, ps) in ("start", "continue"))
-                    for ps in tied
-                }
-                continue
-        result.append([offset, length, pitches, dict(tied), beams])
-    return result
-
-
 def _beat(ref: stream.Measure) -> float:
     """Length in quarter notes of one beam group: a dotted quarter in compound meters, else the beat."""
     signature = ref.timeSignature or ref.getContextByClass(meter.TimeSignature)
@@ -195,92 +194,6 @@ def _beat(ref: stream.Measure) -> float:
     if signature.denominator == 8 and signature.numerator % 3 == 0:
         return 1.5
     return float(signature.beatDuration.quarterLength)
-
-
-def _split_runs(events: list) -> tuple[list, list]:
-    """The lowest notes that keep sounding while the notes above them change are written once, as a voice of their
-    own, the way published reductions do, instead of being tied through every chord. Returns the events without
-    those notes and the held notes as events."""
-    runs, i = [], 0
-    while i < len(events):
-        found = None
-        for count in range(len(events[i][2]), 0, -1):
-            bass = [p.ps for p in events[i][2][:count]]
-            j = i
-            while (
-                j + 1 < len(events)
-                and all(_kind(events[j][3], ps) in ("start", "continue") for ps in bass)
-                and [p.ps for p in events[j + 1][2][:count]] == bass
-            ):
-                j += 1
-            above = {tuple(p.ps for p in e[2][count:]) for e in events[i : j + 1]}
-            # Notes above that are the same and tied all the way through are already one block (see _blocks).
-            struck_again = any(_kind(e[3], p.ps) not in ("stop", "continue") for e in events[i + 1 : j + 1] for p in e[2][count:])
-            # Under two quarter notes a separate voice costs more clarity than the tie does.
-            long_enough = sum(e[1] for e in events[i : j + 1]) >= 2
-            if j > i and long_enough and (len(above) > 1 or struck_again):
-                found = (i, j, count)
-                break
-        if found:
-            runs.append(found)
-        i = found[1] + 1 if found else i + 1
-    held = []
-    for i, j, count in runs:
-        first, last = events[i], events[j]
-        bass = first[2][:count]
-        # The ends of the tie belong to the neighbouring bars, so the held notes keep them.
-        ties = {
-            p.ps: _edge_tie(_kind(first[3], p.ps) in ("stop", "continue"), _kind(last[3], p.ps) in ("start", "continue"))
-            for p in bass
-        }
-        held.append((first[0], sum(e[1] for e in events[i : j + 1]), bass, ties, None))
-        for k in range(i, j + 1):
-            e = events[k]
-            events[k] = (e[0], e[1], e[2][count:], {ps: t for ps, t in e[3].items() if ps not in ties}, e[4])
-    return events, held
-
-
-def _split_held(events: list) -> tuple[list, list, str]:
-    """_split_runs on the bottom notes of each chord, else on the top notes (a held top note under a moving bass).
-    The third value is the stem direction of the held voice."""
-    for top in (False, True):
-        flipped = [(o, n, p[::-1] if top else p, t, b) for o, n, p, t, b in events]
-        rest, held = _split_runs(flipped)
-        if held:
-            order = (lambda p: p[::-1]) if top else (lambda p: p)
-            return [(o, n, order(p), t, b) for o, n, p, t, b in rest], [(o, n, order(p), t, b) for o, n, p, t, b in held], "up" if top else "down"
-    return events, [], "down"
-
-
-def _fill(events: list, held: list, direction: str, target: stream.Stream, flat_key: bool, beat: float, length: float) -> None:
-    """Write a hand's events into `target`; held notes get a voice of their own, stems down, the rest stems up."""
-    voices = [(events, stream.Voice() if held else target)] + ([(held, stream.Voice())] if held else [])
-    for group, voice in voices:
-        for offset, span, pitches, tied, beams in _blocks(group) if group is events else group:
-            voice.insert(offset, _make(pitches, span, tied, beams, flat_key))
-        _beam(voice, beat)
-    if held:
-        stems = ("down", "up") if direction == "up" else ("up", "down")
-        for (group, voice), stem in zip(voices, stems):
-            voice.makeRests(fillGaps=True, inPlace=True, timeRangeFromBarDuration=False)
-            for element in voice.notesAndRests:
-                if element.isRest and group is held:
-                    element.style.hideObjectOnPrint = True
-                elif not element.isRest:
-                    element.stemDirection = stem
-            target.insert(0, voice)
-    if not target.recurse().notesAndRests:
-        target.insert(0, note.Rest(quarterLength=length))
-
-
-def _kind(ties: dict, ps: float):
-    return ties[ps].type if ties.get(ps) is not None else None
-
-
-def _edge_tie(comes_in: bool, goes_out: bool):
-    if comes_in and goes_out:
-        return tie.Tie("continue")
-    return tie.Tie("stop") if comes_in else tie.Tie("start") if goes_out else None
 
 
 def _beam(voice: stream.Stream, beat: float) -> None:
@@ -306,53 +219,255 @@ def _beam(voice: stream.Stream, beat: float) -> None:
             run = []
 
 
-def _real_ties(chords: stream.Measure, sources: list) -> list[dict]:
-    """The tie type of each pitch of each chord. chordify ties a pitch into the next chord whenever it recurs,
-    even where the instrument struck it again; a tie is kept only where one written note sounds across the change."""
-    spans = sorted(
-        (float(n.getOffsetInHierarchy(m)), float(n.getOffsetInHierarchy(m) + n.quarterLength), p.ps,
-         (n.getTie(p) if n.isChord else n.tie) is not None and (n.getTie(p) if n.isChord else n.tie).type in ("stop", "continue"))
-        for m in sources for n in m.recurse().notes for p in n.pitches
-    )
-    # A note tied to the next one in the same part is one sounding.
-    merged: list[list] = []
-    for start, end, ps, continues in spans:
-        for span in merged:
-            if continues and span[2] == ps and abs(span[1] - start) < 1e-6:
-                span[1] = end
-                break
+@dataclass(eq=False)
+class _Note:
+    """One sounding note of the accompaniment in one bar. Notes tied together in a part are one, and the octave
+    and hand it gets hold from its attack to its release, so its ties never change octave or staff."""
+
+    start: float
+    end: float
+    pitch: pitch.Pitch
+    line: str  # the part it comes from
+    comes_in: bool  # tied from the bar before
+    goes_out: bool  # tied into the bar after
+    keep: bool = False
+    hand: str = ""
+    cut: float = 0.0  # the lowest pitch its height gives the right hand
+    pinned: bool = False  # its hand and octave were fixed in the bar before, where its tie starts
+    names: list = field(default_factory=list)  # (part, pitch in the score) of each source note it stands for
+
+    @property
+    def ps(self) -> float:
+        return self.pitch.ps
+
+
+def _sounding(measure: stream.Measure, line: str) -> list[_Note]:
+    found: list[_Note] = []
+    for n in measure.recurse().notes:
+        if n.duration.isGrace:
+            continue
+        start = opFrac(n.getOffsetInHierarchy(measure))
+        end = opFrac(start + n.quarterLength)
+        for p in n.pitches:
+            kind = (n.getTie(p) if n.isChord else n.tie)
+            kind = kind.type if kind else None
+            before = next((f for f in found if f.ps == p.ps and f.end == start and f.goes_out), None)
+            if before is not None and kind in ("stop", "continue"):
+                before.end, before.goes_out = end, kind == "continue"
+            else:
+                found.append(_Note(start, end, copy.deepcopy(p), line, kind in ("stop", "continue"), kind in ("start", "continue"), names=[(line, p.ps)]))
+    return found
+
+
+def _merge_unisons(notes: list[_Note]) -> list[_Note]:
+    """One piano key per pitch: two parts on the same note sound as one, and a part striking a note another part
+    holds cuts the held one short there."""
+    result: list[_Note] = []
+    # Longest first among notes struck together, so the note that takes in the others lasts longest.
+    for n in sorted(notes, key=lambda n: (n.start, -n.end)):
+        held = next((m for m in result if m.ps == n.ps and m.start <= n.start < m.end), None)
+        if held is None:
+            result.append(n)
+        elif held.start == n.start:
+            held.goes_out = held.goes_out or (n.goes_out and n.end == held.end)
+            held.keep, held.names = held.keep or n.keep, held.names + n.names
         else:
-            merged.append([start, end, ps])
-    result = []
-    for c in chords.notesAndRests:
-        result.append({} if c.isRest else {p.ps: (c.getTie(p).type if c.getTie(p) else None) for p in c.pitches})
-    events = list(chords.notesAndRests)
-    for i in range(len(events) - 1):
-        boundary = float(events[i + 1].offset)
-        for ps, kind in result[i].items():
-            if kind in ("start", "continue") and not any(
-                s < boundary - 1e-6 and e > boundary + 1e-6 and q == ps for s, e, q in merged
-            ):
-                result[i][ps] = None if kind == "start" else "stop"
-                after = result[i + 1].get(ps)
-                if after is not None:
-                    result[i + 1][ps] = None if after == "stop" else "start"
+            if held.end >= n.end:
+                n.goes_out = held.goes_out or (n.goes_out and held.end == n.end)
+                n.end, n.names = held.end, n.names + held.names
+            held.end, held.goes_out = n.start, False
+            result.append(n)
     return result
 
 
-def _make(pitches: list, length: float, tied: dict, beams, flat_key: bool):
-    pitches = [_respell(p, flat_key) for p in pitches]
-    if not pitches:
-        return note.Rest(quarterLength=length)
-    element = chord.Chord(pitches, quarterLength=length) if len(pitches) > 1 else note.Note(pitches[0], quarterLength=length)
-    for n in element.notes if element.isChord else [element]:
-        n.tie = tied.get(n.pitch.ps)
-    if beams is not None:
-        element.beams = copy.deepcopy(beams)
-    return element
+def _thin(notes: list[_Note]) -> list[_Note]:
+    """A hand's notes without octave doublings: of notes of one pitch class struck and released together only the
+    highest stays, and the hand's lowest note (its bass). A part moving on its own is never a doubling."""
+    lowest = {n.start: n for n in sorted(notes, key=lambda n: -n.ps)}
+    kept = []
+    for n in sorted(notes, key=lambda n: -n.ps):
+        if n.pinned or n.keep or lowest[n.start] is n or not any(
+            m.pitch.pitchClass == n.pitch.pitchClass and m.start == n.start and m.end == n.end for m in kept
+        ):
+            kept.append(n)
+    return [n for n in notes if n in kept]
 
 
-def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, first):
+def _ties(notes: list[_Note]) -> int:
+    """How many ties one voice of these notes needs: one wherever another of its notes starts or ends inside a note."""
+    edges = sorted({n.start for n in notes} | {n.end for n in notes})
+    return sum(bisect_left(edges, n.end) - bisect_right(edges, n.start) for n in notes)
+
+
+def _sounding_at(notes, t) -> list[float]:
+    return [n.ps for n in notes if n.start <= t < n.end]
+
+
+def _voices(notes: list[_Note], one: bool) -> tuple[float, list[list[_Note]]]:
+    """The notes of a staff as one voice, or as an upper and a lower voice, whichever needs the fewest ties: whole
+    parts of the score in each voice (a moving inner part apart from the tune), or the notes held through others'
+    attacks apart from the rest (a held bass under moving chords)."""
+    best = (float(_ties(notes)), [notes] if notes else [])
+    if one:
+        return best
+    lines: dict[str, list[_Note]] = {}
+    for n in notes:
+        lines.setdefault(n.line, []).append(n)
+    order = sorted(lines.values(), key=lambda line: sum(n.ps for n in line) / len(line))
+    splits = [([n for line in order[:k] for n in line], [n for line in order[k:] for n in line]) for k in range(1, len(order))]
+    edges = sorted({n.start for n in notes} | {n.end for n in notes})
+    held = [n for n in notes if bisect_left(edges, n.end) > bisect_right(edges, n.start)]
+    splits.append((held, [n for n in notes if n not in held]))
+    for a, b in splits:
+        if not a or not b:
+            continue
+        lower, upper = sorted((a, b), key=lambda v: sum(n.ps for n in v) / len(v))
+        crossed = sum(
+            1 for t in {n.start for n in notes}
+            if (u := _sounding_at(upper, t)) and (d := _sounding_at(lower, t)) and min(u) < max(d)
+        )
+        # A second voice is worth half a tie: one voice reads easier when the two are otherwise equal.
+        cost = _ties(lower) + _ties(upper) + 0.5 + 2 * crossed
+        if cost < best[0]:
+            best = (cost, [upper, lower])
+    return best
+
+
+def _hands(notes: list[_Note], tune_at: Callable[[float], float | None], one_right: bool) -> None:
+    """Choose a hand for every note. Each starts where its height puts it (`hand`, set by the caller); a part then
+    moves to one staff, or a note to the other, wherever that saves ties or keeps a part on one staff, as long as
+    each hand still reaches its notes and the hands do not cross."""
+    base = [n.hand for n in notes]
+    times = sorted({n.start for n in notes})
+    chords: dict[str, dict[float, list[int]]] = {}  # each part's notes by attack: a double stop may span both hands
+    for i, n in sorted(enumerate(notes), key=lambda item: item[1].start):
+        chords.setdefault(n.line, {}).setdefault(n.start, []).append(i)
+
+    def cost(hands: list[str]) -> float:
+        right = [n for n, h in zip(notes, hands) if h == "R"]
+        left = [n for n, h in zip(notes, hands) if h == "L"]
+        total = _voices(right, one_right)[0] + _voices(left, False)[0]
+        # Moving a note to the other hand costs more the further it is from where its height puts it.
+        total += sum(0.25 + abs(n.ps - n.cut) / 12 for n, h, b in zip(notes, hands, base) if h != b)
+        for attacks in chords.values():
+            steps = list(attacks.values())
+            for a, b in zip(steps, steps[1:]):
+                if {hands[i] for i in a} != {hands[i] for i in b}:
+                    # A part changing staff mid-phrase is harder to follow than one changing after a rest.
+                    total += 2 if max(notes[i].end for i in a) >= notes[b[0]].start else 1
+        for t in times:
+            r, l = _sounding_at(right, t), _sounding_at(left, t)
+            top = tune_at(t)
+            struck = [n.ps for n in left if n.start == t and not n.comes_in]
+            if r and max(r + ([top] if top is not None else [])) - min(r) > SPAN:
+                total += 10
+            if r and l and max(l) > min(r):
+                total += 10
+            if struck and max(struck) - min(struck) > SPAN:
+                total += 10
+            # Four notes to a hand, the tune included; the left hand may hold a bass under them.
+            total += max(len(r) + (top is not None) - 4, 0) + max(len(struck) - 4, 0)
+        return total + 10 * sum(n.ps < LOWEST_RIGHT_HAND for n in right) + 2 * sum(n.ps > HIGHEST_LEFT_HAND for n in left)
+
+    hands, current = base[:], cost(base)
+    free = [i for i, n in enumerate(notes) if not n.pinned]
+    for _ in range(len(notes)):
+        options = [[("L" if h == "R" else "R") if j == i else h for j, h in enumerate(hands)] for i in free]
+        # Whole parts, and the start or the end of a part, move together.
+        for attacks in chords.values():
+            steps = list(attacks.values())
+            for k in range(len(steps)):
+                for part in (steps[:k + 1], steps[k:]):
+                    moved = {i for step in part for i in step if not notes[i].pinned}
+                    for side in "RL":
+                        options.append([side if j in moved else h for j, h in enumerate(hands)])
+        scored = min(((cost(o), o) for o in options), key=lambda x: x[0], default=None)
+        if scored is None or scored[0] >= current - 1e-9:
+            break
+        current, hands = scored
+    for n, h in zip(notes, hands):
+        n.hand = h
+
+
+def _rest_lengths(start: float, end: float, beat: float, length: float) -> list[float]:
+    """A silence as rests that show the beat (Gould, "Behind Bars", rests): none starts off a beat and runs past it,
+    whole beats join only into values that start on a multiple of themselves, and a whole bar is one rest."""
+    pieces, t = [], start
+    while t < end:
+        if t == 0 and end == length:
+            size = length
+        elif t % beat == 0 and t + beat <= end:
+            size = max(s for s in (beat * 2**k for k in range(4)) if t % s == 0 and t + s <= end)
+        else:
+            limit = min(end, (t // beat + 1) * beat)
+            within = t - (t // beat) * beat
+            sizes = [s for s in (1.0, 0.5, 0.25, 0.125, 0.0625) if s < beat and within % s == 0 and t + s <= limit]
+            size = sizes[0] if sizes else limit - t  # a tuplet's rest: as long as it is
+        pieces.append(opFrac(size))
+        t = opFrac(t + size)
+    return pieces
+
+
+def _note_spans(start: float, end: float, beat: float) -> list[tuple[float, float]]:
+    """A note as the tied values that show the beat (Gould, "Behind Bars"): one that starts off a beat is tied at
+    the next beat, and in 6/8, 9/8 and 12/8 one that starts on a beat is tied at the last beat it reaches."""
+    cuts = [start]
+    first = opFrac((start // beat + 1) * beat)
+    if start % beat and first < end:
+        cuts.append(first)
+    last = opFrac(end // beat * beat)
+    if beat == 1.5 and end % beat and cuts[-1] < last:
+        cuts.append(last)
+    return list(zip(cuts, cuts[1:] + [end]))
+
+
+def _voice(notes: list[_Note], length: float, beat: float, flat_key: bool) -> stream.Voice:
+    """One voice of a staff: a chord wherever its notes change, tied where a note sounds on across the change."""
+    voice = stream.Voice()
+    times = sorted({0.0, length} | {n.start for n in notes} | {n.end for n in notes})
+    for a, b in zip(times, times[1:]):
+        here = [n for n in notes if n.start <= a and n.end >= b]
+        if not here:
+            t = a
+            for size in _rest_lengths(a, b, beat, length):
+                voice.insert(t, note.Rest(quarterLength=size))
+                t = opFrac(t + size)
+            continue
+        here.sort(key=lambda n: n.ps)
+        pitches = [_respell(n.pitch, flat_key) for n in here]
+        for c, d in _note_spans(a, b, beat):
+            element = chord.Chord(pitches, quarterLength=d - c) if len(pitches) > 1 else note.Note(pitches[0], quarterLength=d - c)
+            for n, written in zip(here, element.notes if element.isChord else [element]):
+                written.tie = _edge_tie(n.start < c or n.comes_in, n.end > d or n.goes_out)
+            voice.insert(c, element)
+    _beam(voice, beat)
+    return voice
+
+
+def _staff(target: stream.Measure, voices: list[stream.Voice], length: float) -> None:
+    """Two voices share a staff with stems up and down. The lower voice shows no rest where the upper one shows its
+    own, nor after its last note: a voice that drops out for the rest of the bar just stops."""
+    if not voices:
+        target.insert(0, note.Rest(quarterLength=length))
+        return
+    if len(voices) == 1:
+        target.insert(0, voices[0])
+        return
+    upper, lower = voices
+    last = max(e.offset for e in lower.notes)
+    for voice, stem in ((upper, "up"), (lower, "down")):
+        for element in voice.notesAndRests:
+            if not element.isRest:
+                element.stemDirection = stem
+            elif voice is lower and (element.offset > last or not any(
+                not e.isRest and e.offset < element.offset + element.quarterLength and element.offset < e.offset + e.quarterLength
+                for e in upper.notesAndRests
+            )):
+                element.style.hideObjectOnPrint = True
+        target.insert(0, voice)
+
+
+def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, first, carried):
     counts = {n: len(_attacks(m)) for n, m in bar.items()}
     playing = [n for n in bar if counts[n]]
     best = max(counts, key=lambda n: (counts[n], sum(p.ps for p in bar[n].pitches) / max(len(bar[n].pitches), 1)))
@@ -373,9 +488,9 @@ def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, fi
     )
     lead = best if tune else None
     label = _cue(group if tune else playing, parts) if playing else None
-    accompaniment = [n for n in bar if n not in group] if tune else list(bar)
     melody = []
-    for source_element in bar[best].notesAndRests if tune else []:
+    # A part written in two voices carries its tune in the first.
+    for source_element in (bar[best].voices[0] if bar[best].voices else bar[best]).notesAndRests if tune else []:
         element = copy.deepcopy(source_element)
         # deepcopy detaches the note from its bar and resets its offset to 0; the tune needs its place in the bar.
         element.offset = source_element.offset
@@ -386,67 +501,73 @@ def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, fi
             single.offset = element.offset
             element = single
         melody.append(element)
-    # Notes the analysis marks go into the harmony unless the tune has them, so a chord is struck at
-    # each one even when the accompaniment does not move there (a doubling, an inner voice, an ornament).
-    in_tune = {(round(float(e.offset), 4), e.pitch.ps) for e in melody if not e.isRest}
-    marked = stream.Measure()
-    for offset, p, length in kept:
-        if (round(offset, 4), p.ps) not in in_tune:
-            marked.insert(offset, note.Note(copy.deepcopy(p), quarterLength=min(length, ref.duration.quarterLength - offset)))
-    sources = [copy.deepcopy(bar[n]) for n in accompaniment] + ([marked] if marked.notes else [])
-    chords = stream.Score([stream.Part([m]) for m in sources]).chordify()
-    chords = chords.getElementsByClass(stream.Measure)[0] if sources else stream.Measure()
+    sounding = [m for m in melody if not m.isRest and not m.duration.isGrace]
 
     def tune_at(time: float) -> float | None:
-        for element in melody:
-            if element.offset <= time < element.offset + element.quarterLength and not element.isRest:
-                return element.pitch.ps
-        return None
+        return next((e.pitch.ps for e in sounding if e.offset <= time < e.offset + e.quarterLength), None)
 
-    ties = _real_ties(chords, sources)
-    right, left = stream.Measure(number=ref.number), stream.Measure(number=ref.number)
-    upper, lower = stream.Voice(), stream.Voice()
-    right_events, left_events = [], []
-    for index, c in enumerate(chords.notesAndRests):
-        pitches = [] if c.isRest else list(c.pitches)
-        tied = {} if c.isRest else {ps: tie.Tie(kind) if kind else None for ps, kind in ties[index].items()}
-        start = float(c.offset)
-        ceiling = tune_at(start)
-        keep = {p.ps for offset, p, _ in kept if abs(offset - start) < 1e-6}
-        if ceiling is not None:
+    length = opFrac(ref.duration.quarterLength)
+    in_tune = {(opFrac(e.offset), e.pitch.ps) for e in sounding}
+    # The tune part's other notes (the lower notes of its chords, its second voice) are harmony.
+    notes = [n for name in bar for n in _sounding(bar[name], name) if not (name == best and (n.start, n.ps) in in_tune)]
+    # Parts playing the tune's rhythm stay in when they harmonise it (Vl. II in thirds); only its doublings go.
+    doubled = {(opFrac(e.offset), e.pitch.pitchClass) for e in sounding}
+    notes = [n for n in notes if not (tune and n.line in group and not n.comes_in and (n.start, n.pitch.pitchClass) in doubled)]
+    marked = {(opFrac(offset), p.ps) for offset, p, _ in kept}
+    for n in notes:
+        n.keep = (n.start, n.ps) in marked
+    # Notes the analysis marks go into the harmony unless the tune has them, so a chord is struck at
+    # each one even when the accompaniment does not move there (a doubling, an inner voice, an ornament).
+    for offset, p, span in kept:
+        if (opFrac(offset), p.ps) not in in_tune and not any(n.keep and n.start == opFrac(offset) and n.ps == p.ps for n in notes):
+            notes.append(_Note(opFrac(offset), opFrac(min(offset + span, length)), copy.deepcopy(p), "marked", False, False, keep=True))
+
+    # A note tied over the barline keeps the octave and hand it was given, or stays out if it was left out.
+    lost = []
+    for n in notes:
+        before = next((carried[name] for name in n.names if name in carried), None) if n.comes_in else None
+        if before is not None and not before[2]:
+            lost.append(n)
+        elif before is not None:
+            n.pitch.octave += round((before[0] - n.ps) / 12)
+            n.hand, n.pinned = before[1], True
+        if not n.pinned and not n.keep:
+            ceiling = min((e.pitch.ps for e in sounding if e.offset < n.end and n.start < e.offset + e.quarterLength), default=None)
             # Harmony that sounds above the tune is set an octave or two lower, as a pianist would play it.
-            moved = []
-            for p in pitches:
-                q = copy.deepcopy(p)
-                while q.ps >= ceiling and q.ps not in keep:
-                    q.octave -= 1
-                tied[q.ps] = tied.get(p.ps)
-                moved.append(q)
-            pitches = moved
-        height = max([p.ps for p in pitches] + [0])
-        cut = max((ceiling - 12) if ceiling is not None else (height - 12), LOWEST_RIGHT_HAND)
-        hand_right = _thin([p for p in pitches if p.ps >= cut], keep, 3 if ceiling else 4)
-        hand_left = _thin([p for p in pitches if p.ps not in {q.ps for q in hand_right} and p.ps < cut], keep)
-        beams = None if c.isRest else c.beams
-        right_events.append((c.offset, c.quarterLength, hand_right, tied, beams))
-        left_events.append((c.offset, c.quarterLength, hand_left, tied, beams))
+            while ceiling is not None and n.ps >= ceiling:
+                n.pitch.octave -= 1
+    notes = _merge_unisons([n for n in notes if n not in lost])
+    for n in notes:
+        if not n.pinned:
+            ceiling = tune_at(n.start)
+            height = max(_sounding_at(notes, n.start))
+            n.cut = max((ceiling if ceiling is not None else height) - 12, LOWEST_RIGHT_HAND)
+            n.hand = "R" if n.ps >= n.cut else "L"
+    written = _thin([n for n in notes if n.hand == "R"]) + _thin([n for n in notes if n.hand == "L"])
+    _hands(written, tune_at, tune)
+    written = _thin([n for n in written if n.hand == "R"]) + _thin([n for n in written if n.hand == "L"])
+
     beat = _beat(ref)
-    held_right, side_right = [], "down"
-    if not tune:
-        right_events, held_right, side_right = _split_held(right_events)
-    left_events, held_left, side_left = _split_held(left_events)
-    length = ref.duration.quarterLength
-    _fill(right_events, held_right, side_right, lower if tune else right, flat_key, beat, length)
-    _fill(left_events, held_left, side_left, left, flat_key, beat, length)
+    right, left = stream.Measure(number=ref.number), stream.Measure(number=ref.number)
+    upper = stream.Voice()
+    staves = {}
+    for hand in "RL":
+        _, groups = _voices([n for n in written if n.hand == hand], hand == "R" and tune)
+        staves[hand] = [_voice(g, length, beat, flat_key) for g in groups]
     if tune:
         for element in melody:
             upper.insert(element.offset, element)
-        for element in upper.notes:
-            element.stemDirection = "up"
-        for element in lower.notes:
-            element.stemDirection = "down"
-        right.insert(0, upper)
-        right.insert(0, lower)
+        staves["R"] = [upper] + staves["R"]
+    _staff(right, staves["R"], length)
+    _staff(left, staves["L"], length)
+    carry = {}
+    for n in notes + lost:
+        if n.goes_out:
+            for name in n.names:
+                carry[name] = (n.ps, n.hand, n in written)
+    if sounding and sounding[-1].tie and sounding[-1].tie.type in ("start", "continue"):
+        carry[(best, sounding[-1].pitch.ps)] = (sounding[-1].pitch.ps, "R", True)
+
     source = bar[best] if playing else ref
     carrier = upper if tune else right
     for mark in source.recurse().getElementsByClass(dynamics.Dynamic):
@@ -458,13 +579,15 @@ def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, fi
         entry = next((e.offset for e in melody if not e.isRest), 0) if tune else 0
         carrier.insert(entry, text)
         previous_cue = label
+    # A bar cut out of the score answers for its own signatures; the context search does not find them. Later
+    # bars repeat a change of key or meter (a short bar of 2/4 in a 4/4 movement).
+    signatures = [ref.keySignature, ref.timeSignature]
     if first:
         right.insert(0, clef.TrebleClef())
         left.insert(0, clef.BassClef())
-        # A bar cut out of the score answers for its own signatures; the context search does not find them.
         signatures = [ref.keySignature or ref.getContextByClass(key.KeySignature), ref.timeSignature or ref.getContextByClass(meter.TimeSignature)]
-        for m in (right, left):
-            for found in signatures:
-                if found is not None:
-                    m.insert(0, copy.deepcopy(found))
-    return right, left, previous_cue, lead
+    for m in (right, left):
+        for found in signatures:
+            if found is not None:
+                m.insert(0, copy.deepcopy(found))
+    return right, left, previous_cue, lead, carry
