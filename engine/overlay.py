@@ -100,6 +100,8 @@ class System:
     measures: list[MeasureGeometry] = field(default_factory=list)
     content: list[Box] = field(default_factory=list)
     words: list[Box] = field(default_factory=list)  # lyrics and other score text, estimated; Verovio gives no box for them
+    heads: list[Box] = field(default_factory=list)  # every notehead, also in `content`
+    notes: list[Box] = field(default_factory=list)  # noteheads, accidentals and stems, which no label may touch
 
     @property
     def left(self) -> float:
@@ -198,7 +200,13 @@ class PageLayout:
         if box and group.get("data-staff"):
             self.staff_marks.append(({int(n) for n in group.get("data-staff").split() if n.isdigit()}, box))
         if "note" in classes or "chord" in classes:
-            system.content.extend(self._read_stem(group))
+            stems = self._read_stem(group)
+            system.content.extend(stems)
+            system.notes.extend(stems)
+        if box and "note" in classes:  # a note's own box is its head; its stem and accidental have their own
+            system.heads.append(box)
+        if box and ("note" in classes or "accid" in classes):
+            system.notes.append(box)
         if CURVES & set(classes):
             # A slur's box covers everything under its arc; follow the curve itself instead.
             system.content.extend(self._curve_boxes(group) or ([box] if box else []))
@@ -812,6 +820,8 @@ class PageLayout:
             word = " ".join(labels)
             width, height = text.width(word, LABEL_SIZE), LABEL_SIZE
             others = [other for other_system, other, _, _ in rings if other_system is system and other is not ring]
+            unringed = [head for head in system.heads if abs(head.cx - ring.cx) < 1500 and abs(head.cy - ring.cy) < 1500
+                        and not any(r.x <= head.cx <= r.right and r.y <= head.cy <= r.bottom for _, r, _, _ in rings)]
             slide = [0.0] + [sign * step for step in range(60, int(ring.height / 2 + height / 2), 60) for sign in (-1, 1)]
             bar = next(((m.x0, m.x1) for m in system.measures if m.x0 <= ring.cx <= m.x1), (ring.x, ring.right))
             staff = self.measures[event.segment].numbered.get(event.staff)  # the ringed note's own staff, also for a ledger note
@@ -822,9 +832,16 @@ class PageLayout:
                 return Box(spot[0] - width / 2 - pad, spot[1] - height / 2 - pad, width + 2 * pad, height + 2 * pad)
 
             def own(spot):
-                """Nearer its own ring than any other (clearly so than another voice's), and not over a barline."""
+                """Nearer its own ring than any other ring or unringed note (clearly so when that is not level with the
+                ring), and not over a barline: a code by another note reads as that note's (decision R)."""
                 box = box_at(spot, 0)
-                return bar[0] <= box.x and box.right <= bar[1] and all((1 if abs(other.cy - ring.cy) < ring.height / 2 else 1.5) * self._gap(box, ring) < self._gap(box, other) for other in others)
+                # Straight off its ring a code stacks outward from its note as an articulation does (Gould: marks stack
+                # outward from a note), so it is that note's even with a neighbour's head diagonally nearer; only a head
+                # in the same column then competes.
+                heads = [h for h in unringed if h.x < box.right and h.right > box.x] if abs(spot[0] - ring.cx) < 1 else unringed
+                return bar[0] <= box.x and box.right <= bar[1] and all(
+                    (1 if abs(other.cy - ring.cy) < ring.height / 2 else 1.5) * self._gap(box, ring) < self._gap(box, other)
+                    for other in others + heads)
 
             # Spots in order: right, left, above, below, past a fermata, above or below shifted; then just past the
             # nearer edge of the ring's staff.
@@ -845,11 +862,23 @@ class PageLayout:
                 for side, y in zip(("above", "below"), ends):
                     spots += [(ring.cx, y)] + (stack if side == nearer else []) + [(ring.cx + shift, y) for shift in (width / 2, -width / 2)]
                 if staff:
-                    # Just past the staff's edge on the ring's side: beside the ring, a little farther out past a dot or
-                    # accidental, then straight off it.
+                    # Just past the staff's edge on the ring's side: straight off the ring, then beside it, a little
+                    # farther out past a dot or accidental.
                     y = staff.y - pad - 1 - height / 2 if nearer == "above" else staff.bottom + pad + 1 + height / 2
-                    spots += [(ring.right + gap + width / 2 + shift, y) for shift in (0, 120, 240)]
-                    spots += [(ring.x - gap - width / 2 - shift, y) for shift in (0, 120, 240)] + [(ring.cx, y)]
+                    spots += [(ring.cx, y)] + [(ring.right + gap + width / 2 + shift, y) for shift in (0, 120, 240)]
+                    spots += [(ring.x - gap - width / 2 - shift, y) for shift in (0, 120, 240)]
+                    # Then outward through the gap, straight off the ring or half a code to either side, past the
+                    # neighbouring notes, accidentals and ledger lines, up to the next staff: once the staves move
+                    # apart, one of these is clear.
+                    sign = -1 if nearer == "above" else 1
+                    start = min(ends[0], y) if nearer == "above" else max(ends[1], y)
+                    lines = [b for b in self.measures[event.segment].lines if (b.bottom < staff.y if nearer == "above" else b.y > staff.bottom)]
+                    stop = (max(b.bottom for b in lines) if nearer == "above" else min(b.y for b in lines)) if lines else start + sign * 1500
+                    for step in range(60, int(abs(stop - start)), 60):
+                        cy = start + sign * step
+                        if (cy - height / 2 - pad < stop) if nearer == "above" else (cy + height / 2 + pad > stop):
+                            break
+                        spots += [(ring.cx + shift, cy) for shift in (0, -width / 2, width / 2)]
                 return spots
 
             def usable(spot, pad):
@@ -865,8 +894,18 @@ class PageLayout:
                 # Less clear space (the rings of a run may leave no more), still off the staves if possible; only then on one.
                 spot = next((s for pad in (LABEL_PAD / 2, 0) for s in spots_at(pad) if usable(s, pad) and off_staff(s)), None) \
                     or next((s for pad in (LABEL_PAD, LABEL_PAD / 2, 0) for s in spots_at(pad) if usable(s, pad)), None) \
-                    or spots_at(LABEL_PAD)[0]
+                    or self._least_covering(system, spots_at(0), box_at, own)
             self._error_text(system, *spot, word, width, height)
+
+    def _least_covering(self, system: System, spots: list, box_at, own) -> tuple[float, float]:
+        """With no clear spot, the one that covers least, and never a notehead, accidental or stem (Gould, Layout: clear
+        space round the notes); its own ring's spots first."""
+        def cost(spot):
+            box = box_at(spot, 0)
+            notes = sum(o.x < box.right and o.right > box.x and o.y < box.bottom and o.bottom > box.y for o in system.notes)
+            return notes, not own(spot), self._touching(system, box), self._covered(system, box)
+
+        return min(spots, key=cost)
 
     def _shafts(self, system_a: System, a: Box, system_b: System, b: Box) -> list[tuple[System, float, float, float, float]]:
         if system_a is system_b:

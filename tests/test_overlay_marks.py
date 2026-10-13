@@ -423,3 +423,56 @@ def test_no_ring_code_sits_on_a_staff(name, bars, spied, layouts):
     assert words
     on = [(string, round(box.cx), round(box.cy)) for box, string in words if any(layout._on_staff(system, box) for system in layout.systems)]
     assert not on, f"{name} {bars}: codes on a staff: {on}"
+
+
+def _codes_drawn(layout, spied):
+    """Each ring code as drawn: (its box, its text)."""
+    codes = {" ".join(labels) for _, _, labels in spied["rings"] if labels}
+    return [(overlay.Box(float(t.get("x")), float(t.get("y")) - overlay.LABEL_SIZE * 0.84,  # x is the text's left end
+                         text.width(t.text, overlay.LABEL_SIZE), overlay.LABEL_SIZE), t.text)
+            for t in layout.over.iter(f"{overlay.S}text") if t.get("fill") == ERROR and t.text in codes]
+
+
+def _whole(name):
+    from engine.render import load_toolkit
+    from engine.score import ScoreIndex
+
+    index = ScoreIndex(load_toolkit((DATA / f"part_writing_{name}.musicxml").read_bytes()).getMEI())
+    first, last = index.measures[0].number, index.measures[-1].number
+    return first, min(last, first + 31) if sum(1 for m in index.measures if m.number > 0) > 32 else last
+
+
+CHORALES = sorted(p.stem.replace("part_writing_", "") for p in DATA.glob("part_writing_*.musicxml"))
+
+
+@pytest.mark.parametrize("name", CHORALES)
+def test_no_ring_code_touches_a_notehead_accidental_or_stem(name, spied, layouts):
+    """BWV 245.40 bars 5 and 12: with every spot taken, the tenor's VO fell back to its first spot, across the next
+    note's head, flat and stem. A code may give up clear space, never another note (Gould, Layout: clear space round
+    the notes)."""
+    score, marks = _draft_marks(name)
+    if not any(m["kind"] == "ring" and m["label"] for m in marks):
+        pytest.skip("no ring codes")
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=_whole(name))
+    layout = layouts[-1]
+    words = _codes_drawn(layout, spied)
+    assert words
+    hit = [(string, round(box.cx), round(box.cy)) for box, string in words for system in layout.systems
+           if any(o.x < box.right and o.right > box.x and o.y < box.bottom and o.bottom > box.y for o in system.notes)]
+    assert not hit, f"{name}: codes on a note: {hit}"
+
+
+def test_a_ring_code_is_nearer_its_own_ring_than_any_unringed_note(spied, layouts):
+    """BWV 404 bar 6: the tenor's S stood above the staff by the unringed eighth before its ring (decision R: each
+    code by its own ring). Straight above its own ring, past the staff's top line, is clear."""
+    score, marks = _draft_marks("bwv404")
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=_whole("bwv404"))
+    layout = layouts[-1]
+    rings = [ring for _, ring, labels in spied["rings"] if labels]
+    words = _codes_drawn(layout, spied)
+    for box, string in words:
+        ring = min(rings, key=lambda r: _gap(box, r))
+        system = next(s for s in layout.systems if s.staff_top - 2000 < box.cy < s.staff_bottom + 2000)
+        unringed = [h for h in system.heads if not any(r.x <= h.cx <= r.right and r.y <= h.cy <= r.bottom for r in rings)]
+        nearest = min(unringed, key=lambda h: _gap(box, h))
+        assert _gap(box, ring) < _gap(box, nearest), f"{string} at {round(box.cx)},{round(box.cy)} stands nearer an unringed note"
