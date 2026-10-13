@@ -50,7 +50,8 @@ _REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_REST, _REST + _SMALL, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
 # Changes when the reading changes (Audiveris build, settings or the repairs after it), so cached readings made before are not reused.
-READER = "5.11.0-sma.1-best3-tuplet-rests-r3"
+READER = "5.11.0-sma.1-best3-tuplet-rests-r4"
+MIN_NOTES = 0.95  # a reading with fewer notes than this share of the fullest reading is never chosen
 RETRY_ABOVE = 3  # bars that don't add up before the other settings are tried; fewer gained nothing (log 35)
 
 
@@ -308,7 +309,11 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
         with ThreadPoolExecutor(len(SETTINGS) - 1) as pool:
             others = list(pool.map(lambda options: _retry(data, audiveris, options, deadline, raw), SETTINGS[1:]))
         # A reading that lost pages is never preferred for having fewer bars that don't add up
-        best = min([best, *(other for other in others if other)], key=lambda reading: (len(reading[1]), len(reading[2])))
+        readings = [best, *(other for other in others if other)]
+        # Fewest problem bars alone can pick a reading that dropped notes (Hensel's Nachtwanderer: a fifth of them)
+        counts = [_pitched_notes(reading[0]) for reading in readings]
+        complete = [reading for reading, count in zip(readings, counts) if count >= MIN_NOTES * max(counts)]
+        best = min(complete, key=lambda reading: (len(reading[1]), len(reading[2])))
     musicxml, skipped, _ = best
     for repair in (infer_tuplet_rests, infer_triplets):
         try:
@@ -317,6 +322,10 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
             # A repair is an improvement, not a requirement: if it fails, keep the reading as Audiveris gave it.
             log.exception("PDF reading repair %s failed", repair.__name__)
     return PdfReading(musicxml, pages, scan, skipped)
+
+
+def _pitched_notes(musicxml: bytes) -> int:
+    return sum(1 for note in ET.fromstring(musicxml).iter("note") if note.find("pitch") is not None)
 
 
 def _retry(data: bytes, audiveris: str, options: list[str], deadline: float, raw):
