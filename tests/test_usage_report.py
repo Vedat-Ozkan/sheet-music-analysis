@@ -81,14 +81,14 @@ def test_report_real_server_calls(tmp_path, monkeypatch):
     assert ran.returncode == 0, ran.stderr
     rows = ran.stdout.splitlines()
     chat = next(row for row in rows if '2026-10-11  ChatGPT' in row)
-    assert 'drafts 1  renders 3  piano 1' in chat
+    assert 'drafts 1  fresh drafts 1  cached drafts 0  renders 3  piano 1  corrections 0' in chat
     assert 'checks 1  part-writing 1' in chat
     assert 'exports 8  downloads 4' in chat
     assert 'limits 0  errors 3  questions 1' in chat
     assert 'views [harmony x2, voice_leading x2]' in chat
     assert 'ranges [1-2 x3, 3-4 x1, all x2]' in chat
     claude_row = next(row for row in rows if '2026-10-12  Claude' in row)
-    assert 'drafts 1  renders 0  piano 0' in claude_row
+    assert 'drafts 1  fresh drafts 1  cached drafts 0  renders 0  piano 0  corrections 0' in claude_row
     assert 'checks 0  part-writing 1' in claude_row
     assert 'limits 1  errors 1' in claude_row
     assert 'views [form x1]' in claude_row and 'ranges [5-6 x1]' in claude_row
@@ -121,7 +121,8 @@ def test_report_pdf_and_legacy_logs(tmp_path):
     fixture.write_text(json.dumps(entries, indent=2))
     ran = run_report(fixture)
     assert ran.returncode == 0, ran.stderr
-    assert 'drafts 1  renders 1  piano 1' in ran.stdout
+    assert 'drafts 1  fresh drafts 0  cached drafts 0  renders 1  piano 1  corrections 0' in ran.stdout
+    assert 'unknown draft cache 1' in ran.stdout
     assert 'pdf reads 2  pages 6  cached 1  busy 1  uncached pages 3' in ran.stdout
     assert 'limits 1  errors 2' in ran.stdout
     assert 'views [all x1]  ranges [all x2]' in ran.stdout
@@ -177,8 +178,11 @@ def test_report_correction_exports(tmp_path, monkeypatch, capsys):
     assert not result.is_error
     count = len(result.structured_content['image_urls'])
     assert count == 1
-    ran = run_report(stdin=capsys.readouterr().out)
+    captured = capsys.readouterr().out
+    (tmp_path / 'correction.jsonl').write_text(captured)
+    ran = run_report(stdin=captured)
     assert ran.returncode == 0, ran.stderr
+    assert 'corrections 1' in ran.stdout
     assert f'exports {count}  downloads 0' in ran.stdout
     assert f'export formats [png x{count}]' in ran.stdout
 
@@ -220,8 +224,90 @@ def test_report_legacy_correction_exports(tmp_path, capsys):
     assert ran.returncode == 0, ran.stderr
     rows = ran.stdout.splitlines()
     chat = next(row for row in rows if '  ChatGPT  ' in row)
+    assert 'corrections 1' in chat
     assert 'exports 0  downloads 0' in chat
-    assert chat.endswith('unknown checks 0  part-writing 0  exports 1')
+    assert chat.endswith('unknown checks 0  part-writing 0  exports 1  unknown draft cache 0')
     for host in ('Claude', 'Other'):
         row = next(row for row in rows if f'  {host}  ' in row)
-        assert row.endswith('unknown checks 0  part-writing 0  exports 0')
+        assert f'corrections {1 if host == "Claude" else 0}' in row
+        assert row.endswith('unknown checks 0  part-writing 0  exports 0  unknown draft cache 0')
+
+
+def test_request_fields_keep_free_text_private(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    score = (ROOT / 'tests/data/part_writing_motion.musicxml').read_bytes()
+    app.store.put('scores/REAL', score)
+    ctx = SimpleNamespace(headers={'user-agent': 'Claude'})
+    private = 'the bars where Anna sings'
+    empty = AnnotationList(annotations=[])
+    bad_position = AnnotationList.model_validate({'annotations': [
+        {'type': 'harmony', 'at': {'measure': 999}, 'label': 'I'},
+    ]})
+
+    async def calls():
+        # Cover every refusal path, including failures before normal validation.
+        for score_id, measure_range, view, annotations in [
+            ('MISSING', private, private, empty),
+            ('REAL', private, private, empty),
+            ('REAL', '1-2', private, bad_position),
+            ('REAL', '1-2', private, empty),
+        ]:
+            await app.render_analysis(ctx, score_id, annotations, measure_range=measure_range, view=view)
+        for score_id, student in [('MISSING', None), ('REAL', None), ('REAL', 'I V I')]:
+            result = await app.draft_analysis(ctx, score_id=score_id, measure_range=private,
+                                              student_analysis=student)
+            assert result.is_error
+        day = app.datetime.now(app.timezone.utc).strftime('%Y-%m-%d')
+        app.store.put(f'usage/{day}.json', json.dumps(app.DAILY_LIMITS).encode())
+        for tool in (app.render_analysis, app.draft_analysis):
+            kwargs = {'annotations': empty, 'view': private} if tool == app.render_analysis else {}
+            result = await tool(ctx, score_id='REAL', measure_range=private, **kwargs)
+            assert result.is_error
+
+    asyncio.run(calls())
+    captured = capsys.readouterr().out
+    payloads = [json.loads(line) for line in captured.splitlines()]
+    fields = [payload for payload in payloads if 'measure_range' in payload or 'view' in payload]
+    assert len(fields) == 9
+    assert private not in captured
+    assert [payload['measure_range'] for payload in fields] == [
+        'invalid', 'invalid', '1-2', '1-2', 'invalid', 'invalid', 'invalid', 'invalid', 'invalid',
+    ]
+    assert all(payload['view'] == 'invalid' for payload in fields if 'view' in payload)
+    assert [payload['event'] for payload in fields] == [
+        'render_analysis', 'render_analysis', 'render_analysis', 'render_analysis',
+        'draft_analysis', 'draft_analysis', 'draft_analysis', 'limit', 'limit',
+    ]
+    assert fields[2]['problems'] and fields[6]['clarification']
+
+
+def test_cached_drafts_are_reported_without_charging_limit(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    score = (ROOT / 'tests/data/part_writing_motion.musicxml').read_bytes()
+    app.store.put('scores/REAL', score)
+    app.store.put('scores/FRESH', score)
+    ctx = SimpleNamespace(headers={'user-agent': 'OpenAI'})
+
+    async def calls():
+        first = await app.draft_analysis(ctx, score_id='REAL', measure_range='1-2')
+        assert not first.is_error
+        day = app.datetime.now(app.timezone.utc).strftime('%Y-%m-%d')
+        usage = f'usage/{day}.json'
+        capped = json.dumps({'draft': app.DAILY_LIMITS['draft']}).encode()
+        app.store.put(usage, capped)
+        cached = await app.draft_analysis(ctx, score_id='REAL', measure_range='1-2')
+        assert not cached.is_error and cached.content == first.content
+        refused = await app.draft_analysis(ctx, score_id='FRESH', measure_range='1-2')
+        assert refused.is_error
+        assert app.store.get(usage) == capped
+
+    asyncio.run(calls())
+    captured = capsys.readouterr().out
+    payloads = [json.loads(line) for line in captured.splitlines()]
+    (tmp_path / 'drafts.jsonl').write_text(captured)
+    assert [payload['cached'] for payload in payloads if payload['event'] == 'draft_analysis'] == [False, True]
+    ran = run_report(stdin=captured)
+    assert ran.returncode == 0, ran.stderr
+    assert 'drafts 2  fresh drafts 1  cached drafts 1' in ran.stdout
+    assert 'limits 1  errors 0' in ran.stdout
+    assert 'unknown draft cache 0' in ran.stdout

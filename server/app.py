@@ -121,6 +121,14 @@ def client_of(headers) -> str:
 
 def log(event: str, **details) -> None:
     """One JSON line per event; Cloud Run keeps stdout as the log. Never log score contents or chat text."""
+    # Refusals can happen before tool validation; keep arbitrary request text out of every log path.
+    if "measure_range" in details:
+        try:
+            parse_measures(details["measure_range"])
+        except ValueError:
+            details["measure_range"] = "invalid"
+    if "view" in details and details["view"] not in ("all", "harmony", "voice_leading", "form"):
+        details["view"] = "invalid"
     print(json.dumps({"timestamp": datetime.now(timezone.utc).isoformat(), "event": event, **details}), file=sys.stdout, flush=True)
 
 
@@ -553,7 +561,7 @@ async def draft_analysis(
         log("draft_analysis", platform=source, error=str(error), mode=mode, measure_range=measure_range)
         return error_result(str(error))
     log("draft_analysis", platform=source, input=given, score_bytes=len(score), measure_range=measure_range,
-        seconds=round(time.time() - started, 1), mode=mode, part_writing="\n\nPART-WRITING CHECK (" in text)
+        seconds=round(time.time() - started, 1), mode=mode, part_writing="\n\nPART-WRITING CHECK (" in text, cached=not fresh)
     return CallToolResult(content=[TextContent(type="text", text=text)])
 
 
@@ -676,7 +684,7 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
     if student_analysis:
         text += "\n\n" + check_analysis.as_text(student, result, index)
     log("draft_from_notes", platform=source, chars_in=len(notes), seconds=round(time.time() - started, 1),
-        mode=mode, part_writing=bool(section))
+        mode=mode, part_writing=bool(section), cached=False)
     return CallToolResult(content=[TextContent(type="text", text=text)])
 
 

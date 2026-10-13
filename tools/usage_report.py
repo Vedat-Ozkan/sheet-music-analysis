@@ -1,14 +1,20 @@
 """Summarize server stdout or Cloud Logging JSON/JSONL by UTC day and host.
 
 Usage: python tools/usage_report.py logs.json (or pipe logs to stdin; '-' also reads stdin).
+Export the last 14 days first:
+    gcloud logging read 'resource.type="cloud_run_revision" AND jsonPayload.event=("draft_analysis" OR "draft_from_notes" OR "render_analysis" OR "read_pdf" OR "correct_bars" OR "limit" OR "download")' --project=sheet-music-analysis --freshness=14d --format=json > logs.json
+
 Accepts the JSON array from gcloud logging read --format=json, JSONL entries,
 or raw server JSON lines. No cloud calls are made. Counts are successful calls;
 piano is a subset of renders, checks a subset of drafts. Part-writing counts
 reports generated, not user acceptance. PDF reads/pages include cached calls;
-uncached pages count reader work.
+uncached pages count reader work. Fresh/cached drafts split successful draft calls;
+older missing cache flags are unknown. Corrections count successful correct_bars
+calls, including calls with no changes.
 Exports count generated files; downloads count successful HTTP file requests
-(including inline PNGs), not confirmed saves. Views/ranges include refused
-requests when logged. Errors count log entries, including optional export failures.
+(including inline PNGs), not confirmed saves. Browser downloads usually appear
+under Other, so their host attribution is not reliable. Views/ranges include
+refused requests when logged. Errors count log entries, including optional export failures.
 Older missing check/part-writing/export fields are shown
 as unknown, never inferred.
 """
@@ -87,6 +93,10 @@ def summarize(entries: list[dict]) -> str:
         elif not failed:
             if event in ('draft_analysis', 'draft_from_notes'):
                 counts['drafts'] += 1
+                if 'cached' not in data:
+                    counts['unknown draft cache'] += 1
+                else:
+                    counts['cached drafts' if data['cached'] else 'fresh drafts'] += 1
                 for field, label in [('mode', 'checks'), ('part_writing', 'part-writing')]:
                     if field not in data:
                         counts[f'unknown {label}'] += 1
@@ -109,6 +119,8 @@ def summarize(entries: list[dict]) -> str:
             elif event == 'download':
                 counts['downloads'] += 1
                 downloads[key][data.get('extension', 'unknown')] += 1
+            elif event == 'correct_bars':
+                counts['corrections'] += 1
         # Publishing files precedes downloading them, including correction previews.
         if not failed:
             for extension in data.get('exports', []):
@@ -119,7 +131,8 @@ def summarize(entries: list[dict]) -> str:
             if event == 'correct_bars' and data.get('changed') and 'exports' not in data:
                 counts['unknown exports'] += 1
     lines = []
-    labels = ('drafts', 'renders', 'piano', 'pdf reads', 'pages', 'cached', 'busy', 'uncached pages',
+    labels = ('drafts', 'fresh drafts', 'cached drafts', 'renders', 'piano', 'corrections',
+              'pdf reads', 'pages', 'cached', 'busy', 'uncached pages',
               'checks', 'part-writing', 'exports', 'downloads', 'limits', 'errors', 'questions')
     for key in sorted(rows):
         counts = rows[key]
@@ -129,6 +142,7 @@ def summarize(entries: list[dict]) -> str:
             line += f'  {label} [' + ', '.join(f'{name} x{count}' for name, count in sorted(values.items())) + ']'
         line += '  unknown checks {0}  part-writing {1}  exports {2}'.format(
             counts['unknown checks'], counts['unknown part-writing'], counts['unknown exports'])
+        line += f"  unknown draft cache {counts['unknown draft cache']}"
         lines.append(line)
     return '\n'.join(lines)
 
