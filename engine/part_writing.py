@@ -13,10 +13,12 @@ Voice = tuple[int, int]
 RANGES = (("C4", "G5"), ("G3", "D5"), ("C3", "G4"), ("F2", "D4"))
 LABELS = {"parallel_fifths": "P5", "parallel_octaves": "P8", "direct_fifths": "H5", "direct_octaves": "H8",
           "voice_crossing": "VC", "voice_overlap": "VO", "spacing": "S", "range": "r",
-          "doubled_leading_tone": "D", "unresolved_seventh": "R", "unresolved_leading_tone": "R"}
-LINES = {"parallel_fifths", "parallel_octaves", "direct_fifths", "direct_octaves"}
-ARROWS = {"unresolved_seventh", "unresolved_leading_tone"}
+          "doubled_leading_tone": "D", "unresolved_seventh": "R", "unresolved_leading_tone": "R", "unequal_fifths": "P5",
+          "unresolved_cadential_tone": "R", "doubled_seventh": "D"}
+LINES = {"parallel_fifths", "parallel_octaves", "direct_fifths", "direct_octaves", "unequal_fifths"}
+ARROWS = {"unresolved_seventh", "unresolved_leading_tone", "unresolved_cadential_tone"}
 BRACKETS = {"spacing"}
+
 
 def _names(voices):
     if len(voices) == 4:
@@ -35,12 +37,17 @@ class Finding:
     why: str
 
 
-def _table(index):
+def _table(index, beat_grid=False):
     voices = sorted({(e.staff, e.layer) for m in index.measures for e in m.events if e.pitch and not e.grace})
     notes, offset = {v: [] for v in voices}, Fraction(0)
     positions = {}
     for m in index.measures:
         positions[offset] = (m.number, 1.0)
+        if beat_grid:
+            for beat in range(int(m.length / m.beat_length) + 1):
+                onset = beat * m.beat_length
+                if onset < m.length:
+                    positions[offset + onset] = (m.number, m.beat_of(onset))
         for e in m.events:
             if e.grace or e.duration <= 0:
                 continue
@@ -80,6 +87,11 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
     result = []
 
     def add(rule, positions, vs, why):
+        severity = ("Serious" if rule in {"parallel_fifths", "parallel_octaves", "unresolved_seventh",
+                                          "unresolved_leading_tone", "unresolved_cadential_tone", "unequal_fifths"}
+                    else "Moderate" if rule in {"direct_fifths", "direct_octaves", "voice_overlap"}
+                    else "Minor")
+        why = f"{severity}: {why}"
         result.append(Finding(tuple(p[0] for p in positions), tuple(p[1] for p in positions), tuple(vs), rule, why))
 
     def pitch(e):
@@ -195,10 +207,13 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                                          reduced.third.pitchClass if reduced.third else None)
             inferred[pos] = (local_key or k, sounding)
 
+    def span_at(pos):
+        here = (index.measure(pos[0]).index, pos[1])
+        return next((c for c in reversed(spans) if (index.measure(c.measure).index, c.beat) <= here), None)
+
     def named(pos, row):
         if spans:
-            here = (index.measure(pos[0]).index, pos[1])
-            span = next((c for c in reversed(spans) if (index.measure(c.measure).index, c.beat) <= here), None)
+            span = span_at(pos)
             if span is None:
                 return None, None
             k = key.Key(key.convertKeyStringToMusic21KeyString(span.key))
@@ -239,6 +254,20 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
         if not spans and len(row) != len(voices):
             continue
         k, c = named(pos, row)
+        seventh = c.seventh if c else None
+        if not spans and c is None and len(row) == len(voices):
+            # A spelled root, third and seventh identifies the omitted-fifth chord without guessing a key.
+            reduced = chord.Chord([pitch(e) for e in row.values() if not decorated(pos, e)])
+            if (len(set(reduced.pitchClasses)) == 3 and reduced.third and reduced.seventh
+                    and reduced.fifth is None
+                    and (reduced.third.pitchClass - reduced.root().pitchClass) % 12 in (3, 4)
+                    and (reduced.seventh.pitchClass - reduced.root().pitchClass) % 12 in (9, 10, 11)):
+                seventh = reduced.seventh.pitchClass
+        if seventh is not None:
+            doubled = [v for v in row if (spans or not decorated(pos, row[v]))
+                       and midi(row[v].pitch) % 12 == seventh]
+            if len(doubled) > 1:
+                add("doubled_seventh", [pos], doubled, f"The chord seventh is doubled in the {' and '.join(name[v] for v in doubled)}; it should appear once.")
         if k and c:
             leading = k.getLeadingTone()
             dominant = c.root == (k.tonic.pitchClass + 7) % 12 and c.third == leading.pitchClass
@@ -250,41 +279,93 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
             if len(doubled) > 1:
                 add("doubled_leading_tone", [pos], doubled, f"The leading tone ({leading.name.replace('-', 'b')}) is doubled, in the {' and '.join(name[v] for v in doubled)}; it should appear once.")
 
-    for row_number, ((before, arow), (after, brow)) in enumerate(zip(rows, rows[1:])):
-        a = {v: es[0] for v, es in arow.items() if len(es) == 1}
-        b = {v: es[0] for v, es in brow.items() if len(es) == 1}
+    def passing_six_three(before, a, after, b):
+        ka, ca = named(before, a)
+        kb, cb = named(after, b)
+        if not spans:
+            source = chord.Chord([pitch(e) for e in a.values()])
+            if source.isTriad() or source.isSeventh():
+                ca = harmony.Chord(source.root().pitchClass, frozenset(source.pitchClasses),
+                                   source.bass().pitchClass, source.seventh.pitchClass if source.seventh else None,
+                                   source.third.pitchClass if source.third else None)
+        if not (kb and ca and cb) or voices[-1] not in a or voices[-1] not in b:
+            return False
+        tonic = kb.tonic.pitchClass
+        if cb.root != tonic or cb.bass != cb.third:
+            return False
+        if not ((ca.root == (tonic + 7) % 12 and ca.bass == (ca.root + 7) % 12 and ca.seventh is not None)
+                or (ca.root == kb.getLeadingTone().pitchClass and ca.bass == ca.third)):
+            return False
+        for pos, row in reversed(sonorities[:next(i for i, (p, _) in enumerate(sonorities) if p == before)]):
+            _, previous = named(pos, row)
+            if previous == ca:
+                continue
+            tones = {midi(e.pitch) % 12 for e in row.values()}
+            opening_tonic = (previous and previous.root == tonic and previous.bass == tonic)
+            if not spans and previous is None and voices[-1] in row:
+                opening_tonic = (midi(row[voices[-1]].pitch) % 12 == tonic
+                                 and {tonic, cb.third} <= tones and tones <= cb.tones)
+            return bool(opening_tonic and voices[-1] in row
+                        and midi(row[voices[-1]].pitch) < midi(a[voices[-1]].pitch) < midi(b[voices[-1]].pitch))
+        return False
+
+    motion_seen = set()
+
+    def motion_pairs(before, a, after, b, beat_only=False):
         for upper, lower in combinations(voices, 2):
             if not all(v in a and v in b for v in (upper, lower)):
                 continue
             au, al, bu, bl = [midi(r[v].pitch) for r, v in ((a, upper), (a, lower), (b, upper), (b, lower))]
             same = (bu - au) * (bl - al) > 0
             quartet = voiceLeading.VoiceLeadingQuartet(pitch(a[upper]), pitch(b[upper]), pitch(a[lower]), pitch(b[lower]))
-            if same:
+            moving = (bu != au and bl != al)
+            if moving:
                 rule = "parallel_fifths" if quartet.parallelFifth() else "parallel_octaves" if quartet.parallelOctave() or quartet.parallelUnison() else None
-                if rule:
-                    add(rule, [before, after], [upper, lower], f"Parallel {'fifths' if rule == 'parallel_fifths' else 'octaves'}: {name[upper]} and {name[lower]} move in the same direction from one {'fifth' if rule == 'parallel_fifths' else 'octave'} to another.")
-                elif (upper, lower) == (voices[0], voices[-1]) and abs(bu - au) > 2:
+                identity = (rule, upper, lower, a[upper].id, a[lower].id, b[upper].id, b[lower].id)
+                if rule and not (beat_only and identity in motion_seen):
+                    motion_seen.add(identity)
+                    add(rule, [before, after], [upper, lower], f"Parallel {'fifths' if rule == 'parallel_fifths' else 'octaves'}: {name[upper]} and {name[lower]} move {'in the same direction' if same else 'by contrary motion'} from one {'fifth' if rule == 'parallel_fifths' else 'octave'} to another.")
+                elif not rule and same and not beat_only and (upper, lower) == (voices[0], voices[-1]) and abs(bu - au) > 2:
                     arrival = interval.Interval(note.Note(pitch(b[lower])), note.Note(pitch(b[upper]))).semiSimpleName
                     if arrival in ("P5", "P8", "P1"):
                         add("direct_fifths" if arrival == "P5" else "direct_octaves", [before, after], [upper, lower], f"Direct {'fifth' if arrival == 'P5' else 'octave'}: soprano and bass arrive at {'a fifth' if arrival == 'P5' else 'an octave'} in the same direction while the soprano leaps.")
-            if voices.index(lower) == voices.index(upper) + 1 and bu >= bl and au >= al and (bu < al or bl > au):
+            if (same and not beat_only
+                    and interval.Interval(note.Note(pitch(a[upper])), note.Note(pitch(b[upper]))).isStep
+                    and interval.Interval(note.Note(pitch(a[lower])), note.Note(pitch(b[lower]))).isStep):
+                departure = interval.Interval(note.Note(pitch(a[lower])), note.Note(pitch(a[upper]))).simpleName
+                arrival = interval.Interval(note.Note(pitch(b[lower])), note.Note(pitch(b[upper]))).simpleName
+                if departure == "d5" and arrival == "P5":
+                    passing = passing_six_three(before, a, after, b)
+                    if lower == voices[-1] or (bu > au and not passing):
+                        add("unequal_fifths", [before, after], [upper, lower], f"Unequal fifths: {name[upper]} and {name[lower]} move from a diminished fifth to a perfect fifth outside the accepted upper-voice passing context.")
+            if not beat_only and voices.index(lower) == voices.index(upper) + 1 and bu >= bl and au >= al and (bu < al or bl > au):
                 add("voice_overlap", [before, after], [upper, lower], f"Voice overlap: {name[upper]} and {name[lower]}. " + (f"The {name[upper]}'s {b[upper].pitch} falls below the {name[lower]}'s previous {a[lower].pitch}." if bu < al else f"The {name[lower]}'s {b[lower].pitch} rises above the {name[upper]}'s previous {a[upper].pitch}."))
+    for row_number, ((before, arow), (after, brow)) in enumerate(zip(rows, rows[1:])):
+        a = {v: es[0] for v, es in arow.items() if len(es) == 1}
+        b = {v: es[0] for v, es in brow.items() if len(es) == 1}
+        motion_pairs(before, a, after, b)
         if not spans and (len(a) != len(voices) or len(b) != len(voices)):
             continue
         ka, ca = named(before, a)
         kb, cb = named(after, b)
         if ca is None:
             continue
-        if cb is None:
+        # An explicit cadential label establishes the obligation even if V is omitted.
+        explicit_cadential = (spans and span_at(before).label == 'Cad64'
+                              and span_at(after).label != 'Cad64')
+        if cb is None and not explicit_cadential:
             arrival = chord.Chord([pitch(e) for e in b.values()])
             if not (arrival.isTriad() or arrival.isSeventh()) or ca.tones == frozenset(p.pitchClass for p in arrival.pitches):
                 continue
+        cadential = explicit_cadential or (ka and ca and cb and ca.root == ka.tonic.pitchClass
+                     and ca.bass == (ca.root + 7) % 12 and cb.root == ca.bass and cb.bass == ca.bass
+                     and cb.third == ka.getLeadingTone().pitchClass)
         for v in voices:
             if v not in a or v not in b:
                 continue
-            if cb is None and a[v].pitch == b[v].pitch:
+            if cb is None and not explicit_cadential and a[v].pitch == b[v].pitch:
                 continue
-            if b[v].id in neighbors and (cb is None or ca.root == cb.root):
+            if not explicit_cadential and b[v].id in neighbors and (cb is None or ca.root == cb.root):
                 continue
             destination, target = after, b[v]
             if a[v].pitch == target.pitch:
@@ -301,9 +382,17 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                             destination, target = later, candidate
                         break
             motion = interval.Interval(note.Note(pitch(a[v])), note.Note(pitch(target)))
+            if cadential and midi(a[v].pitch) % 12 in (ca.root, ca.third):
+                fourth = midi(a[v].pitch) % 12 == ca.root
+                expected = ka.getLeadingTone().pitchClass if fourth else (ca.bass + 7) % 12
+                if motion.directedName not in ("m-2", "M-2") or midi(target.pitch) % 12 != expected:
+                    add("unresolved_cadential_tone", [before, destination], [v], f"The {name[v]}'s cadential six-four tone ({a[v].pitch}) should resolve down by step to the dominant's {'third' if fourth else 'fifth'}; it {'moves to ' + target.pitch if target.pitch != a[v].pitch else 'is held'} instead.")
             if ca.seventh is not None and midi(a[v].pitch) % 12 == ca.seventh and (cb is None or ca.tones != cb.tones):
                 retained = cb is not None and a[v].pitch == b[v].pitch and ca.seventh in cb.tones and cb.seventh != ca.seventh
-                if not retained and motion.directedName not in ("m-2", "M-2"):
+                rising = (kb and cb and ca.root == (kb.tonic.pitchClass + 7) % 12
+                          and ca.bass == (ca.root + 7) % 12 and midi(target.pitch) % 12 == (cb.root + 7) % 12
+                          and motion.directedName in ("m2", "M2") and passing_six_three(before, a, after, b))
+                if not retained and not rising and motion.directedName not in ("m-2", "M-2"):
                     add("unresolved_seventh", [before, destination], [v], f"The {name[v]}'s seventh ({a[v].pitch}) should fall by step; it {'moves to ' + target.pitch if target.pitch != a[v].pitch else 'is held'} instead.")
             if ka and kb and cb and v in (voices[0], voices[-1]):
                 if (not spans and ka.tonic.pitchClass == ca.root and ka != keys.get(before[0])
@@ -315,16 +404,23 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                     ka = kb
                 tonic = ka.tonic.pitchClass
                 retained = a[v].pitch == b[v].pitch and cb.seventh == ka.getLeadingTone().pitchClass
-                if ca.root == (tonic + 7) % 12 and cb.root == tonic and not retained and midi(a[v].pitch) % 12 == ka.getLeadingTone().pitchClass:
+                if (ca.root == (tonic + 7) % 12 or (ca.root == ka.getLeadingTone().pitchClass and {(ca.root + 3) % 12, (ca.root + 6) % 12} <= ca.tones)) and cb.root == tonic and not retained and midi(a[v].pitch) % 12 == ka.getLeadingTone().pitchClass:
                     if motion.directedName != "m2":
-                        add("unresolved_leading_tone", [before, destination], [v], f"The {name[v]}'s leading tone ({a[v].pitch}) should rise to the tonic at V–I; it {'moves to ' + target.pitch if target.pitch != a[v].pitch else 'is held'} instead.")
+                        add("unresolved_leading_tone", [before, destination], [v], f"The {name[v]}'s leading tone ({a[v].pitch}) should rise to the tonic at dominant–tonic; it {'moves to ' + target.pitch if target.pitch != a[v].pitch else 'is held'} instead.")
+    _, _, grid = _table(index, beat_grid=True)
+    beats = [(pos, {v: es[0] for v, es in row.items() if len(es) == 1})
+             for pos, row in grid if float(pos[1]).is_integer()]
+    adjacent = {(before, after) for (before, _), (after, _) in zip(rows, rows[1:])}
+    for (before, a), (after, b) in zip(beats, beats[1:]):
+        if (before, after) not in adjacent:
+            motion_pairs(before, a, after, b, beat_only=True)
     return result
 
 
 def as_text(index: ScoreIndex, chords=None) -> str:
     if not applies(index):
         return ""
-    voices, _, rows = _table(index)
+    voices, _, rows = _table(index, beat_grid=True)
     found = check(index, chords)
     names = _names(voices)
     at = {pos: row for pos, row in rows}

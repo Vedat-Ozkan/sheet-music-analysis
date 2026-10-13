@@ -1,7 +1,7 @@
 # Checking student analysis: input contract and MuseScore export
 
 `engine.check_analysis.from_text` returns sorted `Label(measure, beat, key,
-figure)` objects. `tests/data/check_analysis/typed_inputs.json` specifies 138
+figure)` objects. `tests/data/check_analysis/typed_inputs.json` specifies 144
 complete student answers and their exact expected labels or clarification.
 
 Every answer needs a bar address. After `m1`, `bar 1` or `measure 1`,
@@ -19,8 +19,9 @@ modulation applying from the next numeral. When there are several unaddressed
 keys, those before the first numeral are starting keys and one with no numeral
 after it asks where the change occurs (`m1 I G: m2 I D:`); put it before the
 first chord in the new key (`m3 D: I`).
-Roman-numeral case is preserved: `II` and `ii` name different chords, so a
-student's case error belongs in comparison rather than being auto-corrected.
+Roman-numeral case is preserved: `II` and `ii` keep the student's spelling. Comparison accepts either case
+and gives a separate mild case-slip note rather than a wrong-chord verdict.
+In minor, III/bIII, VI/bVI and VII/bVII are equivalent.
 Mixed case within a numeral (`vIi`, including secondary targets) asks which
 case was intended.
 

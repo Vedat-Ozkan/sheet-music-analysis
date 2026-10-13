@@ -186,3 +186,26 @@ def test_musescore_native_roman_export():
     reviewed = {'annotations': [{'type': 'harmony', 'at': {'measure': item.measure}, 'key': item.key, 'label': item.figure} for item in student]}
     results = check.compare(labels, reviewed, index)
     assert [item['at']['measure'] for item in results if item['is_error']] == [3, 4, 5, 6, 9]
+
+
+@pytest.mark.parametrize('text,expected,note,error', [
+    ('m1 C: v', 'V', True, False),
+    ('m1 C: II6', 'ii6', True, False),
+    ('m1 C: v6', 'V', True, True),
+    ('m1 C: viio7/v', 'viio7/V', True, False),
+    ('m1 c: III', 'bIII', False, False),
+    ('m1 c: bVI', 'VI', False, False),
+    ('m1 c: VII', 'bVII', False, False),
+    ('m1 c: bii', 'bII', True, False),
+    ('m1 C: bIII', 'III', False, True),
+    ('m1 c: viio', 'VII', True, True),
+])
+def test_typed_case_and_minor_conventions(bach, text, expected, note, error):
+    student = check.from_text(text, index=bach)
+    result = check.compare(student, {'annotations': [
+        {'type': 'harmony', 'at': {'measure': 1}, 'key': student[0].key, 'label': expected},
+    ]}, bach)[0]
+    assert result['is_error'] == error
+    assert bool(result.get('notes')) == note
+    if note:
+        assert result['notes'][0].startswith('Mild:')

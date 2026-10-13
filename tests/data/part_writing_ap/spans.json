@@ -1,0 +1,76 @@
+{
+  "unequal_upper_forbidden": [
+    "viio6",
+    "I"
+  ],
+  "unequal_bass_up": [
+    "viio",
+    "I"
+  ],
+  "unequal_bass_down": [
+    "viio",
+    "vi"
+  ],
+  "contrary_fifths": [
+    "I",
+    "IV"
+  ],
+  "contrary_octaves": [
+    "I",
+    "V"
+  ],
+  "beat_to_beat_fifths": [
+    "I",
+    "ii7"
+  ],
+  "cad64_fourth_up": [
+    "Cad64",
+    "V",
+    "I"
+  ],
+  "cad64_sixth_up": [
+    "Cad64",
+    "V",
+    "I"
+  ],
+  "cad64_good": [
+    "Cad64",
+    "V",
+    "I"
+  ],
+  "unresolved_diminished_lt": [
+    "viio6",
+    "I6"
+  ],
+  "doubled_seventh": [
+    "V7",
+    "I"
+  ],
+  "ascending_v43": [
+    "I",
+    "V43",
+    "I6"
+  ],
+  "ascending_v43_minor": [
+    "i",
+    "V43",
+    "i6"
+  ],
+  "ascending_viio6": [
+    "I",
+    "viio6",
+    "I6"
+  ],
+  "descending_d5_p5": [
+    "V7",
+    "vi"
+  ],
+  "p5_d5_up": [
+    "vi",
+    "V7"
+  ],
+  "p5_d5_down": [
+    "I6",
+    "viio6"
+  ]
+}

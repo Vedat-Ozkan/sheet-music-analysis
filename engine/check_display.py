@@ -344,6 +344,13 @@ def draw(layout, results, last_page=True):
                 layout._text(at, y, line, SIZE)
                 bottom = y + 140
                 y += NOTE_LINE
+        # Keep mild feedback with its chord even when the score spans several pages.
+        for _, item in items:
+            for note in item.get('notes', []):
+                for line in _wrap(f"{_span(item['at'], item['at'])}: {note}", system.right - system.left):
+                    layout._text(system.left, y, line, SIZE)
+                    bottom = y + 140
+                    y += NOTE_LINE
         bottom = max(bottom, (second if has_below else first) + 250)
         deficits[system_index] = bottom
     last = max(groups) if groups else None

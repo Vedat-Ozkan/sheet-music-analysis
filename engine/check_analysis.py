@@ -284,6 +284,29 @@ def compare(student: list[Label], reviewed: dict, index: ScoreIndex) -> list[dic
     return compare_labels(student, from_annotations(reviewed), index)
 
 
+def _student_figure(label, expected):
+    def minor_convention(figure, key):
+        # These major numerals name the natural-minor degrees in either convention.
+        if key[0].islower():
+            return re.sub(r'^b(III|VII|VI)(?=$|[^ivIV])', r'\1', figure)
+        return figure
+
+    actual = minor_convention(label.figure, label.key)
+    reference = minor_convention(expected.figure, expected.key)
+    parts, targets = actual.split('/'), reference.split('/')
+    slipped = False
+    if len(parts) == len(targets):
+        for n, (part, target) in enumerate(zip(parts, targets)):
+            a = re.fullmatch(r'([#b-]*)([ivIV]+)(.*)', part)
+            b = re.fullmatch(r'([#b-]*)([ivIV]+)(.*)', target)
+            if a and b and a[2].lower() == b[2].lower() and a[2] != b[2]:
+                parts[n] = a[1] + b[2] + a[3]
+                slipped = True
+    figure = minor_convention('/'.join(parts), label.key)
+    notes = [f"Mild: Roman-numeral case slip: {label.figure}; the reviewed case is {expected.figure}."] if slipped else []
+    return figure, notes
+
+
 def compare_labels(student: list[Label], reference: list[Label], index: ScoreIndex) -> list[dict]:
     student = _finish(student, index)
     numbers = {measure.number for measure in index.measures}
@@ -294,7 +317,9 @@ def compare_labels(student: list[Label], reference: list[Label], index: ScoreInd
         expected = next((item for item in reversed(reference) if (item.measure, item.beat) <= position), None)
         if expected is None:
             raise ValueError(f"No reviewed harmony at bar {label.measure} beat {label.beat:g}")
-        r, s = sounding(expected.key, expected.figure), sounding(label.key, label.figure)
+        figure, notes = _student_figure(label, expected)
+        reference_figure, _ = _student_figure(expected, expected)
+        r, s = sounding(expected.key, reference_figure), sounding(label.key, figure)
         if r is None or s is None:
             raise ValueError(f"Unreadable harmony at bar {label.measure} beat {label.beat:g}")
         agreement = matches(r, s)
@@ -314,6 +339,7 @@ def compare_labels(student: list[Label], reference: list[Label], index: ScoreInd
             'classification': classification,
             'is_error': classification in ('different_key', 'different_chord', 'different_inversion'),
             'matches': agreement,
+            'notes': notes,
         })
     return results
 
@@ -344,7 +370,7 @@ def as_text(student: list[Label], draft, index: ScoreIndex) -> str:
         "STUDENT CHECK (the user gave their own Roman numerals and wants a second reader, not an answer key). "
         "Each line is one of their labels beside the draft's chord at that beat. Start with what they got right. "
         "Explain every difference in terms of the notes (the bass, which pitch classes are present), say plainly "
-        "when both readings are defensible, and count 'same chord different spelling' as agreement. The draft is "
+        "when both readings are defensible, and count 'same chord different spelling' as agreement. Roman-numeral case slips are separate mild notes, not wrong chords. The draft is "
         "right only about half the time: where its confidence is low or it lists a runner-up, or on the weak spots "
         "named in the method, say the reading is a close call instead of claiming the student is wrong.",
         "",
@@ -359,5 +385,6 @@ def as_text(student: list[Label], draft, index: ScoreIndex) -> str:
             f"{expected['key']}: {expected['figure']}{confidence if chord else ''} | "
             f"{chord.bass if chord else ''} | {' '.join(chord.pitches) if chord else ''} | "
             + item['classification'].replace('_', ' ')
+            + ('; ' + ' '.join(item['notes']) if item['notes'] else '')
         )
     return '\n'.join(lines)
