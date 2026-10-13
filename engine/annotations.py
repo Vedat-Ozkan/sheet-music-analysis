@@ -103,6 +103,9 @@ class VoiceLeading(Annotation):
     from_note: NoteRef
     to_note: NoteRef | None = None
     label: str = ""
+    direction: Literal["up", "down"] | None = Field(
+        None, description="An improper-resolution arrow (label R) points the way the note should have gone: up for a "
+        "leading tone, down for a chordal seventh; down when omitted")
 
     @model_validator(mode="after")
     def _needs_to_note(self):

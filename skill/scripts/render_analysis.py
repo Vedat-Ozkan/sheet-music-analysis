@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
-from engine.export import export_musicxml
+from engine.export import export_midi, export_musicxml, export_romantext
 
 VIEWS = ("all", "harmony", "voice_leading", "form")
 
@@ -70,6 +70,20 @@ def main() -> int:
     pdf = args.out_dir / f"{args.name}.pdf"
     pdf.write_bytes(engraving.pdf())
     print(pdf)
+    # Optional extras: a failure in one must not discard the pages or the other files.
+    for suffix, make in (("-worksheet.pdf", lambda: render(score, AnnotationList(annotations=[]), measures=measures, piano=args.piano).pdf()),
+                         (".mid", lambda: export_midi(score, measures)),
+                         (".rntxt", lambda: export_romantext(score, annotations.model_dump(), measures))):
+        path = args.out_dir / f"{args.name}{suffix}"
+        path.unlink(missing_ok=True)
+        try:
+            data = make()
+        except Exception as error:
+            print(f"{path.name} unavailable for this score ({error}).", file=sys.stderr)
+            continue
+        if data:
+            path.write_bytes(data)
+            print(path)
     # Optional export failures must not discard an engraving Verovio already accepted.
     try:
         musicxml = export_musicxml(score, annotations.model_dump())

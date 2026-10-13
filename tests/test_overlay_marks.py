@@ -1,6 +1,7 @@
 """Rings, brackets, lines, key labels, cadence boxes and function brackets as drawn on the page."""
 
 import io
+import json
 import re
 from pathlib import Path
 
@@ -198,10 +199,11 @@ def test_overlap_rings_both_notes_with_one_code_and_no_leader(layouts):
     assert 'stroke-width="20"' not in svg  # no leader line across the lyrics
 
 
-def test_codes_of_rings_on_one_chord_sit_together(chopin):
+def test_each_ring_has_its_own_code_beside_it(chopin):
     svg = _page(chopin, [{"type": "voice_leading", "kind": "ring", "from_note": _ref(1, 1.33, 2, "G3"), "label": "VC"},
                          {"type": "voice_leading", "kind": "ring", "from_note": _ref(1, 1.33, 2, "Eb4"), "label": "r"}]).svgs[0]
-    assert svg.count(">r VC<") == 2 and ">VC<" not in svg  # one group of codes (a halo and the word), not one per note
+    # Each code is a halo and the word itself; a group set apart from the rings left the reader guessing whose it was.
+    assert svg.count(">VC<") == 2 and svg.count(">r<") == 2 and ">r VC<" not in svg
 
 
 def test_direct_octave_word_sits_under_the_lower_voice_when_the_staves_are_apart(layouts):
@@ -250,3 +252,97 @@ def test_cadential_six_four_continues_into_the_next_dominant(chopin):
     assert svg.count(">V<") == 1 and ">cad.<" not in svg and svg.count(">-<") == 2  # V⁶₄ then dashed ⁷₃; no second V
     other = _page(chopin, [items[0], {**items[2], "at": {"measure": 1, "beat": 2}}]).svgs[0]
     assert other.count(">V<") == 1 and ">-<" not in other  # a following chord that is not V keeps its own numeral
+
+
+def _unresolved(direction):
+    score = (Path(__file__).parent / "data/part_writing_bwv336.musicxml").read_bytes()
+    mark = {"type": "voice_leading", "kind": "arrow", "label": "R", "from_note": _ref(2, 3.0, 1, "G#4"),
+            "to_note": _ref(2, 4.0, 1, "C#5"), **({"direction": direction} if direction else {})}
+    return render(score, AnnotationList.model_validate({"annotations": [mark]}), measures=(1, 3)).svgs[0]
+
+
+def test_unresolved_tendency_tone_gets_a_small_arrow_beside_it_pointing_where_it_should_go():
+    up, down = _unresolved("up"), _unresolved("down")
+    for svg, sign in ((up, -1), (down, 1)):
+        shaft = re.search(rf'<line x1="(\d+)" y1="(\d+)" x2="(\d+)" y2="(\d+)" stroke="{ERROR}"', svg)
+        x1, y1, x2, y2 = map(int, shaft.groups())
+        assert x1 == x2 and abs(y2 - y1) < 400  # short and vertical, not a line to the note that follows
+        assert (y2 - y1) * sign > 0  # head end is up for "up", down for "down"
+    assert ">R<" in up  # the code stays at the tail
+
+
+
+# ---- the draft's own marks on real chorales: every code and arrow stands by its own note ----
+
+def _draft_marks(name):
+    """The voice-leading marks the part-writing draft proposes for a real chorale."""
+    from engine.part_writing import as_text
+    from engine.render import load_toolkit
+    from engine.score import ScoreIndex
+
+    score = (DATA / f"part_writing_{name}.musicxml").read_bytes()
+    marks = []
+    for line in as_text(ScoreIndex(load_toolkit(score).getMEI())).splitlines():
+        found = re.match(r'\s+draw (\w+) (\{.*?\})(?: -> (\{.*?\}))?(?: label "([^"]*)")?(?: direction "(\w+)")?$', line)
+        if found:
+            kind, a, b, label, direction = found.groups()
+            marks.append({"type": "voice_leading", "kind": kind, "label": label or "", "from_note": json.loads(a),
+                          **({"to_note": json.loads(b)} if b else {}), **({"direction": direction} if direction else {})})
+    return score, marks
+
+
+@pytest.fixture
+def spied(monkeypatch):
+    """What the ring codes and unresolved arrows were chosen against: the rings, and the page content before each arrow."""
+    seen = {"rings": [], "arrows": []}
+    place, arrow = PageLayout._place_ring_codes, PageLayout._draw_unresolved
+
+    def place_codes(self, rings):
+        seen["rings"] += [(system, ring, labels) for system, ring, labels, _ in rings]
+        return place(self, rings)
+
+    def draw_arrow(self, mark, system, note):
+        before = [box for box in system.content]
+        count = len(list(self.over))
+        arrow(self, mark, system, note)
+        seen["arrows"].append((before, note, list(self.over)[count:]))
+
+    monkeypatch.setattr(PageLayout, "_place_ring_codes", place_codes)
+    monkeypatch.setattr(PageLayout, "_draw_unresolved", draw_arrow)
+    return seen
+
+
+def _gap(a, b):
+    return ((max(a.x - b.right, b.x - a.right, 0)) ** 2 + (max(a.y - b.bottom, b.y - a.bottom, 0)) ** 2) ** 0.5
+
+
+@pytest.mark.parametrize("name, bars", [("bwv418", (11, 11)), ("bwv245.14", (9, 9)), ("bwv102.7", (2, 2)), ("bwv336", (1, 3))])
+def test_each_ring_code_is_nearest_its_own_ring(name, bars, spied, layouts):
+    score, marks = _draft_marks(name)
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=bars)
+    layout = layouts[-1]
+    rings = [(ring, " ".join(labels)) for _, ring, labels in spied["rings"] if labels]
+    assert rings
+    words = [(overlay.Box(float(t.get("x")) - text.width(t.text, overlay.LABEL_SIZE) / 2, float(t.get("y")) - overlay.LABEL_SIZE * 0.75,
+                          text.width(t.text, overlay.LABEL_SIZE), overlay.LABEL_SIZE), t.text)
+             for t in layout.over.iter(f"{overlay.S}text") if t.get("fill") == ERROR]
+    for ring, code in rings:
+        own = [box for box, string in words if string == code and min(rings, key=lambda other: _gap(box, other[0]))[0] is ring]
+        assert own, f"{name} {bars}: no {code!r} stands nearest the ring at {round(ring.cx)},{round(ring.cy)}"
+
+
+@pytest.mark.parametrize("name, bars", [("tendency", (1, 6)), ("bwv102.7", (5, 5)), ("bwv64.4", (12, 12)), ("bwv64.4", (7, 7))])
+def test_unresolved_arrow_stays_by_its_own_note_and_off_other_notes_and_stems(name, bars, spied, layouts):
+    score, marks = _draft_marks(name)
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=bars)
+    assert spied["arrows"]
+    for before, note, drawn in spied["arrows"]:
+        line = next(e for e in drawn if e.tag == f"{overlay.S}line")
+        xs = [float(line.get("x1")), float(line.get("x2"))]
+        ys = [float(line.get("y1")), float(line.get("y2"))]
+        arrow = overlay.Box(min(xs) - 75, min(ys) - 75, max(xs) - min(xs) + 150, max(ys) - min(ys) + 150)
+        others = [box for box in before if box is not note and not (box.width < 100 and box.height < 100)]  # a dot belongs to its note
+        assert not [box for box in others if _gap(box, arrow) < 60], f"{name} {bars}: arrow touches a note or stem"
+        ahead = overlay.Box(arrow.x, arrow.bottom, arrow.width, 400) if float(line.get("y2")) > float(line.get("y1")) else overlay.Box(arrow.x, arrow.y - 400, arrow.width, 400)
+        assert not [box for box in others if box.width > 100 and _gap(box, ahead) == 0], f"{name} {bars}: arrow points at a note"
+        assert _gap(note, arrow) <= 330, f"{name} {bars}: arrow is detached from its note"

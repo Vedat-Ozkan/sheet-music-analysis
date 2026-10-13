@@ -5,28 +5,34 @@
 <style>
   body { margin: 0; font: 14px system-ui, sans-serif; background: #fff; color: #111; }
   img { display: block; width: 100%; height: auto; }
-  #title { margin: 0; padding: 12px 12px 4px; font-size: 15px; font-weight: 600; }
-  #title:empty { display: none; }
   .actions { display: flex; flex-direction: column; gap: 4px; padding: 12px; }
   .actions button { width: 100%; height: 40px; border: 0; border-radius: 20px; font: inherit; font-size: 15px; cursor: pointer; }
   .actions button[hidden] { display: none; }
   #pdf { background: #0d0d0d; color: #fff; }
-  #musicxml { background: none; color: #0d0d0d; }
+  .more { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 0 12px 12px; color: #555; font-size: 13px; }
+  .more[hidden] { display: none; }
+  .more button { width: auto; height: 32px; padding: 0 12px; border: 1px solid #d0d0d0; border-radius: 16px; background: none; color: #0d0d0d; font: inherit; font-size: 13px; cursor: pointer; }
+  .more button[hidden] { display: none; }
 </style>
 </head>
 <body>
-<h1 id="title"></h1>
 <img id="page" alt="Engraved score">
 <div class="actions">
   <button id="pdf">Download PDF</button>
-  <button id="musicxml" hidden>Download MusicXML</button>
+</div>
+<div class="more" id="more" hidden>
+  More downloads
+  <button id="musicxml" hidden>MusicXML</button>
+  <button id="worksheet" hidden>Worksheet</button>
+  <button id="midi" hidden>MIDI</button>
+  <button id="romantext" hidden>RomanText</button>
 </div>
 <script>
   // Minimal MCP Apps view: read-only, shows the rendered page and download buttons.
   let nextId = 1;
   const pending = {};
   let pdfUrl = null;
-  let musicxmlUrl = null;
+  const extras = { musicxml: null, worksheet: null, midi: null, romantext: null };
 
   function send(message) { window.parent.postMessage(message, "*"); }
   function request(method, params) {
@@ -45,9 +51,11 @@
     image.onload = reportSize;
     image.src = data.image_url;
     pdfUrl = data.pdf_url;
-    musicxmlUrl = data.musicxml_url || null;
-    document.getElementById("musicxml").hidden = !musicxmlUrl;
-    document.getElementById("title").textContent = data.title || data.caption || "";
+    for (const name in extras) {
+      extras[name] = data[name + "_url"] || null;
+      document.getElementById(name).hidden = !extras[name];
+    }
+    document.getElementById("more").hidden = !Object.values(extras).some(Boolean);
   }
 
   window.addEventListener("message", (event) => {
@@ -70,7 +78,7 @@
     });
   }
   download("pdf", () => pdfUrl);
-  download("musicxml", () => musicxmlUrl);
+  for (const name in extras) download(name, () => extras[name]);
 
   reportSize();
   new ResizeObserver(reportSize).observe(document.body);
