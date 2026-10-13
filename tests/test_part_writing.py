@@ -339,3 +339,10 @@ def test_local_dominant_requires_key_evidence(name, bar, beats, expected):
     found = any(h.rule == 'unresolved_leading_tone' and h.bars == (bar, bar)
                 and h.beats == beats and h.voices == (S,) for h in check(index))
     assert found == expected
+
+
+@pytest.mark.parametrize('tonic', ['b', 'bb'])
+def test_minor_keys_on_b_are_read_as_keys(tonic):
+    # A draft names B minor "b" and B-flat minor "bb"; neither may be mistaken for a flat sign.
+    index = read(DATA / 'part_writing_bwv244.3.musicxml')
+    check(index, [span(1, 'i', tonic)])

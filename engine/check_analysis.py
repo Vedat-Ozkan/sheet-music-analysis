@@ -189,7 +189,7 @@ def _numeral(harmony: ET.Element, key: str) -> tuple[str, str]:
     if key[0].islower():
         # XML alterations count from natural minor; RomanText has quality-dependent
         # raised vi/vii and flats that count from the major scale instead.
-        local_key = m21key.Key(key.replace('b', '-'))
+        local_key = m21key.Key(m21key.convertKeyStringToMusic21KeyString(key))
         desired = (local_key.pitchFromDegree(degree).pitchClass + alteration) % 12
         for shift in [0] + [n for size in range(1, abs(alteration) + 3) for n in (-size, size)]:
             prefix = '#' * shift if shift > 0 else 'b' * -shift

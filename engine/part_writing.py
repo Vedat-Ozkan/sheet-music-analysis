@@ -231,7 +231,7 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
             span = next((c for c in reversed(spans) if (index.measure(c.measure).index, c.beat) <= here), None)
             if span is None:
                 return None, None
-            k = key.Key(span.key.replace("b", "-"))
+            k = key.Key(key.convertKeyStringToMusic21KeyString(span.key))
             c = harmony.chord(span.key, span.label)
             # Applied dominants have the target's leading tone, not the global key's.
             figure = span.label.replace('/o', 'ø')
