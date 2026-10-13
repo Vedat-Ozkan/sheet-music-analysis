@@ -53,7 +53,7 @@ Excerpts keep only the first N bars (chamber pieces; a whole movement exceeds 12
 |---|---|---|
 | bach-chorale-269 | chorale | ms (2p), vr (1p) |
 | bach-prelude-846 | keyboard | ms (2p), ly (2p) |
-| mozart-k545-1 | keyboard | ms (5p), ly (5p), scan (5p), lilypond-mutopia (5p), real-scan-peters (4p) |
+| mozart-k545-1 | keyboard | ms (5p), ly (4p), scan (5p), lilypond-mutopia (5p), real-scan-peters (4p) |
 | chopin-prelude-4 | keyboard | ms (2p), vr (2p), scan (2p), lilypond-mutopia (1p), real-scan-schirmer (1p) |
 | joplin-maple-leaf-rag | keyboard | ms (4p), ly (4p) |
 | clara-schumann-polonaise-1 | keyboard | ms (3p), vr (2p) |
@@ -78,6 +78,12 @@ Excerpts keep only the first N bars (chamber pieces; a whole movement exceeds 12
 Licences: OpenScore (Lieder, StringQuartets) is CC0. The other files come from the music21 corpus, When-in-Rome and
 musetrainer: the works are public domain but the encodings' licences were NOT individually verified (music21's corpus
 licence says some encodings are non-commercial). Do not redistribute `truth/` or `pdfs/` before checking.
+
+mozart-k545-1's truth has the left-hand clefs of the Peters edition (the encoding kept bass clef in bars 42-45 and
+58-62, where Peters and other editions switch to treble). A clef printed just before a barline is written at the end of
+that bar, as Audiveris reads it. MuseScore draws such a clef after the barline, so its ms/ly/scan PDFs were engraved from
+a copy that writes those four changes (end of bars 21, 41, 57, 62) at the start of the next bar instead
+(`truth/mozart-k545-1-engrave.mxl`, not picked up by `build.py`); the music is the same.
 
 Not built:
 - lehmann-golden-bridges / ly: CalledProcessError: ical objects...\nFinding the ideal numbe
