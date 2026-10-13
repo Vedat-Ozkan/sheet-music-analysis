@@ -24,7 +24,11 @@ def reported():
     found = {}
     paths = {(p.stem if p.suffix in (".mxl", ".xml") else p.name): p for p in corpus.getComposer("bach")}
     for chorale in CHORALES:
-        index = ScoreIndex(load_toolkit(GeneralObjectExporter(corpus.parse(paths[chorale])).parse()).getMEI())
+        if chorale.startswith('fixture:'):
+            data = (Path(__file__).parent / 'data' / chorale.split(':', 1)[1]).read_bytes()
+        else:
+            data = GeneralObjectExporter(corpus.parse(paths[chorale])).parse()
+        index = ScoreIndex(load_toolkit(data).getMEI())
         found[chorale] = {(h.rule, tuple(h.bars), tuple(h.beats), tuple(tuple(v) for v in h.voices)) for h in check(index)} if applies(index) else set()
     return found
 

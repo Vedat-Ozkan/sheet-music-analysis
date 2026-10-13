@@ -73,14 +73,16 @@ def test_planted_tendency_errors():
 
 @pytest.mark.parametrize("name, expected", [
     ("bwv66.6", {
+        ("parallel_octaves", (2, 2), (T, B)),
         ("range", (7,), (A,)),
         ("voice_crossing", (7,), (A, T)),
         ("voice_overlap", (5, 5), (A, T)),
         ("voice_overlap", (4, 4), (T, B)),  # B3 unison: tenor falls to A3.
     }),
-    ("bwv269", {("voice_overlap", (2, 3), (A, T)),
+    ("bwv269", {("unequal_fifths", (8, 8), (S, A)),("voice_overlap", (2, 3), (A, T)),
                 ("voice_overlap", (2, 2), (T, B))}),  # G3 unison: tenor falls to F#3.
     ("bwv244.15", {
+        ("parallel_fifths", (11, 12), (T, B)),
         ("range", (12,), (B,)),
         ("voice_overlap", (4, 4), (A, T)),
         ("direct_octaves", (11, 11), (S, B)),

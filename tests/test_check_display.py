@@ -229,3 +229,33 @@ def test_note_numbers_are_discs_and_key_labels_are_regular_weight():
     svg = render(score, annotations, measures=(1, 8), student_labels=labels).svgs[0]
     assert 'class="note-number"' in svg
     assert not re.search(r'font-weight="bold"[^>]*>[^<]*:</text>', svg)
+
+
+def test_case_slip_is_a_mild_page_note():
+    score, _, index, _ = passage('bach')
+    annotations = AnnotationList.model_validate({'annotations': [
+        {'type': 'harmony', 'at': {'measure': 1}, 'key': 'C', 'label': 'V'},
+    ]})
+    labels = from_text('m1 C: v', index=index)
+    page = render(score, annotations, measures=(1, 1), student_labels=labels)
+    words = ' '.join(ET.fromstring(page.svgs[0]).itertext())
+    assert 'Mild:' in words
+    assert 'Roman-numeral case slip' in words
+    assert 'chord-ring' not in page.svgs[0]
+
+
+def test_case_slip_survives_pagination():
+    score = Path('tests/data/part_writing_bwv245.40.musicxml').read_bytes()
+    index = ScoreIndex(load_toolkit(score).getMEI())
+    annotations = AnnotationList.model_validate({'annotations': [
+        {'type': 'harmony', 'at': {'measure': m.number}, 'key': 'C', 'label': 'V'}
+        for m in index.measures]})
+    labels = from_text('; '.join(f'm{m.number} C: ' + ('v' if n == 0 else 'V')
+                                for n, m in enumerate(index.measures)), index=index)
+    results = compare(labels, annotations.model_dump(exclude_none=True), index)
+    assert results[0]['notes'] and not results[0]['is_error']
+    pages = render(score, annotations, student_labels=labels)
+    assert pages.page_count > 1
+    texts = [' '.join(ET.fromstring(svg).itertext()) for svg in pages.svgs]
+    assert 'Roman-numeral case slip' in texts[0]
+    assert sum(text.count('Roman-numeral case slip') for text in texts) == 1

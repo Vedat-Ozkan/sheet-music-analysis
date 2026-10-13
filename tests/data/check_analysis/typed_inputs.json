@@ -1826,5 +1826,95 @@
     "id": "slash-split-at-spaced",
     "text": "m1 V/ii / V/V",
     "question": "V/ii then V/V"
+  },
+  {
+    "id": "lower-dominant",
+    "text": "m1 C: v",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "v"
+      ]
+    ]
+  },
+  {
+    "id": "upper-supertonic",
+    "text": "m1 C: II6",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "II6"
+      ]
+    ]
+  },
+  {
+    "id": "lower-applied-target",
+    "text": "m1 C: viio7/v",
+    "expected": [
+      [
+        1,
+        1,
+        "C",
+        "viio7/v"
+      ]
+    ]
+  },
+  {
+    "id": "minor-mediant-conventions",
+    "text": "m1 c: III bIII",
+    "expected": [
+      [
+        1,
+        1,
+        "c",
+        "III"
+      ],
+      [
+        1,
+        2,
+        "c",
+        "bIII"
+      ]
+    ]
+  },
+  {
+    "id": "minor-submediant-conventions",
+    "text": "m1 c: VI bVI",
+    "expected": [
+      [
+        1,
+        1,
+        "c",
+        "VI"
+      ],
+      [
+        1,
+        2,
+        "c",
+        "bVI"
+      ]
+    ]
+  },
+  {
+    "id": "minor-subtonic-conventions",
+    "text": "m1 c: VII bVII",
+    "expected": [
+      [
+        1,
+        1,
+        "c",
+        "VII"
+      ],
+      [
+        1,
+        2,
+        "c",
+        "bVII"
+      ]
+    ]
   }
 ]
