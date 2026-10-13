@@ -231,3 +231,24 @@ def test_clean_keeps_real_endings_where_there_are_repeats():
     reading = gzip.decompress((Path(__file__).parent / "data/pdf_warnings/joplin_maple_leaf_rag_reading.musicxml.gz").read_bytes())
     assert reading.count(b"<ending") == 14
     assert clean(zipped(reading)).count(b"<ending") == 14
+
+
+def test_preview_bar_numbers_stay_clear_of_the_system_above():
+    # Joplin, Maple Leaf Rag (PDF reading): bar 33 opens a first ending under a low left-hand note of the system above.
+    # Raised clear of its volta, the number ran into that note's beam; the systems need room for the numbers.
+    score = gzip.decompress((Path(__file__).parent / "data/pdf_warnings/joplin_maple_leaf_rag_reading.musicxml.gz").read_bytes())
+    toolkit = load_toolkit(without_slurs(score), PREVIEW_OPTIONS)
+    index = ScoreIndex(toolkit.getMEI())
+    checked = 0
+    for page in range(1, toolkit.getPageCount() + 1):
+        layout = PageLayout(toolkit.renderToSVG(page), index)
+        above = [list(system.content) for system in layout.systems]
+        before = [len(system.content) for system in layout.systems]
+        number_bars(layout, index)
+        for system, n in zip(layout.systems[1:], before[1:]):
+            for box in system.content[n:]:
+                checked += 1
+                core = Box(box.x + 21, box.y + 21, box.width - 42, box.height - 42)
+                hit = [o for o in above[system.index - 1] if o.x < core.right and o.right > core.x and o.y < core.bottom and o.bottom > core.y]
+                assert not hit, (page, core, hit)
+    assert checked > 30

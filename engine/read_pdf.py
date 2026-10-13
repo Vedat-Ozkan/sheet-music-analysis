@@ -185,7 +185,9 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
 
 # The picture the user checks the reading against. Verovio numbers the first bar of each system; `number_bars` adds the
 # rest in clear spots, so "check bar 12" can be followed without a number printed over a trill, volta or ledger note.
-PREVIEW_OPTIONS = {**tint.BOXES}
+# Verovio spaces the systems for its own marks only; a number raised over a volta needs one and a half staff spaces more
+# (spacingSystem is in half staff spaces; Verovio's default is 4).
+PREVIEW_OPTIONS = {**tint.BOXES, "spacingSystem": 7}
 BAR_NUMBER_SIZE = 500  # ~10 px tall on a 700 px card; 300 was ~6 px
 
 
@@ -231,7 +233,10 @@ def number_bars(layout: PageLayout, index: ScoreIndex) -> None:
         def padded(spot):
             return Box(spot[0] - 20, spot[1] - height * 0.75 - 20, width + 40, height + 40)
 
-        spot = next((s for s in spots if layout._is_free(system, padded(s))), None) or min(spots, key=lambda s: layout._overlap(system, padded(s)))
+        # Raised over a volta or a high note, a number can reach the music hanging below the system above.
+        neighbours = layout.systems[max(system.index - 1, 0) : system.index + 1]
+        spot = next((s for s in spots if all(layout._is_free(n, padded(s)) for n in neighbours)), None) \
+            or min(spots, key=lambda s: sum(layout._overlap(n, padded(s)) for n in neighbours))
         box = layout._text(*spot, string, BAR_NUMBER_SIZE, italic=True)
         layout._reserve(system, box, pad=20)
 
