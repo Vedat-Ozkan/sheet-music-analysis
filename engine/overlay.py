@@ -44,6 +44,10 @@ NCT_NAMES = {
 FUNCTION_SIZE = 400  # about the numeral's size, as MT21C sets its function words
 PHRASE_LETTER_SIZE = NUMERAL_SIZE  # a phrase letter ("a", "a′") is read at the numeral's size
 LABEL_PAD = 55  # clear space kept around every overlay label
+# A line of the hidden room that moves two staves apart (annotate.py): measured on BWV 245.40 bar 5, where a third line
+# moved the staves 363 units apart and a fourth 390 more. Verovio keeps a direction one unit (180) clear above and below
+# (VEROVIO_OPTIONS defaultTopMargin, defaultBottomMargin).
+ROOM_LINE, ROOM_MARGIN = 390, 2 * 180
 
 CONTAINERS = {"system", "measure", "staff", "layer", "chord", "beam", "tuplet", "section", "score"}
 CURVES = {"slur", "tie", "phrase"}
@@ -164,10 +168,12 @@ class PageLayout:
         self.numeral_rows: dict[int, float] = {}  # the lowest figure on each system's numeral row
         self.below_numerals: dict[int, int] = {}  # how many boxes a system held when its numerals were done
         self._words: list[tuple[tuple[str, Box], System]] = []  # fault words drawn so far
-        # Rings, and ring codes, short of room between the staves: (the ringed note, "above" or "below" its staff), the
-        # gap that should open (annotate.py opens it and lays the page out again).
-        self.code_room: list[tuple[Event, str]] = []
+        # Rings, and ring codes, short of room between the staves: (the ringed note, "above" or "below" its staff, lines
+        # of room to add once there is room, lines to ask for the first time), the gap that should open (annotate.py
+        # opens it and lays the page out again).
+        self.code_room: list[tuple[Event, str, int, int]] = []
         self.staff_marks: list[tuple[set[int], Box]] = []  # fermatas and dynamics, with the staves they belong to
+        self.staff_of: dict[int, int] = {}  # id of a box in a system's content -> the staff it is drawn on, where known
         self.stems: dict[str, str] = {}  # note id -> "up" or "down", for the marks that sit opposite the stem
         self._remove("fing")  # fingering is clutter on an analysis page
         self._remove("harm")  # hidden placeholders that made Verovio leave room for the numerals (annotate.py)
@@ -190,10 +196,13 @@ class PageLayout:
 
     # ---- reading Verovio's geometry -------------------------------------------------
 
-    def _visit(self, group: ET.Element, system: System, measure: MeasureGeometry | None) -> None:
+    def _visit(self, group: ET.Element, system: System, measure: MeasureGeometry | None, staff: int | None = None) -> None:
         classes = group.get("class", "").split()
         if "bounding-box" in classes:
             return
+        if "staff" in classes and group.get("data-n", "").isdigit():
+            staff = int(group.get("data-n"))
+        drawn = len(system.content)
         box = self._own_box(group)
         if box and group.get("id"):
             self.boxes[group.get("id")] = box
@@ -223,9 +232,11 @@ class PageLayout:
             measure.lines.append(lines)
             if group.get("data-n", "").isdigit():
                 measure.numbered[int(group.get("data-n"))] = lines
+        if staff is not None:
+            self.staff_of.update((id(box), staff) for box in system.content[drawn:])
         for child in group:
             if child.tag == f"{S}g":
-                self._visit(child, system, measure)
+                self._visit(child, system, measure, staff)
             elif child.tag == f"{S}text":  # text keeps its boxes inside its tspans
                 boxes = list(filter(None, (self._rect_box(rect) for rect in child.iter(f"{S}rect"))))
                 system.content.extend(boxes) if boxes else system.words.extend(self._text_boxes(child))
@@ -787,6 +798,7 @@ class PageLayout:
                 continue
             if mark.kind == "ring":
                 ring = self._draw_ring(system_a, a)
+                self.staff_of[id(system_a.content[-1])] = event.staff  # the ring's reserved box
                 # A ring on a ledger note between the staves can all but touch another staff's marks (BWV 64.4 bar 6:
                 # the alto's ring on the tenor's fermata); the gap then opens.
                 staff = self.measures[event.segment].numbered.get(event.staff)
@@ -795,7 +807,7 @@ class PageLayout:
                     zone = Box(ring.x, ring.y - LABEL_PAD, ring.width, LABEL_PAD) if side == "above" else Box(ring.x, ring.bottom, ring.width, LABEL_PAD)
                     if any(event.staff not in staves and o.x < zone.right and o.right > zone.x and o.y < zone.bottom and o.bottom > zone.y
                            for staves, o in self.staff_marks):
-                        self.code_room.append((event, side))
+                        self.code_room.append((event, side, 1, 1))
                 rings.append((system_a, ring, labels, event))
                 continue
             if mark.kind == "bracket":
@@ -831,7 +843,7 @@ class PageLayout:
             def box_at(spot, pad):
                 return Box(spot[0] - width / 2 - pad, spot[1] - height / 2 - pad, width + 2 * pad, height + 2 * pad)
 
-            def own(spot):
+            def own(spot, skip=lambda other: False):
                 """Nearer its own ring than any other ring or unringed note (clearly so when that is not level with the
                 ring), and not over a barline: a code by another note reads as that note's (decision R)."""
                 box = box_at(spot, 0)
@@ -840,8 +852,10 @@ class PageLayout:
                 # in the same column then competes.
                 heads = [h for h in unringed if h.x < box.right and h.right > box.x] if abs(spot[0] - ring.cx) < 1 else unringed
                 return bar[0] <= box.x and box.right <= bar[1] and all(
-                    (1 if abs(other.cy - ring.cy) < ring.height / 2 else 1.5) * self._gap(box, ring) < self._gap(box, other)
-                    for other in others + heads)
+                    ratio(other) * self._gap(box, ring) < self._gap(box, other) for other in others + heads if not skip(other))
+
+            def ratio(other):
+                return 1 if abs(other.cy - ring.cy) < ring.height / 2 else 1.5
 
             # Spots in order: right, left, above, below, past a fermata, above or below shifted; then just past the
             # nearer edge of the ring's staff.
@@ -890,12 +904,67 @@ class PageLayout:
             spot = next((s for s in spots_at(LABEL_PAD) if usable(s, LABEL_PAD) and off_staff(s)), None)
             if spot is None:
                 if staff:
-                    self.code_room.append((event, nearer))
+                    short, first = self._code_room(system, event, ring, staff, nearer, spots_at(LABEL_PAD), box_at, own, ratio, rings)
+                    if short:
+                        self.code_room.append((event, nearer, short, first))
                 # Less clear space (the rings of a run may leave no more), still off the staves if possible; only then on one.
                 spot = next((s for pad in (LABEL_PAD / 2, 0) for s in spots_at(pad) if usable(s, pad) and off_staff(s)), None) \
                     or next((s for pad in (LABEL_PAD, LABEL_PAD / 2, 0) for s in spots_at(pad) if usable(s, pad)), None) \
                     or self._least_covering(system, spots_at(0), box_at, own)
             self._error_text(system, *spot, word, width, height)
+
+    def _code_room(self, system: System, event: Event, ring: Box, staff: Box, nearer: str, spots: list, box_at, own, ratio,
+                   rings: list) -> tuple[int, int]:
+        """How many lines of room the gap on the ring's side of its staff needs before its code fits off the staff: the
+        lines that move the staves apart by the shortfall, once room is already there; and, the first time, those plus
+        the lines the free space there takes without moving anything. (0, 0) when moving the staves apart would not help
+        (only the same staff's notes are in the way). Room moves only what
+        lies across the gap: the other staff, its notes and rings, and lyrics under the staff above."""
+        lines = [b for b in self.measures[event.segment].lines if (b.bottom < staff.y if nearer == "above" else b.y > staff.bottom)]
+        if not lines:
+            return 1, 0  # past the outer staff there is no staff to move away: one line at a time
+        edge = max(b.bottom for b in lines) if nearer == "above" else min(b.y for b in lines)
+        middle = (edge + staff.y) / 2 if nearer == "above" else (edge + staff.bottom) / 2
+        staves = {**self.staff_of, **{id(r): e.staff for s, r, _, e in rings if s is system}}
+
+        def far(box):
+            if id(box) in staves:
+                return staves[id(box)] != event.staff
+            # Wholly across the middle of the gap; a barline or a stem that spans the gap does not move away.
+            return box.bottom < middle if nearer == "above" else box.y > middle
+
+        near_things = [o for o in system.content if not far(o)] + (system.words if nearer == "below" else [])
+        far_things = [o for o in system.content if far(o)] + (system.words if nearer == "above" else [])
+
+        def meets(a, b):
+            return b.x < a.right and b.right > a.x and b.y < a.bottom and b.bottom > a.y
+
+        # The first spot that only what lies across the gap keeps from being clear.
+        spot = next((c for c in spots if not self._on_staff(system, box_at(c, 0)) and own(c, skip=far)
+                     and not any(meets(box_at(c, LABEL_PAD), o) for o in near_things)), None)
+        if spot is None:
+            return 0, 0
+        box, bare = box_at(spot, LABEL_PAD), box_at(spot, 0)
+        # How far the far side must move: out of the padded box, and far enough that the code is clearly its own ring's.
+        move = [(o.bottom - box.y if nearer == "above" else box.bottom - o.y) for o in far_things if meets(box, o)]
+        mine = self._gap(bare, ring)
+        for other in [r for s, r, _, _ in rings if s is system and r is not ring and far(r)] + [h for h in system.heads if far(h)]:
+            need = ratio(other) * mine + 1
+            if self._gap(bare, other) < need:
+                dx = max(bare.x - other.right, other.x - bare.right, 0)
+                if dx < need:
+                    dy = max(bare.y - other.bottom, other.y - bare.bottom, 0)
+                    move.append(math.sqrt(need * need - dx * dx) - dy)
+        shortfall = max(move, default=0)
+        # Verovio sets the room's lines just past the notes at the ringed note and moves the staves apart only by what
+        # the free space there cannot take, less the margins it keeps round the room.
+        low, high = (edge, staff.y) if nearer == "above" else (staff.bottom, edge)
+        column = [o for o in system.content if o.x < ring.right and o.right > ring.x and low <= o.cy <= high]
+        if nearer == "above":
+            free = min((o.y for o in column if not far(o)), default=staff.y) - max((o.bottom for o in column if far(o)), default=edge)
+        else:
+            free = min((o.y for o in column if far(o)), default=edge) - max((o.bottom for o in column if not far(o)), default=staff.bottom)
+        return math.ceil(shortfall / ROOM_LINE), max(1, math.ceil((shortfall + free - ROOM_MARGIN) / ROOM_LINE))
 
     def _least_covering(self, system: System, spots: list, box_at, own) -> tuple[float, float]:
         """With no clear spot, the one that covers least, and never a notehead, accidental or stem (Gould, Layout: clear

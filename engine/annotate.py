@@ -119,10 +119,13 @@ def render(
 
     slurs.untangle(toolkit, relayout)
     _move_text_off_stems(toolkit, relayout)
+    drawn = None
     if results is not None:
         _make_room_for_checks(toolkit, relayout, index, ties, results)
     else:
-        _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role)
+        drawn = _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role)
+    if drawn:
+        return Engraving([layout.to_svg() for layout in drawn])
     pages = []
     for page in range(1, toolkit.getPageCount() + 1):
         layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
@@ -154,42 +157,50 @@ def _make_room_for_checks(toolkit, relayout, index, ties, results) -> None:
         relayout(check_display.with_room(base, lines, bottom_staff))
 
 
-def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role) -> None:
+def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role) -> list[PageLayout] | None:
     """A part-writing code that finds no clear spot off the staves (text across staff lines is not engraving practice)
     gets the gap beside its staff opened, as an engraver spaces staves to fit what lies between them (Gould): draw once
-    to see which gaps, add a hidden line of room at the ringed note, and lay out again until each code fits."""
+    to see which gaps and how much each is short, add that many hidden lines of room at the ringed note, and lay out
+    again until each code fits. Returns the pages as drawn on the final layout, or None when nothing was drawn."""
     if not any(isinstance(a, VoiceLeading) and a.kind == "ring" and a.label for a in annotations.annotations):
-        return
+        return None
     base = toolkit.getMEI()
     lines: dict[tuple[str, str, int, str], int] = {}
-    failed: set[tuple[str, str, int, str]] = set()
-    for _ in range(7):
-        needs = set()
+    asked: dict[tuple[str, str, int, str], int] = {}  # how many drawings asked for room at each place
+    for _ in range(6):
+        needs: dict[tuple[str, str, int, str], int] = {}
+        layouts = []
         for page in range(1, toolkit.getPageCount() + 1):
             layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
             layout.draw(annotations, view, role)
-            for event, place in layout.code_room:
+            layouts.append(layout)
+            for event, place, short, first in layout.code_room:
                 measure = index.measure(event.measure)
                 segment = next(segment for segment in measure.segments if segment.id == event.segment)
                 unit = int(measure.meter.split("/")[1]) if measure.meter else 4
-                needs.add((segment.id, f"{float(1 + (event.onset - segment.start) * unit / 4):g}", event.staff, place))
-        # The first line or two often fit in space the gap already has. Four lines that did not make the room are not
-        # going to: the code stays where it is, and the gap closes again.
-        given_up = {need for need in needs if lines.get(need, 0) >= 4}
-        grown = needs - given_up - failed
-        failed |= given_up
+                need = (segment.id, f"{float(1 + (event.onset - segment.start) * unit / 4):g}", event.staff, place)
+                # The first request also fills the free space there; after that the room's lines already fill it.
+                more = short if need in lines else first
+                needs[need] = max(needs.get(need, 0), more)
+        # Each code asks for the lines it measured short, all at once; a third drawing still short means the room is not
+        # making the space (Verovio spent it elsewhere), and the gap closes again.
+        grown = {need: more for need, more in needs.items() if asked.get(need, 0) < 2}
+        given_up = [need for need in needs if asked.get(need, 0) == 2]
         if not grown and not given_up:
-            return
-        for need in grown:
-            lines[need] = lines.get(need, 0) + 1
+            return layouts  # drawn on the final layout: render() keeps them
+        for need, more in grown.items():
+            lines[need] = lines.get(need, 0) + more
+            asked[need] = asked.get(need, 0) + 1
         for need in given_up:
             lines.pop(need, None)
+            asked[need] = 3
         mei = base
         for (measure_id, tstamp, staff, place), count in lines.items():
             end = mei.index("</measure>", mei.index(f'xml:id="{measure_id}"'))
             room = f'<dir staff="{staff}" tstamp="{tstamp}" place="{place}" type="analysis-room">-{"<lb/>-" * (count - 1)}</dir>'
             mei = mei[:end] + room + mei[end:]
         relayout(mei)
+    return None
 
 
 def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[int, int] | None) -> tuple[bytes, AnnotationList]:

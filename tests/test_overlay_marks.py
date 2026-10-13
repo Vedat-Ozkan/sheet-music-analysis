@@ -476,3 +476,21 @@ def test_a_ring_code_is_nearer_its_own_ring_than_any_unringed_note(spied, layout
         unringed = [h for h in system.heads if not any(r.x <= h.cx <= r.right and r.y <= h.cy <= r.bottom for r in rings)]
         nearest = min(unringed, key=lambda h: _gap(box, h))
         assert _gap(box, ring) < _gap(box, nearest), f"{string} at {round(box.cx)},{round(box.cy)} stands nearer an unringed note"
+
+
+@pytest.mark.parametrize("name, bars, draws", [("bwv197.5", (8, 14), 1), ("bwv245.40", (0, 28), 2)])
+def test_room_for_codes_opens_in_one_step_and_only_where_it_helps(name, bars, draws, monkeypatch):
+    """Render time: BWV 245.40's gap opened a line per layout (seven drawings), and BWV 197.5 asked for room the tenor's
+    own neighbouring notes kept from helping, then gave it up. The measured shortfall now opens at once, and a gap whose
+    code only the same staff's notes block is not asked to open."""
+    count = [0]
+    original = PageLayout.draw
+
+    def spy(self, *args, **kwargs):
+        count[0] += 1
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(PageLayout, "draw", spy)
+    score, marks = _draft_marks(name)
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=bars)
+    assert count[0] <= draws
