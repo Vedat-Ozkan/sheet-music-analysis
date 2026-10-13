@@ -345,4 +345,22 @@ def test_unresolved_arrow_stays_by_its_own_note_and_off_other_notes_and_stems(na
         assert not [box for box in others if _gap(box, arrow) < 60], f"{name} {bars}: arrow touches a note or stem"
         ahead = overlay.Box(arrow.x, arrow.bottom, arrow.width, 400) if float(line.get("y2")) > float(line.get("y1")) else overlay.Box(arrow.x, arrow.y - 400, arrow.width, 400)
         assert not [box for box in others if box.width > 100 and _gap(box, ahead) == 0], f"{name} {bars}: arrow points at a note"
-        assert _gap(note, arrow) <= 330, f"{name} {bars}: arrow is detached from its note"
+        # Straight off its note it may start just outside the staff (decision S), farther than beside a ledger note.
+        straight = abs(float(line.get("x1")) - note.cx) < 1
+        assert _gap(note, arrow) <= (450 if straight else 330), f"{name} {bars}: arrow is detached from its note"
+
+
+def test_unresolved_arrow_and_its_code_keep_off_the_staff_when_the_side_away_from_the_stem_is_clear(spied, layouts):
+    """BWV 64.4 bar 7: the bass's D3 (middle line, stem up) has nothing below the staff, so the arrow and its R go
+    there, the R at the arrow's tail (decision S), as an articulation outside the staff."""
+    score, marks = _draft_marks("bwv64.4")
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=(7, 7))
+    (_, note, drawn), = spied["arrows"]
+    line = next(e for e in drawn if e.tag == f"{overlay.S}line")
+    code = next(e for e in drawn if e.tag == f"{overlay.S}text" and e.text == "R")
+    staff = next(box for m in layouts[-1].systems[0].measures for box in m.lines if box.y <= note.cy <= box.bottom)
+    y1, y2 = float(line.get("y1")), float(line.get("y2"))
+    assert min(y1, y2) > staff.bottom + overlay.LABEL_PAD, "the arrow sits on the staff"
+    code_y = float(code.get("y")) - overlay.LABEL_SIZE * 0.34
+    assert code_y - overlay.LABEL_SIZE / 2 > staff.bottom + overlay.LABEL_PAD, "the R sits on the staff"
+    assert abs(code_y - y1) < 1, "the R is not at the arrow's tail"

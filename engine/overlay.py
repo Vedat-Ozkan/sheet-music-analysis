@@ -896,7 +896,8 @@ class PageLayout:
         tail. In order of preference, taking the first spot with clear space (nothing within a stretch ahead
         of its head, no stem, note or lyric on it): (1) on the side of the notehead away from the stem, as an
         articulation sits, outside the staff, but no farther than two steps from the note, since a farther arrow
-        belongs to nothing; (2) the same side straight off the notehead, inside the staff; (3) just beside the
+        belongs to nothing; (1b) for a note inside the staff, the same side just outside the staff, straight off the
+        note; (2) the same side straight off the notehead, inside the staff; (3) just beside the
         notehead, on the side away from the stem (right unless the stem is up). With no clear spot, the least crowded."""
         up = mark.direction == "up"
         _, _, event = self.note_box(mark.from_note)
@@ -910,6 +911,18 @@ class PageLayout:
                 near = note.y - distance if side == "above" else note.bottom + distance
                 top = near - length if side == "above" else near
                 placements += [(note.cx, top, top + length, beside, True) for beside in (1, -1)]
+        # A note inside the staff is more than two steps from its edge: the arrow then starts just outside the staff,
+        # still straight off its note, with the code at its tail also clear of the lines (decision S: outside the staff
+        # where possible).
+        staff = next((box for measure in system.measures for box in measure.lines
+                      if box.x <= note.cx <= box.right and box.y <= note.cy <= box.bottom), None)
+        if staff:
+            tail_room, head_room = LABEL_SIZE / 2 + LABEL_PAD + 1, pad + 1
+            if sides[0] == "below":
+                top = staff.bottom + (head_room if up else tail_room)
+            else:
+                top = staff.y - (tail_room if up else head_room) - length
+            placements += [(note.cx, top, top + length, beside, True) for beside in (1, -1)]
         # Next, straight off the notehead away from the stem even where that is inside the staff: still its own note's.
         for shaft in (length, 300):  # shorter when a note lies not far beyond the longer arrow's head
             top = note.y - 110 - shaft if sides[0] == "above" else note.bottom + 110
