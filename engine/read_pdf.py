@@ -269,11 +269,10 @@ def number_bars(layout: PageLayout, index: ScoreIndex) -> float | None:
     return highest
 
 
-def shade(toolkit, score: bytes, spots=None) -> Engraving:
-    """Every page of a toolkit loaded with PREVIEW_OPTIONS, marked as `preview` says. `spots` is `problem_spots(score)`
-    when the caller already has it."""
-    uneven, _ = spots or problem_spots(score)
-    index = ScoreIndex(toolkit.getMEI())
+def fit_top_margin(toolkit, index: ScoreIndex) -> list[PageLayout]:
+    """Number every page's bars and widen the top margin until the first number of each page is clear of the top edge.
+    Returns the numbered layouts. A caller that changes the layout afterwards (the skill's last-page pull-in) calls this
+    first, so the margin does not push bars onto a new page after it."""
     for _ in range(3):
         layouts, highest = [], None
         for page in range(1, toolkit.getPageCount() + 1):
@@ -290,6 +289,17 @@ def shade(toolkit, score: bytes, spots=None) -> Engraving:
             break
         toolkit.setOptions({"pageMarginTop": math.ceil((margin + short) / 10)})
         toolkit.redoLayout()
+    # Still short after the third pass: the layouts drawn before the last redoLayout are kept. They are consistent with
+    # themselves, only with the smaller margin.
+    return layouts
+
+
+def shade(toolkit, score: bytes, spots=None) -> Engraving:
+    """Every page of a toolkit loaded with PREVIEW_OPTIONS, marked as `preview` says. `spots` is `problem_spots(score)`
+    when the caller already has it."""
+    uneven, _ = spots or problem_spots(score)
+    index = ScoreIndex(toolkit.getMEI())
+    layouts = fit_top_margin(toolkit, index)
     for layout in layouts:
         courtesy = _courtesy_x(layout) if uneven else {}
         for number in uneven:

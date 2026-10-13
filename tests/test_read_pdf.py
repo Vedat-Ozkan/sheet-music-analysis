@@ -292,3 +292,16 @@ def test_preview_bar_numbers_at_an_ending_all_sit_above_its_bracket():
                     checked += 1
                     assert baseline < line - 40, f"bar {number} sits under its ending's bracket"
     assert checked >= 4
+
+
+def test_skill_pages_keep_a_short_last_page_pulled_in_with_the_top_margin():
+    """Lehmann "Golden Bridges" (a real reading): the skill pulls a last page of two bars onto the page before, and
+    the top margin the bar numbers need must not push those bars back out (1 page before 142aae8, then 2)."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("skill_read_pdf", Path(__file__).parent.parent / "skill/scripts/read_pdf.py")
+    skill = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(skill)
+    score = without_slurs(gzip.decompress((Path(__file__).parent / "data/pdf_warnings/lehmann_golden_bridges_reading.musicxml.gz").read_bytes()))
+    assert load_toolkit(score, PREVIEW_OPTIONS).getPageCount() == 2  # plain layout: a page of 16 bars and one of 2
+    assert skill.pages(score, problem_spots(score)).page_count == 1

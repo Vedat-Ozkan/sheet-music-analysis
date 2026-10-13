@@ -20,8 +20,9 @@ from pathlib import Path
 
 import verovio
 
-from engine.read_pdf import PREVIEW_OPTIONS, READER, PdfReading, ReadError, notice, problem_spots, read_pdf, shade, without_slurs
+from engine.read_pdf import PREVIEW_OPTIONS, READER, PdfReading, ReadError, fit_top_margin, notice, problem_spots, read_pdf, shade, without_slurs
 from engine.render import VEROVIO_OPTIONS, Engraving, ScoreError, load_toolkit
+from engine.score import ScoreIndex
 
 # Verovio's import warnings (an unmatched slur, say) are for developers; Claude would pass them on to the user.
 verovio.enableLog(False)
@@ -57,6 +58,8 @@ def pages(score: bytes, spots) -> Engraving:
     """Ordinary pages, but a last page of one or two bars is pulled onto the page before it, so no page image
     is nearly empty. The page is made taller a step at a time until the page count drops (at most 1.5 times)."""
     toolkit = load_toolkit(score, PREVIEW_OPTIONS)
+    # The top margin the bar numbers need comes first: set after the pull-in, it pushed the last bars out again.
+    fit_top_margin(toolkit, ScoreIndex(toolkit.getMEI()))
     height = VEROVIO_OPTIONS["pageHeight"]
     count = toolkit.getPageCount()
     while count > 1 and len(re.findall(r'class="measure"', toolkit.renderToSVG(count))) <= 2:
