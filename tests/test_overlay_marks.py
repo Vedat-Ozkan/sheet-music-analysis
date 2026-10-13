@@ -402,7 +402,8 @@ def test_every_fault_code_the_draft_proposes_is_drawn_on_the_whole_chorale(name,
     assert listed and all(drawn[code] >= count for code, count in listed.items()), f"{name}: listed {dict(listed)}, drawn {dict(drawn)}"
 
 
-@pytest.mark.parametrize("name, bars", [("bwv102.7", (2, 2)), ("bwv64.4", None), ("bwv102.7", None), ("bwv418", None), ("bwv245.14", None)])
+@pytest.mark.parametrize("name, bars", [("bwv102.7", (2, 2)), *((name, None) for name in sorted(
+    p.stem.replace("part_writing_", "") for p in (Path(__file__).parent / "data").glob("part_writing_*.musicxml")))])
 def test_no_ring_code_sits_on_a_staff(name, bars, spied, layouts):
     """Text across staff lines is not engraving practice (Gould, text and articulation placement): BWV 102.7 bar 2's
     alto VO sat on the alto's bottom line, and BWV 64.4's tenor VC (bar 6), bass VO (bar 12) and soprano VO (bar 14)
@@ -411,9 +412,12 @@ def test_no_ring_code_sits_on_a_staff(name, bars, spied, layouts):
     from engine.score import ScoreIndex
 
     score, marks = _draft_marks(name)
+    if not any(m["kind"] == "ring" and m["label"] for m in marks):
+        pytest.skip("no ring codes")
     if bars is None:
         index = ScoreIndex(load_toolkit(score).getMEI())
-        bars = (index.measures[0].number, index.measures[-1].number)
+        first, last = index.measures[0].number, index.measures[-1].number
+        bars = (first, min(last, first + 31))  # a page shows at most 32 bars
     render(score, AnnotationList.model_validate({"annotations": marks}), measures=bars)
     layout = layouts[-1]
     codes = {" ".join(labels) for _, _, labels in spied["rings"] if labels}
