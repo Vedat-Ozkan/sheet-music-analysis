@@ -163,7 +163,7 @@ def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role
     base = toolkit.getMEI()
     lines: dict[tuple[str, str, int, str], int] = {}
     failed: set[tuple[str, str, int, str]] = set()
-    for _ in range(5):
+    for _ in range(7):
         needs = set()
         for page in range(1, toolkit.getPageCount() + 1):
             layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
@@ -173,8 +173,9 @@ def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role
                 segment = next(segment for segment in measure.segments if segment.id == event.segment)
                 unit = int(measure.meter.split("/")[1]) if measure.meter else 4
                 needs.add((segment.id, f"{float(1 + (event.onset - segment.start) * unit / 4):g}", event.staff, place))
-        # Two lines that did not make the room are not going to: the code stays where it is, and the gap closes again.
-        given_up = {need for need in needs if lines.get(need, 0) >= 2}
+        # The first line or two often fit in space the gap already has. Four lines that did not make the room are not
+        # going to: the code stays where it is, and the gap closes again.
+        given_up = {need for need in needs if lines.get(need, 0) >= 4}
         grown = needs - given_up - failed
         failed |= given_up
         if not grown and not given_up:
