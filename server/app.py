@@ -121,7 +121,7 @@ def client_of(headers) -> str:
 
 def log(event: str, **details) -> None:
     """One JSON line per event; Cloud Run keeps stdout as the log. Never log score contents or chat text."""
-    print(json.dumps({"event": event, **details}), file=sys.stdout, flush=True)
+    print(json.dumps({"timestamp": datetime.now(timezone.utc).isoformat(), "event": event, **details}), file=sys.stdout, flush=True)
 
 
 async def take(kind: str, source: str, amount: int = 1) -> bool:
@@ -316,17 +316,17 @@ async def render_analysis(
 ) -> CallToolResult:
     source = platform(ctx)
     if not await take("render", source):
-        log("limit", tool="render_analysis", platform=source)
+        log("limit", tool="render_analysis", platform=source, view=view, measure_range=measure_range, piano=piano)
         return error_result(LIMIT_MESSAGE)
     try:
         score, _ = await resolve_score(None, score_id)
         measures = parse_measures(measure_range)
         engraving = await anyio.to_thread.run_sync(lambda: render(score, annotations, measures=measures, view=view, piano=piano))
     except AnnotationError as error:
-        log("render_analysis", platform=source, problems=len(error.problems))
+        log("render_analysis", platform=source, problems=len(error.problems), view=view, measure_range=measure_range, piano=piano)
         return error_result("Fix these annotations and call again:\n" + "\n".join(error.problems))
     except ValueError as error:
-        log("render_analysis", platform=source, error=str(error))
+        log("render_analysis", platform=source, error=str(error), view=view, measure_range=measure_range, piano=piano)
         return error_result(str(error))
     # Optional export failures must not discard an engraving Verovio already accepted.
     musicxml, export_warning = None, None
@@ -343,7 +343,7 @@ async def render_analysis(
     )
     caption = f"Analysis, measures {measure_range}, view {view}" + (", piano reduction" if piano else "")
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
-        view=view, measure_range=measure_range)
+        view=view, measure_range=measure_range, exports=["png", "pdf"] + (["musicxml"] if musicxml is not None else []))
     structured_content = {"image_url": image_url, "pdf_url": pdf_url, "caption": caption}
     if musicxml_url:
         structured_content["musicxml_url"] = musicxml_url
@@ -438,7 +438,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
     )
     caption = "What I read from your PDF, every bar"
     log("read_pdf", platform=source, pages=reading["pages"], seconds=round(time.time() - started, 1),
-        scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached), keep_slurs=keep_slurs)
+        scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached), keep_slurs=keep_slurs, exports=["png", "pdf"])
     text = (
         f"score_id: {score_id}\n"
         f"The card shows the user every bar of the engraved score read from their {reading['pages']}-page PDF, in one "
@@ -527,6 +527,7 @@ async def draft_analysis(
 ) -> CallToolResult:
     """measure_range limits the table, e.g. "1-8"; the default "all" returns the whole piece."""
     source = platform(ctx)
+    mode = "check" if student_analysis else "analysis"
     started = time.time()
     try:
         score, given = await resolve_score(score_file, score_id)
@@ -542,16 +543,17 @@ async def draft_analysis(
             fresh = True
         # Only a new model run counts toward the limit; re-reading a cached draft is cheap.
         if fresh and not await take("draft", source):
-            log("limit", tool="draft_analysis", platform=source)
+            log("limit", tool="draft_analysis", platform=source, mode=mode, measure_range=measure_range)
             return error_result(LIMIT_MESSAGE)
         text = await anyio.to_thread.run_sync(make_draft, score, code, parse_measures(measure_range), student_analysis)
     except check_analysis.ClarificationNeeded as error:
+        log("draft_analysis", platform=source, mode=mode, measure_range=measure_range, clarification=True, error="clarification_needed")
         return error_result(error.question)
     except (ScoreError, PositionError, ValueError, draft.DraftError, httpx.HTTPError) as error:
-        log("draft_analysis", platform=source, error=str(error))
+        log("draft_analysis", platform=source, error=str(error), mode=mode, measure_range=measure_range)
         return error_result(str(error))
     log("draft_analysis", platform=source, input=given, score_bytes=len(score), measure_range=measure_range,
-        seconds=round(time.time() - started, 1))
+        seconds=round(time.time() - started, 1), mode=mode, part_writing="\n\nPART-WRITING CHECK (" in text)
     return CallToolResult(content=[TextContent(type="text", text=text)])
 
 
@@ -607,7 +609,7 @@ async def correct_bars(
     except (correct.CorrectionError, ScoreError, PositionError) as error:
         log("correct_bars", platform=source, error=str(error))
         return error_result("Fix the replacement bars and call correct_bars again: " + str(error))
-    log("correct_bars", platform=source, changed=len(review.changed_bars), pages=len(pages))
+    log("correct_bars", platform=source, changed=len(review.changed_bars), pages=len(pages), exports=["png"] * len(urls))
     descriptions = list(review.notes.values())
     text = (
         f"score_id: {code}\n" + "\n".join(descriptions)
@@ -641,16 +643,19 @@ async def correct_bars(
 )
 async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | None = None) -> CallToolResult:
     source = platform(ctx)
+    mode = "check" if student_analysis else "analysis"
     try:
         # Reading the grammar needs no score, so a question costs the user nothing against the limit.
         if student_analysis:
             check_analysis.student_labels(student_analysis, None, None)
     except check_analysis.ClarificationNeeded as error:
+        log("draft_from_notes", platform=source, mode=mode, clarification=True, error="clarification_needed")
         return error_result(error.question)
     except ValueError as error:
+        log("draft_from_notes", platform=source, mode=mode, error=str(error))
         return error_result(str(error))
     if not await take("draft", source):
-        log("limit", tool="draft_from_notes", platform=source)
+        log("limit", tool="draft_from_notes", platform=source, mode=mode)
         return error_result(LIMIT_MESSAGE)
     started = time.time()
     try:
@@ -659,31 +664,37 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         if student_analysis:
             student = check_analysis.student_labels(student_analysis, None, index)
     except check_analysis.ClarificationNeeded as error:
+        log("draft_from_notes", platform=source, mode=mode, clarification=True, error="clarification_needed")
         return error_result(error.question)
     except (note_list.NotesError, draft.DraftError, PositionError, ValueError) as error:
-        log("draft_from_notes", platform=source, error=str(error), chars=len(notes))
+        log("draft_from_notes", platform=source, error=str(error), chars=len(notes), mode=mode)
         return error_result(str(error))
     text = draft.as_text(result)
-    if section := part_writing.as_text(index, result.chords):
+    section = part_writing.as_text(index, result.chords)
+    if section:
         text += "\n\n" + section
     if student_analysis:
         text += "\n\n" + check_analysis.as_text(student, result, index)
-    log("draft_from_notes", platform=source, chars_in=len(notes), seconds=round(time.time() - started, 1))
+    log("draft_from_notes", platform=source, chars_in=len(notes), seconds=round(time.time() - started, 1),
+        mode=mode, part_writing=bool(section))
     return CallToolResult(content=[TextContent(type="text", text=text)])
 
 
 @mcp.custom_route("/files/{name}", methods=["GET"])
 async def files(request: Request) -> Response:
     name = request.path_params["name"]
+    source = client_of(request.headers if "headers" in request.scope else None)
     data = None
     if re.fullmatch(r"[A-Za-z0-9_-]+\.(png|pdf|musicxml)", name):
         data = await anyio.to_thread.run_sync(store.get, f"files/{name}")
     if data is None:
+        log("download", platform=source, status=404)
         return Response("This file has expired; pages are kept for one day.", status_code=404)
     media_types = {"png": "image/png", "pdf": "application/pdf", "musicxml": "application/vnd.recordare.musicxml+xml"}
     extension = name.rsplit(".", 1)[1]
     # An uploaded score can carry scripts into the export, so files download in a sandbox instead of rendering;
     # page images stay inline so an image link opens in the browser.
+    log("download", platform=source, status=200, extension=extension)
     disposition = "inline" if extension == "png" else "attachment"
     return Response(data, media_type=media_types[extension], headers={
         "Content-Disposition": f'{disposition}; filename="analysis.{extension}"',
