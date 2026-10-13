@@ -252,3 +252,43 @@ def test_preview_bar_numbers_stay_clear_of_the_system_above():
                 hit = [o for o in above[system.index - 1] if o.x < core.right and o.right > core.x and o.y < core.bottom and o.bottom > core.y]
                 assert not hit, (page, core, hit)
     assert checked > 30
+
+
+def _number_texts(svg: str) -> list[tuple[str, float, float]]:
+    """The preview's bar numbers as drawn: (number, x, baseline)."""
+    return [(n, float(x), float(y)) for x, y, n in re.findall(r'<text x="([-\d.]+)" y="([-\d.]+)"[^>]*font-size="500px"[^>]*font-style="italic"[^>]*>(\d+)</text>', svg)]
+
+
+@pytest.mark.parametrize("reading", ["joplin_maple_leaf_rag_reading", "mozart_k545_scan_reading"])
+def test_preview_bar_numbers_keep_clear_of_the_top_edge_of_every_page(reading):
+    # Pages 2 and later started with their first number at the very top of the image (Joplin p2 "36", K.545 p2):
+    # Verovio's top margin holds its own small system-start number, not ours.
+    score = without_slurs(gzip.decompress((Path(__file__).parent / f"data/pdf_warnings/{reading}.musicxml.gz").read_bytes()))
+    engraving = preview(score)
+    assert engraving.page_count > 1
+    for page, svg in enumerate(engraving.svgs, 1):
+        margin = float(re.search(r'class="page-margin" transform="translate\([-\d.]+, ([-\d.]+)\)"', svg).group(1))
+        numbers = _number_texts(svg)
+        assert numbers
+        highest = min(numbers, key=lambda n: n[2])
+        top = margin + highest[2] - 500 * 0.75  # from the page's top edge to the top of the number
+        assert top >= 0.025 * 21000, f"page {page}: bar {highest[0]} is {top:.0f} units from the top edge"  # the PNG's own margin
+
+
+def test_preview_bar_numbers_at_an_ending_all_sit_above_its_bracket():
+    # Joplin: bar 33's number stood above the first-ending bracket, but 34's and 67's under it beside the bold "2".
+    # One place for all, above the bracket, where bar numbers stand at the top of the system (Gould, Bar numbers).
+    score = without_slurs(gzip.decompress((Path(__file__).parent / "data/pdf_warnings/joplin_maple_leaf_rag_reading.musicxml.gz").read_bytes()))
+    checked = 0
+    for svg in preview(score).svgs:
+        brackets = []
+        for group in re.findall(r'<g class="voltaBracket">(.*?)</g>', svg, re.S):
+            points = [(float(x), float(y)) for x, y in re.findall(r'M([-\d.]+) ([-\d.]+) L', group)]
+            ends = [float(x) for x in re.findall(r'L([-\d.]+) [-\d.]+', group)]
+            brackets.append((min(x for x, _ in points), max(ends), min(y for _, y in points)))
+        for number, x, baseline in _number_texts(svg):
+            for left, right, line in brackets:
+                if left - 100 <= x <= right and abs(baseline - line) < 1200:  # this system's bracket
+                    checked += 1
+                    assert baseline < line - 40, f"bar {number} sits under its ending's bracket"
+    assert checked >= 4

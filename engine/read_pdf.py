@@ -189,6 +189,9 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
 # (spacingSystem is in half staff spaces; Verovio's default is 4).
 PREVIEW_OPTIONS = {**tint.BOXES, "spacingSystem": 7}
 BAR_NUMBER_SIZE = 500  # ~10 px tall on a 700 px card; 300 was ~6 px
+# Between the top edge of a page and its highest bar number: at least the margin the PNG and PDF keep round the music
+# (2.5% of the width, 525 units on these A4-wide pages), or the image starts at the number.
+TOP_CLEARANCE = 3 * tint.SPACE
 
 
 def preview(score: bytes, tall: bool = False, spots=None) -> Engraving:
@@ -212,12 +215,29 @@ def _courtesy_x(layout: PageLayout) -> dict[str, float]:
     return found
 
 
-def number_bars(layout: PageLayout, index: ScoreIndex) -> None:
-    """A number above every bar after the first, raised until it is clear of the music."""
+def _ending_brackets(layout: PageLayout) -> list[Box]:
+    """Each first/second-ending bracket, from its line down to the ends of its hooks: Verovio gives a box only for its
+    digit, so a number could stand under the line beside the digit."""
+    found = []
+    for group in layout.root.iter(f"{S}g"):
+        if group.get("class") == "voltaBracket":
+            points = [(float(x), float(y)) for path in group.findall(f"{S}path")
+                      for x, y in re.findall(r"[ML]([-\d.]+) ([-\d.]+)", path.get("d", ""))]
+            if points:
+                xs, ys = [x for x, _ in points], [y for _, y in points]
+                found.append(Box(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys)))
+    return found
+
+
+def number_bars(layout: PageLayout, index: ScoreIndex) -> float | None:
+    """A number above every bar after the first, raised until it is clear of the music. Returns the top of the highest
+    number on the page (None if there is none)."""
     # Verovio's own numbers (first bar of each system) are small and fixed; every number is drawn here, the same size.
     for parent in list(layout.root.iter()):
         for child in [c for c in parent if "mNum" in (c.get("class") or "").split()]:
             parent.remove(child)
+    brackets = _ending_brackets(layout)
+    highest = None
     for measure in index.measures:
         geometry = layout.measures.get(measure.segments[0].id)
         if geometry is None or measure.number < 2:
@@ -226,19 +246,27 @@ def number_bars(layout: PageLayout, index: ScoreIndex) -> None:
         string = str(measure.number)
         width, height = text.width(string, BAR_NUMBER_SIZE), BAR_NUMBER_SIZE
         top = min(box.y for box in geometry.lines)
-        # Gould (Behind Bars): above the top staff at the barline, raised clear of what is there. Never sideways, where
-        # a number beside noteheads reads as a fingering or tuplet number.
+        # Gould (Behind Bars): above the top staff at the barline, raised clear of what is there, and so above an
+        # ending's bracket as well. Never sideways, where a number beside noteheads reads as a fingering or tuplet number.
         spots = [(geometry.x0 + 60, top - 90 - rise) for rise in range(0, 2400, 100)]
 
         def padded(spot):
             return Box(spot[0] - 20, spot[1] - height * 0.75 - 20, width + 40, height + 40)
 
+        # This system's brackets: a number is either above the line or would be inside the ending, under it.
+        over = [b for b in brackets if top - 2400 < b.y < top]
+
+        def clear_of_brackets(box):
+            return not any(b.x < box.right and b.right > box.x and box.bottom > b.y for b in over)
+
         # Raised over a volta or a high note, a number can reach the music hanging below the system above.
         neighbours = layout.systems[max(system.index - 1, 0) : system.index + 1]
-        spot = next((s for s in spots if all(layout._is_free(n, padded(s)) for n in neighbours)), None) \
+        spot = next((s for s in spots if clear_of_brackets(padded(s)) and all(layout._is_free(n, padded(s)) for n in neighbours)), None) \
             or min(spots, key=lambda s: sum(layout._overlap(n, padded(s)) for n in neighbours))
         box = layout._text(*spot, string, BAR_NUMBER_SIZE, italic=True)
         layout._reserve(system, box, pad=20)
+        highest = box.y if highest is None else min(highest, box.y)
+    return highest
 
 
 def shade(toolkit, score: bytes, spots=None) -> Engraving:
@@ -246,10 +274,23 @@ def shade(toolkit, score: bytes, spots=None) -> Engraving:
     when the caller already has it."""
     uneven, _ = spots or problem_spots(score)
     index = ScoreIndex(toolkit.getMEI())
-    layouts = []
-    for page in range(1, toolkit.getPageCount() + 1):
-        layout = PageLayout(toolkit.renderToSVG(page), index)
-        number_bars(layout, index)
+    for _ in range(3):
+        layouts, highest = [], None
+        for page in range(1, toolkit.getPageCount() + 1):
+            layout = PageLayout(toolkit.renderToSVG(page), index)
+            top = number_bars(layout, index)
+            if top is not None:
+                highest = top if highest is None else min(highest, top)
+            layouts.append(layout)
+        # Verovio's top margin holds its own small system-start number; ours is larger, so the first system of a page
+        # can need more margin to keep its number off the top edge.
+        margin = toolkit.getOptions()["pageMarginTop"] * 10  # option units are a tenth of the SVG's
+        short = TOP_CLEARANCE - (margin + highest) if highest is not None else 0
+        if short <= 0:
+            break
+        toolkit.setOptions({"pageMarginTop": math.ceil((margin + short) / 10)})
+        toolkit.redoLayout()
+    for layout in layouts:
         courtesy = _courtesy_x(layout) if uneven else {}
         for number in uneven:
             for segment in index.measure(number).segments:
@@ -261,7 +302,6 @@ def shade(toolkit, score: bytes, spots=None) -> Engraving:
                     right = courtesy.get(segment.id, geometry.x1)
                     tint.tint(layout, Box(geometry.x0, top, right - geometry.x0, bottom - top),
                               tint.FLAG_BAR, tint.FLAG_OPACITY, radius=0)
-        layouts.append(layout)
     return tint.finish(layouts)
 
 
