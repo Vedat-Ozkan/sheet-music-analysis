@@ -590,9 +590,10 @@ class PageLayout:
         banded = set(banded)
         for system_index, labels in by_system.items():
             # A cadential six-four's V goes on as ⁵₃ (or ⁷₃) over the next chord, not as a second "V" (FFF, OMT).
+            # ABRSM-style analysis reads it as Ic, a tonic chord, followed by its own V ("Ic-Va", MyMusicTheory).
             key = key_at_start[system_index]
             for position, (centre, harmony) in enumerate(labels):
-                if position and re.fullmatch(r"(?i)cad6/?4", labels[position - 1][1].label) and harmony.label in ("V", "V7") \
+                if style != "abrsm" and position and re.fullmatch(r"(?i)cad6/?4", labels[position - 1][1].label) and harmony.label in ("V", "V7") \
                         and (harmony.key or labels[position - 1][1].key or key) == (labels[position - 1][1].key or key):
                     joined = harmony.model_copy(update={"label": "~53" if harmony.label == "V" else "~73"})
                     if id(harmony) in banded:

@@ -254,6 +254,17 @@ def test_cadential_six_four_continues_into_the_next_dominant(chopin):
     assert other.count(">V<") == 1 and ">-<" not in other  # a following chord that is not V keeps its own numeral
 
 
+
+def test_abrsm_style_writes_the_cadential_six_four_as_ic_then_v(chopin):
+    """ABRSM-style analysis names the cadential six-four Ic and the dominant that follows V (MyMusicTheory, Grade 6:
+    "Cadential 6/4 = Ic-Va"); the ⁷₃ continuation figures belong to the V⁶₄ reading and must not follow an Ic."""
+    items = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "Cad64", "key": "Eb"},
+             {"type": "harmony", "at": {"measure": 1, "beat": 2}, "label": "V7"},
+             {"type": "harmony", "at": {"measure": 2, "beat": 1}, "label": "I"}]
+    page = render(chopin, AnnotationList.model_validate({"annotations": items, "style": "abrsm"}), measures=(1, 8))
+    svg = page.svgs[0]
+    assert ">-<" not in svg and svg.count(">V<") == 1
+
 def _unresolved(direction):
     score = (Path(__file__).parent / "data/part_writing_bwv336.musicxml").read_bytes()
     mark = {"type": "voice_leading", "kind": "arrow", "label": "R", "from_note": _ref(2, 3.0, 1, "G#4"),

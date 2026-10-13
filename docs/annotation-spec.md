@@ -20,7 +20,7 @@ The optional top-level `style` selects notation for the whole list:
 | Value | Drawn as |
 |---|---|
 | `current` (default) | Existing raised or stacked inversion figures; omitting `style` preserves the existing output. |
-| `abrsm` | Inversion letters: `I6` → `Ib`, `V64` → `Vc`, `V65` → `V7b`. Root-position `a` is omitted; seventh-chord quality, secondary targets and text suffixes remain. |
+| `abrsm` | Inversion letters: `I6` → `Ib`, `V64` → `Vc`, `V65` → `V7b`. Root-position `a` is omitted; seventh-chord quality, secondary targets and text suffixes remain. `Cad64` is `Ic`, and the V that follows keeps its own numeral (`Ic V7`), as ABRSM teaching writes it. |
 | `figured_bass` | Roman roots with a separate figure stack alongside them under the bottom bass staff (Piston style). Figures include accidentals relative to the active key; root-position 5/3 is omitted unless altered. |
 
 For `figured_bass`, set `key` on the first harmony and at every key change. Keys carry forward in musical order, including from before a selected passage. A missing or invalid active key is an annotation error; the renderer does not infer major or minor from the signature. Bass accidentals belong on the score's notes, not in the figure stack. Chord symbols and unsupported Roman extensions retain their existing display. Text suffixes such as `4–3` remain free text beside the figures.
