@@ -375,3 +375,21 @@ def test_unresolved_arrow_and_its_code_keep_off_the_staff_when_the_side_away_fro
     code_y = float(code.get("y")) - overlay.LABEL_SIZE * 0.34
     assert code_y - overlay.LABEL_SIZE / 2 > staff.bottom + overlay.LABEL_PAD, "the R sits on the staff"
     assert abs(code_y - y1) < 1, "the R is not at the arrow's tail"
+
+
+@pytest.mark.parametrize("name", ["bwv64.4", "bwv102.7", "bwv418", "bwv245.14"])
+def test_every_fault_code_the_draft_proposes_is_drawn_on_the_whole_chorale(name, layouts):
+    """A fault mark must never vanish: drawn over the whole chorale, every code the draft lists (BWV 64.4: both "R"
+    arrows, bar 7's and bar 12's under callout 8's disc and fermata) stands on the page as often as it is listed."""
+    from collections import Counter
+
+    from engine.render import load_toolkit
+    from engine.score import ScoreIndex
+
+    score, marks = _draft_marks(name)
+    index = ScoreIndex(load_toolkit(score).getMEI())
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=(index.measures[0].number, index.measures[-1].number))
+    listed = Counter(m["label"] for m in {json.dumps(m, sort_keys=True): m for m in marks if m["label"]}.values())
+    # The codes of one ring are set together ("r VC").
+    drawn = Counter(code for t in layouts[-1].over.iter(f"{overlay.S}text") if t.get("fill") == ERROR for code in t.text.split())
+    assert listed and all(drawn[code] >= count for code, count in listed.items()), f"{name}: listed {dict(listed)}, drawn {dict(drawn)}"
