@@ -103,6 +103,23 @@ def test_warning_signals_preserve_haydn_reading_selection():
     assert 1 in problem_spots(reading.musicxml)[0]
 
 
+def test_a_reading_that_dropped_notes_is_not_chosen_for_having_fewer_problem_bars():
+    folder = Path(__file__).parent / 'data/pdf_warnings/hensel_vr'
+    variants = [gzip.open(folder / f'setting{i}.mxl.gz').read() for i in range(3)]
+
+    def pitched(score):
+        return sum(1 for note in ET.fromstring(score).iter('note') if note.find('pitch') is not None)
+
+    def raw(data, audiveris, options, deadline):
+        return variants[SETTINGS.index(options)], []
+
+    # Real Audiveris readings of Hensel's Nachtwanderer (Verovio engraving): setting 0 has the fewest problem bars
+    # but lost about a fifth of the notes, which setting 1 kept.
+    counts = [pitched(clean(variant)) for variant in variants]
+    reading = read_pdf((folder / 'hensel_vr.pdf').read_bytes(), raw=raw)
+    assert pitched(reading.musicxml) >= 0.95 * max(counts)
+
+
 def test_fractional_durations_do_not_backup_before_the_bar():
     score = (Path(__file__).parent / 'data/pdf_warnings/fractional_durations.musicxml').read_bytes()
     assert problem_spots(score) == ([], False)
