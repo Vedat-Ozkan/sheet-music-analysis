@@ -162,6 +162,10 @@ class PageLayout:
         self.numeral_rows: dict[int, float] = {}  # the lowest figure on each system's numeral row
         self.below_numerals: dict[int, int] = {}  # how many boxes a system held when its numerals were done
         self._words: list[tuple[tuple[str, Box], System]] = []  # fault words drawn so far
+        # Rings, and ring codes, short of room between the staves: (the ringed note, "above" or "below" its staff), the
+        # gap that should open (annotate.py opens it and lays the page out again).
+        self.code_room: list[tuple[Event, str]] = []
+        self.staff_marks: list[tuple[set[int], Box]] = []  # fermatas and dynamics, with the staves they belong to
         self.stems: dict[str, str] = {}  # note id -> "up" or "down", for the marks that sit opposite the stem
         self._remove("fing")  # fingering is clutter on an analysis page
         self._remove("harm")  # hidden placeholders that made Verovio leave room for the numerals (annotate.py)
@@ -191,6 +195,8 @@ class PageLayout:
         box = self._own_box(group)
         if box and group.get("id"):
             self.boxes[group.get("id")] = box
+        if box and group.get("data-staff"):
+            self.staff_marks.append(({int(n) for n in group.get("data-staff").split() if n.isdigit()}, box))
         if "note" in classes or "chord" in classes:
             system.content.extend(self._read_stem(group))
         if CURVES & set(classes):
@@ -761,18 +767,28 @@ class PageLayout:
                 pairs.setdefault((first.segment, first.onset, second.segment, second.onset), []).append(entry)
         shared = {id(entry): group for group in pairs.values() if len(group) == 2 for entry in group}
         done: set[int] = set()
-        rings: list[tuple[System, Box, list[str], tuple]] = []  # words are placed once every other mark is down
+        rings: list[tuple[System, Box, list[str], Event]] = []  # words are placed once every other mark is down
         for entry in entries:
             mark, labels = entry
             if id(entry) in done:
                 continue
             try:
-                system_a, a, _ = self.note_box(mark.from_note)
+                system_a, a, event = self.note_box(mark.from_note)
                 system_b, b, _ = self.note_box(mark.to_note) if mark.to_note else (system_a, a, None)
             except NotOnPage:
                 continue
             if mark.kind == "ring":
-                rings.append((system_a, self._draw_ring(system_a, a), labels, (mark.from_note.measure, mark.from_note.beat)))
+                ring = self._draw_ring(system_a, a)
+                # A ring on a ledger note between the staves can all but touch another staff's marks (BWV 64.4 bar 6:
+                # the alto's ring on the tenor's fermata); the gap then opens.
+                staff = self.measures[event.segment].numbered.get(event.staff)
+                if staff and not staff.y <= ring.cy <= staff.bottom:
+                    side = "above" if ring.cy < staff.y else "below"
+                    zone = Box(ring.x, ring.y - LABEL_PAD, ring.width, LABEL_PAD) if side == "above" else Box(ring.x, ring.bottom, ring.width, LABEL_PAD)
+                    if any(event.staff not in staves and o.x < zone.right and o.right > zone.x and o.y < zone.bottom and o.bottom > zone.y
+                           for staves, o in self.staff_marks):
+                        self.code_room.append((event, side))
+                rings.append((system_a, ring, labels, event))
                 continue
             if mark.kind == "bracket":
                 self._draw_square_bracket(labels, system_a, a, b)
@@ -784,10 +800,13 @@ class PageLayout:
                 self._draw_voice_line(mark, labels, system_a, a, system_b, b)
         self._place_ring_codes(rings)
 
-    def _place_ring_codes(self, rings: list[tuple[System, Box, list[str], tuple]]) -> None:
+    def _place_ring_codes(self, rings: list[tuple[System, Box, list[str], Event]]) -> None:
         """Each code sits beside its own ring. Rings of different voices stack a few staff spaces apart, so a spot is
-        only taken when its own ring is the nearest one, and it may slide along the ring to dodge a staff line."""
-        for system, ring, labels, _ in rings:
+        only taken when its own ring is the nearest one, and it may slide along the ring to dodge a staff line.
+        Text across staff lines is not engraving practice (Gould: words and signs go outside the staff), so a spot off
+        the staves comes first, just past the staff's edge if need be; where none is clear, the gap is noted in
+        `code_room` for the staves to move apart, and meanwhile the code takes the nearest spot on the staff."""
+        for system, ring, labels, event in rings:
             if not labels:
                 continue
             word = " ".join(labels)
@@ -795,6 +814,9 @@ class PageLayout:
             others = [other for other_system, other, _, _ in rings if other_system is system and other is not ring]
             slide = [0.0] + [sign * step for step in range(60, int(ring.height / 2 + height / 2), 60) for sign in (-1, 1)]
             bar = next(((m.x0, m.x1) for m in system.measures if m.x0 <= ring.cx <= m.x1), (ring.x, ring.right))
+            staff = self.measures[event.segment].numbered.get(event.staff)  # the ringed note's own staff, also for a ledger note
+            # The code stays on its ring's side of the staff: across the staff it would stand by another voice's notes.
+            nearer = "above" if staff and ring.cy < staff.cy else "below"
 
             def box_at(spot, pad):
                 return Box(spot[0] - width / 2 - pad, spot[1] - height / 2 - pad, width + 2 * pad, height + 2 * pad)
@@ -804,24 +826,46 @@ class PageLayout:
                 box = box_at(spot, 0)
                 return bar[0] <= box.x and box.right <= bar[1] and all((1 if abs(other.cy - ring.cy) < ring.height / 2 else 1.5) * self._gap(box, ring) < self._gap(box, other) for other in others)
 
-            # Spots in order: right, left, above, below. The first with clear space round it wins, off the staff lines
-            # if one is; less clear space only when the rings of a run leave no more.
+            # Spots in order: right, left, above, below, past a fermata, above or below shifted; then just past the
+            # nearer edge of the ring's staff.
             def spots_at(pad):
                 gap = pad + 35  # the ring's own reserved margin is 30
-                return ([[(ring.right + gap + width / 2, ring.cy + dy) for dy in slide] + [(ring.x - gap - width / 2, ring.cy + dy) for dy in slide],
-                         [(ring.cx + shift, y) for y in (ring.y - gap - height / 2, ring.bottom + gap + height / 2) for shift in (0, width / 2, -width / 2)]])
+                beside = [(ring.right + gap + width / 2, ring.cy + dy) for dy in slide] + [(ring.x - gap - width / 2, ring.cy + dy) for dy in slide]
+                ends = (ring.y - gap - height / 2, ring.bottom + gap + height / 2)
+                stack = []
+                if staff:
+                    # Straight off the ring past what stands on that side of it (a fermata), as marks stack outward from a
+                    # note; stems are thin and pass by.
+                    column = [o for o in system.content if o.width > 40 and o.x < ring.right and o.right > ring.x
+                              and (ring.y - 600 < o.bottom <= ring.y + 30 if nearer == "above" else ring.bottom - 30 <= o.y < ring.bottom + 600)]
+                    if column:
+                        stack = [(ring.cx, min(o.y for o in column) - pad - 1 - height / 2 if nearer == "above"
+                                  else max(o.bottom for o in column) + pad + 1 + height / 2)]
+                spots = list(beside)
+                for side, y in zip(("above", "below"), ends):
+                    spots += [(ring.cx, y)] + (stack if side == nearer else []) + [(ring.cx + shift, y) for shift in (width / 2, -width / 2)]
+                if staff:
+                    # Just past the staff's edge on the ring's side: beside the ring, a little farther out past a dot or
+                    # accidental, then straight off it.
+                    y = staff.y - pad - 1 - height / 2 if nearer == "above" else staff.bottom + pad + 1 + height / 2
+                    spots += [(ring.right + gap + width / 2 + shift, y) for shift in (0, 120, 240)]
+                    spots += [(ring.x - gap - width / 2 - shift, y) for shift in (0, 120, 240)] + [(ring.cx, y)]
+                return spots
 
-            for pad in (LABEL_PAD, LABEL_PAD / 2, 0):
-                # Beside the ring first, off the staff lines if there is a spot; only then above or below it.
-                found = [[spot for spot in group if own(spot) and not self._touching(system, box_at(spot, pad))] for group in spots_at(pad)]
-                for group in found:
-                    spot = next((s for s in group if not self._on_staff(system, box_at(s, 0))), None) or (group[0] if group else None)
-                    if spot:
-                        break
-                if spot:
-                    break
-            else:
-                spot = spots_at(LABEL_PAD)[0][0]
+            def usable(spot, pad):
+                return own(spot) and not self._touching(system, box_at(spot, pad))
+
+            def off_staff(spot):
+                return not self._on_staff(system, box_at(spot, 0))
+
+            spot = next((s for s in spots_at(LABEL_PAD) if usable(s, LABEL_PAD) and off_staff(s)), None)
+            if spot is None:
+                if staff:
+                    self.code_room.append((event, nearer))
+                # Less clear space (the rings of a run may leave no more), still off the staves if possible; only then on one.
+                spot = next((s for pad in (LABEL_PAD / 2, 0) for s in spots_at(pad) if usable(s, pad) and off_staff(s)), None) \
+                    or next((s for pad in (LABEL_PAD, LABEL_PAD / 2, 0) for s in spots_at(pad) if usable(s, pad)), None) \
+                    or spots_at(LABEL_PAD)[0]
             self._error_text(system, *spot, word, width, height)
 
     def _shafts(self, system_a: System, a: Box, system_b: System, b: Box) -> list[tuple[System, float, float, float, float]]:

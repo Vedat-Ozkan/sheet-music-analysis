@@ -308,11 +308,18 @@ def spied(monkeypatch):
     seen = {"rings": [], "arrows": []}
     place, arrow = PageLayout._place_ring_codes, PageLayout._draw_unresolved
 
+    def fresh(layout):
+        # A page may be drawn more than once (once to measure the room its codes need); only the last drawing counts.
+        if seen.get("layout") is not layout:
+            seen.update(layout=layout, rings=[], arrows=[])
+
     def place_codes(self, rings):
+        fresh(self)
         seen["rings"] += [(system, ring, labels) for system, ring, labels, _ in rings]
         return place(self, rings)
 
     def draw_arrow(self, mark, system, note):
+        fresh(self)
         before = [box for box in system.content]
         count = len(list(self.over))
         arrow(self, mark, system, note)
@@ -393,3 +400,26 @@ def test_every_fault_code_the_draft_proposes_is_drawn_on_the_whole_chorale(name,
     # The codes of one ring are set together ("r VC").
     drawn = Counter(code for t in layouts[-1].over.iter(f"{overlay.S}text") if t.get("fill") == ERROR for code in t.text.split())
     assert listed and all(drawn[code] >= count for code, count in listed.items()), f"{name}: listed {dict(listed)}, drawn {dict(drawn)}"
+
+
+@pytest.mark.parametrize("name, bars", [("bwv102.7", (2, 2)), ("bwv64.4", None), ("bwv102.7", None), ("bwv418", None), ("bwv245.14", None)])
+def test_no_ring_code_sits_on_a_staff(name, bars, spied, layouts):
+    """Text across staff lines is not engraving practice (Gould, text and articulation placement): BWV 102.7 bar 2's
+    alto VO sat on the alto's bottom line, and BWV 64.4's tenor VC (bar 6), bass VO (bar 12) and soprano VO (bar 14)
+    on theirs. The staves of that system move apart instead, so the code fits in the gap (the music yields to labels)."""
+    from engine.render import load_toolkit
+    from engine.score import ScoreIndex
+
+    score, marks = _draft_marks(name)
+    if bars is None:
+        index = ScoreIndex(load_toolkit(score).getMEI())
+        bars = (index.measures[0].number, index.measures[-1].number)
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=bars)
+    layout = layouts[-1]
+    codes = {" ".join(labels) for _, _, labels in spied["rings"] if labels}
+    words = [(overlay.Box(float(t.get("x")), float(t.get("y")) - overlay.LABEL_SIZE * 0.84,  # x is the text's left end
+                          text.width(t.text, overlay.LABEL_SIZE), overlay.LABEL_SIZE), t.text)
+             for t in layout.over.iter(f"{overlay.S}text") if t.get("fill") == ERROR and t.text in codes]
+    assert words
+    on = [(string, round(box.cx), round(box.cy)) for box, string in words if any(layout._on_staff(system, box) for system in layout.systems)]
+    assert not on, f"{name} {bars}: codes on a staff: {on}"
