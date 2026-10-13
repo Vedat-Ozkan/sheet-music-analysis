@@ -10,6 +10,7 @@ from engine.read_pdf import SETTINGS, clean, is_scan, notice, open_pdf, problem_
 from engine.render import engrave, load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
+from engine.tuplet_rests import infer_tuplet_rests
 
 # Audiveris is not a Python package; point AUDIVERIS at its launcher, e.g. the spike's unpacked copy:
 # AUDIVERIS=spike/omr/tools/audiveris-deb/x/opt/audiveris/bin/Audiveris
@@ -100,3 +101,16 @@ def test_warning_signals_preserve_haydn_reading_selection():
 def test_fractional_durations_do_not_backup_before_the_bar():
     score = (Path(__file__).parent / 'data/pdf_warnings/fractional_durations.musicxml').read_bytes()
     assert problem_spots(score) == ([], [])
+
+
+def test_tied_readings_preserve_kinkel_notes():
+    folder = Path(__file__).parent / 'data/pdf_warnings'
+    variants = [(folder / f'kinkel_trennung_variant{i}.mxl').read_bytes() for i in range(3)]
+
+    def raw(data, audiveris, options, deadline):
+        return variants[SETTINGS.index(options)], []
+
+    # sma.2 fixes enough clefs for the sparse default to tie the alternatives at
+    # five uneven bars, despite losing 27 pitches and 69 pitch/onset events.
+    reading = read_pdf((folder / 'kinkel_trennung_scan.pdf').read_bytes(), raw=raw)
+    assert reading.musicxml == infer_triplets(infer_tuplet_rests(clean(variants[1])))

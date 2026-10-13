@@ -25,3 +25,12 @@ Fix round 2 fixtures:
 - `haydn_she_never_told_variant1.mxl`: unchanged `bench/cache/raw/4c7eb9d6699b21f958645b3020c8d137.mxl`, Audiveris settings variant 1; no skipped pages. Same Haydn source/licence. SHA256: `2e6670272e322b9098cf3ce058c9ff001b7dae58913ce88dac4911874dcbba56`.
 - `haydn_she_never_told_variant2.mxl`: unchanged `bench/cache/raw/cb8fdad041ea4102bb0ce37588d41006.mxl`, Audiveris settings variant 2; no skipped pages. Same Haydn source/licence. SHA256: `18536e97502d7d8fe0003e0221c1cf55574ce00adb9a2f79bbaa3e58dcc4ada8`.
 - `fractional_durations.musicxml`: reviewer reproduction, two voices of four eighth notes in 2/4, divisions=1 and duration=0.5; backup=2. Constructed valid MusicXML, not an OMR output. SHA256: `9b042f405674518caf32e749e26aa8d688abb37a94dde06bb9a99cd77ac7965c`.
+
+Clef-regression chooser fixtures (2026-10-13):
+
+Source: OpenScore Lieder, Kinkel, *Trennung*, Op. 8 No. 5; CC0 1.0. The PDF is the unchanged synthetic scan `bench/pdfs/kinkel-op8-5-trennung--scan.pdf`. The three unchanged raw exports are Audiveris sma.2 settings 0/1/2, with no skipped pages, cache signature `f848f6c52d87abb0`. They replay the actual external reader outputs through `read_pdf`, without mocking its internals.
+
+- `kinkel_trennung_scan.pdf`: SHA256 `416690314bc56dca141a842196fb99a143291075952abfd6542bc5833d3dee08`.
+- `kinkel_trennung_variant0.mxl`: SHA256 `12dfd29d76cec336f6b4776ebe205e5f074a9f7209ef1f3923ddcd73afc3b4c5`. Raw cache `c2e2cf60d8dfde0a7efb6dcd1fe863fa.mxl`.
+- `kinkel_trennung_variant1.mxl`: SHA256 `54106e8de5e6c1113aff0a3a48b7ac605f4ef16a65f27bf5909c92b9bf7bb831`. Raw cache `2a5ed050d9cfe3a0be5972d04449c5c9.mxl`.
+- `kinkel_trennung_variant2.mxl`: SHA256 `6f97d0426556bfb4487120b32bb0f567b97438fced029e1676bbad7454a666bb`. Raw cache `a8ea5e4e834df1abdb19464213a91261.mxl`.

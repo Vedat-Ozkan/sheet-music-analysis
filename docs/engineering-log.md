@@ -822,6 +822,12 @@ All 436 tests pass on main with every track merged.
 
 `compare_labels` now classifies "key and chord both differ" as a different chord (it was a key difference), which also changes the STUDENT CHECK rows in the server and skill drafts.
 
+### 42. PDF reading: a tie no longer goes to the sparse reading (2026-10-13)
+
+After the sma.2 clef fix, the Kinkel "Trennung" scan lost 27 of 381 pitches and 69 pitch-and-timing events. The default setting has no small-note detection and drops the grace notes and half of the bass in bars 10-11. Under sma.1 it had 7 bars that don't add up against 5 for the other settings, so setting 1 won; the clef fix made bars 10 and 11 add up without restoring the notes, the three readings tied at 5, and the tie went to the first. Now, among readings tied on skipped pages and uneven bars, one with under 90% of the most pitched notes is dropped. Kinkel: pitch 308 -> 335, pitch and timing 255 -> 324 (the sma.1 values). Replaying the chooser over 240 cached readings (80 PDFs x sma.1, sma.2 and a candidate build) changes only Kinkel; of 42 ties it changes one pick. Why a margin rather than "most notes wins": on the Schubert *Die Stadt* tie, 897 vs 900 notes, the larger reading has 139 fewer right pitches. In all 39 setting pairs where one reading has under 90% of the other's notes, the smaller one has fewer right pitches. A floor near 0.92 would also switch two Bach and Mozart ties for the better; with two data points it stays at 0.9.
+
+A guard for the Haydn canzonet chord read as a treble clef (bar 35) was built and dropped: the bar was already empty under sma.1 (with an invented C clef), so pitch counts are the same with or without it. Its branch stays in the fork clone.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

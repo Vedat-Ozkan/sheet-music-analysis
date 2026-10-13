@@ -47,8 +47,9 @@ _REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_REST, _REST + _SMALL, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
 # Changes when the reading changes (Audiveris build, settings or the repairs after it), so cached readings made before are not reused.
-READER = "5.11.0-sma.2-best3-tuplet-rests"
+READER = "5.11.0-sma.2-best3-tuplet-rests-note-guard"
 RETRY_ABOVE = 3  # bars that don't add up before the other settings are tried; fewer gained nothing (log 35)
+MIN_NOTES = 0.9  # On a tie, avoid a reading missing over a tenth of the notes; small differences can be invented heads.
 
 
 class ReadError(ValueError):
@@ -208,7 +209,8 @@ def is_scan(pdf: pikepdf.Pdf) -> bool:
 
 def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
     """Read with the default settings; when that reading has many bars that don't add up, also read with the other
-    settings and keep whichever has fewest (log 35: right pitch and timing 82.0% -> 84.3% on the benchmark).
+    settings and keep whichever has fewest (log 35: right pitch and timing 82.0% -> 84.3% on the benchmark); on a tie,
+    a reading with under MIN_NOTES of the most notes is passed over (log 42).
 
     `raw` stands in for `audiveris_read`: the benchmark passes one that caches Audiveris's output, so a change to the
     code after it (cleaning, choosing, triplets) is measured without reading every PDF again."""
@@ -223,7 +225,12 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
         with ThreadPoolExecutor(len(SETTINGS) - 1) as pool:
             others = list(pool.map(lambda options: _retry(data, audiveris, options, deadline, raw), SETTINGS[1:]))
         # A reading that lost pages is never preferred for having fewer bars that don't add up
-        best = min([best, *(other for other in others if other)], key=lambda reading: (len(reading[1]), len(reading[2])))
+        readings = [best, *(other for other in others if other)]
+        best = min(readings, key=lambda reading: (len(reading[1]), len(reading[2])))
+        tied = [(reading, sum(note.find("pitch") is not None for note in ET.fromstring(reading[0]).iter("note")))
+                for reading in readings if (len(reading[1]), len(reading[2])) == (len(best[1]), len(best[2]))]
+        most = max(count for _, count in tied)
+        best = next(reading for reading, count in tied if count >= MIN_NOTES * most)
     musicxml, skipped, _ = best
     for repair in (infer_tuplet_rests, infer_triplets):
         try:
