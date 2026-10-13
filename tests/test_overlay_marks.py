@@ -512,3 +512,20 @@ def test_room_for_codes_opens_in_one_step_and_only_where_it_helps(name, bars, dr
     score, marks = _draft_marks(name)
     render(score, AnnotationList.model_validate({"annotations": marks}), measures=bars)
     assert count[0] <= draws
+
+
+@pytest.mark.parametrize("name, bars", [("bwv102.7", (2, 2)), ("bwv418", (11, 11)), ("bwv245.40", (0, 28))])
+def test_ring_codes_keep_clear_space(name, bars, spied, layouts):
+    """BWV 102.7 bar 2 alone: with no room asked for, the tenor's VO sat squeezed between a fermata and its ring. Labels
+    are never cramped (the owner's rule): a code keeps clear of every note, mark and other label."""
+    score, marks = _draft_marks(name)
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=bars)
+    layout = layouts[-1]
+    for box, string in _codes_drawn(layout, spied):
+        margin = overlay.LABEL_PAD / 2 - 1  # at least half the usual clear space
+        clear = overlay.Box(box.x - margin, box.y - margin, box.width + 2 * margin, box.height + 2 * margin)
+        for system in layout.systems:
+            # Its own reserved box takes it in; every other box must keep clear.
+            hit = [o for o in system.content + system.words if layout._meets(clear, o)
+                   and not (o.x <= box.x + 1 and o.right >= box.right - 1 and o.y <= box.y + 1 and o.bottom >= box.bottom - 1)]
+            assert not hit, f"{name}: {string} at {round(box.cx)},{round(box.cy)} touches {[(round(o.x), round(o.y)) for o in hit]}"
