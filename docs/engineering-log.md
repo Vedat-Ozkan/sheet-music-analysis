@@ -822,6 +822,12 @@ All 436 tests pass on main with every track merged.
 
 `compare_labels` now classifies "key and chord both differ" as a different chord (it was a key difference), which also changes the STUDENT CHECK rows in the server and skill drafts.
 
+### 44. Usage counts, with request text kept out of the log (2026-10-13)
+
+**What we did.** `tools/usage_report.py` reads an exported Cloud Logging file locally and counts, per UTC day and host, drafts (fresh and cached apart), renders, piano renders, PDF reads and pages, checks, part-writing reports, corrections, exports, downloads, limit hits, errors and questions. Its help gives the `gcloud logging read` export command. Older lines without a field count as unknown, not zero. Browser downloads mostly show as "other", so their host counts are not reliable.
+
+**Privacy.** Two Opus reviews found free text reaching the log: first bar ranges and views logged before validation (now the word `invalid`), then error messages, which quote their input (a made-up score id, a part name, a note, a signed file URL). Root cause: `log()` cleaned fields by name, and `error=str(error)` passed whatever the exception said. Now `log()` writes only an error's kind (its class name), and one sweep test sends a marker through every free-text input of every tool and checks it appears in no log line. Student answers log only `clarification_needed`. Limits and replies are unchanged.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

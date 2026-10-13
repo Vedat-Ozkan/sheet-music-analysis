@@ -311,3 +311,28 @@ def test_cached_drafts_are_reported_without_charging_limit(tmp_path, monkeypatch
     assert 'drafts 2  fresh drafts 1  cached drafts 1' in ran.stdout
     assert 'limits 1  errors 0' in ran.stdout
     assert 'unknown draft cache 0' in ran.stdout
+
+
+def test_no_tool_input_reaches_the_log(tmp_path, monkeypatch, capsys):
+    # Error messages quote their input; any free text the model passes must stay out of the log on every path.
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/REAL', (ROOT / 'tests/data/part_writing_motion.musicxml').read_bytes())
+    ctx = SimpleNamespace(headers={'user-agent': 'Claude'})
+    marker = 'ANNA SECRET'
+    labelled = AnnotationList.model_validate({'annotations': [
+        {'type': 'harmony', 'at': {'measure': 1}, 'label': marker},
+    ]})
+
+    async def calls():
+        for score_id in (marker, 'REAL'):
+            await app.render_analysis(ctx, score_id, labelled, measure_range=marker, view=marker)
+            await app.draft_analysis(ctx, score_id=score_id, measure_range=marker, student_analysis=marker)
+            await app.correct_bars(ctx, score_id=score_id, replacement_bars=f'm1 {marker}4', part=marker)
+            await app.correct_bars(ctx, score_id=score_id, replacement_bars=f'm1 {marker}4')
+        await app.draft_from_notes(ctx, notes=marker)
+        await app.draft_from_notes(ctx, notes=f'{marker}\nC4 E4 G4', student_analysis=marker)
+
+    asyncio.run(calls())
+    captured = capsys.readouterr().out
+    assert captured.count('\n') >= 10
+    assert marker not in captured

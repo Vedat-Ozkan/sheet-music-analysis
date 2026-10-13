@@ -122,6 +122,8 @@ def client_of(headers) -> str:
 def log(event: str, **details) -> None:
     """One JSON line per event; Cloud Run keeps stdout as the log. Never log score contents or chat text."""
     # Refusals can happen before tool validation; keep arbitrary request text out of every log path.
+    # An error's message quotes its input (an id, a part name, a note), so only its kind is logged.
+    details = {key: type(value).__name__ if isinstance(value, BaseException) else value for key, value in details.items()}
     if "measure_range" in details:
         try:
             parse_measures(details["measure_range"])
@@ -334,7 +336,7 @@ async def render_analysis(
         log("render_analysis", platform=source, problems=len(error.problems), view=view, measure_range=measure_range, piano=piano)
         return error_result("Fix these annotations and call again:\n" + "\n".join(error.problems))
     except ValueError as error:
-        log("render_analysis", platform=source, error=str(error), view=view, measure_range=measure_range, piano=piano)
+        log("render_analysis", platform=source, error=error, view=view, measure_range=measure_range, piano=piano)
         return error_result(str(error))
     # Optional export failures must not discard an engraving Verovio already accepted.
     musicxml, export_warning = None, None
@@ -342,7 +344,7 @@ async def render_analysis(
         musicxml = await anyio.to_thread.run_sync(export_musicxml, score, annotations.model_dump())
     except Exception as error:
         export_warning = "MusicXML export unavailable for this score. PNG and PDF are available."
-        log("render_analysis", platform=source, export_error=str(error))
+        log("render_analysis", platform=source, export_error=error)
     png = engraving.png(1)
     # The card shows a double-resolution page, sharp on high-density screens; the model gets the small one.
     image_url, pdf_url, musicxml_url = await anyio.to_thread.run_sync(
@@ -437,7 +439,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
                      pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs))
         )
     except (ScoreError, pdf_reader.ReadError, httpx.HTTPError) as error:
-        log("read_pdf", platform=source, error=str(error))
+        log("read_pdf", platform=source, error=error)
         return error_result(str(error))
     # The model gets ordinary pages: one tall image of a long score is shrunk by hosts until notes can't be read.
     pages = [engraving.png(page) for page in range(1, engraving.page_count + 1)]
@@ -558,7 +560,7 @@ async def draft_analysis(
         log("draft_analysis", platform=source, mode=mode, measure_range=measure_range, clarification=True, error="clarification_needed")
         return error_result(error.question)
     except (ScoreError, PositionError, ValueError, draft.DraftError, httpx.HTTPError) as error:
-        log("draft_analysis", platform=source, error=str(error), mode=mode, measure_range=measure_range)
+        log("draft_analysis", platform=source, error=error, mode=mode, measure_range=measure_range)
         return error_result(str(error))
     log("draft_analysis", platform=source, input=given, score_bytes=len(score), measure_range=measure_range,
         seconds=round(time.time() - started, 1), mode=mode, part_writing="\n\nPART-WRITING CHECK (" in text, cached=not fresh)
@@ -615,7 +617,7 @@ async def correct_bars(
         code = secrets.token_hex(3).upper()
         await anyio.to_thread.run_sync(store.put, f"scores/{code}", after)
     except (correct.CorrectionError, ScoreError, PositionError) as error:
-        log("correct_bars", platform=source, error=str(error))
+        log("correct_bars", platform=source, error=error)
         return error_result("Fix the replacement bars and call correct_bars again: " + str(error))
     log("correct_bars", platform=source, changed=len(review.changed_bars), pages=len(pages), exports=["png"] * len(urls))
     descriptions = list(review.notes.values())
@@ -660,7 +662,7 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         log("draft_from_notes", platform=source, mode=mode, clarification=True, error="clarification_needed")
         return error_result(error.question)
     except ValueError as error:
-        log("draft_from_notes", platform=source, mode=mode, error=str(error))
+        log("draft_from_notes", platform=source, mode=mode, error=error)
         return error_result(str(error))
     if not await take("draft", source):
         log("limit", tool="draft_from_notes", platform=source, mode=mode)
@@ -675,7 +677,7 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         log("draft_from_notes", platform=source, mode=mode, clarification=True, error="clarification_needed")
         return error_result(error.question)
     except (note_list.NotesError, draft.DraftError, PositionError, ValueError) as error:
-        log("draft_from_notes", platform=source, error=str(error), chars=len(notes), mode=mode)
+        log("draft_from_notes", platform=source, error=error, chars=len(notes), mode=mode)
         return error_result(str(error))
     text = draft.as_text(result)
     section = part_writing.as_text(index, result.chords)
