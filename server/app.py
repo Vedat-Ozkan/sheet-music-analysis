@@ -429,10 +429,8 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
         # The card shows every bar in one tall image; the PDF keeps ordinary pages for printing.
         def render():
             spots = pdf_reader.problem_spots(score)
-            engraving = engrave(score)
-            # With nothing to mark, the plain pages are what the model sees; no second engraving.
-            shaded = pdf_reader.preview(score, spots=spots) if any(spots) else engraving
-            return (pdf_reader.preview(score, tall=True, spots=spots), shaded, engraving,
+            # Every bar is numbered on what the model sees, even with nothing flagged, so "bar 12" can be followed.
+            return (pdf_reader.preview(score, tall=True, spots=spots), pdf_reader.preview(score, spots=spots), engrave(score),
                     pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots))
 
         tall, shaded, engraving, notice = await anyio.to_thread.run_sync(render)

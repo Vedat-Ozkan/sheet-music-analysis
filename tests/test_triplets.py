@@ -1,5 +1,6 @@
 """Production PDF pipeline regressions using genuine prod2 Audiveris exports."""
 import importlib
+import io
 from fractions import Fraction
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -53,6 +54,11 @@ def test_real_compound_meter_merged_voice_is_left_alone(monkeypatch):
     # 6/8 is ordinary ternary beaming. A merged voice creates the overflow;
     # the old reduced-Fraction meter guard invented tuplets and lost 24 matches.
     before, after = _read_cached(monkeypatch, 'triplet_hensel.musicxml')
+    # clean() now drops the key Audiveris restates at the page break; the triplet repair adds nothing to that.
+    cleaned = io.BytesIO()
+    with zipfile.ZipFile(cleaned, 'w') as archive:
+        archive.writestr('score.musicxml', before)
+    before = reader.clean(cleaned.getvalue())
     assert ET.tostring(ET.fromstring(after)) == ET.tostring(ET.fromstring(before))
     a = ScoreIndex(load_toolkit(before).getMEI())
     b = ScoreIndex(load_toolkit(after).getMEI())
