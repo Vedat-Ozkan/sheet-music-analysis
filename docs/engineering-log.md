@@ -830,6 +830,32 @@ All 436 tests pass on main with every track merged.
 
 **Result.** Reviewer's checker, bars 1–40 (unpaired ties, gaps, voice totals): K.458 20 → 0, Mozart 41 41 → 0, Dvořák 69 → 0, Beethoven Op. 59/1 13 → 0, Haydn 104 37 → 0. Every note of the five scores now sounds in the reduction for its whole length. Reducing Mozart 41 takes 8.1 s for bars 1–8 (was 6.8 s, mostly parsing the 8 MB file) and 11.6 s for bars 1–40 (was 8.7 s).
 
+### 41. PDF reading: treble clefs in mid-line read as half notes (2026-10-12)
+
+**Challenge.** A treble clef in the middle of a line (a change back from bass clef, or a courtesy clef at the end of a line) was often lost, and every note after it was read in the wrong clef. On the main benchmark, Audiveris found 116 of 300 clef changes.
+
+**Cause.** In Audiveris's note-head step, the loop of the treble clef matches the hollow note-head template and its spine passes for a stem. That false half note's ink is erased before the symbol step, so the symbol step never sees the clef.
+
+**What we did.** Fork change in `NoteHeadsBuilder` (branch `sma-5.11.0-clefs`, candidate 5.11.0-sma.2, not released): around each hollow head candidate, the clef-sized ink is classified as a whole. If the best guess is a treble clef graded 0.5 or more, and no head inside it is a good head (a stemmed chord can look like a clef), a clef is created there, the head candidates are dropped, and the clef is frozen so the symbol step keeps it.
+
+**Result.** Each setting read alone, setting 0, main set: clef changes found 116 → 156 of 300, pitch 91.1% → 92.7%, pitch+timing 82.4% → 84.1%. Held-out set 3: pitch 81.7% → 85.3%. As production reads (best of 3 settings):
+
+| Set | Pitch | Pitch+timing |
+|---|---|---|
+| main (57 PDFs) | 91.3% → 93.2% | 85.2% → 86.6% |
+| held-out (11) | 97.4% → 97.4% | 90.2% → 90.2% |
+| held-out 2 (6) | 94.1% → 94.7% | 81.0% → 81.3% |
+| held-out 3 (6) | 89.3% → 89.9% | 66.0% → 66.5% |
+
+**Trade-offs.**
+- "Invented" clef changes rise on some readings (main set, setting 0: 56 → 58; held-out: 13 → 16). Looking at the ink of every clef the change created on these PDFs (Schubert Die Stadt, Bizet Absence, Holmes, Berg, Franz Lotosblume, Haydn canzonet, Bach C major prelude, Clara Schumann Polonaise 3), all but one are real treble clefs: courtesy clefs at the end of a line, or clefs next to a barline that the scorer counts in the neighbouring bar. The one real mistake is a stacked whole-note chord with a fermata (Haydn canzonet, vr edition, page 2), graded 0.98 as a treble clef.
+- A margin over the classifier's second guess would not help: the second guess is 0.05 or less on every real clef found (the best guesses range from 0.62 to 0.98), and 0.23 on the Haydn chord.
+- A frozen clef cannot be removed later in Audiveris, so a wrong one stays and changes the pitch of the notes after it, until the next clef.
+- Production totals drop on a few PDFs when the chooser picks a different reading: Kinkel Trennung scan loses 27 pitches and 69 pitch+timing.
+- Threshold 0.2 instead of 0.5 gives almost the same totals but loses 38 pitches on the Mozart K.545 scan in settings 1 and 2, so 0.5 stays.
+
+**Not yet live.** Releasing the fork, the Docker base image and the reader version wait for the owner's decision.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
