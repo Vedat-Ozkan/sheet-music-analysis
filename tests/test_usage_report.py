@@ -336,3 +336,20 @@ def test_no_tool_input_reaches_the_log(tmp_path, monkeypatch, capsys):
     captured = capsys.readouterr().out
     assert captured.count('\n') >= 10
     assert marker not in captured
+
+
+def test_log_calls_never_format_text():
+    # The sweep above cannot reach every error path; this covers the rest: no log() field is built from text.
+    import ast
+    tree = ast.parse((ROOT / 'server/app.py').read_text())
+    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call) and getattr(node.func, 'id', None) == 'log']
+    assert len(calls) > 20
+    for call in calls:
+        for keyword in call.keywords:
+            value = keyword.value
+            assert not isinstance(value, ast.JoinedStr), f'line {call.lineno}: f-string in log field {keyword.arg}'
+            assert not (isinstance(value, ast.Call) and getattr(value.func, 'id', None) in ('str', 'repr', 'format')), \
+                f'line {call.lineno}: {keyword.arg} logs formatted text'
+    with redirect_stdout(io.StringIO()) as out:
+        app.log('test', error=ValueError("No score has the id 'ANNA SECRET'"))
+    assert json.loads(out.getvalue())['error'] == 'ValueError'
