@@ -162,7 +162,8 @@ def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role
     gets the gap beside its staff opened, as an engraver spaces staves to fit what lies between them (Gould): draw once
     to see which gaps and how much each is short, add that many hidden lines of room at the ringed note, and lay out
     again until each code fits. Returns the pages as drawn on the final layout, or None when nothing was drawn."""
-    if not any(isinstance(a, VoiceLeading) and a.kind == "ring" and a.label for a in annotations.annotations):
+    if not any(isinstance(a, VoiceLeading) and (a.kind == "ring" and a.label or a.kind == "arrow" and "R" in (a.label or ""))
+               for a in annotations.annotations):
         return None
     base = toolkit.getMEI()
     lines: dict[tuple[str, str, int, str], int] = {}

@@ -913,40 +913,59 @@ class PageLayout:
                     or self._least_covering(system, spots_at(0), box_at, own)
             self._error_text(system, *spot, word, width, height)
 
-    def _code_room(self, system: System, event: Event, ring: Box, staff: Box, nearer: str, spots: list, box_at, own, ratio,
-                   rings: list) -> tuple[int, int]:
-        """How many lines of room the gap on the ring's side of its staff needs before its code fits off the staff: the
-        lines that move the staves apart by the shortfall, once room is already there; and, the first time, those plus
-        the lines the free space there takes without moving anything. (0, 0) when moving the staves apart would not help
-        (only the same staff's notes are in the way). Room moves only what
-        lies across the gap: the other staff, its notes and rings, and lyrics under the staff above."""
-        lines = [b for b in self.measures[event.segment].lines if (b.bottom < staff.y if nearer == "above" else b.y > staff.bottom)]
+    def _across(self, system: System, event: Event, staff: Box, side: str, staves: dict[int, int]):
+        """What lies across the gap on one side of a staff and so moves away when the staves move apart: the other
+        staff's notes and marks, and lyrics under the staff above. Returns that test and the other staff's near edge,
+        or None past the outer staff."""
+        lines = [b for b in self.measures[event.segment].lines if (b.bottom < staff.y if side == "above" else b.y > staff.bottom)]
         if not lines:
-            return 1, 0  # past the outer staff there is no staff to move away: one line at a time
-        edge = max(b.bottom for b in lines) if nearer == "above" else min(b.y for b in lines)
-        middle = (edge + staff.y) / 2 if nearer == "above" else (edge + staff.bottom) / 2
-        staves = {**self.staff_of, **{id(r): e.staff for s, r, _, e in rings if s is system}}
+            return None
+        edge = max(b.bottom for b in lines) if side == "above" else min(b.y for b in lines)
+        middle = (edge + staff.y) / 2 if side == "above" else (edge + staff.bottom) / 2
 
         def far(box):
             if id(box) in staves:
                 return staves[id(box)] != event.staff
             # Wholly across the middle of the gap; a barline or a stem that spans the gap does not move away.
-            return box.bottom < middle if nearer == "above" else box.y > middle
+            return box.bottom < middle if side == "above" else box.y > middle
 
+        return far, edge
+
+    def _room_lines(self, system: System, staff: Box, side: str, far, edge: float, x0: float, x1: float, shortfall: float) -> tuple[int, int]:
+        """Lines of room for a gap short by `shortfall`: those that move the staves apart by it, once room is already
+        there; and, the first time, the lines the free space at the mark (x0 to x1) takes without moving anything as
+        well. Verovio sets the room just past the notes there and moves the staves apart only by what the free space
+        cannot take, less the margins it keeps round the room."""
+        low, high = (edge, staff.y) if side == "above" else (staff.bottom, edge)
+        column = [o for o in system.content if o.x < x1 and o.right > x0 and low <= o.cy <= high]
+        if side == "above":
+            free = min((o.y for o in column if not far(o)), default=staff.y) - max((o.bottom for o in column if far(o)), default=edge)
+        else:
+            free = min((o.y for o in column if far(o)), default=edge) - max((o.bottom for o in column if not far(o)), default=staff.bottom)
+        return math.ceil(shortfall / ROOM_LINE), max(1, math.ceil((shortfall + free - ROOM_MARGIN) / ROOM_LINE))
+
+    @staticmethod
+    def _meets(a: Box, b: Box) -> bool:
+        return b.x < a.right and b.right > a.x and b.y < a.bottom and b.bottom > a.y
+
+    def _code_room(self, system: System, event: Event, ring: Box, staff: Box, nearer: str, spots: list, box_at, own, ratio,
+                   rings: list) -> tuple[int, int]:
+        """Lines of room (see `_room_lines`) the gap on the ring's side of its staff needs before its code fits off the
+        staff; (0, 0) when moving the staves apart would not help (only the same staff's notes are in the way)."""
+        across = self._across(system, event, staff, nearer, {**self.staff_of, **{id(r): e.staff for s, r, _, e in rings if s is system}})
+        if across is None:
+            return 1, 1  # past the outer staff there is no staff to move away: one line at a time
+        far, edge = across
         near_things = [o for o in system.content if not far(o)] + (system.words if nearer == "below" else [])
         far_things = [o for o in system.content if far(o)] + (system.words if nearer == "above" else [])
-
-        def meets(a, b):
-            return b.x < a.right and b.right > a.x and b.y < a.bottom and b.bottom > a.y
-
         # The first spot that only what lies across the gap keeps from being clear.
         spot = next((c for c in spots if not self._on_staff(system, box_at(c, 0)) and own(c, skip=far)
-                     and not any(meets(box_at(c, LABEL_PAD), o) for o in near_things)), None)
+                     and not any(self._meets(box_at(c, LABEL_PAD), o) for o in near_things)), None)
         if spot is None:
             return 0, 0
         box, bare = box_at(spot, LABEL_PAD), box_at(spot, 0)
         # How far the far side must move: out of the padded box, and far enough that the code is clearly its own ring's.
-        move = [(o.bottom - box.y if nearer == "above" else box.bottom - o.y) for o in far_things if meets(box, o)]
+        move = [(o.bottom - box.y if nearer == "above" else box.bottom - o.y) for o in far_things if self._meets(box, o)]
         mine = self._gap(bare, ring)
         for other in [r for s, r, _, _ in rings if s is system and r is not ring and far(r)] + [h for h in system.heads if far(h)]:
             need = ratio(other) * mine + 1
@@ -955,16 +974,7 @@ class PageLayout:
                 if dx < need:
                     dy = max(bare.y - other.bottom, other.y - bare.bottom, 0)
                     move.append(math.sqrt(need * need - dx * dx) - dy)
-        shortfall = max(move, default=0)
-        # Verovio sets the room's lines just past the notes at the ringed note and moves the staves apart only by what
-        # the free space there cannot take, less the margins it keeps round the room.
-        low, high = (edge, staff.y) if nearer == "above" else (staff.bottom, edge)
-        column = [o for o in system.content if o.x < ring.right and o.right > ring.x and low <= o.cy <= high]
-        if nearer == "above":
-            free = min((o.y for o in column if not far(o)), default=staff.y) - max((o.bottom for o in column if far(o)), default=edge)
-        else:
-            free = min((o.y for o in column if far(o)), default=edge) - max((o.bottom for o in column if not far(o)), default=staff.bottom)
-        return math.ceil(shortfall / ROOM_LINE), max(1, math.ceil((shortfall + free - ROOM_MARGIN) / ROOM_LINE))
+        return self._room_lines(system, staff, nearer, far, edge, ring.x, ring.right, max(move, default=0))
 
     def _least_covering(self, system: System, spots: list, box_at, own) -> tuple[float, float]:
         """With no clear spot, the one that covers least, and never a notehead, accidental or stem (Gould, Layout: clear
@@ -1059,6 +1069,7 @@ class PageLayout:
         length, word = 420, text.width("R", LABEL_SIZE)
         pad = LABEL_PAD
         placements = []  # (x of the shaft, top, bottom, side the code takes, whether staff lines count as obstacles)
+        outside = 0  # how many placements there were before those past the staff's edge or a fermata
         for distance in (110, 220):
             for side in sides:
                 near = note.y - distance if side == "above" else note.bottom + distance
@@ -1069,13 +1080,29 @@ class PageLayout:
         # where possible).
         staff = next((box for measure in system.measures for box in measure.lines
                       if box.x <= note.cx <= box.right and box.y <= note.cy <= box.bottom), None)
+        tail_room, head_room = LABEL_SIZE / 2 + LABEL_PAD + 1, pad + 1
+        edges = [staff.bottom if sides[0] == "below" else staff.y] if staff else []
+        # Past a fermata on that side, as marks stack outward from a note (Gould, Articulation: the fermata goes outside
+        # the others; Verovio's fermata cannot move, so the arrow goes outside it, still opposite the stem).
+        marks = [box for _, box in self.staff_marks if box.x < note.cx + 100 + pad and box.right > note.cx - 100 - pad
+                 and (note.bottom < box.y < note.bottom + 1200 if sides[0] == "below" else note.y - 1200 < box.bottom < note.y)]
+        if marks:
+            edges.append(max(box.bottom for box in marks) if sides[0] == "below" else min(box.y for box in marks))
         if staff:
-            tail_room, head_room = LABEL_SIZE / 2 + LABEL_PAD + 1, pad + 1
-            if sides[0] == "below":
-                top = staff.bottom + (head_room if up else tail_room)
-            else:
-                top = staff.y - (tail_room if up else head_room) - length
-            placements += [(note.cx, top, top + length, beside, True) for beside in (1, -1)]
+            # Past the neighbouring notes that hang over the staff's edge beside it (a ledger note, a head on the line).
+            reach = 175 + word + 2 * pad
+            hanging = [o for o in system.content if self.staff_of.get(id(o)) == event.staff and abs(o.cx - note.cx) < reach
+                       and (o.y < staff.bottom < o.bottom if sides[0] == "below" else o.y < staff.y < o.bottom)]
+            if hanging:
+                edges.append(max(o.bottom for o in hanging) if sides[0] == "below" else min(o.y for o in hanging))
+        outside = len(placements)
+        for edge in edges:
+            for shaft in (length, 300):  # shorter when a note lies not far beyond the longer arrow's head
+                if sides[0] == "below":
+                    top = edge + (head_room if up else tail_room)
+                else:
+                    top = edge - (tail_room if up else head_room) - shaft
+                placements += [(note.cx, top, top + shaft, beside, True) for beside in (1, -1)]
         # Next, straight off the notehead away from the stem even where that is inside the staff: still its own note's.
         for shaft in (length, 300):  # shorter when a note lies not far beyond the longer arrow's head
             top = note.y - 110 - shaft if sides[0] == "above" else note.bottom + 110
@@ -1087,8 +1114,9 @@ class PageLayout:
                 # Beside its own notehead the staff lines cannot be avoided; the code goes to whichever side of the arrow is freer.
                 placements += [(x, top, top + length, beside, False) for beside in (arrow_side, -arrow_side)]
         candidates = []
+        stacked = range(outside, outside + 4 * len(edges))
         # The code at the tail; half way along the shaft only when that is crowded.
-        for along, (x, top, bottom, beside, off_staff) in [(a, p) for a in (0, 0.5) for p in placements]:
+        for along, number, (x, top, bottom, beside, off_staff) in [(a, n, p) for a in (0, 0.5) for n, p in enumerate(placements)]:
             tail, head = (bottom, top) if up else (top, bottom)
             code_x = x + beside * (75 + word / 2 + LABEL_PAD)
             # An arrow points at whatever lies ahead of its head, so that stretch must be empty for a good way beyond it.
@@ -1103,11 +1131,31 @@ class PageLayout:
             hits = sum((o.x < mark_box.right and o.right > mark_box.x and o.y < mark_box.bottom and o.bottom > mark_box.y)
                        for o in things for mark_box in (arrow, code, strip))
             area = self._covered(system, arrow) + self._covered(system, code)
-            candidates.append((hits * 1e9 + area, arrow, x, code_x, code_y, tail, head))
-        cost, arrow, x, code_x, code_y, tail, head = next((c for c in candidates if c[0] == 0), None) or min(candidates, key=lambda c: c[0])
+            candidates.append((hits * 1e9 + area, arrow, x, code_x, code_y, tail, head, (arrow, code, strip), along == 0 and number in stacked))
+        cost, arrow, x, code_x, code_y, tail, head, _, best = next((c for c in candidates if c[0] == 0), None) or min(candidates, key=lambda c: c[0])
+        if staff and not best:
+            self._arrow_room(system, event, staff, sides[0], note, [c for c in candidates if c[-1]])
         self._line_or_arrow(x, tail, x, head, head=True, colour=ERROR)
         self._reserve(system, Box(x - 100, min(tail, head), 200, abs(head - tail)), pad=30)
         self._error_text(system, code_x, code_y, "R", word, LABEL_SIZE)
+
+    def _arrow_room(self, system: System, event: Event, staff: Box, side: str, note: Box, outside: list) -> None:
+        """Past the staff's edge (or a fermata), straight off its note with the R at its tail, is the arrow's place
+        (decision S). When only the next staff's notes or lyrics keep it from there, the staves move apart for it, as
+        for a ring code (`code_room`)."""
+        across = self._across(system, event, staff, side, self.staff_of)
+        if across is None or not outside:
+            return
+        far, edge = across
+        # Lyrics stand under their staff: across the gap above a staff, with it below.
+        things = [(o, far(o)) for o in system.content] + [(o, side == "above") for o in system.words]
+        # The first such placement that only what lies across the gap keeps from being clear.
+        boxes = next((c[7] for c in outside if not any(self._meets(box, o) for box in c[7] for o, away in things if not away)), None)
+        if boxes is None:
+            return
+        move = [(o.bottom - box.y if side == "above" else box.bottom - o.y) for box in boxes for o, away in things if away and self._meets(box, o)]
+        if move:
+            self.code_room.append((event, side, *self._room_lines(system, staff, side, far, edge, note.x, note.right, max(move))))
 
     @staticmethod
     def _is_shaft_piece(box: Box, shaft) -> bool:
