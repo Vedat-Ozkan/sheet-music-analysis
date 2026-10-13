@@ -1,0 +1,101 @@
+{
+ "title": "Flagged items: before and after",
+ "bench": "spike/omr/bench",
+ "audiveris": {
+  "cache": "spike/omr/bench/cache/raw",
+  "signature": "32914dc894fffcbfprod2",
+  "about": "Audiveris 5.11.0-sma.1 output cached by spike/omr/bench/run.py (install signature + tag prod2); the release both refs of round 2 read PDFs with"
+ },
+ "items": [
+  {
+   "item": 1,
+   "title": "Voice-leading marks: short codes next to their own marks",
+   "look_at": "Teacher codes, no leader lines, each code beside its own ring, one callout per chord. BWV 102.7 bar 2 is the busiest. The last picture is the unresolved tendency-tone arrow with R (decision S).",
+   "before": "46294db",
+   "pictures": [
+    {"id": "bwv418-b8", "caption": "BWV 418, bar 8", "entry": "render_analysis", "input": "tests/data/part_writing_bwv418.musicxml", "analysis": "draft:part-writing", "bars": "8-8", "show": "card_image"},
+    {"id": "bwv418-b11", "caption": "BWV 418, bar 11", "entry": "render_analysis", "input": "tests/data/part_writing_bwv418.musicxml", "analysis": "draft:part-writing", "bars": "11-11", "show": "card_image"},
+    {"id": "bwv102.7-b2", "caption": "BWV 102.7, bar 2 (the busiest)", "entry": "render_analysis", "input": "tests/data/part_writing_bwv102.7.musicxml", "analysis": "draft:part-writing", "bars": "2-2", "show": "card_image"},
+    {"id": "bwv245.14-b9", "caption": "BWV 245.14, bar 9", "entry": "render_analysis", "input": "tests/data/part_writing_bwv245.14.musicxml", "analysis": "draft:part-writing", "bars": "9-9", "show": "card_image"},
+    {"id": "bwv64.4-b7", "caption": "BWV 64.4, bar 7: the unresolved tendency-tone arrow", "entry": "render_analysis", "input": "tests/data/part_writing_bwv64.4.musicxml", "analysis": "draft:part-writing", "bars": "7-7", "show": "card_image"}
+   ]
+  },
+  {
+   "item": 2,
+   "title": "Overlap rings on the right notes",
+   "look_at": "BWV 418 callout 2, bars 4-5. The whole chorale, so bars 1 and 4-5 of item 1 are here too. The card shows page 1; page 2 is drawn by the same call.",
+   "before": "46294db",
+   "pictures": [
+    {"id": "bwv418-all", "caption": "BWV 418, whole chorale", "entry": "render_analysis", "input": "tests/data/part_writing_bwv418.musicxml", "analysis": "draft:part-writing", "bars": "all", "pages": "all", "show": "card_image"}
+   ]
+  },
+  {
+   "item": 3,
+   "title": "\"Check my analysis\" page: note numbers in outlined circles",
+   "look_at": "The numbers under the chord labels and before each note below the music.",
+   "before": "46294db",
+   "notes": "No tool draws this page yet, so it is drawn by the engine's render(student_labels=...). The student's numerals are the test answers in tests/data/check_display/ (written to show every kind of mark); there is no real student answer in the repo.",
+   "pictures": [
+    {"id": "check-bach", "caption": "Bach, BWV 404, bars 1-8", "entry": "check_page", "input": "tests/data/part_writing_bwv404.musicxml", "analysis": "tests/data/check_display/bach-reviewed.json", "student": "tests/data/check_display/bach.txt", "bars": "1-8", "show": "card_image"},
+    {"id": "check-chopin", "caption": "Chopin, Nocturne Op. 9 No. 2, bars 1-8", "entry": "check_page", "input": "tests/data/chopin_nocturne_op9_no2.mxl", "analysis": "examples/chopin_op9_no2_m1-8.json", "student": "tests/data/check_display/chopin.txt", "bars": "1-8", "show": "card_image"}
+   ]
+  },
+  {
+   "item": 4,
+   "title": "Corrected bar 18",
+   "look_at": "Chopin Prelude Op. 28 No. 4, read from the MuseScore PDF, with bar 18 corrected to what the print has (its lost triplet). Only the changed bar is redrawn, shaded.",
+   "before": "46294db",
+   "pictures": [
+    {"id": "chopin-prelude-bar18", "caption": "Chopin prelude, bar 18 corrected", "entry": "correct_bars", "input": "bench:pdfs/chopin-prelude-4--ms.pdf", "replacement": {"bars": "18", "from": "bench:truth/chopin-prelude-4.mxl"}, "bars": "18", "show": "card_image"}
+   ]
+  },
+  {
+   "item": 5,
+   "title": "The result card: just the page and its buttons",
+   "look_at": "The card as the chat shows it, 700 px wide: an analysis card (with More downloads) and a PDF-reading card (no extra downloads).",
+   "before": "46294db",
+   "pictures": [
+    {"id": "card-analysis", "caption": "Analysis card: Chopin Nocturne Op. 9 No. 2, bars 1-8", "entry": "render_analysis", "input": "tests/data/chopin_nocturne_op9_no2.mxl", "analysis": "examples/chopin_op9_no2_m1-8.json", "bars": "1-8", "show": "card_ui"},
+    {"id": "card-pdf", "caption": "PDF-reading card: Chopin Prelude Op. 28 No. 4 (MuseScore PDF)", "entry": "read_pdf", "input": "bench:pdfs/chopin-prelude-4--ms.pdf", "bars": "all", "show": "card_ui"}
+   ]
+  },
+  {
+   "item": 6,
+   "title": "Piano view of Mozart's string quartet K.458",
+   "look_at": "Bars 0-8 as a two-staff piano reduction, with the hand-checked analysis.",
+   "before": "46294db",
+   "pictures": [
+    {"id": "k458-piano", "caption": "Mozart K.458, bars 0-8, piano view", "entry": "render_analysis", "input": "music21:mozart/k458/movement1.mxl", "analysis": "examples/engraving/mozart-k458.json", "bars": "0-8", "piano": true, "show": "card_image"}
+   ]
+  },
+  {
+   "item": 7,
+   "title": "Cadential six-four drawn as V⁶₄ → ⁵₃ (decision A)",
+   "status": "Awaiting owner decision",
+   "notes": "None of the hand-checked analyses in examples/ labels a cadential six-four yet: the only candidate, Brahms Op. 118 No. 2 bar 4, reads I⁶₄ and your answer to question AJ (I⁶₄ or Cad⁶₄ there) is still pending. Earlier samples came from a stress-test label list, so no picture is shown until a real analysis has one."
+  },
+  {
+   "item": 8,
+   "title": "PDF preview: what we read from your PDF",
+   "look_at": "Read through the real PDF path, with its clean-up (decisions K, L, M, N). Chopin: phantom ending, restated key and double-sharp ring. K.545: bar numbers and shaded bars. Joplin: the real first and second endings. Schubert: key changes.",
+   "before": "46294db",
+   "pictures": [
+    {"id": "pdf-chopin-prelude-ms", "caption": "Chopin Prelude Op. 28 No. 4 (MuseScore PDF): the card's picture", "entry": "read_pdf", "input": "bench:pdfs/chopin-prelude-4--ms.pdf", "bars": "all", "show": "card_image"},
+    {"id": "pdf-mozart-k545-scan", "caption": "Mozart K.545 (simulated scan), page 1 as the model sees it", "entry": "read_pdf", "input": "bench:pdfs/mozart-k545-1--scan.pdf", "bars": "all", "show": "model_pages", "pages": [1]},
+    {"id": "pdf-joplin-ly", "caption": "Joplin, Maple Leaf Rag (LilyPond PDF), pages 1-3 as the model sees them (endings at bars 16-17, 33-34 and 66-67)", "entry": "read_pdf", "input": "bench:pdfs/joplin-maple-leaf-rag--ly.pdf", "bars": "all", "show": "model_pages", "pages": [1, 2, 3]},
+    {"id": "pdf-schubert-die-stadt-ly", "caption": "Schubert, Die Stadt (LilyPond PDF), page 1 as the model sees it", "entry": "read_pdf", "input": "bench:pdfs/schubert-die-stadt--ly.pdf", "bars": "all", "show": "model_pages", "pages": [1]}
+   ]
+  },
+  {
+   "item": 9,
+   "title": "Reply wording for notes far above or below the staff (words only)",
+   "look_at": "The ledger-line note as the model receives it in the draft.",
+   "before": "729cff5",
+   "notes": "Before is the commit just ahead of the wording change (ddf7848).",
+   "pictures": [
+    {"id": "ledger-chopin-nocturne", "caption": "Chopin Nocturne Op. 9 No. 2 (notes above the treble staff)", "entry": "ledger_note", "input": "tests/data/chopin_nocturne_op9_no2.mxl", "bars": "all", "show": "text"},
+    {"id": "ledger-haydn-canzonet", "caption": "Haydn, \"She never told her love\" (MuseScore PDF reading; notes below the bass staff)", "entry": "ledger_note", "input": "bench:pdfs/haydn-canzonet-she-never-told--ms.pdf", "bars": "all", "show": "text"}
+   ]
+  }
+ ]
+}

@@ -888,6 +888,14 @@ All 436 tests pass on main with every track merged.
 - **K.545 "48" beside "ff".** About two staff spaces apart on the same baseline, a light italic number against a bold dynamic: readable, left as is.
 - **Schubert "Die Stadt" numbered one behind (not fixed).** Audiveris writes the first bar as `number="0" implicit="yes"`: its notes add up to 2¾ of the bar's 3 beats (a misread), so it is taken for a pickup, and the engine keeps the file's numbers.
 
+### 44. Review pictures made in the repo, from real inputs (2026-10-13)
+
+**Challenge.** Review pictures came from scratch scripts outside the repo, rewritten each round. Four of the defects in entries 42–43 were mistakes in those pictures, not in the engine: a dropped "R" (the script skipped a draft line it could not parse), a phantom ending (an old saved reading passed straight to the preview), style samples drawn from a stress-test label list, and an invented bar 18 before that.
+
+**What we did.** `tools/review_gallery.py` draws every picture listed in `tools/review_manifest.json` (flagged items 1–9) at two git refs: each item's flagged commit (46294db for items 1–8; it reproduces the round 2 "before" pictures byte for byte) and the new version. Each ref is checked out into a temporary worktree and drawn by its own process through the server's tool functions (`render_analysis`, `read_pdf`, `correct_bars`; the check page through `render(student_labels=...)`, which no tool draws yet). PDFs go through the real reading path from the benchmark's cached Audiveris output, so the clean-up runs. Bar 18's correction is taken from the reference score, not typed. Every picture is saved at full size and 700 px with its input, bars, ref and commit in a strip below the music, and an HTML page puts each pair side by side with a notes box. A manifest line that cannot be drawn, or a draft mark line that does not parse, stops the run and no page is written. Item 7 is listed as waiting for the owner (AJ), not stood in for.
+
+**Result.** All 9 items in 90 s: 19 before/after picture pairs (pages counted), each at both sizes, and 2 wording pairs. Items 3 and 4 are unchanged since the flagged commit (identical pixels), which the page says. Run: `.venv/bin/python -m tools.review_gallery --out DIR` (`--items`, `--before`, `--after`); test: `tests/test_review_gallery.py`.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
