@@ -7,8 +7,10 @@ from pathlib import Path
 
 from conftest import ROOT
 
-# A real scan reading: the left hand sits high above the bass staff in bars 42-45 and 58-62.
-K545 = ROOT / "tests/data/mozart-k545-1-scan-reading.musicxml"
+# An Audiveris reading of the benchmark's simulated scan (spike/omr/bench, degraded raster of a MuseScore engraving),
+# not of the real Peters scan beside it. That engraving kept the left hand in bass clef in bars 42-45 and 58-62, where
+# the notes sit high above the bass staff (the reference was corrected to treble clef there afterwards).
+K545 = ROOT / "tests/data/mozart-k545-1-simulated-scan-reading.musicxml"
 
 
 def test_notes_table_mentions_the_ledger_runs_of_a_real_reading():

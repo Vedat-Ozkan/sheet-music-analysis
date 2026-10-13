@@ -39,7 +39,7 @@
     "ornaments": 8,
     "grace": 11,
     "octave_lines": 0,
-    "clef_changes": 9
+    "clef_changes": 15
    }
   },
   "chopin-prelude-4": {
@@ -358,7 +358,7 @@
    "pdf": "pdfs/mozart-k545-1--ly.pdf",
    "piece": "mozart-k545-1",
    "engraver": "ly",
-   "pages": 5
+   "pages": 4
   },
   {
    "pdf": "pdfs/mozart-k545-1--scan.pdf",
