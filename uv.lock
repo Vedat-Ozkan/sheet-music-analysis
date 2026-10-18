@@ -2215,21 +2215,20 @@ wheels = [
 [[package]]
 name = "sheet-music-analysis"
 version = "0.0.1"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
-    { name = "cairosvg" },
     { name = "fonttools" },
-    { name = "google-cloud-storage" },
-    { name = "httpx" },
-    { name = "mcp" },
     { name = "music21" },
-    { name = "pikepdf" },
     { name = "pillow" },
     { name = "pydantic" },
-    { name = "python-multipart" },
     { name = "resvg-py" },
-    { name = "uvicorn" },
     { name = "verovio" },
+]
+
+[package.optional-dependencies]
+pdf = [
+    { name = "cairosvg" },
+    { name = "pikepdf" },
 ]
 
 [package.dev-dependencies]
@@ -2237,28 +2236,42 @@ dev = [
     { name = "pypdf" },
     { name = "pytest" },
 ]
+server = [
+    { name = "cairosvg" },
+    { name = "google-cloud-storage" },
+    { name = "httpx" },
+    { name = "mcp" },
+    { name = "pikepdf" },
+    { name = "python-multipart" },
+    { name = "uvicorn" },
+]
 
 [package.metadata]
 requires-dist = [
-    { name = "cairosvg", specifier = ">=2.7" },
+    { name = "cairosvg", marker = "extra == 'pdf'", specifier = ">=2.7" },
     { name = "fonttools", specifier = ">=4.50" },
-    { name = "google-cloud-storage", specifier = ">=3.16.0" },
-    { name = "httpx", specifier = ">=0.28" },
-    { name = "mcp", specifier = ">=2.2" },
     { name = "music21", specifier = ">=10.5" },
-    { name = "pikepdf", specifier = ">=9" },
+    { name = "pikepdf", marker = "extra == 'pdf'", specifier = ">=9" },
     { name = "pillow", specifier = ">=11" },
     { name = "pydantic", specifier = ">=2.8" },
-    { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "resvg-py", specifier = ">=0.5" },
-    { name = "uvicorn", specifier = ">=0.30" },
     { name = "verovio", specifier = ">=6.3" },
 ]
+provides-extras = ["pdf"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "pypdf", specifier = ">=5" },
     { name = "pytest", specifier = ">=8" },
+]
+server = [
+    { name = "cairosvg", specifier = ">=2.7" },
+    { name = "google-cloud-storage", specifier = ">=3.16.0" },
+    { name = "httpx", specifier = ">=0.28" },
+    { name = "mcp", specifier = ">=2.2" },
+    { name = "pikepdf", specifier = ">=9" },
+    { name = "python-multipart", specifier = ">=0.0.20" },
+    { name = "uvicorn", specifier = ">=0.30" },
 ]
 
 [[package]]
