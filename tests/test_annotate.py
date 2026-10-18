@@ -7,7 +7,7 @@ from PIL import Image, ImageChops, ImageStat
 
 from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
-from engine.overlay import VOICE_COLOR
+from engine.overlay import ARROW, ERROR
 
 GOLDEN = Path(__file__).parent / "golden" / "chopin_m1-8_all.png"
 
@@ -26,8 +26,8 @@ def test_views_show_different_layers(chopin, chopin_annotations):
     harmony = render(chopin, chopin_annotations, measures=(1, 8), view="harmony").svgs[0]
     voices = render(chopin, chopin_annotations, measures=(1, 8), view="voice_leading").svgs[0]
     form = render(chopin, chopin_annotations, measures=(1, 8), view="form").svgs[0]
-    assert "fill-opacity" in harmony and VOICE_COLOR not in harmony  # bands, no arrows
-    assert VOICE_COLOR in voices and "fill-opacity" not in voices and ">PAC<" not in voices
+    assert ">tonic<" in harmony and "fill-opacity" not in harmony and ERROR not in harmony  # function brackets, no colour, no arrows
+    assert ARROW in voices and ERROR not in voices and ">tonic<" not in voices and ">PAC<" not in voices
     assert ">PAC<" in form and "ornamented repeat" in form and ">vi<" not in form
 
 
@@ -85,7 +85,7 @@ def test_chord_symbols_and_regions_for_music_roman_numerals_do_not_fit(chopin):
     svg = render(chopin, annotations, measures=(1, 2)).svgs[0]
     assert ">Ebmaj7<" in svg and ">C7(#11)<" in svg and ">E<" in svg  # drawn as written
     assert "stroke-dasharray" in svg and ">pedal on Eb<" in svg
-    assert "fill-opacity" not in svg  # no function given, so no colour bands
+    assert ">tonic<" not in svg and ">dominant<" not in svg  # no function given, so no brackets
 
 
 def test_piano_reduction_keeps_the_marked_notes():

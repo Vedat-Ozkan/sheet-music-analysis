@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import io
 import xml.etree.ElementTree as ET
 import zipfile
@@ -184,3 +185,59 @@ def export_musicxml(original: bytes, analysis: dict) -> bytes:
             insertion = next((i for i, child in enumerate(measure) if child.tag in (tag('note'), tag('backup'), tag('forward'))), len(measure))
             measure.insert(insertion, direction)
     return ET.tostring(root, encoding='utf-8', xml_declaration=True)
+
+
+def _in_range(measure: int, measures: tuple[int, int] | None) -> bool:
+    # A range starting at bar 1 includes the pickup, as the MIDI export does.
+    return measures is None or measures[0] <= measure <= measures[1] or (measure == 0 and measures[0] == 1)
+
+
+def export_romantext(original: bytes, analysis: dict, measures: tuple[int, int] | None = None) -> bytes | None:
+    """The harmony labels as RomanText (.rntxt), readable by music21 and the DCML/RomanText tools.
+
+    Returns None when there are no harmonies, or no key was ever given, since RomanText cannot start without a
+    key. A label's trailing words ("V7 4–3") are the model's own gloss and are not RomanText, so they are dropped."""
+    harmonies = sorted((a for a in analysis['annotations'] if a['type'] == 'harmony'),
+                       key=lambda a: (a['at']['measure'], a['at'].get('beat', 1)))
+    if not harmonies:
+        return None
+    index = ScoreIndex(load_toolkit(original).getMEI())
+    lines, key, meter, bar = [], None, None, None
+    shown = None  # the key last written, so a passage starts with the key in force there
+    for annotation in harmonies:
+        new_key = annotation.get('key')
+        if new_key:
+            key = new_key
+        number = annotation['at']['measure']
+        if not _in_range(number, measures):
+            continue
+        if key is None:
+            return None
+        beat = annotation['at'].get('beat', 1)
+        measure = index.measure(number)
+        if number == 0:
+            # RomanText counts beats from the bar's metrical start; a pickup's first beat is the last beat(s) of a full bar.
+            full = index.measure(1).length
+            beat += float((full - measure.length) / measure.beat_length)
+        if number != bar:
+            bar = number
+            current = index.measure(number).meter
+            if current != meter:
+                meter = current
+                lines.append(f'Time Signature: {meter}')
+            lines.append(f'm{number}')
+        text = annotation['label'].translate(_SUPERSCRIPTS).split()[0]
+        if key != shown:
+            shown = key
+            text = f'{key}: {text}'
+        lines[-1] += (f' b{beat:g}' if beat != 1 or len(lines[-1].split()) > 1 else '') + f' {text}'
+    # music21 reads a "b1" right after "m1" as the beat, so the first chord of a bar carries its beat only if later than 1.
+    return ('\n'.join(lines) + '\n').encode()
+
+
+def export_midi(original: bytes, measures: tuple[int, int] | None = None) -> bytes:
+    """The passage as a standard MIDI file, from Verovio."""
+    toolkit = load_toolkit(original)
+    if measures:
+        toolkit.select({'measureRange': ScoreIndex(toolkit.getMEI()).measure_range(*measures)})
+    return base64.b64decode(toolkit.renderToMIDI())

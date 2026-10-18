@@ -822,11 +822,93 @@ All 436 tests pass on main with every track merged.
 
 `compare_labels` now classifies "key and chord both differ" as a different chord (it was a key difference), which also changes the STUDENT CHECK rows in the server and skill drafts.
 
-### 42. PDF reading: a tie no longer goes to the sparse reading (2026-10-13)
+### 40. Piano reduction: one decision per sounding note (2026-10-12)
+
+**Challenge.** The piano view chose octave and hand chord by chord, from the tune at that moment, so a held note could drop an octave or change staff halfway: ties hung in the air or ended on nothing, and an inner part hopped between staves (K.458 bar 8, Mozart 41 bar 24, Dvořák bar 35). Parts in the tune's rhythm were dropped as "doublings" even when they harmonised it in thirds (K.458 bars 1 and 5), and rests were merged across beats.
+
+**What we did.** Each note of the accompaniment, tied notes of a part counted as one, now gets its octave and hand once and keeps them to its release, across the barline too. A part then moves to one staff, or the start or end of it does, where that saves ties or keeps it together, within a ninth per hand, without the hands crossing and without high left-hand notes. Each staff is one voice or two, split by part or by held against moving notes, whichever needs fewer ties. Only true octave doublings (struck and released together) are dropped. Rests and notes are split to show the beat (Gould). The real Dvořák, Mozart 41 and Haydn 104 files are now under `tests/data/piano/`.
+
+**Result.** Reviewer's checker, bars 1–40 (unpaired ties, gaps, voice totals): K.458 20 → 0, Mozart 41 41 → 0, Dvořák 69 → 0, Beethoven Op. 59/1 13 → 0, Haydn 104 37 → 0. Every note of the five scores now sounds in the reduction for its whole length. Reducing Mozart 41 takes 8.1 s for bars 1–8 (was 6.8 s, mostly parsing the 8 MB file) and 11.6 s for bars 1–40 (was 8.7 s).
+
+### 41. PDF reading: treble clefs in mid-line read as half notes (2026-10-12)
+
+**Challenge.** A treble clef in the middle of a line (a change back from bass clef, or a courtesy clef at the end of a line) was often lost, and every note after it was read in the wrong clef. On the main benchmark, Audiveris found 116 of 300 clef changes.
+
+**Cause.** In Audiveris's note-head step, the loop of the treble clef matches the hollow note-head template and its spine passes for a stem. That false half note's ink is erased before the symbol step, so the symbol step never sees the clef.
+
+**What we did.** Fork change in `NoteHeadsBuilder` (branch `sma-5.11.0-clefs`, candidate 5.11.0-sma.2, not released): around each hollow head candidate, the clef-sized ink is classified as a whole. If the best guess is a treble clef graded 0.5 or more, and no head inside it is a good head (a stemmed chord can look like a clef), a clef is created there, the head candidates are dropped, and the clef is frozen so the symbol step keeps it.
+
+**Result.** Each setting read alone, setting 0, main set: clef changes found 116 → 156 of 300, pitch 91.1% → 92.7%, pitch+timing 82.4% → 84.1%. Held-out set 3: pitch 81.7% → 85.3%. As production reads (best of 3 settings):
+
+| Set | Pitch | Pitch+timing |
+|---|---|---|
+| main (57 PDFs) | 91.3% → 93.2% | 85.2% → 86.6% |
+| held-out (11) | 97.4% → 97.4% | 90.2% → 90.2% |
+| held-out 2 (6) | 94.1% → 94.7% | 81.0% → 81.3% |
+| held-out 3 (6) | 89.3% → 89.9% | 66.0% → 66.5% |
+
+**Trade-offs.**
+- "Invented" clef changes rise on some readings (main set, setting 0: 56 → 58; held-out: 13 → 16). Looking at the ink of every clef the change created on these PDFs (Schubert Die Stadt, Bizet Absence, Holmes, Berg, Franz Lotosblume, Haydn canzonet, Bach C major prelude, Clara Schumann Polonaise 3), all but one are real treble clefs: courtesy clefs at the end of a line, or clefs next to a barline that the scorer counts in the neighbouring bar. The one real mistake is a stacked whole-note chord with a fermata (Haydn canzonet, vr edition, page 2), graded 0.98 as a treble clef.
+- A margin over the classifier's second guess would not help: the second guess is 0.05 or less on every real clef found (the best guesses range from 0.62 to 0.98), and 0.23 on the Haydn chord.
+- A frozen clef cannot be removed later in Audiveris, so a wrong one stays and changes the pitch of the notes after it, until the next clef.
+- Production totals drop on a few PDFs when the chooser picks a different reading: Kinkel Trennung scan loses 27 pitches and 69 pitch+timing.
+- Threshold 0.2 instead of 0.5 gives almost the same totals but loses 38 pitches on the Mozart K.545 scan in settings 1 and 2, so 0.5 stays.
+
+**Not yet live.** Releasing the fork, the Docker base image and the reader version wait for the owner's decision.
+
+### 42. Round 2 display polish before the owner's re-review (2026-10-13)
+
+**Challenge.** Seven display defects were flagged on the round 2 "after" images. Each was checked at full size against images re-rendered from the branch (the marks and PDF images reproduced byte for byte).
+
+**Fixed.**
+- **Tendency arrow on the staff (BWV 64.4 bar 7).** The bass D3 sits on the middle line, so no spot within two steps of it is outside the staff; the arrow fell back to inside the staff, on the bottom line, and its R moved half way along the shaft, about 0.6 staff space from it. A new placement starts the arrow straight off the note just past the staff edge, R at its tail, both clear of the lines (decision S). The arrow is now 411 units from its note (the old rule allowed 330 beside a note; 450 is allowed when the arrow is straight off it). No other tendency image changed.
+- **ABRSM cadential six-four.** The default style's continuation (V⁶₄ then –⁷₋₃) ran in every style, so ABRSM pages read "Ic –⁷₋₃". ABRSM teaching writes Ic–V (MyMusicTheory, Grade 6: "Cadential 6/4 = Ic-Va"), so ABRSM now prints "Ic V⁷". Default and figured-bass pages are byte-identical.
+- **Preview bar numbers hitting the system above (Joplin bar 33, and two stems on page 2).** A number raised over a first-ending bracket reached a low left-hand beam of the system above. Placement looked only at its own system, and the 360 units between that beam and the bracket could not hold a 540-unit number with its margin. Previews now use Verovio `spacingSystem` 7 (default 4), and placement also checks the system above. Page counts are unchanged on the four round 2 PDFs; pages are 3–5% taller (measured on the review images: Joplin p1 +4.9%, Chopin +5.3%, Schubert p1 +3.2%), and K.545 moves systems between pages. Base: 2 numbers touching the system above (Joplin), now 0 of 216 numbers on all four PDFs. Beams are not obstacles anywhere in the overlay (a beam group's box covers its notes), so bar 33 is fixed by the spacing, checked by eye.
+
+**Not changed.**
+- **Ring code on the alto's bottom line (BWV 102.7 bar 2).** Real: the alto's VO sits on a staff line. But the gap between the alto and tenor staves holds one code with clear space, not two. Preferring an off-staff spot first moved the alto's VO into the gap, and the tenor's VO then went onto its staff or against its fermata (two variants tried). The owner had accepted this bar as is. A joint placement of the codes of one chord was not tried.
+- **Rings without a code (BWV 418 bars 8 and 11).** Intended: each is the second note of a pair already coded (bar 8: tenor G♯3 with the bass's VO; bar 11: soprano E5 with the alto's S).
+- **"Ped. simile" gone from the Chopin check page.** Intended: the earlier "no pedal marks" decision, extended to pedal words in commit 74b880b after the "before" image was made.
+- **Bar 1 unnumbered on previews.** Intended: a piece's first bar is not numbered (standard practice). Decision K was about numbering previews that have nothing to flag.
+- **Card phrase bracket.** It ends at the system's last barline, open because the phrase (a′, from the pickup) continues on the next system; it does not run off the page.
+
+### 43. Round 2 display polish, second pass (2026-10-13)
+
+**Challenge.** The standards review of entry 42 found part-writing codes sitting across staff lines, a fault mark missing from a review image, preview bar numbers clipped at the top of pages 2 and later and placed inconsistently at endings, and two review images made from the wrong input.
+
+**Fixed.**
+- **Ring codes on staff lines.** Text across staff lines is not engraving practice (Gould: words and signs go outside the staff). A code now takes a clear spot off the staves first: beside or straight off its ring, past a fermata (marks stack outward from a note), or just past the staff's edge on the ring's side. Where no spot is clear, or a ring on a ledger note all but touches another staff's fermata (BWV 64.4 bar 6), a hidden line of room is added at that note and the page is laid out again, up to four lines; room that does not help is taken back. Across the 20 test chorales drawn with the draft's own marks, codes on a staff went from 22 to 2 (BWV 245.40 bars 5 and 12: a tenor eighth inside a beamed run, where no spot works). 6 of 20 pages are 0.7–3.6% taller; the others keep their size. The engraving check's 9 pages are pixel-identical and still have no collisions. The white mask behind BWV 102.7 bar 2's alto VO no longer meets a staff line, so its stub is gone.
+- **Preview bar numbers at endings.** Bar 33's number stood above its first-ending bracket but 34's and 67's under the bracket, beside the bold ending digit: Verovio boxes only the digit. The bracket is now an obstacle from its line down to the staff, so all 7 numbers at Joplin's endings stand above it (before: 4 above; 34, 66 and 67 under).
+- **Preview top margin.** On pages 2 and later the first number started at the image's top edge (Verovio's margin holds its own, smaller, system-start number). The top margin now grows until the highest number on every page is the image's trim margin (2.5% of the width) from the edge. Page heights change by 0–2% (Joplin p3 grows because one system moves from p2 to p3; page counts are unchanged on all four PDFs).
+
+**Explained, no engine change.**
+- **The missing bar 12 "R" (BWV 64.4, final/04 v2).** The review's render script read the draft's `draw` lines with a pattern that had no `direction` field, so `draw arrow … label "R" direction "up"` matched nothing and was skipped; the engine drew it every time. A new test draws every code the draft lists on four whole chorales and checks each is on the page.
+- **ABRSM sample with numerals that don't fit the music.** All three final/02 style samples (default included) were drawn from a stress-test annotation list, not an analysis. The v3 samples use the hand-checked BWV 269 analysis (`examples/engraving/bach-269.json`). It has no cadential six-four, so a separate ABRSM sample from the hand-checked Brahms Op. 118 No. 2 shows "Ic V" under a D bracket.
+- **Phantom first ending in final/07 and final/09 v2.** They were drawn from `tests/data/chopin_prelude_op28_no4_reading.musicxml`, an old reading with endings and no repeat, passed straight to the preview; decision L's cleanup runs when a PDF is read. The v3 images use the PDF reading, as round2/pdf does.
+- **K.545 "48" beside "ff".** About two staff spaces apart on the same baseline, a light italic number against a bold dynamic: readable, left as is.
+- **Schubert "Die Stadt" numbered one behind (not fixed).** Audiveris writes the first bar as `number="0" implicit="yes"`: its notes add up to 2¾ of the bar's 3 beats (a misread), so it is taken for a pickup, and the engine keeps the file's numbers.
+
+### 44. Round 2 display polish, third pass (2026-10-13)
+
+**Challenge.** The third standards review found a ring code across another note's head, flat and stem (BWV 245.40 bars 5 and 12), a code nearer an unringed note than its own ring (BWV 404 bar 6), two tendency arrows inside the staff (BWV 64.4 bar 12, BWV 102.7 bar 5), the skill's last-page pull-in undone by the new top margin, render time tripled on coded pages, and a figured-bass sample identical to the default one.
+
+**Fixed.**
+- **Codes never on another note.** The last resort took the first spot without looking. Now it takes the spot that touches no notehead, accidental or stem and covers least. Codes also get spots straight above or below their ring, stepping out through the gap to the next staff, so the extra room has a place to fill. BWV 245.40's VO now stands straight above its ring, past the flat, with the staves moved apart. Ring codes touching a note in the 20 test chorales: 2 → 0. On a staff: 2 → 0.
+- **Each code nearer its own ring than any unringed note** (decision R). BWV 404's S now stands straight above its own ring. A code straight off its ring only competes with notes in its own column, since marks stack outward from their note (Gould). The new display-rule check still flags BWV 245.40, where no spot meets every rule (DECISIONS-PENDING AN).
+- **Tendency arrows.** The arrow can now stack past a fermata (BWV 64.4 bar 12, above the fermata), or sit past neighbouring notes that hang over the staff edge. When only the next staff is in the way, the staves move apart for the arrow as they do for codes (BWV 102.7 bar 5, below the alto staff). The shorter 300-unit shaft is also tried outside the staff.
+- **Skill PDF pages.** The top margin is now set before the pull-in. Clara Schumann polonaise 3 is 4 pages again (was 5), and Lehmann "Golden Bridges" 1 page (was 2). All 8 short-last-page readings match the layout before entry 43, and every page keeps its top margin.
+- **Render time.** Each code measures how far short its gap is and asks for that many lines at once. A gap blocked only by the code's own staff asks for nothing. One room per gap per bar, so rooms above and below a gap no longer stack. The last measuring pass is the page itself, so it is not drawn again. BWV 245.40 bars 0–28: 1.09 s → 0.55 s. The 20 chorales: 5.43 s → 4.18 s in total (mean of 3 renders each). One line is 390 units and Verovio's margin is 2 × 180, both measured on BWV 245.40; a fifth request gives up. The one-step room gave pixel-identical pages to the line-at-a-time result on all 20 chorales. Merging the rooms of a gap then made two pages shorter: BWV 336 by 12 px and the BWV 418 bar 11 excerpt by 13 px (at 2800 px wide).
+- **Figured-bass sample.** It is now drawn from the hand-checked Brahms Op. 118 No. 2, which uses the style's own figures (vii^ø⁶₅♮₃/IV, V♯⁴₂/V, iii⁷♯₅/V, V⁷♯₃/V). Bar 4 is not relabelled (decision pending, AJ).
+
+**Before/after.** engraving_check: 0 overlapping, 0 tight, 0 music collisions. The four review PDFs (previews and cards) and final/07 are pixel-identical to v3. Changed review images, with -v4 versions written: final/04 BWV 102.7, 64.4, 245.14 and 418; round2/marks R-bwv418-11-11 and R-bwv245.14-9-9; final/02 figured-bass. The display-rule check (corpus-checks) reports 19 violations on this branch. Those in this work's scope: BWV 245.40 decision R (2), and arrows inside the staff at BWV 336 bar 2 and the tendency sample bar 1 (4, owner question AM).
+
+### 45. PDF reading: a tie no longer goes to the sparse reading (2026-10-13)
 
 After the sma.2 clef fix, the Kinkel "Trennung" scan lost 27 of 381 pitches and 69 pitch-and-timing events. The default setting has no small-note detection and drops the grace notes and half of the bass in bars 10-11. Under sma.1 it had 7 bars that don't add up against 5 for the other settings, so setting 1 won; the clef fix made bars 10 and 11 add up without restoring the notes, the three readings tied at 5, and the tie went to the first. Now, among readings tied on skipped pages and uneven bars, one with under 90% of the most pitched notes is dropped. Kinkel: pitch 308 -> 335, pitch and timing 255 -> 324 (the sma.1 values). Replaying the chooser over 240 cached readings (80 PDFs x sma.1, sma.2 and a candidate build) changes only Kinkel; of 42 ties it changes one pick. Why a margin rather than "most notes wins": on the Schubert *Die Stadt* tie, 897 vs 900 notes, the larger reading has 139 fewer right pitches. In all 39 setting pairs where one reading has under 90% of the other's notes, the smaller one has fewer right pitches. A floor near 0.92 would also switch two Bach and Mozart ties for the better; with two data points it stays at 0.9.
 
 A guard for the Haydn canzonet chord read as a treble clef (bar 35) was built and dropped: the bar was already empty under sma.1 (with an invented C clef), so pitch counts are the same with or without it. Its branch stays in the fork clone.
+
+**Replaced at the merge of the round 2 branch.** That branch's guard (commit 8036e75) leaves out any reading with under 95% of the fullest reading's pitched notes before the fewest uneven bars are looked for, not only on a tie; it replaces this tie rule, as the owner decided. Kinkel's sparse default (27 of 381 pitches lost) is still passed over.
 
 ## Checking against teachers' prose
 

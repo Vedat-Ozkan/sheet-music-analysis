@@ -1,5 +1,7 @@
 """The draft the chat model reads carries the part-writing section for chorale-style scores only."""
 
+import re
+
 import pytest
 
 from engine import draft, part_writing
@@ -21,10 +23,12 @@ def local_store(tmp_path, monkeypatch):
 def test_draft_analysis_lists_planted_motion_errors(local_store):
     text = app.make_draft((DATA / "part_writing_motion.musicxml").read_bytes(), "pw1", None)
     section = text.split("PART-WRITING CHECK", 1)[1].split("HOW TO USE", 1)[0]
-    assert "parallel fifths S+T m1 b1 to m2 b1" in section
-    assert "voice crossing S+A m13 b1" in section
+    assert "parallel fifths soprano+tenor m1 b1 to m2 b1" in section
+    assert "voice crossing soprano+alto m13 b1" in section
     assert '(Open Music Theory)' in section
     assert '{"measure":13,"beat":1.0,"staff":2,"pitch":"G4"}' in section
+    labels = re.findall(r'label "([^"]*)"', section)
+    assert "P5" in labels and not any("," in word for word in labels)  # a code per pair, never a comma list
     assert "one sentence offering to check the voice leading" in text.split("HOW TO USE", 1)[1]
 
 
@@ -38,7 +42,7 @@ def test_note_list_path_gets_the_same_section():
     text = note_list.encode(index)
     result = draft.draft_from_notes(text)
     section = part_writing.as_text(note_list.decode(text), result.chords)
-    assert "parallel fifths S+T m1 b1 to m2 b1" in section
+    assert "parallel fifths soprano+tenor m1 b1 to m2 b1" in section
 
 
 def test_piano_piece_gets_no_section(local_store, chopin):

@@ -280,3 +280,91 @@ def test_skill_never_deletes_or_overwrites_its_input_score(tmp_path, broken):
     assert result.returncode == 0, result.stderr
     assert source.read_bytes() == score
     assert (tmp_path / 'analysis-annotated.musicxml').exists() != broken
+
+
+def pdf_text(data):
+    import io
+    from pypdf import PdfReader
+    return ''.join(page.extract_text() for page in PdfReader(io.BytesIO(data)).pages)
+
+
+def check_extras(files, annotations, bars):
+    """files maps worksheet/midi/romantext/pdf to the bytes a user would download."""
+    import music21
+    assert files['midi'][:4] == b'MThd'
+    assert 'vii' not in pdf_text(files['worksheet'])
+    assert 'vii' in pdf_text(files['pdf'])  # the analysis PDF does carry its labels, so the check above can fail
+    parsed = music21.converter.parse(files['romantext'].decode(), format='romantext')
+    chords = list(parsed.recurse().getElementsByClass('RomanNumeral'))
+    expected = [a for a in annotations.annotations if a.type == 'harmony' and bars[0] <= a.at.measure <= bars[1]]
+    assert len(chords) == len(expected)
+    assert [round(float(c.getOffsetInHierarchy(parsed)), 2) for c in chords][:3] == [0.0, 1.5, 3.0]  # 12/8: beats of a dotted quarter
+    assert_romantext_matches(chords, expected)
+
+
+def assert_romantext_matches(chords, harmonies):
+    """A flat key written as "E-:" parses as an empty chord with no key, so check what music21 actually read."""
+    import music21
+    key = None
+    for chord, harmony in zip(chords, harmonies):
+        key = harmony.key or key
+        expected = music21.key.Key(music21.pitch.Pitch(key).name, 'major' if key[0].isupper() else 'minor')
+        assert chord.key.tonic.name == expected.tonic.name and chord.key.mode == expected.mode, (harmony.at, key)
+        assert chord.figure == harmony.label.split()[0].replace('/o', 'ø'), harmony.at
+
+
+def test_server_extra_downloads(chopin, chopin_annotations, tmp_path, monkeypatch):
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/REAL', chopin)
+
+    async def run():
+        result = await app.render_analysis(None, 'REAL', chopin_annotations, measure_range='1-8')
+        assert 'once per conversation' in result.content[1].text
+        assert 'title' not in result.structured_content
+        files = {}
+        for key, extension, filename in [('pdf', 'pdf', 'analysis.pdf'), ('worksheet', 'pdf', 'worksheet.pdf'),
+                                         ('midi', 'mid', 'analysis.mid'), ('romantext', 'rntxt', 'analysis.rntxt')]:
+            name = result.structured_content[f'{key}_url'].rsplit('/', 1)[1]
+            response = await app.files(Request({'type': 'http', 'path_params': {'name': name}}))
+            assert response.status_code == 200 and name.endswith(f'.{extension}')
+            assert response.headers['content-disposition'] == f'attachment; filename="{filename}"'
+            assert response.headers['content-security-policy'] == 'sandbox'
+            files[key] = response.body
+        check_extras(files, chopin_annotations, (1, 8))
+
+    asyncio.run(run())
+
+
+def test_skill_extra_downloads(chopin, chopin_annotations, tmp_path):
+    source = tmp_path / 'annotations.json'
+    source.write_text(chopin_annotations.model_dump_json())
+    result = subprocess.run(
+        [sys.executable, str(ROOT / 'skill/scripts/render_analysis.py'), str(ROOT / 'tests/data/chopin_nocturne_op9_no2.mxl'),
+         str(source), '--measures', '1-8', '--out-dir', str(tmp_path), '--name', 'x'],
+        capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(ROOT)},
+    )
+    assert result.returncode == 0, result.stderr
+    check_extras({'pdf': (tmp_path / 'x.pdf').read_bytes(), 'worksheet': (tmp_path / 'x-worksheet.pdf').read_bytes(),
+                  'midi': (tmp_path / 'x.mid').read_bytes(), 'romantext': (tmp_path / 'x.rntxt').read_bytes()},
+                 chopin_annotations, (1, 8))
+
+
+def test_romantext_of_a_pickup_piece_with_a_key_change(tmp_path):
+    # bwv102.7 starts on beat 4 of a pickup bar; every later chord lands late if the pickup chord is read as beat 1.
+    from engine.export import export_romantext
+    from engine.annotations import AnnotationList
+    import music21
+    h = lambda m, b, label, key=None: {'type': 'harmony', 'at': {'measure': m, 'beat': b}, 'label': label, **({'key': key} if key else {})}
+    analysis = AnnotationList.model_validate({'annotations': [
+        h(0, 1, 'i', 'g'), h(1, 1, 'iv6'), h(1, 2, 'Cad64'), h(1, 3, 'V7'), h(1, 4, 'i'), h(2, 1, 'V65/III'),
+        h(2, 3, 'I', 'Bb'), h(2, 4, 'V43'), h(3, 1, 'I6')]})
+    score = (ROOT / 'tests/data/part_writing_bwv102.7.musicxml').read_bytes()
+    harmonies = analysis.annotations
+    for measures, chosen in [(None, harmonies), ((1, 3), harmonies)]:  # a range from bar 1 includes the pickup, as the MIDI does
+        text = export_romantext(score, analysis.model_dump(), measures).decode()
+        chords = list(music21.converter.parse(text, format='romantext').recurse().getElementsByClass('RomanNumeral'))
+        assert len(chords) == len(chosen)
+        assert_romantext_matches(chords, chosen)
+        # the pickup chord is the last beat of a 4/4 bar, 3 quarters before bar 1; bar 1 then starts at offset 1
+        assert [c.measureNumber for c in chords][:2] == [0, 1]
+        assert [c.beat for c in chords][:3] == [4.0, 1.0, 2.0]

@@ -8,13 +8,21 @@ from xml.sax.saxutils import escape
 from engine import check_analysis, notation, text
 from engine.annotations import AnnotationList, Position
 from engine.comparison import from_annotations
-from engine.overlay import INK, NUMERAL_SIZE, SMALL_SIZE, Box, NotOnPage
+from engine.overlay import INK, NUMERAL_SIZE, Box, NotOnPage
 
-TOOL_COLOR = '#4477AA'
+ERROR = '#D50000'  # the teacher's red pen: everything the tool writes is a correction
 AGREE_COLOR = '#228833'
+# A key-only difference is not a fault in the student's chord, so it is not red; grey ink is the margin pencil beside the red pen.
+NEUTRAL = '#555555'
 GAP = 110  # clear space between neighbouring labels, as in the normal page's numeral row
-ROW = 600  # from the student's baseline to the tool's
-NOTE_LINE = 430
+ROW = 640  # from the student's baseline to the tool's
+SIZE = 330  # smallest text that reads at chat size (about 11 px)
+STROKE = 30  # the spec's stroke for rings and underlines
+CORNER = 120  # ring corner radius: small enough that the corners of a stacked figure's text box stay inside
+BADGE_GAP = 90  # clear space between a numeral (or its ring) and its note number
+KEY_CLEAR = 40  # extra space between a key label and a ring that follows it
+RING_PAD = 60  # clear space between a label and the ring round it
+NOTE_LINE = 500
 ROOM_LINE = 390  # what Verovio sets aside for each line of a hidden two-line direction
 VEROVIO_BASE = 1250  # what the hidden numeral measures before any padding (measured; hardly varies with the figure)
 NBSP = 243  # width of one non-breaking space in the hidden numerals Verovio sets (measured)
@@ -24,10 +32,10 @@ UNLABELLED = 'unlabelled'  # the tool has a chord here and the student wrote not
 UNCHECKED = 'unchecked'  # the student's label comes before the tool's first, so there is nothing to compare
 
 NOTES = {
-    'different_chord': 'the tool reads a different chord here. Compare the notes of the chord with each label.',
-    'different_chord_and_key': 'the tool reads a different chord and a different key here. Compare the notes of the chord, and check which key it belongs to.',
-    'different_key': 'the tool reads the key differently here. Check which key the chord belongs to.',
+    'different_chord': 'the tool reads a different chord here. Check the notes of the chord against your label.',
+    'different_chord_and_key': 'the tool reads a different chord and key here. Check the notes of the chord, then its key.',
 }
+FOOT = {UNLABELLED: "? = you didn't label this chord; the tool's reading is below it", UNCHECKED: 'no mark = the tool has no chord there to compare'}
 
 
 def compare(student, reviewed, index):
@@ -42,57 +50,89 @@ def compare(student, reviewed, index):
     written = {(s.measure, s.beat) for s in student}
     results += [{'at': {'measure': r.measure, 'beat': r.beat}, 'student': None, 'reviewed': asdict(r),
                  'classification': UNLABELLED, 'is_error': False} for r in reference if (r.measure, r.beat) not in written]
-    return sorted(results, key=lambda item: (item['at']['measure'], item['at']['beat']))
+    style = reviewed.get('style', 'current')  # carried on each result so the page draws labels as the analysis does
+    return sorted(({**item, 'style': style} for item in results), key=lambda item: (item['at']['measure'], item['at']['beat']))
 
 
 def _key_width(key):
-    return text.width(text.pretty_key(key) + ':', NUMERAL_SIZE, bold=True) + 90
+    return text.width(text.pretty_key(key) + ':', NUMERAL_SIZE) + 90
 
 
-def _numeral_width(figure, key):
-    return notation.numeral(figure, key, 'current', NUMERAL_SIZE)[1]
+def _numeral_width(figure, key, style):
+    return notation.numeral(figure, key, style, NUMERAL_SIZE)[1]
+
+
+def _badge_radius(number):
+    return max(190, text.width(str(number), SIZE, bold=True) / 2 + 60)
+
+
+def _badge(layout, left, cy, number, color):
+    """A note's number in an outlined circle, set apart from the numeral. A bare raised digit beside a numeral reads
+    as a chord figure (ii⁷ 1), and the analysis page's solid black callouts must not be mistaken for these."""
+    radius = _badge_radius(number)
+    layout._add('circle', cx=round(left + radius), cy=round(cy), r=round(radius), fill='none', stroke=color,
+                stroke_width=STROKE, **{'class': 'note-number'})
+    layout._text(left + radius, cy + SIZE * 0.34, str(number), SIZE, fill=color, anchor='middle')
+    return Box(left, cy - radius, 2 * radius, 2 * radius)
 
 
 def _mark_width(item, marks):
     cls = item['classification']
     if cls in ('agrees', 'same_chord_different_spelling'):
         return 90 + 220
+    number = BADGE_GAP + 2 * _badge_radius(marks)
+    if cls == 'different_chord':
+        return 2 * RING_PAD + number
+    if cls == 'different_key':
+        return number
     if cls == 'different_inversion':
-        return 70 + text.width('?', NUMERAL_SIZE, bold=True)
-    if cls in ('different_chord', 'different_key'):
-        return 70 + text.width(f'[{marks}]', SMALL_SIZE)
+        return _slot(item)
     return 0
+
+
+def _slot(item):
+    """Room right of a root-position numeral for the underline that stands where its missing figure would be."""
+    student = item['student']
+    chunks = notation.numeral(student['figure'], student['key'], item['style'], NUMERAL_SIZE)[0]
+    return 0 if _figure_indices(chunks, item['style']) else 30 + text.width('6', NUMERAL_SIZE * text.FIGURE)
+
+
+def _figure_indices(chunks, style):
+    """Which chunks of a numeral are its inversion figure: the raised or stacked digits, or the ABRSM letter."""
+    return [i for i, c in enumerate(chunks)
+            if c.size < NUMERAL_SIZE or (style == 'abrsm' and c.dx > 0 and c.text in ('b', 'c', 'd'))]
 
 
 def _mark_count(results):
     return sum(item['classification'] in ('different_chord', 'different_key') for item in results)  # no note number is larger
 
 
-def _row_widths(results, shown=None, marks=None, carry_blue=True):
+def _row_widths(results, shown=None, marks=None, carry_key=True):
     """Per entry, the width of the student's row and of the tool's, with the keys that precede them.
 
-    Without carry_blue, every blue key that differs from the student's is counted: reserve() does not
+    Without carry_key, every red key that differs from the student's is counted: reserve() does not
     know where lines break, and draw() prints the tool's key again at the start of each line."""
-    blue, widths = None, []
+    tool_key, widths = None, []
     if marks is None:
         marks = _mark_count(results)
     for item in results:
-        student, tool = item['student'], item['reviewed']
+        student, tool, style = item['student'], item['reviewed'], item['style']
         top = bottom = 0.0
-        if not carry_blue:
-            blue = None
+        if not carry_key:
+            tool_key = None
         if student:
             if student['key'] != shown:
-                top += _key_width(student['key'])
+                top += _key_width(student['key']) + KEY_CLEAR * (item['classification'] == 'different_chord')
                 shown = student['key']
-                blue = None  # a key just written in black is the one the reader now assumes
-            top += _numeral_width(student['figure'], student['key']) + _mark_width(item, marks)
-        if tool:
-            if tool['key'] != (blue or shown):
+                tool_key = None  # a key just written in black is the one the reader now assumes
+            top += _numeral_width(student['figure'], student['key'], style) + _mark_width(item, marks)
+        elif tool:
+            top += text.width('?', NUMERAL_SIZE, bold=True)
+        if tool and (not student or item['classification'] in DIFFERS):
+            if tool['key'] != (tool_key or shown):
                 bottom += _key_width(tool['key'])
-                blue = tool['key']
-            if not student or item['classification'] in DIFFERS:
-                bottom += _numeral_width(tool['figure'], tool['key'])
+                tool_key = tool['key']
+            bottom += _numeral_width(tool['figure'], tool['key'], style)
         widths.append((top, bottom))
     return widths
 
@@ -100,7 +140,7 @@ def _row_widths(results, shown=None, marks=None, carry_blue=True):
 def reserve(results):
     """Hidden numerals as wide as what is drawn under them, so a bar with several labels widens as on a normal page."""
     annotations = []
-    for item, (top, bottom) in zip(results, _row_widths(results, carry_blue=False)):
+    for item, (top, bottom) in zip(results, _row_widths(results, carry_key=False)):
         shown = item['student'] or item['reviewed']
         needed = max(top, bottom) + GAP
         filler = max(0, math.ceil((needed - VEROVIO_BASE) / NBSP))
@@ -117,16 +157,42 @@ def with_room(mei, lines, bottom_staff):
     return mei
 
 
-def _numeral(layout, x, baseline, figure, key, color=INK):
-    chunks, total = notation.numeral(figure, key, 'current', NUMERAL_SIZE)
+def _numeral(layout, x, baseline, figure, key, style, color=INK, underline=False, register=True, label=None):
+    chunks, total = notation.numeral(figure, key, style, NUMERAL_SIZE)
     boxes = [layout._text(x + c.dx, baseline + c.dy, c.text, c.size, bold=c.bold, fill=color) for c in chunks]
     box = Box(x, min(b.y for b in boxes), total, max(b.bottom for b in boxes) - min(b.y for b in boxes))
-    layout.harmony_labels.append((figure, box))
+    if underline:
+        # Only the figure is wrong. A root-position label has none, so the underline stands right of the numeral where
+        # the figure would go: underlining the numeral itself would sit on the tool's numeral below and read as a fraction.
+        shown = [(chunks[i], boxes[i]) for i in _figure_indices(chunks, style)]
+        if shown:
+            left, right = min(b.x for _, b in shown), max(b.right for _, b in shown)
+            y = max(b.bottom for _, b in shown) + 50
+        else:
+            left = box.right + 30
+            right = left + text.width('6', NUMERAL_SIZE * text.FIGURE)
+            y = box.bottom + 50
+            box = Box(box.x, box.y, right - box.x, box.height)
+        layout._add('path', d=f'M{left:g},{y:g} H{right:g}', fill='none', stroke=ERROR, stroke_width=STROKE,
+                    stroke_linecap='round', **{'class': 'inversion-underline'})
+    if register:
+        layout.harmony_labels.append((label or figure, box))
+    return box
+
+
+def _ring(layout, box):
+    """A red-pen ring round a wrong label. A rounded rectangle, not an ellipse or stadium, so a stacked figure's
+    corners stay inside and the ring needs no more room than its box."""
+    x, y, w, h = box.x - RING_PAD, box.y - RING_PAD, box.width + 2 * RING_PAD, box.height + 2 * RING_PAD
+    layout._add('rect', x=f'{x:g}', y=f'{y:g}', width=f'{w:g}', height=f'{h:g}', rx=CORNER, fill='none',
+                stroke=ERROR, stroke_width=STROKE, **{'class': 'wrong-label-ring'})
+    box = Box(x, y, w, h)
+    layout.harmony_labels.append(('wrong-label ring', box))
     return box
 
 
 def _key(layout, x, baseline, key, color=INK):
-    box = layout._text(x, baseline, text.pretty_key(key) + ':', NUMERAL_SIZE, bold=True, fill=color)
+    box = layout._text(x, baseline, text.pretty_key(key) + ':', NUMERAL_SIZE, fill=color)
     layout.harmony_labels.append((key + ':', box))
     return box
 
@@ -142,24 +208,48 @@ def _tick(layout, left, baseline, register=True):
     return box
 
 
-def _legend_pieces(results, key_only=False):
+def _legend_pieces(results):
     classes = {item['classification'] for item in results}
     pieces = []
     if classes & {'agrees', 'same_chord_different_spelling'}:
-        pieces.append('agrees with the tool')
-    if classes & set(DIFFERS):
-        pieces.append("blue: the tool's reading where it differs")
-    if key_only:
-        pieces.append("blue key alone: where the tool's key changes")
-    if UNLABELLED in classes:
-        pieces.append("blue on its own: a chord you didn't label")
-    if UNCHECKED in classes:
-        pieces.append('no mark: the tool has no chord there to compare')
+        pieces.append('agrees')
+    if 'different_chord' in classes:
+        pieces.append('ring = a different chord (see note)')
     if 'different_inversion' in classes:
-        pieces.append('? check the bass (which note is lowest)')
-    if classes & {'different_chord', 'different_key'}:
-        pieces.append('[1] numbered note under the line')
+        pieces.append('underline = check the inversion')
     return pieces
+
+
+def _foot_lines(results):
+    classes = {item['classification'] for item in results}
+    return [FOOT[c] for c in (UNLABELLED, UNCHECKED) if c in classes]
+
+
+def _plain(figure):
+    """A numeral typed in running text: the stacked figures as 6/5, since a note line has no raised digits."""
+    return re.sub(r'(?<=[A-Za-z°øo])(65|43|42|64)(?!\d)', lambda m: f'{m[1][0]}/{m[1][1]}', figure)
+
+
+def _key_name(key):
+    return text.pretty_key(key[0].upper() + key[1:]) + (' major' if key[0].isupper() else ' minor')
+
+
+def _key_note(pairs):
+    """E.g. "the tool hears this in C major: III in A minor = I in C." for the chords of a key-only run."""
+    pairs = list(dict.fromkeys(pairs))
+    tool_key = pairs[0][3]
+    student_keys = {s_key for _, s_key, _, _ in pairs}
+    tool_short = text.pretty_key(tool_key) if tool_key[0].isupper() else _key_name(tool_key)
+    if len(student_keys) == 1:
+        (student_key,) = student_keys
+        pairs_text = ', '.join(f'{_plain(s)} = {_plain(t)}' for s, _, t, _ in pairs)
+        if len(pairs) == 1:
+            pairs_text = f'{_plain(pairs[0][0])} in {_key_name(student_key)} = {_plain(pairs[0][2])} in {tool_short}'
+        else:
+            pairs_text += f' ({_key_name(student_key)} to {_key_name(tool_key)})'
+    else:
+        pairs_text = ', '.join(f'{_plain(s)} in {_key_name(k)} = {_plain(t)} in {tool_short}' for s, k, t, _ in pairs)
+    return f'the tool hears this in {_key_name(tool_key)}: {pairs_text}.'
 
 
 def _span(start, end):
@@ -168,6 +258,21 @@ def _span(start, end):
     if start['measure'] == end['measure']:
         return f'Bar {start["measure"]}, beats {start["beat"]:g}–{end["beat"]:g}'
     return f'Bar {start["measure"]} beat {start["beat"]:g} to bar {end["measure"]} beat {end["beat"]:g}'
+
+
+def _wrap(string, width):
+    lines, line = [], ''
+    for word in string.split():
+        if line and text.width(f'{line} {word}', SIZE) > width:
+            lines.append(line)
+            line = word
+        else:
+            line = f'{line} {word}'.strip()
+    lines.append(line)
+    if len(lines) > 1 and ' ' not in lines[-1]:  # never leave one word alone on the last line
+        head, _, tail = lines[-2].rpartition(' ')
+        lines[-2:] = [head, f'{tail} {lines[-1]}']
+    return lines
 
 
 def _starts(xs, widths, left, right):
@@ -194,7 +299,6 @@ def draw(layout, results, last_page=True):
         groups.setdefault(system.index, []).append((x, item))
     results = [item for items in groups.values() for _, item in items]  # what this page shows
     number = 0
-    key_only = False  # a blue key with no numeral: the tool's key changes under a label that agrees
     shown_key = None  # the student's key as last written, carried from one line to the next
     deficits = {}
     bottom = 0
@@ -205,61 +309,77 @@ def draw(layout, results, last_page=True):
         cursor = system.left
         widths = _row_widths([item for _, item in items], shown_key, _mark_count(results))
         starts = _starts([x for x, _ in items], widths, cursor, system.right)
-        notes = []
-        blue_key = None  # the last key printed in blue on this line; before one, the student's key is what the reader assumes
-        run = None  # (tool key, note number) of the key differences just before this entry
-        blue = any(bottom for _, bottom in widths)
+        notes = []  # [number, start, end, text or key-run pairs, colour]
+        tool_shown = None  # the last key printed in the tool's row on this line; before one, the student's key is what the reader assumes
+        run = None  # the open note of the key-only run just before this entry
+        has_below = any(bottom for _, bottom in widths)
         for (x, item), start in zip(items, starts):
-            student, tool, cls = item['student'], item['reviewed'], item['classification']
+            student, tool, cls, style = item['student'], item['reviewed'], item['classification'], item['style']
             x = max(start, cursor)
             row, below = [], []
             if student:
                 at = x
+                ringed = cls == 'different_chord'
                 if student['key'] != shown_key:
                     row.append(_key(layout, at, first, student['key']))
                     shown_key = student['key']
-                    blue_key = None
-                    at = row[-1].right + 90
-                row.append(_numeral(layout, at, first, student['figure'], student['key']))
+                    tool_shown = None
+                    at = row[-1].right + 90 + KEY_CLEAR * ringed
+                at += RING_PAD * ringed
+                row.append(_numeral(layout, at, first, student['figure'], student['key'], style,
+                                    underline=cls == 'different_inversion', register=not ringed))
                 if cls != 'different_key':
                     run = None
                 if cls in ('agrees', 'same_chord_different_spelling'):
                     row.append(_tick(layout, row[-1].right + 90, first))
-                elif cls == 'different_inversion':
-                    row.append(layout._text(row[-1].right + 70, first, '?', NUMERAL_SIZE, bold=True))
-                elif cls in ('different_chord', 'different_key'):
-                    if cls == 'different_key' and run and run[0] == tool['key']:
-                        mark = run[1]
-                        notes[-1][2] = item['at']
+                elif ringed:
+                    row[-1] = _ring(layout, row[-1])
+                    number += 1
+                    kind = 'different_chord_and_key' if tool['key'] != student['key'] else cls
+                    notes.append([number, item['at'], item['at'], NOTES[kind], ERROR])
+                    # Raised clear of the ring.
+                    row.append(_badge(layout, row[-1].right + BADGE_GAP, first - 130, number, ERROR))
+                elif cls == 'different_key':
+                    # The student's chord is right, so: no ring, no tick, and one neutral note for the whole run.
+                    pair = (student['figure'], student['key'], tool['figure'], tool['key'])
+                    if run and run[3][0][3] == tool['key']:
+                        run[2] = item['at']
+                        run[3].append(pair)
                     else:
                         number += 1
-                        mark = number
-                        kind = cls
-                        if cls == 'different_chord' and tool['key'] != student['key']:
-                            kind = 'different_chord_and_key'
-                        notes.append([number, item['at'], item['at'], NOTES[kind]])
-                    run = (tool['key'], mark) if cls == 'different_key' else None
-                    row.append(layout._text(row[-1].right + 70, first, f'[{mark}]', SMALL_SIZE))
-            if tool:
+                        run = [number, item['at'], item['at'], [pair], NEUTRAL]
+                        notes.append(run)
+                        row.append(_badge(layout, row[-1].right + BADGE_GAP, first - 130, number, NEUTRAL))
+            else:
+                row.append(layout._text(x, first, '?', NUMERAL_SIZE, bold=True, fill=ERROR))
+            if tool and (not student or cls in DIFFERS):
+                color = NEUTRAL if cls == 'different_key' else ERROR
                 at = x
-                if tool['key'] != (blue_key or shown_key):
-                    below.append(_key(layout, at, second, tool['key'], TOOL_COLOR))
-                    blue_key = tool['key']
+                if tool['key'] != (tool_shown or shown_key):
+                    below.append(_key(layout, at, second, tool['key'], color))
+                    tool_shown = tool['key']
                     at = below[-1].right + 90
-                    key_only = key_only or (student and cls not in DIFFERS)
-                if not student or cls in DIFFERS:
-                    below.append(_numeral(layout, at, second, tool['figure'], tool['key'], TOOL_COLOR))
+                below.append(_numeral(layout, at, second, tool['figure'], tool['key'], style, color, label='tool ' + tool['figure']))
             cursor = max(box.right for box in row + below) + 2 * GAP
-        y = (second if blue else first) + 700
-        for number_, start, end, note in notes:
-            layout._text(system.left, y, f'[{number_}] {_span(start, end)}: {note}', SMALL_SIZE)
-            bottom = y + 120
-            y += NOTE_LINE
-        bottom = max(bottom, (second if blue else first) + 200)
+        y = (second if has_below else first) + 700
+        for number_, start, end, note, color in notes:
+            if not isinstance(note, str):
+                note = _key_note(note)
+            at = _badge(layout, system.left, y - 110, number_, color).right + 110
+            for line in _wrap(f'{_span(start, end)}: {note}', system.right - at):
+                layout._text(at, y, line, SIZE)
+                bottom = y + 140
+                y += NOTE_LINE
+        bottom = max(bottom, (second if has_below else first) + 250)
         deficits[system_index] = bottom
     last = max(groups) if groups else None
     if last_page and last is not None:
-        bottom = _legend(layout, deficits[last] + NOTE_LINE, _legend_pieces(results, key_only))
+        bottom = deficits[last] + NOTE_LINE
+        for line in _foot_lines(results):
+            for part in _wrap(line, layout.systems[-1].right - layout.systems[-1].left):
+                layout._text(layout.systems[-1].left, bottom, part, SIZE)
+                bottom += NOTE_LINE
+        bottom = _legend(layout, bottom, _legend_pieces(results))
         deficits[last] = bottom
     needs = {}
     for system_index, bottom in deficits.items():
@@ -285,14 +405,13 @@ def _legend(layout, y, pieces):
     system = layout.systems[-1]
     x, start = system.left, system.left
     for position, string in enumerate(pieces):
-        lead = 330 if string == 'agrees with the tool' else 0
-        dot = text.width('·', SMALL_SIZE) + 260 if position else 0
-        if x + dot + lead + text.width(string, SMALL_SIZE) > system.right and x > start:
+        lead = 330 if string == 'agrees' else 0
+        dot = text.width('·', SIZE) + 260 if position else 0
+        if x + dot + lead + text.width(string, SIZE) > system.right and x > start:
             x, y, dot = start, y + NOTE_LINE, 0
         if dot:
-            x = layout._text(x + 130, y, '·', SMALL_SIZE).right
+            x = layout._text(x + 130, y, '·', SIZE).right
         if lead:
             _tick(layout, x, y + 40, register=False)
-        color = TOOL_COLOR if string.startswith('blue') else INK
-        x = layout._text(x + lead + (130 if dot else 0), y, string, SMALL_SIZE, fill=color).right
-    return y + 120
+        x = layout._text(x + lead + (130 if dot else 0), y, string, SIZE).right
+    return y + 140

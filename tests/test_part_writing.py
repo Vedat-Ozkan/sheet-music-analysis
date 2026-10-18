@@ -4,7 +4,7 @@ import pytest
 from music21 import corpus
 
 from engine.draft import Chord
-from engine.part_writing import applies, check
+from engine.part_writing import applies, as_text, check
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 
@@ -346,3 +346,32 @@ def test_minor_keys_on_b_are_read_as_keys(tonic):
     # A draft names B minor "b" and B-flat minor "bb"; neither may be mistaken for a flat sign.
     index = read(DATA / 'part_writing_bwv244.3.musicxml')
     check(index, [span(1, 'i', tonic)])
+
+
+@pytest.mark.parametrize('path', sorted(DATA.glob('part_writing_bwv*.musicxml')), ids=lambda p: p.stem)
+def test_overlap_rings_are_on_the_notes_the_finding_names(path):
+    # The ring pair must be (i) the moving voice's new note and (ii) the other voice's previous note it passes, with
+    # the same pitches and moments as the sentence the callout carries.
+    import json
+    import re
+    lines = as_text(read(path)).splitlines()
+    for i, line in enumerate(lines):
+        found = re.match(r"\s+voice overlap \S+ m(\d+) b([\d.]+) to m(\d+) b([\d.]+): .*?'s (\S+) (?:rises above|falls below) the \w+'s previous (\S+)\.", line)
+        if not found:
+            continue
+        m0, b0, m1, b1, new, old = found.groups()
+        spot = next(n for n in range(i, -1, -1) if re.match(r"\d+\. ", lines[n]))
+        end = next((n for n in range(i + 1, len(lines)) if re.match(r"\d+\. ", lines[n])), len(lines))
+        rings = [(ref["measure"], round(ref["beat"], 2), ref["pitch"]) for ref in
+                 (json.loads(m.group(1)) for m in (re.match(r"\s+draw ring (\{.*?\})", l) for l in lines[spot:end]) if m)]
+        # A held note is ringed where it was struck, which may be before the moment the finding names.
+        has = lambda m, b, pitch: any(r[0] == int(m) and r[2] == pitch and r[1] <= float(b) + 1e-6 for r in rings)
+        assert has(m1, b1, new) and has(m0, b0, old), (line, rings)
+
+
+def test_one_callout_per_chord_and_spacing_across_staves_rings_both_notes():
+    text = as_text(read(DATA / 'part_writing_bwv418.musicxml'))
+    assert 'draw bracket' not in text  # a bracket between staves would run through the lyrics between them
+    assert text.count('spacing soprano+alto m8 ') == 1  # the same fault at each subdivision of a held pair is one finding
+    arrivals = [line.split(',')[0].split('. ', 1)[1] for line in text.splitlines() if line[:1].isdigit()]
+    assert len(arrivals) == len(set(arrivals))  # one number per chord, not one per fault

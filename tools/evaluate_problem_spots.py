@@ -171,14 +171,14 @@ def main():
                 if i2 - i1 == j2 - j1:
                     pairs += [(i1 + k, j1 + k) for k in range(1, i2 - i1)]
             truth_at = {j: i for i, j in pairs}
-            uneven, doubles = problem_spots(data)
+            uneven, _ = problem_spots(data)
             bars = []
             for j, (measure, observed) in enumerate(zip(measures, reading)):
                 expected = truth[truth_at[j]] if j in truth_at else Counter()
                 missing, extra = sum((expected - observed).values()), sum((observed - expected).values())
                 bars.append(dict(number=measure.number, truth_index=truth_at.get(j), wrong=expected != observed,
                                  wrong_notes=max(missing, extra), missing=missing, extra=extra))
-            records.append(dict(set=name, pdf=entry['pdf'], baseline=sorted(set(uneven) | {d[0] for d in doubles}),
+            records.append(dict(set=name, pdf=entry['pdf'], baseline=sorted(set(uneven)),
                                 bars=bars, candidates=candidates(data, measures),
                                 unaligned_truth_bars=len(truth) - len(truth_at)))
             print(name, path.stem, flush=True)

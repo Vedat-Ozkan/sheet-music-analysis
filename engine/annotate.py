@@ -22,7 +22,8 @@ MAX_BARS = 32
 # Room for the rows of labels under each system and the brackets above it.
 ANNOTATED_OPTIONS = {
     "svgBoundingBoxes": True,
-    "svgAdditionalAttribute": ["staff@n"],  # a staff is found by its number even when empty staves are hidden
+    # A staff is found by its number even when empty staves are hidden; a fermata or dynamic knows its staff.
+    "svgAdditionalAttribute": ["staff@n", "fermata@staff", "dynam@staff"],
     "adjustPageHeight": True,
     "spacingSystem": 26,
     "pageMarginTop": 230,  # two stacked brackets with labels fit above the first system
@@ -63,7 +64,8 @@ def check(annotations: AnnotationList, index: ScoreIndex) -> None:
                 index.find_note(**annotation.note.model_dump())
             elif isinstance(annotation, VoiceLeading):
                 index.find_note(**annotation.from_note.model_dump())
-                index.find_note(**annotation.to_note.model_dump())
+                if annotation.to_note:
+                    index.find_note(**annotation.to_note.model_dump())
         except PositionError as error:
             problems.append(f"annotations[{number}] ({annotation.type}): {error}")
     if problems:
@@ -117,8 +119,13 @@ def render(
 
     slurs.untangle(toolkit, relayout)
     _move_text_off_stems(toolkit, relayout)
+    drawn = None
     if results is not None:
         _make_room_for_checks(toolkit, relayout, index, ties, results)
+    else:
+        drawn = _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role)
+    if drawn:
+        return Engraving([layout.to_svg() for layout in drawn])
     pages = []
     for page in range(1, toolkit.getPageCount() + 1):
         layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
@@ -150,6 +157,57 @@ def _make_room_for_checks(toolkit, relayout, index, ties, results) -> None:
         relayout(check_display.with_room(base, lines, bottom_staff))
 
 
+def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role) -> list[PageLayout] | None:
+    """A part-writing code that finds no clear spot off the staves (text across staff lines is not engraving practice)
+    gets the gap beside its staff opened, as an engraver spaces staves to fit what lies between them (Gould): draw once
+    to see which gaps and how much each is short, add that many hidden lines of room at the ringed note, and lay out
+    again until each code fits. Returns the pages as drawn on the final layout, or None when nothing was drawn."""
+    if not any(isinstance(a, VoiceLeading) and (a.kind == "ring" and a.label or a.kind == "arrow" and "R" in (a.label or ""))
+               for a in annotations.annotations):
+        return None
+    base = toolkit.getMEI()
+    lines: dict[tuple[str, str, int, str], int] = {}
+    asked: dict[tuple[str, str, int, str], int] = {}  # how many drawings asked for room at each place
+    # One room per gap in a bar: a code under the upper staff and one over the lower staff share the gap, and two rooms
+    # there would stack, opening it twice as far as either needs.
+    gaps: dict[tuple[str, int], tuple[str, str, int, str]] = {}
+    for _ in range(7):
+        needs: dict[tuple[str, str, int, str], int] = {}
+        layouts = []
+        for page in range(1, toolkit.getPageCount() + 1):
+            layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
+            layout.draw(annotations, view, role)
+            layouts.append(layout)
+            for event, place, short, first in layout.code_room:
+                measure = index.measure(event.measure)
+                segment = next(segment for segment in measure.segments if segment.id == event.segment)
+                unit = int(measure.meter.split("/")[1]) if measure.meter else 4
+                need = (segment.id, f"{float(1 + (event.onset - segment.start) * unit / 4):g}", event.staff, place)
+                need = gaps.setdefault((segment.id, event.staff if place == "below" else event.staff - 1), need)
+                # The first request also fills the free space there; after that the room's lines already fill it.
+                more = short if need in lines else first
+                needs[need] = max(needs.get(need, 0), more)
+        # Each code asks for the lines it measured short, all at once, and again if the measure fell short; asked four
+        # times, the room is not making the space (Verovio spent it elsewhere), and the gap closes again.
+        grown = {need: more for need, more in needs.items() if asked.get(need, 0) < 4}
+        given_up = [need for need in needs if asked.get(need, 0) == 4]
+        if not grown and not given_up:
+            return layouts  # drawn on the final layout: render() keeps them
+        for need, more in grown.items():
+            lines[need] = lines.get(need, 0) + more
+            asked[need] = asked.get(need, 0) + 1
+        for need in given_up:
+            lines.pop(need, None)
+            asked[need] = 5
+        mei = base
+        for (measure_id, tstamp, staff, place), count in lines.items():
+            end = mei.index("</measure>", mei.index(f'xml:id="{measure_id}"'))
+            room = f'<dir staff="{staff}" tstamp="{tstamp}" place="{place}" type="analysis-room">-{"<lb/>-" * (count - 1)}</dir>'
+            mei = mei[:end] + room + mei[end:]
+        relayout(mei)
+    return None
+
+
 def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[int, int] | None) -> tuple[bytes, AnnotationList]:
     """The piano reduction, and the annotations pointed at it: a marked note is found again by bar, beat
     and pitch on whichever piano staff it landed, and a bracket tied to one instrument's staff spans the system."""
@@ -174,7 +232,7 @@ def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[in
         if isinstance(annotation, NonChordTone):
             annotation = annotation.model_copy(update={"note": moved[id(annotation.note)]})
         elif isinstance(annotation, VoiceLeading):
-            annotation = annotation.model_copy(update={"from_note": moved[id(annotation.from_note)], "to_note": moved[id(annotation.to_note)]})
+            annotation = annotation.model_copy(update={"from_note": moved[id(annotation.from_note)], "to_note": moved.get(id(annotation.to_note))})
         elif isinstance(annotation, Region) and annotation.staff:
             annotation = annotation.model_copy(update={"staff": None})
         pointed.append(annotation)
@@ -185,7 +243,7 @@ def _note_refs(annotation) -> list[NoteRef]:
     if isinstance(annotation, NonChordTone):
         return [annotation.note]
     if isinstance(annotation, VoiceLeading):
-        return [annotation.from_note, annotation.to_note]
+        return [annotation.from_note, *([annotation.to_note] if annotation.to_note else [])]
     return []
 
 
@@ -223,15 +281,11 @@ def _reserve_numeral_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
     bottom_staff = max(int(n) for n in re.findall(r'<staffDef\b[^>]*?\bn="(\d+)"', mei))
     added: dict[str, list[str]] = {}
     key = None
-    harmonies = [a for a in annotations.annotations if isinstance(a, Harmony)]
-    if annotations.style != "current":
-        harmonies.sort(key=lambda h: (index.measure(h.at.measure).index, h.at.beat))
+    harmonies = sorted((a for a in annotations.annotations if isinstance(a, Harmony)),
+                       key=lambda h: (index.measure(h.at.measure).index, h.at.beat))
     for harmony in harmonies:
         key = harmony.key or key
-        label = harmony.label
-        if annotations.style != "current":
-            chunks, _ = notation.numeral(label, key, annotations.style, 440)
-            label = " ".join(chunk.text for chunk in chunks)
+        label = _widest_label(harmony.label, key)
         measure = index.measure(harmony.at.measure)
         offset = measure.offset_of(harmony.at.beat)
         segment = measure.segment_at(offset)
@@ -248,6 +302,20 @@ def _reserve_numeral_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
         end = mei.index("</measure>", mei.index(f'xml:id="{measure_id}"'))
         mei = mei[:end] + "".join(harms) + mei[end:]
     toolkit.loadData(mei)
+
+
+def _widest_label(label: str, key: str | None) -> str:
+    """The numeral's text in whichever style sets it widest. The room reserved for a numeral decides where
+    Verovio breaks lines, so it must not depend on the label style: the same music gets the same lines."""
+    widest, widest_width = label, 0.0
+    for style in ("current", "abrsm", "figured_bass"):
+        try:
+            chunks, total = notation.numeral(label, key, style, 440)
+        except ValueError:  # a form the style cannot set; the others still count
+            continue
+        if total > widest_width:
+            widest, widest_width = "".join(chunk.text for chunk in chunks), total
+    return widest
 
 
 def _reserve_staff_bracket_room(toolkit, index: ScoreIndex, annotations: AnnotationList) -> None:

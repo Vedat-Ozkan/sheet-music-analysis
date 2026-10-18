@@ -45,7 +45,53 @@ VEROVIO_OPTIONS = {
 
 LARGE_SCORE_STAVES = 4  # more staves than a string quartet
 
+BRACKET_MAX_STAVES = 5  # a quartet or a choir with a basso continuo line
+
 ROMAN = {1: "I", 2: "II", 3: "III", 4: "IV"}
+
+# Standard abbreviations (MuseScore's instruments.xml; music21 agrees) for whole part names, with the usual
+# Italian, German and French names. A name not listed gets no short name: an invented abbreviation is one
+# no publisher prints. Later systems print them; leaving the names off there is a nineteenth-century habit,
+# the handbook default is short names.
+_SHORT_NAME_SOURCE = {
+    "Vln.": "violin, violino, violini, violine, violinen, violon, violons, violins",
+    "Vla.": "viola, viole, bratsche, bratschen, violas",
+    "Vc.": "cello, violoncello, violoncelli, violoncelle, violoncelles, violoncellos, cellos",
+    "D.B.": "double bass, double basses, contrabass, contrabasses, contrabasso, contrabbasso, contrabbassi, kontrabass, contrebasse",
+    "Fl.": "flute, flauto, flauti, flöte, flöten, flûte, flûtes, flutes",
+    "Picc.": "piccolo, flauto piccolo, kleine flöte, petite flûte",
+    "Ob.": "oboe, oboi, oboen, hautbois, oboes",
+    "E.H.": "english horn, cor anglais, corno inglese, englischhorn",
+    "Cl.": "clarinet, clarinetto, clarinetti, klarinette, klarinetten, clarinette, clarinettes, clarinets",
+    "B. Cl.": "bass clarinet, clarinetto basso, bassklarinette, clarinette basse",
+    "Bsn.": "bassoon, fagotto, fagotti, fagott, fagotte, basson, bassons, bassoons",
+    "Cbsn.": "contrabassoon, contrafagotto, kontrafagott, contrebasson",
+    "Hn.": "horn, horns, corno, corni, waldhorn, waldhörner, hörner, cor, cors, french horn, french horns",
+    "Tpt.": "trumpet, trumpets, tromba, trombe, trompete, trompeten, trompette, trompettes",
+    "Trb.": "trombone, trombones, tenor trombone, trombone tenore, tromboni, posaune, posaunen",
+    "B. Trb.": "bass trombone, trombone basso, bassposaune",
+    "Tba.": "tuba",
+    "Timp.": "timpani, timpano, timbales, pauken",
+    "Hp.": "harp, arpa, harfe, harpe",
+    "Org.": "organ, organo, orgel, orgue",
+    "Gtr.": "guitar, chitarra, gitarre, guitare",
+    "Hpsd.": "harpsichord, clavicembalo, cembalo, clavecin",
+    "Pno.": "piano, pianoforte, klavier",
+    "S.": "soprano, sopran, s, s.",
+    "A.": "alto, contralto, a, a.",
+    "T.": "tenor, tenore, t, t.",
+    "B.": "bass, basso, bassus, b, b.",
+    "Bar.": "baritone, baritono, bariton",
+    "Vo.": "voice, voices, vocals, vocalist",
+    "Ch.": "choir, chorus, coro, chor, choeur",
+    "S. Sax.": "soprano saxophone, soprano sax",
+    "A. Sax.": "alto saxophone, alto sax",
+    "T. Sax.": "tenor saxophone, tenor sax",
+    "B. Sax.": "baritone saxophone, baritone sax",
+    "Rec.": "recorder, recorders",
+    "Cel.": "celesta",
+}
+SHORT_NAMES = {name: abbr for abbr, names in _SHORT_NAME_SOURCE.items() for name in names.split(", ")}
 
 
 class ScoreError(ValueError):
@@ -209,10 +255,17 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str]) -> None:
         lambda m: f'<{m.group(1)} vgrp="{900 + int(m.group(3))}"{m.group(2)}',
         patched,
     )
-    patched = re.sub(r"<scoreDef\b(?![^>]*\boptimize=)", '<scoreDef optimize="true"', patched, count=1)
+    patched = _short_names_and_bracket(patched)
+    # Hiding resting staves suits large scores; a quartet or choir prints every staff on every system.
+    if len(re.findall(r"<staffDef\b", patched)) > BRACKET_MAX_STAVES:
+        patched = re.sub(r"<scoreDef\b(?![^>]*\boptimize=)", '<scoreDef optimize="true"', patched, count=1)
     patched = _drop_title_text(patched)
     # Pedal brackets look like analysis brackets on an annotated page, so pedalling is left out.
     patched = re.sub(r"<pedal\b[^>]*/>", "", patched)
+    # The same goes for pedal words ("Ped.", "2. Ped", "Ped. simile") that some files write as plain directions.
+    # A direction holding only "*" is a release mark; with its "Ped." gone it would be left dangling.
+    patched = re.sub(r"<dir\b[^>]*>(?:(?!</dir>).)*?\bPed(?:ale?|\b)(?:(?!</dir>).)*?</dir>", "", patched, flags=re.S)
+    patched = re.sub(r"<dir\b[^>]*>(?:\s|<[^>]+>)*\*(?:\s|<[^>]+>)*</dir>", "", patched)
     # MuseScore stores a tempo's words and its metronome mark as separate runs with no space between.
     patched = re.sub(r"(<tempo\b[^>]*>(?:(?!</tempo>).)*?</rend>)\(", r"\1 (", patched, flags=re.S)
     patched = re.sub(r"<measure\b.*?</measure>", _end_hairpins_at_dynamics, patched, flags=re.S)
@@ -228,6 +281,46 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str]) -> None:
     patched = _clefs_before_barlines(patched)
     if patched != mei:
         toolkit.loadData(patched)
+
+
+def _short_name(name: str) -> str:
+    """Standard short name for a whole part name: "Violin 2" -> "Vln. II", "Horns in F 1 & 2" -> "Hn. I, II".
+
+    Only names in SHORT_NAMES get one; anything else gets none."""
+    name = re.sub(r"<[^>]+>", "", unescape(name)).strip()
+    numbers = [
+        int(m.group(1)) if m.group(1) else {"I": 1, "II": 2, "III": 3, "IV": 4}[m.group(2)]
+        for m in re.finditer(r"(?<![\w.])(?:([1-4])(?:st|nd|rd|th)?|(I{1,3}|IV))(?![\w])", name)
+    ]
+    base = re.sub(r"(?<![\w.])(?:[1-4](?:st|nd|rd|th)?|I{1,3}|IV)(?!\w)|\bin [A-G][♭♯b#]?(?!\w)|[()&,]", " ", name)
+    base = " ".join(base.lower().split())
+    short = SHORT_NAMES.get(base)
+    if not short:
+        return ""
+    return short + (" " + ", ".join(ROMAN[n] for n in numbers) if numbers else "")
+
+
+def _short_names_and_bracket(mei: str) -> str:
+    """Short names on later systems for every staff, and one bracket over a multi-staff score that groups none.
+
+    Verovio prints a staff's <labelAbbr> on systems 2+ and nothing when there is none."""
+
+    def add_abbr(match: re.Match) -> str:
+        label, abbr = match.group(1), match.group(2)
+        short = _short_name(label)
+        # Audiveris writes the full name as the abbreviation, which would repeat "Piano" on every system.
+        if not short or (abbr and re.sub(r"<[^>]+>", "", abbr).strip() != re.sub(r"<[^>]+>", "", label).strip()):
+            return match.group(0)
+        return label + f"<labelAbbr>{escape(short)}</labelAbbr>"
+
+    # The label sits on a staff, or on the group of a piano's two staves.
+    mei = re.sub(r"(<label\b[^>]*>.*?</label>)\s*(<labelAbbr\b[^>]*>.*?</labelAbbr>)?", add_abbr, mei, flags=re.S)
+    # Only quartet- or choir-sized files get the bracket; a larger ungrouped score would need family
+    # brackets, which are never invented. Piano and other grouped scores keep what the file defines.
+    staves = set(re.findall(r'<staffDef\b[^>]*\bn="(\d+)"', mei))
+    if "<grpSym" not in mei and 2 < len(staves) <= BRACKET_MAX_STAVES:
+        mei = re.sub(r"(<staffGrp\b[^>]*?)>", r'\1 bar.thru="true"><grpSym symbol="bracket" />', mei, count=1)
+    return mei
 
 
 def _clefs_before_barlines(mei: str) -> str:
@@ -629,13 +722,6 @@ def engrave(score: bytes, measures: tuple[int, int] | None = None, *, include_pi
         toolkit.select({"measureRange": index.measure_range(*measures, include_pickup=include_pickup)})
         toolkit.redoLayout()
         return Engraving([shorten_ties(toolkit.renderToSVG(page), ties) for page in range(1, toolkit.getPageCount() + 1)])
-    return Engraving([toolkit.renderToSVG(page) for page in range(1, toolkit.getPageCount() + 1)])
-
-
-def engrave_tall(score: bytes) -> Engraving:
-    """The whole score on one tall page, so a single image shows every bar (the check step after reading a PDF).
-    Verovio caps the page height, so a very long score can still spill onto a second page."""
-    toolkit = load_toolkit(score, {"adjustPageHeight": True, "pageHeight": 60000})
     return Engraving([toolkit.renderToSVG(page) for page in range(1, toolkit.getPageCount() + 1)])
 
 

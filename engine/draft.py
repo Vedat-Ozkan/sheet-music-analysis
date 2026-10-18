@@ -502,8 +502,11 @@ def as_text(result: Draft, first: int | None = None, last: int | None = None, al
     return "\n".join(lines)
 
 
-def as_annotations(result: Draft, first: int | None = None, last: int | None = None) -> AnnotationList:
-    """The unreviewed draft as an annotation list, so it can be drawn as it stands."""
+def as_annotations(result: Draft, first: int | None = None, last: int | None = None, functions: bool = False) -> AnnotationList:
+    """The unreviewed draft as an annotation list, so it can be drawn as it stands. Function (T, PD, D) draws a
+    labelled bracket under every run of chords, which only suits a passage about the tonic-predominant-dominant
+    cycle, so it is attached only when `functions` asks for it. Nothing in the server or skill draws a draft
+    unreviewed (the chat model reads the text table and writes its own list), so the default is no brackets."""
 
     def wanted(measure: int) -> bool:
         return (first is None or measure >= first) and (last is None or measure <= last)
@@ -514,7 +517,7 @@ def as_annotations(result: Draft, first: int | None = None, last: int | None = N
         if not wanted(chord.measure):
             continue
         item = {"type": "harmony", "at": {"measure": chord.measure, "beat": chord.beat}, "label": chord.label}
-        if chord.function:
+        if functions and chord.function:
             item["function"] = chord.function
         if chord.key != key:
             item["key"] = key = chord.key

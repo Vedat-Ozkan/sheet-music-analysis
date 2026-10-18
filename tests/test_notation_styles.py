@@ -34,7 +34,7 @@ def test_abrsm_sevenths_are_consistently_raised(chopin, label, letter, target):
     root = next(node for node in nodes if ''.join(node.itertext()) == label.split('o')[0].split('/')[0].rstrip('764532'))
     assert float(seventh.get('y')) < float(root.get('y'))
     assert float(seventh.get('font-size').removesuffix('px')) == round(
-        float(root.get('font-size').removesuffix('px')) * 0.58)
+        float(root.get('font-size').removesuffix('px')) * 0.72)
     if letter:
         inversion = next(node for node in nodes if ''.join(node.itertext()) == letter)
         assert inversion.get('y') == root.get('y')
@@ -94,7 +94,7 @@ def test_real_analysis_has_no_engraving_collisions(chopin, chopin_annotations, s
     engraving_check._layouts.clear()
     page = render(chopin, chopin_annotations.model_copy(update={'style': style}), measures=(1, 8))
     result = engraving_check.collisions(page.page_count)
-    assert result['labels'] == 36
+    assert result['labels'] == 49  # the numerals, keys, cadences, labels and function-bracket names
     assert result['overlapping'] == result['tight'] == result['music'] == []
 
 
@@ -162,3 +162,9 @@ def test_skill_script_reports_invalid_figured_bass_key(tmp_path):
     assert result.returncode == 1
     assert 'Invalid active key' in result.stderr and 'Traceback' not in result.stderr
     assert not (tmp_path / 'output').exists()
+
+
+def test_abrsm_drops_an_explicit_root_position_figure():
+    from engine import notation
+    assert [c.text for c in notation.numeral('i53', 'a', 'abrsm', 100)[0]] == ['i']
+    assert [c.text for c in notation.numeral('i6', 'a', 'abrsm', 100)[0]] == ['i', 'b']

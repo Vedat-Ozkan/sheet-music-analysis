@@ -12,6 +12,7 @@ import tempfile
 import time
 import xml.etree.ElementTree as ET
 import zipfile
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from fractions import Fraction
@@ -19,7 +20,9 @@ from pathlib import Path
 
 import pikepdf
 
-from engine.render import ScoreError, load_toolkit
+from engine import text, tint
+from engine.overlay import S, Box, PageLayout
+from engine.render import Engraving, ScoreError, load_toolkit
 from engine.score import TOLERANCE, ScoreIndex
 from engine.triplets import infer_triplets
 from engine.tuplet_rests import infer_tuplet_rests
@@ -47,9 +50,9 @@ _REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_REST, _REST + _SMALL, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
 # Changes when the reading changes (Audiveris build, settings or the repairs after it), so cached readings made before are not reused.
-READER = "5.11.0-sma.2-best3-tuplet-rests-note-guard"
+READER = "5.11.0-sma.2-best3-tuplet-rests-r5"
+MIN_NOTES = 0.95  # a reading with fewer notes than this share of the fullest reading is never chosen
 RETRY_ABOVE = 3  # bars that don't add up before the other settings are tried; fewer gained nothing (log 35)
-MIN_NOTES = 0.9  # On a tie, avoid a reading missing over a tenth of the notes; small differences can be invented heads.
 
 
 class ReadError(ValueError):
@@ -64,21 +67,21 @@ class PdfReading:
     skipped: list[int] = field(default_factory=list)  # page numbers Audiveris found no staves on
 
 
-def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool) -> str:
+def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool, spots=None) -> str:
     """The message shown above the engraved reading: what to check, and where reading mistakes are likely."""
     text = CHECK + (" " + SCAN_WARNING if scan else "")
     if skipped:
         pages = ", ".join(str(page) for page in skipped)
         text += f" Page{'s' if len(skipped) > 1 else ''} {pages} could not be read (no staves were found), so that music is missing."
-    uneven, doubles = problem_spots(score)
+    uneven, guessed = spots or problem_spots(score)
+    if guessed:
+        # The meter is not named: a bar length cannot tell 6/8 from 3/4 or 2/2 from 4/4.
+        text += " No time signature was read, so bars were checked against the most common bar length."
     if uneven:
-        listed = _numbers(uneven)
         verb = "doesn't" if len(uneven) == 1 else "don't"
-        text += f" {listed} {verb} add up to a full bar, so a note or triplet may be misread there."
-    for bar, letter, kind in doubles[:SHOWN]:
-        text += f" Bar {bar}: the {letter} has a {kind}, which is rare; please check it."
-    if len(doubles) > SHOWN:
-        text += f" There are {len(doubles) - SHOWN} more double sharps or flats."
+        # With some bars left out of the list, "(shaded)" after "and 4 more" read as if only those 4 were shaded.
+        who = f"The shaded bars ({_numbers(uneven)[5:]})" if len(uneven) > SHOWN else f"{_numbers(uneven)} (shaded)"
+        text += f" {who} {verb} add up to a full bar, so a note or triplet may be misread there."
     return text + ("" if slurs_kept else " " + SLURS_LEFT_OUT)
 
 
@@ -91,7 +94,7 @@ def _numbers(bars: list[int]) -> str:
     return f"Bars {', '.join(shown)} and {len(bars) - SHOWN} more"
 
 
-def problem_spots(score: bytes) -> tuple[list[int], list[tuple[int, str, str]]]:
+def problem_spots(score: bytes) -> tuple[list[int], str | None]:
     """Where a reading is likely wrong, by the bar numbers the engraving prints (a pickup is 0).
 
     Bars that don't add up: a voice runs past the bar's meter, or a short voice runs on into the place where another
@@ -99,26 +102,31 @@ def problem_spots(score: bytes) -> tuple[list[int], list[tuple[int, str, str]]]:
     like five eighths where a triplet and two eighths were printed). A voice that just stops early is not counted:
     that is nearly always a rest the reader left out, with the notes right. A bar shorter than its meter in every voice is
     fine as the opening pickup, as a last bar that completes it, or as one half of a bar split in two (at a repeat
-    sign) when the two halves add up to one full bar. Doubles: double sharps and flats, which a reader produces from
-    an ornament's or a neighbouring note's accidental far more often than music has them. A duration inconsistent
-    with its written note value also points to misread timing, even when no meter was read for that part. A backup
-    that runs before the start of the bar means some of its music is missing."""
+    sign) when the two halves add up to one full bar. A duration inconsistent with its written note value also points to
+    misread timing. A backup that runs before the start of the bar means some of its music is missing.
+
+    A part with no time signature (a "C" read as a note) is checked against its most common bar length instead; the
+    second value is whether any part had to be checked that way. (Replacing a meter that was read, because most
+    bars disagreed with it, lost 3 readings 3-5% in the benchmark: the mode is often a misread bar length.)"""
     return _problem_spots(score, timing=True)
 
 
-def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], list[tuple[int, str, str]]]:
+def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
     measures = ScoreIndex(load_toolkit(score).getMEI()).measures
     number_at = {segment.index: measure.number for measure in measures for segment in measure.segments}
     bars = []  # (printed number, full length, voice totals) per measure of the file, in order
     timing_errors = set()
+    inferred = False
     for part in ET.fromstring(score).iter("part"):
         divisions, full = 1, None
+        part_bars, guessed = [], False
         for position, measure in enumerate(part.iter("measure"), start=1):
             if measure.find("attributes/divisions") is not None:
                 divisions = int(measure.find("attributes/divisions").text)
             time = measure.find("attributes/time")
-            if time is not None and time.findtext("beats", "").isdigit():
-                full = Fraction(int(time.findtext("beats")) * 4, int(time.findtext("beat-type")))
+            beats = time.findtext("beats", "") if time is not None else ""
+            if beats and all(count.strip().isdigit() for count in beats.split("+")):  # "3+2" is a meter too
+                full = Fraction(sum(int(count) for count in beats.split("+")) * 4, int(time.findtext("beat-type")))
             voices, staff_of, gap = {}, {}, {}  # gap: the hidden space a voice starts with
             cursor = Fraction(0)
             for element in measure:
@@ -145,10 +153,16 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], list[tuple
                     voices[voice] = voices.get(voice, 0) + length
                     staff_of.setdefault(voice, element.findtext("staff", "1"))
             voices = {(staff_of[voice], voice, gap.get(voice, 0)): length for voice, length in voices.items()}
-            if full and voices:
-                bars.append((position, number_at.get(position), full, voices))
+            if voices:
+                part_bars.append((position, number_at.get(position), full, voices))
+        common = Counter(length for *_, voices in part_bars if (length := max(voices.values())) > 0).most_common(1)
+        if common and not any(full for _, _, full, _ in part_bars):
+            inferred = True
+            guessed = True
+            part_bars = [(position, number, common[0][0], voices) for position, number, _, voices in part_bars]
+        bars.extend((*bar, guessed) for bar in part_bars if bar[2])
     uneven = []
-    for i, (position, number, full, voices) in enumerate(bars):
+    for i, (position, number, full, voices, guessed) in enumerate(bars):
         longest = max(voices.values())
         overlapping = any(
             staff == other_staff and voice != other and short_length < length - TOLERANCE and gap_after > 0
@@ -156,7 +170,8 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], list[tuple
             for (staff, voice, _), short_length in voices.items()
             for (other_staff, other, gap_after), length in voices.items()
         )
-        short = longest < full - TOLERANCE
+        # A guessed meter says nothing about short bars: a piece that changes meter has them (benchmark: Hensel).
+        short = longest < full - TOLERANCE and not guessed
         neighbours = [bars[j] for j in (i - 1, i + 1) if 0 <= j < len(bars) and bars[j][0] != position]
         halves = any(abs(longest + max(other[3].values()) - full) <= TOLERANCE for other in neighbours)
         first, last = position == 1, position == max(bar[0] for bar in bars)
@@ -165,14 +180,139 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], list[tuple
         if longest > full + TOLERANCE or overlapping or (short and not (first or completes or halves)):
             if number is not None and number not in uneven:
                 uneven.append(number)
-    doubles = []
-    for measure in measures:
-        for event in measure.events:
-            if event.pitch and ("##" in event.pitch or "bb" in event.pitch[1:]):
-                spot = (measure.number, event.pitch[0], "double sharp" if "##" in event.pitch else "double flat")
-                if spot not in doubles:
-                    doubles.append(spot)
-    return sorted(set(uneven) | (timing_errors if timing else set())), doubles
+    return sorted(set(uneven) | (timing_errors if timing else set())), inferred
+
+
+# The picture the user checks the reading against. Verovio numbers the first bar of each system; `number_bars` adds the
+# rest in clear spots, so "check bar 12" can be followed without a number printed over a trill, volta or ledger note.
+# Verovio spaces the systems for its own marks only; a number raised over a volta needs one and a half staff spaces more
+# (spacingSystem is in half staff spaces; Verovio's default is 4).
+PREVIEW_OPTIONS = {**tint.BOXES, "spacingSystem": 7}
+BAR_NUMBER_SIZE = 500  # ~10 px tall on a 700 px card; 300 was ~6 px
+# Between the top edge of a page and its highest bar number: at least the margin the PNG and PDF keep round the music
+# (2.5% of the width, 525 units on these A4-wide pages), or the image starts at the number.
+TOP_CLEARANCE = 3 * tint.SPACE
+
+
+def preview(score: bytes, tall: bool = False, spots=None) -> Engraving:
+    """The reading engraved for checking: every bar numbered and bars that don't add up shaded pale yellow, which the
+    notice names. `tall` puts every bar on one page, for the card."""
+    tall_page = {"adjustPageHeight": True, "pageHeight": 60000} if tall else {}
+    return shade(load_toolkit(score, {**PREVIEW_OPTIONS, **tall_page}), score, spots)
+
+
+def _courtesy_x(layout: PageLayout) -> dict[str, float]:
+    """Where the courtesy key signature starts in each measure that ends a system with one: the key signature drawn
+    after the music, not before it."""
+    found = {}
+    for group in layout.root.iter(f"{S}g"):
+        if "measure" in group.get("class", "").split() and group.get("id") in layout.measures:
+            for staff in group.findall(f"{S}g"):
+                kids = [kid for kid in staff.findall(f"{S}g") if kid.get("class") in {"layer", "keySig"}]
+                for after, kid in zip(kids, kids[1:]):
+                    if kid.get("class") == "keySig" and after.get("class") == "layer" and kid.get("id") in layout.boxes:
+                        found[group.get("id")] = min(found.get(group.get("id"), 1e9), layout.boxes[kid.get("id")].x)
+    return found
+
+
+def _ending_brackets(layout: PageLayout) -> list[Box]:
+    """Each first/second-ending bracket, from its line down to the ends of its hooks: Verovio gives a box only for its
+    digit, so a number could stand under the line beside the digit."""
+    found = []
+    for group in layout.root.iter(f"{S}g"):
+        if group.get("class") == "voltaBracket":
+            points = [(float(x), float(y)) for path in group.findall(f"{S}path")
+                      for x, y in re.findall(r"[ML]([-\d.]+) ([-\d.]+)", path.get("d", ""))]
+            if points:
+                xs, ys = [x for x, _ in points], [y for _, y in points]
+                found.append(Box(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys)))
+    return found
+
+
+def number_bars(layout: PageLayout, index: ScoreIndex) -> float | None:
+    """A number above every bar after the first, raised until it is clear of the music. Returns the top of the highest
+    number on the page (None if there is none)."""
+    # Verovio's own numbers (first bar of each system) are small and fixed; every number is drawn here, the same size.
+    for parent in list(layout.root.iter()):
+        for child in [c for c in parent if "mNum" in (c.get("class") or "").split()]:
+            parent.remove(child)
+    brackets = _ending_brackets(layout)
+    highest = None
+    for measure in index.measures:
+        geometry = layout.measures.get(measure.segments[0].id)
+        if geometry is None or measure.number < 2:
+            continue
+        system = layout.systems[geometry.system]
+        string = str(measure.number)
+        width, height = text.width(string, BAR_NUMBER_SIZE), BAR_NUMBER_SIZE
+        top = min(box.y for box in geometry.lines)
+        # Gould (Behind Bars): above the top staff at the barline, raised clear of what is there, and so above an
+        # ending's bracket as well. Never sideways, where a number beside noteheads reads as a fingering or tuplet number.
+        spots = [(geometry.x0 + 60, top - 90 - rise) for rise in range(0, 2400, 100)]
+
+        def padded(spot):
+            return Box(spot[0] - 20, spot[1] - height * 0.75 - 20, width + 40, height + 40)
+
+        # This system's brackets: a number is either above the line or would be inside the ending, under it.
+        over = [b for b in brackets if top - 2400 < b.y < top]
+
+        def clear_of_brackets(box):
+            return not any(b.x < box.right and b.right > box.x and box.bottom > b.y for b in over)
+
+        # Raised over a volta or a high note, a number can reach the music hanging below the system above.
+        neighbours = layout.systems[max(system.index - 1, 0) : system.index + 1]
+        spot = next((s for s in spots if clear_of_brackets(padded(s)) and all(layout._is_free(n, padded(s)) for n in neighbours)), None) \
+            or min(spots, key=lambda s: sum(layout._overlap(n, padded(s)) for n in neighbours))
+        box = layout._text(*spot, string, BAR_NUMBER_SIZE, italic=True)
+        layout._reserve(system, box, pad=20)
+        highest = box.y if highest is None else min(highest, box.y)
+    return highest
+
+
+def fit_top_margin(toolkit, index: ScoreIndex) -> list[PageLayout]:
+    """Number every page's bars and widen the top margin until the first number of each page is clear of the top edge.
+    Returns the numbered layouts. A caller that changes the layout afterwards (the skill's last-page pull-in) calls this
+    first, so the margin does not push bars onto a new page after it."""
+    for _ in range(3):
+        layouts, highest = [], None
+        for page in range(1, toolkit.getPageCount() + 1):
+            layout = PageLayout(toolkit.renderToSVG(page), index)
+            top = number_bars(layout, index)
+            if top is not None:
+                highest = top if highest is None else min(highest, top)
+            layouts.append(layout)
+        # Verovio's top margin holds its own small system-start number; ours is larger, so the first system of a page
+        # can need more margin to keep its number off the top edge.
+        margin = toolkit.getOptions()["pageMarginTop"] * 10  # option units are a tenth of the SVG's
+        short = TOP_CLEARANCE - (margin + highest) if highest is not None else 0
+        if short <= 0:
+            break
+        toolkit.setOptions({"pageMarginTop": math.ceil((margin + short) / 10)})
+        toolkit.redoLayout()
+    # Still short after the third pass: the layouts drawn before the last redoLayout are kept. They are consistent with
+    # themselves, only with the smaller margin.
+    return layouts
+
+
+def shade(toolkit, score: bytes, spots=None) -> Engraving:
+    """Every page of a toolkit loaded with PREVIEW_OPTIONS, marked as `preview` says. `spots` is `problem_spots(score)`
+    when the caller already has it."""
+    uneven, _ = spots or problem_spots(score)
+    index = ScoreIndex(toolkit.getMEI())
+    layouts = fit_top_margin(toolkit, index)
+    for layout in layouts:
+        courtesy = _courtesy_x(layout) if uneven else {}
+        for number in uneven:
+            for segment in index.measure(number).segments:
+                geometry = layout.measures.get(segment.id)
+                if geometry:
+                    # Staff line to staff line, as SmartScore shades; the staves' own boxes also take in ledger lines.
+                    top = min(box.y for box in geometry.lines)
+                    bottom = max(box.bottom for box in geometry.lines)
+                    right = courtesy.get(segment.id, geometry.x1)
+                    tint.tint(layout, Box(geometry.x0, top, right - geometry.x0, bottom - top),
+                              tint.FLAG_BAR, tint.FLAG_OPACITY, radius=0)
+    return tint.finish(layouts)
 
 
 def without_slurs(score: bytes) -> bytes:
@@ -209,8 +349,8 @@ def is_scan(pdf: pikepdf.Pdf) -> bool:
 
 def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
     """Read with the default settings; when that reading has many bars that don't add up, also read with the other
-    settings and keep whichever has fewest (log 35: right pitch and timing 82.0% -> 84.3% on the benchmark); on a tie,
-    a reading with under MIN_NOTES of the most notes is passed over (log 42).
+    settings and keep whichever has fewest (log 35: right pitch and timing 82.0% -> 84.3% on the benchmark), leaving out
+    any reading with under MIN_NOTES of the most pitched notes (log 45).
 
     `raw` stands in for `audiveris_read`: the benchmark passes one that caches Audiveris's output, so a change to the
     code after it (cleaning, choosing, triplets) is measured without reading every PDF again."""
@@ -226,11 +366,10 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
             others = list(pool.map(lambda options: _retry(data, audiveris, options, deadline, raw), SETTINGS[1:]))
         # A reading that lost pages is never preferred for having fewer bars that don't add up
         readings = [best, *(other for other in others if other)]
-        best = min(readings, key=lambda reading: (len(reading[1]), len(reading[2])))
-        tied = [(reading, sum(note.find("pitch") is not None for note in ET.fromstring(reading[0]).iter("note")))
-                for reading in readings if (len(reading[1]), len(reading[2])) == (len(best[1]), len(best[2]))]
-        most = max(count for _, count in tied)
-        best = next(reading for reading, count in tied if count >= MIN_NOTES * most)
+        # Fewest problem bars alone can pick a reading that dropped notes (Hensel's Nachtwanderer: a fifth of them)
+        counts = [_pitched_notes(reading[0]) for reading in readings]
+        complete = [reading for reading, count in zip(readings, counts) if count >= MIN_NOTES * max(counts)]
+        best = min(complete, key=lambda reading: (len(reading[1]), len(reading[2])))
     musicxml, skipped, _ = best
     for repair in (infer_tuplet_rests, infer_triplets):
         try:
@@ -239,6 +378,10 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
             # A repair is an improvement, not a requirement: if it fails, keep the reading as Audiveris gave it.
             log.exception("PDF reading repair %s failed", repair.__name__)
     return PdfReading(musicxml, pages, scan, skipped)
+
+
+def _pitched_notes(musicxml: bytes) -> int:
+    return sum(1 for note in ET.fromstring(musicxml).iter("note") if note.find("pitch") is not None)
 
 
 def _retry(data: bytes, audiveris: str, options: list[str], deadline: float, raw):
@@ -297,7 +440,7 @@ def run(audiveris: str, options: list[str], source: Path, work: str, env: dict, 
 
 
 def clean(mxl: bytes) -> bytes:
-    """Fix two habits of Audiveris's MusicXML that make Verovio lose or misdraw music (log 33).
+    """Fix habits of Audiveris's MusicXML that make Verovio lose or misdraw music (log 33), and drop marks it invents.
 
     It repeats <beam> on every note of a chord; Verovio then drops the chord notes ("Chord starting point has not
     been found"). It starts octave lines it never stops; Verovio draws the rest of the piece an octave off (the note
@@ -311,8 +454,19 @@ def clean(mxl: bytes) -> bytes:
         if note.find("chord") is not None:
             for beam in note.findall("beam"):
                 note.remove(beam)
+    # Without a repeat sign an ending is a phantom (8 of 11 PDFs that had endings); the original has none.
+    if root.find(".//barline/repeat") is None:
+        for measure in root.iter("measure"):
+            for barline in measure.findall("barline"):
+                endings = barline.findall("ending")
+                for ending in endings:
+                    barline.remove(ending)
+                # Only a barline that held nothing but endings goes; segno and coda marks sit on barlines too.
+                if endings and len(barline) == 0:
+                    measure.remove(barline)
     for part in root.iter("part"):
         _one_division(part)
+        _drop_restated_keys(part)
         open_lines, unclosed = {}, []
         for measure in part.iter("measure"):
             for direction in measure.findall("direction"):
@@ -329,6 +483,29 @@ def clean(mxl: bytes) -> bytes:
         for measure, direction in unclosed + list(open_lines.values()):
             measure.remove(direction)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _drop_restated_keys(part: ET.Element) -> None:
+    """Audiveris restates the key at page breaks (59 of 80 readings); a key that equals the current one is not a change.
+
+    A key without a number covers every staff, so it also resets each staff's current key; otherwise it is compared
+    with a stale one and a return to the home key after a single-staff key is dropped (Schubert, Die Stadt)."""
+    whole, per_staff = None, {}
+    for measure in part.iter("measure"):
+        for attributes in measure.findall("attributes"):
+            for key in attributes.findall("key"):
+                state = [(child.tag, child.text) for child in key]
+                staff = key.get("number")
+                if staff is None:
+                    restated = whole == state and all(other == state for other in per_staff.values())
+                    whole, per_staff = state, {number: state for number in per_staff}
+                else:
+                    restated = per_staff.get(staff, whole) == state
+                    per_staff[staff] = state
+                if restated:
+                    attributes.remove(key)
+            if len(attributes) == 0:
+                measure.remove(attributes)
 
 
 def _one_division(part: ET.Element) -> None:

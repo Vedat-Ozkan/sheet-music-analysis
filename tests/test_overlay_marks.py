@@ -1,0 +1,531 @@
+"""Rings, brackets, lines, key labels, cadence boxes and function brackets as drawn on the page."""
+
+import io
+import json
+import re
+from pathlib import Path
+
+import pytest
+from PIL import Image
+
+from engine import overlay, text
+from engine.annotate import render
+from engine.annotations import AnnotationList
+from engine.overlay import ARROW, ERROR, NUMERAL_SIZE, PageLayout
+
+RED, MAGENTA = (0xD5, 0x00, 0x00), (0xAA, 0x33, 0x77)
+
+
+@pytest.fixture
+def layouts(monkeypatch):
+    """The PageLayouts that drew the page (the last is the one rasterised)."""
+    drawn = []
+    original = PageLayout.to_svg
+
+    def spy(self):
+        drawn.append(self)
+        return original(self)
+
+    monkeypatch.setattr(PageLayout, "to_svg", spy)
+    return drawn
+
+
+def _count(png: bytes, colour: tuple[int, int, int], tolerance: int = 40) -> int:
+    pixels = Image.open(io.BytesIO(png)).convert("RGB").getdata()  # noqa
+    return sum(1 for p in pixels if all(abs(a - b) <= tolerance for a, b in zip(p, colour)))
+
+
+def _ref(measure, beat, staff, pitch):
+    return {"measure": measure, "beat": beat, "staff": staff, "pitch": pitch}
+
+
+EB4, D4 = _ref(4, 1.33, 2, "Eb4"), _ref(4, 2.33, 2, "D4")
+
+
+def _page(chopin, items, **kwargs):
+    return render(chopin, AnnotationList.model_validate({"annotations": items}), measures=(1, 8), **kwargs)
+
+
+def test_fault_marks_are_red_and_analysis_arrows_are_not(chopin):
+    fault = [
+        {"type": "voice_leading", "kind": "ring", "from_note": EB4, "label": "r"},
+        {"type": "voice_leading", "kind": "line", "from_note": EB4, "to_note": D4},
+        {"type": "voice_leading", "kind": "arrow", "from_note": EB4, "to_note": D4, "label": "R"},
+    ]
+    analysis = [{"type": "voice_leading", "kind": "arrow", "from_note": EB4, "to_note": D4, "label": "4–3"}]
+    red, plain = _page(chopin, fault), _page(chopin, analysis)
+    assert _count(red.png(1), RED) > 200 and _count(red.png(1), MAGENTA) < 20
+    assert _count(plain.png(1), MAGENTA) > 200 and _count(plain.png(1), RED) < 20
+    assert ARROW in plain.svgs[0] and ERROR not in plain.svgs[0]
+
+
+def test_bracket_and_ring_are_drawn_in_red_pixels(chopin):
+    page = _page(chopin, [
+        {"type": "voice_leading", "kind": "bracket", "from_note": EB4, "to_note": D4, "label": "S"},
+        {"type": "voice_leading", "kind": "ring", "from_note": D4, "label": "r"},
+    ])
+    assert _count(page.png(1), RED) > 120  # the codes are one letter, so the ring and bracket carry the pixels
+
+
+def test_identical_marks_on_the_same_notes_are_drawn_once(chopin):
+    ring = {"type": "voice_leading", "kind": "ring", "from_note": EB4, "label": "r"}
+    once = _page(chopin, [ring]).svgs[0]
+    twice = _page(chopin, [ring, ring]).svgs[0]
+    assert twice.count("<ellipse") == once.count("<ellipse") and twice.count(">r<") == once.count(">r<") == 2  # a halo and the word itself
+
+
+def test_two_callouts_on_one_note_sit_side_by_side(chopin):
+    at = {"measure": 3, "beat": 2}
+    svg = _page(chopin, [{"type": "callout", "at": at, "number": 1}, {"type": "callout", "at": at, "number": 2}]).svgs[0]
+    centres = sorted(int(float(x)) for x in re.findall(r'<circle[^>]* cx="([-\d.]+)"', svg))
+    assert len(centres) == 2 and centres[1] - centres[0] >= 380
+
+
+def test_parallel_pair_has_one_label_between_its_two_lines(chopin):
+    pair = [{"type": "voice_leading", "kind": "line", "from_note": _ref(4, 1.33, 1, "D6"), "to_note": _ref(4, 2.33, 1, "G5")},
+            {"type": "voice_leading", "kind": "line", "from_note": _ref(4, 1.33, 2, "F3"), "to_note": _ref(4, 2.33, 2, "F3"), "label": "P5"}]
+    svg = _page(chopin, pair).svgs[0]
+    assert svg.count(">P5<") == 2  # one word: a halo and the word itself
+    ys = [float(y) for y in re.findall(r'<line[^>]* y1="([-\d.]+)"', svg)][-2:]
+    text_y = float(re.search(r'<text[^>]* y="([-\d.]+)"[^>]*>P5<', svg).group(1))
+    assert min(ys) < text_y < max(ys)
+
+
+def test_nct_names_are_normalised_in_any_case(chopin):
+    note = _ref(4, 2.67, 1, "C5")
+    for given, shown in (("p", "PT"), ("pt", "PT"), ("PT", "PT"), ("app", "APP"), ("Neighbor", "NT"), ("sus", "SUS")):
+        svg = _page(chopin, [{"type": "nct", "note": note, "label": given}]).svgs[0]
+        assert f">{shown}<" in svg, given
+
+
+def test_function_brackets_span_their_run_and_never_mix_words_with_abbreviations(chopin, chopin_annotations, layouts):
+    render(chopin, chopin_annotations, measures=(1, 8), view="harmony")
+    layout = layouts[-1]
+    sequence = layout.numeral_seq
+    brackets = [re.findall(r"M(\d+),[\d.]+ L\d+,[\d.]+ L(\d+),", path.get("d")) for path in layout.over.iter(f"{overlay.S}path")
+                if path.get("stroke-linejoin") == "round" and path.get("d", "").count("L") == 3]
+    spans = [(int(a), int(b)) for found in brackets for a, b in found]
+    assert spans
+    starts = {round(entry[4]) for entry in sequence}
+    nexts = {round(entry[4]) - 60 for entry in sequence} | {round(layout.systems[entry[2]].right - 30) for entry in sequence}
+    for x0, x1 in spans:
+        assert x0 in starts          # from a numeral's left edge
+        assert x1 in nexts           # to just before the next numeral, or the system's end
+    function_words = {"tonic", "pre-dom.", "dominant"}
+    for system in layout.systems:
+        words = [t.text.strip("()") for t in layout.over.iter(f"{overlay.S}text") if t.text and t.text.strip("()") in function_words | {"T", "PD", "D"}
+                 and system.bottom() > float(t.get("y")) > layout.numeral_rows[system.index]]
+        assert all(w in function_words for w in words) or all(w in {"T", "PD", "D"} for w in words)
+
+
+def test_no_brackets_without_function(chopin):
+    items = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "Eb"},
+             {"type": "harmony", "at": {"measure": 2, "beat": 1}, "label": "V7"}]
+    svg = _page(chopin, items).svgs[0]
+    assert "tonic" not in svg and "dominant" not in svg and ">T<" not in svg
+
+
+def test_cadence_box_hangs_under_the_numeral_in_force(chopin, chopin_annotations, layouts):
+    items = [a.model_dump(exclude_none=True) for a in chopin_annotations.annotations if a.type == "harmony"]
+    items.append({"type": "cadence", "at": {"measure": 4, "beat": 3}, "label": "PAC"})  # the chord began earlier in the bar
+    render(chopin, AnnotationList.model_validate({"annotations": items}), measures=(1, 8))
+    layout = layouts[-1]
+    rect = next(r for r in layout.over.iter(f"{overlay.S}rect") if r.get("fill") == "#ffffff")
+    centre = float(rect.get("x")) + float(rect.get("width")) / 2
+    earlier = [e for e in layout.numeral_seq if e[0] <= (layout.index.measure(4).index, 3)][-1]
+    assert abs(centre - earlier[3]) < 5 and float(rect.get("y")) > earlier[6]
+
+
+def test_key_label_sits_just_before_the_first_numeral(chopin, chopin_annotations, layouts):
+    render(chopin, chopin_annotations, measures=(1, 8))
+    layout = layouts[-1]
+    label, box = next(item for item in layout.harmony_labels if item[0].endswith(":"))
+    first = layout.numeral_seq[0][4]
+    system = layout.systems[layout.numeral_seq[0][2]]
+    assert box.x >= system.left + 80 - 1
+    assert abs((first - box.right) - 0.4 * NUMERAL_SIZE) < 5 or box.x == pytest.approx(system.left + 80, abs=1)
+    assert first - box.right < 6 * NUMERAL_SIZE
+
+
+def test_phrase_label_is_not_put_on_a_stub(chopin, chopin_annotations):
+    svg = render(chopin, chopin_annotations, measures=(1, 8), view="form").svgs[0]
+    assert svg.count("ornamented repeat") == 2  # the two systems wide enough to hold it, not the stub at the right edge
+
+
+def test_fault_arrow_words_are_the_ones_part_writing_emits():
+    from engine import part_writing
+    from engine.annotations import FAULT_ARROW_LABELS
+
+    assert {part_writing.LABELS[rule] for rule in part_writing.ARROWS} == FAULT_ARROW_LABELS
+
+
+# ---- part-writing marks on the Bach chorales: marks keep off lyrics and off each other ----
+
+DATA = Path(__file__).parent / "data"
+
+
+def _chorale(name, marks, measures):
+    score = (DATA / f"part_writing_{name}.musicxml").read_bytes()
+    return render(score, AnnotationList.model_validate({"annotations": marks}), measures=measures)
+
+
+def _vl(kind, a, b=None, label=""):
+    return {"type": "voice_leading", "kind": kind, "from_note": a, "label": label, **({"to_note": b} if b else {})}
+
+
+def _word(layout, string):
+    """Box of a drawn word (its non-halo copy)."""
+    node = [t for t in layout.over.iter(f"{overlay.S}text") if t.text == string][-1]
+    width = text.width(string, overlay.LABEL_SIZE)
+    y = float(node.get("y"))
+    return overlay.Box(float(node.get("x")), y - overlay.LABEL_SIZE * 0.75, width, overlay.LABEL_SIZE)
+
+
+def test_spacing_bracket_keeps_off_lyrics_and_its_word_off_the_bracket(layouts):
+    _chorale("bwv245.14", [_vl("bracket", _ref(9, 3.0, 1, "E5"), _ref(9, 3.0, 2, "C#4"), "S")], (1, 16))
+    layout = layouts[-1]
+    path = next(p for p in layout.over.iter(f"{overlay.S}path") if p.get("d", "").count("L") == 3)
+    x, ys = [float(v) for v in re.findall(r"L([-\d.]+),([-\d.]+)", path.get("d"))[0]][0], [float(v) for _, v in re.findall(r"L([-\d.]+),([-\d.]+)", path.get("d"))[:2]]
+    words = [w for system in layout.systems for w in system.words]
+    assert not any(w.x < x + 30 and w.right > x - 30 and w.y < max(ys) and w.bottom > min(ys) for w in words)
+    word = _word(layout, "S")
+    assert not (word.x - 30 < x < word.right + 30 and word.y < max(ys) and word.bottom > min(ys))
+
+
+def test_overlap_rings_both_notes_with_one_code_and_no_leader(layouts):
+    page = _chorale("bwv64.4", [_vl("ring", _ref(14, 4.0, 1, "A4"), label="VO"), _vl("ring", _ref(14, 1.0, 2, "B4"))], (13, 14))
+    svg = page.svgs[0]
+    assert len(re.findall(r'<ellipse[^>]*stroke="#D50000"', svg)) == 2 and svg.count(">VO<") == 2  # one code: a halo and the code
+    assert 'stroke-width="20"' not in svg  # no leader line across the lyrics
+
+
+def test_each_ring_has_its_own_code_beside_it(chopin):
+    svg = _page(chopin, [{"type": "voice_leading", "kind": "ring", "from_note": _ref(1, 1.33, 2, "G3"), "label": "VC"},
+                         {"type": "voice_leading", "kind": "ring", "from_note": _ref(1, 1.33, 2, "Eb4"), "label": "r"}]).svgs[0]
+    # Each code is a halo and the word itself; a group set apart from the rings left the reader guessing whose it was.
+    assert svg.count(">VC<") == 2 and svg.count(">r<") == 2 and ">r VC<" not in svg
+
+
+def test_direct_octave_word_sits_under_the_lower_voice_when_the_staves_are_apart(layouts):
+    _chorale("bwv418", [_vl("line", _ref(0, 1.0, 1, "E4"), _ref(1, 1.0, 1, "A4")),
+                        _vl("line", _ref(0, 1.0, 4, "A2"), _ref(1, 1.0, 4, "A3"), "H8")], (0, 1))
+    layout = layouts[-1]
+    lower = max(float(line.get("y1")) for line in layout.over.iter(f"{overlay.S}line"))
+    assert _word(layout, "H8").y > lower - 200
+
+
+def _functions(chopin, spec):
+    items = [{"type": "harmony", "at": {"measure": m, "beat": b}, "label": label, "function": f, **({"key": k} if k else {})}
+             for m, b, label, f, k in spec]
+    return _page(chopin, items, view="harmony").svgs[0]
+
+
+def _function_paths(svg):
+    return [[tuple(map(float, point)) for point in re.findall(r"([-\d.]+),([-\d.]+)", d)]
+            for d in re.findall(r'<path d="(M[\d,. L-]+)"[^>]*stroke-width="26"', svg) if "C" not in d]
+
+
+def test_function_run_ends_where_the_key_changes(chopin):
+    svg = _functions(chopin, [(1, 1, "I", "T", "Eb"), (2, 1, "I", "T", "Bb")])
+    assert svg.count(">tonic<") == 2  # one bracket per key, not one run over both
+
+
+def test_function_bracket_is_open_at_a_system_break_and_names_its_word_without_brackets(chopin):
+    svg = _functions(chopin, [(1, 1, "I", "T", "Eb"), (3, 1, "I", "T", None)])  # bars 1-2 and 3-4 are on different systems
+    first, second = _function_paths(svg)
+    assert first[-1][1] == first[-2][1] and first[0][1] != first[1][1]  # closed at the left, open at the break
+    assert second[0][1] == second[1][1] and second[-1][1] != second[-2][1]  # open where it resumes, closed at its end
+    assert "(tonic)" not in svg and svg.count(">tonic<") == 2
+
+
+def test_function_words_are_chosen_for_the_whole_page(chopin):
+    # One crowded piece (two chords a beat apart) forces letters everywhere; a long run elsewhere must not keep its word.
+    svg = _functions(chopin, [(1, 1, "I", "T", "Eb"), (1, 1.33, "V", "D", None), (3, 1, "I", "T", None), (4, 1, "V", "D", None)])
+    assert ">tonic<" not in svg and ">dominant<" not in svg and ">T<" in svg and ">D<" in svg
+
+
+def test_cadential_six_four_continues_into_the_next_dominant(chopin):
+    items = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "Cad64", "key": "Eb"},
+             {"type": "harmony", "at": {"measure": 1, "beat": 2}, "label": "V7"},
+             {"type": "harmony", "at": {"measure": 2, "beat": 1}, "label": "I"}]
+    svg = _page(chopin, items).svgs[0]
+    assert svg.count(">V<") == 1 and ">cad.<" not in svg and svg.count(">-<") == 2  # V⁶₄ then dashed ⁷₃; no second V
+    other = _page(chopin, [items[0], {**items[2], "at": {"measure": 1, "beat": 2}}]).svgs[0]
+    assert other.count(">V<") == 1 and ">-<" not in other  # a following chord that is not V keeps its own numeral
+
+
+
+def test_abrsm_style_writes_the_cadential_six_four_as_ic_then_v(chopin):
+    """ABRSM-style analysis names the cadential six-four Ic and the dominant that follows V (MyMusicTheory, Grade 6:
+    "Cadential 6/4 = Ic-Va"); the ⁷₃ continuation figures belong to the V⁶₄ reading and must not follow an Ic."""
+    items = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "Cad64", "key": "Eb"},
+             {"type": "harmony", "at": {"measure": 1, "beat": 2}, "label": "V7"},
+             {"type": "harmony", "at": {"measure": 2, "beat": 1}, "label": "I"}]
+    page = render(chopin, AnnotationList.model_validate({"annotations": items, "style": "abrsm"}), measures=(1, 8))
+    svg = page.svgs[0]
+    assert ">-<" not in svg and svg.count(">V<") == 1
+
+def _unresolved(direction):
+    score = (Path(__file__).parent / "data/part_writing_bwv336.musicxml").read_bytes()
+    mark = {"type": "voice_leading", "kind": "arrow", "label": "R", "from_note": _ref(2, 3.0, 1, "G#4"),
+            "to_note": _ref(2, 4.0, 1, "C#5"), **({"direction": direction} if direction else {})}
+    return render(score, AnnotationList.model_validate({"annotations": [mark]}), measures=(1, 3)).svgs[0]
+
+
+def test_unresolved_tendency_tone_gets_a_small_arrow_beside_it_pointing_where_it_should_go():
+    up, down = _unresolved("up"), _unresolved("down")
+    for svg, sign in ((up, -1), (down, 1)):
+        shaft = re.search(rf'<line x1="(\d+)" y1="(\d+)" x2="(\d+)" y2="(\d+)" stroke="{ERROR}"', svg)
+        x1, y1, x2, y2 = map(int, shaft.groups())
+        assert x1 == x2 and abs(y2 - y1) < 400  # short and vertical, not a line to the note that follows
+        assert (y2 - y1) * sign > 0  # head end is up for "up", down for "down"
+    assert ">R<" in up  # the code stays at the tail
+
+
+
+# ---- the draft's own marks on real chorales: every code and arrow stands by its own note ----
+
+def _draft_marks(name):
+    """The voice-leading marks the part-writing draft proposes for a real chorale."""
+    from engine.part_writing import as_text
+    from engine.render import load_toolkit
+    from engine.score import ScoreIndex
+
+    score = (DATA / f"part_writing_{name}.musicxml").read_bytes()
+    marks = []
+    for line in as_text(ScoreIndex(load_toolkit(score).getMEI())).splitlines():
+        found = re.match(r'\s+draw (\w+) (\{.*?\})(?: -> (\{.*?\}))?(?: label "([^"]*)")?(?: direction "(\w+)")?$', line)
+        if found:
+            kind, a, b, label, direction = found.groups()
+            marks.append({"type": "voice_leading", "kind": kind, "label": label or "", "from_note": json.loads(a),
+                          **({"to_note": json.loads(b)} if b else {}), **({"direction": direction} if direction else {})})
+    return score, marks
+
+
+@pytest.fixture
+def spied(monkeypatch):
+    """What the ring codes and unresolved arrows were chosen against: the rings, and the page content before each arrow."""
+    seen = {"rings": [], "arrows": []}
+    place, arrow = PageLayout._place_ring_codes, PageLayout._draw_unresolved
+
+    def fresh(layout):
+        # A page may be drawn more than once (once to measure the room its codes need); only the last drawing counts.
+        if seen.get("layout") is not layout:
+            seen.update(layout=layout, rings=[], arrows=[])
+
+    def place_codes(self, rings):
+        fresh(self)
+        seen["rings"] += [(system, ring, labels) for system, ring, labels, _ in rings]
+        return place(self, rings)
+
+    def draw_arrow(self, mark, system, note):
+        fresh(self)
+        before = [box for box in system.content]
+        count = len(list(self.over))
+        arrow(self, mark, system, note)
+        seen["arrows"].append((before, note, list(self.over)[count:]))
+
+    monkeypatch.setattr(PageLayout, "_place_ring_codes", place_codes)
+    monkeypatch.setattr(PageLayout, "_draw_unresolved", draw_arrow)
+    return seen
+
+
+def _gap(a, b):
+    return ((max(a.x - b.right, b.x - a.right, 0)) ** 2 + (max(a.y - b.bottom, b.y - a.bottom, 0)) ** 2) ** 0.5
+
+
+@pytest.mark.parametrize("name, bars", [("bwv418", (11, 11)), ("bwv245.14", (9, 9)), ("bwv102.7", (2, 2)), ("bwv336", (1, 3))])
+def test_each_ring_code_is_nearest_its_own_ring(name, bars, spied, layouts):
+    score, marks = _draft_marks(name)
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=bars)
+    layout = layouts[-1]
+    rings = [(ring, " ".join(labels)) for _, ring, labels in spied["rings"] if labels]
+    assert rings
+    words = [(overlay.Box(float(t.get("x")) - text.width(t.text, overlay.LABEL_SIZE) / 2, float(t.get("y")) - overlay.LABEL_SIZE * 0.75,
+                          text.width(t.text, overlay.LABEL_SIZE), overlay.LABEL_SIZE), t.text)
+             for t in layout.over.iter(f"{overlay.S}text") if t.get("fill") == ERROR]
+    for ring, code in rings:
+        own = [box for box, string in words if string == code and min(rings, key=lambda other: _gap(box, other[0]))[0] is ring]
+        assert own, f"{name} {bars}: no {code!r} stands nearest the ring at {round(ring.cx)},{round(ring.cy)}"
+
+
+@pytest.mark.parametrize("name, bars", [("tendency", (1, 6)), ("bwv102.7", (5, 5)), ("bwv64.4", (12, 12)), ("bwv64.4", (7, 7))])
+def test_unresolved_arrow_stays_by_its_own_note_and_off_other_notes_and_stems(name, bars, spied, layouts):
+    score, marks = _draft_marks(name)
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=bars)
+    assert spied["arrows"]
+    for before, note, drawn in spied["arrows"]:
+        line = next(e for e in drawn if e.tag == f"{overlay.S}line")
+        xs = [float(line.get("x1")), float(line.get("x2"))]
+        ys = [float(line.get("y1")), float(line.get("y2"))]
+        arrow = overlay.Box(min(xs) - 75, min(ys) - 75, max(xs) - min(xs) + 150, max(ys) - min(ys) + 150)
+        others = [box for box in before if box is not note and not (box.width < 100 and box.height < 100)]  # a dot belongs to its note
+        assert not [box for box in others if _gap(box, arrow) < 60], f"{name} {bars}: arrow touches a note or stem"
+        ahead = overlay.Box(arrow.x, arrow.bottom, arrow.width, 400) if float(line.get("y2")) > float(line.get("y1")) else overlay.Box(arrow.x, arrow.y - 400, arrow.width, 400)
+        assert not [box for box in others if box.width > 100 and _gap(box, ahead) == 0], f"{name} {bars}: arrow points at a note"
+        # Straight off its note it may start just outside the staff (decision S), farther than beside a ledger note, and
+        # stacked past a fermata on that side (BWV 64.4 bar 12), as marks stack outward from a note.
+        straight = abs(float(line.get("x1")) - note.cx) < 1
+        between = [box for box in before if straight and box.x < arrow.right and box.right > arrow.x
+                   and (arrow.bottom <= box.cy <= note.y if arrow.cy < note.cy else note.bottom <= box.cy <= arrow.y)]
+        nearest = min([note] + between, key=lambda box: _gap(box, arrow))
+        assert _gap(nearest, arrow) <= (450 if straight else 330), f"{name} {bars}: arrow is detached from its note"
+
+
+@pytest.mark.parametrize("name, bar", [("bwv64.4", 7), ("bwv64.4", 12), ("bwv102.7", 5)])
+def test_unresolved_arrow_and_its_code_keep_off_the_staff_on_the_side_away_from_the_stem(name, bar, spied, layouts):
+    """BWV 64.4 bar 7: the bass's D3 (middle line, stem up) has nothing below the staff, so the arrow and its R go
+    there, the R at the arrow's tail (decision S), as an articulation outside the staff. Bar 12: the soprano's C#5
+    (stem down) has a fermata above, so the arrow stacks outside it (Gould: marks stack outward from the note); it
+    fell back inside the staff, its R across two lines. BWV 102.7 bar 5: the alto's Eb4 (stem up) takes the shorter
+    shaft below the staff, clear of the tenor's note under it; it stood inside the staff, its R on a line."""
+    score, marks = _draft_marks(name)
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=(bar, bar))
+    (_, note, drawn), = spied["arrows"]
+    line = next(e for e in drawn if e.tag == f"{overlay.S}line")
+    code = next(e for e in drawn if e.tag == f"{overlay.S}text" and e.text == "R")
+    system = next(s for s in layouts[-1].systems if any(b.y <= note.cy <= b.bottom for m in s.measures for b in m.lines))
+    staff = next(box for m in system.measures for box in m.lines if box.y <= note.cy <= box.bottom and box.x <= note.cx <= box.right)
+    y1, y2 = float(line.get("y1")), float(line.get("y2"))
+    code_y = float(code.get("y")) - overlay.LABEL_SIZE * 0.34
+    below = y1 > note.cy
+    if below:
+        assert min(y1, y2) > staff.bottom + overlay.LABEL_PAD, "the arrow sits on the staff"
+        assert code_y - overlay.LABEL_SIZE / 2 > staff.bottom + overlay.LABEL_PAD, "the R sits on the staff"
+    else:
+        assert max(y1, y2) < staff.y - overlay.LABEL_PAD, "the arrow sits on the staff"
+        assert code_y + overlay.LABEL_SIZE / 2 < staff.y - overlay.LABEL_PAD, "the R sits on the staff"
+    assert abs(code_y - y1) < 1, "the R is not at the arrow's tail"
+
+
+@pytest.mark.parametrize("name", ["bwv64.4", "bwv102.7", "bwv418", "bwv245.14"])
+def test_every_fault_code_the_draft_proposes_is_drawn_on_the_whole_chorale(name, layouts):
+    """A fault mark must never vanish: drawn over the whole chorale, every code the draft lists (BWV 64.4: both "R"
+    arrows, bar 7's and bar 12's under callout 8's disc and fermata) stands on the page as often as it is listed."""
+    from collections import Counter
+
+    from engine.render import load_toolkit
+    from engine.score import ScoreIndex
+
+    score, marks = _draft_marks(name)
+    index = ScoreIndex(load_toolkit(score).getMEI())
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=(index.measures[0].number, index.measures[-1].number))
+    listed = Counter(m["label"] for m in {json.dumps(m, sort_keys=True): m for m in marks if m["label"]}.values())
+    # The codes of one ring are set together ("r VC").
+    drawn = Counter(code for t in layouts[-1].over.iter(f"{overlay.S}text") if t.get("fill") == ERROR for code in t.text.split())
+    assert listed and all(drawn[code] >= count for code, count in listed.items()), f"{name}: listed {dict(listed)}, drawn {dict(drawn)}"
+
+
+@pytest.mark.parametrize("name, bars", [("bwv102.7", (2, 2)), *((name, None) for name in sorted(
+    p.stem.replace("part_writing_", "") for p in (Path(__file__).parent / "data").glob("part_writing_*.musicxml")))])
+def test_no_ring_code_sits_on_a_staff(name, bars, spied, layouts):
+    """Text across staff lines is not engraving practice (Gould, text and articulation placement): BWV 102.7 bar 2's
+    alto VO sat on the alto's bottom line, and BWV 64.4's tenor VC (bar 6), bass VO (bar 12) and soprano VO (bar 14)
+    on theirs. The staves of that system move apart instead, so the code fits in the gap (the music yields to labels)."""
+    from engine.render import load_toolkit
+    from engine.score import ScoreIndex
+
+    score, marks = _draft_marks(name)
+    if not any(m["kind"] == "ring" and m["label"] for m in marks):
+        pytest.skip("no ring codes")
+    if bars is None:
+        index = ScoreIndex(load_toolkit(score).getMEI())
+        first, last = index.measures[0].number, index.measures[-1].number
+        bars = (first, min(last, first + 31))  # a page shows at most 32 bars
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=bars)
+    layout = layouts[-1]
+    codes = {" ".join(labels) for _, _, labels in spied["rings"] if labels}
+    words = [(overlay.Box(float(t.get("x")), float(t.get("y")) - overlay.LABEL_SIZE * 0.84,  # x is the text's left end
+                          text.width(t.text, overlay.LABEL_SIZE), overlay.LABEL_SIZE), t.text)
+             for t in layout.over.iter(f"{overlay.S}text") if t.get("fill") == ERROR and t.text in codes]
+    assert words
+    on = [(string, round(box.cx), round(box.cy)) for box, string in words if any(layout._on_staff(system, box) for system in layout.systems)]
+    assert not on, f"{name} {bars}: codes on a staff: {on}"
+
+
+def _codes_drawn(layout, spied):
+    """Each ring code as drawn: (its box, its text)."""
+    codes = {" ".join(labels) for _, _, labels in spied["rings"] if labels}
+    return [(overlay.Box(float(t.get("x")), float(t.get("y")) - overlay.LABEL_SIZE * 0.84,  # x is the text's left end
+                         text.width(t.text, overlay.LABEL_SIZE), overlay.LABEL_SIZE), t.text)
+            for t in layout.over.iter(f"{overlay.S}text") if t.get("fill") == ERROR and t.text in codes]
+
+
+def _whole(name):
+    from engine.render import load_toolkit
+    from engine.score import ScoreIndex
+
+    index = ScoreIndex(load_toolkit((DATA / f"part_writing_{name}.musicxml").read_bytes()).getMEI())
+    first, last = index.measures[0].number, index.measures[-1].number
+    return first, min(last, first + 31) if sum(1 for m in index.measures if m.number > 0) > 32 else last
+
+
+CHORALES = sorted(p.stem.replace("part_writing_", "") for p in DATA.glob("part_writing_*.musicxml"))
+
+
+@pytest.mark.parametrize("name", CHORALES)
+def test_no_ring_code_touches_a_notehead_accidental_or_stem(name, spied, layouts):
+    """BWV 245.40 bars 5 and 12: with every spot taken, the tenor's VO fell back to its first spot, across the next
+    note's head, flat and stem. A code may give up clear space, never another note (Gould, Layout: clear space round
+    the notes)."""
+    score, marks = _draft_marks(name)
+    if not any(m["kind"] == "ring" and m["label"] for m in marks):
+        pytest.skip("no ring codes")
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=_whole(name))
+    layout = layouts[-1]
+    words = _codes_drawn(layout, spied)
+    assert words
+    hit = [(string, round(box.cx), round(box.cy)) for box, string in words for system in layout.systems
+           if any(o.x < box.right and o.right > box.x and o.y < box.bottom and o.bottom > box.y for o in system.notes)]
+    assert not hit, f"{name}: codes on a note: {hit}"
+
+
+def test_a_ring_code_is_nearer_its_own_ring_than_any_unringed_note(spied, layouts):
+    """BWV 404 bar 6: the tenor's S stood above the staff by the unringed eighth before its ring (decision R: each
+    code by its own ring). Straight above its own ring, past the staff's top line, is clear."""
+    score, marks = _draft_marks("bwv404")
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=_whole("bwv404"))
+    layout = layouts[-1]
+    rings = [ring for _, ring, labels in spied["rings"] if labels]
+    words = _codes_drawn(layout, spied)
+    for box, string in words:
+        ring = min(rings, key=lambda r: _gap(box, r))
+        system = next(s for s in layout.systems if s.staff_top - 2000 < box.cy < s.staff_bottom + 2000)
+        unringed = [h for h in system.heads if not any(r.x <= h.cx <= r.right and r.y <= h.cy <= r.bottom for r in rings)]
+        nearest = min(unringed, key=lambda h: _gap(box, h))
+        assert _gap(box, ring) < _gap(box, nearest), f"{string} at {round(box.cx)},{round(box.cy)} stands nearer an unringed note"
+
+
+@pytest.mark.parametrize("name, bars, draws", [("bwv197.5", (8, 14), 1), ("bwv245.40", (0, 28), 2)])
+def test_room_for_codes_opens_in_one_step_and_only_where_it_helps(name, bars, draws, monkeypatch):
+    """Render time: BWV 245.40's gap opened a line per layout (seven drawings), and BWV 197.5 asked for room the tenor's
+    own neighbouring notes kept from helping, then gave it up. The measured shortfall now opens at once, and a gap whose
+    code only the same staff's notes block is not asked to open."""
+    count = [0]
+    original = PageLayout.draw
+
+    def spy(self, *args, **kwargs):
+        count[0] += 1
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(PageLayout, "draw", spy)
+    score, marks = _draft_marks(name)
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=bars)
+    assert count[0] <= draws
+
+
+@pytest.mark.parametrize("name, bars", [("bwv102.7", (2, 2)), ("bwv418", (11, 11)), ("bwv245.40", (0, 28))])
+def test_ring_codes_keep_clear_space(name, bars, spied, layouts):
+    """BWV 102.7 bar 2 alone: with no room asked for, the tenor's VO sat squeezed between a fermata and its ring. Labels
+    are never cramped (the owner's rule): a code keeps clear of every note, mark and other label."""
+    score, marks = _draft_marks(name)
+    render(score, AnnotationList.model_validate({"annotations": marks}), measures=bars)
+    layout = layouts[-1]
+    for box, string in _codes_drawn(layout, spied):
+        margin = overlay.LABEL_PAD / 2 - 1  # at least half the usual clear space
+        clear = overlay.Box(box.x - margin, box.y - margin, box.width + 2 * margin, box.height + 2 * margin)
+        for system in layout.systems:
+            # Its own reserved box takes it in; every other box must keep clear.
+            hit = [o for o in system.content + system.words if layout._meets(clear, o)
+                   and not (o.x <= box.x + 1 and o.right >= box.right - 1 and o.y <= box.y + 1 and o.bottom >= box.bottom - 1)]
+            assert not hit, f"{name}: {string} at {round(box.cx)},{round(box.cy)} touches {[(round(o.x), round(o.y)) for o in hit]}"

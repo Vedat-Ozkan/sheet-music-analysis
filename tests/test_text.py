@@ -24,3 +24,15 @@ def test_quality_and_accidental_symbols():
 def test_flat_sign_stays_in_the_main_font():
     # A sign in the fallback font made the renderer set the whole string in it (tools/build_fonts.py).
     assert text.runs("E♭: V/♮") == [("E♭: V/♮", text.MAIN)]
+
+
+def test_cadential_six_four_is_drawn_as_v_with_6_4_stacked():
+    # OMT and FFF: V⁶₄ reflects the sound; "I⁶₄" only the spelling. Either spelling of the input gives the same figure.
+    for label in ("Cad64", "cad64"):
+        chunks, _ = text.numeral(label, 400)
+        assert [c.text for c in chunks] == ["V", "6", "4"]
+
+
+def test_cadential_continuation_is_dashed_figures_with_no_root():
+    chunks, _ = text.numeral("~73", 400)
+    assert sorted(c.text for c in chunks) == ["-", "-", "3", "7"]

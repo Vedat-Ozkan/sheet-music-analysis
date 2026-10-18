@@ -28,8 +28,9 @@ from fractions import Fraction
 from music21 import meter, note as m21note
 from music21.duration import Duration
 
-from engine import notes
-from engine.render import Engraving, engrave, load_toolkit
+from engine import notes, tint
+from engine.overlay import Box, PageLayout
+from engine.render import Engraving, incoming_ties, load_toolkit, shorten_ties
 from engine.score import ScoreIndex
 
 
@@ -439,7 +440,7 @@ def review_correction(before: bytes, after: bytes, *, part: str | None = None) -
     Both scores must have the same indexed bars in the selected part.
     """
     _, _, old = _read(before, part)
-    _, _, new = _read(after, part)
+    root, selected, new = _read(after, part)
     if [m.number for m in old.measures] != [m.number for m in new.measures]:
         raise CorrectionError("A correction review requires the same bars before and after")
 
@@ -447,12 +448,20 @@ def review_correction(before: bytes, after: bytes, *, part: str | None = None) -
         return (Counter((e.staff, e.onset, e.duration, e.pitch, e.tied)
                         for e in bar.events if not e.grace), _grace_attacks(bar))
 
-    changed, descriptions = [], {}
+    # Staff numbers in the whole score count the staves of the parts before this one.
+    above = 0
+    for other in root.findall("part"):
+        if other is selected:
+            break
+        above += max((int(s.text) for s in other.iterfind("measure/attributes/staves")), default=1)
+    changed, descriptions, marked = [], {}, set()
     for original, corrected in zip(old.measures, new.measures):
         if events(original) == events(corrected) and original.length == corrected.length:
             continue
         changed.append(corrected.number)
         descriptions[corrected.number] = _change_note(original, corrected)
+        marked |= {(corrected.number, e.staff + above, e.onset, e.duration, e.pitch, e.tied, e.grace)
+                   for e in _changed_events(original, corrected)}
     ranges = []
     for number in changed:
         if ranges and number == ranges[-1][1] + 1:
@@ -460,7 +469,44 @@ def review_correction(before: bytes, after: bytes, *, part: str | None = None) -
         else:
             ranges.append((number, number))
     # Ordinary excerpts include the pickup for context; a review must show only edits.
-    return CorrectionReview(changed, ranges, [engrave(after, bounds, include_pickup=False) for bounds in ranges], descriptions)
+    return CorrectionReview(changed, ranges, [_engrave_marked(after, bounds, marked) for bounds in ranges], descriptions)
+
+
+def _changed_events(old_bar, new_bar):
+    """The notes of the new bar that the old bar did not have; rests only when no note is new.
+
+    Rests that the user did not touch can still differ, because the round trip re-splits a second voice's rests."""
+    key = lambda e: (e.staff, e.onset, e.duration, e.pitch, e.tied, e.grace)
+    unused = Counter(key(e) for e in old_bar.events)
+    added = []
+    for event in new_bar.events:
+        if unused[key(event)]:
+            unused[key(event)] -= 1
+        else:
+            added.append(event)
+    added = [e for e in added if e.pitch is not None] or added
+    # Nothing added means something was taken away or only reordered: show the whole bar rather than none.
+    return added or new_bar.events
+
+
+def _engrave_marked(after: bytes, bounds: tuple[int, int], marked: set) -> Engraving:
+    """The bars first..last cropped to their music, with an amber backing behind the notes that changed."""
+    toolkit = load_toolkit(after, {**tint.BOXES, "adjustPageHeight": True, "pageHeight": 60000})
+    index = ScoreIndex(toolkit.getMEI())
+    ties = incoming_ties(toolkit, index, bounds[0], include_pickup=False)
+    toolkit.select({"measureRange": index.measure_range(*bounds, include_pickup=False)})
+    toolkit.redoLayout()
+    ids = {e.id for m in index.measures for e in m.events
+           if (m.number, e.staff, e.onset, e.duration, e.pitch, e.tied, e.grace) in marked}
+    layouts = []
+    for page in range(1, toolkit.getPageCount() + 1):
+        layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
+        for id in ids & layout.boxes.keys():
+            box = layout.boxes[id]
+            pad = 40
+            tint.tint(layout, Box(box.x - pad, box.y - pad, box.width + 2 * pad, box.height + 2 * pad), tint.CHANGED)
+        layouts.append(layout)
+    return tint.finish(layouts, trim=True)
 
 
 def _grace_attacks(bar):
@@ -534,8 +580,20 @@ def _change_note(before, after):
                     changes.append("ties changed")
         elif len(a) != len(b):
             changes.append(f"the number of note groups on staff {staff} changed from {len(a)} to {len(b)}")
-    rests = lambda bar: Counter((e.staff, e.onset, e.duration) for e in bar.events if e.pitch is None)
-    if rests(before) != rests(after):
+    def rests(bar):
+        """Where each voice rests, as merged spans: splitting one rest into two is not a change."""
+        spans = {}
+        for e in sorted((e for e in bar.events if e.pitch is None), key=lambda e: e.onset):
+            voice = spans.setdefault((e.staff, e.layer), [])
+            if voice and voice[-1][1] >= e.onset:
+                voice[-1][1] = max(voice[-1][1], e.onset + e.duration)
+            else:
+                voice.append([e.onset, e.onset + e.duration])
+        return spans
+    # The round trip writes out rests a voice only implied, so a voice that had none before is not compared.
+    old_rests, new_rests = rests(before), rests(after)
+    if any(old_rests[voice] != new_rests.get(voice) for voice in old_rests) or (
+            not old_rests and new_rests):
         changes.append("rests changed")
     if before.length != after.length:
         changes.append("the bar length changed")
