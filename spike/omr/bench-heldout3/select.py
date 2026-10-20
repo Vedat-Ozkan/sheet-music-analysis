@@ -1,4 +1,3 @@
-"""Rank OpenScore Lieder by triplets printed WITHOUT a number in the first 32 bars of the truth (truth XML only; no OMR)."""
 import sys, json, zipfile, io
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -25,8 +24,6 @@ for f in sorted(lieder.glob('*/*/*/*.mxl')):
             continue
         n += 1
         shown = any(t.get('type') == 'start' and t.get('show-number') != 'none' for t in note.iter('tuplet'))
-        # a number printed on any note of the group counts; test per group below
-    # per-group: a tuplet start with no show-number="none" anywhere means printed
     printed_starts = sum(1 for t in root.iter('tuplet') if t.get('type') == 'start' and t.get('show-number') != 'none')
     total_starts = sum(1 for t in root.iter('tuplet') if t.get('type') == 'start')
     rows.append((n, printed_starts, total_starts, sub))

@@ -1,4 +1,3 @@
-"""usage: dumpbar.py BENCHDIR RESULTS PDFSUBSTR  -> per-measure per-voice compact listing (type[/tuplet marker]) for truth and omr, first N differing"""
 import sys, json, hashlib
 from pathlib import Path
 import xml.etree.ElementTree as ET

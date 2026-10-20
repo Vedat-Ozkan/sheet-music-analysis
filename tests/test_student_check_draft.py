@@ -1,5 +1,3 @@
-"""A student's own numerals come back in the draft beside the draft's chords, through the server tools and the skill script."""
-
 import asyncio
 import os
 import subprocess
@@ -17,7 +15,6 @@ ROOT = Path(__file__).parent.parent
 CHOPIN = ROOT / "tests/data/chopin_nocturne_op9_no2.mxl"
 LABELLED = ROOT / "tests/data/check_analysis/musescore-roman.musicxml"
 QUESTION = "Which bar and beat does each numeral belong to?"
-# Planted: I53 for I (m1 b1), I6 over an Eb bass (m1 b3), V65 where the score tonicizes vi (m3 b2).
 STUDENT = (
     "key: Eb major; m1 I53 beat 3 I6; m2 V7/ii beat 3 ii; m3 V7 V65 vi viio7/V; m4 V7 beat 3 I; "
     "m5 I beat 3 I; m6 V7/ii beat 3 ii; m7 V7 V65/vi vi viio7/V; m8 V7 beat 3 I"

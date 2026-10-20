@@ -27,7 +27,7 @@ def test_round_trip_keeps_every_note(index):
 
 
 def test_note_list_is_small(index, chopin):
-    assert len(notes.encode(index)) < 6_000  # the compressed file as base64 is about 27,500 characters
+    assert len(notes.encode(index)) < 6_000
     assert len(notes.encode(index, 1, 8)) < 1_500
 
 
@@ -40,9 +40,9 @@ def test_range_from_measure_one_takes_the_pickup(index):
 
 def test_ties_grace_notes_and_rests_are_written(index):
     text = notes.encode(index)
-    assert "72 G5~ 24 G5" in text  # tie in measure 1
-    assert " gE5 " in text or " gE5+" in text or "gE5 gF5" in text  # grace notes before the beat in measure 7
-    assert "48 r" in text  # the rest in measure 4
+    assert "72 G5~ 24 G5" in text
+    assert " gE5 " in text or " gE5+" in text or "gE5 gF5" in text
+    assert "48 r" in text
 
 
 def test_bad_note_lists_are_refused():
@@ -55,7 +55,6 @@ def test_bad_note_lists_are_refused():
 
 
 def test_draft_builds_against_a_decoded_note_list(index):
-    """The model saw the same notes either way, so its saved output must line up with the decoded index."""
     decoded = notes.decode(notes.encode(index))
     result = draft.build(json.loads(RAW.read_text()), decoded)
     opening = {(chord.measure, chord.beat): chord.label for chord in result.chords if 1 <= chord.measure <= 4}
@@ -68,4 +67,4 @@ def test_grace_notes_after_a_rest_keep_their_place():
     index = notes.decode(text)
     grace = [event for event in index.measures[0].events if event.grace]
     assert {event.onset for event in grace} == {2}
-    assert notes.encode(index).splitlines()[2] == "1.1: 2 r gA5+B5 1 C6"  # written in the smallest whole units
+    assert notes.encode(index).splitlines()[2] == "1.1: 2 r gA5+B5 1 C6"

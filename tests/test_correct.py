@@ -39,7 +39,6 @@ def test_correct_real_reading():
     assert 12 not in problem_spots(result)[0]
     assert engrave(result).page_count > 0
     assert engrave(result, (12, 16)).png().startswith(b"\x89PNG")
-    # Apart from the necessary units rescaling, other bars retain every XML field.
     a, b = ET.fromstring(reading), ET.fromstring(result)
     for old, new in zip(a.findall("part/measure"), b.findall("part/measure")):
         if int(old.get("number")) in {12, 16}:
@@ -114,7 +113,6 @@ def test_invalid_voice_data(text, message):
 
 
 def test_replace_bars_survives_notes_running_past_the_bar_end():
-    # Bar 2 of 3/4 holds quarter, quarter and three eighths: a triplet typed without its tuplet.
     score = (Path(__file__).parent / "data/correct_missed_triplet.musicxml").read_bytes()
     text = correct.bars_from_musicxml(score, 2)
     result = correct.replace_bars(score, text.replace("F5", "E5"))

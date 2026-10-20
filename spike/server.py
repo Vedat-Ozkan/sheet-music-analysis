@@ -1,13 +1,3 @@
-"""Throwaway server for the platform spike (plan step 1).
-
-It answers two questions in Claude and in ChatGPT, with no analysis involved:
-how does a score file get from the conversation to a hosted tool, and how does
-the engraved page show up in the chat? Every way in and every way out is
-offered side by side so the owner can compare real examples.
-
-Run:  PUBLIC_BASE_URL=https://<tunnel-host> .venv/bin/python -m spike.server
-"""
-
 from __future__ import annotations
 
 import base64
@@ -46,7 +36,6 @@ SCORES_DIR = DATA_DIR / "scores"
 FILES_DIR = DATA_DIR / "files"
 CALL_LOG = DATA_DIR / "calls.log"
 MAX_SCORE_BYTES = 10 * 1024 * 1024
-# Hosts keep a card's HTML by its address, so the version goes up whenever the HTML changes.
 CARD_URI = "ui://score-spike/card-v2.html"
 PICKER_URI = "ui://score-spike/picker-v2.html"
 ROOT = Path(__file__).parent.parent
@@ -119,7 +108,6 @@ async def resolve_score(
     score_id: str | None,
     score_url: str | None,
 ) -> tuple[bytes, str]:
-    """Return the score bytes and which input path supplied them."""
     if score_file:
         return await download(score_file.download_url), "score_file"
     if score_id:
@@ -172,7 +160,6 @@ def card_result(tool: str, ctx: Context, engraving: Engraving, caption: str, **l
 
 
 def demo_engraving() -> Engraving:
-    """The hand-annotated opening of Chopin's Nocturne Op. 9 No. 2: what a finished analysis page looks like."""
     annotations = AnnotationList.model_validate_json((ROOT / "examples/chopin_op9_no2_m1-8.json").read_text())
     return render((ROOT / "tests/data/chopin_nocturne_op9_no2.mxl").read_bytes(), annotations, measures=(1, 8))
 
@@ -249,7 +236,6 @@ async def render_analysis(
         log_call("render_analysis", ctx, error=str(error))
         return error_result(str(error))
     caption = f"Analysis, measures {measure_range}, view {view}"
-    # The card shows the page to the user; the image lets the chat model check its own annotations.
     result = card_result("render_analysis", ctx, engraving, caption, annotations=len(annotations.annotations))
     png = engraving.png(1)
     result.content.insert(0, ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png"))
@@ -291,7 +277,6 @@ apps.add_html_resource(
 )
 
 
-# The extension's tools are collected when the server is constructed, so this comes after them.
 mcp = MCPServer(
     "score-spike",
     title="Score engraving spike",
@@ -320,7 +305,6 @@ async def engrave_score(
     measure_range: str = "1-8",
     inline_image: bool = True,
 ) -> CallToolResult:
-    """measure_range is like "1-8"; pass "all" for the whole first page. inline_image=false returns links only."""
     try:
         score, source = await resolve_score(score_file, score_id, score_url)
         engraving = engrave(score, parse_measures(measure_range))
@@ -359,7 +343,6 @@ Positions: `measure` is the printed number (a pickup is 0); `beat` is 1-based in
 
 
 def stored_score(score: bytes, source: str, score_id: str | None) -> str:
-    """Keep the score under a code so later calls can refer to it."""
     if source == "score_id" and score_id:
         return re.sub(r"[^A-Za-z0-9]", "", score_id).upper()
     code = secrets.token_hex(3).upper()
@@ -405,7 +388,6 @@ async def draft_analysis(
     score_url: str | None = None,
     measure_range: str = "all",
 ) -> CallToolResult:
-    """measure_range limits the table, e.g. "1-8"; the default "all" returns the whole piece."""
     started = time.time()
     try:
         score, source = await resolve_score(score_file, score_id, score_url)
@@ -483,7 +465,6 @@ async def files(request: Request) -> Response:
 
 
 class ProtocolLog:
-    """Record each MCP request's method (and tool or resource) so card problems can be traced."""
 
     def __init__(self, app):
         self.app = app
@@ -525,7 +506,6 @@ def main() -> None:
     app = mcp.streamable_http_app(
         stateless_http=True,
         json_response=True,
-        # The tunnel's hostname arrives in the Host header, so the localhost-only check is off.
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
     )
     uvicorn.run(ProtocolLog(app), host="127.0.0.1", port=PORT, log_level="info")

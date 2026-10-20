@@ -1,4 +1,3 @@
-"""Check label text and beat positions in the actual MuseScore conversions."""
 from fractions import Fraction
 import json
 from pathlib import Path

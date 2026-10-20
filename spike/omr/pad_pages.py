@@ -1,4 +1,3 @@
-"""Raster-pad every page of a PDF with white to the first page's size and save as one PDF: pad_pages.py in.pdf out.pdf [dpi]"""
 import sys, pypdfium2 as pdfium
 from PIL import Image
 dpi = int(sys.argv[3]) if len(sys.argv) > 3 else 300

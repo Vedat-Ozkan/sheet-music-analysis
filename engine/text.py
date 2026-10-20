@@ -1,5 +1,3 @@
-"""Text measurement and Roman numeral typesetting for overlay labels."""
-
 from __future__ import annotations
 
 import re
@@ -11,7 +9,6 @@ from fontTools.ttLib import TTFont
 from PIL import ImageFont
 
 FONT_DIR = Path(__file__).parent / "fonts"
-# Score Serif is Liberation Serif (Times metrics, as Verovio assumes) with ♭ and ♮ added; see tools/build_fonts.py.
 MAIN, FALLBACK = "Score Serif", "DejaVu Serif"
 FILES = {
     (MAIN, False): "ScoreSerif-Regular.ttf",
@@ -34,7 +31,6 @@ def _main_coverage() -> frozenset[int]:
 
 
 def runs(text: str) -> list[tuple[str, str]]:
-    """Split text into (run, font family), sending symbols the main font lacks (♭, ♮) to the fallback."""
     result: list[tuple[str, str]] = []
     for char in text:
         family = MAIN if ord(char) in _main_coverage() else FALLBACK
@@ -52,8 +48,8 @@ def width(text: str, size: float, bold: bool = False) -> float:
 @dataclass
 class Chunk:
     text: str
-    dx: float  # from the label's left edge
-    dy: float  # from the baseline; negative is up
+    dx: float
+    dy: float
     size: float
     bold: bool = False
 
@@ -69,24 +65,20 @@ SYMBOLS = str.maketrans({"b": "♭", "#": "♯"})
 
 
 def pretty_key(key: str) -> str:
-    """ "Eb" -> "E♭", "f#" -> "f♯"."""
     return key[:1] + key[1:].translate(SYMBOLS)
 
 
-FIGURE = 0.72  # of the numeral: the textbook range is 0.65-0.85 and this stays readable at chat size
+FIGURE = 0.72
 SUSPENSION = re.compile(r"^\d+[–-]\d+$")
 
 
 def stack(rows: list[str], x: float, size: float, bold: bool = False, right: bool = False) -> tuple[list[Chunk], float]:
-    """Figures stacked top row first, hung after a numeral: a lone row is raised, two rows run from above
-    the cap top to just below the baseline, three start higher so the last stays near the baseline.
-    Returns the chunks and the advance."""
     fsize = size * FIGURE
     count = len(rows)
     top = -size * 0.32 if count == 1 else -size * (0.38 if count == 2 else 0.62)
     step = 0.5
     if count == 3 and any(sign in row for row in rows for sign in "♭♯♮"):
-        top, step = -size * 0.68, 0.56  # an accidental is as tall as a figure: more air so it touches neither neighbour
+        top, step = -size * 0.68, 0.56
     widths = [width(row, fsize, bold) for row in rows]
     chunks = [Chunk(row, x + size * 0.02 + (max(widths) - widths[number] if right else 0), top + number * size * step, fsize, bold)
               for number, row in enumerate(rows)]
@@ -95,22 +87,19 @@ def stack(rows: list[str], x: float, size: float, bold: bool = False, right: boo
 
 def _numeral_chunks(part: str, size: float, x: float, bold: bool, inversion_letters: bool = False,
                     rows: list[str] | None = None, suspension: str | None = None) -> tuple[list[Chunk], float]:
-    """`rows` replaces the figures read from the part (figured-bass style); `suspension` is a "4–3" suffix set as a last row."""
     letter = ''
-    # ABRSM letters stay on the baseline while the preceding seventh is raised.
     if inversion_letters and part.endswith(('b', 'c', 'd')) and NUMERAL.fullmatch(part[:-1]):
         part, letter = part[:-1], part[-1]
     match = NUMERAL.match(part)
     if not match:
         return [Chunk(part, x, 0, size, bold)], x + width(part, size, bold)
     chunks: list[Chunk] = []
-    # Open Music Theory and FFF write the cadential six-four as the dominant it sounds as: V with 6–4 stacked.
     base = match["accidental"].translate(SYMBOLS) + ("V" if match["root"] == "Cad" else match["root"])
     chunks.append(Chunk(base, x, 0, size, bold))
     x += width(base, size, bold)
     if match["quality"]:
         symbol = QUALITIES[match["quality"]]
-        raised = symbol == "ø"  # the degree sign already sits high; ø is a lowercase letter
+        raised = symbol == "ø"
         quality_size = size * (0.62 if raised else 1)
         chunks.append(Chunk(symbol, x, -size * 0.34 if raised else 0, quality_size, bold))
         x += width(symbol, quality_size, bold)
@@ -127,12 +116,9 @@ def _numeral_chunks(part: str, size: float, x: float, bold: bool, inversion_lett
     return chunks, x
 
 
-CONTINUATION = re.compile(r"^~\d+$")  # drawn only: what a cadential six-four's resolution chord shows in place of "V"
-
+CONTINUATION = re.compile(r"^~\d+$")
 
 def _continuation(digits: str, size: float, bold: bool) -> tuple[list[Chunk], float]:
-    """The figures of a chord that continues the cadential six-four's V (FFF: V⁶₄ - ⁵₃), each row led by the dash that
-    joins it to the row before. The figures come first so they stay centred over the chord's bass note."""
     dash = width("-", size * FIGURE, bold) + size * 0.12
     figures, advance = stack(list(digits), dash, size, bold)
     dashes = [Chunk("-", 0, figure.dy, figure.size, bold) for figure in figures]
@@ -141,20 +127,12 @@ def _continuation(digits: str, size: float, bold: bool) -> tuple[list[Chunk], fl
 
 def numeral(label: str, size: float, bold: bool = False, *, inversion_letters: bool = False,
             first_rows: list[str] | None = None) -> tuple[list[Chunk], float]:
-    """Lay out a RomanText-style label ("V65/ii", "viio7", "bII6") with raised and stacked figures.
-
-    A digit-dash-digit suffix ("V7 4–3") becomes the last figure row; any other text after the first space
-    is appended as a smaller plain note. `first_rows` gives the first numeral's figures directly.
-    Returns the chunks and the total width.
-    """
     main, _, note = label.partition(" ")
     if CONTINUATION.match(main):
         return _continuation(main[1:], size, bold)
     main = re.sub(r"^cad6/?4$", "Cad64", main, flags=re.IGNORECASE)
-    # "V6/5" is a common spelling of V65; a secondary never starts with a digit.
     main = re.sub(r"(\d)/(\d)", r"\1\2", main)
     parts = _split_secondary(main)
-    # A suspension on an ABRSM-lettered chord has no stacked form; it stays a caption.
     suspension = note if SUSPENSION.match(note) and not (inversion_letters and parts[-1][-1:] in "bcd") else None
     if suspension:
         note = ""
@@ -177,13 +155,10 @@ def numeral(label: str, size: float, bold: bool = False, *, inversion_letters: b
 
 
 def root_centre(chunks: list[Chunk]) -> float:
-    """Where the root letters of the first numeral are centred, from the label's left edge: the point that
-    sits over the chord's bass note. Accidentals before the letters do not count."""
     first = chunks[0]
     letters = first.text.lstrip("♭♯")
     return first.dx + width(first.text[: len(first.text) - len(letters)], first.size, first.bold) + width(letters, first.size, first.bold) / 2
 
 
 def _split_secondary(label: str) -> list[str]:
-    """Split "V7/ii" at the slash, but keep the half-diminished spelling "ii/o7" together."""
     return re.split(r"/(?!o)", label)

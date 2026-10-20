@@ -1,13 +1,3 @@
-"""Expert chord labels in DCML's syntax, read out of a MusicXML file and written as RomanText.
-
-The DCML corpora print their annotations inside the score, as <harmony><function> elements with labels
-like "Db.I6{", "#viio2(64)/vi" or "V7|HC}". This turns them into the RomanText that eval/compare.py
-reads, so a piece annotated by DCML can be scored exactly, like the When in Rome pieces.
-
-DCML syntax (Hentschel, Neuwirth, Rohrmeier 2021): [global key.][local key.]numeral[form][figured bass]
-[(changes)][/relative root][|cadence][phrase marks]. Changes are added or suspended notes, left out here.
-"""
-
 from __future__ import annotations
 
 import re
@@ -28,7 +18,6 @@ AUGMENTED_SIXTHS = {"Ger": "Ger65", "It": "It6", "Fr": "Fr43"}
 
 
 def figure(match: re.Match) -> str:
-    """The chord part of a DCML label as a RomanText figure: "#viio2" -> "#viio42", "vii%7" -> "viiø7"."""
     numeral = match["numeral"]
     if numeral.lstrip("#b") in AUGMENTED_SIXTHS:
         return AUGMENTED_SIXTHS[numeral.lstrip("#b")]
@@ -41,17 +30,11 @@ def figure(match: re.Match) -> str:
 
 
 def key_name(local: str, global_key: m21key.Key) -> str:
-    """A local key given as a numeral of the global key ("vi" in D-flat) as RomanText: "bb"."""
     tonic = roman.RomanNumeral(local, global_key).root().name.replace("-", "b")
     return tonic.lower() if local.lstrip("#b")[0].islower() else tonic[0].upper() + tonic[1:]
 
 
 def to_romantext(tsv: str, index: ScoreIndex) -> str:
-    """RomanText for compare.from_romantext from a DCML harmonies table ("m5 b1 Db: I6 b3 V7").
-
-    The table, not the score's own <harmony> elements, is the source: MusicXML export loses the position
-    of a second label in the same voice, while the table gives each label's bar (`mn`) and its onset
-    within the bar (`mn_onset`, in whole notes)."""
     rows = [dict(zip(tsv.splitlines()[0].split("\t"), line.split("\t"))) for line in tsv.splitlines()[1:] if line.strip()]
     current, by_measure = None, {}
     for row in rows:

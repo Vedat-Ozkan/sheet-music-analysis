@@ -36,7 +36,6 @@ ASAP = "https://raw.githubusercontent.com/fosfrancesco/asap-dataset/master/"
 MUSETRAINER = "https://raw.githubusercontent.com/musetrainer/library/master/scores/"
 
 SCORES = {
-    # name: (path in the music21 corpus, what it exercises)
     "bach-chorale-major": ("bach/bwv66.6.mxl", "four voices on four staves, pickup, fermatas"),
     "bach-chorale-minor": ("bach/bwv269.mxl", "four voices, minor key"),
     "mozart-quartet": ("mozart/k155/movement1.mxl", "string quartet, alto clef, repeats"),
@@ -54,8 +53,6 @@ SCORES = {
     "beach-piano": ("beach/prayer_of_a_tired_child.musicxml", "piano with voice, late Romantic harmony"),
     "monteverdi-madrigal": ("monteverdi/madrigal.3.1.mxl", "five voices, early tonal"),
     "beethoven-grosse-fuge": ("beethoven/opus133.mxl", "very long, dense quartet"),
-    # Impressionist and early twentieth-century piano music. Downloaded for local testing only and
-    # never committed: the ASAP transcriptions are CC BY-NC-SA, the MuseTrainer ones public domain.
     "ravel-pavane": (ASAP + "Ravel/Pavane/xml_score.musicxml", "Ravel 1899: modal harmony, parallel chords"),
     "ravel-ondine": (ASAP + "Ravel/Gaspard_de_la_Nuit/1_Ondine/xml_score.musicxml", "Ravel 1908: dense figuration, three staves"),
     "ravel-barque": (ASAP + "Ravel/Miroirs/3_Une_Barque/xml_score.musicxml", "Ravel 1905: arpeggio washes, meter changes"),
@@ -76,7 +73,6 @@ SCORES = {
 
 
 def fetch(name: str, url: str) -> bytes:
-    """Download a test score once and keep it under out/, which is not committed."""
     cached = OUT / "scores" / f"{name}{Path(url).suffix}"
     if not cached.exists():
         cached.parent.mkdir(parents=True, exist_ok=True)
@@ -93,7 +89,7 @@ def stage(results: dict, name: str, function):
         if isinstance(value, dict):
             results[name].update(value)
         return value
-    except Exception as error:  # the point is to collect every kind of failure
+    except Exception as error:
         results[name] = {
             "ok": False,
             "seconds": round(time.time() - started, 2),

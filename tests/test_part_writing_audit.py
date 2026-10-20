@@ -1,9 +1,3 @@
-"""Hand-audited voice-leading findings must not change silently.
-
-tests/data/reference/part_writing_audit.json lists findings a person judged on music21 Bach chorales: 'real' ones must
-still be reported, 'checker bug' ones (false reports the checker once made) must stay absent. Changing the checker so
-that a 'real' entry disappears is a decision to make on purpose and record in the reference, not a side effect.
-"""
 import json
 from pathlib import Path
 

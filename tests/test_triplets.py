@@ -1,4 +1,3 @@
-"""Production PDF pipeline regressions using genuine prod2 Audiveris exports."""
 import importlib
 import io
 from fractions import Fraction
@@ -18,8 +17,6 @@ def _read_cached(monkeypatch, name):
     xml = (DATA / name).read_bytes()
 
     def cached_run(audiveris, options, source, work, env, deadline):
-        # Keep open_pdf, clean, settings selection and the final post-fix in the
-        # end-to-end path; replace only the external recognition process.
         with zipfile.ZipFile(Path(work) / 'score.mxl', 'w') as archive:
             archive.writestr('score.musicxml', xml)
         return ''
@@ -30,8 +27,6 @@ def _read_cached(monkeypatch, name):
 
 
 def test_real_partly_tagged_beam_reaches_engine_with_correct_timing(monkeypatch):
-    # Emilie Mayer Op.14, prod2 cache 333d769a33d8acb75d0e7646ed1d86c1:
-    # bar 8's six 16ths had only their last three marked as triplets.
     before, after = _read_cached(monkeypatch, 'triplet_mayer.musicxml')
     index = ScoreIndex(load_toolkit(after).getMEI())
     notes = [e for m in index.measures if m.number == 8 for e in m.events if e.staff == 2 and e.pitch]
@@ -50,11 +45,7 @@ def test_real_partly_tagged_beam_reaches_engine_with_correct_timing(monkeypatch)
 
 
 def test_real_compound_meter_merged_voice_is_left_alone(monkeypatch):
-    # Hensel Op.7/1, prod2 cache ccacfd27990df9c8eb15639a634b174c:
-    # 6/8 is ordinary ternary beaming. A merged voice creates the overflow;
-    # the old reduced-Fraction meter guard invented tuplets and lost 24 matches.
     before, after = _read_cached(monkeypatch, 'triplet_hensel.musicxml')
-    # clean() now drops the key Audiveris restates at the page break; the triplet repair adds nothing to that.
     cleaned = io.BytesIO()
     with zipfile.ZipFile(cleaned, 'w') as archive:
         archive.writestr('score.musicxml', before)
@@ -105,7 +96,6 @@ def test_quarter_triplets_need_matching_printed_voice_rhythm():
     score = _score([printed, missing])
     fixed = ET.fromstring(infer_triplets(score))
     assert len(fixed.findall('.//time-modification')) == 6
-    # Mere nearby quarter triplets, without the same full rhythm, are insufficient.
     printed[-1] = _note('quarter', 6)
     printed.append(_note('quarter', 6))
     score = _score([printed, missing])
@@ -122,7 +112,7 @@ def test_first_printed_triplet_in_wide_beam_and_backup_reset():
     score = _score([beam + [_note('half', 12), backup, second]])
     fixed = ET.fromstring(infer_triplets(score))
     assert len(fixed.findall('.//time-modification')) == 6
-    assert fixed.findtext('.//backup/duration') == '72'  # four quarters at scaled divisions=18
+    assert fixed.findtext('.//backup/duration') == '72'
     assert fixed.findtext('.//note[voice="2"]/duration') == '72'
     assert infer_triplets(ET.tostring(fixed)) == ET.tostring(fixed)
 
@@ -137,21 +127,17 @@ def test_sixteenth_triplets_found_by_beat_not_only_eighths():
     second = fixed.findall('part/measure')[1]
     assert len(second.findall('.//time-modification')) == 6
     assert sum(int(n.findtext('duration')) for n in second.findall('note')) == 48 * 3
-    # Without a printed triplet of the same type nearby the 16ths stay as read.
     plain = _score([[_note('half', 24), _note('half', 24)], missing], divisions=12)
     assert infer_triplets(plain) == plain
 
 
 def test_real_brahms_reading_with_forwards_gets_exact_bars(monkeypatch):
-    # Brahms Op.46/1 style reading (bench-heldout prod2 cache f4a304c8404): hidden forwards and
-    # nonzero backups used to block every repair; backups must keep their original targets.
     before, after = _read_cached(monkeypatch, 'triplet_brahms_fruhlingstrost.musicxml')
     count = lambda xml: len(ET.fromstring(xml).findall('.//time-modification'))
     assert count(after) - count(before) == 144
     notes = lambda xml: len(ET.fromstring(xml).findall('.//note'))
     assert notes(after) == notes(before)
     def span(xml):
-        # onset reached by every backup, in units of the quarter note
         out = []
         for part in ET.fromstring(xml).findall('part'):
             div = 1

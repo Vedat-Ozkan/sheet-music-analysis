@@ -1,5 +1,3 @@
-"""Replay genuine cached recognition through the PDF reader and engraving engine."""
-
 from collections import Counter
 from fractions import Fraction
 import io
@@ -138,7 +136,6 @@ def test_ambiguous_voice_serialization_leaves_bar_exactly_as_read(production, la
             extra.remove(extra.find('duration'))
             extra.insert(0, ET.Element('grace'))
     if layout == 'interleaved':
-        # A second voice interrupts the tuplets before the repaired voice's final rest.
         position = list(measure).index(measure.findall('note')[6])
         measure.insert(position, extra)
         measure.insert(position + 1, ET.fromstring('<backup><duration>12</duration></backup>'))
@@ -314,7 +311,6 @@ def test_real_sextuplet_rests_reach_engine_on_the_correct_sixth():
     ]
     truth = _bar((DATA / 'ave_maria_truth.mxl').read_bytes(), 6)
     events = lambda m: Counter((e.staff, e.pitch, e.onset) for e in m.events if e.pitch)
-    # Recognition also loses a bass rest, so its later hidden forwards need the repaired targets.
     assert events(bar) == events(truth)
     assert infer_tuplet_rests(reading) == reading
     before = infer_triplets(clean((DATA / 'ave_maria_variant2.mxl').read_bytes()))
@@ -335,14 +331,12 @@ def test_real_reading_without_exact_rest_saving_is_left_alone():
     root = ET.fromstring(score)
     part = root.findall('part')[1]
     measure = part.findall('measure')[5]
-    # A further missed duration makes the sextuplet explanation insufficient for this real bar.
     note = measure.find('note')
     note.find('duration').text = str(int(note.findtext('duration')) * 2)
     note.find('type').text = 'eighth'
     isolated = ET.Element('score-partwise')
     isolated.append(root.find('part-list'))
     extracted = ET.SubElement(isolated, 'part', id=part.get('id'))
-    # Keep the original opening attributes inside a measure so divisions and meter are inherited.
     opening = ET.SubElement(extracted, 'measure', number='0', implicit='yes')
     opening.append(part.find('measure/attributes'))
     extracted.append(measure)

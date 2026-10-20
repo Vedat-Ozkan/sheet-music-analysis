@@ -87,7 +87,7 @@ Reply again in full with those problems fixed."""
 def passages(index: ScoreIndex, bars: int) -> list[tuple[int, int]]:
     numbers = [measure.number for measure in index.measures]
     chunks = [numbers[i : i + bars] for i in range(0, len(numbers), bars)]
-    if len(chunks) > 1 and len(chunks[-1]) < bars // 3:  # no sliver at the end
+    if len(chunks) > 1 and len(chunks[-1]) < bars // 3:
         chunks[-2:] = [chunks[-2] + chunks[-1]]
     return [(chunk[0], chunk[-1]) for chunk in chunks]
 
@@ -97,8 +97,6 @@ SPEND = Path(__file__).parent.parent / "out" / "api-spend.jsonl"
 
 
 def claude_environment() -> dict[str, str]:
-    """The environment for a `claude -p` run: no CLAUDE* variables from this session, and the project's API key
-    from .env when there is one, so runs bill to the project's monthly API budget, not the owner's weekly limits."""
     environment = {name: value for name, value in os.environ.items() if not name.startswith("CLAUDE")}
     if ENV_FILE.exists():
         for line in ENV_FILE.read_text().splitlines():
@@ -109,16 +107,12 @@ def claude_environment() -> dict[str, str]:
 
 
 def record_spend(script: str, answer: dict) -> None:
-    """One line per paid run, so the month's API spend can be added up against the budget."""
     SPEND.parent.mkdir(exist_ok=True)
     with SPEND.open("a") as ledger:
         ledger.write(json.dumps({"time": time.strftime("%Y-%m-%dT%H:%M:%S"), "script": script, "cost_usd": answer.get("total_cost_usd") or 0}) + "\n")
 
 
 def ask(prompt: str, model: str, effort: str | None = None, files: dict[str, bytes] | None = None) -> dict:
-    """One answer from Claude Code, in an empty folder so no project context loads.
-
-    Without `files` it has no tools. With them, the files are put in the folder and it may only Read."""
     environment = claude_environment()
     with tempfile.TemporaryDirectory() as folder:
         for name, data in (files or {}).items():
@@ -134,7 +128,7 @@ def ask(prompt: str, model: str, effort: str | None = None, files: dict[str, byt
             timeout=900,
         )
     if process.returncode != 0:
-        try:  # the JSON's `result` holds the reason (a usage limit, say); its tail is only statistics
+        try:
             reason = json.loads(process.stdout)["result"]
         except (ValueError, KeyError, TypeError):
             reason = (process.stderr or process.stdout)[-300:]
@@ -151,13 +145,12 @@ def problems_in(reply: str, index: ScoreIndex) -> tuple[dict | None, str]:
     try:
         data = json.loads(block.group(1))
         check(AnnotationList.model_validate(data), index)
-    except Exception as error:  # whatever is wrong goes back to the model in words
+    except Exception as error:
         return None, str(error)[:3000]
     return data, ""
 
 
 def run_name(model: str, effort: str | None, tag: str | None = None) -> str:
-    """The folder a run's results go in: the model, the effort when one was set, and a tag for a variant."""
     return "-".join(part for part in (model, effort, tag) if part)
 
 
@@ -170,14 +163,13 @@ large-scale plan, and judge the bars in front of you from their notes):
 
 
 def overview(drafted: draft.Draft) -> str:
-    """The draft's key plan and its cadences and phrase ends across the whole piece, in a few lines."""
-    runs: list[list] = []  # [key, first measure, last measure]
+    runs: list[list] = []
     for chord in drafted.chords:
         if runs and runs[-1][0] == chord.key:
             runs[-1][2] = chord.measure
         else:
             runs.append([chord.key, chord.measure, chord.measure])
-    runs = [run for run in runs if run[2] - run[1] >= 1 or run is runs[0]]  # a one-bar flicker is a tonicization
+    runs = [run for run in runs if run[2] - run[1] >= 1 or run is runs[0]]
     keys = "Key areas: " + ", ".join(f"m{a}-{b} {k}" for k, a, b in runs)
     cadences = "Cadences: " + ("; ".join(f"m{c.measure} {c.label}" for c in drafted.cadences if c.confidence >= 0.5) or "none found")
     phrases = "Phrase ends: " + (", ".join(f"m{c.measure}" for c in drafted.phrase_ends if c.confidence >= 0.5) or "none found")
@@ -227,7 +219,7 @@ def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: 
             if checked is not None:
                 data, problems = checked, still
             else:
-                answers.pop()  # the revision did not validate; the first answer stands
+                answers.pop()
     reply = answers[-1]["result"]
     result = {
         "first": first,
@@ -242,7 +234,7 @@ def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: 
         "effort": effort,
         "pages_shown": len(files),
         "selfcheck_flagged": len(flagged),
-        "turns": [answer.get("num_turns") for answer in answers],  # above 1 when it used Read to look at the pages
+        "turns": [answer.get("num_turns") for answer in answers],
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(result, indent=1))
@@ -275,7 +267,7 @@ def main() -> None:
     def one(job) -> tuple[pieces.Piece, dict]:
         try:
             result = review(*job)
-        except Exception as error:  # a failed call leaves a gap that the next run fills
+        except Exception as error:
             result = {"first": job[3], "last": job[4], "annotations": [], "commentary": "", "problems": f"{type(error).__name__}: {error}", "failed": True}
         print(f"{job[0].id:26s} {result['first']:4d}-{result['last']:<4d} {len(result['annotations']):3d} annotations  {result.get('seconds', 0):4d}s  {result['problems'][:80]}", flush=True)
         return job[0], result

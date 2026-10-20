@@ -1,5 +1,3 @@
-"""Engrave a MusicXML score with Verovio and rasterise the pages."""
-
 from __future__ import annotations
 
 import base64
@@ -20,12 +18,11 @@ from engine.reduce import midi
 from engine.score import ScoreIndex
 from engine.text import FONT_DIR, FONT_FILES, MAIN as TEXT_FONT
 
-# Set before cairo first looks for a font, so the PDF uses the same fonts as the PNG.
 os.environ.setdefault("FONTCONFIG_FILE", str(FONT_DIR / "fonts.conf"))
 
 RESOURCE_PATH = str(files("verovio") / "data")
 VEROVIO_OPTIONS = {
-    "xmlIdChecksum": True,  # element IDs are repeatable across runs
+    "xmlIdChecksum": True,
     "svgViewBox": True,
     "pageWidth": 2100,
     "pageHeight": 2970,
@@ -33,26 +30,18 @@ VEROVIO_OPTIONS = {
     "header": "none",
     "footer": "none",
     "breaks": "auto",
-    # Staves that only rest are left out of a system, but never out of the first (see _tidy), as in a
-    # printed score: the first system names every instrument. "auto" only condenses from page 2,
-    # and an excerpt is one page.
     "condense": "encoded",
-    # Verovio's half-unit default sets dynamics and directions against the notes they avoid.
     "defaultTopMargin": 1.0,
     "defaultBottomMargin": 1.0,
 }
 
 
-LARGE_SCORE_STAVES = 4  # more staves than a string quartet
+LARGE_SCORE_STAVES = 4
 
-BRACKET_MAX_STAVES = 5  # a quartet or a choir with a basso continuo line
+BRACKET_MAX_STAVES = 5
 
 ROMAN = {1: "I", 2: "II", 3: "III", 4: "IV"}
 
-# Standard abbreviations (MuseScore's instruments.xml; music21 agrees) for whole part names, with the usual
-# Italian, German and French names. A name not listed gets no short name: an invented abbreviation is one
-# no publisher prints. Later systems print them; leaving the names off there is a nineteenth-century habit,
-# the handbook default is short names.
 _SHORT_NAME_SOURCE = {
     "Vln.": "violin, violino, violini, violine, violinen, violon, violons, violins",
     "Vla.": "viola, viole, bratsche, bratschen, violas",
@@ -95,7 +84,7 @@ SHORT_NAMES = {name: abbr for abbr, names in _SHORT_NAME_SOURCE.items() for name
 
 
 class ScoreError(ValueError):
-    """The input could not be read as a MusicXML score."""
+    pass
 
 
 @dataclass
@@ -107,23 +96,19 @@ class Engraving:
         return len(self.svgs)
 
     def png(self, page: int = 1, width: int = 1400, colors: int = 128) -> bytes:
-        """One page as a palette PNG, small enough to send inline in a chat."""
         image = self._raster(page, width)
         top, bottom = self._ink(image)
         image = image.crop((0, top, image.width, bottom))
-        # Max-coverage keeps the few annotation colours exact; median cut spends the palette on greys.
         image = image.quantize(colors, method=Image.Quantize.MAXCOVERAGE, dither=Image.Dither.NONE)
         out = io.BytesIO()
         image.save(out, "PNG", optimize=True)
         return out.getvalue()
 
     def pdf(self) -> bytes:
-        """All pages as one vector PDF at A4 width, trimmed like the PNG, so it prints and zooms sharp."""
         try:
             import cairosvg
             import pikepdf
         except (ImportError, OSError):
-            # The skill's sandbox may lack the cairo library; an image PDF still prints.
             pages = [Image.open(io.BytesIO(self.png(page, width=2100))).convert("RGB") for page in range(1, self.page_count + 1)]
             out = io.BytesIO()
             pages[0].save(out, "PDF", save_all=True, append_images=pages[1:], resolution=254)
@@ -136,7 +121,6 @@ class Engraving:
             image = self._raster(page, round(w))
             top, bottom = self._ink(image)
             scale = h / image.height
-            # The page goes inside a cropping frame; changing its own viewBox would rescale the nested music.
             page_svg = svg.replace("<svg ", f'<svg width="{w:g}" height="{h:g}" ', 1)
             if page_svg.startswith("<?xml"):
                 page_svg = page_svg[page_svg.index("?>") + 2 :]
@@ -144,7 +128,6 @@ class Engraving:
                 f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{x:g} {y + top * scale:g} {w:g} {(bottom - top) * scale:g}">'
                 f"{page_svg}</svg>"
             )
-            # cairosvg measures in CSS pixels, 0.75 pt each: 794 px is the 595 pt width of A4.
             documents.append(pikepdf.Pdf.open(io.BytesIO(cairosvg.svg2pdf(bytestring=trimmed.encode(), output_width=794))))
         merged = pikepdf.Pdf.new()
         for document in documents:
@@ -159,7 +142,6 @@ class Engraving:
                 svg_string=self.svgs[page - 1],
                 background="#ffffff",
                 width=width,
-                # Verovio lays text out with Times metrics; Score Serif (Liberation Serif) matches them.
                 skip_system_fonts=True,
                 font_files=FONT_FILES,
                 font_family=TEXT_FONT,
@@ -170,8 +152,6 @@ class Engraving:
 
     @staticmethod
     def _ink(image: Image.Image) -> tuple[int, int]:
-        """Rows to keep: the music with a small margin, without the empty page above and below it.
-        The width stays, so the scale matches across pages."""
         ink = ImageChops.difference(image, Image.new("RGB", image.size, "#ffffff")).getbbox()
         if not ink:
             return 0, image.height
@@ -180,29 +160,22 @@ class Engraving:
 
 
 def load_toolkit(score: bytes, options: dict | None = None) -> verovio.toolkit:
-    """Load plain (.musicxml) or compressed (.mxl) MusicXML into a Verovio toolkit."""
-    # Verovio's default resource path only applies on the main thread, so it is set per toolkit.
     toolkit = verovio.toolkit(False)
     toolkit.setResourcePath(RESOURCE_PATH)
     toolkit.setOptions({**VEROVIO_OPTIONS, **(options or {})})
     if score[:2] == b"PK":
         loaded = toolkit.loadZipDataBase64(base64.b64encode(score).decode())
     else:
-        # Older notation programs write a byte-order mark, which Verovio rejects, or Latin-1 text.
         try:
             text = score.decode("utf-8-sig")
         except UnicodeDecodeError:
             text = score.decode("latin-1")
-        # Verovio guesses the format of anything else, and some files (a PDF read as Plaine & Easie) crash it,
-        # taking the whole server down with it.
         if not re.search(r"<score-(?:partwise|timewise)\b", text[:5000]):
             raise ScoreError("This file is not MusicXML" + (" but a PDF" if score[:5] == b"%PDF-" else ""))
         loaded = toolkit.loadData(text)
     if not loaded:
         raise ScoreError("Verovio could not read this file as MusicXML")
     _tidy(toolkit, _readable_names(score))
-    # The "//" between systems is for large scores, where the eye needs help finding where a system
-    # starts; piano, song and chamber editions leave it out.
     if len(set(re.findall(r'<staffDef\b[^>]*\bn="(\d+)"', toolkit.getMEI()))) <= LARGE_SCORE_STAVES:
         toolkit.setOptions({"systemDivider": "none"})
         toolkit.redoLayout()
@@ -210,27 +183,21 @@ def load_toolkit(score: bytes, options: dict | None = None) -> verovio.toolkit:
 
 
 def _tidy(toolkit: verovio.toolkit, names: dict[str, str]) -> None:
-    """Engraving fixes Verovio does not make by itself, applied to its MEI."""
     mei = toolkit.getMEI()
     patched = mei
-    # Verovio's staff ids are the MusicXML part ids.
     for part, name in names.items():
         patched = re.sub(rf'(<staffDef\b[^>]*xml:id="{re.escape(part)}"[^>]*>\s*<label\b[^>]*>)[^<]*', lambda m: m.group(1) + escape(name), patched)
-    # MuseScore writes a flat in a part name as the symbol's name ("BaccidentalFlat Clarinet") and
-    # escapes "&" twice ("Cl. 2 &amp;amp; 3"), so both print literally.
     patched = re.sub(
         r"<(label|labelAbbr)\b[^>]*>.*?</\1>",
         lambda m: re.sub(r"accidental(Flat|Sharp|Natural)", lambda a: {"Flat": "♭", "Sharp": "♯", "Natural": "♮"}[a.group(1)], m.group(0)).replace("&amp;amp;", "&amp;"),
         patched,
         flags=re.S,
     )
-    # Verovio turns a chord symbol's root into ♭/♯ but prints a file's own kind text as typed ("Am7b5").
     patched = re.sub(
         r"<harm\b[^>]*>[^<]*</harm>",
         lambda m: re.sub(r"(?<=[^>])([b#])(?=1?\d)", lambda a: "♭" if a.group(1) == "b" else "♯", m.group(0)),
         patched,
     )
-    # MusicXML implies a treble clef when a staff has none (MuseScore exports sometimes omit it); Verovio draws nothing.
     patched = re.sub(
         r"(<staffDef\b[^>]*?(?<!/)>)((?:(?!</staffDef>).)*?</staffDef>)",
         lambda m: m.group(0) if "<clef" in m.group(2) or "clef.shape" in m.group(1) else m.group(1) + '<clef shape="G" line="2" />' + m.group(2),
@@ -238,13 +205,9 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str]) -> None:
         flags=re.S,
     )
     patched = re.sub(r'<staffDef\b(?![^>]*clef\.shape)([^>]*?)/>', r'<staffDef\1><clef shape="G" line="2" /></staffDef>', patched)
-    # A clef followed at once by another is cancelled before any note, but Verovio draws both, one on the other.
     cancelled = re.findall(r'<clef\b[^>]*xml:id="([^"]+)"[^>]*/>(?=\s*<clef\b)', patched)
     for clef in cancelled:
         patched = re.sub(rf'<clef\b[^>]*(?:xml:id="{clef}"|sameas="#{clef}")[^>]*/>', "", patched)
-    # Dynamics and hairpins of one staff share a vertical group, so Verovio sets them on one line
-    # instead of stepping each one around its neighbours.
-    # Files often give each mark its own group already, which would keep them apart, so it is replaced.
     patched = re.sub(
         r'<(dynam|hairpin)\b([^>]*?)\s*\bvgrp="[^"]*"([^>]*>)',
         r"<\1\2\3",
@@ -256,17 +219,12 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str]) -> None:
         patched,
     )
     patched = _short_names_and_bracket(patched)
-    # Hiding resting staves suits large scores; a quartet or choir prints every staff on every system.
     if len(re.findall(r"<staffDef\b", patched)) > BRACKET_MAX_STAVES:
         patched = re.sub(r"<scoreDef\b(?![^>]*\boptimize=)", '<scoreDef optimize="true"', patched, count=1)
     patched = _drop_title_text(patched)
-    # Pedal brackets look like analysis brackets on an annotated page, so pedalling is left out.
     patched = re.sub(r"<pedal\b[^>]*/>", "", patched)
-    # The same goes for pedal words ("Ped.", "2. Ped", "Ped. simile") that some files write as plain directions.
-    # A direction holding only "*" is a release mark; with its "Ped." gone it would be left dangling.
     patched = re.sub(r"<dir\b[^>]*>(?:(?!</dir>).)*?\bPed(?:ale?|\b)(?:(?!</dir>).)*?</dir>", "", patched, flags=re.S)
     patched = re.sub(r"<dir\b[^>]*>(?:\s|<[^>]+>)*\*(?:\s|<[^>]+>)*</dir>", "", patched)
-    # MuseScore stores a tempo's words and its metronome mark as separate runs with no space between.
     patched = re.sub(r"(<tempo\b[^>]*>(?:(?!</tempo>).)*?</rend>)\(", r"\1 (", patched, flags=re.S)
     patched = re.sub(r"<measure\b.*?</measure>", _end_hairpins_at_dynamics, patched, flags=re.S)
     patched = re.sub(r"<measure\b.*?</measure>", _join_words_to_dynamics, patched, flags=re.S)
@@ -284,9 +242,6 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str]) -> None:
 
 
 def _short_name(name: str) -> str:
-    """Standard short name for a whole part name: "Violin 2" -> "Vln. II", "Horns in F 1 & 2" -> "Hn. I, II".
-
-    Only names in SHORT_NAMES get one; anything else gets none."""
     name = re.sub(r"<[^>]+>", "", unescape(name)).strip()
     numbers = [
         int(m.group(1)) if m.group(1) else {"I": 1, "II": 2, "III": 3, "IV": 4}[m.group(2)]
@@ -301,22 +256,15 @@ def _short_name(name: str) -> str:
 
 
 def _short_names_and_bracket(mei: str) -> str:
-    """Short names on later systems for every staff, and one bracket over a multi-staff score that groups none.
-
-    Verovio prints a staff's <labelAbbr> on systems 2+ and nothing when there is none."""
 
     def add_abbr(match: re.Match) -> str:
         label, abbr = match.group(1), match.group(2)
         short = _short_name(label)
-        # Audiveris writes the full name as the abbreviation, which would repeat "Piano" on every system.
         if not short or (abbr and re.sub(r"<[^>]+>", "", abbr).strip() != re.sub(r"<[^>]+>", "", label).strip()):
             return match.group(0)
         return label + f"<labelAbbr>{escape(short)}</labelAbbr>"
 
-    # The label sits on a staff, or on the group of a piano's two staves.
     mei = re.sub(r"(<label\b[^>]*>.*?</label>)\s*(<labelAbbr\b[^>]*>.*?</labelAbbr>)?", add_abbr, mei, flags=re.S)
-    # Only quartet- or choir-sized files get the bracket; a larger ungrouped score would need family
-    # brackets, which are never invented. Piano and other grouped scores keep what the file defines.
     staves = set(re.findall(r'<staffDef\b[^>]*\bn="(\d+)"', mei))
     if "<grpSym" not in mei and 2 < len(staves) <= BRACKET_MAX_STAVES:
         mei = re.sub(r"(<staffGrp\b[^>]*?)>", r'\1 bar.thru="true"><grpSym symbol="bracket" />', mei, count=1)
@@ -324,11 +272,6 @@ def _short_names_and_bracket(mei: str) -> str:
 
 
 def _clefs_before_barlines(mei: str) -> str:
-    """Move a clef change written before a bar's first note to the end of the bar before it.
-
-    Verovio draws such a clef full size after the barline; print sets it small before the barline,
-    which is where Verovio puts a clef that ends a bar. Only one-voice staves are moved: other voices
-    hold copies of the clef."""
     texts = re.findall(r"<measure\b.*?</measure>", mei, flags=re.S)
     staff = r'<staff\b[^>]*\bn="{}"[^>]*>.*?</staff>'
     for i in range(1, len(texts)):
@@ -352,10 +295,6 @@ def _clefs_before_barlines(mei: str) -> str:
 
 
 def _drop_title_text(mei: str) -> str:
-    """Remove text in the music that names the piece or its composer.
-
-    Some files write the title block as ordinary directions over the first bars (MuseScore pages
-    do this), which then print inside the music; the page around our excerpt already says what it is."""
     head = mei[: mei.find("</meiHead>")]
     names = [unescape(name).strip() for name in re.findall(r"<(?:title|persName)\b[^>]*>([^<]+)<", head)]
 
@@ -368,9 +307,6 @@ def _drop_title_text(mei: str) -> str:
 
 
 def _readable_names(score: bytes) -> dict[str, str]:
-    """Names to print for parts named like identifiers ("oboe1", "piccolotrumpet2"), by part id.
-
-    Such files keep the readable name in <instrument-name>, which Verovio does not import."""
     if score[:2] == b"PK":
         with zipfile.ZipFile(io.BytesIO(score)) as archive:
             root = re.search(rb'full-path="([^"]+)"', archive.read("META-INF/container.xml"))
@@ -382,7 +318,7 @@ def _readable_names(score: bytes) -> dict[str, str]:
         instrument = re.search(r"<instrument-name>([^<]+)</instrument-name>", part.group(2))
         if not label or not instrument:
             continue
-        name = re.sub(r"^([A-G][♭♯b#]?) (.+)$", r"\2 in \1", instrument.group(1).strip())  # "A Clarinet" -> "Clarinet in A"
+        name = re.sub(r"^([A-G][♭♯b#]?) (.+)$", r"\2 in \1", instrument.group(1).strip())
         if label.group(2):
             number = ROMAN.get(int(label.group(2)), label.group(2))
             name = name.replace(" in ", f" {number} in ", 1) if " in " in name else f"{name} {number}"
@@ -391,7 +327,6 @@ def _readable_names(score: bytes) -> dict[str, str]:
 
 
 def _end_hairpins_at_dynamics(measure: re.Match) -> str:
-    """A hairpin that runs past a dynamic on its own line would be drawn through it; it stops there instead."""
     text = measure.group(0)
     dynamics = [(staff, float(beat)) for staff, beat in re.findall(r'<dynam\b(?=[^>]*\bstaff="(\d+)")(?=[^>]*\btstamp="([\d.]+)")', text)]
 
@@ -410,9 +345,6 @@ def _end_hairpins_at_dynamics(measure: re.Match) -> str:
 
 
 def _join_words_to_dynamics(measure: re.Match) -> str:
-    """A word written just after a dynamic under the same staff ("p dolce") becomes part of it.
-
-    Verovio sets the word as a separate direction at its own height, so the two read as unrelated."""
     text = measure.group(0)
     for dynam in re.finditer(r'<dynam\b(?=[^>]*\bplace="below")(?=[^>]*\bstaff="(\d+)")(?=[^>]*\btstamp="([\d.]+)")[^>]*>([^<]+)</dynam>', text):
         staff, beat = dynam.group(1), float(dynam.group(2))
@@ -425,8 +357,6 @@ def _join_words_to_dynamics(measure: re.Match) -> str:
 
 
 def _drop_duplicate_marks(measure: re.Match) -> str:
-    """The same chord symbol, word or dynamic written twice at one spot prints as one heavy smudge
-    (some uploaded files repeat a chord symbol five times), so only the first is kept."""
     seen = set()
 
     def keep_first(mark: re.Match) -> str:
@@ -441,9 +371,6 @@ def _drop_duplicate_marks(measure: re.Match) -> str:
 
 
 def _merge_simultaneous_dynamics(measure: re.Match) -> str:
-    """Two dynamics on one staff at one moment ("p" and "cresc.") become one: "p cresc.".
-
-    They share a vertical group (see _tidy), so Verovio draws them at the same spot, one over the other."""
     text = measure.group(0)
     groups: dict[tuple[str, str, str], list[re.Match]] = {}
     for dynam in re.finditer(r"<dynam\b[^>]*>.*?</dynam>", text, flags=re.S):
@@ -453,7 +380,6 @@ def _merge_simultaneous_dynamics(measure: re.Match) -> str:
     for marks in groups.values():
         if len(marks) < 2:
             continue
-        # The mark with a value (p, mp) comes first, the words after it.
         marks.sort(key=lambda mark: 'val="' not in mark.group(0)[: mark.group(0).index(">")])
         first = marks[0].group(0)
         inner = " ".join(re.sub(r"^<dynam\b[^>]*>|</dynam>$", "", mark.group(0)).strip() for mark in marks)
@@ -464,9 +390,6 @@ def _merge_simultaneous_dynamics(measure: re.Match) -> str:
 
 
 def _unalign_crowded_dynamics(measure: re.Match) -> str:
-    """A dynamic less than a beat after the one before it on its staff ("mp" then "ff") leaves the
-    shared line: there is seldom room for both side by side, and on one line they print over each other.
-    Out of the group, Verovio sets it just clear of its neighbour."""
     text = measure.group(0)
     last: dict[str, float] = {}
     for dynam in re.finditer(r'<dynam\b(?=[^>]*\bvgrp=")(?=[^>]*\bstaff="(\d+)")(?=[^>]*\btstamp="([\d.]+)")[^>]*>', text):
@@ -478,10 +401,6 @@ def _unalign_crowded_dynamics(measure: re.Match) -> str:
 
 
 def _separate_hairpins(mei: str) -> str:
-    """A hairpin that ends where the next one on its staff begins stops half a beat short.
-
-    Verovio draws the two end to end, so a crescendo and the diminuendo after it read as one
-    closed diamond; printed editions leave a gap between them."""
     measures = re.findall(r"<measure\b.*?</measure>", mei, flags=re.S)
     starts = {
         (position, staff, float(beat))
@@ -505,21 +424,14 @@ def _separate_hairpins(mei: str) -> str:
 
 
 def _drop_doubled_notes(mei: str) -> str:
-    """Keep one copy of a cross-staff note or chord that the other staff also writes at that moment.
-
-    Some files write such a chord on both staves; Verovio draws both, so the noteheads and ties are
-    doubled. Usually the cross-staff copy goes and only its beam is lost. When the file hid the
-    stem of the staff's own copy, the cross-staff copy is the one it shows, beam and all: that copy
-    stays, and the staff's own copy goes with any rest the beam passes over, as in print. The ties,
-    slurs and written accidentals of the copy that goes pass to the one that stays."""
     index = ScoreIndex(mei)
     playing = {(m.number, e.staff, e.onset, e.pitch): e.id for m in index.measures for e in m.events if e.pitch}
     events = {e.id: (m.number, e.onset, e.pitch, e.staff) for m in index.measures for e in m.events}
     rests = {(m.number, e.staff, e.layer, e.onset): e.id for m in index.measures for e in m.events if not e.pitch}
     layers = {e.id: e.layer for m in index.measures for e in m.events}
-    moved: dict[str, str] = {}  # silenced id -> the id that stands for it
-    accidentals: dict[str, str] = {}  # kept note -> accidental the copy wrote out
-    hidden: set[str] = set()  # the staff's own copies that go, and the rests under their beams
+    moved: dict[str, str] = {}
+    accidentals: dict[str, str] = {}
+    hidden: set[str] = set()
 
     def silence(match: re.Match) -> str:
         element, target = match.group(0), int(match.group(4))
@@ -553,7 +465,6 @@ def _drop_doubled_notes(mei: str) -> str:
         moved[match.group(3)] = moved[notes[0][0]]
         return _space(match.group(1))
 
-    # Only the chord or note that carries the other staff's number moves; the notes it repeats stay.
     patched = re.sub(
         r'(<(chord|note)\b(?=[^>]*xml:id="([^"]+)")(?=[^>]*\bstaff="(\d+)")[^>]*?)(?:/>|>.*?</\2>)',
         silence,
@@ -570,7 +481,6 @@ def _drop_doubled_notes(mei: str) -> str:
         if old not in hidden:
             patched = re.sub(rf'<beamSpan\b[^>]*"#{re.escape(old)}"[^>]*/>', "", patched)
         patched = re.sub(rf'(<(?:tie|slur)\b[^>]*(?:startid|endid)=)"#{re.escape(old)}"', rf'\1"#{new}"', patched)
-    # Both copies often carried the same slur or tie; keep one.
     seen: set[tuple[str, ...]] = set()
 
     def once(match: re.Match) -> str:
@@ -585,7 +495,6 @@ def _drop_doubled_notes(mei: str) -> str:
         if re.search(rf'<note\b[^>]*xml:id="{re.escape(id)}"[^>]*>\s*<accid\b[^>]*\baccid=', patched):
             continue
         patched = re.sub(rf'<note\b(?![^>]*\baccid=)(?=[^>]*xml:id="{re.escape(id)}")', f'<note accid="{accid}"', patched, count=1)
-    # Such files hide the stem of the copy that stays, since the other copy drew one.
     for id in set(moved.values()):
         patched = re.sub(
             rf'(<chord\b[^>]*?)\s+stem\.visible="false"([^>]*>(?:(?!</chord>).)*?xml:id="{re.escape(id)}")', r"\1\2", patched, flags=re.S
@@ -594,10 +503,6 @@ def _drop_doubled_notes(mei: str) -> str:
 
 
 def _spread_ties(mei: str) -> str:
-    """Ties from notes struck together on a staff curve away from each other: the highest above, the lowest below.
-
-    Verovio curves a tie away from its note's stem, so ties from different voices whose stems point
-    at each other, or from a chord drawn on the other staff, bend into the same space and cross."""
     index = ScoreIndex(mei)
     events = {e.id: e for m in index.measures for e in m.events if e.pitch}
     drawn_on = {
@@ -620,11 +525,6 @@ def _spread_ties(mei: str) -> str:
 
 
 def _slurs_to_chords(mei: str) -> str:
-    """A slur on one note of a chord is attached to the whole chord.
-
-    MusicXML puts a chord's slur on its first note, often the lowest; Verovio then starts a slur
-    above the chord from inside it, where it cannot clear the notes beside it. On the chord,
-    Verovio uses the outer note on the slur's side."""
     chord_of = {
         note: chord.group(1)
         for chord in re.finditer(r'<chord\b[^>]*xml:id="([^"]+)"[^>]*>(.*?)</chord>', mei, flags=re.S)
@@ -643,12 +543,6 @@ def _space(start_tag: str) -> str:
 
 
 def _repair_broken_ties(mei: str) -> str:
-    """Reconnect or remove ties that run backwards or skip past the next bar.
-
-    MuseScore sometimes exports a tie whose end is lost, and Verovio then ties the note to the next
-    one of that pitch, however many bars later, drawing a long line across the staff. Such a tie is
-    moved to the next note of its pitch on its staff within the following bar, and removed if there
-    is none. A tie with a short gap inside a bar is kept: piano music ties across voices that way."""
     index = ScoreIndex(mei)
     start, bar, events = {}, {}, {}
     time = Fraction(0)
@@ -678,7 +572,6 @@ def _repair_broken_ties(mei: str) -> str:
 
 
 def incoming_ties(toolkit: verovio.toolkit, index: ScoreIndex, first: int, *, include_pickup: bool = True) -> set[str]:
-    """Ids of the ties into an excerpt from a bar before it."""
     start = int(index.measure_range(first, first, include_pickup=include_pickup).split("-")[0])
     earlier = {e.id for m in index.measures if m.last_index < start for e in m.events}
     return {
@@ -686,14 +579,10 @@ def incoming_ties(toolkit: verovio.toolkit, index: ScoreIndex, first: int, *, in
     }
 
 
-SPACE = 180  # one staff space in Verovio's SVG units
+SPACE = 180
 
 
 def shorten_ties(svg: str, ties: set[str]) -> str:
-    """Draw ties coming into an excerpt as a short arc that ends on the held note.
-
-    Verovio starts them at the time signature, so the arc seems to grow out of the "C"; a printed
-    excerpt shows a short tie clear of it, which still tells the reader the note is held over."""
 
     def shorten(match: re.Match) -> str:
         if match.group(1) not in ties:
@@ -707,12 +596,10 @@ def shorten_ties(svg: str, ties: set[str]) -> str:
         path = re.sub(r"([-\d.]+),([-\d.]+)", lambda p: f"{right + (float(p.group(1)) - right) * scale:.0f},{p.group(2)}", match.group(2))
         return match.group(0).replace(match.group(2), path)
 
-    # A tie whose start is outside the excerpt is drawn as a "spanning" group named by class, not id.
     return re.sub(r'<g class="tie id-([^" ]+) spanning">(?:\s*<g id="bbox-[^"]*"[^>]*>.*?</g>)?\s*<path d="([^"]+)"', shorten, svg, flags=re.S)
 
 
 def engrave(score: bytes, measures: tuple[int, int] | None = None, *, include_pickup: bool = True) -> Engraving:
-    """Engrave the score or a cropped range, including the pickup at 1 by default."""
     if not measures:
         toolkit = load_toolkit(score)
     else:
@@ -726,9 +613,6 @@ def engrave(score: bytes, measures: tuple[int, int] | None = None, *, include_pi
 
 
 def engrave_pages(score: bytes, measures: tuple[int, int]) -> Engraving:
-    """Printed measures first..last on ordinary pages, a few systems each, for someone to read.
-
-    `engrave` puts an excerpt on one tall page, which an image viewer shrinks until it cannot be read."""
     toolkit = load_toolkit(score)
     index = ScoreIndex(toolkit.getMEI())
     ties = incoming_ties(toolkit, index, measures[0])

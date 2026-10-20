@@ -64,7 +64,6 @@ def test_server_correct_real_triplet_and_draft_score_loading(tmp_path, monkeypat
     assert 'confident' in description
     assert 'your suggestion' in description
     assert 'If they decline, keep using the original score_id.' in description
-    # This is draft_analysis's actual score-id loading path, without a model run.
     after, given = asyncio.run(app.resolve_score(None, data['score_id']))
     assert given == 'score_id'
     check_correction(after)
@@ -126,7 +125,6 @@ def test_server_correct_missing_score_and_render_limit(tmp_path, monkeypatch):
     assert "No score has the id 'MISSING'" in result.content[0].text
     assert not (tmp_path / 'usage').exists()
     app.store.put('scores/READ18', READING.read_bytes())
-    # Use the store's real daily counter so the valid score hits today's limit.
     asyncio.run(app.take('render', 'other'))
     usage = next((tmp_path / 'usage').glob('*.json'))
     usage.write_text(json.dumps({'render': app.DAILY_LIMITS['render']}))
@@ -216,7 +214,6 @@ def test_server_correct_multipart_error_lists_parts(tmp_path, monkeypatch, part,
 
 @pytest.mark.parametrize('part', ['P1', 'voice'])
 def test_server_correct_multipart_by_id_or_name(tmp_path, monkeypatch, part):
-    # Bar 10 of the voice part is a whole-bar rest that overruns the meter in the file.
     result = call(tmp_path, monkeypatch, KINKEL.read_bytes(), replacement_bars=KINKEL_BAR, part=part)
     assert not result.is_error, result.content[0].text
     assert result.structured_content['changed_bars'] == [10]
@@ -256,7 +253,6 @@ def test_review_is_trimmed_to_the_music_and_backs_only_the_changed_notes():
     after = correct.replace_bars(before, replacement())
     review = correct.review_correction(before, after)
     svg = review.engravings[0].svgs[0]
-    # Bar 18's E5 and the two notes of the new triplet, not the unchanged notes or the left hand.
     assert svg.count('fill="#FDD478"') == 3
     image = Image.open(io.BytesIO(review.engravings[0].png()))
     assert image.width < 700

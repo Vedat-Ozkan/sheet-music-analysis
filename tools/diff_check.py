@@ -40,12 +40,9 @@ def main_checkout() -> Path:
         return HERE
 
 
-# ---------------------------------------------------------------- areas (run inside a worker, one side each)
-
 def area_typed(args):
     from engine import check_analysis
     from_text = check_analysis.from_text
-    # Older refs have no ClarificationNeeded; their questions were plain ValueErrors.
     ClarificationNeeded = getattr(check_analysis, "ClarificationNeeded", ValueError)
     cases = {f"json:{c['id']}": c["text"] for c in json.loads((HERE / "tests/data/check_analysis/typed_inputs.json").read_text())}
     for number, line in enumerate((HERE / "tests/data/awkward/typed.txt").read_text().splitlines(), 1):
@@ -95,7 +92,6 @@ def area_pdfwarn(args):
 
 
 def _placements(xml: bytes):
-    """(bar, beat, text) of every Roman-numeral lyric and direction in the exported score, bottom part only."""
     from fractions import Fraction
     part = ET.fromstring(xml).findall("part")[-1]
     found, divisions, beat_type = [], 1, 4
@@ -138,7 +134,6 @@ def area_export(args):
     for stem, score in [("debussy-clair", "export-debussy-clair.musicxml"), ("brahms-118-2", "export-brahms-118-2.musicxml"),
                         ("mozart-k458", "export-mozart-k458.musicxml")]:
         cases[stem] = (data / score, json.loads((HERE / f"examples/engraving/{stem}.json").read_text()))
-        # the shipped excerpts are shorter than the reviewed analyses
         have = {m.number for m in ScoreIndex(load_toolkit(cases[stem][0].read_bytes()).getMEI()).measures}
         cases[stem][1]["annotations"] = [a for a in cases[stem][1]["annotations"] if a["type"] == "harmony" and a["at"]["measure"] in have]
     bach = main / "out/engraving/scores/bach-269.mxl"
@@ -155,12 +150,10 @@ def area_render(args):
     scores = main_checkout() / "out/engraving/scores"
     out = {}
     for name, (source, bars) in PIECES.items():
-        # The same cached copies on both sides; a network fetch would add a variable the check is not about.
         score = (source if isinstance(source, Path) else _cached(scores, name)).read_bytes()
         notes = AnnotationList.model_validate_json((HERE / f"examples/engraving/{name}.json").read_text())
         for style in ("current", "abrsm", "figured_bass"):
             styled = notes.model_copy(update={"style": style})
-            # PNG hashes, not SVG: Verovio's element IDs differ from run to run.
             out[f"{name} {style}"] = _safe(lambda: hashlib.sha256(render(score, styled, measures=bars).png(1)).hexdigest())
     for name in ("mozart-41",):
         source, bars = PIECES[name]
@@ -183,8 +176,6 @@ def _safe(fn):
     except Exception as e:
         return {"__error__": f"{type(e).__name__}: {e}"}
 
-
-# ---------------------------------------------------------------- driver
 
 def worker(area: str, out: str, args):
     import engine

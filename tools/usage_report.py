@@ -1,11 +1,3 @@
-"""Per-day, per-platform usage from the server's Cloud Logging lines (the log(...) calls in server/app.py).
-
-    python3 tools/usage_report.py [--days 14]
-
-Needs gcloud signed in with access to the project; reading logs costs nothing.
-Fields added to the log calls later (view, measure_range) show as blank for older days.
-"""
-
 from __future__ import annotations
 
 import argparse

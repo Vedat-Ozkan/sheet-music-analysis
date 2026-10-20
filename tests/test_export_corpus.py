@@ -1,4 +1,3 @@
-"""Check the verification timeline against a real editor round-trip."""
 from collections import Counter
 from copy import deepcopy
 from fractions import Fraction
@@ -53,6 +52,5 @@ def test_mscx_appoggiatura_does_not_advance_lyric_beat(tmp_path):
     assert [(label.measure, label.beat, label.figure) for label in labels] == [(1, 1, 'V65')]
     actual = Counter(converted_labels(native, index, {'V65'}))
     assert actual == Counter({(1, Fraction(0), 3, 'V65'): 1})
-    # A verifier must also reject a reviewed position half a beat late.
     analysis['annotations'][0]['at']['beat'] = 1.5
     assert not actual & Counter(expected_labels(original, analysis, index))

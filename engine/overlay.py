@@ -1,10 +1,3 @@
-"""Draw an annotation list onto one page of Verovio's SVG.
-
-Verovio is asked for bounding boxes, so every drawn element has a known place.
-The overlay reads those boxes, adds its own SVG elements in the same coordinate
-system, and removes the helper boxes again before the page is rasterised.
-"""
-
 from __future__ import annotations
 
 import math
@@ -22,31 +15,25 @@ S = f"{{{SVG_NS}}}"
 ET.register_namespace("", SVG_NS)
 ET.register_namespace("xlink", "http://www.w3.org/1999/xlink")
 
-# As labelled in MT21C's function brackets.
 FUNCTION_NAMES = {"T": "tonic", "PD": "pre-dom.", "D": "dominant"}
 INK = "#1a1a1a"
 MUTED = "#555555"
-ERROR = "#D50000"  # faults only (part-writing findings)
-ARROW = "#AA3377"  # analysis arrows the model draws (a resolution, a tendency): not faults
+ERROR = "#D50000"
+ARROW = "#AA3377"
 
-# Lengths are in Verovio's SVG units; a staff space is 180.
 NUMERAL_SIZE = 440
-LABEL_SIZE = 330  # the legibility floor: about 11 px at chat size
-SMALL_SIZE = 280  # the check page's notes; raising it to 330 (the floor) is that page's change, its layout overflows the line at 330
+LABEL_SIZE = 330
+SMALL_SIZE = 280
 LINE = 26
-# Textbook abbreviations (Open Music Theory) for the labels the model may write; keys are upper case, short and long forms.
 NCT_NAMES = {
     "P": "PT", "PT": "PT", "PASSING": "PT", "N": "NT", "NT": "NT", "NEIGHBOR": "NT", "NEIGHBOUR": "NT",
     "S": "SUS", "SUS": "SUS", "SUSPENSION": "SUS", "A": "APP", "APP": "APP", "APPOGGIATURA": "APP",
     "E": "ET", "ET": "ET", "ESCAPE": "ET", "R": "RET", "RET": "RET", "RETARDATION": "RET",
     "ANT": "ANT", "ANTICIPATION": "ANT", "PED": "PED", "PEDAL": "PED",
 }
-FUNCTION_SIZE = 400  # about the numeral's size, as MT21C sets its function words
-PHRASE_LETTER_SIZE = NUMERAL_SIZE  # a phrase letter ("a", "a′") is read at the numeral's size
-LABEL_PAD = 55  # clear space kept around every overlay label
-# A line of the hidden room that moves two staves apart (annotate.py): measured on BWV 245.40 bar 5, where a third line
-# moved the staves 363 units apart and a fourth 390 more. Verovio keeps a direction one unit (180) clear above and below
-# (VEROVIO_OPTIONS defaultTopMargin, defaultBottomMargin).
+FUNCTION_SIZE = 400
+PHRASE_LETTER_SIZE = NUMERAL_SIZE
+LABEL_PAD = 55
 ROOM_LINE, ROOM_MARGIN = 390, 2 * 180
 
 CONTAINERS = {"system", "measure", "staff", "layer", "chord", "beam", "tuplet", "section", "score"}
@@ -54,7 +41,7 @@ CURVES = {"slur", "tie", "phrase"}
 
 
 class NotOnPage(Exception):
-    """The position is valid but belongs to another page or lies outside the excerpt."""
+    pass
 
 
 @dataclass
@@ -86,8 +73,8 @@ class MeasureGeometry:
     id: str
     system: int
     staves: list[Box] = field(default_factory=list)
-    lines: list[Box] = field(default_factory=list)  # each staff's five lines, without the ledger lines and clefs its box takes in
-    numbered: dict[int, Box] = field(default_factory=dict)  # staff number -> its lines, for the staves drawn
+    lines: list[Box] = field(default_factory=list)
+    numbered: dict[int, Box] = field(default_factory=dict)
 
     @property
     def x0(self) -> float:
@@ -103,9 +90,9 @@ class System:
     index: int
     measures: list[MeasureGeometry] = field(default_factory=list)
     content: list[Box] = field(default_factory=list)
-    words: list[Box] = field(default_factory=list)  # lyrics and other score text, estimated; Verovio gives no box for them
-    heads: list[Box] = field(default_factory=list)  # every notehead, also in `content`
-    notes: list[Box] = field(default_factory=list)  # noteheads, accidentals and stems, which no label may touch
+    words: list[Box] = field(default_factory=list)
+    heads: list[Box] = field(default_factory=list)
+    notes: list[Box] = field(default_factory=list)
 
     @property
     def left(self) -> float:
@@ -124,7 +111,6 @@ class System:
         return max(box.bottom for measure in self.measures for box in measure.staves)
 
     def top(self, x0: float | None = None, x1: float | None = None) -> float:
-        """Highest drawn point between x0 and x1 (the whole system by default)."""
         return min(box.y for box in self._between(x0, x1))
 
     def bottom(self, x0: float | None = None, x1: float | None = None) -> float:
@@ -139,13 +125,12 @@ class System:
 
 @dataclass
 class Segment:
-    """The part of a range that lies on one system."""
 
     system: System
     x0: float
     x1: float
-    starts: bool  # False when the range continues from the previous system
-    ends: bool  # False when it continues onto the next
+    starts: bool
+    ends: bool
 
 
 class PageLayout:
@@ -157,27 +142,21 @@ class PageLayout:
         self.measures: dict[str, MeasureGeometry] = {}
         self.systems: list[System] = []
         self.harmony_labels: list[tuple[str, Box]] = []
-        # Each numeral as drawn, by (measure, beat): system, root-letter centre, label extent (x0, x1) and
-        # the lowest point of its figures. Cadence boxes and function brackets hang from these.
         self.numerals: dict[tuple[int, float], tuple[int, float, float, float, float]] = {}
-        # The same numerals in score order: ((measure index, beat), function or None, system, centre, x0, x1, low).
         self.numeral_seq: list[tuple] = []
         self._callout_x: dict[int, list[float]] = {}
-        self.cadence_bottom: dict[int, float] = {}  # lowest cadence box on each system
-        self.numeral_tops: dict[int, float] = {}  # the top of each system's numeral row
-        self.numeral_rows: dict[int, float] = {}  # the lowest figure on each system's numeral row
-        self.below_numerals: dict[int, int] = {}  # how many boxes a system held when its numerals were done
-        self._words: list[tuple[tuple[str, Box], System]] = []  # fault words drawn so far
-        # Rings, and ring codes, short of room between the staves: (the ringed note, "above" or "below" its staff, lines
-        # of room to add once there is room, lines to ask for the first time), the gap that should open (annotate.py
-        # opens it and lays the page out again).
+        self.cadence_bottom: dict[int, float] = {}
+        self.numeral_tops: dict[int, float] = {}
+        self.numeral_rows: dict[int, float] = {}
+        self.below_numerals: dict[int, int] = {}
+        self._words: list[tuple[tuple[str, Box], System]] = []
         self.code_room: list[tuple[Event, str, int, int]] = []
-        self.staff_marks: list[tuple[set[int], Box]] = []  # fermatas and dynamics, with the staves they belong to
-        self.staff_of: dict[int, int] = {}  # id of a box in a system's content -> the staff it is drawn on, where known
-        self.stems: dict[str, str] = {}  # note id -> "up" or "down", for the marks that sit opposite the stem
-        self._remove("fing")  # fingering is clutter on an analysis page
-        self._remove("harm")  # hidden placeholders that made Verovio leave room for the numerals (annotate.py)
-        self._remove("analysis-room")  # and for brackets drawn at one staff
+        self.staff_marks: list[tuple[set[int], Box]] = []
+        self.staff_of: dict[int, int] = {}
+        self.stems: dict[str, str] = {}
+        self._remove("fing")
+        self._remove("harm")
+        self._remove("analysis-room")
         for group in self.canvas.iter(f"{S}g"):
             if "system" in group.get("class", "").split() and "bounding-box" not in group.get("class", ""):
                 system = System(len(self.systems))
@@ -193,8 +172,6 @@ class PageLayout:
             (measure for measure in index.measures if any(segment.id in self.measures for segment in measure.segments)),
             key=lambda measure: measure.index,
         )
-
-    # ---- reading Verovio's geometry -------------------------------------------------
 
     def _visit(self, group: ET.Element, system: System, measure: MeasureGeometry | None, staff: int | None = None) -> None:
         classes = group.get("class", "").split()
@@ -212,12 +189,11 @@ class PageLayout:
             stems = self._read_stem(group)
             system.content.extend(stems)
             system.notes.extend(stems)
-        if box and "note" in classes:  # a note's own box is its head; its stem and accidental have their own
+        if box and "note" in classes:
             system.heads.append(box)
         if box and ("note" in classes or "accid" in classes):
             system.notes.append(box)
         if CURVES & set(classes):
-            # A slur's box covers everything under its arc; follow the curve itself instead.
             system.content.extend(self._curve_boxes(group) or ([box] if box else []))
         elif box and not CONTAINERS & set(classes):
             system.content.append(box)
@@ -237,13 +213,11 @@ class PageLayout:
         for child in group:
             if child.tag == f"{S}g":
                 self._visit(child, system, measure, staff)
-            elif child.tag == f"{S}text":  # text keeps its boxes inside its tspans
+            elif child.tag == f"{S}text":
                 boxes = list(filter(None, (self._rect_box(rect) for rect in child.iter(f"{S}rect"))))
                 system.content.extend(boxes) if boxes else system.words.extend(self._text_boxes(child))
 
     def _read_stem(self, group: ET.Element) -> list[Box]:
-        """A stem is drawn from its notehead end to its tip, so the way it runs is the way it points; a chord's
-        one stem serves every note in it. Verovio reports no box for it, so its box is returned for the marks to avoid."""
         for child in group:
             if "stem" in child.get("class", "").split():
                 path = child.find(f"{S}path")
@@ -260,7 +234,6 @@ class PageLayout:
 
     @staticmethod
     def _text_boxes(element: ET.Element) -> list[Box]:
-        """Verovio reports no box for lyrics and other score text, so estimate one from the font metrics."""
         boxes = []
         for span in element.iter(f"{S}tspan"):
             string, size = span.text or "", span.get("font-size", "")
@@ -283,7 +256,6 @@ class PageLayout:
 
     @staticmethod
     def _curve_boxes(group: ET.Element, steps: int = 10) -> list[Box]:
-        """Small boxes along the cubic Béziers of a slur or tie."""
         boxes: list[Box] = []
         for path in group.iter(f"{S}path"):
             tokens = re.findall(r"[MC]|-?\d+(?:\.\d+)?", path.get("d", ""))
@@ -327,7 +299,6 @@ class PageLayout:
                     parent.remove(child)
 
     def _drop_foreign_boxes(self) -> None:
-        """A slur that crosses a system break reports the box of its second half under the first system."""
         for system in self.systems:
             upper = lower = None
             if system.index > 0:
@@ -354,12 +325,10 @@ class PageLayout:
 
     @staticmethod
     def _obstacles(system: System) -> list[Box]:
-        # A label between the staff lines reads as part of the music, so the staves count as taken.
         return system.content + [box for measure in system.measures for box in measure.lines]
 
     @staticmethod
     def _reserve(system: System, box: Box, pad: float = LABEL_PAD) -> None:
-        """Mark the box, plus clear space around it, as taken so later elements keep away."""
         system.content.append(Box(box.x - pad, box.y - pad, box.width + 2 * pad, box.height + 2 * pad))
 
     def _reserve_line(self, system: System, x0: float, y0: float, x1: float, y1: float, steps: int = 8) -> None:
@@ -370,7 +339,6 @@ class PageLayout:
 
     def _place_label(self, system: System, anchor: Box, width: float, height: float, below: bool = False,
                      limit: float | None = None) -> tuple[float, float]:
-        """Centre for a label near `anchor`: the closest spot whose padded box touches nothing drawn."""
 
         def above(distance: float) -> tuple[float, float]:
             return anchor.cx, anchor.y - distance - height / 2
@@ -382,7 +350,6 @@ class PageLayout:
         left = (anchor.x - 90 - width / 2, anchor.cy)
         right = (anchor.right + 90 + width / 2, anchor.cy)
         spots = [near(90), near(200), left, right, near(330), far(90), far(200), near(480), near(650), far(330), near(850)]
-        # Sideways shifts for when the space straight above or below is taken (a chord, a slur, another label).
         spots += [(cx + shift, cy) for cx, cy in spots[:2] + spots[4:7] for shift in (-width - 120, width + 120)]
         spots += [near(1050), far(480), far(650)]
 
@@ -390,20 +357,17 @@ class PageLayout:
             cx, cy = spot
             return Box(cx - width / 2 - LABEL_PAD, cy - height / 2 - LABEL_PAD, width + 2 * LABEL_PAD, height + 2 * LABEL_PAD)
 
-        if limit is not None:  # nothing may sit lower than `limit` (the numeral row)
+        if limit is not None:
             kept = [spot for spot in spots if padded(spot).bottom <= limit]
             spots = kept or spots
         for spot in spots:
             if self._is_free(system, padded(spot)):
                 return spot
-        # Nowhere is clear: take the spot that covers the least of what is already drawn.
         return min(spots, key=lambda spot: self._overlap(system, padded(spot)))
-
-    # ---- musical position -> page position --------------------------------------------
 
     def x_at(self, measure_number: int, offset: Fraction) -> tuple[System, float]:
         measure = self.index.measure(measure_number)
-        segment = measure.segment_at(offset)  # a bar split around a repeat is engraved as two measures
+        segment = measure.segment_at(offset)
         geometry = self.measures.get(segment.id)
         if geometry is None:
             raise NotOnPage
@@ -443,7 +407,6 @@ class PageLayout:
         return self.x_at(measure.number, segment.start)[1] - 90
 
     def segments(self, start, end, gap: float = 70) -> list[Segment]:
-        """Split a range into one piece per system. `end` is a position, or a RangeEnd without a beat."""
         try:
             first_system, x0 = self.x_of(start)
             starts = True
@@ -461,7 +424,6 @@ class PageLayout:
                 last_system, x1 = self.x_of(end)
                 x1 -= gap
                 if x1 - self._content_left(last_system) < 250 and last_system.index > first_system.index:
-                    # The range stops at the very start of a system: end it on the previous one instead.
                     last_system = self.systems[last_system.index - 1]
                     x1 = last_system.right - gap
             ends = True
@@ -483,17 +445,13 @@ class PageLayout:
             )
         return [piece for piece in pieces if piece.x1 > piece.x0]
 
-    # ---- drawing primitives -----------------------------------------------------------
-
     def _add(self, tag: str, parent: ET.Element | None = None, **attributes) -> ET.Element:
         names = {key.replace("_", "-"): str(value) for key, value in attributes.items()}
         if "stroke" in names:
-            # Verovio's stylesheet sets stroke:currentColor on shapes, which beats a stroke attribute but not a style.
             names["style"] = f"stroke:{names['stroke']};" + names.get("style", "")
         return ET.SubElement(self.over if parent is None else parent, f"{S}{tag}", names)
 
     def _text(self, x, y, string, size, *, bold=False, italic=False, fill=INK, anchor="start", halo=False) -> Box:
-        """Draw text; `halo` adds a white outline so it stays legible over staff lines and colour bands."""
         total = text.width(string, size, bold)
         left = x - (total if anchor == "end" else total / 2 if anchor == "middle" else 0)
         for outline in ([True, False] if halo else [False]):
@@ -514,15 +472,12 @@ class PageLayout:
                 cursor += text.width(run, size, bold)
         return Box(left, y - size * 0.75, total, size)
 
-    # ---- annotation kinds -------------------------------------------------------------
-
     def draw(self, annotations: AnnotationList, view: str = "all", role: str | None = None) -> None:
         def shown(kind: str, cls: type) -> list:
             return [a for a in annotations.annotations if isinstance(a, cls) and annotations.visible(kind, a, view, role)]
 
         harmonies = sorted(shown("harmony", Harmony), key=lambda h: (self.index.measure(h.at.measure).index, h.at.beat))
         if annotations.style != "current":
-            # A hidden key declaration still governs the chords visible in this view.
             active = None
             keys = {}
             for harmony in sorted((a for a in annotations.annotations if isinstance(a, Harmony)),
@@ -532,7 +487,7 @@ class PageLayout:
             harmonies = [h.model_copy(update={"key": keys[id(h)]}) for h in harmonies]
         banded = {id(h) for h in harmonies if annotations.visible("function", h, view, role)}
         self._draw_harmonies(harmonies, annotations.style, banded)
-        for cadence in shown("cadence", Cadence):  # directly under their numeral; the function row goes below
+        for cadence in shown("cadence", Cadence):
             self._draw_cadence(cadence)
         self._draw_function_brackets()
         self._draw_ncts(shown("nct", NonChordTone))
@@ -545,14 +500,8 @@ class PageLayout:
             self._draw_phrase(phrase)
 
     def _draw_function_brackets(self) -> None:
-        """MT21C's function brackets: a thin black bracket under a run of numerals of one function, the whole
-        music of the run: from its first numeral's left edge to just before the next numeral (or the system end).
-        The full word sits centred beneath; a run that crosses a system break is drawn open at the break and named
-        again on the next line. Words and abbreviations never mix: if any piece on the page cannot hold its word,
-        the whole page uses T, PD, D. A run ends where the key changes.
-        Textbooks print no colour and no legend. Only chords that carry `function` get a bracket."""
         sequence = self.numeral_seq
-        pieces: dict[int, list[tuple[float, float, str, bool, bool]]] = {}  # system -> (x0, x1, function, continued, runs on)
+        pieces: dict[int, list[tuple[float, float, str, bool, bool]]] = {}
         position = 0
         while position < len(sequence):
             function = sequence[position][1]
@@ -588,14 +537,13 @@ class PageLayout:
                 system.content.append(Box(x0, y - hook, x1 - x0, label.bottom - (y - hook)))
 
     def _bass_centre(self, position, x: float) -> float:
-        """Centre of the bass notehead at a position: the point a numeral's root letters sit under."""
         measure = self.index.measure(position.measure)
         offset = measure.offset_of(position.beat)
         segment = measure.segment_at(offset).id
         bass = [e for e in measure.events
                 if e.segment == segment and not e.grace and e.pitch and abs(e.onset - offset) <= TOLERANCE and e.id in self.boxes]
         if not bass:
-            return x + 100  # between notes there is no notehead; about half of one
+            return x + 100
         lowest = max(bass, key=lambda e: (e.staff, self.boxes[e.id].y))
         return self.boxes[lowest.id].cx
 
@@ -614,8 +562,6 @@ class PageLayout:
             key_at_start.setdefault(system.index, key)
         banded = set(banded)
         for system_index, labels in by_system.items():
-            # A cadential six-four's V goes on as ⁵₃ (or ⁷₃) over the next chord, not as a second "V" (FFF, OMT).
-            # ABRSM-style analysis reads it as Ic, a tonic chord, followed by its own V ("Ic-Va", MyMusicTheory).
             key = key_at_start[system_index]
             for position, (centre, harmony) in enumerate(labels):
                 if style != "abrsm" and position and re.fullmatch(r"(?i)cad6/?4", labels[position - 1][1].label) and harmony.label in ("V", "V7") \
@@ -625,23 +571,20 @@ class PageLayout:
                         banded.add(id(joined))
                     labels[position] = (centre, joined)
                 key = harmony.key or key
-        gap = NUMERAL_SIZE * 0.3  # at least a letter's width between labels
-        previous = None  # the key in force at the end of the last line drawn
+        gap = NUMERAL_SIZE * 0.3
+        previous = None
         for system_index, labels in by_system.items():
             system = self.systems[system_index]
-            # Tall figure stacks (three rows in figured-bass style) reach above the capitals; the row sits lower for them.
             rise, row_key = NUMERAL_SIZE * 0.75, key_at_start[system_index]
             for _, harmony in labels:
                 row_key = harmony.key or row_key
                 rise = max([rise] + [chunk.size * 0.75 - chunk.dy for chunk in notation.numeral(harmony.label, row_key, style, NUMERAL_SIZE)[0]])
             baseline = system.bottom() + 170 + rise
             cursor = 0.0
-            # A score names its key once; a later line repeats it only when the key has changed.
             if key_at_start[system_index] and key_at_start[system_index] != previous:
                 label = text.pretty_key(key_at_start[system_index]) + ":"
                 first_centre, first = labels[0]
                 first_x = first_centre - text.root_centre(notation.numeral(first.label, first.key or key_at_start[system_index], style, NUMERAL_SIZE)[0])
-                # Right-aligned to sit just before the first numeral, but never nearer the system's edge than the clef's room.
                 left = max(system.left + 80, first_x - 0.4 * NUMERAL_SIZE - text.width(label, NUMERAL_SIZE))
                 box = self._text(left, baseline, label, NUMERAL_SIZE)
                 self.harmony_labels.append((label, box))
@@ -652,8 +595,6 @@ class PageLayout:
             for position, (centre, harmony) in enumerate(labels):
                 chunks, total = notation.numeral(harmony.label, harmony.key or key, style, NUMERAL_SIZE)
                 x = centre - text.root_centre(chunks)
-                # Chat models sometimes repeat the key on every chord; only a change is written in line.
-                # It hangs to the left of its numeral, so the numeral stays under its chord.
                 if harmony.key and harmony.key != key and position:
                     name = text.pretty_key(harmony.key) + ":"
                     room = text.width(name, NUMERAL_SIZE) + gap
@@ -685,22 +626,18 @@ class PageLayout:
             self.below_numerals[system_index] = len(system.content)
 
     def _draw_cadence(self, cadence: Cadence) -> None:
-        """FFF's cadence label: a small square box, regular weight, centred under the arrival numeral."""
         try:
             system, x = self.x_of(cadence.at)
         except NotOnPage:
             return
         width = text.width(cadence.label, LABEL_SIZE) + 2 * NUMERAL_SIZE * 0.2
-        height = LABEL_SIZE * 0.66 + 2 * NUMERAL_SIZE * 0.12  # capital height plus padding
-        # The numeral in force at the cadence beat, not only one written exactly there (a cadence at beat 2 over a
-        # chord that began on beat 1 still hangs under that chord).
+        height = LABEL_SIZE * 0.66 + 2 * NUMERAL_SIZE * 0.12
         moment = (self.index.measure(cadence.at.measure).index, cadence.at.beat)
         before = [item[2:] for item in self.numeral_seq if item[0][0] < moment[0] or (item[0][0] == moment[0] and item[0][1] <= moment[1] + 1e-6)]
         entry = before[-1] if before else None
         if entry and entry[0] == system.index:
             centre = entry[1]
-            top = entry[4] + NUMERAL_SIZE * 0.25 + LABEL_PAD  # clear of the numeral's own box
-            # Whatever else hangs under the numerals here (function brackets, other labels) pushes it down.
+            top = entry[4] + NUMERAL_SIZE * 0.25 + LABEL_PAD
             under = [box for box in system.content[self.below_numerals.get(system.index, 0):] if box.right > centre - width / 2 and box.x < centre + width / 2]
             top = max([top] + [box.bottom + 60 for box in under])
         else:
@@ -714,7 +651,6 @@ class PageLayout:
         self.cadence_bottom[system.index] = max(self.cadence_bottom.get(system.index, -1e9), top + height)
 
     def _draw_ncts(self, ncts: list[NonChordTone]) -> None:
-        """Circle each non-chord tone; notes of one chord with the same label share a circle and a label."""
         groups: dict[tuple, list[tuple[System, Box, Event]]] = {}
         labels: dict[tuple, str] = {}
         for nct in ncts:
@@ -736,7 +672,7 @@ class PageLayout:
         self._add("ellipse", cx=round(circle.cx), cy=round(circle.cy), rx=round(rx), ry=round(ry),
                   fill="none", stroke=INK, stroke_width=LINE)
         string = NCT_NAMES.get(string.strip().upper(), string)
-        width, height = text.width(string, LABEL_SIZE), LABEL_SIZE  # the box _text reports: cap top to below the baseline
+        width, height = text.width(string, LABEL_SIZE), LABEL_SIZE
         cx, cy = self._place_label(system, circle, width, height, below=event.staff > 1)
         label = Box(cx - width / 2, cy - height / 2, width, height)
         over = label.x < circle.right and label.right > circle.x
@@ -745,7 +681,7 @@ class PageLayout:
         gap_x = max(circle.x - label.right, label.x - circle.right)
         if (over and gap_y <= 260) or (level and gap_x <= 260):
             line = None
-        else:  # too far, or off to one side where it could be read as naming another note: join them
+        else:
             ex = min(max(circle.cx, label.x - 45), label.right + 45)
             ey = min(max(circle.cy, label.y - 45), label.bottom + 45)
             dx, dy = ex - circle.cx, ey - circle.cy
@@ -760,10 +696,7 @@ class PageLayout:
         self._reserve(system, label)
 
     def _draw_voice_marks(self, marks: list[VoiceLeading]) -> None:
-        """Draw the part-writing marks. Identical marks on the same notes are drawn once (a held note must not
-        print its ring or word twice); the two lines of one parallel or direct pair share one word, set between
-        them; the codes of rings on one chord are set together."""
-        unique: dict[tuple, list] = {}  # (kind, from event, to event) -> [mark, labels]
+        unique: dict[tuple, list] = {}
         for mark in marks:
             try:
                 first = self.index.find_note(**mark.from_note.model_dump())
@@ -773,9 +706,7 @@ class PageLayout:
             entry = unique.setdefault((mark.kind, first.id, second.id if second else None), [mark, []])
             if mark.label and mark.label not in entry[1]:
                 entry[1].append(mark.label)
-        # Brackets first: they claim their line, and every fault word then keeps off it.
         entries = sorted(unique.values(), key=lambda entry: entry[0].kind != "bracket")
-        # Lines of one pair: two lines between the same two moments.
         pairs: dict[tuple, list] = {}
         for entry in entries:
             if entry[0].kind == "line":
@@ -786,7 +717,7 @@ class PageLayout:
                 pairs.setdefault((first.segment, first.onset, second.segment, second.onset), []).append(entry)
         shared = {id(entry): group for group in pairs.values() if len(group) == 2 for entry in group}
         done: set[int] = set()
-        rings: list[tuple[System, Box, list[str], Event]] = []  # words are placed once every other mark is down
+        rings: list[tuple[System, Box, list[str], Event]] = []
         for entry in entries:
             mark, labels = entry
             if id(entry) in done:
@@ -798,9 +729,7 @@ class PageLayout:
                 continue
             if mark.kind == "ring":
                 ring = self._draw_ring(system_a, a)
-                self.staff_of[id(system_a.content[-1])] = event.staff  # the ring's reserved box
-                # A ring on a ledger note between the staves can all but touch another staff's marks (BWV 64.4 bar 6:
-                # the alto's ring on the tenor's fermata); the gap then opens.
+                self.staff_of[id(system_a.content[-1])] = event.staff
                 staff = self.measures[event.segment].numbered.get(event.staff)
                 if staff and not staff.y <= ring.cy <= staff.bottom:
                     side = "above" if ring.cy < staff.y else "below"
@@ -821,11 +750,6 @@ class PageLayout:
         self._place_ring_codes(rings)
 
     def _place_ring_codes(self, rings: list[tuple[System, Box, list[str], Event]]) -> None:
-        """Each code sits beside its own ring. Rings of different voices stack a few staff spaces apart, so a spot is
-        only taken when its own ring is the nearest one, and it may slide along the ring to dodge a staff line.
-        Text across staff lines is not engraving practice (Gould: words and signs go outside the staff), so a spot off
-        the staves comes first, just past the staff's edge if need be; where none is clear, the gap is noted in
-        `code_room` for the staves to move apart, and meanwhile the code takes the nearest spot on the staff."""
         for system, ring, labels, event in rings:
             if not labels:
                 continue
@@ -836,20 +760,14 @@ class PageLayout:
                         and not any(r.x <= head.cx <= r.right and r.y <= head.cy <= r.bottom for _, r, _, _ in rings)]
             slide = [0.0] + [sign * step for step in range(60, int(ring.height / 2 + height / 2), 60) for sign in (-1, 1)]
             bar = next(((m.x0, m.x1) for m in system.measures if m.x0 <= ring.cx <= m.x1), (ring.x, ring.right))
-            staff = self.measures[event.segment].numbered.get(event.staff)  # the ringed note's own staff, also for a ledger note
-            # The code stays on its ring's side of the staff: across the staff it would stand by another voice's notes.
+            staff = self.measures[event.segment].numbered.get(event.staff)
             nearer = "above" if staff and ring.cy < staff.cy else "below"
 
             def box_at(spot, pad):
                 return Box(spot[0] - width / 2 - pad, spot[1] - height / 2 - pad, width + 2 * pad, height + 2 * pad)
 
             def own(spot, skip=lambda other: False):
-                """Nearer its own ring than any other ring or unringed note (clearly so when that is not level with the
-                ring), and not over a barline: a code by another note reads as that note's (decision R)."""
                 box = box_at(spot, 0)
-                # Straight off its ring a code stacks outward from its note as an articulation does (Gould: marks stack
-                # outward from a note), so it is that note's even with a neighbour's head diagonally nearer; only a head
-                # in the same column then competes.
                 heads = [h for h in unringed if h.x < box.right and h.right > box.x] if abs(spot[0] - ring.cx) < 1 else unringed
                 return bar[0] <= box.x and box.right <= bar[1] and all(
                     ratio(other) * self._gap(box, ring) < self._gap(box, other) for other in others + heads if not skip(other))
@@ -857,16 +775,12 @@ class PageLayout:
             def ratio(other):
                 return 1 if abs(other.cy - ring.cy) < ring.height / 2 else 1.5
 
-            # Spots in order: right, left, above, below, past a fermata, above or below shifted; then just past the
-            # nearer edge of the ring's staff.
             def spots_at(pad):
-                gap = pad + 35  # the ring's own reserved margin is 30
+                gap = pad + 35
                 beside = [(ring.right + gap + width / 2, ring.cy + dy) for dy in slide] + [(ring.x - gap - width / 2, ring.cy + dy) for dy in slide]
                 ends = (ring.y - gap - height / 2, ring.bottom + gap + height / 2)
                 stack = []
                 if staff:
-                    # Straight off the ring past what stands on that side of it (a fermata), as marks stack outward from a
-                    # note; stems are thin and pass by.
                     column = [o for o in system.content if o.width > 40 and o.x < ring.right and o.right > ring.x
                               and (ring.y - 600 < o.bottom <= ring.y + 30 if nearer == "above" else ring.bottom - 30 <= o.y < ring.bottom + 600)]
                     if column:
@@ -876,14 +790,9 @@ class PageLayout:
                 for side, y in zip(("above", "below"), ends):
                     spots += [(ring.cx, y)] + (stack if side == nearer else []) + [(ring.cx + shift, y) for shift in (width / 2, -width / 2)]
                 if staff:
-                    # Just past the staff's edge on the ring's side: straight off the ring, then beside it, a little
-                    # farther out past a dot or accidental.
                     y = staff.y - pad - 1 - height / 2 if nearer == "above" else staff.bottom + pad + 1 + height / 2
                     spots += [(ring.cx, y)] + [(ring.right + gap + width / 2 + shift, y) for shift in (0, 120, 240)]
                     spots += [(ring.x - gap - width / 2 - shift, y) for shift in (0, 120, 240)]
-                    # Then outward through the gap, straight off the ring or half a code to either side, past the
-                    # neighbouring notes, accidentals and ledger lines, up to the next staff: once the staves move
-                    # apart, one of these is clear.
                     sign = -1 if nearer == "above" else 1
                     start = min(ends[0], y) if nearer == "above" else max(ends[1], y)
                     lines = [b for b in self.measures[event.segment].lines if (b.bottom < staff.y if nearer == "above" else b.y > staff.bottom)]
@@ -907,17 +816,13 @@ class PageLayout:
                     short, first = self._code_room(system, event, ring, staff, nearer, spots_at(LABEL_PAD), box_at, own, ratio, rings)
                     if short:
                         self.code_room.append((event, nearer, short, first))
-                # Less clear space (the rings of a run may leave no more), still off the staves if possible; only then on one.
                 spot = next((s for pad in (LABEL_PAD / 2, 0) for s in spots_at(pad) if usable(s, pad) and off_staff(s)), None) \
                     or next((s for pad in (LABEL_PAD, LABEL_PAD / 2, 0) for s in spots_at(pad) if usable(s, pad)), None) \
                     or self._least_covering(system, spots_at(0), box_at, own)
             self._error_text(system, *spot, word, width, height)
-            self.staff_of[id(system.content[-1])] = event.staff  # the code's reserved box moves with its ring's staff
+            self.staff_of[id(system.content[-1])] = event.staff
 
     def _across(self, system: System, event: Event, staff: Box, side: str, staves: dict[int, int]):
-        """What lies across the gap on one side of a staff and so moves away when the staves move apart: the other
-        staff's notes and marks, and lyrics under the staff above. Returns that test and the other staff's near edge,
-        or None past the outer staff."""
         lines = [b for b in self.measures[event.segment].lines if (b.bottom < staff.y if side == "above" else b.y > staff.bottom)]
         if not lines:
             return None
@@ -927,16 +832,11 @@ class PageLayout:
         def far(box):
             if id(box) in staves:
                 return staves[id(box)] != event.staff
-            # Wholly across the middle of the gap; a barline or a stem that spans the gap does not move away.
             return box.bottom < middle if side == "above" else box.y > middle
 
         return far, edge
 
     def _room_lines(self, system: System, staff: Box, side: str, far, edge: float, x0: float, x1: float, shortfall: float) -> tuple[int, int]:
-        """Lines of room for a gap short by `shortfall`: those that move the staves apart by it, once room is already
-        there; and, the first time, the lines the free space at the mark (x0 to x1) takes without moving anything as
-        well. Verovio sets the room just past the notes there and moves the staves apart only by what the free space
-        cannot take, less the margins it keeps round the room."""
         low, high = (edge, staff.y) if side == "above" else (staff.bottom, edge)
         column = [o for o in system.content if o.x < x1 and o.right > x0 and low <= o.cy <= high]
         if side == "above":
@@ -951,21 +851,17 @@ class PageLayout:
 
     def _code_room(self, system: System, event: Event, ring: Box, staff: Box, nearer: str, spots: list, box_at, own, ratio,
                    rings: list) -> tuple[int, int]:
-        """Lines of room (see `_room_lines`) the gap on the ring's side of its staff needs before its code fits off the
-        staff; (0, 0) when moving the staves apart would not help (only the same staff's notes are in the way)."""
         across = self._across(system, event, staff, nearer, {**self.staff_of, **{id(r): e.staff for s, r, _, e in rings if s is system}})
         if across is None:
-            return 1, 1  # past the outer staff there is no staff to move away: one line at a time
+            return 1, 1
         far, edge = across
         near_things = [o for o in system.content if not far(o)] + (system.words if nearer == "below" else [])
         far_things = [o for o in system.content if far(o)] + (system.words if nearer == "above" else [])
-        # The first spot that only what lies across the gap keeps from being clear.
         spot = next((c for c in spots if not self._on_staff(system, box_at(c, 0)) and own(c, skip=far)
                      and not any(self._meets(box_at(c, LABEL_PAD), o) for o in near_things)), None)
         if spot is None:
             return 0, 0
         box, bare = box_at(spot, LABEL_PAD), box_at(spot, 0)
-        # How far the far side must move: out of the padded box, and far enough that the code is clearly its own ring's.
         move = [(o.bottom - box.y if nearer == "above" else box.bottom - o.y) for o in far_things if self._meets(box, o)]
         mine = self._gap(bare, ring)
         for other in [r for s, r, _, _ in rings if s is system and r is not ring and far(r)] + [h for h in system.heads if far(h)]:
@@ -978,8 +874,6 @@ class PageLayout:
         return self._room_lines(system, staff, nearer, far, edge, ring.x, ring.right, max(move, default=0))
 
     def _least_covering(self, system: System, spots: list, box_at, own) -> tuple[float, float]:
-        """With no clear spot, the one that covers least, and never a notehead, accidental or stem (Gould, Layout: clear
-        space round the notes); its own ring's spots first."""
         def cost(spot):
             box = box_at(spot, 0)
             notes = sum(o.x < box.right and o.right > box.x and o.y < box.bottom and o.bottom > box.y for o in system.notes)
@@ -990,14 +884,12 @@ class PageLayout:
     def _shafts(self, system_a: System, a: Box, system_b: System, b: Box) -> list[tuple[System, float, float, float, float]]:
         if system_a is system_b:
             return [(system_a, a.right + 50, a.cy, b.x - 50, b.cy)]
-        # across a system break: run off the right edge and come back in from the left, like a tie
         return [
             (system_a, a.right + 50, a.cy, system_a.right - 40, a.cy),
             (system_b, self._content_left(system_b) - 250, b.cy, b.x - 50, b.cy),
         ]
 
     def _draw_parallel_pair(self, group: list) -> None:
-        """Both lines of a pair, and their word(s) once, midway between the two voices (never in the numeral row)."""
         centres, system, labels, staves = [], None, [], []
         for mark, own in group:
             system_a, a, event = self.note_box(mark.from_note)
@@ -1010,8 +902,6 @@ class PageLayout:
             system, x0, y0, x1, y1 = shafts[0]
             centres.append(((x0 + x1) / 2, (y0 + y1) / 2))
             labels += [label for label in own if label not in labels]
-        # Midway only when the voices share a staff or neighbour each other; across inner staves the gap holds other
-        # voices' music, so the word goes under the lower line, where a reader looks for it.
         if abs(staves[0] - staves[1]) > 1:
             x, y = max(centres, key=lambda centre: centre[1])
         else:
@@ -1023,13 +913,10 @@ class PageLayout:
             self._error_text(system, cx, cy, label, width, LABEL_SIZE)
 
     def _numeral_top(self, system: System) -> float | None:
-        """Marks of the part-writing view stay above the numeral row."""
         return self.numeral_tops.get(system.index)
 
     def _draw_voice_line(self, line: VoiceLeading, labels: list[str], system_a: System, a: Box, system_b: System, b: Box) -> None:
         arrow = line.kind == "arrow"
-        # Red is for faults: every line, and the arrows part_writing draws for an unresolved seventh or leading tone.
-        # A resolution arrow the model draws on its own is an analysis mark.
         fault = not arrow or any(label in FAULT_ARROW_LABELS for label in labels)
         colour = ERROR if fault else ARROW
         if arrow and "R" in labels:
@@ -1041,7 +928,7 @@ class PageLayout:
             self._reserve_line(system, x0, y0, x1, y1)
         for label in labels:
             width, height = text.width(label, LABEL_SIZE), LABEL_SIZE
-            if arrow:  # right of the tendency tone itself, riding just above its arrow (MT21C)
+            if arrow:
                 spot = (a.right + 55 + width / 2, a.cy - 60 - height / 2)
                 padded = Box(spot[0] - width / 2 - LABEL_PAD, spot[1] - height / 2 - LABEL_PAD, width + 2 * LABEL_PAD, height + 2 * LABEL_PAD)
                 others = [box for box in self._obstacles(system_a) + system_a.words if not self._is_shaft_piece(box, shafts[0])]
@@ -1056,41 +943,27 @@ class PageLayout:
             self._error_text(system, cx, cy, label, width, height)
 
     def _draw_unresolved(self, mark: VoiceLeading, system: System, note: Box) -> None:
-        """Kelley's R: a small arrow on the sensitive note pointing the way it should have resolved, the code at its
-        tail. In order of preference, taking the first spot with clear space (nothing within a stretch ahead
-        of its head, no stem, note or lyric on it): (1) on the side of the notehead away from the stem, as an
-        articulation sits, outside the staff, but no farther than two steps from the note, since a farther arrow
-        belongs to nothing; (1b) for a note inside the staff, the same side just outside the staff, straight off the
-        note; (2) the same side straight off the notehead, inside the staff; (3) just beside the
-        notehead, on the side away from the stem (right unless the stem is up). With no clear spot, the least crowded."""
         up = mark.direction == "up"
         _, _, event = self.note_box(mark.from_note)
         stem = self.stems.get(event.id)
         sides = ["below", "above"] if stem == "up" else ["above", "below"]
         length, word = 420, text.width("R", LABEL_SIZE)
         pad = LABEL_PAD
-        placements = []  # (x of the shaft, top, bottom, side the code takes, whether staff lines count as obstacles)
-        outside = 0  # how many placements there were before those past the staff's edge or a fermata
+        placements = []
         for distance in (110, 220):
             for side in sides:
                 near = note.y - distance if side == "above" else note.bottom + distance
                 top = near - length if side == "above" else near
                 placements += [(note.cx, top, top + length, beside, True) for beside in (1, -1)]
-        # A note inside the staff is more than two steps from its edge: the arrow then starts just outside the staff,
-        # still straight off its note, with the code at its tail also clear of the lines (decision S: outside the staff
-        # where possible).
         staff = next((box for measure in system.measures for box in measure.lines
                       if box.x <= note.cx <= box.right and box.y <= note.cy <= box.bottom), None)
         tail_room, head_room = LABEL_SIZE / 2 + LABEL_PAD + 1, pad + 1
         edges = [staff.bottom if sides[0] == "below" else staff.y] if staff else []
-        # Past a fermata on that side, as marks stack outward from a note (Gould, Articulation: the fermata goes outside
-        # the others; Verovio's fermata cannot move, so the arrow goes outside it, still opposite the stem).
         marks = [box for _, box in self.staff_marks if box.x < note.cx + 100 + pad and box.right > note.cx - 100 - pad
                  and (note.bottom < box.y < note.bottom + 1200 if sides[0] == "below" else note.y - 1200 < box.bottom < note.y)]
         if marks:
             edges.append(max(box.bottom for box in marks) if sides[0] == "below" else min(box.y for box in marks))
         if staff:
-            # Past the neighbouring notes that hang over the staff's edge beside it (a ledger note, a head on the line).
             reach = 175 + word + 2 * pad
             hanging = [o for o in system.content if self.staff_of.get(id(o)) == event.staff and abs(o.cx - note.cx) < reach
                        and (o.y < staff.bottom < o.bottom if sides[0] == "below" else o.y < staff.y < o.bottom)]
@@ -1098,36 +971,30 @@ class PageLayout:
                 edges.append(max(o.bottom for o in hanging) if sides[0] == "below" else min(o.y for o in hanging))
         outside = len(placements)
         for edge in edges:
-            for shaft in (length, 300):  # shorter when a note lies not far beyond the longer arrow's head
+            for shaft in (length, 300):
                 if sides[0] == "below":
                     top = edge + (head_room if up else tail_room)
                 else:
                     top = edge - (tail_room if up else head_room) - shaft
                 placements += [(note.cx, top, top + shaft, beside, True) for beside in (1, -1)]
-        # Next, straight off the notehead away from the stem even where that is inside the staff: still its own note's.
-        for shaft in (length, 300):  # shorter when a note lies not far beyond the longer arrow's head
+        for shaft in (length, 300):
             top = note.y - 110 - shaft if sides[0] == "above" else note.bottom + 110
             placements += [(note.cx, top, top + shaft, beside, False) for beside in (1, -1)]
-        for gap in (110, 60):  # the closer one only when the first crowds a neighbour
+        for gap in (110, 60):
             for arrow_side in ((-1, 1) if stem == "up" else (1, -1)):
                 x = note.right + gap + 75 if arrow_side == 1 else note.x - gap - 75
                 top = note.cy - length / 2
-                # Beside its own notehead the staff lines cannot be avoided; the code goes to whichever side of the arrow is freer.
                 placements += [(x, top, top + length, beside, False) for beside in (arrow_side, -arrow_side)]
         candidates = []
         stacked = range(outside, outside + 4 * len(edges))
-        # The code at the tail; half way along the shaft only when that is crowded.
         for along, number, (x, top, bottom, beside, off_staff) in [(a, n, p) for a in (0, 0.5) for n, p in enumerate(placements)]:
             tail, head = (bottom, top) if up else (top, bottom)
             code_x = x + beside * (75 + word / 2 + LABEL_PAD)
-            # An arrow points at whatever lies ahead of its head, so that stretch must be empty for a good way beyond it.
             ahead = 450
             arrow = Box(x - 100 - pad, top - pad, 200 + 2 * pad, bottom - top + 2 * pad)
             strip = Box(x - 100 - pad, top - ahead if up else bottom, 200 + 2 * pad, ahead)
             code_y = tail + (head - tail) * along
             code = Box(code_x - word / 2 - LABEL_PAD, code_y - LABEL_SIZE / 2 - LABEL_PAD, word + 2 * LABEL_PAD, LABEL_SIZE + 2 * LABEL_PAD)
-            # Lyrics are not in the obstacles, and an arrow or code on a syllable is unreadable. A thin stem is a small
-            # area but a real collision, so the number of things touched comes before the area.
             things = system.content + system.words + ([box for measure in system.measures for box in measure.lines] if off_staff else [])
             hits = sum((o.x < mark_box.right and o.right > mark_box.x and o.y < mark_box.bottom and o.bottom > mark_box.y)
                        for o in things for mark_box in (arrow, code, strip))
@@ -1141,16 +1008,11 @@ class PageLayout:
         self._error_text(system, code_x, code_y, "R", word, LABEL_SIZE)
 
     def _arrow_room(self, system: System, event: Event, staff: Box, side: str, note: Box, outside: list) -> None:
-        """Past the staff's edge (or a fermata), straight off its note with the R at its tail, is the arrow's place
-        (decision S). When only the next staff's notes or lyrics keep it from there, the staves move apart for it, as
-        for a ring code (`code_room`)."""
         across = self._across(system, event, staff, side, self.staff_of)
         if across is None or not outside:
             return
         far, edge = across
-        # Lyrics stand under their staff: across the gap above a staff, with it below.
         things = [(o, far(o)) for o in system.content] + [(o, side == "above") for o in system.words]
-        # The first such placement that only what lies across the gap keeps from being clear.
         boxes = next((c[7] for c in outside if not any(self._meets(box, o) for box in c[7] for o, away in things if not away)), None)
         if boxes is None:
             return
@@ -1160,7 +1022,6 @@ class PageLayout:
 
     @staticmethod
     def _is_shaft_piece(box: Box, shaft) -> bool:
-        """Whether a reserved box is one of the small padded pieces of this arrow's own shaft."""
         _, x0, y0, x1, y1 = shaft
         return box.width <= abs(x1 - x0) / 8 + 61 and box.height <= abs(y1 - y0) / 8 + 61 and box.x >= x0 - 40 and box.right <= x1 + 40 \
             and box.y >= min(y0, y1) - 40 and box.bottom <= max(y0, y1) + 40
@@ -1184,14 +1045,9 @@ class PageLayout:
 
     def _label_near(self, system: System, anchor: Box, string: str, width: float, height: float, right: bool = False,
                     colour: str = ERROR, shared: bool = True) -> Box | None:
-        """A fault word beside its note or ring, never farther than the next side over.
-
-        Beside its own note the word may sit on the staff lines, as in a teacher's markup; other marks, stems and
-        lyrics block it. `right` tries the right side first (where the word is read after the note), else above.
-        """
         near = [d for d, other in self._words if other is system and d[0] == string and abs(d[1].cy - anchor.cy) < 700
                 and d[1].x - width < anchor.right and d[1].right + width > anchor.x]
-        if near and shared:  # the same word already stands by the neighbouring notes: one word names the group
+        if near and shared:
             return None
         gap = 90
         sides = [(anchor.right + gap + width / 2, anchor.cy), (anchor.x - gap - width / 2, anchor.cy),
@@ -1199,7 +1055,6 @@ class PageLayout:
         if not right:
             sides = sides[2:] + sides[:2]
         sides += [(cx, cy + dy) for cx, cy in sides[:2] for dy in (-height, height)]
-        # Still near the note, but further out: higher or lower, and shifted past a stem on either side.
         up, down = anchor.y - gap - height / 2, anchor.bottom + gap + height / 2
         for extra in (150, 300, 450, 600):
             sides += [(anchor.cx, up - extra), (anchor.cx, down + extra)]
@@ -1214,8 +1069,6 @@ class PageLayout:
         def on_staff(spot):
             return self._on_staff(system, padded(spot))
 
-        # A halo cutting the staff lines hides notes' lines, so the nearest spot clear of the staves wins; only when
-        # every spot is on a staff does the word sit on the lines, as in a teacher's markup.
         clear = [spot for spot in sides if not hit(spot)]
         cx, cy = next((spot for spot in clear if not on_staff(spot)), None) or (clear[0] if clear else min(sides, key=hit))
         self._words.append(((string, Box(cx - width / 2, cy - height / 2, width, height)), system))
@@ -1226,13 +1079,11 @@ class PageLayout:
         return math.hypot(max(a.x - b.right, b.x - a.right, 0), max(a.y - b.bottom, b.y - a.bottom, 0))
 
     def _covered(self, system: System, box: Box) -> float:
-        """Area of the box lying on drawn content or lyrics."""
         return sum(max(0.0, min(box.right, o.right) - max(box.x, o.x)) * max(0.0, min(box.bottom, o.bottom) - max(box.y, o.y))
                    for o in system.content + system.words)
 
     @staticmethod
     def _touching(system: System, box: Box) -> int:
-        """How many drawn things or lyrics the box meets; a thin stem is a small area but a real collision."""
         return sum(o.x < box.right and o.right > box.x and o.y < box.bottom and o.bottom > box.y for o in system.content + system.words)
 
     @staticmethod
@@ -1249,8 +1100,6 @@ class PageLayout:
         return ring
 
     def _draw_square_bracket(self, labels: list[str], system: System, a: Box, b: Box) -> None:
-        """MT21C's thin bracket right of a chord, spanning the two notes (a spacing fault). It keeps to the
-        staves' side of any lyric, and its word stands beside it."""
         top, bottom = min(a.cy, b.cy), max(a.cy, b.cy)
         tick, base = 72, max(a.right, b.right) + 110
         stop = max(m.x1 for m in system.measures if m.x0 <= base <= m.x1 + 1) if any(m.x0 <= base <= m.x1 + 1 for m in system.measures) else base + 900
@@ -1258,7 +1107,6 @@ class PageLayout:
         def hits(box: Box) -> bool:
             return any(w.x < box.right and w.right > box.x and w.y < box.bottom and w.bottom > box.y for w in system.words)
 
-        # Only the upright must clear a lyric (it may pass between two syllables); the ticks sit at note height.
         x = base
         for shift in range(0, 1200, 40):
             if base + shift + LABEL_PAD * 2 > stop:
@@ -1269,7 +1117,6 @@ class PageLayout:
         self._add("path", d=f"M{round(x - tick)},{round(top)} L{round(x)},{round(top)} L{round(x)},{round(bottom)} L{round(x - tick)},{round(bottom)}",
                   fill="none", stroke=ERROR, stroke_width=30, stroke_linejoin="round")
         self._reserve(system, Box(x - tick, top, tick, bottom - top), pad=30)
-        # The anchor is the whole bracket, so no fallback spot can land on its own mark.
         for label in labels:
             self._label_near(system, Box(x, top, 0, bottom - top), label, text.width(label, LABEL_SIZE), LABEL_SIZE, right=True)
 
@@ -1281,7 +1128,7 @@ class PageLayout:
         radius = 190
         cx = x + 110
         taken = self._callout_x.setdefault(system.index, [])
-        while any(abs(cx - other) < 2 * radius + 40 for other in taken):  # two on one note sit side by side, not stacked
+        while any(abs(cx - other) < 2 * radius + 40 for other in taken):
             cx += 2 * radius + 60
         taken.append(cx)
         cy = system.top(cx - radius, cx + radius) - 90 - radius
@@ -1290,8 +1137,6 @@ class PageLayout:
         self._reserve(system, Box(cx - radius, cy - radius, 2 * radius, 2 * radius))
 
     def _draw_phrase(self, phrase: Phrase | Region, dashed: bool = False) -> None:
-        """A thin bracket above the music with a plain upright label centred on it, repeated on each system the
-        bracket continues onto. Regions are dashed."""
         try:
             pieces = self.segments(phrase.start, phrase.end)
         except NotOnPage:
@@ -1299,8 +1144,6 @@ class PageLayout:
         tick = 150
         size = PHRASE_LETTER_SIZE if re.fullmatch(r"[A-Za-z][′']?", phrase.label) else LABEL_SIZE
         label_width = text.width(phrase.label, size)
-        # One bracket row: a piece too short to hold the label (a stub at a system's edge) stays unlabelled, and
-        # every wider piece repeats it. When none is wide enough the widest takes it.
         wide = [piece for piece in pieces if piece.x1 - piece.x0 >= label_width + 2 * LABEL_PAD]
         labelled = wide or ([max(pieces, key=lambda piece: piece.x1 - piece.x0)] if pieces else [])
         for piece in pieces:
@@ -1313,9 +1156,7 @@ class PageLayout:
             self._add("path", d=path, fill="none", stroke=INK, stroke_width=LINE, stroke_linejoin="round", **style)
             box = Box(piece.x0, y, piece.x1 - piece.x0, tick)
             if phrase.label and piece in labelled:
-                # A label wider than its piece is pulled in so it never runs off the page.
                 middle = min(max((piece.x0 + piece.x1) / 2, piece.system.left + label_width / 2), piece.system.right - label_width / 2)
-                # Centred, unless a barline or another label is in the way: then the nearest clear spot along the bracket.
                 shifts = [0.0] + [sign * step for step in range(100, 1500, 100) for sign in (-1, 1)]
                 x = next((middle + shift for shift in shifts if piece.x0 <= middle + shift - label_width / 2 and middle + shift + label_width / 2 <= piece.x1 + 1
                           and self._is_free(piece.system, Box(middle + shift - label_width / 2 - LABEL_PAD, y - 90 - size * 0.75 - LABEL_PAD,
@@ -1325,7 +1166,6 @@ class PageLayout:
             piece.system.content.append(box)
 
     def _bracket_top(self, piece: Segment, staff: int | None) -> float:
-        """Highest drawn point a bracket must clear: over the whole system, or over one staff when one is named."""
         measures = [m for m in piece.system.measures if m.x1 > piece.x0 and m.x0 < piece.x1]
         if not staff or not measures or any(staff not in m.numbered for m in measures):
             return piece.system.top(piece.x0, piece.x1)
@@ -1334,7 +1174,6 @@ class PageLayout:
         if not higher:
             return piece.system.top(piece.x0, piece.x1)
         above = max(higher)
-        # What hangs below the staff above belongs to that staff; only the lower half of the gap is this staff's.
         middle = (above + line) / 2
         own = [b.y for b in piece.system.content if b.right > piece.x0 and b.x < piece.x1 and b.cy > middle and b.y < line]
         return min([line] + own)

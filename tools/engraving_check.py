@@ -27,11 +27,9 @@ from tools.robustness import ASAP, CORPUS, MUSETRAINER, fetch
 ROOT = Path(__file__).parent.parent
 OUT = ROOT / "out" / "engraving"
 EXAMPLES = ROOT / "examples" / "engraving"
-# Full orchestral scores, MIT-licensed: https://github.com/iis-mctl/mctl-symphony-dataset
 MCTL = "https://raw.githubusercontent.com/iis-mctl/mctl-symphony-dataset/main/symbolic_symphony_set/"
 
 PIECES = {
-    # name: (score, printed bars)
     "bach-269": (CORPUS / "bach/bwv269.mxl", (0, 8)),
     "mozart-545": (MUSETRAINER + "Mozart_-_Piano_Sonata_No._16_-_Allegro.mxl", (1, 8)),
     "schubert-lindenbaum": (CORPUS / "schubert/Lindenbaum.xml", (9, 16)),
@@ -43,8 +41,6 @@ PIECES = {
     "dvorak-9-2": (MCTL + "dv2/sheet.xml", (5, 12)),
 }
 
-# The overlay keeps no record of what it drew, so the check watches it draw: the boxes Verovio
-# reported before any annotation, and every label drawn outside the numeral row.
 _layouts: list[PageLayout] = []
 _init, _text, _numerals = PageLayout.__init__, PageLayout._text, PageLayout._draw_harmonies
 
@@ -85,7 +81,6 @@ def _whole_label(drawing):
     return watched
 
 
-# The check page's numerals and keys are drawn in pieces; the drawing code records each whole label.
 check_display._numeral = _whole_label(check_display._numeral)
 check_display._key = _whole_label(check_display._key)
 
@@ -94,11 +89,10 @@ def _touches(a: Box, b: Box, gap: float = 0.0) -> bool:
     return a.x - gap < b.right and a.right + gap > b.x and a.y - gap < b.bottom and a.bottom + gap > b.y
 
 
-# Verovio's own placement: text it sets in the music, and what that text must keep clear of.
-TEXT = {"dynam", "text", "harm", "syl", "fing", "reh"}  # words in dir, tempo and the like are boxed as "text"
+TEXT = {"dynam", "text", "harm", "syl", "fing", "reh"}
 SOLID = TEXT | {"note", "accid", "rest", "clef", "keySig", "meterSig", "artic", "stem", "flag", "dots"}
 BBOX = re.compile(r'<g id="bbox-([^"]+)" class="(\w+) bounding-box">\s*<rect x="([-\d.]+)" y="([-\d.]+)" height="([-\d.]+)" width="([-\d.]+)"')
-OVERLAP = 10  # Verovio units (a staff space is 180): less than this is boxes kissing, not ink touching
+OVERLAP = 10
 
 
 PARENT = re.compile(r'<g id="([^"]+)" class="(?:dir|tempo|dynam|harm|verse|fing|reh|mNum|label|labelAbbr)\b')
@@ -111,15 +105,11 @@ def _owner_kind(svg: str, at: int) -> str:
 
 
 def music_collisions(svg: str, skip: frozenset[str] = frozenset()) -> list[str]:
-    """Pairs like "dynam/text" for each text item or clef Verovio drew on top of another item. Needs an SVG
-    rendered with svgBoundingBoxes. Boxes are rectangles, so a hit is a lead to look at, not proof."""
     parents = [(match.start(), match.group(1)) for match in PARENT.finditer(svg)]
     boxes = []
     for match in BBOX.finditer(svg):
         id, kind, x, y, h, w = match.groups()
-        # Bar numbers' boxes come out unplaced (x near 0), so they would collide with every clef.
         if kind in SOLID and kind not in skip and not (kind == "text" and _owner_kind(svg, match.start()) in {"mNum"} | skip):
-            # The element a text box belongs to: one tempo mark is several boxes ("♩", "= 60").
             owner = next((pid for start, pid in reversed(parents) if start < match.start()), None) if kind == "text" else id
             boxes.append((kind, id, owner, float(x), float(y), float(x) + float(w), float(y) + float(h)))
     hits = []
@@ -127,9 +117,8 @@ def music_collisions(svg: str, skip: frozenset[str] = frozenset()) -> list[str]:
         if kind not in TEXT and kind != "clef":
             continue
         for j, (other, _, other_owner, a0, b0, a1, b1) in enumerate(boxes):
-            if j == i or other_owner == owner or (other in TEXT | {"clef"} and j < i):  # each pair once
+            if j == i or other_owner == owner or (other in TEXT | {"clef"} and j < i):
                 continue
-            # A clef change is checked against the notes around it; a clef's box always reaches its own staff's stems.
             if kind == "clef" and other not in {"note", "accid", "rest"}:
                 continue
             if min(x1, a1) - max(x0, a0) > OVERLAP and min(y1, b1) - max(y0, b0) > OVERLAP:
@@ -152,9 +141,7 @@ def check(name: str, tag: str, style: str = "current") -> dict:
 
 
 def collisions(page_count: int) -> dict:
-    """Check the recorded pages, including whole numeral labels rather than their stacked chunks."""
     overlapping, tight = [], []
-    # Earlier layouts only measured (line breaks, the room the check page's notes need): nothing of theirs is drawn.
     for layout in _layouts[-page_count:]:
         labels = layout.labels + layout.harmony_labels
         for i, (string, box) in enumerate(labels):
@@ -163,8 +150,6 @@ def collisions(page_count: int) -> dict:
                 overlapping.append(string)
             elif any(_touches(box, other, LABEL_PAD / 2) for other in others):
                 tight.append(string)
-    # Chord symbols on these pages are hidden placeholders that make room for the numerals.
-    # The last layouts are the drawn pages; earlier ones only measured systems for line breaks.
     music = [hit for layout in _layouts[-page_count :] for hit in music_collisions(layout.source, frozenset({"harm"}))]
     return {"labels": sum(len(layout.labels) + len(layout.harmony_labels) for layout in _layouts[-page_count:]), "overlapping": overlapping, "tight": tight, "music": music}
 

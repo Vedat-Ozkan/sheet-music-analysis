@@ -1,4 +1,3 @@
-"""usage: fixeval.py BENCHDIR RESULTS.json OUT.json : effect of tripletfix on (pitch,onset) matches; gained / regressed notes per PDF"""
 import sys, json, hashlib, collections
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent)); sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "analysis"))

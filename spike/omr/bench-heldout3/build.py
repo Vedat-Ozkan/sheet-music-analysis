@@ -1,9 +1,3 @@
-"""Six fresh CC0 songs chosen from selection-ranking.txt (truth triplets printed without a number), before any OMR.
-# Brahms Op.6/6 (rank 4) was replaced by Faisst Op.18/3 (rank 12): MuseScore crashed engraving it (exit 40), before any OMR.
-
-Usage: .venv/bin/python spike/omr/bench-heldout3/build.py --lieder DIR
-Uses the same MuseScore 4 export and first-bars excerpt as the original benchmark.
-"""
 import argparse
 import json
 import sys
@@ -14,7 +8,6 @@ sys.path.insert(0, str(HERE.parent / 'bench'))
 import build as B
 from features import totals
 
-# Fixed before reading: six composers, contrasting densities, first 24 bars each.
 PIECES = [
  ('h3-schumann-fruehlingsnacht', 'Schumann,_Robert/Liederkreis,_Op.39/12_Frühlingsnacht'),
  ('h3-franz-lotosblume', 'Franz,_Robert/6_Lieder,_Op.25/1_Die_Lotosblume'),

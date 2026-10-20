@@ -67,11 +67,10 @@ Reply with one ```json block and nothing else:
 """
 
 PROSE = pieces.OUT / "prose"
-LIMIT = 200_000  # characters kept from each analysis; a dissertation's text past this is mostly appendix and bibliography
+LIMIT = 200_000
 
 
 def read_text(address: str) -> str:
-    """The text of a published analysis, from a PDF or a web page. Raises if it cannot be had."""
     cached = PROSE / (hashlib.sha1(address.encode()).hexdigest()[:16] + ".txt")
     if cached.exists():
         return cached.read_text()
@@ -79,7 +78,7 @@ def read_text(address: str) -> str:
     with urllib.request.urlopen(request, timeout=120) as response:
         data = response.read()
     if data[:5] == b"%PDF-":
-        from pypdf import PdfReader  # only needed here, so the rest of eval runs without it
+        from pypdf import PdfReader
 
         text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(data)).pages)
     else:
@@ -93,7 +92,6 @@ def read_text(address: str) -> str:
 
 
 def as_text(annotations: list[dict], commentary: str) -> str:
-    """An annotation list as a few lines a reader can scan."""
     lines = []
     harmonies = sorted((a for a in annotations if a["type"] == "harmony"), key=lambda a: (a["at"]["measure"], a["at"].get("beat", 1)))
     for measure, group in groupby(harmonies, key=lambda a: a["at"]["measure"]):
@@ -110,8 +108,6 @@ def as_text(annotations: list[dict], commentary: str) -> str:
 
 
 def judge(piece: pieces.Piece, reviewer: str, claims_from: str | None = None, repeat: int | None = None) -> dict:
-    """Judge one piece. With `claims_from`, reuse that run's list of claims so two runs are marked on the same list.
-    `repeat` numbers one of several independent markings, kept in their own folder (see `steady`)."""
     path = JUDGED / reviewer / (f"repeat{repeat}" if repeat is not None else "") / f"{piece.id}.json"
     if path.exists():
         return json.loads(path.read_text())
@@ -121,8 +117,6 @@ def judge(piece: pieces.Piece, reviewer: str, claims_from: str | None = None, re
     for address in piece.prose:
         try:
             text = read_text(address)
-            # a short page is a contents page (teoria.com splits an analysis into linked pages) or a scan:
-            # the model's fetch, which follows links, does better there
             if len(text) < 3000:
                 raise ValueError(f"only {len(text)} characters of text")
             texts.append(f"## From {address}\n\n{text[:LIMIT]}")
@@ -160,10 +154,6 @@ def judge(piece: pieces.Piece, reviewer: str, claims_from: str | None = None, re
 
 
 def steady(piece: pieces.Piece, reviewer: str, claims_from: str, repeats: int) -> dict:
-    """Mark the same claims several times and keep each claim's median verdict.
-
-    One marking is noisy (a control in docs/engineering-log.md, challenge 8, changed 24 of 185
-    verdicts with nothing else changed); the median of several is steadier."""
     runs = [judge(piece, reviewer, claims_from, repeat) for repeat in range(repeats)]
     order = ["disagree", "not_addressed", "partly", "agree"]
     claims = []

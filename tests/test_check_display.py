@@ -56,7 +56,6 @@ def test_typed_comparison_page(name):
     assert page.page_count == 1
     height = Image.open(io.BytesIO(page.png())).height
     assert Image.open(io.BytesIO(page.png())).width == 1400
-    # The label rows add height, but the page lays out like a normal one: same systems, no empty gaps.
     assert height < 1.25 * normal_height(name)
     svg = ET.fromstring(page.svgs[0])
     overlay = next(g for g in svg.iter() if g.get('class') == 'analysis-over')
@@ -65,13 +64,10 @@ def test_typed_comparison_page(name):
     assert strings.count('agrees') == 1
     assert sum("you didn't label this chord" in t for t in strings) == 1
     assert any('the tool hears this in' in t if name == 'bach' else 'a different chord' in t for t in strings)
-    # The key is written at the start and where it changes, never before every label.
     keys = [t for t in strings if t.endswith(':') and len(t) <= 3]
-    # Bach also names a: in the tool's row, where the tool's key returns to A minor after C.
     assert len(keys) == (4 if name == 'bach' else 3), keys
     assert 'a:' in strings if name == 'bach' else 'E♭:' in strings
     assert any(t.get('class') == 'agreement-mark' for t in overlay.iter())
-    # Numerals are typeset with raised figures and the diminished sign, not as typed.
     assert not any(t in strings for t in ('viio7', 'I53', 'V65/vi', 'ii7'))
     assert '°' in strings
 
@@ -80,7 +76,6 @@ CHOPIN = 'tests/data/chopin_nocturne_op9_no2.mxl', 'examples/chopin_op9_no2_m1-8
 
 
 def typed_page(text, bars=(1, 8)):
-    """Typed Chopin answer -> the drawn page: its results, text strings, size and whether it is clear of collisions."""
     from tools import engraving_check
     score, reviewed = (ROOT / CHOPIN[0]).read_bytes(), AnnotationList.model_validate_json((ROOT / CHOPIN[1]).read_text())
     index = ScoreIndex(load_toolkit(score).getMEI())
@@ -136,7 +131,7 @@ def test_key_notes_are_numbered_per_run_not_per_passage():
 def test_chord_and_key_both_different_is_a_chord_difference():
     results, *_ = typed_page('key: Eb major; bar 1 in Bb: V; bar 4 beat 3 in Bb: IV', (1, 4))
     written = [r['classification'] for r in results if r['student']]
-    assert written == ['different_chord', 'different_key']  # F major is not E-flat major; the same E-flat chord named in another key
+    assert written == ['different_chord', 'different_key']
 
 
 def test_legend_lists_only_marks_on_the_page():
@@ -202,7 +197,6 @@ PNG_HASH = '2bcb4833c27458aeb85afe3ea3c2b063ec5266d5915adcaa8dc28eed7f6e5a8c'
 
 
 def test_coloured_marks_print_in_colour_not_black():
-    # Verovio's stylesheet once turned every drawn stroke black; the SVG attribute alone proves nothing.
     score, annotations, index, labels = passage('bach')
     image = Image.open(io.BytesIO(render(score, annotations, measures=(1, 8), student_labels=labels).png())).convert('RGB')
     green = sum(1 for r, g, b in image.getdata() if abs(r - 0x22) < 40 and abs(g - 0x88) < 40 and abs(b - 0x33) < 40)
@@ -224,7 +218,6 @@ def test_rings_and_underlines_print_red_and_notes_never_end_on_one_word():
 
 
 def test_note_numbers_are_discs_and_key_labels_are_regular_weight():
-    # A bare digit beside a numeral reads as a chord figure (IV3); a disc cannot. Key labels match the analysis page.
     score, annotations, index, labels = passage('bach')
     svg = render(score, annotations, measures=(1, 8), student_labels=labels).svgs[0]
     assert 'class="note-number"' in svg

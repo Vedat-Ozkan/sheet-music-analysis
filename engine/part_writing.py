@@ -1,26 +1,3 @@
-"""Deterministic classroom part-writing checks on the sounding note table.
-
-Voices are staff/layer pairs in score order, never sorted by current pitch (which
-would hide crossings). Four voices are SATB; fewer voices retain soprano/bass
-outer roles, but get no guessed inner vocal ranges. Ranges are C4–G5, G3–D5,
-C3–G4 and F2–D4, from Open Music Theory, 'Roman Numerals and SATB Chord Construction':
-https://viva.pressbooks.pub/openmusictheorycopy/chapter/roman-numerals/.
-
-Pass draft.Chord spans to reuse the engine's local keys and Roman labels without
-running its model. Without spans, music21 estimates a duration-weighted key in
-four-bar windows (a phrase proxy; fermatas are absent from the note table), with
-local dominant resolutions taking precedence. It removes clear unaccented
-passing/neighbor, anticipation and leaping leading-note decorations before recognising complete
-triads/sevenths. Ambiguous sonorities create no new tendency-tone obligations;
-moving sevenths from an established chord still get checked at decorated complete arrivals. This limits, but
-cannot eliminate, passing-note misreadings.
-The fallback cannot reliably recognise every tonicization or incomplete chord.
-
-music21's VoiceLeadingQuartet fits the spelled parallel-interval checks. Direct
-intervals additionally require an outer soprano leap, the usual classroom rule.
-These are reports of strict exercise rules, not a verdict on a composition.
-"""
-
 from __future__ import annotations
 
 import json
@@ -34,18 +11,14 @@ from engine.score import ScoreIndex
 
 Voice = tuple[int, int]
 RANGES = (("C4", "G5"), ("G3", "D5"), ("C3", "G4"), ("F2", "D4"))
-# Robert Kelley's part-writing grading codes (robertkelleyphd.com/home/partwritingnotations.htm), drawn at the marks to keep
-# busy bars clean; the plain-words sentence naming the voices lives in each finding's `why`. One code per pair, not per line.
 LABELS = {"parallel_fifths": "P5", "parallel_octaves": "P8", "direct_fifths": "H5", "direct_octaves": "H8",
           "voice_crossing": "VC", "voice_overlap": "VO", "spacing": "S", "range": "r",
           "doubled_leading_tone": "D", "unresolved_seventh": "R", "unresolved_leading_tone": "R"}
-LINES = {"parallel_fifths", "parallel_octaves", "direct_fifths", "direct_octaves"}  # a line along each of the two voices
-ARROWS = {"unresolved_seventh", "unresolved_leading_tone"}  # an arrow to the note that follows
-BRACKETS = {"spacing"}  # everything else rings the notes involved
-
+LINES = {"parallel_fifths", "parallel_octaves", "direct_fifths", "direct_octaves"}
+ARROWS = {"unresolved_seventh", "unresolved_leading_tone"}
+BRACKETS = {"spacing"}
 
 def _names(voices):
-    """Plain voice names: SATB for four voices; otherwise soprano and bass at the ends, 'voice n' between."""
     if len(voices) == 4:
         return dict(zip(voices, ("soprano", "alto", "tenor", "bass")))
     names = {v: f"voice {i + 1}" for i, v in enumerate(voices)}
@@ -87,11 +60,6 @@ def _table(index):
 
 
 def applies(index: ScoreIndex) -> bool:
-    """At least 60% of voice onsets must coincide with every voice, with 2–4 monophonic
-    voices and at most four staves. A majority with room for passing eighths
-    admits chorales while rejecting predominantly staggered counterpoint.
-    Tied continuations count as aligned notated onsets, not fresh attacks.
-    """
     voices, notes, rows = _table(index)
     if not 2 <= len(voices) <= 4 or len({e.staff for m in index.measures for e in m.events}) > 4:
         return False
@@ -103,12 +71,6 @@ def applies(index: ScoreIndex) -> bool:
 
 
 def check(index: ScoreIndex, chords=None) -> list[Finding]:
-    """Report strict rules, or return no findings when the texture does not apply.
-
-    Optional chords are engine.draft.Chord spans, in score order. Findings use
-    the start and arrival positions for motion, and one position for a sonority.
-    music21 is imported only when an applicable report is requested.
-    """
     if not applies(index):
         return []
     from music21 import chord, interval, key, note, roman, stream, voiceLeading
@@ -140,7 +102,6 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                 if all(len(es) == 1 for es in held + arrival):
                     tones = [midi(es[0].pitch) % 12 for es in held]
                     resolved = chord.Chord([pitch(es[0]) for es in held] + [pitch(next_event)])
-                    # A leaping leading-note decoration resolves into an otherwise sustained tonic triad.
                     if (tones == [midi(es[0].pitch) % 12 for es in arrival]
                             and resolved.isTriad() and resolved.root().pitchClass == midi(next_event.pitch) % 12):
                         ornaments.add(event.id)
@@ -170,7 +131,6 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                 target = arrival[voices.index((event.staff, event.layer))][0]
                 source_chord = chord.Chord([pitch(es[0]) for es in source])
                 arrival_chord = chord.Chord([pitch(es[0]) for es in arrival])
-                # An anticipation belongs to the arriving chord, whether held or repeated there.
                 if (event.pitch == target.pitch and (source_chord.isTriad() or source_chord.isSeventh())
                         and (arrival_chord.isTriad() or arrival_chord.isSeventh())
                         and source_chord.root().pitchClass != arrival_chord.root().pitchClass
@@ -179,7 +139,6 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                     anticipations[event.id] = (event.measure, measure.beat_of(event.onset + following - onset))
 
     def decorated(pos, event):
-        # A held anticipation is a chord member once its harmony arrives.
         return event.id in ornaments or (event.id in anticipations
                                         and pos[0] == anticipations[event.id][0]
                                         and pos[1] < anticipations[event.id][1])
@@ -217,20 +176,17 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                 inferred[pos] = (k, None)
                 continue
             root = c.root().pitchClass
-            # Adding a dominant seventh can reinterpret a recently tonicized chord as V.
             if c.isDominantSeventh():
                 local_key = None
             if previous is not None and previous.root != root:
                 local_key = None
                 dominant = previous.root == (root + 7) % 12 and previous.third == (root - 1) % 12
                 diminished = previous.root == (root - 1) % 12 and {(root + 2) % 12, (root + 5) % 12} <= previous.tones
-                # A resolved applied dominant is stronger evidence than a four-bar pitch histogram.
                 if (dominant or diminished) and c.third and (c.third.pitchClass - root) % 12 in (3, 4):
                     local_key = key.Key(c.root().name, 'minor' if (c.third.pitchClass - root) % 12 == 3 else 'major')
             previous = harmony.Chord(root, frozenset(p.pitchClass for p in c.pitches),
                                      c.bass().pitchClass, c.seventh.pitchClass if c.seventh else None,
                                      c.third.pitchClass if c.third else None)
-            # Embellishing chord members can establish a cadence, but not a new tendency-tone obligation.
             reduced = chord.Chord([pitch(e) for e in row.values() if not decorated(pos, e)])
             sounding = None
             if reduced.isTriad() or reduced.isSeventh():
@@ -247,7 +203,6 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                 return None, None
             k = key.Key(key.convertKeyStringToMusic21KeyString(span.key))
             c = harmony.chord(span.key, span.label)
-            # Applied dominants have the target's leading tone, not the global key's.
             figure = span.label.replace('/o', 'ø')
             if c and '/' in figure:
                 named_chord = roman.RomanNumeral(figure.replace('ø', '/o'), k,
@@ -312,7 +267,6 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                     arrival = interval.Interval(note.Note(pitch(b[lower])), note.Note(pitch(b[upper]))).semiSimpleName
                     if arrival in ("P5", "P8", "P1"):
                         add("direct_fifths" if arrival == "P5" else "direct_octaves", [before, after], [upper, lower], f"Direct {'fifth' if arrival == 'P5' else 'octave'}: soprano and bass arrive at {'a fifth' if arrival == 'P5' else 'an octave'} in the same direction while the soprano leaps.")
-            # Unisons are noncrossing; overlap still requires moving strictly past.
             if voices.index(lower) == voices.index(upper) + 1 and bu >= bl and au >= al and (bu < al or bl > au):
                 add("voice_overlap", [before, after], [upper, lower], f"Voice overlap: {name[upper]} and {name[lower]}. " + (f"The {name[upper]}'s {b[upper].pitch} falls below the {name[lower]}'s previous {a[lower].pitch}." if bu < al else f"The {name[lower]}'s {b[lower].pitch} rises above the {name[upper]}'s previous {a[upper].pitch}."))
         if not spans and (len(a) != len(voices) or len(b) != len(voices)):
@@ -323,16 +277,13 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
             continue
         if cb is None:
             arrival = chord.Chord([pitch(e) for e in b.values()])
-            # Reduction must not erase a seventh's resolution at a complete decorated arrival.
             if not (arrival.isTriad() or arrival.isSeventh()) or ca.tones == frozenset(p.pitchClass for p in arrival.pitches):
                 continue
         for v in voices:
             if v not in a or v not in b:
                 continue
-            # A held tone over an unknown harmony may still be awaiting its resolution.
             if cb is None and a[v].pitch == b[v].pitch:
                 continue
-            # A neighbour that returns within the same harmony is not the tone's resolution.
             if b[v].id in neighbors and (cb is None or ca.root == cb.root):
                 continue
             destination, target = after, b[v]
@@ -340,7 +291,6 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                 for later, sounding in rows[row_number + 2:]:
                     later_row = {w: es[0] for w, es in sounding.items() if len(es) == 1}
                     later_key, later_chord = named(later, later_row) if spans or len(later_row) == len(voices) else (None, None)
-                    # A suspension must resolve while the arrival harmony is active.
                     if later_key != kb or later_chord != cb:
                         break
                     if len(sounding[v]) != 1:
@@ -352,14 +302,10 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                         break
             motion = interval.Interval(note.Note(pitch(a[v])), note.Note(pitch(target)))
             if ca.seventh is not None and midi(a[v].pitch) % 12 == ca.seventh and (cb is None or ca.tones != cb.tones):
-                # An ambiguous decorated arrival cannot erase an established seventh's obligation.
-                # A retained common tone may be a consonance in a revoicing, not a failed resolution.
                 retained = cb is not None and a[v].pitch == b[v].pitch and ca.seventh in cb.tones and cb.seventh != ca.seventh
                 if not retained and motion.directedName not in ("m-2", "M-2"):
                     add("unresolved_seventh", [before, destination], [v], f"The {name[v]}'s seventh ({a[v].pitch}) should fall by step; it {'moves to ' + target.pitch if target.pitch != a[v].pitch else 'is held'} instead.")
             if ka and kb and cb and v in (voices[0], voices[-1]):
-                # A fifth-related diatonic III–VI motion is not evidence of tonicization.
-                # Require the wider tonic or chromatic evidence in the applied dominant.
                 if (not spans and ka.tonic.pitchClass == ca.root and ka != keys.get(before[0])
                         and cb.root == kb.tonic.pitchClass
                         and context_key and (cb.root == context_key.tonic.pitchClass
@@ -368,7 +314,6 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                         and ca.root == (cb.root + 7) % 12 and ca.third == kb.getLeadingTone().pitchClass):
                     ka = kb
                 tonic = ka.tonic.pitchClass
-                # A retained leading tone reinterpreted as a chordal seventh has a new resolution obligation.
                 retained = a[v].pitch == b[v].pitch and cb.seventh == ka.getLeadingTone().pitchClass
                 if ca.root == (tonic + 7) % 12 and cb.root == tonic and not retained and midi(a[v].pitch) % 12 == ka.getLeadingTone().pitchClass:
                     if motion.directedName != "m2":
@@ -377,11 +322,6 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
 
 
 def as_text(index: ScoreIndex, chords=None) -> str:
-    """The findings as a compact section of the draft the chat model reads; empty when the texture does not apply.
-
-    Each finding carries NoteRefs in the form the annotation list accepts, so the model can draw an arrow
-    per voice (or between the two voices of a single sonority) and a callout without looking notes up.
-    """
     if not applies(index):
         return ""
     voices, _, rows = _table(index)
@@ -411,21 +351,18 @@ def as_text(index: ScoreIndex, chords=None) -> str:
         return lines[0] + "\nNo violations found."
     seen = set()
     rises = set()
-    spots = {}  # first position -> (findings, {mark: labels}, callout note)
+    spots = {}
     for f in found:
         pos = list(zip(f.bars, f.beats))
         label, upper, lower = LABELS[f.rule], f.voices[0], f.voices[-1]
-        marks = []  # (kind, refs, label or None)
+        marks = []
         if f.rule in LINES:
-            # The code goes once, under the lower voice's line, as Milne sets "5 – 5" under the bass.
             marks = [("line", (ref(pos[0], v), ref(pos[1], v)), label if v == lower else None) for v in f.voices]
         elif f.rule in ARROWS:
             marks = [("arrow", (ref(pos[0], upper), ref(pos[1], upper)), label)]
-            # The arrow shows where the tone should have gone: a leading tone up, a seventh down.
             if f.rule == "unresolved_leading_tone":
                 rises.add(marks[0][:2])
         elif f.rule in BRACKETS:
-            # A bracket between two staves would run through the lyrics between them: ring both notes instead.
             if at[pos[0]][upper][0].staff == at[pos[0]][lower][0].staff:
                 marks = [("bracket", (ref(pos[0], upper), ref(pos[0], lower)), label)]
             else:
@@ -434,11 +371,9 @@ def as_text(index: ScoreIndex, chords=None) -> str:
             new = upper if pitch_of(pos[1], upper) < pitch_of(pos[0], lower) else lower
             old = lower if new == upper else upper
             marks = [("ring", (ref(pos[1], new),), label), ("ring", (ref(pos[0], old),), None)]
-        else:  # ring each note involved; the word goes at the highest
+        else:
             top = max(f.voices, key=lambda v: pitch_of(pos[0], v) or 0)
             marks = [("ring", (ref(pos[0], v),), label if v == top else None) for v in f.voices]
-        # The same fault found at each subdivision of a held pair is one finding; and every chord gets one callout
-        # (the one the motion arrives at), however many faults it has.
         same = (f.rule, f.voices, f.why, tuple((kind, refs) for kind, refs, _ in marks))
         if same in seen:
             continue
@@ -456,7 +391,6 @@ def as_text(index: ScoreIndex, chords=None) -> str:
             where = " to ".join(f"m{b} b{beat:g}" for b, beat in zip(f.bars, f.beats))
             lines.append(f"   {f.rule.replace('_', ' ')} {'+'.join(names[v] for v in f.voices)} {where}: {f.why}")
         for (kind, refs), labels in drawn.items():
-            # A line shared by two pairs is drawn once per label; the copies coincide.
             for word in labels or [None]:
                 lines.append(f"   draw {kind} {' -> '.join(refs)}" + (f' label "{word}"' if word else "")
                              + (' direction "up"' if (kind, refs) in rises else ""))

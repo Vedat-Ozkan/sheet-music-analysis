@@ -1,4 +1,3 @@
-"""Can the engine read this MusicXML? usage: scoreindex_check.py file(.mxl|.musicxml) ... (run with the repo .venv)"""
 import sys
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2]))
 from engine.render import load_toolkit

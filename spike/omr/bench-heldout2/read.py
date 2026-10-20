@@ -1,8 +1,3 @@
-"""Read six fresh PDFs sequentially with production read_pdf, retaining pre-fix bytes.
-
-No changes to orchestration: the wrapper captures the input to the final post-fix.
-Usage: .venv/bin/python spike/omr/bench-heldout2/read.py --audiveris PATH
-"""
 import argparse
 import hashlib
 import importlib

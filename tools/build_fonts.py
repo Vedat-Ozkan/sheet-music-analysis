@@ -1,12 +1,3 @@
-"""Build engine/fonts/ScoreSerif-*.ttf: Liberation Serif with the ♭ and ♮ signs from DejaVu Serif.
-
-Liberation Serif (Times metrics, which Verovio lays text out with) has no music signs. Given text with
-one, resvg sets the whole string in the fallback font, and cairo draws a missing-glyph box, so a name
-like "Clarinet in B♭" came out wide and bold and ran past its margin. One font with the signs needs no
-fallback. The OFL reserves the name "Liberation" and the DejaVu licence its own names, so the
-merged font has a new name. Run: .venv/bin/python tools/build_fonts.py
-"""
-
 from pathlib import Path
 
 from fontTools.ttLib import TTFont
@@ -15,7 +6,7 @@ from fontTools.ttLib.tables import ttProgram
 FONTS = Path(__file__).resolve().parent.parent / "engine" / "fonts"
 FAMILY = "Score Serif"
 SIGNS = (0x266D, 0x266E, 0x266F)
-STYLES = {  # style: (Liberation file, DejaVu file the signs come from)
+STYLES = {
     "Regular": ("LiberationSerif-Regular.ttf", "DejaVuSerif.ttf"),
     "Bold": ("LiberationSerif-Bold.ttf", "DejaVuSerif-Bold.ttf"),
     "Italic": ("LiberationSerif-Italic.ttf", "DejaVuSerif.ttf"),
@@ -28,13 +19,13 @@ def build(style: str, base_file: str, signs_file: str) -> None:
     assert font["head"].unitsPerEm == signs["head"].unitsPerEm
     order = font.getGlyphOrder()
     for code in SIGNS:
-        if code in font.getBestCmap():  # Liberation has ♯ but not ♭ or ♮
+        if code in font.getBestCmap():
             continue
         source = signs.getBestCmap()[code]
         name = f"uni{code:04X}.dejavu"
         glyph = signs["glyf"][source]
         glyph.expand(signs["glyf"])
-        glyph.program = ttProgram.Program()  # its hinting calls DejaVu's font program, which this font does not have
+        glyph.program = ttProgram.Program()
         glyph.program.fromBytecode(b"")
         assert not glyph.isComposite()
         font["glyf"].glyphs[name] = glyph

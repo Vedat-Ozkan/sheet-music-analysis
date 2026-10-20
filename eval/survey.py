@@ -26,7 +26,7 @@ from eval import compare, pieces
 
 ROME = "https://raw.githubusercontent.com/MarkGotham/When-in-Rome/master/"
 OUT = pieces.OUT / "survey"
-FIT = 0.70  # misaligned references sit near 0.5; dense figuration can bring a correct one down to the mid 0.7s
+FIT = 0.70
 EVALUATION = ("Well-Tempered_Clavier_I/01", "K332/1", "K545/1", "Winterreise,_D.911/05", "Preludes%2C_Op.28/20", "Preludes,_Op.28/20", "Symphony_104/1")
 CATEGORIES = ("key: same tonic, other mode", "key: other tonic", "bass/inversion", "seventh", "quality", "related chord", "different chord", "no label")
 
@@ -59,7 +59,7 @@ def survey(folder: str) -> dict | None:
     drafted = draft.build(json.loads(raw_path.read_text()), index)
     timeline = compare.Timeline(index)
     best = None
-    for shift in (0, 1, -1):  # a pickup bar is numbered 0 by some sources and 1 by others
+    for shift in (0, 1, -1):
         reference = [compare.Label(l.measure + shift, l.beat, l.key, l.figure) for l in compare.from_romantext(text)]
         try:
             spans, _ = timeline.spans(reference)
@@ -74,7 +74,6 @@ def survey(folder: str) -> dict | None:
     reading = compare.from_draft(drafted)
     hyp_spans, _ = timeline.spans(reading)
     scores = compare.compare(reference, reading, index)
-    # loss by category, and the label pairs behind it, in quarter notes
     labelled_ref = list(zip(ref_spans, sorted((l for l in reference if l.measure in timeline.measures), key=lambda l: (l.measure, l.beat))))
     labelled_hyp = list(zip(hyp_spans, sorted((l for l in reading if l.measure in timeline.measures), key=lambda l: (l.measure, l.beat))))
     cuts = sorted({p for (s, e, _), _ in labelled_ref + labelled_hyp for p in (s, e)})
@@ -107,7 +106,7 @@ def main() -> None:
             continue
         try:
             results[folder] = survey(folder)
-        except Exception as error:  # a file that will not load is recorded and skipped
+        except Exception as error:
             results[folder] = {"piece": folder, "dropped": f"{type(error).__name__}: {str(error)[:100]}"}
         done = results[folder]
         print(f"{number:4d}/{len(folders)} {done['piece'][:60]:60s} " + (f"full {done['scores']['full']:.2f} fit {done['fit']:.2f}" if "scores" in done else done["dropped"]), flush=True)

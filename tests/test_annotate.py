@@ -18,15 +18,15 @@ def test_example_renders_on_one_page(chopin, chopin_annotations):
     assert page.page_count == 1
     assert "bounding-box" not in svg
     assert svg.count(">PAC<") == 2
-    assert svg.count("<circle") == 4  # the numbered callouts
-    assert svg.count("<ellipse") >= 4  # non-chord tones (the score has none of its own)
+    assert svg.count("<circle") == 4
+    assert svg.count("<ellipse") >= 4
 
 
 def test_views_show_different_layers(chopin, chopin_annotations):
     harmony = render(chopin, chopin_annotations, measures=(1, 8), view="harmony").svgs[0]
     voices = render(chopin, chopin_annotations, measures=(1, 8), view="voice_leading").svgs[0]
     form = render(chopin, chopin_annotations, measures=(1, 8), view="form").svgs[0]
-    assert ">tonic<" in harmony and "fill-opacity" not in harmony and ERROR not in harmony  # function brackets, no colour, no arrows
+    assert ">tonic<" in harmony and "fill-opacity" not in harmony and ERROR not in harmony
     assert ARROW in voices and ERROR not in voices and ">tonic<" not in voices and ">PAC<" not in voices
     assert ">PAC<" in form and "ornamented repeat" in form and ">vi<" not in form
 
@@ -64,7 +64,6 @@ def test_matches_golden_image(chopin, chopin_annotations):
 
 
 def test_renders_from_a_worker_thread(chopin, chopin_annotations):
-    """A server renders off the main thread, where Verovio does not find its fonts by default."""
     from concurrent.futures import ThreadPoolExecutor
 
     with ThreadPoolExecutor(max_workers=2) as pool:
@@ -83,13 +82,12 @@ def test_chord_symbols_and_regions_for_music_roman_numerals_do_not_fit(chopin):
         }
     )
     svg = render(chopin, annotations, measures=(1, 2)).svgs[0]
-    assert ">Ebmaj7<" in svg and ">C7(#11)<" in svg and ">E<" in svg  # drawn as written
+    assert ">Ebmaj7<" in svg and ">C7(#11)<" in svg and ">E<" in svg
     assert "stroke-dasharray" in svg and ">pedal on Eb<" in svg
-    assert ">tonic<" not in svg and ">dominant<" not in svg  # no function given, so no brackets
+    assert ">tonic<" not in svg and ">dominant<" not in svg
 
 
 def test_piano_reduction_keeps_the_marked_notes():
-    """A string quartet drawn on two piano staves: the analysis written for the four parts still finds its notes."""
     from tools.robustness import CORPUS
 
     score = (CORPUS / "mozart/k458/movement1.mxl").read_bytes()

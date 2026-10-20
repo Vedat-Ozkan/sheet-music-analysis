@@ -1,9 +1,3 @@
-"""Eight complete bars from the existing BWV 269 fixture, with reviewed labels.
-
-Run from the repository root: .venv/bin/python spike/export/make_fixtures.py
-The pickup is omitted; source fragments 7 and 7a are joined, with repeat removed.
-No notes are changed. Harmony and lyric variants use identical beat anchors.
-"""
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -40,7 +34,6 @@ for part in score.findall("part"):
         else:
             for attr in ("width", "default-x", "default-y", "relative-x", "relative-y"):
                 element.attrib.pop(attr, None)
-    # Keep the existing soprano words; bass analysis occupies lyric line 1.
     if part is score.findall("part")[-1]:
         for lyric in list(part.iter("lyric")):
             lyric.getparent().remove(lyric)

@@ -1,12 +1,3 @@
-"""The production MCP server for Sheet Music Analysis.
-
-Claude users reach it through the plugin's skill, which sends a note list to `draft_from_notes`.
-ChatGPT users send the attached score itself to `draft_analysis` and see the page in a card.
-
-Run locally:  .venv/bin/python -m server.app
-On Cloud Run: see server/deploy.sh. Set BUCKET to keep scores, pages and daily counts in Cloud Storage.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -49,18 +40,13 @@ PORT = int(os.environ.get("PORT", "8080"))
 PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", f"http://localhost:{PORT}").rstrip("/")
 BUCKET = os.environ.get("BUCKET")
 MAX_SCORE_BYTES = 10 * 1024 * 1024
-# Keeps a month's work inside Cloud Run's free tier (owner's $5 limit, 2026-10-06). Counts reset at midnight UTC.
-# A PDF read counts its pages (owner, 2026-10-11; cost in log 32).
 DAILY_LIMITS = {"draft": 100, "render": 200, "pdf_page": 150}
 MAX_PDF_PAGES = 12
-# Hosts keep a card's HTML by its address, so the version goes up whenever the HTML changes. The PDF card is the
-# same file under its own address. The card shows only the page and its downloads; any message goes in the reply.
 CARD_URI = "ui://sheet-music-analysis/card-v2.html"
 PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v2.html"
 HERE = Path(__file__).parent
 
 def read_only(title: str) -> ToolAnnotations:
-    # Directories read the name from annotations.title, chat hosts from the tool's own title.
     return ToolAnnotations(title=title, read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False)
 
 
@@ -79,8 +65,6 @@ class LocalStore:
 
 
 class BucketStore:
-    """Cloud Run's disk lives in memory and is lost when the instance stops, so everything goes to a bucket.
-    The bucket deletes objects after a day (lifecycle rule set in server/deploy.sh)."""
 
     def __init__(self, name: str):
         from google.cloud import storage
@@ -101,7 +85,6 @@ class BucketStore:
 
 store = BucketStore(BUCKET) if BUCKET else LocalStore(Path(os.environ.get("DATA_DIR", "out/server")))
 counter_lock = asyncio.Lock()
-# Audiveris peaks at about 1.3 GB beside up to four drafts in 4 GiB (log 32), so one PDF is read at a time.
 pdf_lock = asyncio.Lock()
 
 
@@ -119,13 +102,10 @@ def client_of(headers) -> str:
 
 
 def log(event: str, **details) -> None:
-    """One JSON line per event; Cloud Run keeps stdout as the log. Never log score contents or chat text."""
     print(json.dumps({"event": event, **details}), file=sys.stdout, flush=True)
 
 
 async def take(kind: str, source: str, amount: int = 1) -> bool:
-    """Count `amount` units of work for today; False if they would go over the day's limit for that kind.
-    The day's file is also the usage record (per kind and platform), so it is kept outside the day-old cleanup."""
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     key = f"usage/{day}.json"
     async with counter_lock:
@@ -190,7 +170,6 @@ def clean_id(score_id: str) -> str:
 
 
 async def resolve_score(score_file: AttachedFile | None, score_id: str | None) -> tuple[bytes, str]:
-    """Return the score bytes and which input path supplied them."""
     if score_file:
         data = await download(score_file.download_url)
         if data.startswith(b"%PDF"):
@@ -223,7 +202,6 @@ def parse_measures(measure_range: str) -> tuple[int, int] | None:
     return int(match[1]), int(match[2])
 
 
-# The analysis rules are the skill's own (from "## Method" on), so ChatGPT and Claude analyse the same way.
 SKILL_RULES = re.sub(r"<!--.*?-->\n+", "", (HERE.parent / "skill" / "SKILL.md").read_text().split("## Method", 1)[1])
 REVIEW_GUIDE = (
     "HOW TO USE THIS DRAFT\n"
@@ -287,7 +265,6 @@ def musicxml_text(url: str, annotations: AnnotationList) -> str:
             "The file uses standard Roman numerals whatever the page style.")
 
 
-# Published names carry the kind so the download gets a friendly file name (see `files`).
 EXTRA_FILES = {"worksheet": ("pdf", "-worksheet"), "midi": ("mid", ""), "romantext": ("rntxt", "")}
 
 
@@ -343,7 +320,6 @@ async def render_analysis(
     except ValueError as error:
         log("render_analysis", platform=source, error=str(error))
         return error_result(str(error))
-    # Optional exports must not discard an engraving Verovio already accepted.
     musicxml, export_warning = None, None
     try:
         musicxml = await anyio.to_thread.run_sync(export_musicxml, score, annotations.model_dump())
@@ -366,7 +342,6 @@ async def render_analysis(
         return found
 
     png = engraving.png(1)
-    # The card shows a double-resolution page, sharp on high-density screens; the model gets the small one.
     def publish_all():
         links = {"image_url": publish(engraving.png(1, width=2800, colors=256), "png"), "pdf_url": publish(engraving.pdf(), "pdf")}
         if musicxml is not None:
@@ -380,7 +355,6 @@ async def render_analysis(
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
         view=view, measure_range=measure_range)
     structured_content = {**links, "caption": caption}
-    # The card shows the page to the user; the image lets the chat model check its own annotations.
     return CallToolResult(
         content=[
             ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png"),
@@ -396,7 +370,7 @@ apps.add_html_resource(
     (HERE / "card.html").read_text(),
     name="Analysis card",
     csp=ResourceCsp(resource_domains=[PUBLIC_BASE_URL]),
-    domain="https://sheetmusicanalysis.com",  # ChatGPT requires a dedicated origin for a submitted plugin's UI
+    domain="https://sheetmusicanalysis.com",
     prefers_border=True,
 )
 
@@ -425,7 +399,6 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
         data = await download(pdf_file.download_url)
         if not data.startswith(b"%PDF"):
             raise ScoreError("This file is not a PDF. Ask the user to attach a PDF of the printed music or a MusicXML file.")
-        # Kept by the file's hash, so the same PDF is never read twice (it expires with the scores, after a day).
         cache_key = f"scores/pdf-{pdf_reader.READER}-{hashlib.sha256(data).hexdigest()}.json"
         cached = await anyio.to_thread.run_sync(store.get, cache_key)
         if cached:
@@ -450,16 +423,13 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
                        "skipped": result.skipped}
             await anyio.to_thread.run_sync(store.put, f"scores/{reading['score_id']}", result.musicxml)
             await anyio.to_thread.run_sync(store.put, cache_key, json.dumps(reading).encode())
-        # The cache holds the reading with its slurs; the slur choice is applied on each call, under its own id.
         score, _ = await resolve_score(None, reading["score_id"])
         score_id = reading["score_id"] if keep_slurs else reading["score_id"] + "N"
         if not keep_slurs:
             score = pdf_reader.without_slurs(score)
             await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
-        # The card shows every bar in one tall image; the PDF keeps ordinary pages for printing.
         def render():
             spots = pdf_reader.problem_spots(score)
-            # Every bar is numbered on what the model sees, even with nothing flagged, so "bar 12" can be followed.
             return (pdf_reader.preview(score, tall=True, spots=spots), pdf_reader.preview(score, spots=spots), engrave(score),
                     pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots))
 
@@ -467,7 +437,6 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
     except (ScoreError, pdf_reader.ReadError, httpx.HTTPError) as error:
         log("read_pdf", platform=source, error=str(error))
         return error_result(str(error))
-    # The model gets ordinary (shaded) pages: one tall image of a long score is shrunk by hosts until notes can't be read.
     pages = [shaded.png(page) for page in range(1, shaded.page_count + 1)]
     image_url, pdf_url = await anyio.to_thread.run_sync(
         lambda: (publish(tall.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"))
@@ -504,8 +473,6 @@ apps.add_html_resource(
 
 
 
-# In Claude the plugin's skill reads the attached file in Claude's sandbox and needs only draft_from_notes;
-# the owner wants no file button or server-side drawing there, so Claude is not offered the other tools.
 CLAUDE_TOOLS = {"draft_from_notes"}
 
 
@@ -517,13 +484,11 @@ class Server(MCPServer):
         return result
 
 
-# The extension's tools are collected when the server is constructed, so this comes after them.
 SITE = "https://sheetmusicanalysis.com"
 mcp = Server(
     "sheet-music-analysis",
     title="Sheet Music Analysis",
     website_url=SITE,
-    # `theme` names the background the icon is meant for: a dark clef for light hosts, a white one for dark.
     icons=[
         Icon(src=f"{SITE}/icons/clef-for-light-512.png", mime_type="image/png", sizes=["512x512"], theme="light"),
         Icon(src=f"{SITE}/icons/clef-for-dark-512.png", mime_type="image/png", sizes=["512x512"], theme="dark"),
@@ -535,8 +500,6 @@ mcp = Server(
     ),
     extensions=[apps],
 )
-# The 2026 protocol lets a client hold a `subscriptions/listen` stream open to hear of tool-list changes. Our tools
-# never change, and Cloud Run bills every second a request is open: Claude's streams cost 4 hours a day (log, 21).
 del mcp._lowlevel_server._request_handlers["subscriptions/listen"]
 
 
@@ -567,7 +530,6 @@ async def draft_analysis(
     try:
         score, given = await resolve_score(score_file, score_id)
         if student_analysis and student_analysis.strip().lower() != "score":
-            # Reading the grammar needs no score, so a question costs the user nothing against the limit.
             check_analysis.from_text(student_analysis)
         if given == "score_id":
             code = clean_id(score_id)
@@ -576,7 +538,6 @@ async def draft_analysis(
             code = secrets.token_hex(3).upper()
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)
             fresh = True
-        # Only a new model run counts toward the limit; re-reading a cached draft is cheap.
         if fresh and not await take("draft", source):
             log("limit", tool="draft_analysis", platform=source)
             return error_result(LIMIT_MESSAGE)
@@ -616,7 +577,6 @@ async def correct_bars(
     source = platform(ctx)
     try:
         before, _ = await resolve_score(None, score_id)
-        # Parse and validate first so a bad replacement costs nothing; engraving is what the render limit covers.
         after = await anyio.to_thread.run_sync(lambda: correct.replace_bars(before, replacement_bars, part=part))
         if not await take("render", source):
             log("limit", tool="correct_bars", platform=source)
@@ -637,7 +597,6 @@ async def correct_bars(
             lambda: [publish(engraving.png(page, width=2800, colors=256), "png")
                      for engraving in review.engravings for page in range(1, engraving.page_count + 1)]
         )
-        # Stored last so a failed engraving leaves no unconfirmed score behind.
         code = secrets.token_hex(3).upper()
         await anyio.to_thread.run_sync(store.put, f"scores/{code}", after)
     except (correct.CorrectionError, ScoreError, PositionError) as error:
@@ -678,7 +637,6 @@ async def correct_bars(
 async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | None = None) -> CallToolResult:
     source = platform(ctx)
     try:
-        # Reading the grammar needs no score, so a question costs the user nothing against the limit.
         if student_analysis:
             check_analysis.student_labels(student_analysis, None, None)
     except check_analysis.ClarificationNeeded as error:
@@ -720,8 +678,6 @@ async def files(request: Request) -> Response:
                    "mid": "audio/midi", "rntxt": "text/plain; charset=utf-8"}
     extension = name.rsplit(".", 1)[1]
     friendly = "worksheet" if name.endswith("-worksheet.pdf") else "analysis"
-    # An uploaded score can carry scripts into the export, so files download in a sandbox instead of rendering;
-    # page images stay inline so an image link opens in the browser.
     disposition = "inline" if extension == "png" else "attachment"
     return Response(data, media_type=media_types[extension], headers={
         "Content-Disposition": f'{disposition}; filename="{friendly}.{extension}"',
@@ -739,7 +695,6 @@ def main() -> None:
     app = mcp.streamable_http_app(
         stateless_http=True,
         json_response=True,
-        # Requests arrive under the public hostname, so the localhost-only check is off.
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
     )
     uvicorn.run(app, host="0.0.0.0", port=PORT, log_level="warning")

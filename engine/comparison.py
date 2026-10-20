@@ -1,10 +1,3 @@
-"""Compare two chord-by-chord readings of the same score.
-
-Both readings are reduced to what they claim is sounding (key, root, chord tones, bass), so
-"V/V" in C and "V" in G count as the same chord in a different key instead of as two
-unrelated labels. Agreement is weighted by how long each chord lasts.
-"""
-
 from __future__ import annotations
 
 import re
@@ -28,14 +21,12 @@ NOT_A_CHORD = re.compile(r"^(\|.*|:?\|\|:?|\\\\.*|NC|N\.C\.|\(.*|.*\))$")
 class Label:
     measure: int
     beat: float
-    key: str  # "Eb" for E-flat major, "f" for F minor
-    figure: str  # RomanText, e.g. "V65/vi"
+    key: str
+    figure: str
 
 
 @dataclass(frozen=True)
 class Sounding:
-    """What a label claims: the local key, and the chord as pitch classes."""
-
     tonic: int
     minor: bool
     root: int
@@ -45,28 +36,21 @@ class Sounding:
 
 @lru_cache(maxsize=None)
 def sounding(key: str, figure: str) -> Sounding | None:
-    """None when the figure is not a Roman numeral music21 can read (a chord symbol, a typo)."""
     try:
         local = m21key.Key(m21key.convertKeyStringToMusic21KeyString(key))
-        # a sharp on vi or vii in a minor context is cautionary (When in Rome writes "#viio7/vi"); music21's
-        # default raises it a second time and puts the root a semitone too high
         chord = roman.RomanNumeral(figure.replace("ø", "/o"), local, sixthMinor=roman.Minor67Default.CAUTIONARY, seventhMinor=roman.Minor67Default.CAUTIONARY)
         return Sounding(local.tonic.pitchClass, local.mode == "minor", chord.root().pitchClass, frozenset(p.pitchClass for p in chord.pitches), chord.bass().pitchClass)
-    except Exception:  # music21 raises many kinds of error on figures it cannot read
+    except Exception:
         return None
 
 
-# ---- reading labels ---------------------------------------------------------------------
-
-
 def from_romantext(text: str) -> list[Label]:
-    """Labels from a RomanText analysis, with copied measures ("m5-6 = m1-2") written out."""
     by_measure: dict[int, list[tuple[float, str, str]]] = {}
     key_after: dict[int, str] = {}
     key = "C"
     for line in text.splitlines():
         match = MEASURE_LINE.match(line.strip())
-        if not match or match.group(2):  # variant readings ("m12var1") are alternatives, not the analysis
+        if not match or match.group(2):
             continue
         first, last = int(match.group(1)), int(match.group(3) or match.group(1))
         if match.group(4):
@@ -94,7 +78,6 @@ def from_draft(draft) -> list[Label]:
 
 
 def from_annotations(annotations: dict) -> list[Label]:
-    """Labels from an annotation list (docs/annotation-spec.md): `key` is given only where it changes."""
     found, key = [], "C"
     harmonies = [item for item in annotations["annotations"] if item["type"] == "harmony"]
     for item in sorted(harmonies, key=lambda item: (item["at"]["measure"], item["at"].get("beat", 1))):
@@ -102,8 +85,6 @@ def from_annotations(annotations: dict) -> list[Label]:
         found.append(Label(item["at"]["measure"], float(item["at"].get("beat", 1)), key, item["label"].split(" ")[0]))
     return found
 
-
-# ---- comparing ---------------------------------------------------------------------------
 
 def matches(reference: Sounding, reading: Sounding) -> dict[str, bool]:
     same_key = (reference.tonic, reference.minor) == (reading.tonic, reading.minor)
@@ -116,8 +97,6 @@ Span = tuple[Fraction, Fraction, Sounding | None]
 
 
 class Timeline:
-    """A score's measures laid end to end, in quarter notes."""
-
     def __init__(self, index: ScoreIndex):
         self.index = index
         self.starts: dict[int, Fraction] = {}
@@ -130,14 +109,12 @@ class Timeline:
         self.total = total
 
     def spans(self, labels: list[Label]) -> tuple[list[Span], int]:
-        """Each label as (start, end, sounding), plus how many labels name a measure the score lacks."""
         placed, missing = [], 0
         for label in labels:
             measure = self.measures.get(label.measure)
             if measure is None:
                 missing += 1
                 continue
-            # an analyst counts a pickup's beats as if the bar were full; the index counts from its first note
             inside = measure.offset_of(label.beat) if measure.declared_length is not None else Fraction(0)
             placed.append((self.starts[label.measure] + min(inside, measure.length), sounding(label.key, label.figure)))
         placed.sort(key=lambda item: item[0])
@@ -145,11 +122,6 @@ class Timeline:
         return [(start, end, chord) for (start, chord), end in zip(placed, ends) if end > start], missing
 
     def fit(self, spans: list[Span]) -> float:
-        """Share of the sounding notes, by length, that belong to the chord named over them.
-
-        Not every note should (non-chord tones exist), but a reading that is a bar out of step with
-        the score, or simply wrong, fits far fewer notes than a correct one.
-        """
         inside = outside = Fraction(0)
         notes = sorted(
             (self.starts[m.number] + e.onset, e.duration, midi(e.pitch) % 12)
@@ -172,7 +144,6 @@ class Timeline:
 
 
 def compare(reference: list[Label], reading: list[Label], index: ScoreIndex) -> dict:
-    """How far `reading` agrees with `reference`, as shares of the time the reference labels."""
     timeline = Timeline(index)
     ref, ref_missing = timeline.spans(reference)
     hyp, _ = timeline.spans(reading)
