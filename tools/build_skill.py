@@ -1,11 +1,3 @@
-"""Assemble the sandbox skill: the SKILL.md and scripts from skill/, plus the engine they import.
-
-    .venv/bin/python tools/build_skill.py
-
-Writes out/sheet-music-analysis.zip (the skill alone) and the plugin (the skill plus a pointer to the connector,
-mcp.sheetmusicanalysis.com unless CONNECTOR_URL says otherwise) to dist/sheet-music-analysis/ and as a zip in out/.
-"""
-
 import json
 import os
 import shutil
@@ -14,7 +6,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 NAME = "sheet-music-analysis"
-# The draft model needs its own heavy environment and a server, so it stays out of the sandbox skill.
 ENGINE_SKIP = {"draft.py", "models", "__pycache__"}
 
 
@@ -39,8 +30,6 @@ def main() -> None:
 
 
 def build_plugin(skill: Path) -> None:
-    """The plugin: the same skill plus a pointer to the connector, installed together.
-    It is committed under dist/, because the plugin directory reads it from GitHub."""
     server = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
     target = ROOT / "dist" / NAME
     shutil.rmtree(target, ignore_errors=True)

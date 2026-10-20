@@ -1,4 +1,3 @@
-"""Editor export checks against real MusicXML scores (no mocked toolkit)."""
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -17,7 +16,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def note_content(data):
     index = ScoreIndex(load_toolkit(data).getMEI())
-    # Check musical identity; checksum-derived element IDs change with the XML.
     return [(m.number, m.beat_length, m.length,
              [(e.measure, e.staff, e.onset, e.duration, e.pitch, e.grace, e.layer, e.tied)
               for e in m.events]) for m in index.measures]
@@ -31,10 +29,9 @@ def test_bach_full_score():
     assert load_toolkit(exported).renderToSVG(1).startswith('<svg')
     before, after = ET.fromstring(_document(original)), ET.fromstring(exported)
     lyrics = after.findall(".//lyric[@name='roman-analysis']")
-    assert len(lyrics) == 22  # Includes the original pickup, unlike the spike.
+    assert len(lyrics) == 22
     assert lyrics[0].findtext('text') == 'G: I'
     assert [l.findtext('text') for l in lyrics].count('ii65') == 1
-    # Removing only the additions leaves every original XML element unchanged.
     clean = deepcopy(after)
     for note in clean.findall('.//note'):
         for lyric in note.findall("lyric[@name='roman-analysis']"):
@@ -63,7 +60,7 @@ def test_placement_and_existing_lyrics():
     assert all(lyric.get('number') == '4' for lyric in added)
     bass = root.findall('part')[-1]
     targets = [n for n in bass.findall('.//note') if n.find("lyric[@name='roman-analysis-2']") is not None]
-    assert targets[0].findtext('pitch/octave') == '3'  # chord's lowest note
+    assert targets[0].findtext('pitch/octave') == '3'
     words = bass.findall('measure/direction')
     assert [(d.findtext('direction-type/words'), d.findtext('offset'), d.findtext('staff')) for d in words] == [
         ('viiø7/V', '4', '2'), ('D: I', '8', '2'), ('V7', '12', '2')]
@@ -83,7 +80,6 @@ def test_compound_meter_and_split_bar():
     labels = from_musicxml(exported, default_key='Eb')
     assert len(labels) == 1
     assert labels[0].beat == 2
-    # A label in the second repeat fragment of Bach bar 7 remains in that fragment.
     bach = (ROOT / 'out/engraving/scores/bach-269.mxl').read_bytes()
     analysis['annotations'][0]['at'] = {'measure': 7, 'beat': 3}
     result = export_musicxml(bach, analysis)
@@ -107,7 +103,6 @@ def test_no_harmony_is_unchanged():
 
 
 def test_sounding_pitch_and_shared_anchor():
-    # Even an upper staff transposed below the bass cannot take its lyric anchor.
     root = ET.parse(ROOT / 'tests/data/export_placement.musicxml').getroot()
     bass = root.findall('part')[-1]
     transpose = ET.SubElement(bass.find('measure/attributes'), 'transpose', number='1')

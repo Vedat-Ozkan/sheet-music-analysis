@@ -1,5 +1,3 @@
-"""Read student Roman numerals and compare them with a reviewed annotation list."""
-
 from __future__ import annotations
 
 import io
@@ -26,8 +24,6 @@ TOKEN = re.compile(
 
 
 class ClarificationNeeded(ValueError):
-    """The caller should show `question` and request a revised student answer."""
-
     def __init__(self, message: str, question: str):
         self.question = question
         super().__init__(f'{message}. {question}')
@@ -94,25 +90,19 @@ def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
 
 
 def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None) -> list[Label]:
-    """Unmarked successive labels occupy beats 1, 2, ...; an unaddressed key is the initial key."""
     text = text.translate(str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', '01234567890123456789'))
-    # "/" always means "of", so spaces around it are tightened; a spaced hyphen between chords separates them.
-    # \0 remembers a spaced slash so a question can offer to split the answer there.
     text = re.sub(r'(?:\s+/\s*|\s*/\s+)(?=[#b-]*[ivIV])', '/\0', text)
     text = re.sub(r'\s*/\s*', '/', text)
     text = re.sub(r'\bCad\s*6\s*[-–—]\s*4', 'Cad64', text, flags=re.IGNORECASE)
     text = re.sub(r'(?<=\S)\s+[-–—]\s+(?=\S)', ' ', text)
     tokens = list(TOKEN.finditer(text))
     key = _key(default_key)
-    # Only a key before the first numeral is the starting key; after numerals it is a modulation that
-    # needs a numeral to apply to.
     initial_keys = set()
     kinds = [t.lastgroup for t in tokens]
     unaddressed = [i for i, k in enumerate(kinds) if k in ('key', 'shortkey') and not (i > 0 and kinds[i - 1] in ('bar', 'beat'))]
     for position in unaddressed:
         name = _key(re.sub(r'^(?:key\s*:?|in)\s*', '', tokens[position].group(), flags=re.I).rstrip(':'))
         stop = next((i for i in range(position + 1, len(kinds)) if kinds[i] in ('key', 'shortkey')), len(kinds))
-        # A lone key is the global key wherever it appears, unless numerals on both sides make it a modulation.
         if 'label' not in kinds[:position] or ('label' not in kinds[position + 1:stop] and len(unaddressed) == 1):
             initial_keys.add(name)
         elif 'label' not in kinds[position + 1:stop]:
@@ -134,7 +124,6 @@ def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None
         else:
             value = value.strip('()[]\"\'.!')
             if re.fullmatch(r'\d[-–—]\d', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label':
-                # A suspension (4-3) ornaments the chord before it, so it is not a chord of its own.
                 continue
             if re.fullmatch(r'(?:6|64|7|65|43|42)(?:/\S+)?', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label' and text[tokens[position - 1].end():token.start()].isspace():
                 previous = labels.pop()
@@ -187,8 +176,6 @@ def _numeral(harmony: ET.Element, key: str) -> tuple[str, str]:
     alteration = int(numeral.findtext('numeral-alter', '0'))
     accidental = '#' * alteration if alteration > 0 else 'b' * -alteration
     if key[0].islower():
-        # XML alterations count from natural minor; RomanText has quality-dependent
-        # raised vi/vii and flats that count from the major scale instead.
         local_key = m21key.Key(m21key.convertKeyStringToMusic21KeyString(key))
         desired = (local_key.pitchFromDegree(degree).pitchClass + alteration) % 12
         for shift in [0] + [n for size in range(1, abs(alteration) + 3) for n in (-size, size)]:
@@ -207,7 +194,6 @@ def _numeral(harmony: ET.Element, key: str) -> tuple[str, str]:
 
 
 def from_musicxml(data: str | bytes, default_key: str = 'C', index: ScoreIndex | None = None) -> list[Label]:
-    """Read partwise XML; ordinary song lyrics outside the bottom staff are ignored."""
     root = ET.fromstring(data)
     for element in root.iter():
         element.tag = element.tag.rsplit('}', 1)[-1]
@@ -215,8 +201,6 @@ def from_musicxml(data: str | bytes, default_key: str = 'C', index: ScoreIndex |
         raise ValueError('Expected an uncompressed score-partwise MusicXML document')
     parts = root.findall('part')
     labels = []
-    # Verovio supplies the same logical-bar/segment mapping used by export.
-    # Plain numeric XML (including small student snippets) needs no toolkit.
     timing = index
     if timing is None and any(not m.get('number', '').lstrip('-').isdigit() for p in parts for m in p.findall('measure')):
         from engine.render import load_toolkit
@@ -263,8 +247,6 @@ def from_musicxml(data: str | bytes, default_key: str = 'C', index: ScoreIndex |
                     offset = cursor + Fraction(element.findtext('offset', '0')) / divisions
                     pending.append((offset, 'harmony', element))
                 elif element.tag == 'harmony' and element.findtext('kind') == 'none' and element.find('root/root-step') is not None and element.find('root/root-step').get('text') == '':
-                    # MuseScore uses this shape for both Roman analysis and
-                    # ordinary chord text, so only readable numerals count.
                     offset = cursor + Fraction(element.findtext('offset', '0')) / divisions
                     pending.append((offset, 'analysis', element.find('kind').get('text', '')))
                 elif element.tag == 'direction' and part is parts[-1] and element.get('placement') == 'below' and int(element.findtext('staff', '1')) == staves:
@@ -285,8 +267,6 @@ def from_musicxml(data: str | bytes, default_key: str = 'C', index: ScoreIndex |
                         previous = cursor
                         if element.find('grace') is None:
                             cursor += Fraction(int(element.findtext('duration', '0')), divisions)
-            # Export inserts offset directions before the notes. Process labels in
-            # musical order so a later key prefix carries into the following bar.
             for offset, kind, value in sorted(pending, key=lambda item: item[0]):
                 if kind == 'harmony':
                     key, figure = _numeral(value, key)
@@ -305,12 +285,6 @@ def compare(student: list[Label], reviewed: dict, index: ScoreIndex) -> list[dic
 
 
 def compare_labels(student: list[Label], reference: list[Label], index: ScoreIndex) -> list[dict]:
-    """Classify each student onset against the reference chord still active there.
-
-    A chord that sounds different is a chord difference, whatever key the label names; the same chord named in
-    another key is a key difference. Gaps before the first reference
-    label and unreadable reference labels are errors, never fabricated agreement.
-    """
     student = _finish(student, index)
     numbers = {measure.number for measure in index.measures}
     reference = _finish([item for item in reference if item.measure in numbers], index)
@@ -325,7 +299,6 @@ def compare_labels(student: list[Label], reference: list[Label], index: ScoreInd
             raise ValueError(f"Unreadable harmony at bar {label.measure} beat {label.beat:g}")
         agreement = matches(r, s)
         if not agreement['chord']:
-            # The label names both the chord and the key, so a chord that sounds different is the first thing to check.
             classification = 'different_chord'
         elif not agreement['key']:
             classification = 'different_key'
@@ -346,7 +319,6 @@ def compare_labels(student: list[Label], reference: list[Label], index: ScoreInd
 
 
 def from_score(score: bytes, index: ScoreIndex) -> list[Label]:
-    """The numerals written into the score file itself, for a student who annotated it in notation software."""
     if score[:2] == b'PK':
         with zipfile.ZipFile(io.BytesIO(score)) as archive:
             container = ET.fromstring(archive.read('META-INF/container.xml'))
@@ -355,10 +327,6 @@ def from_score(score: bytes, index: ScoreIndex) -> list[Label]:
 
 
 def student_labels(text: str, score: bytes | None, index: ScoreIndex) -> list[Label]:
-    """Typed labels, or, when `text` is the word "score", the numerals written into the score file.
-
-    Numerals in a file are only the user's answer when they say so: a textbook edition carries its own.
-    """
     if text.strip().lower() == 'score':
         if score is None:
             raise ValueError('Numerals inside the score can only be read from the score file; type the labels instead.')
@@ -367,12 +335,10 @@ def student_labels(text: str, score: bytes | None, index: ScoreIndex) -> list[La
 
 
 def as_typed(labels: list[Label]) -> str:
-    """Labels as text `from_text` reads back unchanged, so a script can hand them to a host that has no score file."""
     return '; '.join(f"m{label.measure} b{label.beat:g} {label.key}: {label.figure}" for label in labels)
 
 
 def as_text(student: list[Label], draft, index: ScoreIndex) -> str:
-    """The STUDENT CHECK section of a draft: each student label beside the draft chord sounding there."""
     chords = {(chord.measure, chord.beat): chord for chord in draft.chords}
     lines = [
         "STUDENT CHECK (the user gave their own Roman numerals and wants a second reader, not an answer key). "

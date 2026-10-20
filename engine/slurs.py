@@ -1,16 +1,3 @@
-"""Put slurs on the side an engraver would, and lift any that still run through the music.
-
-Files often fix each slur's side (MuseScore writes placement="below" and the like), and Verovio's
-own choice follows the first note's stem, so slurs end up under beams or through stems. Engraving
-practice (Gould, "Behind Bars") is simpler: where a staff has two voices at once, the upper voice's
-slurs go above and the lower voice's below; in a single voice a slur goes on the notehead side when
-all its stems point one way, and above when they are mixed. Slurs inside a beam that crosses
-between the staves go above, as in print: the beam is one line, not a lower voice. Stem directions are only known after
-layout, so the page is laid out, sides are set from the drawn stems, and the page is laid out again.
-A slur that still touches a stem, beam, notehead or tuplet number keeps its side and is drawn
-higher (MEI @bulge), the way a printed slur arches over a tuplet number.
-"""
-
 from __future__ import annotations
 
 import math
@@ -25,16 +12,15 @@ from engine.score import ScoreIndex
 
 SLUR = re.compile(r'<g id="([^"]+)" class="slur"[^>]*>\s*<path d="M([-\d.]+),([-\d.]+) C([-\d.]+),([-\d.]+) ([-\d.]+),([-\d.]+) ([-\d.]+),([-\d.]+)')
 BOX = re.compile(r'class="(stem|note|tupletNum|tie) bounding-box"[^>]*>\s*<rect x="([-\d.]+)" y="([-\d.]+)" height="([-\d.]+)" width="([-\d.]+)"')
-POLYGON = re.compile(r'<polygon points="([^"]+)"')  # Verovio draws beams as polygons
+POLYGON = re.compile(r'<polygon points="([^"]+)"')
 SVG = "{http://www.w3.org/2000/svg}"
-END_ZONE = 0.15  # the ends of a slur sit on its own notes, so only the middle is checked
-CLEAR = 25  # a slur this close to a stem or beam reads as touching it
-STEP = 40  # distance between the points checked along a slur
-UNIT = 180  # arch height per unit of MEI @bulge, measured: one staff space at the page scale
+END_ZONE = 0.15
+CLEAR = 25
+STEP = 40
+UNIT = 180
 
 
 def untangle(toolkit, relayout: Callable[[str], None]) -> None:
-    """`relayout(mei)` loads the given MEI and lays it out again (re-selecting an excerpt if there is one)."""
     mei = toolkit.getMEI()
     sides = _sides(mei, [toolkit.renderToSVG(page) for page in range(1, toolkit.getPageCount() + 1)])
     for slur, side in sides.items():
@@ -42,8 +28,6 @@ def untangle(toolkit, relayout: Callable[[str], None]) -> None:
     if sides:
         relayout(mei)
     lifted: dict[str, int] = {}
-    # A lifted slur can move its neighbours, and Verovio does not raise a short slur in proportion
-    # to @bulge, so each pass looks again and raises a slur that is still blocked a step further.
     for _ in range(4):
         lift = {slur: need for slur, need in _collisions(toolkit).items() if need > 0}
         if not lift:
@@ -56,7 +40,6 @@ def untangle(toolkit, relayout: Callable[[str], None]) -> None:
 
 
 def _sides(mei: str, svgs: list[str]) -> dict[str, str]:
-    """The side each drawn slur belongs on, for slurs whose ends are on one staff."""
     index = ScoreIndex(mei)
     events, start = {}, {}
     time = Fraction(0)
@@ -65,14 +48,12 @@ def _sides(mei: str, svgs: list[str]) -> dict[str, str]:
             events[event.id], start[event.id] = event, time + event.onset
         time += measure.length
     written = {id: (event.staff, event.layer) for id, event in events.items()}
-    # A note written in one staff's voice but drawn on another (staff="n") belongs, for its slur, where it is drawn.
     for match in re.finditer(r'<(chord|note)\b[^>]*\bstaff="(\d+)"(?:[^>]*/>|.*?</\1>)', mei, flags=re.S):
         staff = match.group(2)
         for id in re.findall(r'<note\b[^>]*xml:id="([^"]+)"', match.group(0)):
             if id in events:
                 events[id] = replace(events[id], staff=int(staff))
     first_note = {chord: note for chord, note in re.findall(r'<chord\b[^>]*xml:id="([^"]+)"[^>]*>\s*<note\b[^>]*xml:id="([^"]+)"', mei)}
-    # Beams that join notes on two staves: one line moving across the staves, slurred from above in print.
     crossing = []
     for first, last in re.findall(r'<beamSpan\b[^>]*startid="#([^"]+)"[^>]*endid="#([^"]+)"', mei):
         first, last = first_note.get(first, first), first_note.get(last, last)
@@ -100,14 +81,12 @@ def _sides(mei: str, svgs: list[str]) -> dict[str, str]:
             side = "above" if _top_line(voice, start) >= _top_line(others, start) else "below"
         else:
             directions = {stems[e.id] for e in voice if e.id in stems}
-            # Notehead side: stems down put the heads on top.
             side = "below" if directions == {"up"} else "above"
         sides[ids["xml:id"]] = side
     return sides
 
 
 def _top_line(events, start) -> float:
-    """Average pitch of a voice's highest note at each moment; a chord's lower notes would pull it under the voice it sits above."""
     tops: dict[Fraction, int] = {}
     for event in events:
         tops[start[event.id]] = max(tops.get(start[event.id], 0), midi(event.pitch))
@@ -115,7 +94,6 @@ def _top_line(events, start) -> float:
 
 
 def _stem_directions(svgs: list[str]) -> dict[str, str]:
-    """"up" or "down" for every drawn note with a stem (a chord's notes share the chord's stem)."""
     result = {}
     for svg in svgs:
         root = ET.fromstring(svg)
@@ -127,7 +105,6 @@ def _stem_directions(svgs: list[str]) -> dict[str, str]:
             if stem is None:
                 continue
             stem_box = _rect(stem, "stem")
-            # Verovio boxes each note, not its head.
             heads = [box for head in group.iter(f"{SVG}g") if (box := _rect(head, "note"))]
             if not stem_box or not heads:
                 continue
@@ -165,14 +142,12 @@ def _curves(toolkit):
 
 
 def _collisions(toolkit) -> dict[str, float]:
-    """For each slur: how far the music it runs through reaches past it (0 when it is clear)."""
     result = {}
     for slur, (x0, y0, x1, y1, x2, y2, x3, y3), boxes, beams in _curves(toolkit):
         steps = max(int(abs(x3 - x0) / STEP), 10)
         points = [_bezier(t / steps, x0, y0, x1, y1, x2, y2, x3, y3) for t in range(steps + 1)]
         middle = [p for p in points if x0 + (x3 - x0) * END_ZONE < p[0] < x3 - (x3 - x0) * END_ZONE]
         above = points[len(points) // 2][1] < (y0 + y3) / 2
-        # Notes the slur starts or ends on are not obstacles; the notes beside them are.
         obstacles = [b for b in boxes if b[0] != "note" or not any(b[1] - CLEAR <= x <= b[1] + b[3] + CLEAR for x in (x0, x3))]
         need = 0.0
         for px, py in middle:
@@ -188,7 +163,6 @@ def _collisions(toolkit) -> dict[str, float]:
 
 
 def _heights(toolkit, wanted: dict[str, float]) -> dict[str, tuple[float, float]]:
-    """Current arch height of each slur in `wanted`, with how much higher it has to go."""
     result = {}
     for slur, (x0, y0, x1, y1, x2, y2, x3, y3), _, _ in _curves(toolkit):
         if slur in wanted:

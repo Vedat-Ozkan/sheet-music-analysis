@@ -25,10 +25,6 @@ def span(bar, label, key="C", beat=1):
 
 
 def test_planted_motion_errors():
-    # m1–2: S/T and S/B fifths, T/B octaves; m4–5: S/B octaves, T/B fifths.
-    # m7–8: direct outer fifth; m10–11: direct outer octave; m13: S/A crossing.
-    # m15: soprano A5 out of range; m17–18: S/A overlap.
-    # m20–21: S/A and S/T fifths, A/T parallel unisons; m23: S/A spacing.
     expected = {
         ("parallel_fifths", (1, 2), (S, T)),
         ("parallel_fifths", (1, 2), (S, B)),
@@ -55,8 +51,6 @@ def test_planted_motion_errors():
 
 
 def test_planted_tendency_errors():
-    # m1–2: outer B4 falls to G4 at V7–I; alto F4 rises to G4 (unresolved seventh).
-    # m4: S/T doubled B in V; m4–5 otherwise resolves correctly.
     index = read(DATA / "part_writing_tendency.musicxml")
     chords = [span(1, "V7"), span(2, "I"), span(4, "V"), span(5, "I")]
     hits = check(index, chords)
@@ -67,7 +61,6 @@ def test_planted_tendency_errors():
     }
     assert identities(hits) == expected
     assert len(hits) == len(expected)
-    # The short fallback window estimates G major and skips the incomplete G/B dominant.
     assert identities(check(index)) == {("unresolved_seventh", (1, 2), (A,))}
 
 
@@ -76,19 +69,18 @@ def test_planted_tendency_errors():
         ("range", (7,), (A,)),
         ("voice_crossing", (7,), (A, T)),
         ("voice_overlap", (5, 5), (A, T)),
-        ("voice_overlap", (4, 4), (T, B)),  # B3 unison: tenor falls to A3.
+        ("voice_overlap", (4, 4), (T, B)),
     }),
     ("bwv269", {("voice_overlap", (2, 3), (A, T)),
-                ("voice_overlap", (2, 2), (T, B))}),  # G3 unison: tenor falls to F#3.
+                ("voice_overlap", (2, 2), (T, B))}),
     ("bwv244.15", {
         ("range", (12,), (B,)),
         ("voice_overlap", (4, 4), (A, T)),
         ("direct_octaves", (11, 11), (S, B)),
-        ("voice_overlap", (9, 10), (T, B)),  # A3 unison: tenor falls to F#3.
+        ("voice_overlap", (9, 10), (T, B)),
     }),
 ])
 def test_bach_chorales_reviewed_hits(name, expected):
-    # These are strict exercise-rule exceptions, reviewed note by note in REPORT.md.
     index = read(Path(corpus.__file__).parent / "bach" / f"{name}.mxl")
     assert applies(index)
     hits = check(index)
@@ -120,7 +112,6 @@ def test_correct_and_delayed_resolutions():
     changes = [(1, 2, "C5"), (2, 2, "E4"), (3, 4, "D4")]
     assert check(altered_tendency(changes), chords) == []
     delayed = altered_tendency(changes[:2], split=True)
-    # A tied or repeated suspension resolves later in the tonic harmony.
     assert identities(check(delayed, chords)) == {("doubled_leading_tone", (4,), (S, T))}
 
 
@@ -253,17 +244,11 @@ def test_delayed_resolution_cannot_cross_harmony_boundary():
 
 
 @pytest.mark.parametrize('name, rule, bars, beats, voices', [
-    # E4 passes D4–E4–F#4; the weak-beat stack is not a new F# minor seventh.
     ('bwv108.6', 'unresolved_seventh', (7, 7), (2.5, 3.0), (T,)),
-    # A3–G#3–A3 is a neighbour; A2–B2–C#3 is a passing bass, not C# minor seventh.
     ('bwv386', 'unresolved_seventh', (5, 5), (3.75, 4.0), (B,)),
-    # The passing bass C#3 does not make the held B-minor tones a D augmented seventh.
     ('bwv99.6', 'unresolved_seventh', (10, 10), (1.5, 2.0), (B,)),
-    # The alto ornaments G4 with A4–G4 before resolving the A7 seventh to F#4.
     ('bwv282', 'unresolved_seventh', (15, 15), (3.0, 3.5), (A,)),
-    # B7–E establishes E locally: doubled G# is the tonic third, not A's leading tone.
     ('bwv197.5', 'doubled_leading_tone', (12,), (1.5,), (S, B)),
-    # A held C# over D is a seventh sonority, not a completed V–I arrival.
     ('bwv303', 'unresolved_leading_tone', (3, 3), (1.0, 1.5), (S,)),
 ])
 def test_bach_embellishments_and_local_tonics(name, rule, bars, beats, voices):
@@ -275,14 +260,12 @@ def test_bach_embellishments_and_local_tonics(name, rule, bars, beats, voices):
 
 def test_explicit_dominant_still_reports_doubled_leading_tone():
     index = read(DATA / 'part_writing_bwv197.5.musicxml')
-    # The same G# doubling is an error when the supplied analysis establishes A, not E, as tonic.
     assert any(h.rule == 'doubled_leading_tone' and h.bars == (12,) and h.beats == (1.5,)
                and h.voices == (S, B) for h in check(index, [span(12, 'V6', 'A', 1.5)]))
 
 
 @pytest.mark.parametrize('name, bar', [('bwv244.3', 9), ('bwv168.6', 4)])
 def test_leaping_leading_note_decoration_is_not_a_chordal_seventh(name, bar):
-    # The alto falls a third then rises a semitone into the sustained minor tonic.
     index = read(DATA / f'part_writing_{name}.musicxml')
     assert applies(index)
     assert not any(h.rule == 'unresolved_seventh' and h.bars == (bar, bar)
@@ -290,7 +273,6 @@ def test_leaping_leading_note_decoration_is_not_a_chordal_seventh(name, bar):
 
 
 def test_established_seventh_obligation_survives_decorated_arrival():
-    # Complete Fm7 has Eb4 rising to F4; the soprano's passing D5 cannot erase it.
     index = read(DATA / 'part_writing_bwv102.7.musicxml')
     assert applies(index)
     assert any(h.rule == 'unresolved_seventh' and h.bars == (5, 5)
@@ -299,7 +281,6 @@ def test_established_seventh_obligation_survives_decorated_arrival():
 
 @pytest.mark.parametrize('name, bar, voice', [('bwv85.6', 12, T), ('bwv404', 7, S)])
 def test_anticipations_do_not_create_seventh_obligations(name, bar, voice):
-    # Repeated arrival tones anticipate the new harmony while the dominant resolves.
     index = read(DATA / f'part_writing_{name}.musicxml')
     assert applies(index)
     assert not any(h.rule == 'unresolved_seventh' and h.bars == (bar, bar)
@@ -307,7 +288,6 @@ def test_anticipations_do_not_create_seventh_obligations(name, bar, voice):
 
 
 def test_successive_tonicizations_preserve_outer_leading_tone_obligation():
-    # E7–A tonicizes A, but A–D/F# still requires the soprano C#5 to rise to D5.
     index = read(DATA / 'part_writing_bwv64.4.musicxml')
     assert applies(index)
     chords = [span(11, 'V7/V', 'D', 4), span(12, 'V', 'D'), span(12, 'I6', 'D', 4)]
@@ -317,7 +297,6 @@ def test_successive_tonicizations_preserve_outer_leading_tone_obligation():
 
 
 def test_successive_dominants_are_not_a_tonic_arrival():
-    # B7–E–A7 continues the dominant sequence; bass G#3 becomes A7's G3 seventh.
     index = read(DATA / 'part_writing_bwv245.14.musicxml')
     assert applies(index)
     assert not any(h.rule == 'unresolved_leading_tone' and h.bars == (11, 11)
@@ -333,7 +312,6 @@ def test_successive_dominants_are_not_a_tonic_arrival():
     ('bwv64.4', 12, (1.0, 4.0), True),
 ])
 def test_local_dominant_requires_key_evidence(name, bar, beats, expected):
-    # Diatonic III–VI in minor has no local leading-tone obligation.
     index = read(DATA / f'part_writing_{name}.musicxml')
     assert applies(index)
     found = any(h.rule == 'unresolved_leading_tone' and h.bars == (bar, bar)
@@ -343,15 +321,12 @@ def test_local_dominant_requires_key_evidence(name, bar, beats, expected):
 
 @pytest.mark.parametrize('tonic', ['b', 'bb'])
 def test_minor_keys_on_b_are_read_as_keys(tonic):
-    # A draft names B minor "b" and B-flat minor "bb"; neither may be mistaken for a flat sign.
     index = read(DATA / 'part_writing_bwv244.3.musicxml')
     check(index, [span(1, 'i', tonic)])
 
 
 @pytest.mark.parametrize('path', sorted(DATA.glob('part_writing_bwv*.musicxml')), ids=lambda p: p.stem)
 def test_overlap_rings_are_on_the_notes_the_finding_names(path):
-    # The ring pair must be (i) the moving voice's new note and (ii) the other voice's previous note it passes, with
-    # the same pitches and moments as the sentence the callout carries.
     import json
     import re
     lines = as_text(read(path)).splitlines()
@@ -364,14 +339,13 @@ def test_overlap_rings_are_on_the_notes_the_finding_names(path):
         end = next((n for n in range(i + 1, len(lines)) if re.match(r"\d+\. ", lines[n])), len(lines))
         rings = [(ref["measure"], round(ref["beat"], 2), ref["pitch"]) for ref in
                  (json.loads(m.group(1)) for m in (re.match(r"\s+draw ring (\{.*?\})", l) for l in lines[spot:end]) if m)]
-        # A held note is ringed where it was struck, which may be before the moment the finding names.
         has = lambda m, b, pitch: any(r[0] == int(m) and r[2] == pitch and r[1] <= float(b) + 1e-6 for r in rings)
         assert has(m1, b1, new) and has(m0, b0, old), (line, rings)
 
 
 def test_one_callout_per_chord_and_spacing_across_staves_rings_both_notes():
     text = as_text(read(DATA / 'part_writing_bwv418.musicxml'))
-    assert 'draw bracket' not in text  # a bracket between staves would run through the lyrics between them
-    assert text.count('spacing soprano+alto m8 ') == 1  # the same fault at each subdivision of a held pair is one finding
+    assert 'draw bracket' not in text
+    assert text.count('spacing soprano+alto m8 ') == 1
     arrivals = [line.split(',')[0].split('. ', 1)[1] for line in text.splitlines() if line[:1].isdigit()]
-    assert len(arrivals) == len(set(arrivals))  # one number per chord, not one per fault
+    assert len(arrivals) == len(set(arrivals))

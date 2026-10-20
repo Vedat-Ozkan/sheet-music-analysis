@@ -13,7 +13,6 @@
 <img id="page" alt="Engraved score">
 <div class="bar"><span id="info"></span><a id="pdf">Download PDF</a></div>
 <script>
-  // Minimal MCP Apps view: read-only, shows the rendered page and a PDF link.
   let nextId = 1;
   const pending = {};
   let pdfUrl = null;
@@ -62,7 +61,6 @@
   request("ui/initialize", { protocolVersion: "2026-01-26", appInfo: identity, clientInfo: identity, appCapabilities: {} })
     .then(() => send({ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {} }));
 
-  // ChatGPT also exposes the tool result directly.
   if (window.openai && window.openai.toolOutput) show(window.openai.toolOutput);
   window.addEventListener("openai:set_globals", () => show(window.openai && window.openai.toolOutput));
 </script>

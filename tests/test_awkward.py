@@ -1,8 +1,3 @@
-"""Every entry point that takes a score runs on awkward real scores without an unexpected exception.
-
-Scores are listed in tests/data/awkward/README.md. Known failures are xfail (non-strict) with the reason, so they flip to
-pass when fixed. Not covered: draft building (it needs the model; the model-free parts are covered by test_draft.py).
-"""
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -34,7 +29,6 @@ SCORES = {
     "pdf-reading-prelude": DATA / "chopin_prelude_op28_no4_reading.musicxml",
     "pdf-reading-overrun": DATA / "awkward" / "kinkel-op8-5-trennung-reading.musicxml",
 }
-# (test name, score id) -> why it fails today
 KNOWN: dict[tuple[str, str], str] = {}
 
 score_ids = pytest.mark.parametrize("name", list(SCORES))
@@ -94,7 +88,6 @@ def test_engrave_a_range(request, name):
 
 @score_ids
 def test_correct_roundtrip(request, name):
-    """Each bar's own N1 text, fed back, must be accepted; checked on the first, last and every bar problem_spots flags."""
     known(request, "correct_roundtrip", name)
     data, index = load(name)
     part = ET.fromstring(_document(data)).find("part").get("id")

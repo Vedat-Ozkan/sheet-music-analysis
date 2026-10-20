@@ -1,18 +1,3 @@
-"""Replace complete bars of a PDF reading using the N1 notes format.
-
-Only note/rest/forward/backup content is replaced; bar metadata is retained.
-Bars with unchanged N1 content retain their original notation.
-Divisions and duration integers in the selected part may be rescaled together
-(the same music in finer units), because Verovio cannot index changing divisions
-reliably. Other parts are retained. Crossing ties/slurs lose both endpoints;
-internal ties from N1 are rebuilt, and slurs inside changed bars are lost.
-N1 and MusicXML pitches are sounding pitches: octave-shift directions change
-engraving, not the pitch written to XML. Their original onsets are retained,
-even when a shift starts/stops within a corrected bar (also within a note).
-Split bars use ScoreIndex/N1 addresses and retain each XML segment's length.
-Corrections are rejected if divisions rescaling changes untouched imported timing.
-"""
-
 from __future__ import annotations
 
 import copy
@@ -35,7 +20,7 @@ from engine.score import ScoreIndex
 
 
 class CorrectionError(ValueError):
-    """A correction cannot safely replace the requested bars."""
+    pass
 
 
 def _read(score: bytes, part: str | None):
@@ -52,7 +37,6 @@ def _read(score: bytes, part: str | None):
     choices = ", ".join(f"{p.get('id')} {names.get(p.get('id'), '')}".strip() for p in parts)
     if part is None and len(parts) != 1:
         raise CorrectionError(f"Choose a part for this score with multiple parts: {choices}")
-    # The model only sees part names from read_pdf, so accept a name as well as an id.
     selected = next((p for p in parts if part is None or part.casefold() in (
         p.get("id", "").casefold(), names.get(p.get("id"), "").casefold())), None)
     if selected is None:
@@ -71,11 +55,6 @@ def _read(score: bytes, part: str | None):
 
 
 def bars_from_musicxml(score: bytes, first: int, last: int | None = None, *, part: str | None = None) -> str:
-    """N1 for a range in one part, including explicit trailing rests.
-
-    Like encode, a range starting at 1 includes the pickup. Staff numbers are
-    local to the selected part. Silent staves are included as full-bar rests.
-    """
     _, selected, index = _read(score, part)
     return _bars_from_index(selected, index, first, last)
 
@@ -112,12 +91,6 @@ def _bars_from_index(selected, index, first, last=None):
 
 
 def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> bytes:
-    """Replace all voices/staves of listed bars; return plain MusicXML bytes.
-
-    Every supplied voice must explicitly fill the meter, or the original bar's
-    length for a pickup/incomplete bar. Header key/meter never change the score.
-    A correction must include every staff, but may change its voice count.
-    """
     root, selected, index = _read(score, part)
     corrected = corrected.strip()
     try:
@@ -167,8 +140,6 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
         unchanged = set()
         for number, voices in replacements.items():
             original = index.measure(number)
-            # Keep notation absent from N1, including complex durations and ties
-            # across bar boundaries, when the supplied text is unchanged.
             canonical = _bars_from_index(selected, index, number)
             supplied = decoded.measure(number)
             reference = notes.decode(canonical).measure(number)
@@ -205,13 +176,10 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
         return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
     changed_numbers = set(replacements)
-    # Partition logical voices at the original repeat/fermata boundaries. A note
-    # crossing a boundary becomes tied pieces, with pending ties shared below.
     replacements = _segment_replacements(index, replacements)
     owners = {segment.index: m for m in index.measures for segment in m.segments}
     _drop_crossings(selected, set(replacements))
     pending_voices = {}
-    # A uniform integer grid avoids Verovio's changing-divisions import bug.
     divisions = math.lcm(div, *[int(e.text) for e in selected.findall("measure/attributes/divisions")])
     if selected.find("measure/attributes/divisions") is None:
         first = selected.find("measure")
@@ -235,8 +203,6 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
         number = position_in_file
         if number not in replacements:
             continue
-        # Retained directions/harmonies will sit at the bar's initial cursor.
-        # Translate their relative offsets before removing the original timeline.
         cursor = Fraction(0)
         for element in bar:
             if element.tag in {"direction", "harmony"}:
@@ -255,7 +221,6 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
         for element in list(bar):
             if element.tag in {"note", "backup", "forward"}:
                 bar.remove(element)
-        # Initial attributes and left barlines must remain before the notes.
         insertion = len(bar)
         if len(bar) and bar[-1].tag == "barline" and bar[-1].get("location", "right") == "right":
             insertion -= 1
@@ -267,8 +232,6 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                 content.append(backup)
             pending = pending_voices.setdefault((owners[number].number, staff, voice), {})
             voice_notes = []
-            # Complex lengths need several printable values; pitched pieces
-            # join with ties, while rests simply occupy consecutive spans.
             expanded = []
             for names, duration, grace in groups:
                 d = Duration(duration) if not grace else None
@@ -282,7 +245,6 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                     expanded.append((names, duration, grace))
             for names, duration, grace in expanded:
                 if not grace:
-                    # A tie can only stop on the next attack; rests break it too.
                     next_pitches = {name.rstrip("~") for name in names.split("+")} - {"r"}
                     for pitch in list(pending):
                         if pitch not in next_pitches:
@@ -315,7 +277,6 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                         pending[pitch] = note
                     for kind in ties:
                         ET.SubElement(note, "tie", type=kind)
-                    # MusicXML voice ids must be distinct across staves.
                     ET.SubElement(note, "voice").text = str(staff * 1000 + voice)
                     d = Duration(duration if not grace else Fraction(1, 2))
                     if d.type == "complex":
@@ -336,14 +297,12 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                             ET.SubElement(notations, "tied", type=kind)
                     content.append(note)
                     voice_notes.append(note)
-            # N1 cannot identify a tie's outside endpoint. Drop terminal starts.
             for note in (pending.values() if number == owners[number].last_index else []):
                 for parent in [note, note.find("notations")]:
                     if parent is not None:
                         for tie in list(parent):
                             if tie.tag in {"tie", "tied"} and tie.get("type") == "start":
                                 parent.remove(tie)
-            # Group adjacent equal tuplets so the correction prints its bracket/3.
             run = []
             for note in voice_notes + [None]:
                 mod = note.find("time-modification") if note is not None else None
@@ -370,7 +329,6 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
 
 
 def _beam_voice(voice_notes, measure, segment, divisions):
-    # Verovio imports explicit MusicXML beams; missing beams become flags.
     signature = meter.TimeSignature(measure.meter)
     offset = next(s.start for s in measure.segments if s.index == segment)
     if measure.number == 0:
@@ -388,9 +346,7 @@ def _beam_voice(voice_notes, measure, segment, divisions):
         try:
             beams = signature.getBeams(rhythm, measureStartOffset=0 if ratio else start)
         except meter.MeterException:
-            # Notes running past the bar end (a missed triplet) cannot be placed in the meter; leave them unbeamed.
             return
-        # A tuplet is one rhythmic group even when it straddles a meter beat.
         if ratio and len(run) > 1 and all(b is not None for b in beams):
             for i, beam in enumerate(beams):
                 beam.setByNumber(1, "start" if i == 0 else "stop" if i == len(run) - 1 else "continue")
@@ -433,12 +389,6 @@ class CorrectionReview:
 
 
 def review_correction(before: bytes, after: bytes, *, part: str | None = None) -> CorrectionReview:
-    """Redraw only changed bars, with factual notes derived from their events.
-
-    Consecutive changed bars share an engraving. Comparisons ignore XML ids,
-    divisions and engraving details; unchanged music produces an empty review.
-    Both scores must have the same indexed bars in the selected part.
-    """
     _, _, old = _read(before, part)
     root, selected, new = _read(after, part)
     if [m.number for m in old.measures] != [m.number for m in new.measures]:
@@ -448,7 +398,6 @@ def review_correction(before: bytes, after: bytes, *, part: str | None = None) -
         return (Counter((e.staff, e.onset, e.duration, e.pitch, e.tied)
                         for e in bar.events if not e.grace), _grace_attacks(bar))
 
-    # Staff numbers in the whole score count the staves of the parts before this one.
     above = 0
     for other in root.findall("part"):
         if other is selected:
@@ -468,14 +417,10 @@ def review_correction(before: bytes, after: bytes, *, part: str | None = None) -
             ranges[-1] = (ranges[-1][0], number)
         else:
             ranges.append((number, number))
-    # Ordinary excerpts include the pickup for context; a review must show only edits.
     return CorrectionReview(changed, ranges, [_engrave_marked(after, bounds, marked) for bounds in ranges], descriptions)
 
 
 def _changed_events(old_bar, new_bar):
-    """The notes of the new bar that the old bar did not have; rests only when no note is new.
-
-    Rests that the user did not touch can still differ, because the round trip re-splits a second voice's rests."""
     key = lambda e: (e.staff, e.onset, e.duration, e.pitch, e.tied, e.grace)
     unused = Counter(key(e) for e in old_bar.events)
     added = []
@@ -485,12 +430,10 @@ def _changed_events(old_bar, new_bar):
         else:
             added.append(event)
     added = [e for e in added if e.pitch is not None] or added
-    # Nothing added means something was taken away or only reordered: show the whole bar rather than none.
     return added or new_bar.events
 
 
 def _engrave_marked(after: bytes, bounds: tuple[int, int], marked: set) -> Engraving:
-    """The bars first..last cropped to their music, with an amber backing behind the notes that changed."""
     toolkit = load_toolkit(after, {**tint.BOXES, "adjustPageHeight": True, "pageHeight": 60000})
     index = ScoreIndex(toolkit.getMEI())
     ties = incoming_ties(toolkit, index, bounds[0], include_pickup=False)
@@ -510,8 +453,6 @@ def _engrave_marked(after: bytes, bounds: tuple[int, int], marked: set) -> Engra
 
 
 def _grace_attacks(bar):
-    # Grace notes share an onset; attack order and chord membership carry the
-    # musical difference. Use imported IDs only to group, never to compare.
     groups = {}
     for e in bar.events:
         if e.grace:
@@ -551,8 +492,6 @@ def _change_note(before, after):
                 changes.append("grace notes start at different times")
             else:
                 changes.append(f"grace notes changed from {grace_names(a)} to {grace_names(b)}")
-    # Imported voices may overlap and then be merged by a correction. Match
-    # pitched attacks by order on each staff before describing rhythmic changes.
     for staff in sorted({e.staff for e in before.events + after.events}):
         a = sorted([item for voice, items in old.items() if voice[0] == staff for item in items if item[4] != [None]])
         b = sorted([item for voice, items in new.items() if voice[0] == staff for item in items if item[4] != [None]])
@@ -581,7 +520,6 @@ def _change_note(before, after):
         elif len(a) != len(b):
             changes.append(f"the number of note groups on staff {staff} changed from {len(a)} to {len(b)}")
     def rests(bar):
-        """Where each voice rests, as merged spans: splitting one rest into two is not a change."""
         spans = {}
         for e in sorted((e for e in bar.events if e.pitch is None), key=lambda e: e.onset):
             voice = spans.setdefault((e.staff, e.layer), [])
@@ -590,7 +528,6 @@ def _change_note(before, after):
             else:
                 voice.append([e.onset, e.onset + e.duration])
         return spans
-    # The round trip writes out rests a voice only implied, so a voice that had none before is not compared.
     old_rests, new_rests = rests(before), rests(after)
     if any(old_rests[voice] != new_rests.get(voice) for voice in old_rests) or (
             not old_rests and new_rests):
@@ -614,7 +551,6 @@ def _segment_replacements(index, replacements):
                 pieces = []
                 for names, duration, grace in groups:
                     if grace:
-                        # Grace attacks on a boundary belong to the following segment.
                         if segment.start <= cursor < end or cursor == end == measure.length:
                             pieces.append((names, duration, grace))
                     else:
@@ -652,8 +588,6 @@ def _drop_crossings(part: ET.Element, replaced: set[int]) -> None:
                         if first != number and any(first <= bar <= number for bar in replaced):
                             owner.remove(start)
                             parent.remove(mark)
-    # An already dangling incoming tie has no stop to pair with. Do not let
-    # Verovio search through the correction for a more distant matching pitch.
     for key, (number, owner, start) in starts.items():
         if key[0] in {"tie", "tied"} and number + 1 in replaced:
             owner.remove(start)

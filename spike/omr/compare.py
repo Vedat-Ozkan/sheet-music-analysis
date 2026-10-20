@@ -1,17 +1,3 @@
-"""Compare OMR MusicXML with ground-truth MusicXML.
-
-usage: compare.py truth.mxl omr1.(mxl|musicxml) [omr2 ...]   (several files = pages of one piece, joined in order)
-
-Method: every pitched note (chord notes counted separately, grace notes included, ties not merged) becomes a MIDI
-number with a duration in quarter notes; all parts and staves of a measure are pooled. Bars are aligned by dynamic
-programming over the two bar sequences, maximising shared pitches, skipped bars allowed ("aligned"); the "ordinal"
-figure pairs bar k with bar k instead.
-  pitch      = shared pitches (multiset overlap per bar) / truth notes
-  rhythm     = among the shared pitches, the share whose duration is also the same (per bar, per pitch, multiset)
-  key, meter = share of aligned bars whose key signature (fifths) / time signature equals the truth's in that bar;
-               the state in force carries over from earlier bars and pages. Also first key / first meter.
-Prints one JSON line.
-"""
 import sys, json, zipfile, collections
 from fractions import Fraction
 import xml.etree.ElementTree as ET
@@ -26,7 +12,6 @@ def read(path):
     return open(path, "rb").read()
 
 def bars(path, state):
-    """-> list of (notes Counter{(midi, dur): n}, key, meter); state carries key/meter across files."""
     root = ET.fromstring(read(path))
     parts = [list(p.iter("measure")) for p in root.iter("part")]
     out = []
@@ -39,7 +24,6 @@ def bars(path, state):
                 if el.tag == "divisions": div = int(float(el.text))
                 elif el.tag == "key" and pi == 0 and el.findtext("fifths") is not None: state["key"] = int(el.findtext("fifths"))
                 elif el.tag == "time" and pi == 0 and el.findtext("beats"): state["meter"] = f"{el.findtext('beats')}/{el.findtext('beat-type')}"
-            # divisions can be declared in an earlier measure: remember per part
             state.setdefault("div", {})
             if p[k].find("attributes/divisions") is not None: state["div"][pi] = div
             div = state["div"].get(pi, div)
@@ -50,7 +34,7 @@ def bars(path, state):
                 d = note.findtext("duration")
                 dur = Fraction(int(float(d)), div) if d is not None and note.find("grace") is None else Fraction(0)
                 c[(m, dur)] += 1
-        out.append((c, state.get("key", 0), state.get("meter")))  # no <key> element = C major, as Audiveris writes it
+        out.append((c, state.get("key", 0), state.get("meter")))
     return out
 
 def pitches(c):
@@ -61,7 +45,6 @@ def pitches(c):
 def shared(a, b): return sum((pitches(a) & pitches(b)).values())
 
 def rhythm_match(a, b):
-    """notes with equal pitch and equal duration, counted per pitch."""
     total = 0
     for m in set(pitches(a)) & set(pitches(b)):
         da = collections.Counter({d: n for (mm, d), n in a.items() if mm == m})

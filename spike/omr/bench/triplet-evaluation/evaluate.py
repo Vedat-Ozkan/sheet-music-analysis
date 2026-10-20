@@ -1,8 +1,3 @@
-"""Score cached readings with official engine counters; never invokes Audiveris.
-
-Usage: .venv/bin/python .../evaluate.py BENCHDIR RESULTS.json OUTPUT.json
-Gains/losses use original pitch-aligned bar pairs, even if the new alignment changes.
-"""
 import collections
 import hashlib
 import json
@@ -55,7 +50,6 @@ def main():
         run = subprocess.run([sys.executable, __file__, '--worker', str(truth), str(cached)],
                              capture_output=True, text=True, check=True)
         row = dict(pdf=p['pdf'], cache=str(cached), **json.loads(run.stdout.strip().splitlines()[-1]))
-        # Assert the baseline is the production run, rather than a different cache/settings selection.
         original = next(r for r in saved['pdfs'] if r['pdf'] == p['pdf'])['score']
         for k in ('truth_notes', 'shared_pitch', 'shared_pitch_onset'):
             assert row['before'][k] == original[k], (p['pdf'], k)

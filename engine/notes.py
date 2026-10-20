@@ -1,42 +1,20 @@
-"""A compact text form of a score's notes, small enough for a chat model to pass to a tool.
-
-A host that keeps the user's file in its own sandbox (Claude) cannot send the
-file to the server, but it can send this. It carries what the harmony model
-reads and nothing else: no layout, slurs, dynamics or text.
-
-    N1 div=48 ts=12/8 ks=3f
-    m0 len=24
-    1.1: 24 Bb4
-    m1 len=288
-    1.1: 72 G5 24 G5 F5 G5 72 F5 48 Eb5 24 Bb4
-    2.1: 24 Eb2 G3+Eb4 Bb3+Eb4+G4 ...
-
-Each `staff.voice:` line is one voice. A bare number sets the duration (in
-`div` units per quarter note) for the notes after it. `+` joins a chord, `r` is
-a rest, a leading `g` marks a grace note and a trailing `~` a tie to the next
-note. Separate grace attacks use separate tokens (`gD4 gE4`); a grace
-chord uses one token (`gD4+E4`). Existing N1 text remains valid.
-Pitches are sounding pitches, including under octave lines.
-A measure line repeats `ts=` when the meter changes.
-
-This module uses only the standard library, because the model's own
-environment imports it too.
-"""
-
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
 from fractions import Fraction
 
-from engine.score import Event, Measure, ScoreIndex, beat_length
+from engine.score import Event, Mark, Measure, ScoreIndex, beat_length
 
 VERSION = "N1"
+EXTENDED = "N1x"
+TOKEN = re.compile(r'"[^"]*"(?:@\d+)?|\S+')
+MARK = re.compile(r'(?:!([^\s@"]+)|"([^"]+)")(?:@(\d+))?')
 MAX_CHARS = 200_000
 
 
 class NotesError(ValueError):
-    """The note list is not in the expected form."""
+    pass
 
 
 @dataclass
@@ -46,34 +24,52 @@ class Voice:
     events: list[Event] = field(default_factory=list)
 
 
-def encode(index: ScoreIndex, first: int | None = None, last: int | None = None) -> str:
-    """The note list for printed measures first..last (the whole score by default).
-
-    A range that starts at measure 1 takes the pickup along.
-    """
+def encode(
+    index: ScoreIndex, first: int | None = None, last: int | None = None, *, extended: bool = False, parts: list[int] | None = None
+) -> str:
     measures = index.measures
     if first is not None or last is not None:
         start = measures.index(index.measure(first if first is not None else measures[0].number))
         end = measures.index(index.measure(last if last is not None else measures[-1].number))
         if start == 1 and measures[0].number == 0:
             start = 0
-        # Measure.index counts XML segments; N1 addresses joined logical bars.
         measures = measures[start : end + 1]
     div = index.ppq
-    lines = [f"{VERSION} div={div} ts={index.meter} ks={index.key_signature or '0'}"]
+    key = index.key_signature or "0"
+    if extended:
+        for measure in index.measures[: index.measures.index(measures[0])]:
+            key = measure.key_signature or key
+    lines = [f"{EXTENDED if extended else VERSION} div={div} ts={index.meter} ks={key}"]
+    staves = None
+    if extended:
+        chosen = [(number, part) for number, part in enumerate(index.parts, 1) if parts is None or number in parts]
+        if parts is not None:
+            staves = {staff for _, (_, part_staves) in chosen for staff in part_staves}
+        for number, (name, part_staves) in chosen:
+            span = f"{part_staves[0]}-{part_staves[-1]}" if len(part_staves) > 1 else str(part_staves[0])
+            lines.append(f'P{number} "{name}" staves={span}')
     meter = index.meter
     for measure in measures:
         header = f"m{measure.number} len={_units(measure.length, div)}"
         if measure.meter and measure.meter != meter:
             meter = measure.meter
             header += f" ts={meter}"
+        if extended and measure.key_signature and measure.key_signature != key:
+            key = measure.key_signature
+            header += f" ks={key}"
         lines.append(header)
         voices: dict[tuple[int, int], list[Event]] = {}
+        marks: dict[tuple[int, int], list[Mark]] = {}
         for event in measure.events:
             if event.pitch:
                 voices.setdefault((event.staff, event.layer), []).append(event)
+        if extended:
+            for mark in measure.marks:
+                voices.setdefault((mark.staff, mark.layer), [])
+                marks.setdefault((mark.staff, mark.layer), []).append(mark)
         for (staff, layer), events in sorted(voices.items()):
-            lines.append(f"{staff}.{layer}: " + _voice(events, div))
+            if staves is None or staff in staves:
+                lines.append(f"{staff}.{layer}: " + _voice(events, div, marks.get((staff, layer), [])))
     return "\n".join(lines)
 
 
@@ -84,19 +80,29 @@ def _units(value: Fraction, div: int) -> int:
     return int(units)
 
 
-def _voice(events: list[Event], div: int) -> str:
+def _voice(events: list[Event], div: int, marks: list[Mark]) -> str:
     tokens: list[str] = []
     cursor, current = Fraction(0), None
+    pending = sorted(marks, key=lambda mark: mark.onset)
+
+    def place(onset: Fraction | None) -> None:
+        while pending and (onset is None or pending[0].onset <= onset):
+            mark = pending.pop(0)
+            text = f"!{mark.text}" if mark.kind == "dyn" else f'"{mark.text}"'
+            tokens.append(text if mark.onset == onset else f"{text}@{_units(mark.onset, div)}")
+
     onsets: dict[tuple[Fraction, bool, str], list[Event]] = {}
     for event in events:
         onsets.setdefault((event.onset, event.grace, event.attack if event.grace else ""), []).append(event)
-    for onset, grace, attack in sorted(onsets, key=lambda key: (key[0], not key[1])):  # grace notes come before the beat
+    for onset, grace, attack in sorted(onsets, key=lambda key: (key[0], not key[1])):
         group = onsets[(onset, grace, attack)]
         names = "+".join(event.pitch + ("~" if event.tied else "") for event in group)
-        if onset > cursor:  # silence in this voice, written before whatever starts next, grace notes included
+        if onset > cursor:
+            place(cursor)
             gap = _units(onset - cursor, div)
             tokens += [str(gap), "r"]
             current, cursor = gap, onset
+        place(onset)
         if grace:
             tokens.append("g" + names)
             continue
@@ -106,24 +112,31 @@ def _voice(events: list[Event], div: int) -> str:
             current = duration
         tokens.append(names)
         cursor = onset + group[0].duration
+    place(None)
     return " ".join(tokens)
 
 
 def decode(text: str) -> ScoreIndex:
-    """Rebuild a score index (measures and notes, no engraving) from a note list."""
     if len(text) > MAX_CHARS:
         raise NotesError("The note list is too long")
     numbered = [(number, line.strip()) for number, line in enumerate(text.splitlines(), 1) if line.strip()]
     lines = [line for _, line in numbered]
-    if not lines or not lines[0].startswith(VERSION + " "):
+    if not lines or not lines[0].startswith((VERSION + " ", EXTENDED + " ")):
         raise NotesError(f'The note list must start with a "{VERSION} div=… ts=… ks=…" line')
     try:
         settings = dict(part.split("=", 1) for part in lines[0].split()[1:])
         div, meter, key = int(settings["div"]), settings["ts"], settings.get("ks", "0")
         measures: list[Measure] = []
+        named: list[tuple[str, list[int]]] = []
         current_meter = meter
         for number, line in numbered[1:]:
-            if line.startswith("m"):
+            if re.match(r"P\d+ ", line) and not measures:
+                match = re.fullmatch(r'P\d+ "([^"]*)" staves=(\d+)(?:-(\d+))?', line)
+                if not match:
+                    raise NotesError(f'Line {number}: a part line looks like \'P1 "Piano" staves=1-2\', not {line!r}')
+                low, high = int(match.group(2)), int(match.group(3) or match.group(2))
+                named.append((match.group(1), list(range(low, high + 1))))
+            elif line.startswith("m"):
                 parts = line.split()
                 if not all("=" in part for part in parts[1:]) or not parts[0][1:].isdigit():
                     raise NotesError(f"Line {number}: a bar line looks like 'm3 len=96', not {line!r}")
@@ -140,6 +153,7 @@ def decode(text: str) -> ScoreIndex:
                     meter=current_meter,
                 )
                 measure.declared_length = Fraction(int(fields["len"]), div)
+                measure.key_signature = fields.get("ks", "")
                 measures.append(measure)
             else:
                 if not measures:
@@ -148,7 +162,7 @@ def decode(text: str) -> ScoreIndex:
                 if not re.fullmatch(r"\d+\.\d+", voice):
                     raise NotesError(f"Line {number}: expected 'staff.voice: tokens', e.g. '1.1: 24 C4'")
                 staff, layer = (int(part) for part in voice.split("."))
-                _read_voice(body.split(), measures[-1], staff, layer, div)
+                _read_voice(TOKEN.findall(body), measures[-1], staff, layer, div)
         for measure in measures:
             measure.events.sort(key=lambda event: (event.onset, event.staff))
     except NotesError:
@@ -157,7 +171,7 @@ def decode(text: str) -> ScoreIndex:
         raise NotesError(f"The note list could not be read: {error}") from error
     if not measures:
         raise NotesError("The note list has no measures")
-    return ScoreIndex.from_measures(measures, meter, key)
+    return ScoreIndex.from_measures(measures, meter, key, named)
 
 
 def _read_voice(tokens: list[str], measure: Measure, staff: int, layer: int, div: int) -> None:
@@ -168,6 +182,14 @@ def _read_voice(tokens: list[str], measure: Measure, staff: int, layer: int, div
             continue
         if token == "r":
             cursor += duration
+            continue
+        if token[0] in '!"':
+            match = MARK.fullmatch(token)
+            if not match:
+                raise ValueError(f"unknown token {token!r}")
+            dynamic, symbol, offset = match.groups()
+            onset = Fraction(int(offset), div) if offset else cursor
+            measure.marks.append(Mark(staff, layer, onset, "dyn" if dynamic else "harm", dynamic or symbol))
             continue
         grace = token.startswith("g")
         for name in token[1 if grace else 0 :].split("+"):

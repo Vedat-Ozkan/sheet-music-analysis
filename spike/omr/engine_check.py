@@ -1,16 +1,3 @@
-"""Compare OMR output with ground truth as the engine reads them (load_toolkit + ScoreIndex), not as raw MusicXML.
-
-usage: engine_check.py truth.mxl omr.mxl [--clean]     (--clean applies engine.read_pdf.clean to the OMR file first)
-
-compare.py counted notes in the MusicXML; Verovio can drop some on import (log 33), and ScoreIndex is what the draft,
-the note table and the annotations see. Per bar, every pitched event becomes (MIDI, onset in quarter notes).
-  notes          = events the engine sees (OMR / truth); raw = notes in the OMR file, as compare.py counts them
-  pitch          = shared pitches per aligned bar / truth notes (bars aligned as in compare.py)
-  pitch+onset    = shared (pitch, onset) per aligned bar / truth notes
-  octave_display = notes Verovio draws in another octave than they sound (under an 8va/8vb line), OMR / truth
-  verovio_msgs   = Verovio import errors and warnings for the OMR file
-Prints one JSON line.
-"""
 import collections, json, os, re, sys, tempfile, zipfile
 from pathlib import Path
 
@@ -30,7 +17,6 @@ def midi(p):
 
 
 def load(data):
-    """-> bars [Counter{(midi, onset)}], octave-display count, Verovio messages (read from its stderr)."""
     with tempfile.TemporaryFile() as err:
         saved = os.dup(2)
         os.dup2(err.fileno(), 2)
@@ -58,7 +44,6 @@ def main():
         omr_data = clean(omr_data)
     truth, t_shift, _ = load(Path(truth_path).read_bytes())
     omr, o_shift, msgs = load(omr_data)
-    # compare.align reads keys as (midi, anything) and aligns on pitch alone
     pairs, shared_pitch = align([(b,) for b in truth], [(b,) for b in omr])
     shared_onset = sum(overlap(truth[i], omr[j]) for i, j in pairs)
     tn, on = sum(sum(b.values()) for b in truth), sum(sum(b.values()) for b in omr)

@@ -1,4 +1,3 @@
-"""Attribute every truth note not matched by (pitch, onset) to one cause. usage: attribute.py [--dump PDFSUBSTR BAR]"""
 import collections, hashlib, io, json, sys, zipfile
 from fractions import Fraction
 import xml.etree.ElementTree as ET
@@ -16,7 +15,6 @@ def rx(data):
     return ET.fromstring(data)
 
 def events(data):
-    """-> list per measure of notes (midi, onset Fraction, flags dict). Parts pooled; onsets by cursor/backup/forward."""
     root = rx(data); parts = [list(p.iter("measure")) for p in root.iter("part")]
     out = [[] for _ in range(max((len(p) for p in parts), default=0))]; meta = [collections.Counter() for _ in out]
     for ps in parts:
@@ -68,7 +66,6 @@ def classify(pdf, truth_path, key):
         tflags = {}; oflags = {}
         for m, o, f in b: tflags.setdefault((m, o), []).append(f)
         for m, o, f in O[j]: oflags.setdefault((m, o), []).append(f)
-        # (e) same pitch, other onset
         rem_t = []
         for t in tl:
             c = next((x for x in ol if x[0] == t[0]), None)
@@ -87,7 +84,6 @@ def classify(pdf, truth_path, key):
             else: sub = "e_other_beam_voice_timing"
             res[sub] += 1
             if len(detail) < 0: pass
-        # (c) wrong pitch with same onset
         rem2 = []
         for t in rem_t:
             cand = [x for x in ol if x[1] == t[1]]
@@ -107,7 +103,6 @@ def classify(pdf, truth_path, key):
             if best:
                 DELTAS[(best[0], best[1][0]-t[0])] += 1; EX.setdefault(best[0], []).append((pdf, i, j, t[0], best[1][0])); ol.remove(best[1]); res[["c_octave", "c_semitone_or_tone", "c_clef_treble_bass_shift", "c_other_pitch_3_to_9_semitones"][best[0]]] += 1
             else: rem2.append(t)
-        # (d) head missing
         for t in rem2:
             fl = tflags[(t[0], t[1])]
             res["d_grace_missing" if all(f["grace"] for f in fl) else "d_head_missing"] += 1

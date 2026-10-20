@@ -7,7 +7,6 @@ from engine import text
 from engine.notation import abrsm, current, figured_bass
 
 ROOT = Path(__file__).resolve().parents[1]
-# Frozen, reviewed expected outputs; never regenerated during a test run.
 EXAMPLES = json.loads((ROOT / 'tests/data/notation_examples.json').read_text())
 
 

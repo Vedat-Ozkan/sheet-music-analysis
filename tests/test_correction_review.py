@@ -60,8 +60,6 @@ def test_review_real_grace_order_and_chord_corrections(replacement):
 
 
 def same_music(review, plain):
-    # The review is the plain excerpt with a backing behind the changed notes and the blank right side cut off, so
-    # once the backings are taken out every drawn glyph is where the plain engraving has it.
     def glyphs(engraving):
         found = []
         for svg in engraving.svgs:
@@ -190,8 +188,6 @@ def test_triplet_beam_crosses_meter_beat():
 
 
 def test_review_does_not_back_rests_the_user_left_alone():
-    # Haydn bar 18 (piano): one chord note edited. The round trip re-splits the second voice's rests; they are not
-    # changes and were backed in amber too (4 backings for one edit).
     before = (READING.parent / 'pdf_warnings/haydn_she_never_told_audiveris.musicxml').read_bytes()
     before = without_slurs(before)
     text = correct.bars_from_musicxml(before, 18, part='P2')
@@ -199,4 +195,4 @@ def test_review_does_not_back_rests_the_user_left_alone():
     review = correct.review_correction(before, after, part='P2')
     assert review.changed_bars == [18]
     assert review.engravings[0].svgs[0].count(f'fill="{tint.CHANGED}"') == 1
-    assert 'rests changed' not in review.notes[18]  # a re-split rest covers the same time
+    assert 'rests changed' not in review.notes[18]

@@ -1,8 +1,3 @@
-"""The benchmark pieces: id, where the truth MusicXML comes from, licence, which engravers make PDFs of it.
-
-src = (root, glob-substring) resolved by build.py; roots are checkouts/directories named in ROOTS.
-bars = keep only the first N bars (chamber pieces: the whole movement would run past 12 pages).
-"""
 M21 = "https://github.com/cuthbertLab/music21/tree/master/music21/corpus/"
 M21_LIC = ("Work public domain. Encoding: music21 corpus; per-file licences are not uniform and some encodings may be "
            "non-commercial (https://github.com/cuthbertLab/music21/blob/master/music21/corpus/license.txt). NOT individually verified.")
@@ -10,9 +5,7 @@ LIED = "https://github.com/OpenScore/Lieder/tree/main/scores/"
 SQ = "https://github.com/OpenScore/StringQuartets/tree/main/scores/"
 CC0 = "CC0 1.0 (OpenScore)"
 
-# engravers: ms = MuseScore 4, vr = Verovio (repo engine), ly = LilyPond 2.24 via musicxml2ly, scan = degraded raster of the ms/ly PDF
 P = [
-    # id, kind, (root, path-substring), source url, licence, bars, engravers
     ("bach-chorale-269", "chorale", ("truth", "bach-269.mxl"), M21 + "bach/bwv269.mxl", M21_LIC, None, ["ms", "vr"]),
     ("bach-prelude-846", "keyboard", ("m21", "bach/bwv846.mxl"), M21 + "bach/bwv846.mxl", M21_LIC, None, ["ms", "ly"]),
     ("mozart-k545-1", "keyboard", ("truth", "mozart-k545-1.mxl"),
@@ -41,7 +34,6 @@ P = [
     ("mozart-quartet-k80", "quartet", ("sq", "K.8073f"), SQ + "Mozart,_Wolfgang_Amadeus/String_Quartet_No.1_in_G_major,_K.8073f/", CC0, 28, ["ms", "vr", "scan"]),
     ("mayer-quartet-op14", "quartet", ("sq", "Op.14/sq7082029"), SQ + "Mayer,_Emilie/String_Quartet_in_G_minor,_Op.14/sq7082029.mxl", CC0, 28, ["ms", "ly"]),
 ]
-# Real printed pages, already in the repo (truth = the piece's truth above)
 REAL = [
     ("mozart-k545-1", "lilypond-mutopia", "spike/omr/mutopia/mozart-k545-1-mutopia.pdf"),
     ("chopin-prelude-4", "lilypond-mutopia", "spike/omr/mutopia/chopin-28-4-mutopia.pdf"),

@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-"""Can Audiveris run inside a claude.ai code-execution sandbox? Usage: python3 sandbox_probe.py small.pdf
-Reports the machine, which hosts are reachable, download and unpack time of the Audiveris .deb (no sudo),
-and seconds / peak RAM of one PDF conversion. Prints one JSON summary on the last line."""
 import glob, json, os, platform, re, resource, shutil, subprocess, sys, tarfile, tempfile, time, urllib.request
 
 VERSION = "5.11.0"
 BASE = f"https://github.com/Audiveris/audiveris/releases/download/{VERSION}"
-S = {"step": "start"}  # the summary; printed even if a step fails
+S = {"step": "start"}
 
 
 def sh(cmd, **kw):
@@ -42,7 +39,7 @@ def reach(url):
         req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "probe"})
         with urllib.request.urlopen(req, timeout=10) as r:
             return {"ok": True, "status": r.status, "s": round(time.time() - t, 2)}
-    except urllib.error.HTTPError as e:  # a reply of any status means the host is reachable
+    except urllib.error.HTTPError as e:
         return {"ok": True, "status": e.code, "s": round(time.time() - t, 2)}
     except Exception as e:
         return {"ok": False, "error": f"{type(e).__name__}: {e}"[:120]}
@@ -54,7 +51,6 @@ def unpack(deb, dest):
         if r.returncode:
             raise RuntimeError(r.stderr[:300])
         return "dpkg-deb"
-    # A .deb is an ar archive whose data.tar.* member holds the files.
     with open(deb, "rb") as f:
         assert f.read(8) == b"!<arch>\n"
         while True:
@@ -66,7 +62,7 @@ def unpack(deb, dest):
                 tmp = os.path.join(os.path.dirname(dest), name)
                 with open(tmp, "wb") as o:
                     o.write(f.read(size))
-                if name.endswith(".zst"):  # Audiveris debs use zstd; PyPI is allowed, so get the codec from there
+                if name.endswith(".zst"):
                     sh([sys.executable, "-m", "pip", "install", "-q", "--user", "zstandard"])
                     import zstandard
                     with open(tmp, "rb") as i, open(tmp[:-4], "wb") as o:
@@ -74,7 +70,7 @@ def unpack(deb, dest):
                     tmp = tmp[:-4]
                 with tarfile.open(tmp) as t:
                     try:
-                        t.extractall(dest, filter="fully_trusted")  # relative symlinks in the JRE's legal/ folder; Python < 3.12 has no filter
+                        t.extractall(dest, filter="fully_trusted")
                     except TypeError:
                         t.extractall(dest)
                 return "python-tarfile"
@@ -82,7 +78,6 @@ def unpack(deb, dest):
 
 
 def timed(cmd, env=None):
-    """Run cmd, return (returncode, seconds, peak RSS in MB, stderr tail)."""
     t = time.time()
     if os.path.exists("/usr/bin/time"):
         r = sh(["/usr/bin/time", "-v"] + cmd, env=env)
@@ -103,7 +98,7 @@ def main():
         "sheetmusicanalysis.com": "https://sheetmusicanalysis.com/"}.items()}
     print(json.dumps(S, indent=1), flush=True)
     work = tempfile.mkdtemp(prefix="aud_")
-    ubuntu = "ubuntu24.04" if S["machine"]["os_version_id"] == "24.04" else "ubuntu22.04"  # the spike used 22.04
+    ubuntu = "ubuntu24.04" if S["machine"]["os_version_id"] == "24.04" else "ubuntu22.04"
     url = f"{BASE}/Audiveris-{VERSION}-{ubuntu}-x86_64.deb"
     deb = os.path.join(work, "a.deb")
     S["step"] = "download"
@@ -117,7 +112,7 @@ def main():
     S["unpack"] = {"method": unpack(deb, dest), "s": round(time.time() - t, 1)}
     S["unpack"]["mb"] = int(sh(["du", "-sm", dest]).stdout.split()[0])
     exe = glob.glob(dest + "/opt/audiveris/bin/Audiveris")[0]
-    env = dict(os.environ, HOME=work)  # Audiveris writes its config under $HOME
+    env = dict(os.environ, HOME=work)
     S["step"] = "run"
     if pdf:
         out = os.path.join(work, "out")
@@ -127,7 +122,7 @@ def main():
         if rc:
             S["run"]["stderr_tail"] = err
             omr = glob.glob(out + "/**/*.omr", recursive=True)
-            if omr:  # an invalid page stops the one-step export; re-export from the saved book (spike RESULTS.md)
+            if omr:
                 rc2, s2, rss2, _, _ = timed([exe, "-batch", "-export", "-output", out, omr[0]], env)
                 S["run"].update(reexport_returncode=rc2, reexport_s=s2,
                                 mxl=[os.path.basename(f) for f in glob.glob(out + "/**/*.mxl", recursive=True)])

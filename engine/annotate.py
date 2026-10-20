@@ -1,5 +1,3 @@
-"""Render a score with an annotation list drawn on it."""
-
 from __future__ import annotations
 
 import math
@@ -16,31 +14,25 @@ from engine.score import PositionError, ScoreIndex
 if TYPE_CHECKING:
     from engine.comparison import Label
 
-# A page is an annotated excerpt for study, never a stand-in for the whole score (users send copyrighted music).
 MAX_BARS = 32
 
-# Room for the rows of labels under each system and the brackets above it.
 ANNOTATED_OPTIONS = {
     "svgBoundingBoxes": True,
-    # A staff is found by its number even when empty staves are hidden; a fermata or dynamic knows its staff.
     "svgAdditionalAttribute": ["staff@n", "fermata@staff", "dynam@staff"],
     "adjustPageHeight": True,
     "spacingSystem": 26,
-    "pageMarginTop": 230,  # two stacked brackets with labels fit above the first system
+    "pageMarginTop": 230,
     "pageMarginBottom": 260,
 }
 
 
 class AnnotationError(ValueError):
-    """One or more annotations point at places that are not in the score."""
-
     def __init__(self, problems: list[str]):
         super().__init__("\n".join(problems))
         self.problems = problems
 
 
 def check(annotations: AnnotationList, index: ScoreIndex) -> None:
-    """Resolve every position against the score and report all problems at once."""
     problems = []
     key = None
     for harmony in sorted((a for a in annotations.annotations if isinstance(a, Harmony)),
@@ -81,10 +73,6 @@ def render(
     piano: bool = False,
     student_labels: list[Label] | None = None,
 ) -> Engraving:
-    """Engrave `measures` (printed numbers, inclusive; the whole score by default, if it is short enough) with annotations drawn on.
-
-    With `piano`, the passage is drawn as a two-staff piano reduction; the annotations still describe the original.
-    With `student_labels`, the overlay is replaced by the student's labels checked against the annotations."""
     if piano:
         score, annotations = _piano_version(score, annotations, measures)
     toolkit = load_toolkit(score, ANNOTATED_OPTIONS)
@@ -106,7 +94,7 @@ def render(
     _reserve_numeral_room(toolkit, index, annotations)
     _reserve_staff_bracket_room(toolkit, index, annotations)
     if measures:
-        toolkit.setOptions({"pageHeight": 60000})  # an excerpt is one tall image
+        toolkit.setOptions({"pageHeight": 60000})
         toolkit.select({"measureRange": index.measure_range(*measures)})
         toolkit.redoLayout()
     _balance_systems(toolkit, index, measures, annotations)
@@ -138,8 +126,6 @@ def render(
 
 
 def _make_room_for_checks(toolkit, relayout, index, ties, results) -> None:
-    """The notes under a system and the legend under the last take as much room as they need: draw once to
-    measure, ask Verovio for the missing lines under those systems, and lay out again until everything fits."""
     from engine import check_display
 
     base = toolkit.getMEI()
@@ -158,18 +144,12 @@ def _make_room_for_checks(toolkit, relayout, index, ties, results) -> None:
 
 
 def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role) -> list[PageLayout] | None:
-    """A part-writing code that finds no clear spot off the staves (text across staff lines is not engraving practice)
-    gets the gap beside its staff opened, as an engraver spaces staves to fit what lies between them (Gould): draw once
-    to see which gaps and how much each is short, add that many hidden lines of room at the ringed note, and lay out
-    again until each code fits. Returns the pages as drawn on the final layout, or None when nothing was drawn."""
     if not any(isinstance(a, VoiceLeading) and (a.kind == "ring" and a.label or a.kind == "arrow" and "R" in (a.label or ""))
                for a in annotations.annotations):
         return None
     base = toolkit.getMEI()
     lines: dict[tuple[str, str, int, str], int] = {}
-    asked: dict[tuple[str, str, int, str], int] = {}  # how many drawings asked for room at each place
-    # One room per gap in a bar: a code under the upper staff and one over the lower staff share the gap, and two rooms
-    # there would stack, opening it twice as far as either needs.
+    asked: dict[tuple[str, str, int, str], int] = {}
     gaps: dict[tuple[str, int], tuple[str, str, int, str]] = {}
     for _ in range(7):
         needs: dict[tuple[str, str, int, str], int] = {}
@@ -184,15 +164,12 @@ def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role
                 unit = int(measure.meter.split("/")[1]) if measure.meter else 4
                 need = (segment.id, f"{float(1 + (event.onset - segment.start) * unit / 4):g}", event.staff, place)
                 need = gaps.setdefault((segment.id, event.staff if place == "below" else event.staff - 1), need)
-                # The first request also fills the free space there; after that the room's lines already fill it.
                 more = short if need in lines else first
                 needs[need] = max(needs.get(need, 0), more)
-        # Each code asks for the lines it measured short, all at once, and again if the measure fell short; asked four
-        # times, the room is not making the space (Verovio spent it elsewhere), and the gap closes again.
         grown = {need: more for need, more in needs.items() if asked.get(need, 0) < 4}
         given_up = [need for need in needs if asked.get(need, 0) == 4]
         if not grown and not given_up:
-            return layouts  # drawn on the final layout: render() keeps them
+            return layouts
         for need, more in grown.items():
             lines[need] = lines.get(need, 0) + more
             asked[need] = asked.get(need, 0) + 1
@@ -209,9 +186,7 @@ def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role
 
 
 def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[int, int] | None) -> tuple[bytes, AnnotationList]:
-    """The piano reduction, and the annotations pointed at it: a marked note is found again by bar, beat
-    and pitch on whichever piano staff it landed, and a bracket tied to one instrument's staff spans the system."""
-    from engine import piano as piano_reduction  # music21 is loaded only for a reduction; the skill installs it then
+    from engine import piano as piano_reduction
 
     original = ScoreIndex(load_toolkit(score).getMEI())
     check(annotations, original)
@@ -225,7 +200,7 @@ def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[in
         try:
             staff = index.find_note(ref.measure, ref.beat, pitch=event.pitch).staff
         except PositionError:
-            staff = None  # check() below reports the note as missing
+            staff = None
         moved[id(ref)] = ref.model_copy(update={"staff": staff, "pitch": event.pitch})
     pointed = []
     for annotation in annotations.annotations:
@@ -252,10 +227,6 @@ RECT = r'class="{}{}bounding-box"[^>]*>\s*<rect x="([-\d.]+)" y="([-\d.]+)" heig
 
 
 def _move_text_off_stems(toolkit, relayout) -> None:
-    """Words that a stem runs through go to the other side of their staff.
-
-    Verovio keeps directions clear of the notes around them but not of a stem reaching across
-    from the other staff, as a cross-staff beam's does."""
     mei = toolkit.getMEI()
     crossed = set()
     for page in range(1, toolkit.getPageCount() + 1):
@@ -275,8 +246,6 @@ def _move_text_off_stems(toolkit, relayout) -> None:
 
 
 def _reserve_numeral_room(toolkit, index: ScoreIndex, annotations: AnnotationList) -> None:
-    """Verovio spaces bars by their notes alone, so a bar with several chords squeezes its numerals together.
-    A hidden chord symbol per numeral makes it widen such bars; the overlay removes them before drawing."""
     mei = toolkit.getMEI()
     bottom_staff = max(int(n) for n in re.findall(r'<staffDef\b[^>]*?\bn="(\d+)"', mei))
     added: dict[str, list[str]] = {}
@@ -291,27 +260,23 @@ def _reserve_numeral_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
         segment = measure.segment_at(offset)
         unit = int(measure.meter.split("/")[1]) if measure.meter else 4
         tstamp = 1 + (offset - segment.start) * unit / 4
-        # Verovio sets chord symbols smaller than our numerals, hence the padding.
         added.setdefault(segment.id, []).append(
             f'<harm staff="{bottom_staff}" tstamp="{float(tstamp):g}" place="below">{escape(label)}\u00a0\u00a0</harm>'
         )
     if not added:
         return
     for measure_id, harms in added.items():
-        # MEI measures never nest, so the first closing tag after the opening one is this measure's.
         end = mei.index("</measure>", mei.index(f'xml:id="{measure_id}"'))
         mei = mei[:end] + "".join(harms) + mei[end:]
     toolkit.loadData(mei)
 
 
 def _widest_label(label: str, key: str | None) -> str:
-    """The numeral's text in whichever style sets it widest. The room reserved for a numeral decides where
-    Verovio breaks lines, so it must not depend on the label style: the same music gets the same lines."""
     widest, widest_width = label, 0.0
     for style in ("current", "abrsm", "figured_bass"):
         try:
             chunks, total = notation.numeral(label, key, style, 440)
-        except ValueError:  # a form the style cannot set; the others still count
+        except ValueError:
             continue
         if total > widest_width:
             widest, widest_width = "".join(chunk.text for chunk in chunks), total
@@ -319,9 +284,6 @@ def _widest_label(label: str, key: str | None) -> str:
 
 
 def _reserve_staff_bracket_room(toolkit, index: ScoreIndex, annotations: AnnotationList) -> None:
-    """A bracket drawn at one staff needs room between that staff and the one above, which Verovio
-    sets by the notes alone. A hidden two-line direction above the staff in each bar of the region
-    makes it open the gap; the overlay removes them before drawing."""
     mei = toolkit.getMEI()
     added: dict[str, list[str]] = {}
     for region in annotations.annotations:
@@ -343,20 +305,12 @@ def _reserve_staff_bracket_room(toolkit, index: ScoreIndex, annotations: Annotat
 
 
 def _balance_systems(toolkit, index: ScoreIndex, measures: tuple[int, int] | None, annotations: AnnotationList) -> None:
-    """Choose where lines break, the way an engraver does for a study score: at the start of a phrase
-    or just after a cadence, never between a cadence's two chords, with every line about as full as
-    the others. Verovio fills each line greedily, which can split a cadence over two lines or leave
-    a bar or two alone on the last one."""
     if toolkit.getPageCount() != 1:
         return
     systems = PageLayout(toolkit.renderToSVG(1), index).systems
     if len(systems) < 2:
         return
     line = max(system.right - system.left for system in systems)
-    # Bars are measured at their natural width (justified, each line's bars add up to the full line),
-    # all on one line, so that only the first carries the clef and key a line starts with. That
-    # start costs as much again on every later line: the difference, for the bars that began lines
-    # in Verovio's own layout, between their width there and on the single line.
     toolkit.setOptions({"noJustification": True})
     toolkit.redoLayout()
     starts_natural = {system.measures[0].id: system.measures[0].x1 - system.measures[0].x0 for system in PageLayout(toolkit.renderToSVG(1), index).systems[1:]}
@@ -368,8 +322,6 @@ def _balance_systems(toolkit, index: ScoreIndex, measures: tuple[int, int] | Non
     width = dict(bars)
     opening = [starts_natural[id] - width[id] for id in starts_natural if id in width]
     opening = sum(opening) / len(opening) if opening else 0.0
-    # Verovio squeezes a line a little below its bars' natural width; the fullest line it chose
-    # itself shows how far, and so how much a line can hold.
     fullest = max(
         sum(width.get(measure.id, 0.0) for measure in system.measures) + (opening if number else 0.0)
         for number, system in enumerate(systems)
@@ -380,11 +332,10 @@ def _balance_systems(toolkit, index: ScoreIndex, measures: tuple[int, int] | Non
     for annotation in annotations.annotations:
         if isinstance(annotation, (Phrase, Region)):
             start = annotation.start
-            # A phrase that begins with an upbeat starts its line at the next barline.
             good.add(start.measure if start.beat < 1.5 else start.measure + 1)
         elif isinstance(annotation, Cadence):
             good.add(annotation.at.measure + 1)
-            if annotation.at.beat < 2:  # arriving on the downbeat, its approach chord is in the bar before
+            if annotation.at.beat < 2:
                 bad.add(annotation.at.measure)
     first_bar = [position == 0 or number.get(bars[position - 1][0]) != number.get(bars[position][0]) for position in range(len(bars))]
     penalty = [
@@ -397,8 +348,6 @@ def _balance_systems(toolkit, index: ScoreIndex, measures: tuple[int, int] | Non
         start = mei.index(f'xml:id="{bars[position][0]}"')
         start = mei.rindex("<measure", 0, start)
         mei = mei[:start] + "<sb />" + mei[start:]
-    # "smart" keeps our breaks (and still breaks an overfull line); "line" drops the last system of a selection
-    # in Verovio 6.3. Every line now holds about the same music, so the last one is justified like the rest.
     toolkit.setOptions({"breaks": "smart", "breaksSmartSb": 0.3, "minLastJustification": 0})
     toolkit.loadData(mei)
     if measures:
@@ -407,19 +356,14 @@ def _balance_systems(toolkit, index: ScoreIndex, measures: tuple[int, int] | Non
 
 
 def _breaks(widths: list[float], line: float, penalty: list[float], opening: float = 0.0) -> list[int]:
-    """Indexes of the bars that start lines 2..n: each line fits, lines are evenly full, few lines,
-    and breaks fall where `penalty` (per bar, for a line starting there) is low. `opening` is the
-    width a line's clef and key add to the bar that starts it, already counted in the first bar."""
     count = len(widths)
-    best: list[tuple[float, int]] = [(0.0, -1)] + [(math.inf, -1)] * count  # cost of bars[:i], start of its last line
+    best: list[tuple[float, int]] = [(0.0, -1)] + [(math.inf, -1)] * count
     for end in range(1, count + 1):
         for begin in range(end - 1, -1, -1):
             width = sum(widths[begin:end]) + (opening if begin else 0.0)
             if width > line and end - begin > 1:
                 break
             fill = width / line
-            # Lines should be close to full. The last may be shorter, but a bar or two stretched
-            # over a whole line looks worse than lines split evenly.
             shortfall = 2 * max(0.0, 0.75 - fill) if end == count else 1 - fill
             cost = best[begin][0] + 100 * shortfall**2 + 10 + (penalty[begin] if begin else 0)
             if cost < best[end][0]:

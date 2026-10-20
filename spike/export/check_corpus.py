@@ -112,7 +112,6 @@ def main():
     cadential_analysis = as_annotations(build(json.loads((ROOT / 'tests/data/cadential_64_raw.json').read_text()),
                                              cadential_index)).model_dump()
     pairs.append((cadential, 'cadential-64', cadential_analysis))
-    # These are literal transport probes, not reviewed harmonies of this piece.
     probes = {'annotations': [dict(type='harmony', at=dict(measure=m, beat=b), label=label)
                               for m, b, label in [(1, 1, 'V⁶⁵'), (1, 2, 'viio7/V'), (1, 3, 'Ger65'),
                                                   (1, 4, 'bII6'), (2, 1, 'Cad64'), (2, 2, 'viiø65/ii')]]}
@@ -128,15 +127,12 @@ def main():
         before = ET.fromstring(_document(original))
         original_texts = {x.text for x in before.findall('.//lyric/text')
                           + before.findall('.//direction/direction-type/words')}
-        # Text filtering must distinguish additions from pre-existing lyrics/words.
         assert not original_texts & {x[3] for x in expected}, name
         if not args.check_only:
             (args.out / (name + '-annotations.json')).write_text(json.dumps(analysis, indent=2) + '\n')
             xml = args.out / (name + '.musicxml')
             xml.write_bytes(export_musicxml(original, analysis))
             native = work / (name + '.mscx')
-            # This build treats Qt arguments as extra inputs; input first and -o last
-            # keep the converter on the intended files while Qt reads its flags.
             command = [str(args.musescore), str(xml), '-platform', 'offscreen',
                        '-platformtheme', 'none', '-style', 'Fusion', '-o', str(native)]
             proc = subprocess.run(command, env=env, capture_output=True, timeout=180, cwd=ROOT)
@@ -158,7 +154,6 @@ def main():
             assert ET.tostring(original_note) == ET.tostring(clean), name
         actual = converted_labels(args.out / (name + '.mscx'), index, {x[3] for x in expected})
         wanted, got = Counter(expected), Counter(actual)
-        # Reviewed decimal beats such as 2.67 denote engraved triplets.
         for label in list(wanted):
             m, offset, staff, text = label
             match = next((x for x in got if x[0] == m and x[2:] == (staff, text)

@@ -20,7 +20,7 @@ from engine.render import load_toolkit
 from engine.score import ScoreIndex
 from eval import compare, pieces
 
-RAW = pieces.OUT / "raw"  # the model's output, kept so that changes to engine/draft.py need no new model run
+RAW = pieces.OUT / "raw"
 DRAFTS = pieces.OUT / "drafts"
 COLUMNS = ("key", "root", "chord", "chord_and_bass", "full", "reference_fit", "reading_fit")
 
@@ -54,7 +54,7 @@ def run(piece: pieces.Piece, reviewed: Path | None) -> dict:
             path = reviewed / f"{piece.id}.json" if reviewed else None
             if path and path.exists():
                 result["reviewed"] = compare.compare(reference, compare.from_annotations(json.loads(path.read_text())), index)
-    except Exception as error:  # one broken file should not stop the rest
+    except Exception as error:
         result["error"] = f"{type(error).__name__}: {str(error)[:300]}"
     return result
 
