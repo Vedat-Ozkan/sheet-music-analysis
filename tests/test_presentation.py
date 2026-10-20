@@ -1,5 +1,3 @@
-"""Short part names, the whole-ensemble bracket and pedal-word removal in engine/render.py."""
-
 import re
 from xml.sax.saxutils import escape
 
@@ -102,6 +100,5 @@ def test_other_directions_stay():
 
 
 def test_only_large_scores_hide_resting_staves():
-    # A quartet prints every staff on every system; hiding a resting first violin is for orchestral scores.
     assert 'optimize="true"' not in _mei(["Violin 1", "Violin 2", "Viola", "Cello"])
     assert 'optimize="true"' in _mei([f"Part {i}" for i in range(9)])

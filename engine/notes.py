@@ -1,28 +1,3 @@
-"""A compact text form of a score's notes, small enough for a chat model to pass to a tool.
-
-A host that keeps the user's file in its own sandbox (Claude) cannot send the
-file to the server, but it can send this. It carries what the harmony model
-reads and nothing else: no layout, slurs, dynamics or text.
-
-    N1 div=48 ts=12/8 ks=3f
-    m0 len=24
-    1.1: 24 Bb4
-    m1 len=288
-    1.1: 72 G5 24 G5 F5 G5 72 F5 48 Eb5 24 Bb4
-    2.1: 24 Eb2 G3+Eb4 Bb3+Eb4+G4 ...
-
-Each `staff.voice:` line is one voice. A bare number sets the duration (in
-`div` units per quarter note) for the notes after it. `+` joins a chord, `r` is
-a rest, a leading `g` marks a grace note and a trailing `~` a tie to the next
-note. Separate grace attacks use separate tokens (`gD4 gE4`); a grace
-chord uses one token (`gD4+E4`). Existing N1 text remains valid.
-Pitches are sounding pitches, including under octave lines.
-A measure line repeats `ts=` when the meter changes.
-
-This module uses only the standard library, because the model's own
-environment imports it too.
-"""
-
 from __future__ import annotations
 
 import re
@@ -36,7 +11,7 @@ MAX_CHARS = 200_000
 
 
 class NotesError(ValueError):
-    """The note list is not in the expected form."""
+    pass
 
 
 @dataclass
@@ -47,17 +22,12 @@ class Voice:
 
 
 def encode(index: ScoreIndex, first: int | None = None, last: int | None = None) -> str:
-    """The note list for printed measures first..last (the whole score by default).
-
-    A range that starts at measure 1 takes the pickup along.
-    """
     measures = index.measures
     if first is not None or last is not None:
         start = measures.index(index.measure(first if first is not None else measures[0].number))
         end = measures.index(index.measure(last if last is not None else measures[-1].number))
         if start == 1 and measures[0].number == 0:
             start = 0
-        # Measure.index counts XML segments; N1 addresses joined logical bars.
         measures = measures[start : end + 1]
     div = index.ppq
     lines = [f"{VERSION} div={div} ts={index.meter} ks={index.key_signature or '0'}"]
@@ -90,10 +60,10 @@ def _voice(events: list[Event], div: int) -> str:
     onsets: dict[tuple[Fraction, bool, str], list[Event]] = {}
     for event in events:
         onsets.setdefault((event.onset, event.grace, event.attack if event.grace else ""), []).append(event)
-    for onset, grace, attack in sorted(onsets, key=lambda key: (key[0], not key[1])):  # grace notes come before the beat
+    for onset, grace, attack in sorted(onsets, key=lambda key: (key[0], not key[1])):
         group = onsets[(onset, grace, attack)]
         names = "+".join(event.pitch + ("~" if event.tied else "") for event in group)
-        if onset > cursor:  # silence in this voice, written before whatever starts next, grace notes included
+        if onset > cursor:
             gap = _units(onset - cursor, div)
             tokens += [str(gap), "r"]
             current, cursor = gap, onset
@@ -110,7 +80,6 @@ def _voice(events: list[Event], div: int) -> str:
 
 
 def decode(text: str) -> ScoreIndex:
-    """Rebuild a score index (measures and notes, no engraving) from a note list."""
     if len(text) > MAX_CHARS:
         raise NotesError("The note list is too long")
     numbered = [(number, line.strip()) for number, line in enumerate(text.splitlines(), 1) if line.strip()]

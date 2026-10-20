@@ -1,7 +1,3 @@
-"""Per-bar counts of the things the benchmark scores, read straight from a MusicXML file (truth or OMR output).
-
-Bars are the measures of the first part, in file order; all parts and staves of a bar are pooled.
-"""
 import collections, io, zipfile
 import xml.etree.ElementTree as ET
 
@@ -18,7 +14,6 @@ def read_xml(data: bytes) -> bytes:
 
 
 def per_bar(data: bytes) -> list[collections.Counter]:
-    """-> one Counter per bar, keys from KINDS."""
     root = ET.fromstring(read_xml(data))
     parts = [list(p.iter("measure")) for p in root.iter("part")]
     bars = [collections.Counter() for _ in range(max((len(p) for p in parts), default=0))]
@@ -40,7 +35,7 @@ def per_bar(data: bytes) -> list[collections.Counter]:
             for tag in ORNAMENTS:
                 c["ornaments"] += len(list(m.iter(tag)))
             for o in m.iter("octave-shift"):
-                if o.get("type") in ("up", "down"):  # "stop" ends a line already counted
+                if o.get("type") in ("up", "down"):
                     c["octave_lines"] += 1
     return bars
 

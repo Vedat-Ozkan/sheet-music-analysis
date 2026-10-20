@@ -1,14 +1,3 @@
-"""Read every benchmark PDF as production does (engine.read_pdf.read_pdf) and score the result.
-
-usage: run.py [--set bench bench-heldout ...] [--out results-baseline.json] [--jobs 6] [--only SUBSTRING ...]
-              [--tag TEXT] [--audiveris PATH]
-Only Audiveris's own output is cached (<set>/cache/raw/), per PDF and per settings, keyed by sha256 of the PDF, the
-settings and a signature of the Audiveris install (file names, sizes, mtimes), so a rebuilt install invalidates the
-cache by itself; --tag adds to the key. Everything after Audiveris (cleaning, choosing a reading, triplets) runs from
-the current engine code on every run, so changing it costs seconds, not a re-read. --set names benchmark folders next
-to this one (same manifest format); all their PDFs share one pool, and each set's results go to <set>/<out>.
---jobs caps Audiveris processes running at once (each takes up to ~1.7 GB, log 35), not PDFs.
-"""
 import argparse, collections, hashlib, json, os, subprocess, sys, threading, time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -31,9 +20,6 @@ def install_signature(binary: Path) -> str:
 
 
 def cached_raw(cache: Path, sig: str, slots: threading.Semaphore, calls: list):
-    """A stand-in for engine.read_pdf.audiveris_read that keeps each Audiveris output in `cache`. Each run gets the full
-    TIMEOUT from when it starts, not from when its PDF did: runs wait here for a slot, which production never does.
-    Appends (settings index, Audiveris seconds, cached) to `calls`."""
     from engine import read_pdf as reader
 
     def raw(data, audiveris, options, deadline):
@@ -64,8 +50,6 @@ def cached_raw(cache: Path, sig: str, slots: threading.Semaphore, calls: list):
 
 
 def read(pdf: Path, out_xml: Path, raw_cache: Path, sig: str, audiveris: str, slots) -> dict:
-    """Production's read_pdf over cached Audiveris output; seconds = what the Audiveris runs took in production's order
-    (the first reading, then the retries side by side)."""
     from engine.read_pdf import ReadError, read_pdf
     calls, fresh = [], False
     out = {}
@@ -73,8 +57,6 @@ def read(pdf: Path, out_xml: Path, raw_cache: Path, sig: str, audiveris: str, sl
         r = read_pdf(pdf.read_bytes(), audiveris, raw=cached_raw(raw_cache, sig, slots, calls))
         fresh = bool(calls) and not calls[0][2]
         if fresh:
-            # Waiting for a slot spent read_pdf's deadline, which can skip the retries production would make; read
-            # again with the first reading cached (production skips them only after a first reading of over 210 s)
             calls.clear()
             r = read_pdf(pdf.read_bytes(), audiveris, raw=cached_raw(raw_cache, sig, slots, calls))
         out_xml.write_bytes(r.musicxml)
@@ -100,7 +82,6 @@ def score(truth: Path, omr: Path) -> dict:
 
 
 def summarise(rows: list[dict]) -> dict:
-    """Totals over the given piece rows (sums of counts first, ratios after, so big pieces weigh more)."""
     t = collections.Counter()
     for r in rows:
         t["pdfs"] += 1
@@ -138,12 +119,11 @@ def main():
     ap.add_argument("--tag", default="")
     ap.add_argument("--audiveris", default=str(DEFAULT_AUDIVERIS))
     a = ap.parse_args()
-    # 19 GB machine: 6 readings at ~1.7 GB peak leave room for 12 scorers (Verovio, a few hundred MB each)
     jobs = min(a.jobs, 6)
     slots = threading.Semaphore(jobs)
     sig = install_signature(Path(a.audiveris)) + a.tag
     t0 = time.time()
-    work = []  # (set folder, manifest, pdf entry)
+    work = []
     for name in a.set:
         folder = HERE.parent / name
         manifest = json.loads((folder / "manifest.json").read_text())
@@ -167,7 +147,6 @@ def main():
             row["pitch_onset"] = round(s["shared_pitch_onset"] / s["truth_notes"], 4)
         return folder, manifest, row
 
-    # More threads than Audiveris slots: a PDF whose readings are cached only needs the engine and the scorer
     with ThreadPoolExecutor(max(1, min(len(work), 12))) as ex:
         done = list(ex.map(one, work))
     for name in a.set:

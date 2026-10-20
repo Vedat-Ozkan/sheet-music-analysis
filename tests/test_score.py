@@ -14,7 +14,7 @@ def index(chopin) -> ScoreIndex:
 def test_pickup_is_measure_zero(index):
     assert index.measures[0].number == 0
     assert index.measure(1).index == 2
-    assert index.measure(1).beat_length == Fraction(3, 2)  # 12/8 counts in dotted quarters
+    assert index.measure(1).beat_length == Fraction(3, 2)
 
 
 def test_measure_range_includes_the_pickup(index):
@@ -25,7 +25,7 @@ def test_measure_range_includes_the_pickup(index):
 def test_find_note_by_staff_and_pitch(index):
     note = index.find_note(1, 4, staff=2, pitch="D2")
     assert note.pitch == "D2" and note.onset == Fraction(9, 2)
-    assert index.find_note(2, 3, staff=1, pitch="B-5").pitch == "Bb5"  # music21 spelling is accepted
+    assert index.find_note(2, 3, staff=1, pitch="B-5").pitch == "Bb5"
 
 
 def test_wrong_pitch_lists_what_is_there(index):

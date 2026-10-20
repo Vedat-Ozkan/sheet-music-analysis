@@ -1,5 +1,3 @@
-"""Restore rests Audiveris leaves outside otherwise complete sextuplet beams."""
-
 import copy
 import xml.etree.ElementTree as ET
 from fractions import Fraction
@@ -8,8 +6,6 @@ from engine.triplets import _beam, _consistent, _events, _factor
 
 
 def _simple_serialization(measure, repaired):
-    # The shared cursor is safe to shorten only inside one uninterrupted voice.
-    # Every subsequent voice must reset it with a backup whose target we preserve.
     seen, current = set(), None
     headers = set()
     elements = list(measure)
@@ -38,8 +34,6 @@ def _simple_serialization(measure, repaired):
                     if following.tag in ('note', 'forward'):
                         owner = (following.findtext('staff', '1'), following.findtext('voice', '1'))
                         break
-            # Offsets may cross a shortened rest, and independent directions must
-            # never inherit this segment's cursor even when their notes are safe.
             if (owner is None or element.findtext('staff', '1') != owner[0]
                     or element.findtext('voice', owner[1]) != owner[1]
                     or Fraction(element.findtext('offset', '0')) != 0
@@ -53,8 +47,6 @@ def _simple_serialization(measure, repaired):
             if element.get('location', 'right') not in ('left', 'right'):
                 return False
         else:
-            # Only boundary/layout metadata is cursor-independent. Unknown timed
-            # elements need a proof before any duration in their bar can change.
             return False
     return True
 
@@ -95,7 +87,6 @@ def infer_tuplet_rests(score: bytes) -> bytes:
                         candidates.append((rest, group[0][0]))
                 total = sum(Fraction(e[0].findtext('duration')) / divisions for e in events)
                 saving = sum(Fraction(n.findtext('duration')) / divisions / 3 for n, _ in candidates)
-                # An exact bar repair prevents ordinary rests beside incomplete tuplets being shortened.
                 if candidates and total - saving == full:
                     repairs.update(candidates)
                     repaired_voices.append(events)
@@ -121,8 +112,6 @@ def infer_tuplet_rests(score: bytes) -> bytes:
                 continue
             def warped(position):
                 return position - sum(saving for onset, saving in reductions if onset < position)
-            # A duration grid has no origin. Only a complete ordinary staff timeline
-            # can anchor hidden gaps; another voice's overflow is not evidence for moving them.
             ordinary = {key for key, events in voices.items() if _consistent(events, divisions)
                         and all(_factor(n) == 1 for e in events for n in e)}
             aligned_staffs = set()
@@ -140,7 +129,6 @@ def infer_tuplet_rests(score: bytes) -> bytes:
                 else:
                     if end == full * divisions:
                         aligned_staffs.add(staff)
-            # Backups retain their targets because independent voices can start later in the bar.
             cursor, repaired_cursor, durations = Fraction(0), Fraction(0), {}
             aligned = True
             for element in measure:

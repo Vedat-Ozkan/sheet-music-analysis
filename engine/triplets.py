@@ -1,5 +1,3 @@
-"""Conservative inference of omitted 3:2 factors in cleaned PDF readings."""
-
 import itertools
 import xml.etree.ElementTree as ET
 from fractions import Fraction
@@ -20,7 +18,7 @@ def _events(measure):
             if current is not None and current[0] == key:
                 current[1].append(note)
             else:
-                return {}  # An orphan chord is evidence of another reading error.
+                return {}
         else:
             current = (key, [note])
             voices.setdefault(key, []).append(current[1])
@@ -58,12 +56,6 @@ def _consistent(events, divisions):
 
 
 def _groups(events):
-    """Only whole, uniform beams, including beams whose first triple was tagged.
-
-    Cutting a six-note tail out of a mixed beam misrepairs CPE Bach's ordinary
-    32nds: overflow there comes from another duration error. Beam boundaries
-    and the already tagged groups must agree with our partition into threes.
-    """
     result = []
     i = 0
     while i < len(events):
@@ -83,7 +75,7 @@ def _groups(events):
         else:
             i += 1
             continue
-        if j == i:  # a beamed quarter (misread) matches neither run kind; without this the loop never advances
+        if j == i:
             i += 1
             continue
         run = events[i:j]
@@ -98,7 +90,6 @@ def _groups(events):
 
 
 def _aligned(events, divisions, choice):
-    """Each converted group starts on a multiple of its own (converted) length: the beat or sub-beat split in three."""
     pos, chosen = Fraction(0), set(choice)
     for idx, ev in enumerate(events):
         d = Fraction(ev[0].findtext('duration')) / divisions
@@ -128,7 +119,6 @@ def _rhythm(events, selected=()):
 
 
 def _gaps(measure, divisions):
-    """The hidden space each voice that starts with a forward begins with."""
     gaps, started = {}, set()
     for element in measure:
         if element.tag not in ('note', 'forward') or element.find('grace') is not None:
@@ -144,7 +134,6 @@ def _gaps(measure, divisions):
 
 
 def _backup_targets(measure):
-    """Onset each backup returns to (forwards count as time)."""
     cursor, targets = 0, []
     for element in measure:
         if element.tag == 'note' and element.find('chord') is None and element.find('grace') is None:
@@ -158,7 +147,6 @@ def _backup_targets(measure):
 
 
 def _retarget(measure, targets):
-    """Point every backup at its original onset after notes shrank (durations already scaled by 3)."""
     cursor, targets = 0, iter(targets)
     for element in measure:
         if element.tag == 'note' and element.find('chord') is None and element.find('grace') is None:
@@ -172,14 +160,6 @@ def _retarget(measure, targets):
 
 
 def infer_triplets(score: bytes) -> bytes:
-    """Infer an exact, beat-aligned overflow repair supported by nearby printed triplets.
-
-    Works without score truth. Compound meters are excluded using their *written*
-    numerator/denominator: reducing 6/8 to 3/4 would admit ordinary ternary beams.
-    Each converted group starts on a multiple of its own length (a beat or sub-beat split in three), at
-    any level: eighth, 16th or 32nd triplets, or quarters. Quarter notes need the entire repaired voice rhythm repeated with a printed
-    triplet nearby, since an unbeamed run alone supplies no grouping evidence.
-    """
     root = ET.fromstring(score)
     changed = False
     for part in root.findall('part'):
@@ -210,10 +190,6 @@ def infer_triplets(score: bytes) -> bytes:
                 total = sum(Fraction(e[0].findtext('duration', '0')) / divisions for e in events)
                 overflow = total - full
                 if overflow <= 0 and key not in gaps:
-                    # A voice that runs into another voice of its staff starting after a hidden gap (the overlap
-                    # problem_spots flags) overflows that start instead: +51 notes, 1 more wrong over the four benchmarks.
-                    # Cutting threes out of longer beams or widening the nearby window for these bars (Chopin Op.28/4
-                    # bar 18) gained 4 notes and cost 8-67, so the other guards stay.
                     starts = [g for k, g in gaps.items() if k[0] == key[0] and 0 < g < total]
                     overflow = total - min(starts) if starts else overflow
                 if overflow <= 0:
@@ -224,7 +200,6 @@ def infer_triplets(score: bytes) -> bytes:
                 candidates = [i for i in _groups(events) if events[i][0].findtext('type') in printed]
                 if not candidates or len(candidates) > 12:
                     continue
-                # Bounded exhaustive search with exact fractions.
                 solutions = []
                 for count in range(1, len(candidates) + 1):
                     for choice in itertools.combinations(candidates, count):
@@ -234,8 +209,6 @@ def infer_triplets(score: bytes) -> bytes:
                 solutions = [c for c in solutions if _aligned(events, divisions, c)]
                 if not solutions:
                     continue
-                # Several beat-aligned sets can fit (e.g. which of two equal runs); on all cached readings
-                # first-vs-last choice recovers the same notes, so take the fewest groups, leftmost.
                 choice = solutions[0]
                 if any(events[i][0].findtext('type') == 'quarter' for i in choice):
                     if not any(_rhythm(events, choice) == _rhythm(ev) and 'quarter' in _printed_types(ev)
@@ -245,7 +218,6 @@ def infer_triplets(score: bytes) -> bytes:
         if not todo:
             continue
         changed = True
-        # Scale the whole part once, preserving thirds, forwards and direction offsets.
         for element in part.iter():
             if element.tag in ('duration', 'divisions', 'offset') and element.text:
                 element.text = str(int(element.text) * 3)

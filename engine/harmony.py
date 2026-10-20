@@ -1,16 +1,3 @@
-"""What a Roman numeral label claims is sounding, and where that disagrees with the notes.
-
-`chord` reads a RomanText label in a key ("V65/vi" in "Eb") into its pitch classes, root, bass and seventh,
-with no dependency beyond the standard library, so it runs in the skill's sandbox. It follows music21's
-conventions as used by eval/compare.py: in minor, a lower-case vi or vii and an upper-case V stand on the
-raised sixth and seventh, an upper-case VI or VII on the natural ones, and a sharp before vi or vii is
-cautionary.
-
-`mismatches` compares each harmony label of an annotation list with the notes sounding while it lasts and
-lists only clear contradictions, for the analyst to accept or explain: a seventh that never sounds, a bass
-that is never the lowest note, or most of the chord missing.
-"""
-
 from __future__ import annotations
 
 import re
@@ -25,7 +12,7 @@ MAJOR = [0, 2, 4, 5, 7, 9, 11]
 MINOR = [0, 2, 3, 5, 7, 8, 10]
 ROMAN = {"i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5, "vi": 6, "vii": 7}
 LABEL = re.compile(r"^(?P<accidental>[#b-]*)(?P<numeral>[ivIV]+)(?P<quality>o|ø|\+|%)?(?P<major>M)?(?P<figures>7|65|43|42|2|64|6|9|11|13)?$")
-SPECIAL = {  # semitones above the tonic, bass first
+SPECIAL = {
     "It6": (8, 0, 6),
     "Ger65": (8, 0, 3, 6),
     "Ger6": (8, 0, 3, 6),
@@ -52,20 +39,18 @@ def _tonic(key: str) -> tuple[int, bool]:
 def _degree_root(numeral: str, accidental: str, tonic: int, minor: bool) -> int:
     degree = ROMAN[numeral.lower()]
     if accidental.strip("#") and accidental.replace("#", "") and not (minor and degree in (6, 7) and numeral.islower()):
-        # a flat counts from the major scale, in minor as in major (bVI in F minor is D-flat)
         return (tonic + MAJOR[degree - 1] - accidental.count("b") - accidental.count("-") + accidental.count("#")) % 12
     root = tonic + (MINOR if minor else MAJOR)[degree - 1]
     if minor and degree in (6, 7) and numeral.islower():
-        root += 1  # vi and vii in minor stand on the raised sixth and seventh
+        root += 1
     if minor and degree in (6, 7) and numeral.islower() and accidental.startswith("#"):
-        accidental = accidental[1:]  # the sharp is cautionary, already counted
+        accidental = accidental[1:]
     root += accidental.count("#") - accidental.count("b") - accidental.count("-")
     return root % 12
 
 
 def chord(key: str, label: str) -> Chord | None:
-    """The chord a RomanText label names in `key`, or None if it cannot be read (a chord symbol, a typo)."""
-    label = re.sub(r"\[[^\]]*\]", "", label.strip().split(" ")[0]).replace("/o", "ø")  # added notes are left out
+    label = re.sub(r"\[[^\]]*\]", "", label.strip().split(" ")[0]).replace("/o", "ø")
     if not label:
         return None
     try:
@@ -73,7 +58,7 @@ def chord(key: str, label: str) -> Chord | None:
     except (KeyError, IndexError):
         return None
     head, _, target = label.partition("/")
-    if target and target not in ("o",):  # applied chord: read it in the key of its target
+    if target and target not in ("o",):
         inner = chord(key, target if re.match(r"^[#b-]*[ivIV]+$", target) else "")
         if inner is None:
             return None
@@ -95,7 +80,7 @@ def chord(key: str, label: str) -> Chord | None:
         return None
     numeral, quality, figures = match["numeral"], match["quality"] or "", match["figures"] or ""
     if figures in ("9", "11", "13"):
-        figures = "7"  # an extended dominant: its core is the seventh chord
+        figures = "7"
     if match["major"]:
         figures = "M" + (figures or "7")
     root = _degree_root(numeral, match["accidental"], tonic, minor)
@@ -115,9 +100,8 @@ def chord(key: str, label: str) -> Chord | None:
             seventh = 10
         else:
             if numeral.islower():
-                seventh = 10  # a minor chord's seventh is minor (ii7, iv7 borrowed into major alike)
+                seventh = 10
             else:
-                # "7" is the seventh the key supplies: IV7 in C has E, V7 has F, bII7 in C has C
                 degree = ROMAN[numeral.lower()]
                 diatonic = (tonic + (MINOR if minor else MAJOR)[(degree + 5) % 7]) % 12
                 seventh = (diatonic - root) % 12
@@ -128,7 +112,6 @@ def chord(key: str, label: str) -> Chord | None:
 
 
 def _sounding(index: ScoreIndex, start: tuple[int, Fraction], end: tuple[int, Fraction] | None) -> list[list]:
-    """For each onset from `start` up to `end`: the notes sounding there, as (midi, pitch name) pairs."""
     from engine.reduce import midi
 
     numbers = [m.number for m in index.measures]
@@ -147,7 +130,6 @@ def _sounding(index: ScoreIndex, start: tuple[int, Fraction], end: tuple[int, Fr
 
 
 def mismatches(annotations: list[dict], index: ScoreIndex) -> list[str]:
-    """Clear contradictions between each harmony label and the notes sounding while it lasts."""
     harmonies = sorted((a for a in annotations if a.get("type") == "harmony"), key=lambda a: (a["at"]["measure"], float(a["at"].get("beat", 1))))
     found, key = [], "C"
     for number, item in enumerate(harmonies):

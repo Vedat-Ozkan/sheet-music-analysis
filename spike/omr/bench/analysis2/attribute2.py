@@ -1,5 +1,3 @@
-"""Attribution of lost notes (adapted from ../analysis/attribute.py) for bench/ or bench-heldout/, plus shifted-vs-wrong split.
-usage: attribute2.py BENCHDIR RESULTS.json OUT.json [--fix]   (--fix: apply triplet post-fix prototype to the OMR first)"""
 import collections, hashlib, json, sys
 from fractions import Fraction
 from pathlib import Path
@@ -9,7 +7,6 @@ from attribute import rx, STEP, align
 import xml.etree.ElementTree as ET
 
 def events2(data, fix=None):
-    """per measure: (midi, onset, flags) with flags incl. dur (sounding). Voices kept per part/staff/voice."""
     root = rx(data) if not isinstance(data, ET.Element) else data
     parts = [list(p.iter("measure")) for p in root.iter("part")]
     out = [[] for _ in range(max((len(p) for p in parts), default=0))]; meta = [collections.Counter() for _ in out]

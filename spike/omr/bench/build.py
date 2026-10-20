@@ -1,10 +1,3 @@
-"""Build truth/ and pdfs/ and manifest.json from pieces.py.
-
-usage: build.py --lieder DIR --sq DIR [--only ID ...]
-  DIR = checkouts of github.com/OpenScore/Lieder and .../StringQuartets (see README.md)
-Engravers: MuseScore 4 (Windows side), Verovio (repo engine), LilyPond (portable build, --lilypond-bin DIR), and
-synthetic scans (rasterise + degrade, run with homr-venv's python).
-"""
 import argparse, json, os, shutil, subprocess, sys, tempfile, zlib, xml.etree.ElementTree as ET
 from pathlib import Path
 

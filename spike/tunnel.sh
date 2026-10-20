@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Start or stop the spike server behind a temporary Cloudflare tunnel.
-# The public address changes on every start and is printed and saved to out/tunnel.url.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p out

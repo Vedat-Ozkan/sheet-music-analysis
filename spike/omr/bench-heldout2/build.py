@@ -1,8 +1,3 @@
-"""Six fresh CC0 songs, selected by truth triplets before any OMR evaluation.
-
-Usage: .venv/bin/python spike/omr/bench-heldout2/build.py --lieder DIR
-Uses the same MuseScore 4 export and first-bars excerpt as the original benchmark.
-"""
 import argparse
 import json
 import sys
@@ -13,7 +8,6 @@ sys.path.insert(0, str(HERE.parent / 'bench'))
 import build as B
 from features import totals
 
-# Fixed before reading: six composers, contrasting densities, first 24 bars each.
 PIECES = [
  ('h2-bantock-ghost-road', 'Bantock,_Granville/5_Songs_from_the_Chinese_Poets,_1st_Series/2_The_Ghost_Road'),
  ('h2-beach-years-at-spring', 'Beach,_Amy/3_Browning_Songs,_Op.44/1_The_Year’s_at_the_Spring'),

@@ -30,7 +30,6 @@ TRIAD, SEVENTH = ["", "6", "64"], ["7", "65", "43", "42"]
 
 
 def lowest_starting(index: ScoreIndex, measure: int, beat: float) -> int | None:
-    """Pitch class of the lowest note that begins exactly at this measure and beat, if any."""
     found = index.measure(measure) if hasattr(index, "measure") else next((m for m in index.measures if m.number == measure), None)
     if found is None:
         return None
@@ -40,10 +39,9 @@ def lowest_starting(index: ScoreIndex, measure: int, beat: float) -> int | None:
 
 
 def corrected(label: str, key: str, bass: int) -> str | None:
-    """`label` with its inversion changed so that `bass` is in the bass, or None if it cannot or need not change."""
     match = FIGURE.match(label)
     if not match:
-        return None  # augmented sixths, Neapolitans, Cad64 and chord symbols are left alone
+        return None
     try:
         local = m21key.Key(m21key.convertKeyStringToMusic21KeyString(key))
         chord = roman.RomanNumeral(label.replace("ø", "/o"), local)
@@ -53,7 +51,7 @@ def corrected(label: str, key: str, bass: int) -> str | None:
         return None
     members = [chord.root().pitchClass, chord.third.pitchClass if chord.third else None, chord.fifth.pitchClass if chord.fifth else None, chord.seventh.pitchClass if chord.seventh else None]
     if bass not in members:
-        return None  # the lowest note is not in the chord: a passing or neighbour note, not an inversion
+        return None
     position = members.index(bass)
     figures = SEVENTH if chord.seventh is not None else TRIAD
     if position >= len(figures):
@@ -62,8 +60,6 @@ def corrected(label: str, key: str, bass: int) -> str | None:
 
 
 def lowest_over(index: ScoreIndex, start: tuple[int, float], end: tuple[int, float] | None) -> int | None:
-    """Pitch class of the lowest note sounding anywhere from `start` up to `end` (the next chord label):
-    the bottom of a broken-chord pattern, as a textbook defines the bass, rather than whatever starts first."""
     numbers = [m.number for m in index.measures]
     first = numbers.index(start[0]) if start[0] in numbers else None
     if first is None:

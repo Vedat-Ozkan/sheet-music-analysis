@@ -58,9 +58,7 @@ def main() -> int:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     xml = args.out_dir / f"{args.name}.musicxml"
     if xml.resolve() == args.score.resolve():
-        # Never delete or overwrite the user's own score, which may share the default output name.
         xml = args.out_dir / f"{args.name}-annotated.musicxml"
-    # Reused output names must not pair new pages with a previous analysis's export.
     xml.unlink(missing_ok=True)
     for page in range(1, engraving.page_count + 1):
         suffix = "" if engraving.page_count == 1 else f"-p{page}"
@@ -70,7 +68,6 @@ def main() -> int:
     pdf = args.out_dir / f"{args.name}.pdf"
     pdf.write_bytes(engraving.pdf())
     print(pdf)
-    # Optional extras: a failure in one must not discard the pages or the other files.
     for suffix, make in (("-worksheet.pdf", lambda: render(score, AnnotationList(annotations=[]), measures=measures, piano=args.piano).pdf()),
                          (".mid", lambda: export_midi(score, measures)),
                          (".rntxt", lambda: export_romantext(score, annotations.model_dump(), measures))):
@@ -84,7 +81,6 @@ def main() -> int:
         if data:
             path.write_bytes(data)
             print(path)
-    # Optional export failures must not discard an engraving Verovio already accepted.
     try:
         musicxml = export_musicxml(score, annotations.model_dump())
     except Exception as error:

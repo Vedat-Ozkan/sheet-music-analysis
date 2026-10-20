@@ -1,9 +1,3 @@
-"""Run Audiveris (as production does, engine.read_pdf.read_pdf) on every benchmark PDF and score the result.
-
-usage: run.py [--out results-baseline.json] [--jobs 3] [--only SUBSTRING ...] [--tag TEXT] [--audiveris PATH]
-Audiveris results are cached in cache/ by sha256 of the PDF plus a signature of the Audiveris install (file names,
-sizes, mtimes), so a retrained classifier inside the install invalidates the cache by itself. --tag adds to the key.
-"""
 import argparse, collections, hashlib, json, os, subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -58,7 +52,6 @@ def score(truth: Path, key: str) -> dict:
 
 
 def summarise(rows: list[dict]) -> dict:
-    """Totals over the given piece rows (sums of counts first, ratios after, so big pieces weigh more)."""
     t = collections.Counter()
     for r in rows:
         t["pdfs"] += 1
@@ -95,7 +88,7 @@ def main():
     ap.add_argument("--tag", default="")
     ap.add_argument("--audiveris", default=str(DEFAULT_AUDIVERIS))
     a = ap.parse_args()
-    jobs = min(a.jobs, 3)  # each Audiveris takes ~1.3 GB (-Xmx1g); more than 3 was ruled out
+    jobs = min(a.jobs, 3)
     manifest = json.loads((HERE / "manifest.json").read_text())
     pdfs = [p for p in manifest["pdfs"] if not a.only or any(s in p["pdf"] for s in a.only)]
     sig = install_signature(Path(a.audiveris)) + a.tag

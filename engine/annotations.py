@@ -1,9 +1,3 @@
-"""The annotation list: what the chat model writes and the renderer draws.
-
-Every annotation addresses the music by position (measure number, beat, staff,
-pitch), never by pixel. See docs/annotation-spec.md.
-"""
-
 from __future__ import annotations
 
 from typing import Annotated, Literal
@@ -85,9 +79,7 @@ class NonChordTone(Annotation):
     label: str = Field(description='Open Music Theory abbreviation, e.g. "PT" passing, "NT" neighbor, "SUS" suspension, "APP" appoggiatura, "ET", "ANT", "RET", "PED"; the older "P", "N", "S" are drawn as PT, NT, SUS')
 
 
-# The words part_writing puts on its arrows (an unresolved seventh or leading tone). An arrow with any other label,
-# or none, is an analysis mark the model draws (a resolution) and is not red.
-FAULT_ARROW_LABELS = frozenset({"R"})  # Kelley's improper-resolution arrow
+FAULT_ARROW_LABELS = frozenset({"R"})
 
 
 class VoiceLeading(Annotation):
@@ -127,7 +119,7 @@ AnyAnnotation = Annotated[
 
 DEFAULT_VIEWS: dict[str, set[str]] = {
     "harmony": {"harmony", "voice_leading"},
-    "function": {"harmony"},  # the bands drawn from Harmony.function
+    "function": {"harmony"},
     "cadence": {"harmony", "form"},
     "phrase": {"form"},
     "region": {"harmony", "form"},

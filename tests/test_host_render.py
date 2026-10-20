@@ -1,5 +1,3 @@
-"""Exercise host downloads and the skill command against a real score."""
-
 import asyncio
 import base64
 import os
@@ -88,7 +86,7 @@ def test_server_musicxml_download_is_sandboxed_and_text_is_accurate(tmp_path, mo
         return result, await app.files(Request({'type': 'http', 'path_params': {'name': name}}))
 
     result, response = asyncio.run(run({'annotations': [{'type': 'harmony', 'at': {'measure': 1}, 'label': 'I'}]}))
-    assert b':script' in response.body  # the payload survives the export, so the headers must contain it
+    assert b':script' in response.body
     assert response.headers['content-disposition'] == 'attachment; filename="analysis.musicxml"'
     assert response.headers['content-security-policy'] == 'sandbox'
     assert response.headers['x-content-type-options'] == 'nosniff'
@@ -160,7 +158,6 @@ def test_legacy_latin1_render_and_export(tmp_path, monkeypatch, host):
         assert result.returncode == 0, result.stderr
         assert (tmp_path / 'legacy.png').read_bytes() == expected_png
         assert (tmp_path / 'legacy.pdf').read_bytes().startswith(b'%PDF')
-        # The input is also named legacy.musicxml, so the export takes the -annotated name.
         exported = (tmp_path / 'legacy-annotated.musicxml').read_bytes()
     assert ET.fromstring(exported).findtext('work/work-title') == 'Café'
     labels = from_musicxml(exported)
@@ -289,21 +286,19 @@ def pdf_text(data):
 
 
 def check_extras(files, annotations, bars):
-    """files maps worksheet/midi/romantext/pdf to the bytes a user would download."""
     import music21
     assert files['midi'][:4] == b'MThd'
     assert 'vii' not in pdf_text(files['worksheet'])
-    assert 'vii' in pdf_text(files['pdf'])  # the analysis PDF does carry its labels, so the check above can fail
+    assert 'vii' in pdf_text(files['pdf'])
     parsed = music21.converter.parse(files['romantext'].decode(), format='romantext')
     chords = list(parsed.recurse().getElementsByClass('RomanNumeral'))
     expected = [a for a in annotations.annotations if a.type == 'harmony' and bars[0] <= a.at.measure <= bars[1]]
     assert len(chords) == len(expected)
-    assert [round(float(c.getOffsetInHierarchy(parsed)), 2) for c in chords][:3] == [0.0, 1.5, 3.0]  # 12/8: beats of a dotted quarter
+    assert [round(float(c.getOffsetInHierarchy(parsed)), 2) for c in chords][:3] == [0.0, 1.5, 3.0]
     assert_romantext_matches(chords, expected)
 
 
 def assert_romantext_matches(chords, harmonies):
-    """A flat key written as "E-:" parses as an empty chord with no key, so check what music21 actually read."""
     import music21
     key = None
     for chord, harmony in zip(chords, harmonies):
@@ -350,7 +345,6 @@ def test_skill_extra_downloads(chopin, chopin_annotations, tmp_path):
 
 
 def test_romantext_of_a_pickup_piece_with_a_key_change(tmp_path):
-    # bwv102.7 starts on beat 4 of a pickup bar; every later chord lands late if the pickup chord is read as beat 1.
     from engine.export import export_romantext
     from engine.annotations import AnnotationList
     import music21
@@ -360,11 +354,10 @@ def test_romantext_of_a_pickup_piece_with_a_key_change(tmp_path):
         h(2, 3, 'I', 'Bb'), h(2, 4, 'V43'), h(3, 1, 'I6')]})
     score = (ROOT / 'tests/data/part_writing_bwv102.7.musicxml').read_bytes()
     harmonies = analysis.annotations
-    for measures, chosen in [(None, harmonies), ((1, 3), harmonies)]:  # a range from bar 1 includes the pickup, as the MIDI does
+    for measures, chosen in [(None, harmonies), ((1, 3), harmonies)]:
         text = export_romantext(score, analysis.model_dump(), measures).decode()
         chords = list(music21.converter.parse(text, format='romantext').recurse().getElementsByClass('RomanNumeral'))
         assert len(chords) == len(chosen)
         assert_romantext_matches(chords, chosen)
-        # the pickup chord is the last beat of a 4/4 bar, 3 quarters before bar 1; bar 1 then starts at offset 1
         assert [c.measureNumber for c in chords][:2] == [0, 1]
         assert [c.beat for c in chords][:3] == [4.0, 1.0, 2.0]

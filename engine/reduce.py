@@ -1,9 +1,3 @@
-"""A beat-by-beat table of the notes, for an analyst to read instead of the raw score.
-
-Each row is one beat: the bass, the pitch classes sounding, and every note with
-the exact beat where it starts, written the way the annotation list addresses it.
-"""
-
 from __future__ import annotations
 
 from fractions import Fraction
@@ -54,7 +48,6 @@ def _beat_rows(measure: Measure) -> list[str]:
 
 
 def _onsets(measure: Measure, events: list[Event]) -> str:
-    """ "G5@1 F5@1.33": each note with the beat it starts on; simultaneous notes are joined with +."""
     groups: dict[Fraction, list[Event]] = {}
     for event in events:
         groups.setdefault(event.onset, []).append(event)

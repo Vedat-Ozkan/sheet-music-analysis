@@ -1,5 +1,3 @@
-"""The "check my analysis" page: the student's labels in one row, the tool's reading under it only where it differs."""
-
 import math
 import re
 from dataclasses import asdict
@@ -10,26 +8,25 @@ from engine.annotations import AnnotationList, Position
 from engine.comparison import from_annotations
 from engine.overlay import INK, NUMERAL_SIZE, Box, NotOnPage
 
-ERROR = '#D50000'  # the teacher's red pen: everything the tool writes is a correction
+ERROR = '#D50000'
 AGREE_COLOR = '#228833'
-# A key-only difference is not a fault in the student's chord, so it is not red; grey ink is the margin pencil beside the red pen.
 NEUTRAL = '#555555'
-GAP = 110  # clear space between neighbouring labels, as in the normal page's numeral row
-ROW = 640  # from the student's baseline to the tool's
-SIZE = 330  # smallest text that reads at chat size (about 11 px)
-STROKE = 30  # the spec's stroke for rings and underlines
-CORNER = 120  # ring corner radius: small enough that the corners of a stacked figure's text box stay inside
-BADGE_GAP = 90  # clear space between a numeral (or its ring) and its note number
-KEY_CLEAR = 40  # extra space between a key label and a ring that follows it
-RING_PAD = 60  # clear space between a label and the ring round it
+GAP = 110
+ROW = 640
+SIZE = 330
+STROKE = 30
+CORNER = 120
+BADGE_GAP = 90
+KEY_CLEAR = 40
+RING_PAD = 60
 NOTE_LINE = 500
-ROOM_LINE = 390  # what Verovio sets aside for each line of a hidden two-line direction
-VEROVIO_BASE = 1250  # what the hidden numeral measures before any padding (measured; hardly varies with the figure)
-NBSP = 243  # width of one non-breaking space in the hidden numerals Verovio sets (measured)
+ROOM_LINE = 390
+VEROVIO_BASE = 1250
+NBSP = 243
 
 DIFFERS = ('different_chord', 'different_key', 'different_inversion')
-UNLABELLED = 'unlabelled'  # the tool has a chord here and the student wrote nothing
-UNCHECKED = 'unchecked'  # the student's label comes before the tool's first, so there is nothing to compare
+UNLABELLED = 'unlabelled'
+UNCHECKED = 'unchecked'
 
 NOTES = {
     'different_chord': 'the tool reads a different chord here. Check the notes of the chord against your label.',
@@ -39,7 +36,6 @@ FOOT = {UNLABELLED: "? = you didn't label this chord; the tool's reading is belo
 
 
 def compare(student, reviewed, index):
-    """The student's labels checked against the tool's, plus the tool's chords the student skipped."""
     reference = check_analysis._finish(
         [item for item in from_annotations(reviewed) if item.measure in {m.number for m in index.measures}], index)
     first = (reference[0].measure, reference[0].beat)
@@ -50,7 +46,7 @@ def compare(student, reviewed, index):
     written = {(s.measure, s.beat) for s in student}
     results += [{'at': {'measure': r.measure, 'beat': r.beat}, 'student': None, 'reviewed': asdict(r),
                  'classification': UNLABELLED, 'is_error': False} for r in reference if (r.measure, r.beat) not in written]
-    style = reviewed.get('style', 'current')  # carried on each result so the page draws labels as the analysis does
+    style = reviewed.get('style', 'current')
     return sorted(({**item, 'style': style} for item in results), key=lambda item: (item['at']['measure'], item['at']['beat']))
 
 
@@ -67,8 +63,6 @@ def _badge_radius(number):
 
 
 def _badge(layout, left, cy, number, color):
-    """A note's number in an outlined circle, set apart from the numeral. A bare raised digit beside a numeral reads
-    as a chord figure (ii⁷ 1), and the analysis page's solid black callouts must not be mistaken for these."""
     radius = _badge_radius(number)
     layout._add('circle', cx=round(left + radius), cy=round(cy), r=round(radius), fill='none', stroke=color,
                 stroke_width=STROKE, **{'class': 'note-number'})
@@ -91,27 +85,21 @@ def _mark_width(item, marks):
 
 
 def _slot(item):
-    """Room right of a root-position numeral for the underline that stands where its missing figure would be."""
     student = item['student']
     chunks = notation.numeral(student['figure'], student['key'], item['style'], NUMERAL_SIZE)[0]
     return 0 if _figure_indices(chunks, item['style']) else 30 + text.width('6', NUMERAL_SIZE * text.FIGURE)
 
 
 def _figure_indices(chunks, style):
-    """Which chunks of a numeral are its inversion figure: the raised or stacked digits, or the ABRSM letter."""
     return [i for i, c in enumerate(chunks)
             if c.size < NUMERAL_SIZE or (style == 'abrsm' and c.dx > 0 and c.text in ('b', 'c', 'd'))]
 
 
 def _mark_count(results):
-    return sum(item['classification'] in ('different_chord', 'different_key') for item in results)  # no note number is larger
+    return sum(item['classification'] in ('different_chord', 'different_key') for item in results)
 
 
 def _row_widths(results, shown=None, marks=None, carry_key=True):
-    """Per entry, the width of the student's row and of the tool's, with the keys that precede them.
-
-    Without carry_key, every red key that differs from the student's is counted: reserve() does not
-    know where lines break, and draw() prints the tool's key again at the start of each line."""
     tool_key, widths = None, []
     if marks is None:
         marks = _mark_count(results)
@@ -124,7 +112,7 @@ def _row_widths(results, shown=None, marks=None, carry_key=True):
             if student['key'] != shown:
                 top += _key_width(student['key']) + KEY_CLEAR * (item['classification'] == 'different_chord')
                 shown = student['key']
-                tool_key = None  # a key just written in black is the one the reader now assumes
+                tool_key = None
             top += _numeral_width(student['figure'], student['key'], style) + _mark_width(item, marks)
         elif tool:
             top += text.width('?', NUMERAL_SIZE, bold=True)
@@ -138,7 +126,6 @@ def _row_widths(results, shown=None, marks=None, carry_key=True):
 
 
 def reserve(results):
-    """Hidden numerals as wide as what is drawn under them, so a bar with several labels widens as on a normal page."""
     annotations = []
     for item, (top, bottom) in zip(results, _row_widths(results, carry_key=False)):
         shown = item['student'] or item['reviewed']
@@ -149,7 +136,6 @@ def reserve(results):
 
 
 def with_room(mei, lines, bottom_staff):
-    """The MEI with a hidden direction of that many lines under the first bar of each system that needs room."""
     for measure_id, count in lines.items():
         end = mei.index('</measure>', mei.index(f'xml:id="{measure_id}"'))
         room = f'<dir staff="{bottom_staff}" tstamp="1" place="below" type="analysis-room">-{"<lb/>-" * count}</dir>'
@@ -162,8 +148,6 @@ def _numeral(layout, x, baseline, figure, key, style, color=INK, underline=False
     boxes = [layout._text(x + c.dx, baseline + c.dy, c.text, c.size, bold=c.bold, fill=color) for c in chunks]
     box = Box(x, min(b.y for b in boxes), total, max(b.bottom for b in boxes) - min(b.y for b in boxes))
     if underline:
-        # Only the figure is wrong. A root-position label has none, so the underline stands right of the numeral where
-        # the figure would go: underlining the numeral itself would sit on the tool's numeral below and read as a fraction.
         shown = [(chunks[i], boxes[i]) for i in _figure_indices(chunks, style)]
         if shown:
             left, right = min(b.x for _, b in shown), max(b.right for _, b in shown)
@@ -181,8 +165,6 @@ def _numeral(layout, x, baseline, figure, key, style, color=INK, underline=False
 
 
 def _ring(layout, box):
-    """A red-pen ring round a wrong label. A rounded rectangle, not an ellipse or stadium, so a stacked figure's
-    corners stay inside and the ring needs no more room than its box."""
     x, y, w, h = box.x - RING_PAD, box.y - RING_PAD, box.width + 2 * RING_PAD, box.height + 2 * RING_PAD
     layout._add('rect', x=f'{x:g}', y=f'{y:g}', width=f'{w:g}', height=f'{h:g}', rx=CORNER, fill='none',
                 stroke=ERROR, stroke_width=STROKE, **{'class': 'wrong-label-ring'})
@@ -198,7 +180,6 @@ def _key(layout, x, baseline, key, color=INK):
 
 
 def _tick(layout, left, baseline, register=True):
-    # A vector tick avoids depending on a font's symbol coverage.
     y = baseline - 200
     layout._add('path', d=f'M{left:g},{y:g} l70,90 l150,-210', fill='none', stroke=AGREE_COLOR,
                 stroke_width=30, **{'class': 'agreement-mark'})
@@ -226,7 +207,6 @@ def _foot_lines(results):
 
 
 def _plain(figure):
-    """A numeral typed in running text: the stacked figures as 6/5, since a note line has no raised digits."""
     return re.sub(r'(?<=[A-Za-z°øo])(65|43|42|64)(?!\d)', lambda m: f'{m[1][0]}/{m[1][1]}', figure)
 
 
@@ -235,7 +215,6 @@ def _key_name(key):
 
 
 def _key_note(pairs):
-    """E.g. "the tool hears this in C major: III in A minor = I in C." for the chords of a key-only run."""
     pairs = list(dict.fromkeys(pairs))
     tool_key = pairs[0][3]
     student_keys = {s_key for _, s_key, _, _ in pairs}
@@ -269,15 +248,13 @@ def _wrap(string, width):
         else:
             line = f'{line} {word}'.strip()
     lines.append(line)
-    if len(lines) > 1 and ' ' not in lines[-1]:  # never leave one word alone on the last line
+    if len(lines) > 1 and ' ' not in lines[-1]:
         head, _, tail = lines[-2].rpartition(' ')
         lines[-2:] = [head, f'{tail} {lines[-1]}']
     return lines
 
 
 def _starts(xs, widths, left, right):
-    """Where each label of a system begins: under its chord, but crowded back from the right edge, because Verovio
-    sets no room past a system's last note and a long final label would run over the barline."""
     placed = []
     for x, (top, bottom) in zip(xs, widths):
         placed.append(max(x - 30, placed[-1] + max(widths[len(placed) - 1]) + 2 * GAP if placed else left))
@@ -289,7 +266,6 @@ def _starts(xs, widths, left, right):
 
 
 def draw(layout, results, last_page=True):
-    """Draw the page; returns, for the first bar of each system, how many more lines of room it needs."""
     groups = {}
     for item in results:
         try:
@@ -297,9 +273,9 @@ def draw(layout, results, last_page=True):
         except NotOnPage:
             continue
         groups.setdefault(system.index, []).append((x, item))
-    results = [item for items in groups.values() for _, item in items]  # what this page shows
+    results = [item for items in groups.values() for _, item in items]
     number = 0
-    shown_key = None  # the student's key as last written, carried from one line to the next
+    shown_key = None
     deficits = {}
     bottom = 0
     for system_index, items in groups.items():
@@ -309,9 +285,9 @@ def draw(layout, results, last_page=True):
         cursor = system.left
         widths = _row_widths([item for _, item in items], shown_key, _mark_count(results))
         starts = _starts([x for x, _ in items], widths, cursor, system.right)
-        notes = []  # [number, start, end, text or key-run pairs, colour]
-        tool_shown = None  # the last key printed in the tool's row on this line; before one, the student's key is what the reader assumes
-        run = None  # the open note of the key-only run just before this entry
+        notes = []
+        tool_shown = None
+        run = None
         has_below = any(bottom for _, bottom in widths)
         for (x, item), start in zip(items, starts):
             student, tool, cls, style = item['student'], item['reviewed'], item['classification'], item['style']
@@ -337,10 +313,8 @@ def draw(layout, results, last_page=True):
                     number += 1
                     kind = 'different_chord_and_key' if tool['key'] != student['key'] else cls
                     notes.append([number, item['at'], item['at'], NOTES[kind], ERROR])
-                    # Raised clear of the ring.
                     row.append(_badge(layout, row[-1].right + BADGE_GAP, first - 130, number, ERROR))
                 elif cls == 'different_key':
-                    # The student's chord is right, so: no ring, no tick, and one neutral note for the whole run.
                     pair = (student['figure'], student['key'], tool['figure'], tool['key'])
                     if run and run[3][0][3] == tool['key']:
                         run[2] = item['at']
@@ -393,7 +367,6 @@ def draw(layout, results, last_page=True):
 
 
 def _page_room(layout):
-    """The page's height in the coordinates the overlay draws in, less the margin it keeps clear at the foot."""
     height = float(next(e for e in layout.root.iter() if e.get('class') == 'definition-scale').get('viewBox').split()[3])
     top = float(re.search(r'translate\([-\d.]+,\s*([-\d.]+)', layout.canvas.get('transform')).group(1))
     return height - top - 1000

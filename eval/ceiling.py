@@ -1,14 +1,3 @@
-"""How far two human experts agree with each other, measured the way eval/run.py measures us.
-
-    .venv/bin/python -m eval.ceiling
-
-When in Rome holds independent expert analyses of the same music: Beethoven sonata movements analysed by
-two of three separate teams (DCML, Tymoczko's TAOM, BPS-FH), and the TAVERN variation sets, analysed by two
-annotators by design. Each pair is scored in both directions with eval/compare.py. A pair is used only if
-both analyses fit the score (at least 0.85 of the notes in their chords), so that a bar-numbering mismatch
-is not counted as disagreement. Results go to out/eval/ceiling.json.
-"""
-
 from __future__ import annotations
 
 import json
@@ -26,7 +15,7 @@ DCML_SCORES = "https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml
 CACHE = pieces.OUT / "ceiling"
 COLUMNS = ("key", "root", "chord", "chord_and_bass", "full")
 FIT = 0.85
-INCLUDE_TAVERN = False  # TAVERN scores crash Verovio (see the engineering log); Beethoven pairs only for now
+INCLUDE_TAVERN = False
 
 
 def fetch(url: str, name: str) -> bytes:
@@ -34,7 +23,6 @@ def fetch(url: str, name: str) -> bytes:
 
 
 def folders(paths: list[str]) -> list[tuple[str, list[str], str]]:
-    """(folder, analysis files to pair, score url) for every independent pair we can score."""
     by: dict[str, set[str]] = {}
     for path in paths:
         match = re.match(r"(Corpus/.*)/(analysis(?:_[A-Z]+)?\.txt)$", path)
@@ -60,13 +48,13 @@ def main() -> None:
         try:
             index = ScoreIndex(load_toolkit(pieces.without_harmony(fetch(score_url, name.replace("/", "__") + Path(score_url).suffix))).getMEI())
             readings = {f: compare.from_romantext(fetch(ROME + urllib.parse.quote(f"{folder}/{f}"), name.replace("/", "__") + "__" + f).decode("utf-8", "ignore")) for f in files}
-        except Exception as error:  # a score or analysis that will not load is skipped, and said so
+        except Exception as error:
             print(f"{name:55s} skipped: {type(error).__name__}: {str(error)[:80]}")
             continue
         for a, b in combinations(files, 2):
             try:
                 forward, backward = compare.compare(readings[a], readings[b], index), compare.compare(readings[b], readings[a], index)
-            except Exception as error:  # an analysis naming a beat the score's bar lacks: misaligned, so dropped
+            except Exception as error:
                 print(f"{name:55s} {a[9:-4] or 'A'} v {b[9:-4] or 'B'}: dropped, {str(error)[:70]}")
                 continue
             fits = (forward["reference_fit"], backward["reference_fit"])

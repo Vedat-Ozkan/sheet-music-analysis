@@ -1,6 +1,3 @@
-"""Score one OMR result against its truth, at the level the engine sees (see engine_check.py). Prints one JSON line.
-usage: score_one.py truth.(mxl|musicxml) omr.musicxml
-Run as its own process: Verovio can segfault on a bad file, and that must count as a crash, not kill the benchmark."""
 import json, sys
 from pathlib import Path
 
@@ -15,7 +12,6 @@ from features import KINDS, per_bar, read_xml  # noqa: E402
 
 
 def fill(pairs, nt, no):
-    """Pair the bars between consecutive aligned pairs (and before the first / after the last) when both sides have as many."""
     anchors = [(-1, -1)] + list(pairs) + [(nt, no)]
     out = list(pairs)
     for (i1, j1), (i2, j2) in zip(anchors, anchors[1:]):
@@ -27,15 +23,12 @@ def fill(pairs, nt, no):
 def main():
     truth_data = Path(sys.argv[1]).read_bytes()
     truth, _, _ = load(truth_data)
-    # "-" = nothing was read (Audiveris failed): score as an empty reading so the truth notes count as lost
     omr_data = None if sys.argv[2] == "-" else Path(sys.argv[2]).read_bytes()
     omr, msgs = ([], []) if omr_data is None else load(omr_data)[::2]
     pairs, shared_pitch = align([(b,) for b in truth], [(b,) for b in omr])
     shared_onset = sum(overlap(truth[i], omr[j]) for i, j in pairs)
     tn, on = sum(sum(b.values()) for b in truth), sum(sum(b.values()) for b in omr)
 
-    # Marks sit on XML bars, which are not always the engine's measures (a pickup can be merged), so they get their own
-    # bar alignment, by shared pitches over the XML bars; bars with no notes between two anchors pair up in order.
     tb, ob = xml_bars(sys.argv[1], {}), (xml_bars(sys.argv[2], {}) if omr_data else [])
     bar_pairs = fill(align([(b[0],) for b in tb], [(b[0],) for b in ob])[0], len(tb), len(ob))
     t_bars, o_bars = per_bar(truth_data), (per_bar(omr_data) if omr_data else [])

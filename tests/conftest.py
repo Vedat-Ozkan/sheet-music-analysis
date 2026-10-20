@@ -17,10 +17,6 @@ def chopin_annotations() -> AnnotationList:
     return AnnotationList.model_validate_json((ROOT / "examples/chopin_op9_no2_m1-8.json").read_text())
 
 
-# --- Make the suite give the same result in any worktree, with no env vars. ---
-# Model runtime, checkpoint and a few fixtures are git-ignored, so a fresh
-# worktree lacks them. We borrow them from the main checkout; if even that lacks
-# them the tests SKIP with a reason (never silently pass).
 import os  # noqa: E402
 import subprocess  # noqa: E402
 
@@ -36,7 +32,6 @@ def main_checkout() -> Path:
 
 
 MAIN = main_checkout()
-# Ignored (or partly ignored) trees that tests read under ROOT.
 BORROWED = ["out/engraving", "spike/omr/truth"]
 
 
@@ -54,7 +49,6 @@ def _borrow() -> None:
         if not mine.exists() and theirs.exists():
             mine.parent.mkdir(parents=True, exist_ok=True)
             mine.symlink_to(theirs, target_is_directory=True)
-            # keep `git status` clean: the link is local plumbing, never committed
             try:
                 exclude = Path(subprocess.run(
                     ["git", "rev-parse", "--path-format=absolute", "--git-path", "info/exclude"],
@@ -70,7 +64,6 @@ _borrow()
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-    """A missing ignored fixture is a skip with a reason, not a failure."""
     outcome = yield
     report = outcome.get_result()
     if call.excinfo and call.excinfo.errisinstance(FileNotFoundError):

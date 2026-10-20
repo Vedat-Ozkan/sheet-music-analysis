@@ -1,12 +1,3 @@
-"""The pieces the analysis is checked on, each with a published human analysis.
-
-Chosen on 2026-10-02 (reports/Scores with published analyses.md): the analysis was found
-first, then a MusicXML file. `labels` is a chord-by-chord reading by a human analyst that a
-script can compare against; `prose` is what a teacher wrote, which a person or the chat model
-has to read. Scores and labels are downloaded on first use into out/eval/, which is not
-committed: several of the files are non-commercial or carry no licence.
-"""
-
 from __future__ import annotations
 
 import io
@@ -42,12 +33,12 @@ HAYDN_104 = ROME + "Orchestral/Haydn,_Franz_Joseph/Symphony_104/1/"
 class Piece:
     id: str
     title: str
-    score: str  # URL, or "corpus:" + a path in the music21 corpus
-    labels: str | None = None  # RomanText by a human analyst
+    score: str
+    labels: str | None = None
     prose: tuple[str, ...] = ()
-    fix: str | None = None  # "harmony": the analysts' chord labels are inside the file and are removed
-    bar_offset: int = 0  # the score's bar number minus the analysis's, where the file counts a pickup as bar 1
-    tonal: bool = True  # False where Roman numerals are not the right tool (Debussy, Ravel)
+    fix: str | None = None
+    bar_offset: int = 0
+    tonal: bool = True
     note: str = ""
 
 
@@ -229,14 +220,13 @@ PIECES = [
         prose=(TEORIA + "debussy-des-pas-sur-la-neige/index.php",),
         tonal=False,
     ),
-    # added 2026-10-03, to test impressionist music on more than three pieces
     Piece(
         "debussy-voiles",
         "Debussy, 'Voiles'",
         DCML + "debussy_corpus/l117-02_preludes_voiles.musicxml",
         prose=(
             TEORIA + "2020/debussy-preludes/02/index.php",
-            "http://vickyjohnson.altervista.org/Analysis_Debussy_Voiles.pdf",  # 'Parting the Veils of Debussy's Voiles', Scottish Music Review
+            "http://vickyjohnson.altervista.org/Analysis_Debussy_Voiles.pdf",
         ),
         tonal=False,
     ),
@@ -244,9 +234,9 @@ PIECES = [
         "debussy-clair-de-lune",
         "Debussy, 'Clair de lune', Suite bergamasque",
         DCML + "debussy_corpus/l075-03_suite_clair.musicxml",
-        "https://raw.githubusercontent.com/DCMLab/debussy_suite_bergamasque/main/harmonies/l075-03_suite_clair.harmonies.tsv",  # DCML experts' labels
-        prose=("https://digital.library.txst.edu/bitstream/handle/10877/4330/FERGUSON-THESIS.pdf",),  # Ferguson, MA thesis, Texas State (2012)
-        fix="harmony",  # the file carries the DCML experts' chord labels
+        "https://raw.githubusercontent.com/DCMLab/debussy_suite_bergamasque/main/harmonies/l075-03_suite_clair.harmonies.tsv",
+        prose=("https://digital.library.txst.edu/bitstream/handle/10877/4330/FERGUSON-THESIS.pdf",),
+        fix="harmony",
     ),
 ]
 
@@ -264,7 +254,6 @@ def _download(source: str, cached: Path) -> bytes:
 
 
 def without_harmony(data: bytes) -> bytes:
-    """The score with every <harmony> element removed (chord symbols, analysts' labels), compressed .mxl or plain."""
     strip = lambda xml: re.sub(rb"<harmony\b.*?</harmony>\s*", b"", xml, flags=re.DOTALL)
     if data[:2] != b"PK":
         return strip(data)
@@ -277,15 +266,13 @@ def without_harmony(data: bytes) -> bytes:
 
 
 def score(piece: Piece) -> bytes:
-    """The score file, repaired where the manifest says it needs it."""
     data = _download(piece.score, OUT / "scores" / f"{piece.id}{Path(piece.score).suffix}")
-    if piece.fix == "harmony":  # the labels would print on the page and give the answer away
+    if piece.fix == "harmony":
         data = re.sub(rb"<harmony\b.*?</harmony>\s*", b"", data, flags=re.DOTALL)
     return data
 
 
 def labels(piece: Piece) -> str | None:
-    """The expert reading as RomanText; a DCML harmonies table is converted (eval/dcml.py)."""
     if piece.labels is None:
         return None
     if piece.labels.endswith(".harmonies.tsv"):
@@ -299,7 +286,6 @@ def labels(piece: Piece) -> str | None:
 
 
 def rome_tree() -> list[str]:
-    """Every file path in the When in Rome repository, fetched once from GitHub and cached in out/eval/."""
     cached = OUT / "when-in-rome-tree.txt"
     if not cached.exists():
         import json as _json

@@ -1,4 +1,3 @@
-"""Corrections through public APIs, including each review counter-example."""
 from collections import Counter
 from fractions import Fraction
 from pathlib import Path
@@ -33,7 +32,6 @@ def summary(data):
 
 
 def timeline(data):
-    """XML timeline also observes grace attack grouping and metadata positions."""
     result = []
     for part in ET.fromstring(_document(data)).findall('part'):
         divisions = 1
@@ -117,7 +115,6 @@ def test_normalization_does_not_change_untouched_imported_timing():
     root = ET.fromstring(original)
     ET.SubElement(root.find('part'), 'measure', number='2').extend(ET.fromstring('<body>' + note('E', 8, 'whole') + '</body>'))
     original = ET.tostring(root)
-    # Verovio imports the last half note as four quarters before normalization.
     assert index(original).measure(1).events[-1].duration == 4
     with pytest.raises(correct.CorrectionError, match="untouched bars' imported timing"):
         correct.replace_bars(original, 'N1 div=2 ts=4/4 ks=0\nm2 len=8\n1.1: 8 F4')
@@ -159,7 +156,6 @@ def test_every_real_bar_round_trips(path):
 
 @pytest.mark.parametrize('number', [30, 31, 35, 36])
 def test_real_octave_span_edit(number):
-    # Start, interior, stop, and the bar following the Nocturne's 8va span.
     original = (ROOT / 'tests/data/chopin_nocturne_op9_no2.mxl').read_bytes()
     text = correct.bars_from_musicxml(original, number)
     pitch = next(e.pitch for e in notes.decode(text).measure(number).events if e.pitch)
@@ -203,7 +199,6 @@ def test_real_split_bar_edit_and_range_after_split():
         (Fraction(0), 'G4'), (Fraction(2), 'C5')]
     assert timeline(result) == timeline(original)
     assert [m.number for m in notes.decode(correct.bars_from_musicxml(original, 8, 15, part='P1')).measures] == list(range(8, 16))
-    # A sustained corrected note crosses the repeat boundary as tied pieces.
     sustained = correct.replace_bars(original, text.replace('4 G4 2 B4', '6 C5'), part='P1')
     assert [(e.onset, e.duration, e.pitch, e.tied) for e in index(sustained).measure(7).events if e.staff == 1 and e.pitch] == [
         (Fraction(0), Fraction(2), 'C5', True), (Fraction(2), Fraction(1), 'C5', False)]

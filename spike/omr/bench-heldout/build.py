@@ -1,8 +1,3 @@
-"""Held-out set: new OpenScore Lieder pieces (CC0) not in ../bench/manifest.json, engraved as ../bench/build.py does.
-
-usage: build.py --lieder DIR --lilypond-bin DIR   (DIR = checkout of github.com/OpenScore/Lieder)
-Reuses the engraver and excerpt functions of ../bench/build.py; writes truth/, pdfs/ and manifest.json here.
-"""
 import argparse, json, sys
 from pathlib import Path
 
@@ -13,7 +8,6 @@ from features import totals  # noqa: E402
 
 LIED = "https://github.com/OpenScore/Lieder/tree/main/scores/"
 CC0 = "CC0 1.0 (OpenScore)"
-# id, path under scores/, first bars kept (None = whole), engravers
 H = [
     ("h-schubert-aufenthalt", "Schubert,_Franz/Schwanengesang,_D.957/05_Aufenthalt", 40, ["ms", "ly"]),
     ("h-holmes-barque-des-amours", "Holmès,_Augusta_Mary_Anne/20_Mélodies/03_La_barque_des_amours", 40, ["ms", "ly"]),
