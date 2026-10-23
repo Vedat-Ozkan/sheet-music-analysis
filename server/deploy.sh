@@ -2,11 +2,23 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-PROJECT=${1:?usage: server/deploy.sh PROJECT_ID}
+PROJECT=${1:?usage: server/deploy.sh PROJECT_ID [staging]}
+STAGE=${2:-production}
 REGION=us-central1
 SERVICE=sheet-music-analysis
 BUCKET=$PROJECT-data
 IMAGE=$REGION-docker.pkg.dev/$PROJECT/$SERVICE/server
+RUN_SERVICE=$SERVICE
+ACCESS=--allow-unauthenticated
+if [ "$STAGE" = staging ]; then
+  BUCKET=$PROJECT-staging-data
+  IMAGE=$IMAGE:staging
+  RUN_SERVICE=$SERVICE-staging
+  ACCESS=--no-allow-unauthenticated
+elif [ "$STAGE" != production ]; then
+  echo "unknown stage: $STAGE" >&2
+  exit 1
+fi
 ACCOUNT=$SERVICE@$PROJECT.iam.gserviceaccount.com
 
 gcloud config set project "$PROJECT"
@@ -42,9 +54,12 @@ if ! gcloud artifacts docker images describe "$BASE" >/dev/null 2>&1; then
 fi
 gcloud builds submit --config=cloudbuild.yaml --substitutions=_BASE="$BASE",_IMAGE="$IMAGE"
 
+if [ "$STAGE" = staging ]; then
+  PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://$RUN_SERVICE-$(gcloud projects describe "$PROJECT" --format='value(projectNumber)').$REGION.run.app}
+fi
 PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://mcp.sheetmusicanalysis.com}
-gcloud run deploy "$SERVICE" --image="$IMAGE" --region="$REGION" \
-  --service-account="$ACCOUNT" --allow-unauthenticated \
+gcloud run deploy "$RUN_SERVICE" --image="$IMAGE" --region="$REGION" \
+  --service-account="$ACCOUNT" "$ACCESS" \
   --execution-environment=gen2 --cpu=2 --memory=4Gi --concurrency=4 --min-instances=0 --max-instances=1 --timeout=300 \
   --set-env-vars="BUCKET=$BUCKET,PUBLIC_BASE_URL=$PUBLIC_BASE_URL"
 echo "Connector URL: $PUBLIC_BASE_URL/mcp"
