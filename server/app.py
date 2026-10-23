@@ -2,15 +2,21 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextvars
+import functools
 import hashlib
 import ipaddress
 import json
+import logging
 import os
 import re
 import secrets
 import socket
 import sys
 import time
+import traceback
+import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -101,21 +107,100 @@ def client_of(headers) -> str:
     return "claude" if "claude" in agent else "chatgpt" if "openai" in agent else "other"
 
 
+PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "sheet-music-analysis")
+STARTED = time.monotonic()
+SEVERITY = {"ok": "INFO", "user_error": "WARNING", "limit": "WARNING", "busy": "WARNING", "server_error": "ERROR", "cancelled": "WARNING"}
+current_call: contextvars.ContextVar[dict | None] = contextvars.ContextVar("current_call", default=None)
+calls_served = 0
+
+
+def write_line(entry: dict) -> None:
+    print(json.dumps(entry), file=sys.stdout, flush=True)
+
+
 def log(event: str, **details) -> None:
-    print(json.dumps({"event": event, **details}), file=sys.stdout, flush=True)
+    call = current_call.get()
+    if call is None:
+        write_line({"event": event, **details})
+        return
+    call["event"] = event
+    call.update(details)
+    if details.get("outcome") == "server_error":
+        call["stack_trace"] = traceback.format_exc()
+
+
+def trace_id(headers) -> str:
+    headers = dict(headers or {})
+    if match := re.fullmatch(r"[0-9a-f]{2}-([0-9a-f]{32})-[0-9a-f]{16}-[0-9a-f]{2}", headers.get("traceparent", "")):
+        return match[1]
+    if match := re.match(r"([0-9a-f]{32})/", headers.get("x-cloud-trace-context", "")):
+        return match[1]
+    return uuid.uuid4().hex
+
+
+@contextmanager
+def stage(name: str):
+    started = time.perf_counter()
+    try:
+        yield
+    finally:
+        draft.add_timing(name, time.perf_counter() - started)
+
+
+def observed(fn):
+    tool = fn.__name__
+
+    @functools.wraps(fn)
+    async def wrapper(ctx: Context, *args, **kwargs):
+        global calls_served
+        try:
+            headers = ctx.headers
+        except Exception:
+            headers = None
+        request_id = trace_id(headers)
+        call = {"event": tool, "tool": tool, "platform": client_of(headers), "request_id": request_id,
+                "logging.googleapis.com/trace": f"projects/{PROJECT}/traces/{request_id}",
+                "cold": calls_served == 0, "uptime_s": round(time.monotonic() - STARTED)}
+        calls_served += 1
+        timings = {}
+        call_token, timings_token = current_call.set(call), draft.timings.set(timings)
+        started = time.perf_counter()
+        result = None
+        try:
+            result = await fn(ctx, *args, **kwargs)
+            return result
+        except Exception:
+            call["outcome"] = "server_error"
+            call["stack_trace"] = traceback.format_exc()
+            raise
+        except BaseException:
+            call["outcome"] = "cancelled"
+            raise
+        finally:
+            current_call.reset(call_token)
+            draft.timings.reset(timings_token)
+            timings["total"] = round((time.perf_counter() - started) * 1000)
+            outcome = call.pop("outcome", None) or (
+                "limit" if call["event"] == "limit" else "busy" if call.get("busy")
+                else "user_error" if result is not None and result.is_error else "ok")
+            write_line({**call, "outcome": outcome, "severity": SEVERITY[outcome],
+                        "message": f"{tool} {outcome}", "timings_ms": timings})
+
+    return wrapper
 
 
 async def take(kind: str, source: str, amount: int = 1) -> bool:
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     key = f"usage/{day}.json"
-    async with counter_lock:
-        raw = await anyio.to_thread.run_sync(store.get, key)
-        counts = json.loads(raw) if raw else {}
-        if counts.get(kind, 0) + amount > DAILY_LIMITS[kind]:
-            return False
-        counts[kind] = counts.get(kind, 0) + amount
-        counts[f"{kind}:{source}"] = counts.get(f"{kind}:{source}", 0) + amount
-        await anyio.to_thread.run_sync(store.put, key, json.dumps(counts).encode())
+    with stage("counter"):
+        async with counter_lock:
+            raw = await anyio.to_thread.run_sync(store.get, key)
+            counts = json.loads(raw) if raw else {}
+            if counts.get(kind, 0) + amount > DAILY_LIMITS[kind]:
+                return False
+            counts[kind] = counts.get(kind, 0) + amount
+            counts[f"{kind}:{source}"] = counts.get(f"{kind}:{source}", 0) + amount
+            await anyio.to_thread.run_sync(store.put, key, json.dumps(counts).encode())
     return True
 
 
@@ -170,16 +255,17 @@ def clean_id(score_id: str) -> str:
 
 
 async def resolve_score(score_file: AttachedFile | None, score_id: str | None) -> tuple[bytes, str]:
-    if score_file:
-        data = await download(score_file.download_url)
-        if data.startswith(b"%PDF"):
-            raise ScoreError("This file is a PDF. Call read_pdf with it first, then use the score_id it returns.")
-        return data, "score_file"
-    if score_id:
-        data = await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(score_id)}")
-        if data is None:
-            raise ScoreError(f"No score has the id {score_id!r}; scores are kept for one day")
-        return data, "score_id"
+    with stage("fetch"):
+        if score_file:
+            data = await download(score_file.download_url)
+            if data.startswith(b"%PDF"):
+                raise ScoreError("This file is a PDF. Call read_pdf with it first, then use the score_id it returns.")
+            return data, "score_file"
+        if score_id:
+            data = await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(score_id)}")
+            if data is None:
+                raise ScoreError(f"No score has the id {score_id!r}; scores are kept for one day")
+            return data, "score_id"
     raise ScoreError("No score was provided. Ask the user to attach their MusicXML file (.mxl or .musicxml) to the chat.")
 
 
@@ -187,6 +273,10 @@ def publish(data: bytes, extension: str, suffix: str = "") -> str:
     name = f"{secrets.token_urlsafe(12)}{suffix}.{extension}"
     store.put(f"files/{name}", data)
     return f"{PUBLIC_BASE_URL}/files/{name}"
+
+
+def outcome_of(error: Exception) -> str:
+    return "server_error" if isinstance(error, draft.DraftError) else "user_error"
 
 
 def error_result(message: str) -> CallToolResult:
@@ -226,32 +316,36 @@ REVIEW_GUIDE = (
 
 
 def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, student_analysis: str | None = None) -> str:
-    mei = load_toolkit(score).getMEI()
-    index = ScoreIndex(mei)
-    cached = store.get(f"scores/{code}.draft.json")
+    with stage("parse"):
+        mei = load_toolkit(score).getMEI()
+        index = ScoreIndex(mei)
+    with stage("fetch"):
+        cached = store.get(f"scores/{code}.draft.json")
     if cached:
         raw = json.loads(cached)
     else:
         raw = draft.MODELS["analysisgnn"](note_list.encode(index).encode(), "notes")
-        store.put(f"scores/{code}.draft.json", json.dumps(raw).encode())
-    result = draft.build(raw, index)
-    first, last = measures or (None, None)
-    unit = index.measure(first or index.measures[-1].number).beat_length
-    numbers = f"{index.measures[0].number} to {index.measures[-1].number}"
-    return (
-        f"score_id: {code}\nThe score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n\n"
-        + draft.as_text(result, first, last)
-        + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
-        + reduce.as_text(index, first, last)
-        + ("\n\n" + section if (section := part_writing.as_text(index, result.chords)) else "")
-        + ("\n\n" + section if (section := ledger.as_text(mei, index, first, last)) else "")
-        + (
-            "\n\n" + check_analysis.as_text(check_analysis.student_labels(student_analysis, score, index), result, index)
-            if student_analysis else ""
+        with stage("publish"):
+            store.put(f"scores/{code}.draft.json", json.dumps(raw).encode())
+    with stage("build"):
+        result = draft.build(raw, index)
+        first, last = measures or (None, None)
+        unit = index.measure(first or index.measures[-1].number).beat_length
+        numbers = f"{index.measures[0].number} to {index.measures[-1].number}"
+        return (
+            f"score_id: {code}\nThe score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n\n"
+            + draft.as_text(result, first, last)
+            + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
+            + reduce.as_text(index, first, last)
+            + ("\n\n" + section if (section := part_writing.as_text(index, result.chords)) else "")
+            + ("\n\n" + section if (section := ledger.as_text(mei, index, first, last)) else "")
+            + (
+                "\n\n" + check_analysis.as_text(check_analysis.student_labels(student_analysis, score, index), result, index)
+                if student_analysis else ""
+            )
+            + "\n\n"
+            + REVIEW_GUIDE
         )
-        + "\n\n"
-        + REVIEW_GUIDE
-    )
 
 
 apps = Apps()
@@ -298,6 +392,7 @@ def downloads_text(links: dict[str, str]) -> str:
     annotations=read_only("Draw the analysis on the score"),
     meta={"openai/outputTemplate": CARD_URI},
 )
+@observed
 async def render_analysis(
     ctx: Context,
     score_id: str,
@@ -313,7 +408,8 @@ async def render_analysis(
     try:
         score, _ = await resolve_score(None, score_id)
         measures = parse_measures(measure_range)
-        engraving = await anyio.to_thread.run_sync(lambda: render(score, annotations, measures=measures, view=view, piano=piano))
+        with stage("render"):
+            engraving = await anyio.to_thread.run_sync(lambda: render(score, annotations, measures=measures, view=view, piano=piano))
     except AnnotationError as error:
         log("render_analysis", platform=source, problems=len(error.problems))
         return error_result("Fix these annotations and call again:\n" + "\n".join(error.problems))
@@ -322,32 +418,41 @@ async def render_analysis(
         return error_result(str(error))
     musicxml, export_warning = None, None
     try:
-        musicxml = await anyio.to_thread.run_sync(export_musicxml, score, annotations.model_dump())
+        with stage("export"):
+            musicxml = await anyio.to_thread.run_sync(export_musicxml, score, annotations.model_dump())
     except Exception as error:
         export_warning = "MusicXML export unavailable for this score. PNG and PDF are available."
         log("render_analysis", platform=source, export_error=str(error))
 
     def extras() -> dict[str, bytes]:
-        found = {}
+        found, errors = {}, []
         for name, make in (("worksheet", lambda: render(score, AnnotationList(annotations=[]), measures=measures, piano=piano).pdf()),
                            ("midi", lambda: export_midi(score, measures)),
                            ("romantext", lambda: export_romantext(score, annotations.model_dump(), measures))):
             try:
-                data = make()
+                with stage("export"):
+                    data = make()
             except Exception as error:
-                log("render_analysis", platform=source, extra_error=f"{name}: {error}")
+                errors.append(f"{name}: {error}")
                 continue
             if data:
                 found[name] = data
+        if errors:
+            log("render_analysis", platform=source, extra_errors=errors)
         return found
 
-    png = engraving.png(1)
+    with stage("render"):
+        png = engraving.png(1)
     def publish_all():
-        links = {"image_url": publish(engraving.png(1, width=2800, colors=256), "png"), "pdf_url": publish(engraving.pdf(), "pdf")}
-        if musicxml is not None:
-            links["musicxml_url"] = publish(musicxml, "musicxml")
-        for name, data in extras().items():
-            links[f"{name}_url"] = publish(data, *EXTRA_FILES[name])
+        with stage("render"):
+            image, pdf = engraving.png(1, width=2800, colors=256), engraving.pdf()
+        files = extras()
+        with stage("publish"):
+            links = {"image_url": publish(image, "png"), "pdf_url": publish(pdf, "pdf")}
+            if musicxml is not None:
+                links["musicxml_url"] = publish(musicxml, "musicxml")
+            for name, data in files.items():
+                links[f"{name}_url"] = publish(data, *EXTRA_FILES[name])
         return links
     links = await anyio.to_thread.run_sync(publish_all)
     pdf_url = links["pdf_url"]
@@ -392,11 +497,13 @@ BUSY_MESSAGE = (
     annotations=read_only("Read a PDF of sheet music"),
     meta={"openai/outputTemplate": PDF_CARD_URI, "openai/fileParams": ["pdf_file"]},
 )
+@observed
 async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = False) -> CallToolResult:
     source = platform(ctx)
     started = time.time()
     try:
-        data = await download(pdf_file.download_url)
+        with stage("fetch"):
+            data = await download(pdf_file.download_url)
         if not data.startswith(b"%PDF"):
             raise ScoreError("This file is not a PDF. Ask the user to attach a PDF of the printed music or a MusicXML file.")
         cache_key = f"scores/pdf-{pdf_reader.READER}-{hashlib.sha256(data).hexdigest()}.json"
@@ -418,7 +525,8 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
                 if not await take("pdf_page", source, pages):
                     log("limit", tool="read_pdf", platform=source, pages=pages)
                     return error_result(LIMIT_MESSAGE)
-                result = await anyio.to_thread.run_sync(pdf_reader.read_pdf, data)
+                with stage("omr"):
+                    result = await anyio.to_thread.run_sync(pdf_reader.read_pdf, data)
             reading = {"score_id": secrets.token_hex(3).upper(), "pages": result.pages, "scan": result.scan,
                        "skipped": result.skipped}
             await anyio.to_thread.run_sync(store.put, f"scores/{reading['score_id']}", result.musicxml)
@@ -433,14 +541,17 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
             return (pdf_reader.preview(score, tall=True, spots=spots), pdf_reader.preview(score, spots=spots), engrave(score),
                     pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots))
 
-        tall, shaded, engraving, notice = await anyio.to_thread.run_sync(render)
+        with stage("render"):
+            tall, shaded, engraving, notice = await anyio.to_thread.run_sync(render)
     except (ScoreError, pdf_reader.ReadError, httpx.HTTPError) as error:
         log("read_pdf", platform=source, error=str(error))
         return error_result(str(error))
-    pages = [shaded.png(page) for page in range(1, shaded.page_count + 1)]
-    image_url, pdf_url = await anyio.to_thread.run_sync(
-        lambda: (publish(tall.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"))
-    )
+    with stage("render"):
+        pages = [shaded.png(page) for page in range(1, shaded.page_count + 1)]
+    with stage("publish"):
+        image_url, pdf_url = await anyio.to_thread.run_sync(
+            lambda: (publish(tall.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"))
+        )
     caption = "What I read from your PDF, every bar"
     log("read_pdf", platform=source, pages=reading["pages"], seconds=round(time.time() - started, 1),
         scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached), keep_slurs=keep_slurs)
@@ -524,6 +635,7 @@ del mcp._lowlevel_server._request_handlers["subscriptions/listen"]
     annotations=read_only("Draft a harmonic analysis"),
     meta={"openai/fileParams": ["score_file"]},
 )
+@observed
 async def draft_analysis(
     ctx: Context,
     score_file: AttachedFile | None = None,
@@ -552,7 +664,7 @@ async def draft_analysis(
     except check_analysis.ClarificationNeeded as error:
         return error_result(error.question)
     except (ScoreError, PositionError, ValueError, draft.DraftError, httpx.HTTPError) as error:
-        log("draft_analysis", platform=source, error=str(error))
+        log("draft_analysis", platform=source, error=str(error), outcome=outcome_of(error))
         return error_result(str(error))
     log("draft_analysis", platform=source, input=given, score_bytes=len(score), measure_range=measure_range,
         seconds=round(time.time() - started, 1))
@@ -578,17 +690,20 @@ async def draft_analysis(
     ),
     annotations=read_only("Correct misread bars"),
 )
+@observed
 async def correct_bars(
     ctx: Context, score_id: str, replacement_bars: str, part: str | None = None,
 ) -> CallToolResult:
     source = platform(ctx)
     try:
         before, _ = await resolve_score(None, score_id)
-        after = await anyio.to_thread.run_sync(lambda: correct.replace_bars(before, replacement_bars, part=part))
+        with stage("parse"):
+            after = await anyio.to_thread.run_sync(lambda: correct.replace_bars(before, replacement_bars, part=part))
         if not await take("render", source):
             log("limit", tool="correct_bars", platform=source)
             return error_result(LIMIT_MESSAGE)
-        review = await anyio.to_thread.run_sync(lambda: correct.review_correction(before, after, part=part))
+        with stage("render"):
+            review = await anyio.to_thread.run_sync(lambda: correct.review_correction(before, after, part=part))
         if not review.changed_bars:
             log("correct_bars", platform=source, changed=0)
             return CallToolResult(
@@ -596,16 +711,18 @@ async def correct_bars(
                                      f"Nothing to confirm; keep using score_id {score_id}.")],
                 structured_content={"score_id": score_id, "changed_bars": [], "image_urls": [], "notes": {}},
             )
-        pages = await anyio.to_thread.run_sync(
-            lambda: [engraving.png(page) for engraving in review.engravings
-                     for page in range(1, engraving.page_count + 1)]
-        )
-        urls = await anyio.to_thread.run_sync(
-            lambda: [publish(engraving.png(page, width=2800, colors=256), "png")
-                     for engraving in review.engravings for page in range(1, engraving.page_count + 1)]
-        )
-        code = secrets.token_hex(3).upper()
-        await anyio.to_thread.run_sync(store.put, f"scores/{code}", after)
+        with stage("render"):
+            pages = await anyio.to_thread.run_sync(
+                lambda: [engraving.png(page) for engraving in review.engravings
+                         for page in range(1, engraving.page_count + 1)]
+            )
+        with stage("publish"):
+            urls = await anyio.to_thread.run_sync(
+                lambda: [publish(engraving.png(page, width=2800, colors=256), "png")
+                         for engraving in review.engravings for page in range(1, engraving.page_count + 1)]
+            )
+            code = secrets.token_hex(3).upper()
+            await anyio.to_thread.run_sync(store.put, f"scores/{code}", after)
     except (correct.CorrectionError, ScoreError, PositionError) as error:
         log("correct_bars", platform=source, error=str(error))
         return error_result("Fix the replacement bars and call correct_bars again: " + str(error))
@@ -640,6 +757,7 @@ async def correct_bars(
     ),
     annotations=read_only("Draft a harmonic analysis from a note list"),
 )
+@observed
 async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | None = None) -> CallToolResult:
     source = platform(ctx)
     if not notes.lstrip().startswith("N1"):
@@ -657,19 +775,21 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
     started = time.time()
     try:
         result = await anyio.to_thread.run_sync(draft.draft_from_notes, notes)
-        index = note_list.decode(notes)
+        with stage("parse"):
+            index = note_list.decode(notes)
         if student_analysis:
             student = check_analysis.student_labels(student_analysis, None, index)
     except check_analysis.ClarificationNeeded as error:
         return error_result(QUESTION_FOR_USER + error.question)
     except (note_list.NotesError, draft.DraftError, PositionError, ValueError) as error:
-        log("draft_from_notes", platform=source, error=str(error), chars=len(notes))
+        log("draft_from_notes", platform=source, error=str(error), chars=len(notes), outcome=outcome_of(error))
         return error_result(str(error))
-    text = draft.as_text(result)
-    if section := part_writing.as_text(index, result.chords):
-        text += "\n\n" + section
-    if student_analysis:
-        text += "\n\n" + check_analysis.as_text(student, result, index)
+    with stage("build"):
+        text = draft.as_text(result)
+        if section := part_writing.as_text(index, result.chords):
+            text += "\n\n" + section
+        if student_analysis:
+            text += "\n\n" + check_analysis.as_text(student, result, index)
     log("draft_from_notes", platform=source, chars_in=len(notes), seconds=round(time.time() - started, 1))
     return CallToolResult(content=[TextContent(type="text", text=text)])
 
@@ -699,13 +819,24 @@ async def health(request: Request) -> Response:
     return Response("ok")
 
 
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        entry = {"severity": record.levelname, "message": record.getMessage(), "logger": record.name}
+        if record.exc_info:
+            entry["stack_trace"] = self.formatException(record.exc_info)
+        return json.dumps(entry)
+
+
 def main() -> None:
     app = mcp.streamable_http_app(
         stateless_http=True,
         json_response=True,
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
     )
-    uvicorn.run(app, host="0.0.0.0", port=PORT, log_level="warning")
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JsonFormatter())
+    logging.basicConfig(level=logging.WARNING, handlers=[handler], force=True)
+    uvicorn.run(app, host="0.0.0.0", port=PORT, log_level="warning", log_config=None)
 
 
 if __name__ == "__main__":

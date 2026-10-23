@@ -910,6 +910,19 @@ A guard for the Haydn canzonet chord read as a treble clef (bar 35) was built an
 
 **Replaced at the merge of the round 2 branch.** That branch's guard (commit 8036e75) leaves out any reading with under 95% of the fullest reading's pitched notes before the fewest uneven bars are looked for, not only on a tie; it replaces this tie rule, as the owner decided. Kinkel's sparse default (27 of 381 pitches lost) is still passed over.
 
+### 46. One log line per tool call, with timings by stage (2026-10-23)
+
+Week 1 of `docs/plans/observability-and-scalability.md`. Before: `render_analysis` and `correct_bars` had no timer; a draft's time was a single wall-clock figure; the model's own time went to stderr as plain text; a server fault (the model failing to load or timing out) was logged exactly like a user's bad input; and some error returns were not logged at all (no note list, a question back to the student, a bad student analysis), so the usage report never saw them. A render whose MusicXML export or worksheet failed wrote a second line that the report counted as a second render.
+
+After: each of the five tools writes exactly one JSON line when it finishes, keeping the old `event` and detail fields that `tools/usage_report.py` reads, and adding:
+- `outcome` (ok, user_error, limit, busy, server_error, or cancelled when the client goes away mid-call) with a matching `severity`;
+- a Cloud Logging trace field, taken from the `traceparent` or `X-Cloud-Trace-Context` header (a fresh id if neither arrives);
+- `cold`, `uptime_s`, and `timings_ms` for each stage: fetch, parse, counter, gnn_wait, gnn_start, gnn, build, omr, render, export, publish and total.
+
+The model process reports its inference time in its reply (`ok 0.518`), and its load time as a JSON line. A server fault carries a `stack_trace` so Error Reporting can pick it up. An exception nothing catches is logged the same way and then raised as before, so no tool returns anything different. uvicorn's own warnings use the same JSON format.
+
+Measured locally on the Chopin nocturne note list (5,796 characters): cold draft 6,363 ms, of which 5,507 ms was model start-up (WSL; about 54 s on Cloud Run), 581 ms inference and 218 ms building the text. Warm: 789 ms total, 518 ms inference. With a missing checkpoint the line reads `server_error`, severity ERROR, with the stack trace. In production it is NOT RUN yet: the plan's week-1 check runs in staging, and staging comes in week 4.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

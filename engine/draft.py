@@ -6,6 +6,8 @@ import select
 import subprocess
 import tempfile
 import threading
+import time
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
@@ -17,6 +19,15 @@ from engine.score import Measure, ScoreIndex
 ROOT = Path(__file__).parent.parent
 ANALYSISGNN_PYTHON = os.environ.get("ANALYSISGNN_PYTHON", str(ROOT / ".venv-agnn/bin/python"))
 ANALYSISGNN_CHECKPOINT = os.environ.get("ANALYSISGNN_CHECKPOINT", str(ROOT / "artifacts/models/model.ckpt"))
+
+timings: ContextVar[dict[str, int] | None] = ContextVar("timings", default=None)
+
+
+def add_timing(name: str, seconds: float) -> None:
+    found = timings.get()
+    if found is not None:
+        found[name] = found.get(name, 0) + round(seconds * 1000)
+
 
 ROMAN = {"1": "I", "2": "II", "3": "III", "4": "IV", "5": "V", "6": "VI", "7": "VII"}
 SEVENTH_OF = {
@@ -106,17 +117,23 @@ class _Worker:
             self.process = None
 
     def run(self, source: Path, result: Path) -> None:
+        waiting = time.perf_counter()
         with self.lock:
+            add_timing("gnn_wait", time.perf_counter() - waiting)
             if self.process is None or self.process.poll() is not None:
+                starting = time.perf_counter()
                 self._start()
+                add_timing("gnn_start", time.perf_counter() - starting)
             self.process.stdin.write(f"{source}\t{result}\n")
             self.process.stdin.flush()
             reply = self._reply(180)
             if not reply:
                 self._stop()
                 raise DraftError("AnalysisGNN did not answer in time")
-            if reply != "ok":
-                raise DraftError(f"AnalysisGNN failed: {reply.removeprefix('error ')}")
+            status, _, detail = reply.partition(" ")
+            if status != "ok":
+                raise DraftError(f"AnalysisGNN failed: {detail}")
+            add_timing("gnn", float(detail))
 
 
 _worker = _Worker()

@@ -148,7 +148,8 @@ def serve(checkpoint: str) -> None:
     sys.stdout = sys.stderr
     imported = time.monotonic()
     model = load(checkpoint)
-    print(f"analysisgnn: imports {imported - STARTED:.1f} s, model load {time.monotonic() - imported:.1f} s", file=sys.stderr)
+    print(json.dumps({"severity": "INFO", "message": "analysisgnn ready", "imports_s": round(imported - STARTED, 1),
+                      "model_load_s": round(time.monotonic() - imported, 1)}), file=sys.stderr)
     replies.write("ready\n")
     replies.flush()
     for line in sys.stdin:
@@ -156,8 +157,7 @@ def serve(checkpoint: str) -> None:
         try:
             begun = time.monotonic()
             analyse(model, score_path, out_path)
-            print(f"analysisgnn: analysis {time.monotonic() - begun:.1f} s", file=sys.stderr)
-            replies.write("ok\n")
+            replies.write(f"ok {time.monotonic() - begun:.3f}\n")
         except Exception as error:
             replies.write("error " + " ".join(f"{type(error).__name__}: {error}".split()) + "\n")
         replies.flush()
