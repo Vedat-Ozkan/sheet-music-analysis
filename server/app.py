@@ -474,6 +474,12 @@ apps.add_html_resource(
 
 
 CLAUDE_TOOLS = {"draft_from_notes"}
+NO_NOTE_LIST = (
+    "No note list: draft_from_notes needs the compact note list (starting 'N1 div=') that the Sheet Music Analysis "
+    "plugin's skill makes from the user's score file; this server cannot read the score in Claude. The plugin is "
+    "installed from Claude's directory and needs Code execution and file creation on (Settings > Capabilities)."
+)
+QUESTION_FOR_USER = "Question for the user about their Roman numerals: "
 
 
 class Server(MCPServer):
@@ -494,9 +500,10 @@ mcp = Server(
         Icon(src=f"{SITE}/icons/clef-for-dark-512.png", mime_type="image/png", sizes=["512x512"], theme="dark"),
     ],
     instructions=(
-        "Harmonic analysis of MusicXML scores drawn on the engraved page. For an analysis, call draft_analysis, "
-        "review the draft, then call render_analysis. In Claude, the sheet-music-analysis skill does the analysis "
-        "and calls draft_from_notes."
+        "Harmonic analysis of sheet music: Roman numerals, cadences, phrases and non-chord tones. draft_from_notes "
+        "drafts the analysis from a compact note list of a score, which the Sheet Music Analysis plugin's skill makes "
+        "from the user's score file in Claude. In other clients the server also reads MusicXML and PDF scores itself "
+        "and draws the analysis on the engraved page."
     ),
     extensions=[apps],
 )
@@ -623,24 +630,25 @@ async def correct_bars(
 @mcp.tool(
     title="Draft a harmonic analysis from a note list",
     description=(
-        "Use this when a skill has produced a compact note list of the user's score (it starts with a line like "
-        "'N1 div=48 ts=12/8 ks=3f') because the score file itself cannot be sent. Pass that text unchanged as "
-        "`notes`. Returns a neural model's draft analysis (chords, cadences, phrase ends, possible non-chord tones) "
-        "as a table for you to review and correct before you annotate the score. Without such a note list you "
-        "cannot analyse the score: tell the user that in Claude this needs the Sheet Music Analysis plugin "
-        "(from Claude's directory) and Code execution and file creation turned on in Settings > Capabilities. "
-        "If the user wants their own Roman numerals checked, pass them as student_analysis (the skill's script prints "
-        "the exact text); if the result is a question, ask the user that question and call again."
+        "Drafts a harmonic analysis from a compact note list of a score: text starting with a line like "
+        "'N1 div=48 ts=12/8 ks=3f', which the Sheet Music Analysis plugin's skill makes from the user's score file, "
+        "passed unchanged as `notes`. Returns a neural model's draft as a table: chords as Roman numerals, cadences, "
+        "phrase ends and possible non-chord tones, with part-writing findings where they apply. With "
+        "student_analysis, the user's own Roman numerals as the skill's script prints them, it also lists beat by "
+        "beat where they agree with the draft. Without a note list, or when the user's numerals are ambiguous, the "
+        "result is an error that says what is missing."
     ),
     annotations=read_only("Draft a harmonic analysis from a note list"),
 )
 async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | None = None) -> CallToolResult:
     source = platform(ctx)
+    if not notes.lstrip().startswith("N1"):
+        return error_result(NO_NOTE_LIST)
     try:
         if student_analysis:
             check_analysis.student_labels(student_analysis, None, None)
     except check_analysis.ClarificationNeeded as error:
-        return error_result(error.question)
+        return error_result(QUESTION_FOR_USER + error.question)
     except ValueError as error:
         return error_result(str(error))
     if not await take("draft", source):
@@ -653,7 +661,7 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         if student_analysis:
             student = check_analysis.student_labels(student_analysis, None, index)
     except check_analysis.ClarificationNeeded as error:
-        return error_result(error.question)
+        return error_result(QUESTION_FOR_USER + error.question)
     except (note_list.NotesError, draft.DraftError, PositionError, ValueError) as error:
         log("draft_from_notes", platform=source, error=str(error), chars=len(notes))
         return error_result(str(error))

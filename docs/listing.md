@@ -40,7 +40,7 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 
 ## Claude
 
-The plugin is the product in Claude. Its server is also submitted as an MCP connector, as Anthropic asks: registering removes the "unregistered server" warning users would otherwise see when installing the plugin, and gives the server's health and usage dashboard. The connector is paired with the plugin and its listing points people to the plugin; on its own in Claude it offers only `draft_from_notes`, whose description tells Claude to send the user to the plugin.
+The plugin is the product in Claude. Its server is also submitted as an MCP connector, as Anthropic asks: registering removes the "unregistered server" warning users would otherwise see when installing the plugin, and gives the server's health and usage dashboard. The connector is paired with the plugin and its listing points people to the plugin; on its own in Claude it offers only `draft_from_notes`, which, called without the plugin's note list, returns an error naming the plugin.
 
 Requirement to state wherever the form allows: Claude's **Code execution and file creation** setting must be on (Settings → Capabilities), because the skill reads the score in Claude's sandbox.
 
@@ -54,12 +54,12 @@ Requirement to state wherever the form allows: Claude's **Code execution and fil
 
 - **Connection:** `https://mcp.sheetmusicanalysis.com/mcp`
 - **Name:** Sheet Music Analysis
-- **One-liner:** The server behind the Sheet Music Analysis plugin. Install the plugin to use it in Claude.
+- **One-liner:** Drafts a harmonic analysis of a score: Roman numerals, cadences, phrases and non-chord tones. It works with the Sheet Music Analysis plugin, which reads the score.
 - **Description:**
 
-  > This is the analysis server used by the Sheet Music Analysis plugin. To analyse a score in Claude, install the plugin instead: it reads your attached MusicXML file and draws the analysis on the engraved score. The plugin needs Claude's Code execution and file creation setting (Settings → Capabilities).
+  > Sheet Music Analysis drafts a harmonic analysis of a piece of music: a Roman numeral for every chord, the cadences and phrase ends, and melody notes that don't belong to the chord. A computer model trained on hundreds of expert analyses makes the draft, and Claude checks it against the notes and explains it. It can also check a student's own Roman numerals beat by beat.
   >
-  > Added on its own, this connector cannot read your score; Claude will point you to the plugin.
+  > The connector works with the Sheet Music Analysis plugin, which reads your attached MusicXML file in Claude's sandbox (Code execution and file creation, Settings → Capabilities) and draws the analysis on the engraved score.
 
 - **Categories, docs, privacy, support, icon:** as in Shared above. Slug: `sheet-music-analysis` (permanent).
 - **Use cases** (use case → example prompt, with a .mxl attached):

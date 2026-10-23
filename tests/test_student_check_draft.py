@@ -78,7 +78,12 @@ def test_draft_from_notes_checks_typed_answer(local_store):
 def test_draft_from_notes_ambiguous_answer(local_store):
     index = ScoreIndex(load_toolkit(CHOPIN.read_bytes()).getMEI())
     result = call(app.draft_from_notes, notes=note_list.encode(index, 1, 8), student_analysis="I IV V I")
-    assert result.is_error and result.content[0].text == QUESTION
+    assert result.is_error and result.content[0].text == app.QUESTION_FOR_USER + QUESTION
+
+
+def test_draft_from_notes_without_note_list(local_store):
+    result = call(app.draft_from_notes, notes="Please analyse my attached score.")
+    assert result.is_error and result.content[0].text == app.NO_NOTE_LIST
 
 
 def run_script(*arguments):
