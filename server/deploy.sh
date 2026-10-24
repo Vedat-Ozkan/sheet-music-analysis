@@ -47,7 +47,9 @@ if ! gcloud artifacts repositories describe "$SERVICE" --location="$REGION" >/de
   gcloud artifacts repositories create "$SERVICE" --repository-format=docker --location="$REGION"
 fi
 cat > /tmp/$SERVICE-cleanup.json <<'EOF'
-[{"name": "untagged", "action": {"type": "Delete"}, "condition": {"tagState": "UNTAGGED"}}]
+[{"name": "untagged", "action": {"type": "Delete"}, "condition": {"tagState": "UNTAGGED"}},
+ {"name": "old-bases", "action": {"type": "Delete"}, "condition": {"tagState": "ANY", "packageNamePrefixes": ["base"], "olderThan": "7d"}},
+ {"name": "recent-bases", "action": {"type": "Keep"}, "mostRecentVersions": {"packageNamePrefixes": ["base"], "keepCount": 2}}]
 EOF
 gcloud artifacts repositories set-cleanup-policies "$SERVICE" --location="$REGION" --policy=/tmp/$SERVICE-cleanup.json --no-dry-run
 BASE=$REGION-docker.pkg.dev/$PROJECT/$SERVICE/base:$(cat Dockerfile.base pyproject.toml uv.lock server/requirements-agnn.txt | sha256sum | cut -c1-16)
@@ -56,6 +58,10 @@ if ! gcloud artifacts docker images describe "$BASE" >/dev/null 2>&1; then
 fi
 gcloud builds submit --config=cloudbuild.yaml --substitutions=_BASE="$BASE",_IMAGE="$IMAGE"
 DIGEST=$(gcloud artifacts docker images describe "$IMAGE" --format='value(image_summary.fully_qualified_digest)')
+cat > /tmp/$SERVICE-sources.json <<'EOF'
+{"rule": [{"action": {"type": "Delete"}, "condition": {"age": 7, "matchesPrefix": ["source/"]}}]}
+EOF
+gcloud storage buckets update "gs://${PROJECT}_cloudbuild" --lifecycle-file=/tmp/$SERVICE-sources.json
 
 if [ "$STAGE" = staging ]; then
   PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://$RUN_SERVICE-$(gcloud projects describe "$PROJECT" --format='value(projectNumber)').$REGION.run.app}
