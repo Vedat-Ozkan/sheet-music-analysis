@@ -20,7 +20,7 @@ Rules (docs/display-check.md says why each exists):
                  or another analysis text or mark; no ring comes within 40 of a dot, accidental, fermata, articulation,
                  flag, rest, dynamic, lyric, tie, slur or another notehead
   ring-code      each ring code is clearly nearer its own ring than any other ring or notehead (1.5 times as near)
-  ring-accidental a ring keeps clear of its own note's accidental
+  ring-own       a ring keeps clear of its own note's accidental and dot
   dropped        every mark the part-writing draft lists is drawn, by type and position
   excerpt-edge   a line, bracket or arrow (other than a tendency arrow) the draft lists runs past the bars drawn
   arrow-staff    a tendency arrow and its R stay off the staff lines
@@ -699,12 +699,14 @@ def check_page(page: Page, item: str, entry: str, number: int, context: dict) ->
         head = min(page.noteheads.values(), key=lambda b: abs(b.cx - ring.cx) + abs(b.cy - ring.cy))
         touched = [m for m in page.music if m.kind in RING_CLEAR and ring.stroke_hits(m.box.grow(RING_ROOM))
                    and not (m.kind == "notehead" and ring.box.contains(m.box.cx, m.box.cy))]
-        own = [m for m in touched if m.kind == "accidental" and m.box.x1 <= head.x0 + 20 and m.box.y0 < head.y1 and m.box.y1 > head.y0]
+        beside = [m for m in touched if m.box.y0 < head.y1 and m.box.y1 > head.y0]
+        own = [m for m in beside if m.kind == "accidental" and m.box.x1 <= head.x0 + 20
+               or m.kind == "dot" and head.x1 - 10 <= m.box.x0 < head.x1 + 150]
         hit = sorted({m.kind for m in touched if not any(m is o for o in own)})
         if hit:
             add("collision", ring.box, f"ring at ({round(ring.cx)}, {round(ring.cy)}) within {RING_ROOM} of {', '.join(hit)}")
         if own:
-            add("ring-accidental", ring.box, f"ring at ({round(ring.cx)}, {round(ring.cy)}) within {RING_ROOM} of its own note's accidental")
+            add("ring-own", ring.box, f"ring at ({round(ring.cx)}, {round(ring.cy)}) within {RING_ROOM} of its own note's {' and '.join(sorted({m.kind for m in own}))}")
     if context.get("marks"):
         found += check_marks(page, item, entry, number, context["marks"], context.get("excerpt", False))
     if context.get("preview"):
