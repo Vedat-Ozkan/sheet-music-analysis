@@ -4,4 +4,5 @@ FROM ${BASE}
 COPY engine engine
 COPY server server
 COPY skill/SKILL.md skill/SKILL.md
+RUN .venv-agnn/bin/python engine/models/analysisgnn_runner.py --list-files /app/artifacts/models/model.ckpt engine/models/model-files.txt
 CMD ["python", "-m", "server.app"]

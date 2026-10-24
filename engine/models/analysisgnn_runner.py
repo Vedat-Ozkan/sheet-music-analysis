@@ -3,12 +3,43 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
+import threading
 import time
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 warnings.filterwarnings("ignore")
 STARTED = time.monotonic()
+MODEL_FILES = Path(__file__).with_name("model-files.txt")
+opened: list[str] = []
+read_ahead: dict = {}
+
+
+def read_file(path: str) -> int:
+    try:
+        with open(path, "rb", buffering=0) as file:
+            size = 0
+            while chunk := file.read(1 << 20):
+                size += len(chunk)
+            return size
+    except OSError:
+        return 0
+
+
+def read_model_files() -> None:
+    paths = MODEL_FILES.read_text().splitlines()
+    begun = time.monotonic()
+    with ThreadPoolExecutor(16) as pool:
+        size = sum(pool.map(read_file, paths))
+    read_ahead.update(files=len(paths), bytes=size, seconds=round(time.monotonic() - begun, 1))
+
+
+if sys.argv[1:2] == ["--list-files"]:
+    sys.addaudithook(lambda event, args: opened.append(args[0]) if event == "open" and isinstance(args[0], str) else None)
+elif MODEL_FILES.is_file():
+    threading.Thread(target=read_model_files, daemon=True).start()
 
 import numpy as np  # noqa: E402
 import partitura as pt  # noqa: E402
@@ -149,7 +180,7 @@ def serve(checkpoint: str) -> None:
     imported = time.monotonic()
     model = load(checkpoint)
     print(json.dumps({"severity": "INFO", "message": "analysisgnn ready", "imports_s": round(imported - STARTED, 1),
-                      "model_load_s": round(time.monotonic() - imported, 1)}), file=sys.stderr)
+                      "model_load_s": round(time.monotonic() - imported, 1), "read_ahead": read_ahead}), file=sys.stderr)
     replies.write("ready\n")
     replies.flush()
     for line in sys.stdin:
@@ -163,8 +194,27 @@ def serve(checkpoint: str) -> None:
         replies.flush()
 
 
+def list_files(checkpoint: str, out_path: str) -> None:
+    model = load(checkpoint)
+    folder = Path(out_path).parent
+    sample, result = folder / "sample.notes", folder / "sample.json"
+    sample.write_text("N1 div=1 ts=4/4 ks=0\nm1 len=4\n1.1: 1 C4 E4 G4 C5\n2.1: 4 C3\n")
+    try:
+        analyse(model, str(sample), str(result))
+    except Exception:
+        pass
+    sample.unlink(missing_ok=True)
+    result.unlink(missing_ok=True)
+    libraries = [line.split()[-1] for line in Path("/proc/self/maps").read_text().splitlines() if ".so" in line.split()[-1]]
+    paths = [path for path in dict.fromkeys(os.path.realpath(path) for path in [*libraries, *opened, checkpoint])
+             if os.path.isfile(path) and not path.startswith(tempfile.gettempdir())]
+    Path(out_path).write_text("\n".join(paths) + "\n")
+
+
 if __name__ == "__main__":
-    if sys.argv[1] == "--serve":
+    if sys.argv[1] == "--list-files":
+        list_files(sys.argv[2], sys.argv[3])
+    elif sys.argv[1] == "--serve":
         serve(sys.argv[2])
     else:
         analyse(load(sys.argv[1]), sys.argv[2], sys.argv[3])

@@ -14,3 +14,4 @@ vendor/
 .dev.vars*
 !.dev.vars.example
 !.env.example
+engine/models/model-files.txt
