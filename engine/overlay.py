@@ -40,6 +40,7 @@ CONTAINERS = {"system", "measure", "staff", "layer", "chord", "beam", "tuplet", 
 CURVES = {"slur", "tie", "phrase"}
 RING_AVOID = {"note", "accid", "dots", "rest", "mRest", "flag", "fermata", "dynam", "artic", "trill", "turn", "mordent"}
 RING_ROOM, RING_STROKE = 40, 30
+CODE_RATIO = 1.5
 
 
 class NotOnPage(Exception):
@@ -774,9 +775,11 @@ class PageLayout:
 
             def own(spot, skip=lambda other: False):
                 box = box_at(spot, 0)
-                heads = [h for h in unringed if h.x < box.right and h.right > box.x] if abs(spot[0] - ring.cx) < 1 else unringed
+                stacked = abs(spot[0] - ring.cx) < 1
+                heads = [h for h in unringed if h.x < box.right and h.right > box.x] if stacked else unringed
+                mine = self._gap(box, ring) if stacked else self._ring_gap(box, ring)
                 return bar[0] <= box.x and box.right <= bar[1] and all(
-                    ratio(other) * self._gap(box, ring) < self._gap(box, other) for other in others + heads if not skip(other))
+                    (ratio(other) if stacked else CODE_RATIO) * mine < self._gap(box, other) for other in others + heads if not skip(other))
 
             def ratio(other):
                 return 1 if abs(other.cy - ring.cy) < ring.height / 2 else 1.5
@@ -1104,6 +1107,12 @@ class PageLayout:
                   fill="none", stroke=ERROR, stroke_width=RING_STROKE)
         self._reserve(system, ring, pad=30)
         return ring
+
+    @staticmethod
+    def _ring_gap(box: Box, ring: Box) -> float:
+        rx, ry = ring.width / 2, ring.height / 2
+        points = [(ring.cx + rx * math.cos(2 * math.pi * step / 96), ring.cy + ry * math.sin(2 * math.pi * step / 96)) for step in range(96)]
+        return max(0.0, min(math.hypot(max(box.x - x, x - box.right, 0), max(box.y - y, y - box.bottom, 0)) for x, y in points) - RING_STROKE / 2)
 
     @staticmethod
     def _ring_size(system: System, note: Box) -> tuple[float, float]:
