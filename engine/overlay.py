@@ -38,6 +38,8 @@ ROOM_LINE, ROOM_MARGIN = 390, 2 * 180
 
 CONTAINERS = {"system", "measure", "staff", "layer", "chord", "beam", "tuplet", "section", "score"}
 CURVES = {"slur", "tie", "phrase"}
+RING_AVOID = {"note", "accid", "dots", "rest", "mRest", "flag", "fermata", "dynam", "artic", "trill", "turn", "mordent"}
+RING_ROOM, RING_STROKE = 40, 30
 
 
 class NotOnPage(Exception):
@@ -93,6 +95,7 @@ class System:
     words: list[Box] = field(default_factory=list)
     heads: list[Box] = field(default_factory=list)
     notes: list[Box] = field(default_factory=list)
+    ring_avoid: list[tuple[str, Box]] = field(default_factory=list)
 
     @property
     def left(self) -> float:
@@ -193,6 +196,8 @@ class PageLayout:
             system.heads.append(box)
         if box and ("note" in classes or "accid" in classes):
             system.notes.append(box)
+        if box and classes and classes[0] in RING_AVOID:
+            system.ring_avoid.append((classes[0], box))
         if CURVES & set(classes):
             system.content.extend(self._curve_boxes(group) or ([box] if box else []))
         elif box and not CONTAINERS & set(classes):
@@ -1093,12 +1098,44 @@ class PageLayout:
                    for measure in system.measures for o in measure.lines)
 
     def _draw_ring(self, system: System, note: Box) -> Box:
-        rx, ry = max(180, note.width / 2 + 60), max(135, note.height / 2 + 45)
+        rx, ry = self._ring_size(system, note)
         ring = Box(note.cx - rx, note.cy - ry, 2 * rx, 2 * ry)
         self._add("ellipse", cx=round(note.cx), cy=round(note.cy), rx=round(rx), ry=round(ry),
-                  fill="none", stroke=ERROR, stroke_width=30)
+                  fill="none", stroke=ERROR, stroke_width=RING_STROKE)
         self._reserve(system, ring, pad=30)
         return ring
+
+    @staticmethod
+    def _ring_size(system: System, note: Box) -> tuple[float, float]:
+        rx, ry = max(180, note.width / 2 + 60), max(135, note.height / 2 + 45)
+
+        def own(kind: str, box: Box) -> bool:
+            if kind == "note":
+                return note.x <= box.cx <= note.right and note.y <= box.cy <= note.bottom
+            beside = box.y < note.bottom and box.bottom > note.y
+            if kind == "accid":
+                return beside and box.right <= note.x + 20
+            return kind == "dots" and beside and note.right - 10 <= box.x < note.right + 150
+
+        near = [box for kind, box in system.ring_avoid if not own(kind, box)
+                and abs(box.cx - note.cx) < 800 and abs(box.cy - note.cy) < 800]
+
+        def inside(x: float, y: float, a: float, b: float) -> bool:
+            return ((x - note.cx) / a) ** 2 + ((y - note.cy) / b) ** 2 <= 1
+
+        def clear(a: float, b: float) -> bool:
+            outer, inner = (a + RING_STROKE / 2 + RING_ROOM, b + RING_STROKE / 2 + RING_ROOM), (a - RING_STROKE / 2 - RING_ROOM, b - RING_STROKE / 2 - RING_ROOM)
+            for box in near:
+                nearest = (min(max(note.cx, box.x), box.right), min(max(note.cy, box.y), box.bottom))
+                corners = [(x, y) for x in (box.x, box.right) for y in (box.y, box.bottom)]
+                if inside(*nearest, *outer) and not (inner[0] > 0 < inner[1] and all(inside(x, y, *inner) for x, y in corners)):
+                    return False
+            return True
+
+        smallest = (note.width / 2 + 25, note.height / 2 + 25)
+        sizes = sorted(((rx - dx, ry - dy) for dx in range(0, max(0, int(rx - smallest[0])) + 1, 5)
+                        for dy in range(0, max(0, int(ry - smallest[1])) + 1, 5)), key=lambda size: (rx - size[0]) + (ry - size[1]))
+        return next((size for size in sizes if clear(*size)), (rx, ry))
 
     def _draw_square_bracket(self, labels: list[str], system: System, a: Box, b: Box) -> None:
         top, bottom = min(a.cy, b.cy), max(a.cy, b.cy)
