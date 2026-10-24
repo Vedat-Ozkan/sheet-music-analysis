@@ -20,6 +20,7 @@ from pathlib import Path
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 from eval import compare, pieces
+from eval.accuracy import aggregate, score_readings
 
 ROME = "https://raw.githubusercontent.com/MarkGotham/When-in-Rome/master/"
 DCML_SCORES = "https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/beethoven_piano_sonatas/"
@@ -65,24 +66,25 @@ def main() -> None:
             continue
         for a, b in combinations(files, 2):
             try:
-                forward, backward = compare.compare(readings[a], readings[b], index), compare.compare(readings[b], readings[a], index)
+                scored = score_readings(readings[a], readings[b], index, common=True)
             except Exception as error:  # an analysis naming a beat the score's bar lacks: misaligned, so dropped
                 print(f"{name:55s} {a[9:-4] or 'A'} v {b[9:-4] or 'B'}: dropped, {str(error)[:70]}")
                 continue
-            fits = (forward["reference_fit"], backward["reference_fit"])
+            fits = (scored["reference_fit"], scored["reading_fit"])
             if min(fits) < FIT:
                 print(f"{name:55s} {a[9:-4] or 'A'} v {b[9:-4] or 'B'}: dropped, fit {fits[0]:.2f}/{fits[1]:.2f}")
                 continue
-            both = {c: (forward[c] + backward[c]) / 2 for c in COLUMNS}
+            both = {c: scored["duration"][c] for c in COLUMNS}
             bars = len(index.measures)
-            results.append({"piece": name, "pair": [a, b], "bars": bars, **{c: round(v, 3) for c, v in both.items()}})
+            results.append({"piece": name, "pair": [a, b], "bars": bars, **scored, **{c: round(v, 3) for c, v in both.items()}})
             for c in COLUMNS:
-                totals[c] += both[c] * bars
-            weight += bars
+                totals[c] += both[c] * scored["duration_weight"]
+            weight += scored["duration_weight"]
             print(f"{name:55s} {a[9:-4] or 'A'} v {b[9:-4] or 'B'}: " + "  ".join(f"{c[:5]} {both[c]:.2f}" for c in COLUMNS))
-    print(f"\n{len(results)} pairs, {weight:.0f} bars; human against human, weighted by length:")
-    print("  " + "  ".join(f"{c} {totals[c] / weight:.3f}" for c in COLUMNS))
-    (pieces.OUT / "ceiling.json").write_text(json.dumps({"pairs": results, "weighted": {c: round(totals[c] / weight, 3) for c in COLUMNS}}, indent=1))
+    print(f"\n{len(results)} pairs, {weight:.0f} quarter notes; human against human, weighted by duration:")
+    weighted = {c: round(totals[c] / weight, 3) if weight else None for c in COLUMNS}
+    print("  " + "  ".join(f"{c} {weighted[c]}" for c in COLUMNS))
+    (pieces.OUT / "ceiling.json").write_text(json.dumps({"pairs": results, "weighted": weighted, "summary": aggregate(results)}, indent=1))
 
 
 if __name__ == "__main__":

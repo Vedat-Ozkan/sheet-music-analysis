@@ -129,18 +129,34 @@ class Timeline:
             total += measure.length
         self.total = total
 
-    def spans(self, labels: list[Label]) -> tuple[list[Span], int]:
-        """Each label as (start, end, sounding), plus how many labels name a measure the score lacks."""
+    def positions(self, labels: list[Label]) -> tuple[list[tuple[Fraction, Label]], int]:
+        """Place a reading together so pickup numbering uses one translation per bar."""
         placed, missing = [], 0
+        padding = {}
+        for label in labels:
+            measure = self.measures.get(label.measure)
+            if measure is None or measure.declared_length is not None or not measure.meter:
+                continue
+            offset = (Fraction(label.beat).limit_denominator(96) - 1) * measure.beat_length
+            if offset >= measure.length:
+                count, unit = measure.meter.split("/")
+                padding[label.measure] = Fraction(int(count) * 4, int(unit)) - measure.length
         for label in labels:
             measure = self.measures.get(label.measure)
             if measure is None:
                 missing += 1
                 continue
-            # an analyst counts a pickup's beats as if the bar were full; the index counts from its first note
-            inside = measure.offset_of(label.beat) if measure.declared_length is not None else Fraction(0)
-            placed.append((self.starts[label.measure] + min(inside, measure.length), sounding(label.key, label.figure)))
+            # Some readings number pickup beats at the end of a full bar; draft beats start at its first note.
+            beat = Fraction(label.beat).limit_denominator(96) - padding.get(label.measure, Fraction(0)) / measure.beat_length
+            inside = measure.offset_of(beat)
+            placed.append((self.starts[label.measure] + inside, label))
         placed.sort(key=lambda item: item[0])
+        return placed, missing
+
+    def spans(self, labels: list[Label]) -> tuple[list[Span], int]:
+        """Each label as (start, end, sounding), plus how many labels name a measure the score lacks."""
+        positions, missing = self.positions(labels)
+        placed = [(start, sounding(label.key, label.figure)) for start, label in positions]
         ends = [start for start, _ in placed[1:]] + [self.total]
         return [(start, end, chord) for (start, chord), end in zip(placed, ends) if end > start], missing
 
