@@ -234,9 +234,9 @@ def test_note_numbers_are_discs_and_key_labels_are_regular_weight():
 def test_case_slip_is_a_mild_page_note():
     score, _, index, _ = passage('bach')
     annotations = AnnotationList.model_validate({'annotations': [
-        {'type': 'harmony', 'at': {'measure': 1}, 'key': 'C', 'label': 'V'},
+        {'type': 'harmony', 'at': {'measure': 1}, 'key': 'C', 'label': 'vio'},
     ]})
-    labels = from_text('m1 C: v', index=index)
+    labels = from_text('m1 C: VIo', index=index)
     page = render(score, annotations, measures=(1, 1), student_labels=labels)
     words = ' '.join(ET.fromstring(page.svgs[0]).itertext())
     assert 'Mild:' in words
@@ -248,9 +248,9 @@ def test_case_slip_survives_pagination():
     score = Path('tests/data/part_writing_bwv245.40.musicxml').read_bytes()
     index = ScoreIndex(load_toolkit(score).getMEI())
     annotations = AnnotationList.model_validate({'annotations': [
-        {'type': 'harmony', 'at': {'measure': m.number}, 'key': 'C', 'label': 'V'}
+        {'type': 'harmony', 'at': {'measure': m.number}, 'key': 'C', 'label': 'vio'}
         for m in index.measures]})
-    labels = from_text('; '.join(f'm{m.number} C: ' + ('v' if n == 0 else 'V')
+    labels = from_text('; '.join(f'm{m.number} C: ' + ('VIo' if n == 0 else 'vio')
                                 for n, m in enumerate(index.measures)), index=index)
     results = compare(labels, annotations.model_dump(exclude_none=True), index)
     assert results[0]['notes'] and not results[0]['is_error']

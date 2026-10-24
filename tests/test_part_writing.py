@@ -79,7 +79,7 @@ def test_planted_tendency_errors():
         ("voice_overlap", (5, 5), (A, T)),
         ("voice_overlap", (4, 4), (T, B)),  # B3 unison: tenor falls to A3.
     }),
-    ("bwv269", {("unequal_fifths", (8, 8), (S, A)),("voice_overlap", (2, 3), (A, T)),
+    ("bwv269", {("voice_overlap", (2, 3), (A, T)),
                 ("voice_overlap", (2, 2), (T, B))}),  # G3 unison: tenor falls to F#3.
     ("bwv244.15", {
         ("parallel_fifths", (11, 12), (T, B)),

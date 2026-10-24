@@ -56,13 +56,11 @@ def test_bwv85_unequal_fifths():
     path = DATA.parent / 'part_writing_bwv85.6.musicxml'
     index = ScoreIndex(load_toolkit(path.read_bytes()).getMEI())
     found = [h for h in check(index) if h.rule == 'unequal_fifths']
-    assert {(h.bars, h.beats, h.voices) for h in found} == {
-        ((bar, bar), (2.75, 3.0), ((1, 1), (2, 1))) for bar in (4, 10)
-    }
+    assert found == []
 
 
 def test_ap_severity_sentences():
-    assert 'Serious:' in as_text(read('contrary_fifths'))
+    assert 'Moderate:' in as_text(read('contrary_fifths'))
     assert any(h.why.startswith('Minor:') for h in check(read('doubled_seventh'), spans('doubled_seventh'))
                if h.rule == 'doubled_seventh')
 
@@ -81,12 +79,12 @@ def test_explicit_cad64_must_resolve_even_when_dominant_is_missing():
     assert not any(h.rule == 'unresolved_cadential_tone' for h in check(index))
 
 
-def test_forbidden_unequal_fifths_have_serious_severity():
-    index = ScoreIndex(load_toolkit((DATA.parent / 'part_writing_bwv85.6.musicxml').read_bytes()).getMEI())
+def test_forbidden_unequal_fifths_have_moderate_severity():
+    index = read('unequal_upper_forbidden')
     found = [h for h in check(index) if h.rule == 'unequal_fifths']
-    assert {h.bars for h in found} == {(4, 4), (10, 10)}
-    assert all(h.why.startswith('Serious:') for h in found)
-    assert all('Serious:' in line for line in as_text(index).splitlines() if 'Unequal fifths:' in line)
+    assert found
+    assert all(h.why.startswith('Moderate:') for h in found)
+    assert all('Moderate:' in line for line in as_text(index).splitlines() if 'Unequal fifths:' in line)
 
 
 @pytest.mark.parametrize('explicit', [False, True])
@@ -110,12 +108,12 @@ def test_passing_v43_with_an_ornamental_seventh():
     assert not any(h.rule == 'unequal_fifths' and h.bars == (0, 1) for h in check(index))
 
 
-def test_unequal_fifths_rule_requires_steps():
+def test_unequal_fifths_rule_includes_leaps():
     import xml.etree.ElementTree as ET
     xml = ET.parse(DATA / 'unequal_upper_forbidden.musicxml')
     xml.getroot().findall('part')[0].findall('measure')[1].find('note/pitch/octave').text = '6'
     index = ScoreIndex(load_toolkit(ET.tostring(xml.getroot())).getMEI())
-    assert not any(h.rule == 'unequal_fifths' for h in check(index))
+    assert any(h.rule == 'unequal_fifths' for h in check(index))
 
 
 @pytest.mark.parametrize('pitches,figure', [

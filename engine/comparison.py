@@ -48,6 +48,14 @@ def sounding(key: str, figure: str) -> Sounding | None:
     """None when the figure is not a Roman numeral music21 can read (a chord symbol, a typo)."""
     try:
         local = m21key.Key(m21key.convertKeyStringToMusic21KeyString(key))
+        # Flats on uppercase natural-minor degrees are alternate spellings, including applied targets.
+        head, slash, target = figure.partition('/')
+        if local.mode == 'minor':
+            if slash and target != 'o':
+                target = re.sub(r'^b(III|VII|VI)(?=$|[^ivIV])', r'\1', target)
+            else:
+                head = re.sub(r'^b(III|VII|VI)(?=$|[^ivIV])', r'\1', head)
+        figure = head + slash + target
         # a sharp on vi or vii in a minor context is cautionary (When in Rome writes "#viio7/vi"); music21's
         # default raises it a second time and puts the root a semitone too high
         chord = roman.RomanNumeral(figure.replace("ø", "/o"), local, sixthMinor=roman.Minor67Default.CAUTIONARY, seventhMinor=roman.Minor67Default.CAUTIONARY)

@@ -305,26 +305,11 @@ def compare(student: list[Label], reviewed: dict, index: ScoreIndex) -> list[dic
 
 
 def _student_figure(label, expected):
-    def minor_convention(figure, key):
-        # These major numerals name the natural-minor degrees in either convention.
-        if key[0].islower():
-            return re.sub(r'^b(III|VII|VI)(?=$|[^ivIV])', r'\1', figure)
-        return figure
-
-    actual = minor_convention(label.figure, label.key)
-    reference = minor_convention(expected.figure, expected.key)
-    parts, targets = actual.split('/'), reference.split('/')
-    slipped = False
-    if len(parts) == len(targets):
-        for n, (part, target) in enumerate(zip(parts, targets)):
-            a = re.fullmatch(r'([#b-]*)([ivIV]+)(.*)', part)
-            b = re.fullmatch(r'([#b-]*)([ivIV]+)(.*)', target)
-            if a and b and a[2].lower() == b[2].lower() and a[2] != b[2]:
-                parts[n] = a[1] + b[2] + a[3]
-                slipped = True
-    figure = minor_convention('/'.join(parts), label.key)
+    actual, reference = sounding(label.key, label.figure), sounding(expected.key, expected.figure)
+    same_chord = actual is not None and reference is not None and matches(reference, actual)['chord']
+    slipped = same_chord and label.figure != expected.figure and label.figure.lower() == expected.figure.lower()
     notes = [f"Mild: Roman-numeral case slip: {label.figure}; the reviewed case is {expected.figure}."] if slipped else []
-    return figure, notes
+    return label.figure, notes
 
 
 def compare_labels(student: list[Label], reference: list[Label], index: ScoreIndex) -> list[dict]:

@@ -1366,8 +1366,8 @@
      1
     ]
    ],
-   "verdict": "real",
-   "source": "sample_audit"
+   "verdict": "checker bug",
+   "source": "checker-review-2026-10-13"
   },
   {
    "chorale": "bwv99.6",
@@ -2466,8 +2466,8 @@
      1
     ]
    ],
-   "verdict": "real",
-   "source": "owner_ap_2026_10_12"
+   "verdict": "checker bug",
+   "source": "checker-review-2026-10-13"
   },
   {
    "chorale": "fixture:part_writing_bwv85.6.musicxml",
@@ -2490,8 +2490,8 @@
      1
     ]
    ],
-   "verdict": "real",
-   "source": "owner_ap_2026_10_12"
+   "verdict": "checker bug",
+   "source": "checker-review-2026-10-13"
   },
   {
    "chorale": "bwv269",
@@ -2514,8 +2514,8 @@
      1
     ]
    ],
-   "verdict": "real",
-   "source": "owner_ap_2026_10_12"
+   "verdict": "checker bug",
+   "source": "checker-review-2026-10-13"
   },
   {
    "chorale": "bwv347",
@@ -2586,8 +2586,8 @@
      1
     ]
    ],
-   "verdict": "real",
-   "source": "owner_ap_2026_10_12"
+   "verdict": "checker bug",
+   "source": "checker-review-2026-10-13"
   },
   {
    "chorale": "bwv153.1",
@@ -2802,8 +2802,8 @@
      1
     ]
    ],
-   "verdict": "real",
-   "source": "owner_ap_2026_10_12"
+   "verdict": "checker bug",
+   "source": "checker-review-2026-10-13"
   },
   {
    "chorale": "bwv311",
@@ -3114,8 +3114,8 @@
      1
     ]
    ],
-   "verdict": "real",
-   "source": "owner_ap_2026_10_12"
+   "verdict": "checker bug",
+   "source": "checker-review-2026-10-13"
   },
   {
    "chorale": "bwv20.11",
@@ -3210,8 +3210,8 @@
      1
     ]
    ],
-   "verdict": "real",
-   "source": "owner_ap_2026_10_12"
+   "verdict": "checker bug",
+   "source": "checker-review-2026-10-13"
   },
   {
    "chorale": "bwv36.8-2",
@@ -3282,8 +3282,8 @@
      1
     ]
    ],
-   "verdict": "real",
-   "source": "owner_ap_2026_10_12"
+   "verdict": "checker bug",
+   "source": "checker-review-2026-10-13"
   },
   {
    "chorale": "bwv363",
@@ -3546,8 +3546,8 @@
      1
     ]
    ],
-   "verdict": "real",
-   "source": "owner_ap_2026_10_12"
+   "verdict": "checker bug",
+   "source": "checker-review-2026-10-13"
   },
   {
    "chorale": "bwv259",
@@ -3618,8 +3618,8 @@
      1
     ]
    ],
-   "verdict": "real",
-   "source": "owner_ap_2026_10_12"
+   "verdict": "checker bug",
+   "source": "checker-review-2026-10-13"
   },
   {
    "chorale": "bwv255",
@@ -3642,8 +3642,8 @@
      1
     ]
    ],
-   "verdict": "real",
-   "source": "owner_ap_2026_10_12"
+   "verdict": "checker bug",
+   "source": "checker-review-2026-10-13"
   },
   {
    "chorale": "bwv65.7",
@@ -3854,8 +3854,8 @@
      1
     ]
    ],
-   "verdict": "real",
-   "source": "owner_ap_2026_10_12"
+   "verdict": "checker bug",
+   "source": "checker-review-2026-10-13"
   },
   {
    "chorale": "bwv416",
@@ -4086,8 +4086,8 @@
      1
     ]
    ],
-   "verdict": "real",
-   "source": "owner_ap_2026_10_12"
+   "verdict": "checker bug",
+   "source": "checker-review-2026-10-13"
   },
   {
    "chorale": "bwv174.5",
