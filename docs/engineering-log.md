@@ -1024,6 +1024,18 @@ The models are now the GitHub release `audio-models-1` on the main repository, w
 
 The baseline (Beat This! with a fixed number of beats per bar from the first downbeat) fails both conditions: bars at least 90% right on 2 of 20 pieces (16 needed), and full-numeral accuracy against the experts 44.0% from audio against 50.4% from the real score, 6.4 points apart (5 allowed; root and quality 64.6 against 70.4, key 75.5 against 76.4). The tracker usually finds the downbeats (F above 0.9 on 13 pieces), but counting a fixed number of beats per bar lets one extra beat shift every later bar, and it writes compound meters as 2/4. Score-building also costs numerals by itself: K. 332 I has every bar right and still loses 16 points. Next are the plan's T1-T3: bar lines from the tracked downbeats with the meter chosen from the music, tempo smoothing, and the user's optional answer.
 
+### 56. Audio phase 1: T1-T3 also fail the gate (2026-10-24)
+
+| Method | Bars at least 90% right | Full-numeral gap to the score path (50.4%) |
+|---|---|---|
+| T0 baseline | 2 of 20 | 6.3 |
+| T1 bar lines from tracked downbeats, meter from the music | 5 | 9.3 |
+| T2 T1 plus tempo smoothing (Viterbi) | 6 | 7.3 |
+| T3 T2 plus the real starting meter and pickup | 7 | 6.8 |
+| Bar lines taken from ASAP (perfect timing) | 20 | 5.5 |
+
+The gate needs 16 of 20 and at most 5 points, so every method fails both conditions, and even perfect timing misses the numeral condition. The numerals barely depend on the bar lines (44.1% at 27% of bars right, 44.9% at 100%), because labels are matched by time. Where the points go, with perfect timing: the transcription costs almost nothing (about 44 from transcribed notes, 44.3 from the score's own notes through the same writer); spelling, the hand split and the key cost about 4 (48.0 with the real ones); the score writer itself about 2.4. The remaining bar failures are beat-level: one piece tracked in eighth notes, downbeats at the half bar in three, tempo changes in two. The salience weights were chosen on these same 20 pieces, so T1-T3 are if anything optimistic. Not yet tried: other trackers (T4), fine-tuning the tracker (T5, needs a one-off GPU spend), and automatic spelling, hand split and key work.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
