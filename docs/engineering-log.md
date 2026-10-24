@@ -993,6 +993,10 @@ Week 6 of the observability plan. Two SLOs on the production service in Cloud Mo
 
 Shipped the same day: the week 1-6 work went to production as revision 00028 (image pinned by digest, two calls at once, at most two instances, production limits). A cold production draft of the longest test score took 17.6 s at the client (model start-up 12.4 s), wrote its log line with timings and trace link, and appeared in Cloud Trace with all its stages; no errors on the new revision. Staging is on revision 00039 from the same code.
 
+### 52. The budget email counted usage before the free tier (2026-10-24)
+
+The CAD 5 budget emailed 50% on Oct 8, 90% on Oct 17 and 100% on Oct 24, but it excluded all credits, and the free tiers show up as credits, so it measured usage at list price. Rebuilt from usage (no billing export; the console was not checked): Cloud Run 54,369 instance-seconds in October (production 46,109, of which 41,301 on Oct 7-9 from log 21's leak; staging 7,535 for the load tests; 725 for the cold-start job), about US$3.15 at list price but inside the free tier (109k of 180k vCPU-s, 217k of 360k GiB-s); Cloud Build 139 minutes of 2,500 free; Artifact Registry 4.4 GB and the build-source bucket 11 GB, the only parts beyond a free tier, about US$0.40 a month together. The budget now includes credits, so its emails mean money owed; the amount stays CAD 5.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
