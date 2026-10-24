@@ -29,6 +29,8 @@ server = [
     "google-cloud-storage>=3.16.0",
     "cairosvg>=2.7",
     "pikepdf>=9",
+    "opentelemetry-sdk>=1.45.1",
+    "opentelemetry-exporter-gcp-trace>=1.15.0",
 ]
 
 [build-system]

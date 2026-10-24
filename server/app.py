@@ -28,6 +28,9 @@ from mcp.server.apps import Apps, ResourceCsp
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, Icon, ImageContent, TextContent, ToolAnnotations
+from opentelemetry import context as trace_context
+from opentelemetry import trace
+from opentelemetry.trace import NonRecordingSpan, SpanContext, StatusCode, TraceFlags
 from pydantic import BaseModel, ConfigDict
 from starlette.requests import Request
 from starlette.responses import Response
@@ -129,22 +132,47 @@ def log(event: str, **details) -> None:
         call["stack_trace"] = traceback.format_exc()
 
 
-def trace_id(headers) -> str:
-    headers = dict(headers or {})
-    if match := re.fullmatch(r"[0-9a-f]{2}-([0-9a-f]{32})-[0-9a-f]{16}-[0-9a-f]{2}", headers.get("traceparent", "")):
-        return match[1]
-    if match := re.match(r"([0-9a-f]{32})/", headers.get("x-cloud-trace-context", "")):
-        return match[1]
-    return uuid.uuid4().hex
+tracer = trace.get_tracer("sheet-music-analysis")
+
+
+def remote_parent(headers: dict[str, str]) -> SpanContext:
+    trace_hex, span = uuid.uuid4().hex, 0
+    if match := re.fullmatch(r"[0-9a-f]{2}-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}", headers.get("traceparent", "")):
+        trace_hex, span = match[1], int(match[2], 16)
+    elif match := re.match(r"([0-9a-f]{32})(?:/(\d+))?", headers.get("x-cloud-trace-context", "")):
+        trace_hex, span = match[1], int(match[2] or 0) % 2**64
+    return SpanContext(int(trace_hex, 16), span or secrets.randbits(63) + 1, is_remote=True,
+                       trace_flags=TraceFlags(TraceFlags.SAMPLED))
+
+
+def traced(app):
+    async def with_trace(scope, receive, send):
+        if scope["type"] != "http":
+            return await app(scope, receive, send)
+        headers = {name.decode("latin-1"): value.decode("latin-1") for name, value in scope["headers"]}
+        token = trace_context.attach(trace.set_span_in_context(NonRecordingSpan(remote_parent(headers))))
+        try:
+            await app(scope, receive, send)
+        finally:
+            trace_context.detach(token)
+
+    return with_trace
 
 
 @contextmanager
 def stage(name: str):
     started = time.perf_counter()
     try:
-        yield
+        with tracer.start_as_current_span(name):
+            yield
     finally:
         draft.add_timing(name, time.perf_counter() - started)
+
+
+def flush_traces() -> None:
+    provider = trace.get_tracer_provider()
+    if hasattr(provider, "force_flush"):
+        provider.force_flush(5000)
 
 
 def observed(fn):
@@ -157,9 +185,11 @@ def observed(fn):
             headers = ctx.headers
         except Exception:
             headers = None
-        request_id = trace_id(headers)
+        span = tracer.start_span(tool)
+        request_id = f"{span.get_span_context().trace_id:032x}"
         call = {"event": tool, "tool": tool, "platform": client_of(headers), "request_id": request_id,
                 "logging.googleapis.com/trace": f"projects/{PROJECT}/traces/{request_id}",
+                "logging.googleapis.com/spanId": f"{span.get_span_context().span_id:016x}",
                 "cold": calls_served == 0, "uptime_s": round(time.monotonic() - STARTED)}
         calls_served += 1
         timings = {}
@@ -167,7 +197,8 @@ def observed(fn):
         started = time.perf_counter()
         result = None
         try:
-            result = await fn(ctx, *args, **kwargs)
+            with trace.use_span(span, end_on_exit=False):
+                result = await fn(ctx, *args, **kwargs)
             return result
         except Exception:
             call["outcome"] = "server_error"
@@ -183,8 +214,14 @@ def observed(fn):
             outcome = call.pop("outcome", None) or (
                 "limit" if call["event"] == "limit" else "busy" if call.get("busy")
                 else "user_error" if result is not None and result.is_error else "ok")
+            span.set_attributes({"outcome": outcome, "platform": call["platform"], "cold": call["cold"],
+                                 **{f"timings_ms.{name}": value for name, value in timings.items()}})
+            if outcome == "server_error":
+                span.set_status(StatusCode.ERROR, call.get("error", ""))
+            span.end()
             write_line({**call, "outcome": outcome, "severity": SEVERITY[outcome],
                         "message": f"{tool} {outcome}", "timings_ms": timings})
+            await anyio.to_thread.run_sync(flush_traces)
 
     return wrapper
 
@@ -324,7 +361,8 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, studen
     if cached:
         raw = json.loads(cached)
     else:
-        raw = draft.MODELS["analysisgnn"](note_list.encode(index).encode(), "notes")
+        with tracer.start_as_current_span("model"):
+            raw = draft.MODELS["analysisgnn"](note_list.encode(index).encode(), "notes")
         with stage("publish"):
             store.put(f"scores/{code}.draft.json", json.dumps(raw).encode())
     with stage("build"):
@@ -774,7 +812,8 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         return error_result(LIMIT_MESSAGE)
     started = time.time()
     try:
-        result = await anyio.to_thread.run_sync(draft.draft_from_notes, notes)
+        with tracer.start_as_current_span("model"):
+            result = await anyio.to_thread.run_sync(draft.draft_from_notes, notes)
         with stage("parse"):
             index = note_list.decode(notes)
         if student_analysis:
@@ -827,7 +866,20 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(entry)
 
 
+def start_tracing(service: str) -> None:
+    from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+    provider = TracerProvider(resource=Resource.create({"service.name": service}))
+    provider.add_span_processor(BatchSpanProcessor(CloudTraceSpanExporter(project_id=PROJECT)))
+    trace.set_tracer_provider(provider)
+
+
 def main() -> None:
+    if service := os.environ.get("K_SERVICE"):
+        start_tracing(service)
     app = mcp.streamable_http_app(
         stateless_http=True,
         json_response=True,
@@ -836,7 +888,7 @@ def main() -> None:
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(JsonFormatter())
     logging.basicConfig(level=logging.WARNING, handlers=[handler], force=True)
-    uvicorn.run(app, host="0.0.0.0", port=PORT, log_level="warning", log_config=None)
+    uvicorn.run(traced(app), host="0.0.0.0", port=PORT, log_level="warning", log_config=None)
 
 
 if __name__ == "__main__":
