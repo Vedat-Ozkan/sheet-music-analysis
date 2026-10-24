@@ -19,9 +19,12 @@ modulation applying from the next numeral. When there are several unaddressed
 keys, those before the first numeral are starting keys and one with no numeral
 after it asks where the change occurs (`m1 I G: m2 I D:`); put it before the
 first chord in the new key (`m3 D: I`).
-Roman-numeral case is preserved: `II` and `ii` keep the student's spelling. Comparison accepts either case
-and gives a separate mild case-slip note rather than a wrong-chord verdict.
-In minor, III/bIII, VI/bVI and VII/bVII are equivalent.
+Roman-numeral case is preserved: `II` and `ii` keep the student's spelling.
+Comparison accepts a case difference only when both spellings name the same
+chord (`VIo` for `vio`, `viio7/v` for `viio7/V`) and then gives a separate mild
+case-slip note rather than a wrong-chord verdict; `II` for `ii` names a
+different chord and stays wrong. In minor, III/bIII, VI/bVI and VII/bVII are
+equivalent, also as applied-chord targets (`V/bIII`).
 Mixed case within a numeral (`vIi`, including secondary targets) asks which
 case was intended.
 

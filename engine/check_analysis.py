@@ -284,12 +284,11 @@ def compare(student: list[Label], reviewed: dict, index: ScoreIndex) -> list[dic
     return compare_labels(student, from_annotations(reviewed), index)
 
 
-def _student_figure(label, expected):
+def _case_slip(label, expected):
     actual, reference = sounding(label.key, label.figure), sounding(expected.key, expected.figure)
     same_chord = actual is not None and reference is not None and matches(reference, actual)['chord']
     slipped = same_chord and label.figure != expected.figure and label.figure.lower() == expected.figure.lower()
-    notes = [f"Mild: Roman-numeral case slip: {label.figure}; the reviewed case is {expected.figure}."] if slipped else []
-    return label.figure, notes
+    return [f"Mild: Roman-numeral case slip: {label.figure}; the reviewed case is {expected.figure}."] if slipped else []
 
 
 def compare_labels(student: list[Label], reference: list[Label], index: ScoreIndex) -> list[dict]:
@@ -302,9 +301,7 @@ def compare_labels(student: list[Label], reference: list[Label], index: ScoreInd
         expected = next((item for item in reversed(reference) if (item.measure, item.beat) <= position), None)
         if expected is None:
             raise ValueError(f"No reviewed harmony at bar {label.measure} beat {label.beat:g}")
-        figure, notes = _student_figure(label, expected)
-        reference_figure, _ = _student_figure(expected, expected)
-        r, s = sounding(expected.key, reference_figure), sounding(label.key, figure)
+        r, s = sounding(expected.key, expected.figure), sounding(label.key, label.figure)
         if r is None or s is None:
             raise ValueError(f"Unreadable harmony at bar {label.measure} beat {label.beat:g}")
         agreement = matches(r, s)
@@ -324,7 +321,7 @@ def compare_labels(student: list[Label], reference: list[Label], index: ScoreInd
             'classification': classification,
             'is_error': classification in ('different_key', 'different_chord', 'different_inversion'),
             'matches': agreement,
-            'notes': notes,
+            'notes': _case_slip(label, expected),
         })
     return results
 

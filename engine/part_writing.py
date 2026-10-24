@@ -257,7 +257,6 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
         k, c = named(pos, row)
         seventh = c.seventh if c else None
         if not spans and c is None and len(row) == len(voices):
-            # A spelled root, third and seventh identifies the omitted-fifth chord without guessing a key.
             reduced = chord.Chord([pitch(e) for e in row.values() if not decorated(pos, e)])
             if (len(set(reduced.pitchClasses)) == 3 and reduced.third and reduced.seventh
                     and reduced.fifth is None
@@ -269,9 +268,8 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                        and midi(row[v].pitch) % 12 == seventh]
             if len(doubled) > 1:
                 add("doubled_seventh", [pos], doubled, f"The chord seventh is doubled in the {' and '.join(name[v] for v in doubled)}; it should appear once.")
-        if c and c.seventh is None and len(c.tones) == 3 and c.bass not in (c.root, c.third) and len(row) == len(voices) == 4:
+        if c and c.seventh is None and len(c.tones) == 3 and c.bass == (c.root + 7) % 12 and len(row) == len(voices) == 4:
             members = [v for v in row if not decorated(pos, row[v]) and midi(row[v].pitch) % 12 in c.tones]
-            # Only a complete chord establishes which tone must be doubled.
             if (len(members) == 4 and {midi(row[v].pitch) % 12 for v in members} == c.tones
                     and midi(row[voices[-1]].pitch) % 12 == c.bass
                     and sum(midi(row[v].pitch) % 12 == c.bass for v in members) < 2):
@@ -318,7 +316,6 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                                  and {tonic, cb.third} <= tones and tones <= cb.tones)
             if opening_tonic:
                 return bool(voices[-1] in row and midi(row[voices[-1]].pitch) < midi(a[voices[-1]].pitch) < midi(b[voices[-1]].pitch))
-            # Predominants may intervene in the ascending tonic-to-tonic-six idiom.
             if previous and previous.root in ((tonic + 2) % 12, (tonic + 5) % 12) and previous.tones <= {p.pitchClass for p in kb.pitches}:
                 continue
             return False
@@ -332,7 +329,6 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
         if n:
             row, previous = sonorities[n][1], sonorities[n - 1][1]
             c = chord.Chord([pitch(e) for e in row.values()])
-            # A complete chord struck by every voice establishes chord tones even off the beat.
             if (len(row) == len(previous) == len(voices) and (c.isTriad() or c.isSeventh())
                     and all(midi(row[v].pitch) != midi(previous[v].pitch) for v in voices)):
                 return False
@@ -347,7 +343,6 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
             au, al, bu, bl = [midi(r[v].pitch) for r, v in ((a, upper), (a, lower), (b, upper), (b, lower))]
             same = (bu - au) * (bl - al) > 0
             quartet = voiceLeading.VoiceLeadingQuartet(pitch(a[upper]), pitch(b[upper]), pitch(a[lower]), pitch(b[lower]))
-            # Octave displacement, exchanged pitches and crossing do not establish new parallel intervals.
             moving = (bu % 12 != au % 12 and bl % 12 != al % 12
                       and au >= al and bu >= bl and (au, al) != (bl, bu))
             rule = "parallel_fifths" if quartet.parallelFifth() else "parallel_octaves" if quartet.parallelOctave() or quartet.parallelUnison() else None
@@ -372,13 +367,13 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                         add("unequal_fifths", [before, after], [upper, lower], f"Unequal fifths: {name[upper]} and {name[lower]} move from a diminished fifth to a perfect fifth outside the accepted upper-voice passing context.")
             if not beat_only and voices.index(lower) == voices.index(upper) + 1 and bu >= bl and au >= al and (bu < al or bl > au):
                 add("voice_overlap", [before, after], [upper, lower], f"Voice overlap: {name[upper]} and {name[lower]}. " + (f"The {name[upper]}'s {b[upper].pitch} falls below the {name[lower]}'s previous {a[lower].pitch}." if bu < al else f"The {name[lower]}'s {b[lower].pitch} rises above the {name[upper]}'s previous {a[upper].pitch}."))
+
     def resolution_target(v, a, after, b, row_number, kb, cb):
         destination, target = after, b[v]
         if a[v].pitch == target.pitch:
             for later, sounding in rows[row_number + 2:]:
                 later_row = {w: es[0] for w, es in sounding.items() if len(es) == 1}
                 later_key, later_chord = named(later, later_row) if spans or len(later_row) == len(voices) else (None, None)
-                # A suspension must resolve while the arrival harmony is active.
                 if later_key != kb or later_chord != cb:
                     break
                 if len(sounding[v]) != 1:
@@ -400,7 +395,6 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
         kb, cb = named(after, b)
         if ca is None:
             continue
-        # An explicit cadential label establishes the obligation even if V is omitted.
         explicit_cadential = (spans and span_at(before).label == 'Cad64'
                               and span_at(after).label != 'Cad64')
         if cb is None and not explicit_cadential:

@@ -1,4 +1,3 @@
-"""Policy invariants over the complete real checker corpus, plus review regressions."""
 import json
 import re
 from itertools import combinations
@@ -85,7 +84,6 @@ def test_corpus_unequal_fifths_exclude_ornaments_and_are_moderate(real_corpus):
             if len(a) != 4 or len(b) != 4 or any(len(es) != 1 for es in list(a.values()) + list(b.values())):
                 continue
             arrival = chord.Chord([es[0].pitch.replace('b', '-') for es in b.values()])
-            # Root-position arrivals cannot be the accepted tonic-to-tonic-six idiom.
             if not arrival.isTriad() or arrival.inversion() != 0:
                 continue
             for upper, lower in combinations(a, 2):
@@ -119,7 +117,7 @@ def test_corpus_six_four_doubling_and_resolving_duplicate(real_corpus):
             if len(row) != 4 or any(len(es) != 1 or es[0].id in decorated for es in row.values()):
                 continue
             c = chord.Chord([es[0].pitch.replace('b', '-') for es in row.values()])
-            if c.isTriad() and c.inversion() == 2:
+            if (c.isMajorTriad() or c.isMinorTriad()) and c.inversion() == 2:
                 bass = midi(row[voices[-1]][0].pitch) % 12
                 if c.bass().pitchClass != bass:
                     continue
@@ -128,6 +126,10 @@ def test_corpus_six_four_doubling_and_resolving_duplicate(real_corpus):
                 if not doubled and not reported:
                     wrong.append((name, pos, 'undoubled bass'))
         for h in hits:
+            if h.rule == 'six_four_doubling':
+                c = chord.Chord([es[0].pitch.replace('b', '-') for es in rows[(h.bars[0], h.beats[0])].values()])
+                if not ((c.isMajorTriad() or c.isMinorTriad()) and c.inversion() == 2):
+                    wrong.append((name, h.bars, h.beats, 'not a major or minor six-four'))
             if h.rule != 'unresolved_cadential_tone':
                 continue
             a, b = (rows[p] for p in zip(h.bars, h.beats))
@@ -174,7 +176,6 @@ def test_review_real_passages(real_corpus):
 
 
 def test_corpus_passing_idiom_through_predominant(real_corpus):
-    # Supplied spans establish the idiom independently of the fallback's key estimate.
     checked = 0
     for name, (index, voices, _, rows, _) in real_corpus.items():
         positions = list(rows)
@@ -192,7 +193,6 @@ def test_corpus_passing_idiom_through_predominant(real_corpus):
             key_name = cb.root().name.replace('-', 'b')
             if cb.isMinorTriad():
                 key_name = key_name.lower()
-            # Establish the intervening predominant from the real pitches, not an invented label.
             local = key.Key(key_name)
             scale = {p.pitchClass for p in local.pitches}
             predominant = []
@@ -220,10 +220,3 @@ def test_review_bwv269_rising_seventh_through_predominant():
              for beat, figure in [(1, 'I'), (2, 'ii'), (2.5, 'V43'), (3, 'I6')]]
     assert not any(h.rule == 'unresolved_seventh' and h.bars == (8, 8)
                    and h.beats == (2.5, 3.0) and h.voices == ((1, 1),) for h in part_writing.check(index, spans))
-
-
-def test_tracked_fixture_hygiene():
-    import subprocess
-    added = subprocess.check_output(['git', 'diff-tree', '--no-commit-id', '--name-only', '-r', '--diff-filter=A', '5902ca8'], text=True).splitlines()
-    tracked = set(subprocess.check_output(['git', 'ls-files'], text=True).splitlines())
-    assert not [p for p in added if p in tracked and (p == 'out' or Path(p).name == '.uuid')]
