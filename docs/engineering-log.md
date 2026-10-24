@@ -944,6 +944,17 @@ Sending the spans happens at the end of each call, because Cloud Run gives a con
 
 The first draft on a fresh instance takes 30-50 s, almost all of it the draft model's Python imports: 26.8-41.6 s over four cold starts on staging, against 3.75 s for the same modules from the same image on the development machine. Profiling one cold start (`PYTHONPROFILEIMPORTTIME`): the analysis model package 16.6 s (local 1.56), of which torch_geometric 9.6 and pytorch_lightning 4.65; partitura 9.4 (1.18); torch 6.4 (0.76). The shipped bytecode is valid (11,472 .py files, each with a current .pyc; importing writes none). 23.2 of the 33 s goes to about 4,700 small modules that take under 1 ms each locally: about 5 ms per file on Cloud Run against 0.23 ms, 21x, while modules that compute are only 2-3x slower. That points to slow first reads of files from the container image rather than a slow CPU; not yet proven (the local runs had the files cached).
 
+A throwaway Cloud Run job confirmed it. In a fresh container the first import took 29.7-42.1 s over four runs; a second and third import in new processes took 5.6-6.4 s. Reading every file of the model's environment first, one at a time, took about 4 minutes (42,118 files, 1.43 GB), so the cost is per file read, not per byte; reading them with 16 at a time took 15 s, after which the import took 7 s.
+
+The fix: during the image build, the model process records every file it opens while importing, loading the weights and analysing a tiny sample (Python's audit hook for opened files, plus the shared libraries in `/proc/self/maps`): about 5,500 files, 920 MB, most of it torch's main library. When a draft starts the model, it reads those files 16 at a time just before its own imports. It runs only when a draft starts the model, so renders, PDF reading and downloads are unchanged. On staging, four true cold starts each (instance up 1 s):
+
+| | Client time | Server total | Model start-up | Imports |
+|---|---|---|---|---|
+| Before (median) | 66.7 s | 52.5 s | 47.9 s | 45.9 s |
+| After (median) | 22.5 s | 13.7 s | 10.6 s | 9.7 s |
+
+The read-ahead itself takes about 5 s and runs alongside the imports. Peak memory 0.19 of 4 GiB, against 0.18 before.
+
 What the plan proposed for week 4 and what was decided instead: loading the model at start-up behind a readiness check does not shorten the first draft at min 0 and max 1 instances (the request waits either way) and would make cold renders, PDF reading and download links wait 50 s instead of about 11 s, so it waits for the week-6 instance decision. The daily counter is not the first bottleneck at max 1: the model, one draft at a time at about 0.5 drafts/s, is; and the storage library retries a contended update for up to 2 minutes, so overload shows as slow calls, not errors. The week-5 load tests measure it before anything changes. A `DAILY_LIMITS` environment override lets staging run with limits of 100,000; production keeps its defaults.
 
 ## Checking against teachers' prose
