@@ -724,7 +724,8 @@ class PageLayout:
                 continue
             try:
                 system_a, a, event = self.note_box(mark.from_note)
-                system_b, b, _ = self.note_box(mark.to_note) if mark.to_note else (system_a, a, None)
+                unresolved = mark.kind == "arrow" and "R" in labels
+                system_b, b, _ = self.note_box(mark.to_note) if mark.to_note and not unresolved else (system_a, a, None)
             except NotOnPage:
                 continue
             if mark.kind == "ring":
