@@ -55,12 +55,13 @@ if ! gcloud artifacts docker images describe "$BASE" >/dev/null 2>&1; then
   gcloud builds submit --config=cloudbuild.yaml --substitutions=_DOCKERFILE=Dockerfile.base,_IMAGE="$BASE"
 fi
 gcloud builds submit --config=cloudbuild.yaml --substitutions=_BASE="$BASE",_IMAGE="$IMAGE"
+DIGEST=$(gcloud artifacts docker images describe "$IMAGE" --format='value(image_summary.fully_qualified_digest)')
 
 if [ "$STAGE" = staging ]; then
   PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://$RUN_SERVICE-$(gcloud projects describe "$PROJECT" --format='value(projectNumber)').$REGION.run.app}
 fi
 PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://mcp.sheetmusicanalysis.com}
-gcloud run deploy "$RUN_SERVICE" --image="$IMAGE" --region="$REGION" \
+gcloud run deploy "$RUN_SERVICE" --image="$DIGEST" --region="$REGION" \
   --service-account="$ACCOUNT" "$ACCESS" \
   --execution-environment=gen2 --cpu=2 --memory=4Gi --concurrency=2 --min-instances=0 --max-instances=2 --timeout=300 \
   --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL$LIMITS"

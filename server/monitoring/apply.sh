@@ -30,6 +30,17 @@ for file in alert-*.json; do
     | curl -sf -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "$API/alertPolicies" -d @- >/dev/null
 done
 
+SERVICE=$API/services/sheet-music-analysis
+if ! curl -sf -H "Authorization: Bearer $TOKEN" "$SERVICE" >/dev/null; then
+  curl -sf -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "$API/services?serviceId=sheet-music-analysis" \
+    -d '{"displayName": "Sheet Music Analysis (production)", "custom": {}}' >/dev/null
+fi
+for file in slo-*.json; do
+  id=${file%.json}
+  if curl -sf -H "Authorization: Bearer $TOKEN" "$SERVICE/serviceLevelObjectives/$id" >/dev/null; then continue; fi
+  curl -sf -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "$SERVICE/serviceLevelObjectives?serviceLevelObjectiveId=$id" -d @"$file" >/dev/null
+done
+
 title=$(python3 -c "import json; print(json.load(open('dashboard.json'))['displayName'])")
 if ! gcloud monitoring dashboards list --project="$PROJECT" --format='value(displayName)' | grep -qxF "$title"; then
   gcloud monitoring dashboards create --project="$PROJECT" --config-from-file=dashboard.json

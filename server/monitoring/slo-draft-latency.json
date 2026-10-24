@@ -1,0 +1,9 @@
+{
+  "displayName": "95% of warm drafts under 6 s, 28 days",
+  "goal": 0.95,
+  "rollingPeriod": "2419200s",
+  "serviceLevelIndicator": {"requestBased": {"distributionCut": {
+    "distributionFilter": "metric.type=\"logging.googleapis.com/user/tool_latency\" resource.type=\"cloud_run_revision\" resource.label.\"service_name\"=\"sheet-music-analysis\" metric.label.\"tool\"=\"draft_from_notes\" metric.label.\"cold\"=\"false\"",
+    "range": {"max": 6000}
+  }}}
+}

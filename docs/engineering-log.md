@@ -985,6 +985,12 @@ The daily counter, which week 4 left to be measured (927 warm drafts, server sid
 
 Owner's decision the same day: both services now take two calls at once and run at most two instances (production revision 00027, same image as 00026; settings only). Total spend stays bounded by the daily limits; a second instance adds only its own start-up, about 20 s billed each time it starts. Loading the model at start-up is still open.
 
+### 51. Service level objectives (2026-10-24)
+
+Week 6 of the observability plan. Two SLOs on the production service in Cloud Monitoring, over 28 days, from the per-call log metrics (`server/monitoring/slo-*.json`, created by `apply.sh`): 99% of tool calls without a server error, and 95% of warm drafts under 6 s on the server. The plan said 3 s; the load tests put warm drafts at p95 5.7 s under load and about 2-3 s when idle, so 3 s would be missed by any busy hour. Cloud Run's own metrics could not do this: every call is `POST /mcp` and tool errors return HTTP 200. The filters match staging's data (1,376 calls and 942 warm drafts in the last day); production has no data for them until the week 1-5 code ships there. No burn-rate alert: at a few calls a day one slow draft would fire it, and the server-error alert already emails on every failure.
+
+`deploy.sh` now deploys the image it just built by its digest instead of by tag, so a later settings-only update cannot pick up a newer image pushed to the same tag. The running services still name their tags until their next deploy.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

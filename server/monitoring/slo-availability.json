@@ -1,0 +1,9 @@
+{
+  "displayName": "99% of tool calls without a server error, 28 days",
+  "goal": 0.99,
+  "rollingPeriod": "2419200s",
+  "serviceLevelIndicator": {"requestBased": {"goodTotalRatio": {
+    "badServiceFilter": "metric.type=\"logging.googleapis.com/user/tool_calls\" resource.type=\"cloud_run_revision\" resource.label.\"service_name\"=\"sheet-music-analysis\" metric.label.\"outcome\"=\"server_error\"",
+    "totalServiceFilter": "metric.type=\"logging.googleapis.com/user/tool_calls\" resource.type=\"cloud_run_revision\" resource.label.\"service_name\"=\"sheet-music-analysis\""
+  }}}
+}
