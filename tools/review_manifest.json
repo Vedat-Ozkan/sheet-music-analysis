@@ -100,7 +100,7 @@
     {"id": "bwv245.40-b5", "caption": "BWV 245.40, bar 5 (tenor VO)", "entry": "render_analysis", "input": "tests/data/part_writing_bwv245.40.musicxml", "analysis": "draft:part-writing", "bars": "5-5", "show": "card_image"},
     {"id": "bwv245.40-b12", "caption": "BWV 245.40, bar 12 (tenor VO)", "entry": "render_analysis", "input": "tests/data/part_writing_bwv245.40.musicxml", "analysis": "draft:part-writing", "bars": "12-12", "show": "card_image"},
     {"id": "bwv336-b2", "caption": "BWV 336, bar 2: tendency arrow inside the staff", "entry": "render_analysis", "input": "tests/data/part_writing_bwv336.musicxml", "analysis": "draft:part-writing", "bars": "2-2", "show": "card_image"},
-    {"id": "tendency-b1", "caption": "Tendency sample, bar 1: tendency arrow inside the staff", "entry": "render_analysis", "input": "tests/data/part_writing_tendency.musicxml", "analysis": "draft:part-writing", "bars": "1-1", "show": "card_image"}
+    {"id": "tendency-b1-2", "caption": "Tendency sample, bars 1-2: tendency arrow inside the staff (bar 1)", "entry": "render_analysis", "input": "tests/data/part_writing_tendency.musicxml", "analysis": "draft:part-writing", "bars": "1-2", "show": "card_image"}
    ]
   },
   {
