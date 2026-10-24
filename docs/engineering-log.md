@@ -957,6 +957,32 @@ The read-ahead itself takes about 5 s and runs alongside the imports. Peak memor
 
 What the plan proposed for week 4 and what was decided instead: loading the model at start-up behind a readiness check does not shorten the first draft at min 0 and max 1 instances (the request waits either way) and would make cold renders, PDF reading and download links wait 50 s instead of about 11 s, so it waits for the week-6 instance decision. The daily counter is not the first bottleneck at max 1: the model, one draft at a time at about 0.5 drafts/s, is; and the storage library retries a contended update for up to 2 minutes, so overload shows as slow calls, not errors. The week-5 load tests measure it before anything changes. A `DAILY_LIMITS` environment override lets staging run with limits of 100,000; production keeps its defaults.
 
+### 50. Load tests on staging (2026-10-24)
+
+Week 5 of the observability plan. Before: no measured capacity; the plan's numbers were estimates. k6 (`tools/load/drafts.js`) sent 70% `draft_from_notes` on six test scores (680-5,796 characters of notes) and 30% `render_analysis` of Chopin bars 1-8, to staging only. Throughput counts calls that succeeded inside each 2-minute step; times are measured at the client.
+
+How many calls one instance takes at once (max 1 instance):
+
+| At once | Users | Calls/s | Draft p50 / p99 | Render p50 / p99 | Refused |
+|---|---|---|---|---|---|
+| 1 | 1 | 0.18 | 1.6 / 3.5 s | 13.7 / 15.5 s | 0 |
+| 1 | 2 | 0.23 | 4.5 / 10.8 s | 15.8 / 17.4 s | 20% |
+| 2 | 2 | 0.30 | 2.6 / 5.6 s | 15.5 / 19.6 s | 0 |
+| 2 | 4 | 0.38 | 6.6 / 12.2 s | 16.9 / 26.7 s | 9% |
+| 4 | 4 | 0.33 | 6.3 / 11.9 s | 40.7 / 51.9 s | 0 |
+| 4 | 8 | 0.19 | 10.3 / 18.0 s | 10.4 / 73.2 s | 64% |
+
+One instance tops out at about 0.3 calls/s whatever the setting; renders use the CPU and slow everything beside them. Two at once gives the same throughput as four with renders at p99 19.6 s instead of 51.9 s. Every refusal was Cloud Run's own HTTP 429 "Rate exceeded" after about 10 s with no free slot, never a tool error.
+
+More instances (two at once each): 1 instance 0.30 calls/s, 3 instances 0.65, 5 instances 1.07, roughly in line. A new instance served its first call 9-37 s after starting. While scaling out, Cloud Run refused calls (429, or 500 "no available instance") once the queue filled: 2% at 8 users on 5 instances, 27% at 16. Both services carry a service-level cap of 3 instances that overrides a revision's own maximum; production's revision maximum of 1 sits under it.
+
+Other runs, at max 1 instance and two at once:
+- **Spike from idle to 8 users:** 58 calls, none failed. The first answered at 27 s; drafts in the first minute waited 52 s at the median, 18.6 s after that.
+- **30 minutes at 2 users:** 471 calls, none failed. Drafts p50 2.6 s, p99 7.1 s; renders 18.9 s, 24.3 s. No drift between the first and last 5 minutes; memory flat at 0.20-0.24 of 4 GiB.
+- **Six more true cold starts:** client median 20.3 s, model start-up 11.4 s, close to log 49 (22.5 s, 10.6 s).
+
+The daily counter, which week 4 left to be measured (927 warm drafts, server side): p50 160 ms, p95 0.93 s, p99 2.4 s, max 6.7 s, about an eighth of a typical draft. It slows calls under contention but never failed one, and the model is not the bottleneck either (waiting for it: p50 0, p95 0.8 s); renders sharing the CPU are. Staging billed 6,124 s for all of it, about $0.36: about $0.38 per 1,000 drafts with their renders, $0.32 in the steady 30-minute run. Staging is back to four at once, max 1, min 0.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
