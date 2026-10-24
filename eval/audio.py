@@ -57,6 +57,16 @@ TEST_SET = (
     ("Chopin/Etudes_op_10/1", "Keyboard_Other/Chopin,_Frédéric/Études_Op.10/1"),
     ("Bach/Prelude/bwv_846", "Keyboard_Other/Bach,_Johann_Sebastian/The_Well-Tempered_Clavier_I/01"),
 )
+TUNING_SET = (
+    ("Beethoven/Piano_Sonatas/21-1_no_repeat", SONATAS + "Op053/1"),
+    ("Beethoven/Piano_Sonatas/21-2", SONATAS + "Op053/2"),
+    ("Beethoven/Piano_Sonatas/11-1", SONATAS + "Op022/1"),
+    ("Beethoven/Piano_Sonatas/31-1", SONATAS + "Op110/1"),
+    ("Beethoven/Piano_Sonatas/8-3", SONATAS + "Op013(Pathetique)/3"),
+    ("Chopin/Etudes_op_10/12", "Keyboard_Other/Chopin,_Frédéric/Études_Op.10/12"),
+    ("Bach/Prelude/bwv_856", "Keyboard_Other/Bach,_Johann_Sebastian/The_Well-Tempered_Clavier_I/11"),
+    ("Bach/Prelude/bwv_868", "Keyboard_Other/Bach,_Johann_Sebastian/The_Well-Tempered_Clavier_I/23"),
+)
 COLUMNS = ("key", "chord", "full")
 METHODS = ("T0", "T1", "T2", "T3", "oracle")
 BEATS_PER_BAR = (2, 3, 4)
@@ -272,7 +282,7 @@ def timing_oracle(truth: dict) -> dict:
     return {"beats": truth["t"], "lines": np.array([b[1] for b in truth["bars"]] + [truth["end_t"]]), "meters": truth["meters"]}
 
 
-def build_score(transcribed: dict, timing: dict, path: Path, home_key: str | None = None) -> dict:
+def build_score(transcribed: dict, timing: dict, path: Path, keys: list | None = None) -> dict:
     import bisect
 
     import partitura.musicanalysis as analysis
@@ -313,8 +323,12 @@ def build_score(transcribed: dict, timing: dict, path: Path, home_key: str | Non
     boundaries = ([-pickup] if pickup else []) + bar_q[: last + 1]
     shapes = ([meters[0]] if pickup else []) + meters[:last]
     table = np.array(list(zip(onset, offset - onset, pitches)), dtype=[("onset_sec", "f4"), ("duration_sec", "f4"), ("pitch", "i4")])
-    spelled = analysis.estimate_spelling(table)
-    found = home_key or analysis.estimate_key(table)
+    found = Counter(name for _, name in keys).most_common(1)[0][0] if keys else analysis.estimate_key(table)
+    if keys:
+        at = [q for q, _ in keys]
+        spelled = [spell(int(p), keys[max(bisect.bisect_right(at, float(q)) - 1, 0)][1]) for q, p in zip(qo, pitches)]
+    else:
+        spelled = analysis.estimate_spelling(table)
     hist = np.bincount(pitches, minlength=128)[55:71]
     split = 55 + int(np.argmin(hist)) if hist.min() < hist.max() else 60
 
@@ -396,15 +410,34 @@ def build_score(transcribed: dict, timing: dict, path: Path, home_key: str | Non
             "split": split, "pickup_q": float(pickup), "lines": np.array(timing["lines"])}
 
 
+def local_keys(drafted: draft.Draft, audio: dict) -> list:
+    timeline = Timeline(audio["index"])
+    found = []
+    for chord in drafted.chords:
+        measure = timeline.measures.get(chord.measure)
+        try:
+            offset = timeline.starts[chord.measure] + measure.offset_of(chord.beat)
+        except (PositionError, AttributeError):
+            continue
+        name = chord.key[0].upper() + chord.key[1:] + "m" if chord.key[0].islower() else chord.key
+        found.append((float(offset) - audio["pickup_q"], name))
+    return sorted(found)
+
+
+def spell(midi_pitch: int, key_name: str) -> tuple[str, int, int]:
+    tonic = key_name.rstrip("m")
+    centre = "FCGDAEB".index(tonic[0]) - 1 + 7 * (tonic[1:].count("#") - tonic[1:].count("b") - tonic[1:].count("-"))
+    fifths = (7 * midi_pitch) % 12
+    fifths += 12 * int(np.ceil((centre - 5 - fifths) / 12))
+    step, alter = "FCGDAEB"[(fifths + 1) % 7], (fifths + 1) // 7
+    natural = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}[step]
+    return step, alter, (midi_pitch - alter - natural) // 12 - 1
+
+
 def run_draft(index: ScoreIndex, raw_path: Path) -> draft.Draft:
     if not raw_path.exists():
         raw_path.write_text(json.dumps(draft.run_analysisgnn(notes.encode(index).encode(), "notes")))
     return draft.build(json.loads(raw_path.read_text()), index)
-
-
-def home_key(drafted: draft.Draft) -> str:
-    name = Counter(chord.key for chord in drafted.chords).most_common(1)[0][0]
-    return name[0].upper() + name[1:] + "m" if name[0].islower() else name
 
 
 def onto_score(labels: list[Label], audio: dict, truth: dict) -> list[Label]:
@@ -498,8 +531,9 @@ def evaluate(piece: pieces.Piece, index: ScoreIndex, truth: dict, transcribed: d
         else:
             reference = None
     for name, timing in timings(transcribed, tracked, logits, truth, given).items():
-        first = run_draft(build_score(transcribed, timing, work / f"{name}.musicxml")["index"], work / f"{name}.raw.json")
-        audio = build_score(transcribed, timing, work / f"{name}.musicxml", home_key(first))
+        first_score = build_score(transcribed, timing, work / f"{name}.musicxml")
+        first = run_draft(first_score["index"], work / f"{name}.raw.json")
+        audio = build_score(transcribed, timing, work / f"{name}.musicxml", local_keys(first, first_score))
         audio_labels = onto_score(from_draft(run_draft(audio["index"], work / f"{name}-home.raw.json")), audio, truth)
         right, shift = bars_right(truth, audio)
         lines = audio["lines"][audio["lines"] < truth["end_t"]]
@@ -587,15 +621,16 @@ def main() -> None:
     parser.add_argument("--onnx", type=Path, required=True, help="folder with onnx_pipeline.py and models/")
     parser.add_argument("--work", type=Path, required=True, help="folder for recordings, transcriptions and drafts (outside the repo)")
     parser.add_argument("--only", action="append", help="run only this ASAP folder (repeatable)")
+    parser.add_argument("--tuning", action="store_true", help="run the tuning set instead of the 20 gate pieces")
     parser.add_argument("--calibrate", type=Path, help="recording of Chopin Op. 28 No. 4 (log 53: Ilić, Wikimedia Commons)")
     args = parser.parse_args()
-    report_path = args.work / "report.json"
+    report_path = args.work / ("report-tuning.json" if args.tuning else "report.json")
     report = json.loads(report_path.read_text()) if report_path.exists() else {}
     if args.calibrate:
         report["calibration"] = run_calibration(args.calibrate, args.onnx, args.work)
         print(json.dumps(report["calibration"], indent=1))
     else:
-        for folder, rome in TEST_SET:
+        for folder, rome in TUNING_SET if args.tuning else TEST_SET:
             if args.only and folder not in args.only:
                 continue
             try:
