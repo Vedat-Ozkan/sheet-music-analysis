@@ -189,16 +189,18 @@ def test_musescore_native_roman_export():
 
 
 @pytest.mark.parametrize('text,expected,note,error', [
-    ('m1 C: v', 'V', True, False),
-    ('m1 C: II6', 'ii6', True, False),
-    ('m1 C: v6', 'V', True, True),
+    ('m1 C: v', 'V', False, True),
+    ('m1 C: II6', 'ii6', False, True),
+    ('m1 C: v6', 'V', False, True),
     ('m1 C: viio7/v', 'viio7/V', True, False),
     ('m1 c: III', 'bIII', False, False),
     ('m1 c: bVI', 'VI', False, False),
     ('m1 c: VII', 'bVII', False, False),
-    ('m1 c: bii', 'bII', True, False),
+    ('m1 c: bii', 'bII', False, True),
     ('m1 C: bIII', 'III', False, True),
-    ('m1 c: viio', 'VII', True, True),
+    ('m1 c: viio', 'VII', False, True),
+    ('m1 C: VIo', 'vio', True, False),
+    ('m1 a: V/bIII', 'V/III', False, False),
 ])
 def test_typed_case_and_minor_conventions(bach, text, expected, note, error):
     student = check.from_text(text, index=bach)

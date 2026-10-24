@@ -14,9 +14,10 @@ RANGES = (("C4", "G5"), ("G3", "D5"), ("C3", "G4"), ("F2", "D4"))
 LABELS = {"parallel_fifths": "P5", "parallel_octaves": "P8", "direct_fifths": "H5", "direct_octaves": "H8",
           "voice_crossing": "VC", "voice_overlap": "VO", "spacing": "S", "range": "r",
           "doubled_leading_tone": "D", "unresolved_seventh": "R", "unresolved_leading_tone": "R", "unequal_fifths": "P5",
-          "unresolved_cadential_tone": "R", "doubled_seventh": "D"}
+          "unresolved_cadential_tone": "R", "doubled_seventh": "D", "six_four_doubling": "D"}
 LINES = {"parallel_fifths", "parallel_octaves", "direct_fifths", "direct_octaves", "unequal_fifths"}
 ARROWS = {"unresolved_seventh", "unresolved_leading_tone", "unresolved_cadential_tone"}
+CONTRARY_PERFECT = ("Moderate", "This is a strict exam rule (AP 2025).")
 BRACKETS = {"spacing"}
 
 
@@ -86,10 +87,10 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
     name = _names(voices)
     result = []
 
-    def add(rule, positions, vs, why):
-        severity = ("Serious" if rule in {"parallel_fifths", "parallel_octaves", "unresolved_seventh",
-                                          "unresolved_leading_tone", "unresolved_cadential_tone", "unequal_fifths"}
-                    else "Moderate" if rule in {"direct_fifths", "direct_octaves", "voice_overlap"}
+    def add(rule, positions, vs, why, severity=None):
+        severity = severity or ("Serious" if rule in {"parallel_fifths", "parallel_octaves", "unresolved_seventh",
+                                          "unresolved_leading_tone", "unresolved_cadential_tone"}
+                    else "Moderate" if rule in {"direct_fifths", "direct_octaves", "voice_overlap", "unequal_fifths"}
                     else "Minor")
         why = f"{severity}: {why}"
         result.append(Finding(tuple(p[0] for p in positions), tuple(p[1] for p in positions), tuple(vs), rule, why))
@@ -268,6 +269,14 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                        and midi(row[v].pitch) % 12 == seventh]
             if len(doubled) > 1:
                 add("doubled_seventh", [pos], doubled, f"The chord seventh is doubled in the {' and '.join(name[v] for v in doubled)}; it should appear once.")
+        if c and c.seventh is None and len(c.tones) == 3 and c.bass not in (c.root, c.third) and len(row) == len(voices) == 4:
+            members = [v for v in row if not decorated(pos, row[v]) and midi(row[v].pitch) % 12 in c.tones]
+            # Only a complete chord establishes which tone must be doubled.
+            if (len(members) == 4 and {midi(row[v].pitch) % 12 for v in members} == c.tones
+                    and midi(row[voices[-1]].pitch) % 12 == c.bass
+                    and sum(midi(row[v].pitch) % 12 == c.bass for v in members) < 2):
+                doubled = [v for v in members if sum(midi(row[w].pitch) % 12 == midi(row[v].pitch) % 12 for w in members) > 1]
+                add("six_four_doubling", [pos], doubled, "The six-four chord should double the bass.")
         if k and c:
             leading = k.getLeadingTone()
             dominant = c.root == (k.tonic.pitchClass + 7) % 12 and c.third == leading.pitchClass
@@ -297,7 +306,9 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                 or (ca.root == kb.getLeadingTone().pitchClass and ca.bass == ca.third)):
             return False
         for pos, row in reversed(sonorities[:next(i for i, (p, _) in enumerate(sonorities) if p == before)]):
-            _, previous = named(pos, row)
+            previous_key, previous = named(pos, row)
+            if previous_key != kb:
+                return False
             if previous == ca:
                 continue
             tones = {midi(e.pitch) % 12 for e in row.values()}
@@ -305,9 +316,27 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
             if not spans and previous is None and voices[-1] in row:
                 opening_tonic = (midi(row[voices[-1]].pitch) % 12 == tonic
                                  and {tonic, cb.third} <= tones and tones <= cb.tones)
-            return bool(opening_tonic and voices[-1] in row
-                        and midi(row[voices[-1]].pitch) < midi(a[voices[-1]].pitch) < midi(b[voices[-1]].pitch))
+            if opening_tonic:
+                return bool(voices[-1] in row and midi(row[voices[-1]].pitch) < midi(a[voices[-1]].pitch) < midi(b[voices[-1]].pitch))
+            # Predominants may intervene in the ascending tonic-to-tonic-six idiom.
+            if previous and previous.root in ((tonic + 2) % 12, (tonic + 5) % 12) and previous.tones <= {p.pitchClass for p in kb.pitches}:
+                continue
+            return False
         return False
+
+    def unequal_decoration(pos, event):
+        if not decorated(pos, event):
+            return False
+        onset = (event.measure, index.measure(event.measure).beat_of(event.onset))
+        n = next(i for i, (p, _) in enumerate(sonorities) if p == onset)
+        if n:
+            row, previous = sonorities[n][1], sonorities[n - 1][1]
+            c = chord.Chord([pitch(e) for e in row.values()])
+            # A complete chord struck by every voice establishes chord tones even off the beat.
+            if (len(row) == len(previous) == len(voices) and (c.isTriad() or c.isSeventh())
+                    and all(midi(row[v].pitch) != midi(previous[v].pitch) for v in voices)):
+                return False
+        return True
 
     motion_seen = set()
 
@@ -318,20 +347,23 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
             au, al, bu, bl = [midi(r[v].pitch) for r, v in ((a, upper), (a, lower), (b, upper), (b, lower))]
             same = (bu - au) * (bl - al) > 0
             quartet = voiceLeading.VoiceLeadingQuartet(pitch(a[upper]), pitch(b[upper]), pitch(a[lower]), pitch(b[lower]))
-            moving = (bu != au and bl != al)
+            # Octave displacement, exchanged pitches and crossing do not establish new parallel intervals.
+            moving = (bu % 12 != au % 12 and bl % 12 != al % 12
+                      and au >= al and bu >= bl and (au, al) != (bl, bu))
+            rule = "parallel_fifths" if quartet.parallelFifth() else "parallel_octaves" if quartet.parallelOctave() or quartet.parallelUnison() else None
             if moving:
-                rule = "parallel_fifths" if quartet.parallelFifth() else "parallel_octaves" if quartet.parallelOctave() or quartet.parallelUnison() else None
                 identity = (rule, upper, lower, a[upper].id, a[lower].id, b[upper].id, b[lower].id)
                 if rule and not (beat_only and identity in motion_seen):
                     motion_seen.add(identity)
-                    add(rule, [before, after], [upper, lower], f"Parallel {'fifths' if rule == 'parallel_fifths' else 'octaves'}: {name[upper]} and {name[lower]} move {'in the same direction' if same else 'by contrary motion'} from one {'fifth' if rule == 'parallel_fifths' else 'octave'} to another.")
-                elif not rule and same and not beat_only and (upper, lower) == (voices[0], voices[-1]) and abs(bu - au) > 2:
-                    arrival = interval.Interval(note.Note(pitch(b[lower])), note.Note(pitch(b[upper]))).semiSimpleName
-                    if arrival in ("P5", "P8", "P1"):
-                        add("direct_fifths" if arrival == "P5" else "direct_octaves", [before, after], [upper, lower], f"Direct {'fifth' if arrival == 'P5' else 'octave'}: soprano and bass arrive at {'a fifth' if arrival == 'P5' else 'an octave'} in the same direction while the soprano leaps.")
-            if (same and not beat_only
-                    and interval.Interval(note.Note(pitch(a[upper])), note.Note(pitch(b[upper]))).isStep
-                    and interval.Interval(note.Note(pitch(a[lower])), note.Note(pitch(b[lower]))).isStep):
+                    why = f"Parallel {'fifths' if rule == 'parallel_fifths' else 'octaves'}: {name[upper]} and {name[lower]} move {'in the same direction' if same else 'by contrary motion'} from one {'fifth' if rule == 'parallel_fifths' else 'octave'} to another."
+                    severity, exam = ("Serious", "") if same else CONTRARY_PERFECT
+                    add(rule, [before, after], [upper, lower], why + (" " + exam if exam else ""), severity)
+            if not rule and not beat_only and same and bu != au and bl != al and (upper, lower) == (voices[0], voices[-1]) and abs(bu - au) > 2:
+                arrival = interval.Interval(note.Note(pitch(b[lower])), note.Note(pitch(b[upper]))).semiSimpleName
+                if arrival in ("P5", "P8", "P1"):
+                    add("direct_fifths" if arrival == "P5" else "direct_octaves", [before, after], [upper, lower], f"Direct {'fifth' if arrival == 'P5' else 'octave'}: soprano and bass arrive at {'a fifth' if arrival == 'P5' else 'an octave'} in the same direction while the soprano leaps.")
+            if (same and not beat_only and au >= al and bu >= bl
+                    and not any(unequal_decoration(pos, row[v]) for pos, row in ((before, a), (after, b)) for v in (upper, lower))):
                 departure = interval.Interval(note.Note(pitch(a[lower])), note.Note(pitch(a[upper]))).simpleName
                 arrival = interval.Interval(note.Note(pitch(b[lower])), note.Note(pitch(b[upper]))).simpleName
                 if departure == "d5" and arrival == "P5":
@@ -340,6 +372,24 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                         add("unequal_fifths", [before, after], [upper, lower], f"Unequal fifths: {name[upper]} and {name[lower]} move from a diminished fifth to a perfect fifth outside the accepted upper-voice passing context.")
             if not beat_only and voices.index(lower) == voices.index(upper) + 1 and bu >= bl and au >= al and (bu < al or bl > au):
                 add("voice_overlap", [before, after], [upper, lower], f"Voice overlap: {name[upper]} and {name[lower]}. " + (f"The {name[upper]}'s {b[upper].pitch} falls below the {name[lower]}'s previous {a[lower].pitch}." if bu < al else f"The {name[lower]}'s {b[lower].pitch} rises above the {name[upper]}'s previous {a[upper].pitch}."))
+    def resolution_target(v, a, after, b, row_number, kb, cb):
+        destination, target = after, b[v]
+        if a[v].pitch == target.pitch:
+            for later, sounding in rows[row_number + 2:]:
+                later_row = {w: es[0] for w, es in sounding.items() if len(es) == 1}
+                later_key, later_chord = named(later, later_row) if spans or len(later_row) == len(voices) else (None, None)
+                # A suspension must resolve while the arrival harmony is active.
+                if later_key != kb or later_chord != cb:
+                    break
+                if len(sounding[v]) != 1:
+                    break
+                candidate = sounding[v][0]
+                if candidate.pitch != target.pitch:
+                    if later_chord:
+                        destination, target = later, candidate
+                    break
+        return destination, target
+
     for row_number, ((before, arow), (after, brow)) in enumerate(zip(rows, rows[1:])):
         a = {v: es[0] for v, es in arow.items() if len(es) == 1}
         b = {v: es[0] for v, es in brow.items() if len(es) == 1}
@@ -367,25 +417,21 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                 continue
             if not explicit_cadential and b[v].id in neighbors and (cb is None or ca.root == cb.root):
                 continue
-            destination, target = after, b[v]
-            if a[v].pitch == target.pitch:
-                for later, sounding in rows[row_number + 2:]:
-                    later_row = {w: es[0] for w, es in sounding.items() if len(es) == 1}
-                    later_key, later_chord = named(later, later_row) if spans or len(later_row) == len(voices) else (None, None)
-                    if later_key != kb or later_chord != cb:
-                        break
-                    if len(sounding[v]) != 1:
-                        break
-                    candidate = sounding[v][0]
-                    if candidate.pitch != target.pitch:
-                        if later_chord:
-                            destination, target = later, candidate
-                        break
+            destination, target = resolution_target(v, a, after, b, row_number, kb, cb)
             motion = interval.Interval(note.Note(pitch(a[v])), note.Note(pitch(target)))
             if cadential and midi(a[v].pitch) % 12 in (ca.root, ca.third):
                 fourth = midi(a[v].pitch) % 12 == ca.root
                 expected = ka.getLeadingTone().pitchClass if fourth else (ca.bass + 7) % 12
-                if motion.directedName not in ("m-2", "M-2") or midi(target.pitch) % 12 != expected:
+                resolved_copy = False
+                if not fourth:
+                    for other in voices:
+                        if other not in a or other not in b or midi(a[other].pitch) % 12 != ca.third:
+                            continue
+                        _, copy = resolution_target(other, a, after, b, row_number, kb, cb)
+                        copy_motion = interval.Interval(note.Note(pitch(a[other])), note.Note(pitch(copy)))
+                        if copy_motion.directedName in ("m-2", "M-2") and midi(copy.pitch) % 12 == expected:
+                            resolved_copy = True
+                if not resolved_copy and (motion.directedName not in ("m-2", "M-2") or midi(target.pitch) % 12 != expected):
                     add("unresolved_cadential_tone", [before, destination], [v], f"The {name[v]}'s cadential six-four tone ({a[v].pitch}) should resolve down by step to the dominant's {'third' if fourth else 'fifth'}; it {'moves to ' + target.pitch if target.pitch != a[v].pitch else 'is held'} instead.")
             if ca.seventh is not None and midi(a[v].pitch) % 12 == ca.seventh and (cb is None or ca.tones != cb.tones):
                 retained = cb is not None and a[v].pitch == b[v].pitch and ca.seventh in cb.tones and cb.seventh != ca.seventh

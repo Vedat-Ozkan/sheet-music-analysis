@@ -38,6 +38,13 @@ class Sounding:
 def sounding(key: str, figure: str) -> Sounding | None:
     try:
         local = m21key.Key(m21key.convertKeyStringToMusic21KeyString(key))
+        head, slash, target = figure.partition('/')
+        if local.mode == 'minor':
+            if slash and target != 'o':
+                target = re.sub(r'^b(III|VII|VI)(?=$|[^ivIV])', r'\1', target)
+            else:
+                head = re.sub(r'^b(III|VII|VI)(?=$|[^ivIV])', r'\1', head)
+        figure = head + slash + target
         chord = roman.RomanNumeral(figure.replace("ø", "/o"), local, sixthMinor=roman.Minor67Default.CAUTIONARY, seventhMinor=roman.Minor67Default.CAUTIONARY)
         return Sounding(local.tonic.pitchClass, local.mode == "minor", chord.root().pitchClass, frozenset(p.pitchClass for p in chord.pitches), chord.bass().pitchClass)
     except Exception:
