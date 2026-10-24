@@ -1,6 +1,6 @@
 # Observability and scalability plan (2026-10-23)
 
-Week 1 is built on branch `observability` and checked locally and in a staging service (engineering log 46). Week 2 is built and test-fired, except the uptime check (log 47). The rest is not built. "Verify" marks what I could not confirm. §1 describes the server before week 1.
+Week 1 is built on branch `observability` and checked locally and in a staging service (engineering log 46). Week 2 is built and test-fired; the uptime check is skipped for now, by the owner's choice (log 47). Week 3 is built and checked in staging (log 48). The rest is not built. "Verify" marks what I could not confirm. §1 describes the server before week 1.
 
 **Framing correction.** The server never calls an LLM: review runs inside Claude or ChatGPT between `draft_*` and `render_analysis`; LLM spend exists only in offline eval (`eval/review.py:96-112`). Server stages: fetch/GCS get → MEI + ScoreIndex → GNN lock wait → GNN inference (subprocess) → `draft.build` → verovio render/export → GCS publish, plus the `take()` counter. "Cost per request" means billable instance-seconds.
 
