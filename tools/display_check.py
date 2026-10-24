@@ -46,11 +46,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
 BASELINE = HERE / "tests" / "golden" / "display_check_pages.json"
-# The benchmark's cached Audiveris output (git-ignored), and the install signature it was read with (results-final.json).
 BENCH = "spike/omr/bench"
 RAW_SIGNATURE = "32914dc894fffcbfprod2"
 REVIEW_READINGS = ["chopin-prelude-4--ms", "joplin-maple-leaf-rag--ly", "mozart-k545-1--scan", "schubert-die-stadt--ly"]
-# Plain layout leaves a last page of one or two bars (polish-v3-standards-review.md §F).
 SHORT_LAST_PAGE = ["clara-schumann-polonaise-3--ly", "lehmann-golden-bridges--ms", "mozart-quartet-k80--ms",
                    "mozart-quartet-k80--scan", "mozart-quartet-k80--vr", "bach-chorale-269--ms",
                    "chopin-prelude-4--scan", "chopin-prelude-4--lilypond-mutopia"]
@@ -59,14 +57,12 @@ STYLES = ("current", "abrsm", "figured_bass")
 SVG = "{http://www.w3.org/2000/svg}"
 ERROR = "#D50000"
 WHITE = "#ffffff"
-TOUCH = 8  # SVG units (a staff space is 180): two boxes must share more than this both ways to count as touching
-TOP_MARGIN = 0.025  # of the page width: the margin the PNG keeps round the music
+TOUCH = 8
+TOP_MARGIN = 0.025
 
 
-# ---- the corpus -------------------------------------------------------------------------------------------------
 
 def corpus(root: Path) -> list[tuple[str, str]]:
-    """(group, name) for every item, in a fixed order."""
     items = [("chorale", p.stem.replace("part_writing_", "")) for p in sorted((root / "tests/data").glob("part_writing_*.musicxml"))]
     items += [("harmony", f"{p.stem}:{style}") for p in sorted((root / "examples/engraving").glob("*.json")) for style in STYLES]
     items += [("harmony", f"chopin-op9-2:{style}") for style in STYLES]
@@ -76,9 +72,6 @@ def corpus(root: Path) -> list[tuple[str, str]]:
 
 
 def draft_marks(root: Path, name: str, callouts: bool = True) -> tuple[bytes, list[dict]]:
-    """The part-writing draft's marks for a chorale, as the chat model is told to draw them: each 'draw' line as one
-    voice_leading annotation, and (with `callouts`) one callout per numbered spot. Each mark carries the number of its
-    spot under "spot" (not part of the annotation)."""
     from engine.part_writing import as_text
     from engine.render import load_toolkit
     from engine.score import ScoreIndex
@@ -107,9 +100,6 @@ def _annotations(marks: list[dict]):
 
 
 class Capture:
-    """Records, for each page an entry point returns, the SVG Verovio drew (with its bounding boxes) and the layout's
-    score index. Only layouts that reach to_svg are pages; the others only measured. Wraps whatever is installed, so
-    the engine's behaviour is unchanged."""
 
     def __init__(self):
         from engine.overlay import PageLayout
@@ -129,7 +119,6 @@ class Capture:
         PageLayout.__init__, PageLayout.to_svg = init, to_svg
 
     def take(self, engraving) -> list[tuple[str, str, object]]:
-        """(source SVG, final SVG, index) for each page of `engraving`."""
         drawn = self.pages[-engraving.page_count:]
         self.pages = []
         assert len(drawn) == engraving.page_count, "a page was not drawn through PageLayout.to_svg"
@@ -137,8 +126,6 @@ class Capture:
 
 
 def _read_pdf(root: Path, stem: str) -> bytes:
-    """The reading as production makes it (engine.read_pdf.read_pdf: choosing among settings, cleaning, repairs), over
-    the benchmark's cached Audiveris output. A reading not in the cache is an error: Audiveris is never run here."""
     from engine import read_pdf as reader
 
     bench = Path(os.environ.get("DISPLAY_CHECK_BENCH", _main_checkout(root) / BENCH))
@@ -164,7 +151,6 @@ def _main_checkout(root: Path) -> Path:
 
 
 def draw(root: Path, group: str, name: str) -> list[tuple[str, list, dict]]:
-    """Draw one corpus item through the real entry points: [(entry point, pages, context)]."""
     from engine.annotate import render
     from engine.annotations import AnnotationList
     from engine.render import load_toolkit
@@ -185,7 +171,7 @@ def draw(root: Path, group: str, name: str) -> list[tuple[str, list, dict]]:
         else:
             from tools import engraving_check, robustness
             from tools.robustness import fetch
-            robustness.OUT = HERE / "out" / "robustness"  # downloads are cached here, never in the --root checkout
+            robustness.OUT = HERE / "out" / "robustness"
             source, bars = engraving_check.PIECES[piece]
             engraving_check._layouts.clear()
             score = fetch(piece, source) if isinstance(source, str) else source.read_bytes()
@@ -204,12 +190,11 @@ def draw(root: Path, group: str, name: str) -> list[tuple[str, list, dict]]:
     if group == "pdf":
         from engine import read_pdf as reader
         sys.path.insert(0, str(root / "skill/scripts"))
-        import read_pdf as skill_read_pdf  # the skill's script, not engine.read_pdf
+        import read_pdf as skill_read_pdf
 
         score = reader.without_slurs(_read_pdf(root, name))
         spots = reader.problem_spots(score)
         found = []
-        # The server's read_pdf: the card's one tall page, and the ordinary pages the model sees.
         found.append(("preview-tall", capture.take(reader.preview(score, tall=True, spots=spots)), {"preview": True}))
         found.append(("preview", capture.take(reader.preview(score, spots=spots)), {"preview": True}))
         found.append(("pages", capture.take(skill_read_pdf.pages(score, spots)), {"preview": True}))
@@ -217,7 +202,6 @@ def draw(root: Path, group: str, name: str) -> list[tuple[str, list, dict]]:
     raise ValueError(group)
 
 
-# ---- page geometry ----------------------------------------------------------------------------------------------
 
 @dataclass
 class Box:
@@ -252,11 +236,10 @@ class Box:
 
 @dataclass
 class Shape:
-    """Something drawn: a box, or a convex polygon (a beam, an arrowhead), or a stroked segment."""
     kind: str
     box: Box
     polygon: list[tuple[float, float]] | None = None
-    segment: tuple[float, float, float, float, float] | None = None  # x0, y0, x1, y1, half the stroke
+    segment: tuple[float, float, float, float, float] | None = None
     id: str = ""
 
     def hits(self, box: Box) -> bool:
@@ -273,7 +256,7 @@ class Shape:
 class Text:
     string: str
     ink: Box
-    knockout: Box  # the ink plus its white halo, which erases what is under it
+    knockout: Box
     fill: str
     size: float
     x: float
@@ -296,7 +279,6 @@ class Ellipse:
         return Box(self.cx - self.rx, self.cy - self.ry, self.cx + self.rx, self.cy + self.ry)
 
     def distance(self, box: Box) -> float:
-        """From the box to the ring's ink: its outline, half a stroke out (zero if they meet)."""
         return max(0.0, self._distance(box) - self.stroke / 2)
 
     def _distance(self, box: Box) -> float:
@@ -325,19 +307,19 @@ class Ellipse:
 
 @dataclass
 class Page:
-    width: float  # of the page, in SVG units
-    top: float  # the page-margin translation: page y = SVG y + top
-    staff_lines: list[tuple[float, float, float, str]]  # x0, x1, y, "staff"/"ledger"
+    width: float
+    top: float
+    staff_lines: list[tuple[float, float, float, str]]
     music: list[Shape]
     noteheads: dict[str, Box]
-    stems: dict[str, str]  # note id -> "up"/"down"
+    stems: dict[str, str]
     measures: list[tuple[str, Box]]
     systems: list[Box]
     voltas: list[Box]
     texts: list[Text]
     ellipses: list[Ellipse]
-    marks: list[Shape]  # analysis lines, paths, polygons, discs, boxes
-    arrows: list[tuple[Shape, Shape | None]]  # tendency arrows: shaft, head
+    marks: list[Shape]
+    arrows: list[tuple[Shape, Shape | None]]
     index: object = None
     svg: str = ""
     extent: Box | None = None
@@ -359,7 +341,6 @@ _FONTS: dict = {}
 
 
 def _ink(fonts: Path, string: str, x: float, y: float, size: float, family="Score Serif", bold=False, italic=False, anchor="start") -> tuple[Box, float]:
-    """The glyphs' ink box of a run of text whose baseline starts at (x, y), and its advance width."""
     font = _font(fonts, family, bold, italic, size)
     advance = font.getlength(string)
     x -= advance if anchor == "end" else advance / 2 if anchor == "middle" else 0
@@ -368,7 +349,6 @@ def _ink(fonts: Path, string: str, x: float, y: float, size: float, family="Scor
 
 
 def _path_points(d: str) -> list[list[tuple[float, float]]]:
-    """Polylines of an SVG path's M/L/H/V (absolute and relative) commands; curves by their end points' polyline."""
     out, current, x, y = [], [], 0.0, 0.0
     for command, args in re.findall(r"([MLHVCmlhvc])([^MLHVCmlhvcZz]*)", d):
         values = [float(v) for v in re.findall(r"-?\d+(?:\.\d+)?(?:e-?\d+)?", args)]
@@ -413,7 +393,6 @@ def _segment_box_distance(segment, box: Box) -> float:
 
 
 def _convex_overlap(polygon, box: Box) -> bool:
-    """Separating-axis test of a convex polygon against a box, shrunk by the touching allowance."""
     inner = box.grow(-TOUCH / 2)
     rect = [(inner.x0, inner.y0), (inner.x1, inner.y0), (inner.x1, inner.y1), (inner.x0, inner.y1)]
     for shape in (polygon, rect):
@@ -440,7 +419,7 @@ MUSIC_KINDS = {
 
 def parse_page(source: str, out: str, index, fonts: Path) -> Page:
     out_root = ET.fromstring(out)
-    kept = set(re.findall(r'\bid="([^"]+)"', out))  # the overlay removes hidden helpers (harm, analysis-room, fing)
+    kept = set(re.findall(r'\bid="([^"]+)"', out))
     inner = next(e for e in out_root.iter(f"{SVG}svg") if e.get("class") == "definition-scale")
     width = float(inner.get("viewBox").split()[2])
     margin = next(g for g in out_root.iter(f"{SVG}g") if g.get("class") == "page-margin")
@@ -534,7 +513,6 @@ def parse_page(source: str, out: str, index, fonts: Path) -> Page:
             if child.tag == f"{SVG}g":
                 visit(child, ancestors + [(kind, gid)])
             elif child.tag == f"{SVG}text" and any(a[0] in ("syl", "mNum") for a in ancestors + [(kind, gid)]):
-                # Verovio gives no box for lyrics or its own bar numbers; their glyphs are measured instead.
                 for span in child.iter(f"{SVG}tspan"):
                     size = span.get("font-size", "")
                     if span.text and span.text.strip() and size.endswith("px") and float(size[:-2]) > 0:
@@ -546,11 +524,9 @@ def parse_page(source: str, out: str, index, fonts: Path) -> Page:
     for child in page_margin:
         if child.tag == f"{SVG}g":
             visit(child, [])
-    # Each chord's stem serves its notes.
     for note_id in noteheads:
         stems.setdefault(note_id, stems.get(note_id))
 
-    # The analysis overlay, as written into the final page.
     over = next((g for g in out_root.iter(f"{SVG}g") if g.get("class") == "analysis-over"), None)
     texts, ellipses, marks, arrows = [], [], [], []
     halos: dict[tuple, float] = {}
@@ -597,7 +573,6 @@ def parse_page(source: str, out: str, index, fonts: Path) -> Page:
         elif tag == "rect":
             x, y, w, h = (float(element.get(k, 0)) for k in ("x", "y", "width", "height"))
             marks.append(Shape("analysis box", Box(x, y, x + w, y + h)))
-    # A tendency arrow: a short upright red shaft whose head continues it.
     used = set()
     for line in lines:
         x0, y0, x1, y1, _ = line.segment
@@ -612,9 +587,6 @@ def parse_page(source: str, out: str, index, fonts: Path) -> Page:
             if head:
                 marks.append(head)
     marks += [h for h in heads if id(h) not in used]
-    # Chunks of one label (a numeral, its figures and their accidentals) are written one after another in black, each
-    # starting where the last ends or stacked over it, within about one line of it. Separate labels in a row are at
-    # least a letter's width apart; fault codes (red) are never grouped.
     group = 0
     for previous, text in zip([None] + texts, texts):
         if previous is None or text.fill != previous.fill or previous.fill == ERROR or not (
@@ -625,7 +597,6 @@ def parse_page(source: str, out: str, index, fonts: Path) -> Page:
     return Page(width, top, staff_lines, music, noteheads, stems, measures, systems, voltas, texts, ellipses, marks, arrows, index, out)
 
 
-# ---- rules ------------------------------------------------------------------------------------------------------
 
 @dataclass
 class Violation:
@@ -642,7 +613,6 @@ class Violation:
 
 
 def bar_at(page: Page, box: Box):
-    """The printed number of the bar a spot is in (the bar whose box holds it, else the nearest)."""
     if not page.measures:
         return "?"
     mid, _ = min(page.measures, key=lambda m: (0 if m[1].contains(box.cx, box.cy) else 1, m[1].gap(box)))
@@ -658,7 +628,6 @@ def crosses_lines(page: Page, ink: Box) -> list[tuple[float, float, float, str]]
 
 
 def _own_container(text: Text, mark: Shape) -> bool:
-    """A callout's number in its disc, a cadence label in its box, a check-page label in its ring."""
     return mark.kind in ("callout disc", "numbered circle", "analysis box") and mark.box.contains(text.ink.cx, text.ink.cy)
 
 
@@ -671,14 +640,12 @@ def check_page(page: Page, item: str, entry: str, number: int, context: dict) ->
     def describe(text):
         return f'"{text.string}" at ({round(text.ink.cx)}, {round(text.ink.cy)})'
 
-    # staff-line
     arrow_codes = set()
     for text in page.texts:
         crossed = crosses_lines(page, text.ink)
         if crossed:
             kinds = sorted({kind for *_, kind in crossed})
             add("staff-line", text.ink, f"{describe(text)} crosses {len(crossed)} {'/'.join(kinds)} line(s)")
-    # collision: text against music, other text and analysis marks
     for text in page.texts:
         hit = sorted({shape.kind for shape in page.music if shape.hits(text.knockout)})
         if hit:
@@ -691,7 +658,6 @@ def check_page(page: Page, item: str, entry: str, number: int, context: dict) ->
         rings = [ring for ring in page.ellipses if ring.stroke_hits(text.knockout)]
         if marks or rings:
             add("collision", text.knockout, f"{describe(text)} touches {', '.join(sorted({m.kind for m in marks} | ({'ring'} if rings else set())))}")
-    # collision: tendency arrows, callout discs and cadence boxes against the music
     for shaft, head in page.arrows:
         for shape in (shaft, head):
             hit = sorted({m.kind for m in page.music if m.kind != "barline" and _shapes_touch(shape, m)})
@@ -703,7 +669,6 @@ def check_page(page: Page, item: str, entry: str, number: int, context: dict) ->
             hit = sorted({m.kind for m in page.music if m.hits(mark.box)})
             if hit:
                 add("collision", mark.box, f"{mark.kind} at ({round(mark.box.cx)}, {round(mark.box.cy)}) touches {', '.join(hit)}")
-    # arrow-staff
     for shaft, head in page.arrows:
         x0, y0, x1, y1, half = shaft.segment
         line = Box(x0 - half, min(y0, y1, *(p[1] for p in head.polygon)) if head else min(y0, y1), x0 + half,
@@ -735,7 +700,6 @@ def check_page(page: Page, item: str, entry: str, number: int, context: dict) ->
 
 
 def _leader(text: Text, mark: Shape) -> bool:
-    """A thin leader line ending at its label, or the check page's underline under the figure it marks."""
     if mark.kind == "underline":
         return min(text.ink.x1, mark.box.x1) - max(text.ink.x0, mark.box.x0) > -60 and -120 <= mark.box.cy - text.ink.y1 < 150
     if not mark.segment or mark.segment[4] > 12:
@@ -760,7 +724,6 @@ def _arrow_code(page: Page, shaft: Shape) -> Text | None:
 
 
 def check_marks(page: Page, item: str, entry: str, number: int, marks: list[dict]) -> list[Violation]:
-    """dropped and ring-code: the draft's marks against what was drawn."""
     found = []
     index = page.index
 
@@ -771,7 +734,6 @@ def check_marks(page: Page, item: str, entry: str, number: int, marks: list[dict
         event = index.find_note(**ref)
         return event, page.noteheads.get(event.id)
 
-    # Identical marks on the same notes are one mark; their labels are joined (the draft's "draw" lines repeat).
     unique: dict[tuple, dict] = {}
     for mark in marks:
         if mark["type"] != "voice_leading":
@@ -786,7 +748,7 @@ def check_marks(page: Page, item: str, entry: str, number: int, marks: list[dict
     def where(ref):
         return f"m{ref['measure']} b{ref['beat']:g} staff {ref['staff']} {ref['pitch']}"
 
-    rings = []  # (ellipse, word, spots, notehead id, mark)
+    rings = []
     for (kind, first_id, _), mark in unique.items():
         head = page.noteheads.get(first_id)
         if head is None:
@@ -812,8 +774,6 @@ def check_marks(page: Page, item: str, entry: str, number: int, marks: list[dict
         elif kind == "bracket":
             if not any(m.kind == "analysis bracket" and m.box.gap(head) < 400 for m in page.marks):
                 add("dropped", head, f"bracket at {where(mark['from_note'])} not drawn")
-    # Words of lines and brackets: as many on each system as are listed there. The two lines of one parallel or direct
-    # pair (two lines between the same two moments) share one word.
     pairs: dict[tuple, list] = {}
     for (kind, first_id, second_id), mark in unique.items():
         if kind == "line" and mark["labels"]:
@@ -836,13 +796,11 @@ def check_marks(page: Page, item: str, entry: str, number: int, marks: list[dict
         if drawn.get((system, label), 0) < count:
             add("dropped", page.systems[system] if page.systems else Box(0, 0, 0, 0),
                 f'"{label}" listed {count} time(s) on system {system + 1}, drawn {drawn.get((system, label), 0)}')
-    # Callouts: each listed number drawn once.
     callouts = sorted({m["number"] for m in marks if m["type"] == "callout"})
     numbers = [t.string for t in page.texts if any(mk.kind == "callout disc" and mk.box.contains(t.ink.cx, t.ink.cy) for mk in page.marks)]
     for n in callouts:
         if numbers.count(str(n)) != 1:
             add("dropped", Box(0, 0, 0, 0), f"callout {n} drawn {numbers.count(str(n))} times")
-    # ring-code: pair each labelled ring with a drawn code of its word, nearest first.
     codes = [t for t in page.texts if t.fill == ERROR]
     labelled = [r for r in rings if r[1]]
     pairs_found = []
@@ -861,7 +819,6 @@ def check_marks(page: Page, item: str, entry: str, number: int, marks: list[dict
             continue
         code = codes[matched[i]]
         own = ring.distance(code.ink)
-        # The unlabelled rings of the same callout belong to the same finding (the other note of an overlap).
         partners = [r for r in rings if not r[1] and r[2] & spots]
         partner_heads = {r[3] for r in partners}
         rivals = [(f"ring at ({round(r[0].cx)}, {round(r[0].cy)})", r[0].distance(code.ink)) for r in rings
@@ -875,7 +832,6 @@ def check_marks(page: Page, item: str, entry: str, number: int, marks: list[dict
     return found
 
 
-# ---- running ----------------------------------------------------------------------------------------------------
 
 def bars_per_page(pages) -> list[int]:
     return [len(re.findall(r'class="measure"', out)) for _, out, _ in pages]
@@ -888,7 +844,7 @@ def run_item(root: str, group: str, name: str, crops: str | None) -> dict:
     result = {"item": item, "violations": [], "pins": {}, "error": None}
     try:
         import verovio
-        verovio.enableLog(False)  # its import warnings are not findings
+        verovio.enableLog(False)
         from engine import text as engine_text
         fonts = engine_text.FONT_DIR
         for entry, pages, context in draw(root, group, name):
@@ -900,7 +856,7 @@ def run_item(root: str, group: str, name: str, crops: str | None) -> dict:
                 result["violations"] += [v.__dict__ for v in found]
                 if crops and found:
                     _crop(out, page, found, Path(crops), item, entry, number)
-    except Exception as error:  # an item that cannot be drawn is reported, never skipped
+    except Exception as error:
         import traceback
         result["error"] = f"{type(error).__name__}: {error}\n{traceback.format_exc(limit=-3)}"
     result["seconds"] = round(time.time() - started, 2)
@@ -915,7 +871,7 @@ def _crop(svg: str, page: Page, found: list[Violation], folder: Path, item: str,
     outer = re.search(r'viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"', svg)
     pixels = 2800
     image = Engraving([svg])._raster(1, pixels)
-    scale = image.width / page.width  # SVG units to pixels
+    scale = image.width / page.width
     margin = re.search(r'class="page-margin" transform="translate\(([-\d.]+)[ ,]+([-\d.]+)', svg)
     left, top = float(margin.group(1)), float(margin.group(2))
     for n, violation in enumerate(found):
@@ -925,7 +881,6 @@ def _crop(svg: str, page: Page, found: list[Violation], folder: Path, item: str,
         box = [(x0 + left) * scale, (y0 + top) * scale, (x1 + left) * scale, (y1 + top) * scale]
         pad = 900 * scale
         crop = image.crop((max(0, box[0] - pad), max(0, box[1] - pad), min(image.width, box[2] + pad), min(image.height, box[3] + pad))).copy()
-        # Framed a little outside the measured box, so the frame hides nothing of what it marks.
         ImageDraw.Draw(crop).rectangle([box[0] - max(0, box[0] - pad) - 6, box[1] - max(0, box[1] - pad) - 6,
                                         box[2] - max(0, box[0] - pad) + 6, box[3] - max(0, box[1] - pad) + 6], outline=(0, 140, 255), width=1)
         crop = crop.resize((crop.width * 2, crop.height * 2))
@@ -934,7 +889,6 @@ def _crop(svg: str, page: Page, found: list[Violation], folder: Path, item: str,
 
 
 def compare_pins(results: list[dict], baseline: dict) -> list[dict]:
-    """pages: a reading's page count or last page changed against the pinned baseline."""
     found = []
     for result in results:
         name = result["item"].split("/", 1)[1]

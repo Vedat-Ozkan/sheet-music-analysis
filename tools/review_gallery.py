@@ -51,7 +51,6 @@ class GalleryError(Exception):
     pass
 
 
-# ---------------------------------------------------------------- manifest
 
 def load_manifest(path: Path) -> dict:
     manifest = json.loads(path.read_text())
@@ -99,8 +98,6 @@ def main_checkout() -> Path:
 
 
 def resolve(spec: str, manifest: dict) -> Path:
-    """An input named in the manifest: a repo path, `bench:` (the OMR benchmark folder, which is not in git) or
-    `music21:` (the music21 corpus)."""
     if spec.startswith("bench:"):
         path = main_checkout() / manifest["bench"] / spec.removeprefix("bench:")
     elif spec.startswith("music21:"):
@@ -113,7 +110,6 @@ def resolve(spec: str, manifest: dict) -> Path:
     return path
 
 
-# ---------------------------------------------------------------- git
 
 def git(*args: str) -> str:
     return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
@@ -127,7 +123,6 @@ def commit_of(ref: str) -> tuple[str, str]:
     return sha, git("show", "-s", "--format=%ad %s", "--date=format:%Y-%m-%d %H:%M", sha)
 
 
-# ---------------------------------------------------------------- drawing at one ref (child process)
 
 DRAW = re.compile(r'\s+draw (\w+) (\{.*?\})(?: -> (\{.*?\}))?(?: label "([^"]*)")?(?: direction "(\w+)")?$')
 ARROW = re.compile(r'\s+arrow (\{.*?\}) -> (\{.*?\}) label "([^"]*)"$')
@@ -135,8 +130,6 @@ CALLOUT = re.compile(r'(\d+)\. m\S+ b\S+, callout at (\{.*\})$')
 
 
 def draft_marks(text: str) -> list[dict]:
-    """The part-writing draft's marks as the model is told to draw them: one callout per numbered spot and one
-    voice_leading annotation per draw line. A mark line that doesn't parse is an error, never skipped."""
     marks, number = [], 0
     for line in text.splitlines():
         if re.match(r"\d+\. ", line):
@@ -166,7 +159,6 @@ def draft_marks(text: str) -> list[dict]:
 def child(job_file: Path) -> None:
     job = json.loads(job_file.read_text())
     root = Path(job["root"])
-    # Only the ref's own code may be imported: drop this script's folder (the "after" checkout's tools/).
     sys.path[0] = str(root)
     os.chdir(root)
     asyncio.run(draw_all(job, root))
@@ -254,8 +246,6 @@ async def draw_all(job: dict, root: Path) -> None:
                     shutil.copy(local(content["image_url"]), target)
                     record["images"].append(target.name)
                 if picture.get("pages") == "all":
-                    # The card shows page 1 only; later pages come from the same render call the tool makes, checked
-                    # against the tool's own page 1.
                     from engine.annotate import render
                     engraving = render(score, annotations, measures=app.parse_measures(bars),
                                        view=picture.get("view", "all"), piano=picture.get("piano", False))
@@ -274,7 +264,6 @@ async def draw_all(job: dict, root: Path) -> None:
                 labels = from_text(Path(picture["student_path"]).read_text(), index=index)
                 first, _, last = bars.partition("-")
                 page = render(score, annotations, measures=(int(first), int(last or first)), student_labels=labels)
-                # Sized as the server sizes a card image; no tool draws this page yet.
                 target = out / f"{name}-p1.png"
                 target.write_bytes(page.png(1, width=2800, colors=256))
                 record["images"].append(target.name)
@@ -328,13 +317,11 @@ async def draw_all(job: dict, root: Path) -> None:
 
 
 def card_output(content: dict, local, out: Path, name: str) -> dict:
-    """The tool's own structured content, with the published page image pointed at a local copy."""
     image = out / f"{name}-card-source.png"
     shutil.copy(local(content["image_url"]), image)
     return {**content, "image_url": image.as_uri()}
 
 
-# ---------------------------------------------------------------- card screenshots (system Python with Playwright)
 
 SHOOT = r"""
 import json, sys
@@ -367,11 +354,8 @@ def shoot_card(card_html: Path, content: dict, folder: Path, name: str) -> tuple
     return shots[0], shots[1]
 
 
-# ---------------------------------------------------------------- stamping
 
 def stamp(image_path: Path, lines: list[str], target: Path, width: int | None = None) -> None:
-    """Save the image (scaled to `width` if given) with a strip below it carrying `lines`, so the stamp can never
-    sit on the music."""
     from PIL import Image, ImageDraw, ImageFont
 
     image = Image.open(image_path).convert("RGB")
@@ -390,7 +374,6 @@ def stamp(image_path: Path, lines: list[str], target: Path, width: int | None = 
     out.save(target, optimize=True)
 
 
-# ---------------------------------------------------------------- the run
 
 def run(args) -> int:
     manifest = load_manifest(args.manifest)
@@ -404,7 +387,6 @@ def run(args) -> int:
         raise GalleryError(f"{images} already has files; choose a new folder")
     images.mkdir(parents=True, exist_ok=True)
 
-    # One drawing job per ref; the same input bytes go to both sides of a pair.
     refs = {}
     jobs = {}
     for item in items:
@@ -481,7 +463,6 @@ def run(args) -> int:
 
 
 def replacement_text(spec: dict, manifest: dict) -> str:
-    """The corrected bars, taken from a reference score (what the print really has), never typed by hand."""
     from engine.correct import bars_from_musicxml
     first, _, last = spec["bars"].partition("-")
     return bars_from_musicxml(resolve(spec["from"], manifest).read_bytes(), int(first), int(last) if last else None)
@@ -533,7 +514,6 @@ def finish(picture, record, side, ref, sha, about, work, tree, images, manifest)
     return shown
 
 
-# ---------------------------------------------------------------- the review page
 
 def page(manifest: dict, items: list[dict], folder: str) -> str:
     esc = html.escape

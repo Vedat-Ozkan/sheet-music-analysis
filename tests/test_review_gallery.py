@@ -43,7 +43,6 @@ def test_two_items_make_stamped_pairs_and_a_page(tmp_path):
                 ref = item["before"] if side == "before" else "HEAD"
                 assert f"ref {ref} = commit {source['commit'][:10]}" in stamp
                 assert Image.open(tmp_path / source["chat_image"]).width == 700
-                # The stamp is drawn in a strip of its own below the music: grey text on white.
                 full = Image.open(tmp_path / source["image"]).convert("L")
                 strip = full.crop((0, full.height - 40, full.width // 2, full.height))
                 assert strip.getextrema()[0] < 200, f"{source['image']}: no stamp text in the bottom strip"
