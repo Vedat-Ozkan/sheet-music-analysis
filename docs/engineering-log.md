@@ -997,6 +997,19 @@ Shipped the same day: the week 1-6 work went to production as revision 00028 (im
 
 The CAD 5 budget emailed 50% on Oct 8, 90% on Oct 17 and 100% on Oct 24, but it excluded all credits, and the free tiers show up as credits, so it measured usage at list price. Rebuilt from usage (no billing export; the console was not checked): Cloud Run 54,369 instance-seconds in October (production 46,109, of which 41,301 on Oct 7-9 from log 21's leak; staging 7,535 for the load tests; 725 for the cold-start job), about US$3.15 at list price but inside the free tier (109k of 180k vCPU-s, 217k of 360k GiB-s); Cloud Build 139 minutes of 2,500 free; Artifact Registry 4.4 GB and the build-source bucket 11 GB, the only parts beyond a free tier, about US$0.40 a month together. The budget now includes credits, so its emails mean money owed; the amount stays CAD 5. Two cleanup rules, kept in `deploy.sh`: build sources older than 7 days are deleted (the 11 GB were mostly uploads from before `.gcloudignore`), and base images older than 7 days are deleted except the two newest, beside the existing rule for untagged images.
 
+### 53. Could a recording replace the score? (2026-10-24)
+
+A local feasibility test, no product code. Both claude.ai and ChatGPT (even Free) accept an mp3 and put it in the code sandbox unchanged; YouTube and Spotify links are ruled out by their terms. Test piece: Chopin Prelude Op. 28 No. 4, recording by Ivan Ilić (CC BY 3.0, Wikimedia Commons, 110 s), against our draft of the MuseScore edition the eval uses (no expert labels exist for this prelude). Pipeline: the Kong/ByteDance piano model, Beat This! for beats, quantising, partitura's key and spelling, then our draft unchanged.
+
+| Run | Bar lines right (of 25) | Full numeral agrees | Final V-i |
+|---|---|---|---|
+| Fully automatic | 9 | 56% | found, wrong bar |
+| Meter and key given | 12 | 59% | found, one bar early |
+| Timing from the real score | 25 | 73% | right |
+| Real score's notes, same score-building | 25 | 77% | right |
+
+The notes themselves are good: onset F1 0.977 (Basic Pitch 0.744). The losses come after: building a score from notes (hands, note ends, spelling) costs about 20 points even with perfect notes, and beat tracking about 14 more; it took one beat per bar for most of the piece, and the slowing at bar 12 shifts every later bar. Bar numbers wrong from bar 12 on would be visible to any beginner. Kong takes about 1.1 s of one CPU per second of audio. Verdict: not usable as an automatic feature yet; the hard part is the score, not the notes.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
