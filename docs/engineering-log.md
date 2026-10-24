@@ -983,6 +983,8 @@ Other runs, at max 1 instance and two at once:
 
 The daily counter, which week 4 left to be measured (927 warm drafts, server side): p50 160 ms, p95 0.93 s, p99 2.4 s, max 6.7 s, about an eighth of a typical draft. It slows calls under contention but never failed one, and the model is not the bottleneck either (waiting for it: p50 0, p95 0.8 s); renders sharing the CPU are. Staging billed 6,124 s for all of it, about $0.36: about $0.38 per 1,000 drafts with their renders, $0.32 in the steady 30-minute run. Staging is back to four at once, max 1, min 0.
 
+Owner's decision the same day: both services now take two calls at once and run at most two instances (production revision 00027, same image as 00026; settings only). Total spend stays bounded by the daily limits; a second instance adds only its own start-up, about 20 s billed each time it starts. Loading the model at start-up is still open.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

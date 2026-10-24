@@ -62,6 +62,6 @@ fi
 PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://mcp.sheetmusicanalysis.com}
 gcloud run deploy "$RUN_SERVICE" --image="$IMAGE" --region="$REGION" \
   --service-account="$ACCOUNT" "$ACCESS" \
-  --execution-environment=gen2 --cpu=2 --memory=4Gi --concurrency=4 --min-instances=0 --max-instances=1 --timeout=300 \
+  --execution-environment=gen2 --cpu=2 --memory=4Gi --concurrency=2 --min-instances=0 --max-instances=2 --timeout=300 \
   --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL$LIMITS"
 echo "Connector URL: $PUBLIC_BASE_URL/mcp"
