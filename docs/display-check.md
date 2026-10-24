@@ -24,7 +24,8 @@ production. Audiveris is never run. A reading missing from the cache is an error
 ## Corpus
 
 - The 20 part-writing chorales (`tests/data/part_writing_*.musicxml`), whole piece, with the draft's own marks and
-  one callout per numbered spot. The draft text is turned into annotations as the chat model is told to
+  one callout per numbered spot. Each is drawn again one bar at a time, for every bar with a mark, as a user asking
+  for those bars gets it. The draft text is turned into annotations as the chat model is told to
   (`draft_marks`, which `tests/test_overlay_marks.py` also uses).
 - The 9 engraving passages (`examples/engraving`) and the Chopin example, each in all 3 notation styles.
 - The two check-page samples (Bach, Chopin).
@@ -41,9 +42,11 @@ placers' own tests (`_on_staff`, `_touching`, `own()`, `system.content`), so the
 | Rule | Fails when | Source |
 |---|---|---|
 | `staff-line` | analysis text (codes, numerals, figures, R, bar numbers, callout numbers) crosses a staff or ledger line | Gould: text goes outside the staff |
-| `collision` | analysis text, with its knockout, touches a notehead, accidental, stem, beam, dot, rest, flag, fermata, dynamic, lyric, slur, tie, other score text or sign, or another analysis text or mark. Also when a tendency arrow, callout disc or cadence box touches the music | owner: labels never cramped |
-| `ring-code` | a ring's code is not nearer its own ring than every other ring and every other notehead. Rings under the same callout with no code of their own count as its own | decision R |
+| `collision` | analysis text, with its knockout, touches a notehead, accidental, stem, beam, dot, rest, flag, fermata, dynamic, lyric, slur, tie, other score text or sign, or another analysis text or mark. Also when a tendency arrow, callout disc or cadence box touches the music, and when a ring comes within 40 units (about 5 px on a full-size page) of a dot, accidental, fermata, articulation, ornament, flag, rest, dynamic, lyric, tie, slur or another notehead | owner: labels never cramped |
+| `ring-accidental` | a ring comes within 40 units of its own note's accidental | owner question (enclose it or not) |
+| `ring-code` | a ring's code is not clearly nearer its own ring than every other ring and every other notehead: each of those must be at least 1.5 times as far as the ring (the placer's own margin). Rings under the same callout with no code of their own count as its own | decision R |
 | `dropped` | a mark the draft lists is not drawn where it should be: a ring on its note, its code, a line from its note, a tendency arrow and its R, a bracket, a callout number, or a line's word on its system | review §5 (the vanished R) |
+| `excerpt-edge` | in a one-bar drawing, a line, bracket or arrow the draft lists runs to a note outside the bars, or marks are drawn whose callout is outside them (a tendency arrow needs only its own note) | owner question |
 | `arrow-staff` | a tendency arrow or its R crosses a staff line | decision S |
 | `pages` | a reading's page count or the bars on its last page differ from `tests/golden/display_check_pages.json` | review §F (the last-page pull-in) |
 | `bar-number` | a bar number at an ending is not above the ending's bracket | review §3 item 3 |

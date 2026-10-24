@@ -8,8 +8,8 @@ measures each final page. The music's geometry comes from Verovio's own bounding
 ledger line paths; the analysis marks from what the overlay wrote into the page. Nothing here reuses the placers'
 helpers (`_on_staff`, `_touching`, `own()`, `system.content`), so the check can disagree with them.
 
-Corpus: the 20 part-writing chorales (tests/data/part_writing_*.musicxml, whole piece) with the part-writing draft's
-own marks and callouts; the hand-checked engraving passages (examples/engraving) and the Chopin example in all three
+Corpus: the 20 part-writing chorales (tests/data/part_writing_*.musicxml), whole piece and each bar with a mark on
+its own, with the part-writing draft's own marks and callouts; the hand-checked engraving passages (examples/engraving) and the Chopin example in all three
 notation styles; the two check-page samples; and 12 PDF readings (the 4 review PDFs and the 8 whose plain layout ends
 on a page of one or two bars), read through engine.read_pdf.read_pdf over the benchmark's cached Audiveris output.
 
@@ -17,9 +17,12 @@ Rules (docs/display-check.md says why each exists):
   staff-line     no analysis text (codes, numerals, figures, R, bar numbers, callouts) crosses a staff or ledger line
   collision      no analysis text (with its white knockout) or tendency arrow, callout disc or cadence box touches a
                  notehead, accidental, stem, beam, dot, rest, flag, fermata, dynamic, lyric, other score text or sign,
-                 or another analysis text or mark
-  ring-code      each ring code is nearer its own ring than any other ring and any other notehead
+                 or another analysis text or mark; no ring comes within 40 of a dot, accidental, fermata, articulation,
+                 flag, rest, dynamic, lyric, tie, slur or another notehead
+  ring-code      each ring code is clearly nearer its own ring than any other ring or notehead (1.5 times as near)
+  ring-accidental a ring keeps clear of its own note's accidental
   dropped        every mark the part-writing draft lists is drawn, by type and position
+  excerpt-edge   a line, bracket or arrow (other than a tendency arrow) the draft lists runs past the bars drawn
   arrow-staff    a tendency arrow and its R stay off the staff lines
   pages          page count and bars on the last page of every PDF reading match tests/golden/display_check_pages.json
   bar-number     a bar number at an ending stands above the ending's bracket
@@ -64,6 +67,7 @@ TOP_MARGIN = 0.025
 
 def corpus(root: Path) -> list[tuple[str, str]]:
     items = [("chorale", p.stem.replace("part_writing_", "")) for p in sorted((root / "tests/data").glob("part_writing_*.musicxml"))]
+    items += [("excerpts", p.stem.replace("part_writing_", "")) for p in sorted((root / "tests/data").glob("part_writing_*.musicxml"))]
     items += [("harmony", f"{p.stem}:{style}") for p in sorted((root / "examples/engraving").glob("*.json")) for style in STYLES]
     items += [("harmony", f"chopin-op9-2:{style}") for style in STYLES]
     items += [("check-page", name) for name in ("bach", "chopin")]
@@ -163,6 +167,14 @@ def draw(root: Path, group: str, name: str) -> list[tuple[str, list, dict]]:
         bars = (index.measures[0].number, index.measures[-1].number)
         page = render(score, _annotations(marks), measures=bars)
         return [("render", capture.take(page), {"marks": marks})]
+    if group == "excerpts":
+        score, marks = draft_marks(root, name)
+        annotations = _annotations(marks)
+        found = []
+        for bar in sorted({m["from_note"]["measure"] for m in marks if m["type"] == "voice_leading"}):
+            page = render(score, annotations, measures=(bar, bar))
+            found.append((f"bar {bar}", capture.take(page), {"marks": marks, "excerpt": True}))
+        return found
     if group == "harmony":
         piece, style = name.split(":")
         if piece == "chopin-op9-2":
@@ -681,8 +693,20 @@ def check_page(page: Page, item: str, entry: str, number: int, context: dict) ->
         if crossed or code_crossed:
             parts = ([f"arrow crosses {len(crossed)} line(s)"] if crossed else []) + ([f"its R crosses {len(code_crossed)} line(s)"] if code_crossed else [])
             add("arrow-staff", line, f"tendency arrow at ({round(x0)}, {round((y0 + y1) / 2)}) on the staff: {'; '.join(parts)}")
+    for ring in page.ellipses:
+        if ring.colour != ERROR:
+            continue
+        head = min(page.noteheads.values(), key=lambda b: abs(b.cx - ring.cx) + abs(b.cy - ring.cy))
+        touched = [m for m in page.music if m.kind in RING_CLEAR and ring.stroke_hits(m.box.grow(RING_ROOM))
+                   and not (m.kind == "notehead" and ring.box.contains(m.box.cx, m.box.cy))]
+        own = [m for m in touched if m.kind == "accidental" and m.box.x1 <= head.x0 + 20 and m.box.y0 < head.y1 and m.box.y1 > head.y0]
+        hit = sorted({m.kind for m in touched if not any(m is o for o in own)})
+        if hit:
+            add("collision", ring.box, f"ring at ({round(ring.cx)}, {round(ring.cy)}) within {RING_ROOM} of {', '.join(hit)}")
+        if own:
+            add("ring-accidental", ring.box, f"ring at ({round(ring.cx)}, {round(ring.cy)}) within {RING_ROOM} of its own note's accidental")
     if context.get("marks"):
-        found += check_marks(page, item, entry, number, context["marks"])
+        found += check_marks(page, item, entry, number, context["marks"], context.get("excerpt", False))
     if context.get("preview"):
         for text in page.texts:
             if not re.fullmatch(r"\d+", text.string):
@@ -723,7 +747,13 @@ def _arrow_code(page: Page, shaft: Shape) -> Text | None:
     return min(codes, key=lambda t: t.ink.gap(shaft.box), default=None) if codes else None
 
 
-def check_marks(page: Page, item: str, entry: str, number: int, marks: list[dict]) -> list[Violation]:
+CODE_RATIO = 1.5
+RING_ROOM = 40
+RING_CLEAR = {"notehead", "accidental", "dot", "rest", "flag", "fermata", "dynamic", "articulation", "ornament",
+              "lyric", "score text", "tie", "slur"}
+
+
+def check_marks(page: Page, item: str, entry: str, number: int, marks: list[dict], excerpt: bool = False) -> list[Violation]:
     found = []
     index = page.index
 
@@ -734,19 +764,24 @@ def check_marks(page: Page, item: str, entry: str, number: int, marks: list[dict
         event = index.find_note(**ref)
         return event, page.noteheads.get(event.id)
 
+    def where(ref):
+        return f"m{ref['measure']} b{ref['beat']:g} staff {ref['staff']} {ref['pitch']}"
+
     unique: dict[tuple, dict] = {}
     for mark in marks:
         if mark["type"] != "voice_leading":
             continue
-        first, _ = note(mark["from_note"])
-        second = note(mark["to_note"])[0] if mark.get("to_note") else None
+        first, first_head = note(mark["from_note"])
+        second, second_head = note(mark["to_note"]) if mark.get("to_note") else (None, None)
+        if excerpt and first_head is None:
+            continue
+        if excerpt and second and second_head is None and not (mark["kind"] == "arrow" and mark["label"] == "R"):
+            add("excerpt-edge", first_head, f"{mark['kind']} {mark['label']!r} from {where(mark['from_note'])} goes to {where(mark['to_note'])}, outside the bars drawn")
+            continue
         entry_ = unique.setdefault((mark["kind"], first.id, second.id if second else None), {**mark, "labels": [], "spots": set()})
         entry_["spots"].add(mark["spot"])
         if mark["label"] and mark["label"] not in entry_["labels"]:
             entry_["labels"].append(mark["label"])
-
-    def where(ref):
-        return f"m{ref['measure']} b{ref['beat']:g} staff {ref['staff']} {ref['pitch']}"
 
     rings = []
     for (kind, first_id, _), mark in unique.items():
@@ -796,7 +831,13 @@ def check_marks(page: Page, item: str, entry: str, number: int, marks: list[dict
         if drawn.get((system, label), 0) < count:
             add("dropped", page.systems[system] if page.systems else Box(0, 0, 0, 0),
                 f'"{label}" listed {count} time(s) on system {system + 1}, drawn {drawn.get((system, label), 0)}')
-    callouts = sorted({m["number"] for m in marks if m["type"] == "callout"})
+    shown = {bar_at(page, box) for _, box in page.measures}
+    callouts = sorted({m["number"] for m in marks if m["type"] == "callout" and (not excerpt or m["at"]["measure"] in shown)})
+    if excerpt:
+        placed = {m["number"]: m["at"]["measure"] for m in marks if m["type"] == "callout"}
+        for spot in sorted({spot for mark in unique.values() for spot in mark["spots"]}):
+            if spot in placed and placed[spot] not in shown:
+                add("excerpt-edge", Box(0, 0, 0, 0), f"marks of callout {spot} are drawn, but the callout is at bar {placed[spot]}, outside the bars drawn")
     numbers = [t.string for t in page.texts if any(mk.kind == "callout disc" and mk.box.contains(t.ink.cx, t.ink.cy) for mk in page.marks)]
     for n in callouts:
         if numbers.count(str(n)) != 1:
@@ -825,7 +866,7 @@ def check_marks(page: Page, item: str, entry: str, number: int, marks: list[dict
                   if r[0] is not ring and not any(r is p for p in partners)]
         rivals += [(f"notehead at ({round(box.cx)}, {round(box.cy)})", box.gap(code.ink)) for nid, box in page.noteheads.items()
                    if nid != head_id and nid not in partner_heads and not (((box.cx - ring.cx) / ring.rx) ** 2 + ((box.cy - ring.cy) / ring.ry) ** 2 <= 1)]
-        nearer = [(what, d) for what, d in rivals if d <= own]
+        nearer = [(what, d) for what, d in rivals if d < CODE_RATIO * own]
         if nearer:
             what, d = min(nearer, key=lambda r: r[1])
             add("ring-code", code.ink, f'"{word}" of the ring at {where(mark["from_note"])} is {round(own)} from its ring but {round(d)} from the {what}')
