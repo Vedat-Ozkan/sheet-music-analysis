@@ -1,0 +1,17 @@
+{
+  "displayName": "Server errors",
+  "documentation": {"content": "A tool call ended in server_error (the model failed to load or time out, or an exception nothing caught). The log line has the stack trace; see Error Reporting. The service_name label says production or staging.", "mimeType": "text/markdown"},
+  "combiner": "OR",
+  "conditions": [{
+    "displayName": "server_error in 10 minutes",
+    "conditionThreshold": {
+      "filter": "metric.type=\"logging.googleapis.com/user/tool_calls\" AND resource.type=\"cloud_run_revision\" AND metric.label.outcome=\"server_error\"",
+      "aggregations": [{"alignmentPeriod": "600s", "perSeriesAligner": "ALIGN_SUM", "crossSeriesReducer": "REDUCE_SUM", "groupByFields": ["resource.label.service_name"]}],
+      "comparison": "COMPARISON_GT",
+      "thresholdValue": 0,
+      "duration": "0s",
+      "trigger": {"count": 1}
+    }
+  }],
+  "alertStrategy": {"autoClose": "86400s"}
+}

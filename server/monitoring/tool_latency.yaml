@@ -1,0 +1,18 @@
+description: Milliseconds per tool call spent in timings_ms.total
+filter: resource.type="cloud_run_revision" AND jsonPayload.tool:* AND jsonPayload.timings_ms.total:*
+valueExtractor: EXTRACT(jsonPayload.timings_ms.total)
+labelExtractors:
+  tool: EXTRACT(jsonPayload.tool)
+  cold: EXTRACT(jsonPayload.cold)
+bucketOptions:
+  exponentialBuckets:
+    numFiniteBuckets: 40
+    growthFactor: 1.4
+    scale: 1
+metricDescriptor:
+  metricKind: DELTA
+  valueType: DISTRIBUTION
+  unit: ms
+  labels:
+  - key: tool
+  - key: cold

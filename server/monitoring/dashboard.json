@@ -1,0 +1,530 @@
+{
+ "displayName": "Sheet Music Analysis server",
+ "mosaicLayout": {
+  "columns": 48,
+  "tiles": [
+   {
+    "xPos": 0,
+    "yPos": 0,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "Tool calls by tool",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/tool_calls\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "60s",
+           "perSeriesAligner": "ALIGN_SUM",
+           "crossSeriesReducer": "REDUCE_SUM",
+           "groupByFields": [
+            "metric.label.tool"
+           ]
+          }
+         }
+        },
+        "plotType": "STACKED_BAR"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 12,
+    "yPos": 0,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "Tool calls by outcome",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/tool_calls\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "60s",
+           "perSeriesAligner": "ALIGN_SUM",
+           "crossSeriesReducer": "REDUCE_SUM",
+           "groupByFields": [
+            "metric.label.outcome"
+           ]
+          }
+         }
+        },
+        "plotType": "STACKED_BAR"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 24,
+    "yPos": 0,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "Instances by state",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"run.googleapis.com/container/instance_count\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "60s",
+           "perSeriesAligner": "ALIGN_MAX",
+           "crossSeriesReducer": "REDUCE_SUM",
+           "groupByFields": [
+            "metric.label.state"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 36,
+    "yPos": 0,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "Billable instance seconds per day",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"run.googleapis.com/container/billable_instance_time\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "86400s",
+           "perSeriesAligner": "ALIGN_SUM",
+           "crossSeriesReducer": "REDUCE_SUM",
+           "groupByFields": [
+            "resource.label.service_name"
+           ]
+          }
+         }
+        },
+        "plotType": "STACKED_BAR"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 0,
+    "yPos": 16,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "Tool latency p50 (ms)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/tool_latency\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_PERCENTILE_50",
+           "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+           "groupByFields": [
+            "metric.label.tool",
+            "metric.label.cold"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 12,
+    "yPos": 16,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "Tool latency p95 (ms)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/tool_latency\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_PERCENTILE_95",
+           "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+           "groupByFields": [
+            "metric.label.tool",
+            "metric.label.cold"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 24,
+    "yPos": 16,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "Tool latency p99 (ms)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/tool_latency\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_PERCENTILE_99",
+           "crossSeriesReducer": "REDUCE_PERCENTILE_99",
+           "groupByFields": [
+            "metric.label.tool",
+            "metric.label.cold"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 36,
+    "yPos": 16,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "Model wait p95 (ms)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/gnn_wait_ms\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_PERCENTILE_95",
+           "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+           "groupByFields": [
+            "metric.label.tool"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 0,
+    "yPos": 32,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "Model inference p95 (ms)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/gnn_ms\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_PERCENTILE_95",
+           "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+           "groupByFields": [
+            "metric.label.tool"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 12,
+    "yPos": 32,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "Model start-up p95 (ms)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/gnn_start_ms\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_PERCENTILE_95",
+           "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+           "groupByFields": [
+            "metric.label.tool"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 24,
+    "yPos": 32,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "Render p95 (ms)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/render_ms\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_PERCENTILE_95",
+           "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+           "groupByFields": [
+            "metric.label.tool"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 36,
+    "yPos": 32,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "Publish p95 (ms)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/publish_ms\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_PERCENTILE_95",
+           "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+           "groupByFields": [
+            "metric.label.tool"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 0,
+    "yPos": 48,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "HTTP request latency p99 (ms)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"run.googleapis.com/request_latencies\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_PERCENTILE_99",
+           "crossSeriesReducer": "REDUCE_PERCENTILE_99",
+           "groupByFields": [
+            "resource.label.service_name"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 12,
+    "yPos": 48,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "Container start-up latency p95 (ms)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"run.googleapis.com/container/startup_latencies\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_PERCENTILE_95",
+           "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+           "groupByFields": [
+            "resource.label.service_name"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 24,
+    "yPos": 48,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "CPU utilization p95",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"run.googleapis.com/container/cpu/utilizations\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_PERCENTILE_95",
+           "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+           "groupByFields": [
+            "resource.label.service_name"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 36,
+    "yPos": 48,
+    "width": 12,
+    "height": 16,
+    "widget": {
+     "title": "Memory utilization p95",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"run.googleapis.com/container/memory/utilizations\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_PERCENTILE_95",
+           "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+           "groupByFields": [
+            "resource.label.service_name"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ],
+      "timeshiftDuration": "0s"
+     }
+    }
+   },
+   {
+    "xPos": 0,
+    "yPos": 64,
+    "width": 48,
+    "height": 16,
+    "widget": {
+     "title": "Warnings and errors",
+     "logsPanel": {
+      "filter": "resource.type=\"cloud_run_revision\" AND severity>=WARNING",
+      "resourceNames": [
+       "projects/sheet-music-analysis"
+      ]
+     }
+    }
+   },
+   {
+    "xPos": 0,
+    "yPos": 80,
+    "width": 48,
+    "height": 16,
+    "widget": {
+     "title": "Error Reporting",
+     "errorReportingPanel": {
+      "projectNames": [
+       "projects/sheet-music-analysis"
+      ]
+     }
+    }
+   }
+  ]
+ },
+ "dashboardFilters": [
+  {
+   "labelKey": "service_name",
+   "filterType": "RESOURCE_LABEL"
+  },
+  {
+   "labelKey": "tool",
+   "filterType": "METRIC_LABEL"
+  }
+ ]
+}

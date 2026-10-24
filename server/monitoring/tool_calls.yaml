@@ -1,0 +1,15 @@
+description: One per MCP tool call, from the server's per-call log line
+filter: resource.type="cloud_run_revision" AND jsonPayload.tool:* AND jsonPayload.outcome:*
+labelExtractors:
+  tool: EXTRACT(jsonPayload.tool)
+  outcome: EXTRACT(jsonPayload.outcome)
+  platform: EXTRACT(jsonPayload.platform)
+  cold: EXTRACT(jsonPayload.cold)
+metricDescriptor:
+  metricKind: DELTA
+  valueType: INT64
+  labels:
+  - key: tool
+  - key: outcome
+  - key: platform
+  - key: cold
