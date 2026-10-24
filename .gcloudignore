@@ -1,0 +1,13 @@
+/*
+!/Dockerfile
+!/Dockerfile.base
+!/cloudbuild.yaml
+!/pyproject.toml
+!/uv.lock
+!/engine/
+!/server/
+!/skill/
+/skill/*
+!/skill/SKILL.md
+__pycache__/
+.uuid
