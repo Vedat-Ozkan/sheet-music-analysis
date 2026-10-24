@@ -103,6 +103,16 @@ def resolve(spec: str, manifest: dict) -> Path:
     elif spec.startswith("music21:"):
         from music21 import corpus
         path = Path(os.path.dirname(corpus.__file__)) / spec.removeprefix("music21:")
+    elif spec.startswith("engraving:"):
+        from tools import engraving_check, robustness
+        name = spec.removeprefix("engraving:")
+        source = engraving_check.PIECES[name][0]
+        if isinstance(source, str):
+            robustness.OUT = main_checkout() / "out" / "robustness"
+            robustness.fetch(name, source)
+            path = robustness.OUT / "scores" / f"{name}{Path(source).suffix}"
+        else:
+            path = source
     else:
         path = ROOT / spec
     if not path.is_file():
