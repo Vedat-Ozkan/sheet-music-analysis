@@ -221,7 +221,8 @@ def observed(fn):
             span.end()
             write_line({**call, "outcome": outcome, "severity": SEVERITY[outcome],
                         "message": f"{tool} {outcome}", "timings_ms": timings})
-            await anyio.to_thread.run_sync(flush_traces)
+            with anyio.move_on_after(5):
+                await anyio.to_thread.run_sync(flush_traces, abandon_on_cancel=True)
 
     return wrapper
 
