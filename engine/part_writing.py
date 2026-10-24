@@ -264,8 +264,7 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                     and (reduced.seventh.pitchClass - reduced.root().pitchClass) % 12 in (9, 10, 11)):
                 seventh = reduced.seventh.pitchClass
         if seventh is not None:
-            doubled = [v for v in row if (spans or not decorated(pos, row[v]))
-                       and midi(row[v].pitch) % 12 == seventh]
+            doubled = [v for v in row if not decorated(pos, row[v]) and midi(row[v].pitch) % 12 == seventh]
             if len(doubled) > 1:
                 add("doubled_seventh", [pos], doubled, f"The chord seventh is doubled in the {' and '.join(name[v] for v in doubled)}; it should appear once.")
         if c and c.seventh is None and len(c.tones) == 3 and c.bass == (c.root + 7) % 12 and len(row) == len(voices) == 4:

@@ -220,3 +220,24 @@ def test_review_bwv269_rising_seventh_through_predominant():
              for beat, figure in [(1, 'I'), (2, 'ii'), (2.5, 'V43'), (3, 'I6')]]
     assert not any(h.rule == 'unresolved_seventh' and h.bars == (8, 8)
                    and h.beats == (2.5, 3.0) and h.voices == ((1, 1),) for h in part_writing.check(index, spans))
+
+
+@pytest.fixture(scope='module')
+def draft_corpus():
+    found = {}
+    for name, labels in json.loads((DATA / 'reference/part_writing_draft_chords.json').read_text())['chords'].items():
+        index = ScoreIndex(load_toolkit((DATA / name).read_bytes()).getMEI())
+        chords = [Chord(measure, beat, key_name, label, 1.0, 1.0, None) for measure, beat, key_name, label in labels]
+        voices, notes, rows = part_writing._table(index)
+        found[name] = index, notes, dict(rows), part_writing.check(index, chords)
+    return found
+
+
+def test_draft_chords_doubled_seventh_skips_ornaments(draft_corpus):
+    wrong = []
+    for name, (index, notes, rows, hits) in draft_corpus.items():
+        decorated = ornaments(index, notes)
+        for h in hits:
+            if h.rule == 'doubled_seventh' and any(rows[(h.bars[0], h.beats[0])][v][0].id in decorated for v in h.voices):
+                wrong.append((name, h.bars, h.beats, 'ornament counted as the seventh'))
+    assert not wrong, wrong
