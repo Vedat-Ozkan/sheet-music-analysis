@@ -288,7 +288,8 @@ def audiveris_read(data: bytes, audiveris: str, options: list[str], deadline: fl
 
 
 def run(audiveris: str, options: list[str], source: Path, work: str, env: dict, deadline: float) -> str:
-    command = [audiveris, "-batch", *options, "-export", "-output", work, str(source)]
+    # Let the server answer new calls while Java and its worker threads are CPU-bound.
+    command = ["nice", "-n", "10", audiveris, "-batch", *options, "-export", "-output", work, str(source)]
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise subprocess.TimeoutExpired(command, 0)

@@ -314,6 +314,8 @@ async def render_analysis(
     view: str = "all",
     piano: bool = False,
 ) -> CallToolResult:
+    if pdf_lock.locked():
+        return error_result(BUSY_MESSAGE)
     source = platform(ctx)
     if not await take("render", source):
         log("limit", tool="render_analysis", platform=source)
@@ -386,6 +388,8 @@ BUSY_MESSAGE = (
     meta={"openai/outputTemplate": PDF_CARD_URI, "openai/fileParams": ["pdf_file"]},
 )
 async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = False) -> CallToolResult:
+    if pdf_lock.locked():
+        return error_result(BUSY_MESSAGE)
     source = platform(ctx)
     started = time.time()
     try:
@@ -526,6 +530,8 @@ async def draft_analysis(
     student_analysis: str | None = None,
 ) -> CallToolResult:
     """measure_range limits the table, e.g. "1-8"; the default "all" returns the whole piece."""
+    if pdf_lock.locked():
+        return error_result(BUSY_MESSAGE)
     source = platform(ctx)
     started = time.time()
     try:
@@ -577,6 +583,8 @@ async def draft_analysis(
 async def correct_bars(
     ctx: Context, score_id: str, replacement_bars: str, part: str | None = None,
 ) -> CallToolResult:
+    if pdf_lock.locked():
+        return error_result(BUSY_MESSAGE)
     source = platform(ctx)
     try:
         before, _ = await resolve_score(None, score_id)
@@ -640,6 +648,8 @@ async def correct_bars(
     annotations=read_only("Draft a harmonic analysis from a note list"),
 )
 async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | None = None) -> CallToolResult:
+    if pdf_lock.locked():
+        return error_result(BUSY_MESSAGE)
     source = platform(ctx)
     try:
         # Reading the grammar needs no score, so a question costs the user nothing against the limit.
