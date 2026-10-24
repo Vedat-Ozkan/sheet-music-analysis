@@ -1036,6 +1036,25 @@ The baseline (Beat This! with a fixed number of beats per bar from the first dow
 
 The gate needs 16 of 20 and at most 5 points, so every method fails both conditions, and even perfect timing misses the numeral condition. The numerals barely depend on the bar lines (44.1% at 27% of bars right, 44.9% at 100%), because labels are matched by time. Where the points go, with perfect timing: the transcription costs almost nothing (about 44 from transcribed notes, 44.3 from the score's own notes through the same writer); spelling, the hand split and the key cost about 4 (48.0 with the real ones); the score writer itself about 2.4. The remaining bar failures are beat-level: one piece tracked in eighth notes, downbeats at the half bar in three, tempo changes in two. The salience weights were chosen on these same 20 pieces, so T1-T3 are if anything optimistic. Not yet tried: other trackers (T4), fine-tuning the tracker (T5, needs a one-off GPU spend), and automatic spelling, hand split and key work.
 
+### 57. Audio phase 1: the last round fails too; audio is parked (2026-10-24)
+
+The owner allowed one last bounded round (local, free). Every choice was made on 8 further ASAP pieces with When in Rome labels (Beethoven Op. 53 I and II, Op. 22 I, Op. 110 I, Op. 13 III, Chopin Op. 10 No. 12, BWV 856 and 868), and the 20 gate pieces were run once at the end.
+
+| Method | Bars at least 90% right | Full-numeral gap to the score path (50.4%) |
+|---|---|---|
+| T0 baseline | 2 of 20 | 5.4 |
+| T2 fully automatic | 6 | 7.3 |
+| T3 meter and pickup given | 7 | 6.4 |
+| Bar lines from ASAP (perfect timing) | 20 | 4.5 |
+
+Only perfect timing passes, and no method can supply it, so the gate fails and audio is parked as the plan says. Root and quality: 63.9 (T2) and 64.4 (T3) against 70.4; key 76.7 and 77.2 against 76.4.
+
+What helped: spelling each note around the first draft's local key, with the key signature from the draft's majority key, gained 2.4-3.6 points on the tuning set and is kept in `eval/audio.py`. A cost-based hand split (+0.4 at best) and pedal-extended note ends (+0.8 at best) were noise and were dropped.
+
+What didn't: PM2S (MIT code, CC BY weights) was worse than Beat This! on every tuning piece (downbeat F 0.29-0.80 against 0.32-1.00, bars about 0%). BeatNet was not run: not trained on piano, offline mode needs madmom, published results below Beat This!. A harmonic-rhythm test for bar length separated nothing. A bar-length prior in the smoothing fixed BWV 868 (0% to 95%) but broke Op. 13 III (92% to 0%), net zero, removed. Bar sizes counted in eighths were never chosen. The tempo-change fix was not run, for want of a similar tuning piece. Both trackers were trained on ASAP, so these numbers are on recordings they had seen, and are optimistic.
+
+Why parked: with every bar right the analysis is close enough, but the bar failures are genuinely ambiguous (half-bar against whole-bar downbeats, eighth-note tracking, tempo changes) and nothing free and local resolved them. What would reopen it: a beat tracker that gets bar lines right on unseen piano performances, or fine-tuning one (a quoted one-off GPU cost, owner approval). The harness, test set and ONNX models (release `audio-models-1`) stay for that. `site/docs.html` keeps saying audio isn't supported.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

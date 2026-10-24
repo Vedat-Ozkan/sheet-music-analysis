@@ -1,5 +1,7 @@
 # Plan: audio input (solo piano recordings), approved 2026-10-24
 
+**Status, 2026-10-24: parked.** Phase 0 passed (log 54); the phase 1 gate failed in every round (logs 55-57): best automatic bars 7 of 20, numeral gap 6.4. Phases 2 and 3 are not started.
+
 ## Context
 The owner wants users to attach a recording instead of a score. The test in engineering log 53 (Chopin Op. 28 No. 4, Ilić recording) found:
 - **Notes are accurate:** the Kong piano model reached note-onset F1 0.977.
