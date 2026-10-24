@@ -10,11 +10,13 @@ BUCKET=$PROJECT-data
 IMAGE=$REGION-docker.pkg.dev/$PROJECT/$SERVICE/server
 RUN_SERVICE=$SERVICE
 ACCESS=--allow-unauthenticated
+LIMITS=""
 if [ "$STAGE" = staging ]; then
   BUCKET=$PROJECT-staging-data
   IMAGE=$IMAGE:staging
   RUN_SERVICE=$SERVICE-staging
   ACCESS=--no-allow-unauthenticated
+  LIMITS='@DAILY_LIMITS={"draft": 100000, "render": 100000, "pdf_page": 100000}'
 elif [ "$STAGE" != production ]; then
   echo "unknown stage: $STAGE" >&2
   exit 1
@@ -61,5 +63,5 @@ PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://mcp.sheetmusicanalysis.com}
 gcloud run deploy "$RUN_SERVICE" --image="$IMAGE" --region="$REGION" \
   --service-account="$ACCOUNT" "$ACCESS" \
   --execution-environment=gen2 --cpu=2 --memory=4Gi --concurrency=4 --min-instances=0 --max-instances=1 --timeout=300 \
-  --set-env-vars="BUCKET=$BUCKET,PUBLIC_BASE_URL=$PUBLIC_BASE_URL"
+  --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL$LIMITS"
 echo "Connector URL: $PUBLIC_BASE_URL/mcp"
