@@ -265,9 +265,9 @@ def bars_right(truth: dict, audio: dict) -> tuple[float, int]:
     best = None
     for shift in (0, 1, -1):
         right = 0
-        for number, t0, t1, beat in truth["bars"]:
+        for ordinal, (_, t0, t1, beat) in enumerate(truth["bars"], 1):
             tolerance = max(0.3, beat / 4)
-            found = audio_bars.get(number + shift)
+            found = audio_bars.get(ordinal + shift)
             right += bool(found and abs(found[0] - t0) <= tolerance and abs(found[1] - t1) <= tolerance)
         if best is None or right > best[0]:
             best = (right, shift)
