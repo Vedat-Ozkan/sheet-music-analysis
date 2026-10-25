@@ -77,7 +77,9 @@ def fetch(name: str, url: str) -> bytes:
     if not cached.exists():
         cached.parent.mkdir(parents=True, exist_ok=True)
         with urllib.request.urlopen(url, timeout=60) as response:
-            cached.write_bytes(response.read())
+            partial = cached.with_name(f"{cached.name}.{os.getpid()}")
+            partial.write_bytes(response.read())
+            os.replace(partial, cached)
     return cached.read_bytes()
 
 
