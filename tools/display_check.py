@@ -677,6 +677,10 @@ def check_page(page: Page, item: str, entry: str, number: int, context: dict) ->
                 add("collision", shape.box, f"tendency arrow at ({round(shaft.box.cx)}, {round(shaft.box.cy)}) touches {', '.join(hit)}")
                 break
     for mark in page.marks:
+        if mark.kind == "analysis line" and mark.id == ERROR:
+            hit = sorted({m.kind for m in page.music if m.kind in ("dot", "accidental") and _shapes_touch(mark, m)})
+            if hit:
+                add("collision", mark.box, f"line at ({round(mark.box.cx)}, {round(mark.box.cy)}) crosses {', '.join(hit)}")
         if mark.kind in ("callout disc", "analysis box"):
             hit = sorted({m.kind for m in page.music if m.hits(mark.box)})
             if hit:
