@@ -106,11 +106,10 @@
   {
    "item": 11,
    "title": "Notation styles on a real analysis: ABRSM and figured bass",
-   "look_at": "Bach BWV 269 bars 3-4 in ABRSM style: the cadential six-four as Ic V\u2077 (hand-checked analysis examples/engraving/bach-269.json). Brahms Op. 118 No. 2, bars 0-8, from the hand-checked analysis (examples/engraving/brahms-118-2.json). ABRSM: bar 4 reads Ic V in letter inversions under its D bracket. Figured bass: the style's own figures with accidentals, which the BWV 269 sample could not show.",
+   "look_at": "Brahms Op. 118 No. 2, bars 0-8, from the hand-checked analysis (examples/engraving/brahms-118-2.json). ABRSM: bar 4 reads Ic V in letter inversions under its D bracket. Figured bass: the style's own figures with accidentals, which the BWV 269 sample could not show.",
    "notes": "Bar 4 is labelled I64 in this analysis, not Cad64 (your question AJ), so neither picture shows the V⁶₄ → ⁵₃ drawing of decision A.",
    "before": "46294db",
    "pictures": [
-    {"id": "bach269-abrsm-b3-4", "caption": "Bach BWV 269, bars 3-4, ABRSM style: the cadential Ic V\u2077", "entry": "render_analysis", "input": "engraving:bach-269", "analysis": "examples/engraving/bach-269.json", "bars": "3-4", "style": "abrsm", "show": "card_image"},
     {"id": "brahms-abrsm", "caption": "Brahms Op. 118 No. 2, bars 0-8, ABRSM style", "entry": "render_analysis", "input": "engraving:brahms-118-2", "analysis": "examples/engraving/brahms-118-2.json", "bars": "0-8", "style": "abrsm", "show": "card_image"},
     {"id": "brahms-figured-bass", "caption": "Brahms Op. 118 No. 2, bars 0-8, figured-bass style", "entry": "render_analysis", "input": "engraving:brahms-118-2", "analysis": "examples/engraving/brahms-118-2.json", "bars": "0-8", "style": "figured_bass", "show": "card_image"}
    ]
