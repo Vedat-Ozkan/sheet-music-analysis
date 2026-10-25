@@ -50,7 +50,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent.parent
 BASELINE = HERE / "tests" / "golden" / "display_check_pages.json"
 BENCH = "spike/omr/bench"
-RAW_SIGNATURE = "32914dc894fffcbfprod2"
+RAW_SIGNATURE = "7d31a512375b5701sma2rel"
 REVIEW_READINGS = ["chopin-prelude-4--ms", "joplin-maple-leaf-rag--ly", "mozart-k545-1--scan", "schubert-die-stadt--ly"]
 SHORT_LAST_PAGE = ["clara-schumann-polonaise-3--ly", "lehmann-golden-bridges--ms", "mozart-quartet-k80--ms",
                    "mozart-quartet-k80--scan", "mozart-quartet-k80--vr", "bach-chorale-269--ms",

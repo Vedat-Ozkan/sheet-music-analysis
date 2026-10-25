@@ -17,7 +17,7 @@ The CLI prints one line per violation: rule, item, entry point, page, bar, and w
 crop of each violation, framed in blue, to `out/display-check/<commit>/`. It exits 1 if anything is found.
 `-m 'not slow'` leaves the pytest version out of a quick run.
 
-The PDF readings come from the benchmark's cached Audiveris output (`spike/omr/bench/cache/raw` in the main
+The PDF readings come from the benchmark's cached Audiveris 5.11.0-sma.2 output (the release jar production uses; `spike/omr/bench/cache/raw` in the main
 checkout, git-ignored). They go through `engine.read_pdf.read_pdf`, so the reading is cleaned exactly as in
 production. Audiveris is never run. A reading missing from the cache is an error in the CLI and a skip in pytest.
 
