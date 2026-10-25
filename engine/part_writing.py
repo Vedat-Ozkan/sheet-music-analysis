@@ -315,7 +315,7 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                                  and {tonic, cb.third} <= tones and tones <= cb.tones)
             if opening_tonic:
                 return bool(voices[-1] in row and midi(row[voices[-1]].pitch) < midi(a[voices[-1]].pitch) < midi(b[voices[-1]].pitch))
-            if previous and previous.root in ((tonic + 2) % 12, (tonic + 5) % 12) and previous.tones <= {p.pitchClass for p in kb.pitches}:
+            if ca.seventh is not None and previous and previous.root in ((tonic + 2) % 12, (tonic + 5) % 12) and previous.tones <= {p.pitchClass for p in kb.pitches}:
                 continue
             return False
         return False

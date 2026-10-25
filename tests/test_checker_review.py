@@ -241,3 +241,15 @@ def test_draft_chords_doubled_seventh_skips_ornaments(draft_corpus):
             if h.rule == 'doubled_seventh' and any(rows[(h.bars[0], h.beats[0])][v][0].id in decorated for v in h.voices):
                 wrong.append((name, h.bars, h.beats, 'ornament counted as the seventh'))
     assert not wrong, wrong
+
+
+def test_rising_unequal_fifths_need_tonic_directly_before():
+    from music21 import stream
+    score = stream.Score()
+    for line in [['E5', 'F5', 'F5', 'G5'], ['C5', 'C5', 'B4', 'C5'], ['G4', 'A4', 'D4', 'G4'], ['C3', 'F3', 'D3', 'E3']]:
+        part = stream.Part([note.Note(name) for name in line])
+        part.makeMeasures(inPlace=True)
+        score.insert(0, part)
+    index = ScoreIndex(load_toolkit(GeneralObjectExporter(score).parse()).getMEI())
+    spans = [Chord(1, beat, 'C', figure, 1, 1, None) for beat, figure in [(1, 'I'), (2, 'IV'), (3, 'viio6'), (4, 'I6')]]
+    assert any(h.rule == 'unequal_fifths' for h in part_writing.check(index, spans))
