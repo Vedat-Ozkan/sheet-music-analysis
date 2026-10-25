@@ -891,11 +891,15 @@ class PageLayout:
         return min(spots, key=cost)
 
     def _shafts(self, system_a: System, a: Box, system_b: System, b: Box) -> list[tuple[System, float, float, float, float]]:
+        start = max([a.right + 50] + [box.right + 30 for kind, box in system_a.ring_avoid
+                                      if kind == "dots" and a.right - 10 <= box.x < a.right + 150 and box.y < a.bottom and box.bottom > a.y])
+        end = min([b.x - 50] + [box.x - 30 for kind, box in system_b.ring_avoid
+                                if kind == "accid" and b.x - 300 < box.right <= b.x + 20 and box.y < b.bottom and box.bottom > b.y])
         if system_a is system_b:
-            return [(system_a, a.right + 50, a.cy, b.x - 50, b.cy)]
+            return [(system_a, start, a.cy, end, b.cy)]
         return [
-            (system_a, a.right + 50, a.cy, system_a.right - 40, a.cy),
-            (system_b, self._content_left(system_b) - 250, b.cy, b.x - 50, b.cy),
+            (system_a, start, a.cy, system_a.right - 40, a.cy),
+            (system_b, self._content_left(system_b) - 250, b.cy, end, b.cy),
         ]
 
     def _draw_parallel_pair(self, group: list) -> None:

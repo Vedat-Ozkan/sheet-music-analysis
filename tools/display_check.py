@@ -808,8 +808,8 @@ def check_marks(page: Page, item: str, entry: str, number: int, marks: list[dict
             elif not any(_arrow_code(page, shaft) and _arrow_code(page, shaft).ink.gap(shaft.box) < 400 for shaft, _ in near):
                 add("dropped", head, f"the R of the tendency arrow at {where(mark['from_note'])} not drawn by its arrow")
         elif kind in ("line", "arrow"):
-            start = (head.x1 + 50, head.cy)
-            drawn = [m for m in page.marks if m.kind == "analysis line" and m.segment and abs(m.segment[0] - start[0]) <= 3 and abs(m.segment[1] - start[1]) <= 3]
+            drawn = [m for m in page.marks if m.kind == "analysis line" and m.segment and head.x1 + 47 <= m.segment[0] <= head.x1 + 300
+                     and abs(m.segment[1] - head.cy) <= 3]
             if not drawn:
                 add("dropped", head, f"{kind} from {where(mark['from_note'])} not drawn")
         elif kind == "bracket":
