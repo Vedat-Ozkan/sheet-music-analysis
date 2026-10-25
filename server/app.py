@@ -453,7 +453,7 @@ async def render_analysis(
         log("render_analysis", platform=source, problems=len(error.problems))
         return error_result("Fix these annotations and call again:\n" + "\n".join(error.problems))
     except ValueError as error:
-        log("render_analysis", platform=source, error=str(error))
+        log("render_analysis", platform=source, error=type(error).__name__)
         return error_result(str(error))
     musicxml, export_warning = None, None
     try:
@@ -461,7 +461,7 @@ async def render_analysis(
             musicxml = await anyio.to_thread.run_sync(export_musicxml, score, annotations.model_dump())
     except Exception as error:
         export_warning = "MusicXML export unavailable for this score. PNG and PDF are available."
-        log("render_analysis", platform=source, export_error=str(error))
+        log("render_analysis", platform=source, export_error=type(error).__name__)
 
     def extras() -> dict[str, bytes]:
         found, errors = {}, []
@@ -583,7 +583,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
         with stage("render"):
             tall, shaded, engraving, notice = await anyio.to_thread.run_sync(render)
     except (ScoreError, pdf_reader.ReadError, httpx.HTTPError) as error:
-        log("read_pdf", platform=source, error=str(error))
+        log("read_pdf", platform=source, error=type(error).__name__)
         return error_result(str(error))
     with stage("render"):
         pages = [shaded.png(page) for page in range(1, shaded.page_count + 1)]
@@ -703,7 +703,7 @@ async def draft_analysis(
     except check_analysis.ClarificationNeeded as error:
         return error_result(error.question)
     except (ScoreError, PositionError, ValueError, draft.DraftError, httpx.HTTPError) as error:
-        log("draft_analysis", platform=source, error=str(error), outcome=outcome_of(error))
+        log("draft_analysis", platform=source, error=type(error).__name__, outcome=outcome_of(error))
         return error_result(str(error))
     log("draft_analysis", platform=source, input=given, score_bytes=len(score), measure_range=measure_range,
         seconds=round(time.time() - started, 1))
@@ -763,7 +763,7 @@ async def correct_bars(
             code = secrets.token_hex(3).upper()
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", after)
     except (correct.CorrectionError, ScoreError, PositionError) as error:
-        log("correct_bars", platform=source, error=str(error))
+        log("correct_bars", platform=source, error=type(error).__name__)
         return error_result("Fix the replacement bars and call correct_bars again: " + str(error))
     log("correct_bars", platform=source, changed=len(review.changed_bars), pages=len(pages))
     descriptions = list(review.notes.values())
@@ -822,7 +822,7 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
     except check_analysis.ClarificationNeeded as error:
         return error_result(QUESTION_FOR_USER + error.question)
     except (note_list.NotesError, draft.DraftError, PositionError, ValueError) as error:
-        log("draft_from_notes", platform=source, error=str(error), chars=len(notes), outcome=outcome_of(error))
+        log("draft_from_notes", platform=source, error=type(error).__name__, chars=len(notes), outcome=outcome_of(error))
         return error_result(str(error))
     with stage("build"):
         text = draft.as_text(result)

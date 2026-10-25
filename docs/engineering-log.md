@@ -1055,6 +1055,10 @@ What didn't: PM2S (MIT code, CC BY weights) was worse than Beat This! on every t
 
 Why parked: with every bar right the analysis is close enough, but the bar failures are genuinely ambiguous (half-bar against whole-bar downbeats, eighth-note tracking, tempo changes) and nothing free and local resolved them. What would reopen it: a beat tracker that gets bar lines right on unseen piano performances, or fine-tuning one (a quoted one-off GPU cost, owner approval). The harness, test set and ONNX models (release `audio-models-1`) stay for that. `site/docs.html` keeps saying audio isn't supported.
 
+### 60. Error messages kept out of the logs (2026-10-24)
+
+An error's message can quote what the user sent (a part name, a note, an id), and six log lines in `server/app.py` still wrote it in full, against the privacy page. They now log only the error's kind (for example `ScoreError`); the user still gets the full message in the reply. This was built on 2026-10-13 on the usage-log branch, which never merged because the observability work replaced the rest of it. Tests: 175 server-path tests pass. Goes live with the next deploy.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
