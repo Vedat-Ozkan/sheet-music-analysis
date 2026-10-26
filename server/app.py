@@ -40,6 +40,7 @@ from engine import notes as note_list
 from engine import read_pdf as pdf_reader
 from engine import check_analysis, ledger, part_writing, reduce
 from engine.annotate import AnnotationError, render
+from engine.performance import performance_text
 from engine.annotations import AnnotationList
 from engine.export import export_midi, export_musicxml, export_romantext
 from engine.render import ScoreError, engrave, load_toolkit
@@ -53,6 +54,8 @@ DAILY_LIMITS = {"draft": 100, "render": 200, "pdf_page": 150} | json.loads(os.en
 MAX_PDF_PAGES = 12
 CARD_URI = "ui://sheet-music-analysis/card-v2.html"
 PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v2.html"
+PLAYER_URI = "ui://sheet-music-analysis/player-v2.html"
+CONNECTOR_URL = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
 HERE = Path(__file__).parent
 
 def read_only(title: str) -> ToolAnnotations:
@@ -623,7 +626,8 @@ apps.add_html_resource(
 
 
 
-CLAUDE_TOOLS = {"draft_from_notes"}
+CLAUDE_TOOLS = {"draft_from_notes", "play"}
+CLAUDE_ONLY_TOOLS = {"play"}
 NO_NOTE_LIST = (
     "No note list: draft_from_notes needs the compact note list (starting 'N1 div=') that the Sheet Music Analysis "
     "plugin's skill makes from the user's score file; this server cannot read the score in Claude. The plugin is "
@@ -637,10 +641,60 @@ class Server(MCPServer):
         result = await super()._handle_list_tools(ctx, params)
         if client_of(getattr(ctx.request, "headers", None)) == "claude":
             result.tools = [tool for tool in result.tools if tool.name in CLAUDE_TOOLS]
+        else:
+            result.tools = [tool for tool in result.tools if tool.name not in CLAUDE_ONLY_TOOLS]
         return result
 
 
 SITE = "https://sheetmusicanalysis.com"
+
+
+NO_PLAY_NOTES = (
+    "Nothing to play: pass the play_id that draft_from_notes returned, or, when there is no draft, the compact note "
+    "list (starting 'N1 div=') that the Sheet Music Analysis plugin's skill prints, passed unchanged as notes."
+)
+
+
+@apps.tool(
+    resource_uri=PLAYER_URI,
+    title="Play the score",
+    description=(
+        "Shows the user a small piano player in the chat, with play, pause and a seek bar. Use it when the user "
+        "wants to hear the passage or score. After draft_from_notes, pass the play_id it returned. Without a draft, "
+        "pass the compact note list (starting 'N1 div=') that the Sheet Music Analysis plugin's skill prints, "
+        "unchanged, as notes. It plays the score's tempo, dynamics, pedal marks and ornaments."
+    ),
+    annotations=read_only("Play the score"),
+)
+@observed
+async def play(ctx: Context, play_id: str | None = None, notes: str | None = None) -> CallToolResult:
+    if play_id:
+        stored = await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(play_id)}.notes")
+        notes = stored.decode() if stored else None
+    if not notes or not notes.lstrip().startswith("N1"):
+        return error_result(NO_PLAY_NOTES)
+    try:
+        performance = performance_text(note_list.decode(notes))
+    except (note_list.NotesError, ValueError) as error:
+        log("play", error=type(error).__name__, chars=len(notes), outcome=outcome_of(error))
+        return error_result(str(error))
+    log("play", chars_in=len(notes), relayed=not play_id)
+    return CallToolResult(
+        content=[TextContent(type="text", text="The user now has a player for this passage in the chat.")],
+        structured_content={"performance": performance},
+    )
+
+
+apps.add_html_resource(
+    PLAYER_URI,
+    (HERE / "player.html").read_text().replace("__SAMPLES__", f"{SITE}/piano/"),
+    name="Score player",
+    csp=ResourceCsp(connect_domains=[SITE]),
+    domain=hashlib.sha256(CONNECTOR_URL.encode()).hexdigest()[:32] + ".claudemcpcontent.com",
+    prefers_border=True,
+)
+
+
 mcp = Server(
     "sheet-music-analysis",
     title="Sheet Music Analysis",
@@ -830,6 +884,9 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
             text += "\n\n" + section
         if student_analysis:
             text += "\n\n" + check_analysis.as_text(student, result, index)
+    play_id = secrets.token_hex(3).upper()
+    await anyio.to_thread.run_sync(store.put, f"scores/{play_id}.notes", notes.encode())
+    text += f"\n\nPLAY: play_id {play_id} plays this passage. Call play with it when the user wants to hear it."
     log("draft_from_notes", platform=source, chars_in=len(notes), seconds=round(time.time() - started, 1))
     return CallToolResult(content=[TextContent(type="text", text=text)])
 

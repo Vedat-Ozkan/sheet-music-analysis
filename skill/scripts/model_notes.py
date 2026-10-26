@@ -14,8 +14,9 @@ import sys
 from pathlib import Path
 
 from engine import check_analysis, notes
-from engine.render import ScoreError, load_toolkit
-from engine.score import PositionError, ScoreIndex
+from engine.performance import marked_index
+from engine.render import ScoreError
+from engine.score import PositionError
 
 
 def main() -> int:
@@ -30,7 +31,7 @@ def main() -> int:
             start, _, end = args.measures.partition("-")
             first, last = int(start), int(end or start)
         score = args.score.read_bytes()
-        index = ScoreIndex(load_toolkit(score).getMEI())
+        index = marked_index(score)
         student = check_analysis.student_labels(args.student_analysis, score, index) if args.student_analysis else None
         print(notes.encode(index, first, last))
         if student:

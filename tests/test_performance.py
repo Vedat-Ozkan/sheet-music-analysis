@@ -4,6 +4,8 @@ import pytest
 from music21 import midi
 
 from engine.export import export_midi
+from engine import notes as note_list
+from engine.performance import marked_index, performance_text
 
 DATA = Path(__file__).parent / "data"
 
@@ -80,3 +82,33 @@ def test_an_accidental_earlier_in_the_bar_raises_the_upper_note(bach_trills):
 
 def test_an_accidental_printed_on_the_trill_sets_the_upper_note(bach_trills):
     assert bach_trills[1] == [70, 69]
+
+
+def read_text(text):
+    notes, now, velocity = [], 0, None
+    for token in text.split()[1:]:
+        if token[0] == "v":
+            velocity = int(token[1:])
+            continue
+        delta, length, pitch = (int(part) for part in token.split("."))
+        now += delta * 10
+        notes.append((now, now + length * 10, pitch, velocity))
+    return notes
+
+
+def test_the_performance_text_holds_the_same_notes_as_the_midi(chopin, opening):
+    played = read_text(performance_text(marked_index(chopin), (1, 8)))
+    midi = sorted(onsets(opening), key=lambda note: (note[0], note[1]))
+    assert [pitch for _, _, pitch, _ in played] == [pitch for _, pitch, _ in midi]
+    assert all(abs(start - time) <= 10 for (start, *_), (time, _, _) in zip(played, midi))
+
+
+def test_notes_released_under_the_pedal_ring_until_it_lifts(chopin):
+    lengths = [end - start for start, end, _, _ in read_text(performance_text(marked_index(chopin), (1, 1)))]
+    assert max(lengths) >= 2_500
+
+
+def test_the_note_list_carries_everything_the_performance_needs(chopin):
+    index = marked_index(chopin)
+    relayed = note_list.decode(note_list.encode(index))
+    assert performance_text(relayed) == performance_text(index)

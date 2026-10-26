@@ -53,6 +53,10 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
 
    If you are Claude Sonnet or Claude Haiku, end your first analysis in the conversation with this one sentence, and do not repeat it later: "For the most accurate analysis, use Claude Opus." If you are Opus or do not know which model you are, leave it out.
 
+## Playing the music
+
+When the user wants to hear the music, call the connector's `play` tool; a small piano player appears in the chat. Play the analysed passage: pass the `play_id` printed at the end of the draft from step 3. Only when the user asks for other bars or the whole piece, or there is no draft, run `model_notes.py` for those bars and pass its output, exactly as printed, as `notes`; this takes longer, because the whole note list goes through the chat. Without the connector, offer the MIDI file from step 6 instead.
+
 ## Method
 
 <!-- From here to the end is also sent to ChatGPT with each draft (server/app.py); keep it free of sandbox steps. -->

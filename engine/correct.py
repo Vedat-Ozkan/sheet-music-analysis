@@ -124,7 +124,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                         if duration <= 0:
                             raise CorrectionError(f"Bar {current}: duration must be positive")
                         continue
-                    grace = token.startswith("g")
+                    grace = token[0] if token.startswith(("g", "u")) else False
                     names = token[1:] if grace else token
                     if not grace and duration <= 0:
                         raise CorrectionError(f"Bar {current}: note/rest has no duration")
@@ -257,7 +257,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                 for chord, name in enumerate(names.split("+")):
                     note = ET.Element("note")
                     if grace:
-                        ET.SubElement(note, "grace")
+                        ET.SubElement(note, "grace", {"slash": "yes"} if grace == "u" else {})
                     if chord:
                         ET.SubElement(note, "chord")
                     pitch = name.rstrip("~")

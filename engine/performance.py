@@ -5,20 +5,26 @@ import struct
 import xml.etree.ElementTree as ET
 from bisect import bisect_right
 from dataclasses import dataclass
+from fractions import Fraction
 
 from engine.render import load_toolkit
-from engine.score import MEI, XML_ID, ScoreIndex
+from engine.score import LETTERS, MEI, SEMITONES, XML_ID, Event, Mark, Measure, ScoreIndex
 
 LEVELS = {"ppp": 30, "pp": 42, "p": 55, "mp": 66, "mf": 78, "f": 92, "ff": 105, "fff": 118}
 ACCENTS = {"sf": 20, "sfz": 20, "sffz": 24, "fz": 18, "rf": 14, "rfz": 16, "z": 16}
+SWELLS = ("cresc", "crescendo", "dim", "dimin", "diminuendo", "decresc")
+DYNAMICS = {*LEVELS, *ACCENTS, "fp", *SWELLS}
 DEFAULT_LEVEL = 66
+DEFAULT_TEMPO = 120.0
 SWELL = 15
 ORNAMENT_NOTE_MS = 70
-NATURAL = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
-LETTERS = "cdefgab"
+SLASHED_GRACE_MS = 30
 ALTER = {"s": 1, "f": -1, "n": 0, "x": 2, "ss": 2, "ff": -2}
-SHARP_ORDER, FLAT_ORDER = "fcgdaeb", "beadgcf"
+SHARP_ORDER, FLAT_ORDER = "FCGDAEB", "BEADGCF"
+TEXT_VERSION, TEXT_UNIT_MS = "P1", 10
 UPPER_NOTE_TRILLS = {"bach", "handel", "händel", "vivaldi", "scarlatti", "telemann", "couperin", "rameau", "purcell", "corelli", "haydn", "mozart", "clementi"}
+ORNAMENT_CODES = {("trill", "upper"): "tr", ("trill", "lower"): "tr", ("mordent", "upper"): "mu", ("mordent", "lower"): "ml",
+                  ("turn", "upper"): "tu", ("turn", "lower"): "tl"}
 
 
 @dataclass
@@ -30,119 +36,219 @@ class Note:
 
 
 def performance_midi(score: bytes, measures: tuple[int, int] | None = None) -> bytes:
-    toolkit = load_toolkit(score, keep_pedals=True)
-    mei = toolkit.getMEI()
+    return _write(*perform(marked_index(score), measures))
+
+
+def performance_text(index: ScoreIndex, measures: tuple[int, int] | None = None) -> str:
+    notes, pedals, offset = perform(index, measures)
+    tokens, previous, velocity = [TEXT_VERSION], 0, None
+    for note in sorted(notes, key=lambda note: (note.start, note.pitch)):
+        start = max(round((note.start - offset) / TEXT_UNIT_MS), previous)
+        end = round((_held(note.end, pedals) - offset) / TEXT_UNIT_MS)
+        if note.velocity != velocity:
+            tokens.append(f"v{note.velocity}")
+            velocity = note.velocity
+        tokens.append(f"{start - previous}.{max(end - start, 1)}.{note.pitch}")
+        previous = start
+    return " ".join(tokens)
+
+
+def marked_index(score: bytes) -> ScoreIndex:
+    mei = load_toolkit(score, keep_pedals=True).getMEI()
     root = ET.fromstring(mei)
     index = ScoreIndex(mei)
-    timemap = toolkit.renderToTimemap({"includeMeasures": True})
-    clock = _Clock(timemap)
-
+    starts = _bar_starts(index)
     bars = list(root.iter(f"{MEI}measure"))
     bar_ids = [bar.get(XML_ID) for bar in bars]
-    meters = {segment.id: measure.meter for measure in index.measures for segment in measure.segments}
-    starts = {entry["measureOn"]: entry["qstamp"] for entry in timemap if "measureOn" in entry}
+    events = {event.id: measure for measure in index.measures for event in measure.events}
 
-    def at(bar_id: str, tstamp: str) -> float:
-        unit = int((meters.get(bar_id) or "4/4").split("/")[1])
-        return starts.get(bar_id, 0.0) + (float(tstamp) - 1) * 4 / unit
+    def place(bar_id: str, tstamp: str) -> tuple[Measure, Fraction]:
+        measure, segment = index.locate_segment(bar_id)
+        unit = int((measure.meter or index.meter or "4/4").split("/")[1])
+        return measure, segment.start + (Fraction(tstamp).limit_denominator(960) - 1) * 4 / unit
 
-    def later(bar_id: str, tstamp2: str) -> float:
-        ahead, beat = re.fullmatch(r"(\d+)m\+([\d.]+)", tstamp2).groups()
-        position = min(bar_ids.index(bar_id) + int(ahead), len(bar_ids) - 1)
-        return at(bar_ids[position], beat)
-
-    notes = _notes(toolkit, timemap, root, clock)
-    marks, pedals, ornaments = [], [], {}
+    for score_def in root.iter(f"{MEI}scoreDef"):
+        if score_def.get("midi.bpm") and index.measures:
+            index.measures[0].marks.append(Mark("tempo", Fraction(0), score_def.get("midi.bpm")))
+        break
     for bar in bars:
         bar_id = bar.get(XML_ID)
         for element in bar:
             tag = element.tag.replace(MEI, "")
-            if tag == "dynam" and element.get("tstamp"):
-                text = re.sub(r"[\s.]", "", "".join(element.itertext())).lower()
-                marks.append((at(bar_id, element.get("tstamp")), text, None))
-            elif tag == "hairpin" and element.get("tstamp") and element.get("tstamp2"):
-                marks.append((at(bar_id, element.get("tstamp")), element.get("form"), later(bar_id, element.get("tstamp2"))))
-            elif tag == "pedal" and element.get("tstamp"):
-                pedals.append((at(bar_id, element.get("tstamp")), element.get("dir")))
-            elif tag in ("trill", "mordent", "turn") and element.get("startid"):
-                ornaments[element.get("startid").lstrip("#")] = element
+            tstamp = element.get("tstamp")
+            if tag == "dynam" and tstamp:
+                measure, offset = place(bar_id, tstamp)
+                text = next((word for word in re.findall(r"[a-z]+", "".join(element.itertext()).lower()) if word in DYNAMICS), None)
+                if text:
+                    measure.marks.append(Mark("dynamic", offset, text))
+            elif tag == "hairpin" and tstamp and element.get("tstamp2") and element.get("form") in ("cres", "dim"):
+                measure, offset = place(bar_id, tstamp)
+                ahead, beat = re.fullmatch(r"(\d+)m\+([\d.]+)", element.get("tstamp2")).groups()
+                target, target_offset = place(bar_ids[min(bar_ids.index(bar_id) + int(ahead), len(bar_ids) - 1)], beat)
+                length = max(starts[id(target)] + target_offset - starts[id(measure)] - offset, Fraction(0))
+                measure.marks.append(Mark("hairpin", offset, "<" if element.get("form") == "cres" else ">", length))
+            elif tag == "pedal" and tstamp and element.get("dir") in ("down", "up"):
+                measure, offset = place(bar_id, tstamp)
+                measure.marks.append(Mark("pedal", offset, element.get("dir")))
+            elif tag == "tempo" and tstamp and element.get("midi.bpm"):
+                measure, offset = place(bar_id, tstamp)
+                measure.marks.append(Mark("tempo", offset, element.get("midi.bpm")))
+            elif tag in ("trill", "mordent", "turn") and element.get("startid", "").lstrip("#") in events:
+                note_id = element.get("startid").lstrip("#")
+                measure = events[note_id]
+                event = next(event for event in measure.events if event.id == note_id)
+                code = ORNAMENT_CODES[(tag, element.get("form", "upper"))]
+                measure.marks.append(Mark("ornament", event.onset, code, pitch=event.pitch,
+                                          upper=element.get("accidupper", ""), lower=element.get("accidlower", "")))
+    for measure in index.measures:
+        measure.marks.sort(key=lambda mark: mark.offset)
+    index.trills_from_above = _starts_trills_above(root)
+    return index
 
-    loudness = _Loudness(sorted(marks, key=lambda mark: mark[0]), clock)
-    for note in notes.values():
+
+def perform(index: ScoreIndex, measures: tuple[int, int] | None = None) -> tuple[list[Note], list[tuple[float, int]], float]:
+    starts = _bar_starts(index)
+    clock = _Clock([(starts[id(measure)] + mark.offset, float(mark.value)) for measure in index.measures
+                    for mark in measure.marks if mark.kind == "tempo"])
+    at = {id(measure): (lambda offset, measure=measure: float(starts[id(measure)] + offset)) for measure in index.measures}
+    notes, heads = _notes(index, starts, clock)
+
+    dynamics, pedals = [], []
+    for measure in index.measures:
+        for mark in measure.marks:
+            q = at[id(measure)](mark.offset)
+            if mark.kind == "dynamic":
+                dynamics.append((q, mark.value, None))
+            elif mark.kind == "hairpin":
+                dynamics.append((q, "cres" if mark.value == "<" else "dim", q + float(mark.length)))
+            elif mark.kind == "pedal":
+                pedals.append((clock.ms(q), 127 if mark.value == "down" else 0))
+    loudness = _Loudness(sorted(dynamics, key=lambda mark: mark[0]), clock)
+    for note, _ in notes:
         note.velocity = loudness.at(note.start)
+
     key = _key_alterations(index.key_signature)
-    spelling = _spelling(bars)
-    upper_start = _starts_trills_above(root)
+    ornaments = {}
+    for measure in index.measures:
+        for mark in measure.marks:
+            if mark.kind == "ornament":
+                event = next((event for event in measure.events if not event.grace and event.onset == mark.offset
+                              and event.pitch == mark.pitch and event.id in heads), None)
+                if event:
+                    ornaments[id(heads[event.id])] = (mark, measure, event)
     performed = []
-    for note_id, note in notes.items():
-        ornament = ornaments.get(note_id)
-        if ornament is None:
+    for note, _ in notes:
+        if id(note) not in ornaments:
             performed.append(note)
             continue
-        upper = _neighbour(note_id, 1, ornament.get("accidupper"), spelling, notes, key)
-        lower = _neighbour(note_id, -1, ornament.get("accidlower"), spelling, notes, key)
-        kind = ornament.tag.replace(MEI, "")
-        performed.extend(_ornamented(note, kind, ornament.get("form", "upper"), upper, lower, upper_start))
+        mark, measure, event = ornaments[id(note)]
+        upper = _neighbour(event, measure, 1, mark.upper, key)
+        lower = _neighbour(event, measure, -1, mark.lower, key)
+        performed.extend(_ornamented(note, mark.value, upper, lower, index.trills_from_above))
 
     window = (0.0, max(note.end for note in performed))
     if measures:
-        first, last = (int(part) for part in index.measure_range(*measures).split("-"))
-        chosen = {note.get(XML_ID) for bar in bars[first - 1 : last] for note in bar.iter(f"{MEI}note")}
-        kept = [note for note_id, note in notes.items() if note_id in chosen]
+        chosen = {id(measure) for measure in _chosen(index, measures)}
+        kept = [note for note, measure in notes if id(measure) in chosen]
         if kept:
             window = (min(note.start for note in kept), max(note.end for note in kept))
         performed = [note for note in performed if window[0] - 1 <= note.start <= window[1]]
     pedal_events, down = [], False
-    for q, direction in sorted(pedals):
-        time, value = clock.ms(q), 127 if direction == "down" else 0
+    for time, value in sorted(pedals):
         if time < window[0]:
             down = bool(value)
         elif time <= window[1]:
             pedal_events.append((time, value))
     if down:
         pedal_events.insert(0, (window[0], 127))
-    return _write(performed, pedal_events, window[0])
+    return performed, pedal_events, window[0]
+
+
+def _held(end: float, pedals: list[tuple[float, int]]) -> float:
+    before = [value for time, value in pedals if time <= end]
+    if not before or not before[-1]:
+        return end
+    return next((time for time, value in pedals if time > end and not value), end)
+
+
+def _bar_starts(index: ScoreIndex) -> dict[int, Fraction]:
+    starts, position = {}, Fraction(0)
+    for measure in index.measures:
+        starts[id(measure)] = position
+        position += measure.length
+    return starts
+
+
+def _chosen(index: ScoreIndex, measures: tuple[int, int]) -> list[Measure]:
+    first, last = index.measure(measures[0]), index.measure(measures[1])
+    start, end = index.measures.index(first), index.measures.index(last)
+    if measures[0] == 1 and start > 0 and index.measures[start - 1].number == 0:
+        start -= 1
+    return index.measures[start : end + 1]
 
 
 class _Clock:
-    def __init__(self, timemap: list[dict]):
-        self.points = sorted({(entry["qstamp"], entry["tstamp"]) for entry in timemap})
-        self.quarters = [q for q, _ in self.points]
+    def __init__(self, tempos: list[tuple[Fraction, float]]):
+        self.points = [(0.0, 0.0, DEFAULT_TEMPO)]
+        for q, bpm in sorted(tempos):
+            q0, t0, previous = self.points[-1]
+            time = t0 + (float(q) - q0) * 60_000 / previous
+            if float(q) == q0:
+                self.points[-1] = (q0, t0, bpm)
+            else:
+                self.points.append((float(q), time, bpm))
+        self.quarters = [q for q, _, _ in self.points]
 
     def ms(self, q: float) -> float:
-        position = max(bisect_right(self.quarters, q) - 1, 0)
-        q0, t0 = self.points[position]
-        if position + 1 < len(self.points):
-            q1, t1 = self.points[position + 1]
-            return t0 + (q - q0) * (t1 - t0) / (q1 - q0)
-        if position > 0:
-            qp, tp = self.points[position - 1]
-            return t0 + (q - q0) * (t0 - tp) / (q0 - qp)
-        return t0 + (q - q0) * 1000
+        q0, t0, bpm = self.points[max(bisect_right(self.quarters, q) - 1, 0)]
+        return t0 + (q - q0) * 60_000 / bpm
 
 
-def _notes(toolkit, timemap: list[dict], root: ET.Element, clock: _Clock) -> dict[str, Note]:
-    tied = {tie.get("endid", "").lstrip("#"): tie.get("startid", "").lstrip("#") for tie in root.iter(f"{MEI}tie")}
-    for note in root.iter(f"{MEI}note"):
-        if note.get("tie") in ("m", "t") and note.get(XML_ID) not in tied:
-            tied[note.get(XML_ID)] = None
-    on, off = {}, {}
-    for entry in timemap:
-        for note_id in entry.get("on", []):
-            on[note_id] = entry["tstamp"]
-        for note_id in entry.get("off", []):
-            off[note_id] = entry["tstamp"]
-    notes = {}
-    for note_id, start in on.items():
-        head = note_id
-        while head in tied and tied[head]:
-            head = tied[head]
-        end = off.get(note_id, start + 100)
-        if head != note_id and head in notes:
-            notes[head].end = max(notes[head].end, end)
+def _midi(pitch: str) -> int:
+    accidental = pitch[1:].rstrip("0123456789")
+    octave = int(pitch[1 + len(accidental) :])
+    return 12 * (octave + 1) + SEMITONES[LETTERS.index(pitch[0])] + accidental.count("#") - accidental.count("b")
+
+
+def _notes(index: ScoreIndex, starts: dict[int, Fraction], clock: _Clock) -> tuple[list[tuple[Note, Measure]], dict[str, Note]]:
+    notes, heads, open_ties, graces, mains = [], {}, {}, {}, {}
+    for measure in index.measures:
+        for event in measure.events:
+            if not event.pitch:
+                continue
+            if event.grace:
+                graces.setdefault((id(measure), event.staff, event.onset, event.slashed), []).append(event)
+                continue
+            begin, finish = starts[id(measure)] + event.onset, starts[id(measure)] + event.onset + event.duration
+            pitch, tie = _midi(event.pitch), (event.staff, _midi(event.pitch))
+            held = open_ties.pop(tie, None)
+            if held and held[1] == begin:
+                note = held[0]
+                note.end = clock.ms(float(finish))
+            else:
+                note = Note(clock.ms(float(begin)), clock.ms(float(finish)), pitch)
+                notes.append((note, measure))
+                mains.setdefault((id(measure), event.staff, event.onset), []).append(note)
+            heads[event.id] = note
+            if event.tied:
+                open_ties[tie] = (note, finish)
+    for (measure_id, staff, onset, slashed), group in graces.items():
+        measure = next(measure for measure in index.measures if id(measure) == measure_id)
+        arrival = clock.ms(float(starts[measure_id] + onset))
+        if slashed:
+            for position, event in enumerate(group):
+                start = arrival - (len(group) - position) * SLASHED_GRACE_MS
+                notes.append((Note(start, start + SLASHED_GRACE_MS, _midi(event.pitch)), measure))
             continue
-        notes[note_id] = Note(start, end, toolkit.getMIDIValuesForElement(note_id)["pitch"])
-    return notes
+        main = mains.get((measure_id, staff, onset), [])
+        span = (main[0].end - main[0].start) / 2 if main else SLASHED_GRACE_MS * len(group)
+        for position, event in enumerate(group):
+            start = arrival + position * span / len(group)
+            notes.append((Note(start, start + span / len(group), _midi(event.pitch)), measure))
+        for note in main:
+            note.start += span
+    notes.sort(key=lambda item: item[0].start)
+    return notes, heads
 
 
 class _Loudness:
@@ -150,7 +256,7 @@ class _Loudness:
         self.levels, self.accents, self.swells = [], [], []
         for q, text, end in marks:
             moment = clock.ms(q)
-            if end is not None or text in ("cresc", "crescendo", "dim", "dimin", "diminuendo", "decresc"):
+            if end is not None or text in SWELLS:
                 rising = text.startswith("cres")
                 self.swells.append((moment, clock.ms(end) if end is not None else None, rising))
             elif text == "fp":
@@ -192,48 +298,40 @@ def _key_alterations(signature: str) -> dict[str, int]:
     return alterations
 
 
-def _spelling(bars: list[ET.Element]) -> dict[str, tuple[str, str, str, int, str | None]]:
-    spelling = {}
-    for bar in bars:
-        for staff in bar.iter(f"{MEI}staff"):
-            for note in staff.iter(f"{MEI}note"):
-                accid = note.get("accid") or next((child.get("accid") for child in note.iter(f"{MEI}accid")), None)
-                spelling[note.get(XML_ID)] = (bar.get(XML_ID), staff.get("n"), note.get("pname"), int(note.get("oct")), accid)
-    return spelling
-
-
 def _starts_trills_above(root: ET.Element) -> bool:
     composers = " ".join("".join(name.itertext()) for name in root.iter(f"{MEI}persName") if name.get("role") == "composer")
     return any(word in UPPER_NOTE_TRILLS for word in re.findall(r"\w+", composers.lower()))
 
 
-def _neighbour(note_id: str, direction: int, printed: str | None, spelling: dict, notes: dict[str, Note], key: dict[str, int]) -> int:
-    bar, staff, letter, octave, _ = spelling[note_id]
+def _spelled(pitch: str) -> tuple[str, int, int]:
+    accidental = pitch[1:].rstrip("0123456789")
+    return pitch[0], int(pitch[1 + len(accidental) :]), accidental.count("#") - accidental.count("b")
+
+
+def _neighbour(event: Event, measure: Measure, direction: int, printed: str, key: dict[str, int]) -> int:
+    letter, octave, _ = _spelled(event.pitch)
     position = LETTERS.index(letter) + direction
     letter, octave = LETTERS[position % 7], octave + position // 7
     if printed in ALTER:
         alteration = ALTER[printed]
     else:
-        earlier = [
-            (notes[other].start, ALTER[accid])
-            for other, (other_bar, other_staff, other_letter, other_octave, accid) in spelling.items()
-            if (other_bar, other_staff, other_letter, other_octave) == (bar, staff, letter, octave)
-            and accid in ALTER and other in notes and notes[other].start < notes[note_id].start
-        ]
+        earlier = [(other.onset, _spelled(other.pitch)[2]) for other in measure.events
+                   if other.pitch and other.staff == event.staff and other.onset < event.onset
+                   and _spelled(other.pitch)[:2] == (letter, octave)]
         alteration = max(earlier)[1] if earlier else key[letter]
-    return 12 * (octave + 1) + NATURAL[letter] + alteration
+    return 12 * (octave + 1) + SEMITONES[LETTERS.index(letter)] + alteration
 
 
-def _ornamented(note: Note, kind: str, form: str, upper: int, lower: int, upper_start: bool) -> list[Note]:
+def _ornamented(note: Note, code: str, upper: int, lower: int, upper_start: bool) -> list[Note]:
     length = note.end - note.start
     step = min(ORNAMENT_NOTE_MS, length / 4)
-    if kind == "trill":
+    if code == "tr":
         pairs = max(int(length // step - 1) // 2, 1)
         pitches = [upper, note.pitch] * pairs if upper_start else [note.pitch, upper] * pairs + [note.pitch]
-    elif kind == "mordent":
-        pitches = [note.pitch, upper if form == "upper" else lower, note.pitch]
+    elif code in ("mu", "ml"):
+        pitches = [note.pitch, upper if code == "mu" else lower, note.pitch]
     else:
-        pitches = [upper, note.pitch, lower, note.pitch] if form == "upper" else [lower, note.pitch, upper, note.pitch]
+        pitches = [upper, note.pitch, lower, note.pitch] if code == "tu" else [lower, note.pitch, upper, note.pitch]
     played = []
     for position, pitch in enumerate(pitches):
         start = note.start + position * step

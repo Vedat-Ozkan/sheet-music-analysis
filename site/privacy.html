@@ -21,14 +21,14 @@
 <main class="wrap narrow">
   <section class="hero">
     <h1>Privacy policy</h1>
-    <p class="muted">Last updated 6 October 2026</p>
+    <p class="muted">Last updated 26 October 2026</p>
   </section>
 
   <p>Sheet Music Analysis ("we") is a free tool. It has no accounts, no advertising and no tracking. This page explains what reaches our server, what we keep, and for how long.</p>
 
   <h2>What reaches our server</h2>
   <h3>In Claude, with the plugin</h3>
-  <p>Your score file stays in Claude's own workspace. The plugin sends our server only a compact list of the notes in the passage (pitches, timings and staves), so our model can draft the analysis. This list is used to answer the request and is not stored.</p>
+  <p>Your score file stays in Claude's own workspace. The plugin sends our server only a compact list of the notes in the passage (pitches, timings and staves), so our model can draft the analysis, along with the score's tempo, dynamics, pedal and ornament marks so the passage can be played back in the chat. We keep this list for one day so that you can play the passage, then it is deleted.</p>
   <h3>In ChatGPT</h3>
   <p>The score file you attach or pick is sent to our server, which drafts the analysis and draws the annotated page. We store the score, the draft and the drawn pages (PNG and PDF) so that the chat can refer back to them during your conversation.</p>
   <h3>Never</h3>
@@ -38,7 +38,7 @@
   <div class="table-scroll"><table>
     <tr><th>Data</th><th>Kept for</th></tr>
     <tr><td>Uploaded scores, drafts and drawn pages</td><td>Deleted automatically after one day (the deletion itself can take up to one more day to run).</td></tr>
-    <tr><td>Note lists sent by the Claude plugin</td><td>Not stored.</td></tr>
+    <tr><td>Note lists sent by the Claude plugin</td><td>Deleted automatically after one day (the deletion itself can take up to one more day to run).</td></tr>
     <tr><td>Daily usage counts: how many drafts, pages and uploads, split by Claude and ChatGPT</td><td>Kept, to understand use and stay within the free service's capacity. They contain no score content and nothing that identifies you.</td></tr>
     <tr><td>Server logs: which tool ran, file sizes, timings, errors</td><td>30 days. They never contain score content or chat text.</td></tr>
     <tr><td>Our hosting provider's standard request logs, which include the IP address of the computer making the request</td><td>30 days. For most requests this is Anthropic's or OpenAI's server, not your device; when you pick a file with ChatGPT's file button, it is your browser's address.</td></tr>

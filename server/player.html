@@ -1,0 +1,200 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root { --fg: #111; --muted: #6e6e73; --track: #d0d0d0; --button: #0d0d0d; --button-fg: #fff; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #f2f2f5; --muted: #a1a1a6; --track: #48484a; --button: #f2f2f5; --button-fg: #111; } }
+  body { margin: 0; font: 13px system-ui, sans-serif; color: var(--fg); background: transparent; }
+  .player { display: flex; align-items: center; gap: 10px; padding: 8px 12px; }
+  button { flex: none; width: 32px; height: 32px; border: 0; border-radius: 16px; background: var(--button); color: var(--button-fg); cursor: pointer; display: grid; place-items: center; }
+  button:disabled { opacity: .5; cursor: default; }
+  svg { width: 14px; height: 14px; fill: currentColor; }
+  input { flex: 1; min-width: 60px; accent-color: var(--button); }
+  .time { flex: none; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .credit { padding: 0 12px 6px; font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="player">
+  <button id="play" aria-label="Play" disabled><svg id="icon" viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button>
+  <input id="seek" type="range" min="0" max="0" step="0.1" value="0" aria-label="Position" disabled>
+  <span class="time" id="time">0:00 / 0:00</span>
+</div>
+<div class="credit" id="credit">Piano: Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0)</div>
+<script>
+  const SAMPLES = "__SAMPLES__";
+  const LAYERS = [4, 7, 9, 11, 13, 14];
+  const SAMPLE_NAMES = { 0: "C", 3: "Ds", 6: "Fs", 9: "A" };
+  const PLAY = "M3 1.5v11l9.5-5.5z", PAUSE = "M2.5 1.5h3v11h-3zM8.5 1.5h3v11h-3z";
+  const button = document.getElementById("play"), seek = document.getElementById("seek"), time = document.getElementById("time");
+  let notes = [], total = 0, context = null, output = null, buffers = {}, sources = [], position = 0, startedAt = 0, playing = false, dragging = false;
+  let nextId = 1;
+  const pending = {};
+
+  function send(message) { window.parent.postMessage(message, "*"); }
+  function request(method, params) {
+    const id = nextId++;
+    send({ jsonrpc: "2.0", id, method, params });
+    return new Promise((resolve) => { pending[id] = resolve; });
+  }
+  function reportSize() {
+    const root = document.documentElement;
+    send({ jsonrpc: "2.0", method: "ui/notifications/size-changed", params: { width: root.scrollWidth, height: root.scrollHeight } });
+  }
+
+  function clock(seconds) {
+    const whole = Math.floor(seconds);
+    return Math.floor(whole / 60) + ":" + String(whole % 60).padStart(2, "0");
+  }
+  function showTime(seconds) { time.textContent = clock(seconds) + " / " + clock(total); }
+
+  function sampleOf(note) {
+    const layer = LAYERS.reduce((a, b) => Math.abs(8 * b - note.velocity) < Math.abs(8 * a - note.velocity) ? b : a);
+    const pitch = Math.min(108, Math.max(21, 21 + 3 * Math.round((note.pitch - 21) / 3)));
+    return { layer, pitch, key: SAMPLE_NAMES[pitch % 12] + (Math.floor(pitch / 12) - 1) + "v" + layer };
+  }
+
+  function show(text) {
+    if (typeof text !== "string" || notes.length) return;
+    const tokens = text.trim().split(/\s+/);
+    if (tokens[0] !== "P1") return;
+    let now = 0, velocity = 66;
+    for (const token of tokens.slice(1)) {
+      if (token[0] === "v") { velocity = Number(token.slice(1)); continue; }
+      const [delta, length, pitch] = token.split(".").map(Number);
+      now += delta / 100;
+      notes.push({ start: now, end: now + length / 100, pitch, velocity });
+    }
+    total = Math.max(...notes.map((note) => note.end));
+    seek.max = total;
+    seek.disabled = button.disabled = false;
+    showTime(0);
+  }
+
+  function room() {
+    const length = Math.floor(context.sampleRate * 2.2);
+    const impulse = context.createBuffer(2, length, context.sampleRate);
+    for (let channel = 0; channel < 2; channel++) {
+      const data = impulse.getChannelData(channel);
+      for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-3.2 * i / context.sampleRate);
+    }
+    const reverb = context.createConvolver();
+    reverb.buffer = impulse;
+    return reverb;
+  }
+
+  async function prepare() {
+    context = new AudioContext();
+    output = context.createGain();
+    output.gain.value = 0.5;
+    output.connect(context.destination);
+    const wet = context.createGain();
+    wet.gain.value = 0.22;
+    output.connect(room()).connect(wet).connect(context.destination);
+    const keys = [...new Set(notes.map((note) => sampleOf(note).key))];
+    await Promise.all(keys.map(async (key) => {
+      const response = await fetch(SAMPLES + key + ".mp3");
+      buffers[key] = await context.decodeAudioData(await response.arrayBuffer());
+    }));
+  }
+
+  function schedule(from) {
+    const begin = context.currentTime + 0.05;
+    startedAt = begin - from;
+    for (const note of notes) {
+      if (note.end <= from) continue;
+      const sample = sampleOf(note);
+      const rate = 2 ** ((note.pitch - sample.pitch) / 12);
+      const source = context.createBufferSource();
+      source.buffer = buffers[sample.key];
+      source.playbackRate.value = rate;
+      const gain = context.createGain();
+      const at = begin + Math.max(0, note.start - from);
+      const stop = begin + (note.end - from);
+      gain.gain.setValueAtTime(Math.min(1.3, note.velocity / (8 * sample.layer)), at);
+      gain.gain.setTargetAtTime(0, Math.max(stop, at + 0.08), 0.2);
+      source.connect(gain).connect(output);
+      source.start(at, Math.max(0, from - note.start) * rate);
+      source.stop(Math.max(stop, at + 0.08) + 1.2);
+      sources.push(source);
+    }
+  }
+
+  function silence() {
+    for (const source of sources) { try { source.stop(); } catch (error) {} }
+    sources = [];
+  }
+
+  function setIcon(path, label) {
+    document.querySelector("#icon path").setAttribute("d", path);
+    button.setAttribute("aria-label", label);
+  }
+
+  function pause() {
+    position = Math.min(total, context.currentTime - startedAt);
+    silence();
+    playing = false;
+    setIcon(PLAY, "Play");
+  }
+
+  async function play() {
+    if (!context) {
+      button.disabled = true;
+      time.textContent = "Loading…";
+      try {
+        await prepare();
+      } catch (error) {
+        context = null;
+        time.textContent = "Couldn't load the piano";
+        button.disabled = false;
+        return;
+      }
+      button.disabled = false;
+    }
+    if (position >= total) position = 0;
+    await context.resume();
+    schedule(position);
+    playing = true;
+    setIcon(PAUSE, "Pause");
+  }
+
+  button.addEventListener("click", () => playing ? pause() : play());
+  seek.addEventListener("pointerdown", () => { dragging = true; });
+  seek.addEventListener("input", () => showTime(Number(seek.value)));
+  seek.addEventListener("change", () => {
+    dragging = false;
+    position = Number(seek.value);
+    if (playing) { silence(); schedule(position); }
+  });
+
+  setInterval(() => {
+    if (!playing) return;
+    const now = context.currentTime - startedAt;
+    if (now >= total + 1.2) { pause(); position = 0; seek.value = 0; showTime(0); return; }
+    if (!dragging) seek.value = Math.min(now, total);
+    showTime(Math.min(now, total));
+  }, 200);
+
+  window.addEventListener("message", (event) => {
+    const message = event.data;
+    if (!message || message.jsonrpc !== "2.0") return;
+    if (message.id !== undefined && pending[message.id]) {
+      pending[message.id](message.result);
+      delete pending[message.id];
+    } else if (message.method === "ui/notifications/tool-input") {
+      show(message.params && message.params.arguments && message.params.arguments.performance);
+    } else if (message.method === "ui/notifications/tool-result") {
+      show(message.params && message.params.structuredContent && message.params.structuredContent.performance);
+    }
+  });
+
+  reportSize();
+  new ResizeObserver(reportSize).observe(document.body);
+
+  const identity = { name: "score-player", version: "0.0.1" };
+  request("ui/initialize", { protocolVersion: "2026-01-26", appInfo: identity, clientInfo: identity, appCapabilities: {} })
+    .then(() => send({ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {} }));
+</script>
+</body>
+</html>

@@ -22,7 +22,7 @@ This project would not exist without [AnalysisGNN](https://github.com/manoskary/
 | `engine/notes.py` | Compact text form of a score's notes, which the skill passes to the server so the draft model can run without the file being uploaded. |
 | `spike/` | Throwaway MCP server (superseded by `server/`) for plan step 1: tests how a score gets in and how a page shows up in each chat app. |
 | `server/`, `Dockerfile`, `Dockerfile.base` | The production MCP server (`server/app.py`): the three tools the plugin and ChatGPT use, plus `read_pdf` for ChatGPT (reads a PDF with Audiveris through `engine/read_pdf.py` and shows the engraved result to check before the analysis; `tests/test_read_pdf.py` runs when `AUDIVERIS` points at an Audiveris launcher), daily limits, storage in a Cloud Storage bucket that deletes scores and pages after a day. `server/deploy.sh PROJECT_ID` builds the image on Cloud Build and deploys it to Cloud Run (two instances at most, two calls at once each). Run locally with `.venv/bin/python -m server.app` (port 8080, files under `out/server/`). |
-| `site/`, `wrangler.jsonc` | The website at sheetmusicanalysis.com: landing page, how-to-use, privacy and terms, plus the clef icons the server reports to chat hosts. Static files served by Cloudflare; publish with `npx wrangler@4 deploy`. `site/.assetsignore` keeps local `.uuid` files off the site. |
+| `site/`, `wrangler.jsonc` | The website at sheetmusicanalysis.com: landing page, how-to-use, privacy and terms, plus the clef icons the server reports to chat hosts. Static files served by Cloudflare; publish with `npx wrangler@4 deploy`. `site/.assetsignore` keeps local `.uuid` files off the site. `site/piano/` holds the chat player's piano samples; it is not in git, so run `uv run --with soundfile python tools/piano_samples.py` before publishing. |
 | `openai-plugin/` | The ChatGPT listing package: `plugin.json` (listing text, icon, review test cases), `mcp.json` (the server address) and icons. Upload it zipped at platform.openai.com/plugins: `cd openai-plugin && zip -r ../out/sheet-music-analysis-openai.zip plugin.json mcp.json assets`. Bump `version` with each upload. |
 | `proxy/` | A Cloudflare Worker that serves the Cloud Run server at mcp.sheetmusicanalysis.com, the address given to Claude and ChatGPT. Publish with `npx wrangler@4 deploy -c proxy/wrangler.jsonc`. |
 | `engine/read_pdf.py`, `engine/triplets.py` | Reading a PDF: Audiveris from our fork (https://github.com/Vedat-Ozkan/audiveris, release `5.11.0-sma.2`, AGPL-3.0; never delete a release, publish a new one), up to three readings with different settings keeping the one with fewest bars that don't add up, then cleaning and inferring triplets printed without a "3" (log 35). |
@@ -31,6 +31,8 @@ This project would not exist without [AnalysisGNN](https://github.com/manoskary/
 | `spike/omr/bench/` | PDF reading benchmark: 23 pieces, 57 PDFs (MuseScore, LilyPond, Verovio, scans), scored at the engine's level by kind of mistake; `bench-heldout*` are unseen sets. Only the scripts are committed: `build.py` rebuilds the pieces and PDFs (some music21 encodings' licences are unverified, so they are not redistributed). |
 | `engine/draft.py` | Runs the draft model and condenses its output into chords, cadences, phrase ends and non-chord tones. |
 | `vendor/analysisgnn/` | Clone of the draft model (not committed; see `.gitignore`). |
+
+**Shipping the chat player, in this order.** The skill's note list now carries an `x:` line per bar (tempo, dynamics, pedal, ornaments), which servers from before the player reject, failing the whole analysis. So: (1) deploy the server (`server/deploy.sh`), which reads both old and new note lists; (2) make the samples and publish the site (`tools/piano_samples.py`, then `npx wrangler@4 deploy`), which also publishes the privacy page that says note lists are kept for a day; (3) only then publish the skill and plugin.
 
 ## Setup
 
@@ -65,7 +67,8 @@ The server needs a public HTTPS address (a tunnel or a host) before Claude or Ch
 |---|---|
 | `draft_analysis` | Runs the draft model and returns its table for the chat model to review. |
 | `render_analysis` | Draws the reviewed annotation list and shows the page in a card, with a PDF link. `piano=true` draws it on a two-staff piano reduction (`engine/piano.py`). |
-| `draft_from_notes` | Runs the draft model on a note list sent by the Claude skill. |
+| `draft_from_notes` | Runs the draft model on a note list sent by the Claude skill, and keeps the list for a day so `play` can use it. |
+| `play` | Claude only: shows a small piano player in the chat for a drafted passage (`play_id`) or a note list. |
 | `choose_score` | A file button in the chat, for ChatGPT users who haven't attached a score. |
 | `engrave_score`, `engrave_score_card` | Plain engraving, as an image result or in a card. |
 | `sample_analysis`, `sample_analysis_card` | The hand-annotated Chopin example, needing no file. |

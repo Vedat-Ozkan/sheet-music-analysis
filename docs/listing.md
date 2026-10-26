@@ -40,7 +40,7 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 
 ## Claude
 
-The plugin is the product in Claude. Its server is also submitted as an MCP connector, as Anthropic asks: registering removes the "unregistered server" warning users would otherwise see when installing the plugin, and gives the server's health and usage dashboard. The connector is paired with the plugin and its listing points people to the plugin; on its own in Claude it offers only `draft_from_notes`, which, called without the plugin's note list, returns an error naming the plugin.
+The plugin is the product in Claude. Its server is also submitted as an MCP connector, as Anthropic asks: registering removes the "unregistered server" warning users would otherwise see when installing the plugin, and gives the server's health and usage dashboard. The connector is paired with the plugin and its listing points people to the plugin; on its own in Claude it offers only `draft_from_notes` and `play`, which, called without the plugin's note list, return an error naming the plugin.
 
 Requirement to state wherever the form allows: Claude's **Code execution and file creation** setting must be on (Settings → Capabilities), because the skill reads the score in Claude's sandbox.
 
@@ -71,15 +71,15 @@ Requirement to state wherever the form allows: Claude's **Code execution and fil
 - **Company:** Sheet Music Analysis, https://sheetmusicanalysis.com.
 - **Authentication:** none.
 - **Data handling:** our own service; no health data; no sponsored content.
-- **Test & launch:** no test account needed. Install the plugin (or add this URL as a custom connector together with the plugin's skill), attach https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl and ask "Analyse the harmony of bars 1–8". The one tool Claude sees, `draft_from_notes`, has been run from Claude.
+- **Test & launch:** no test account needed. Install the plugin (or add this URL as a custom connector together with the plugin's skill), attach https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl and ask "Analyse the harmony of bars 1–8". Claude sees two tools, `draft_from_notes` and `play`; `draft_from_notes` has been run from Claude.
 - **Pairing:** after both are submitted, pair the connector with the plugin in the portal.
 
 ## Claude: plugin form
 
 - **Repository:** `Vedat-Ozkan/sheet-music-analysis`, path `dist/sheet-music-analysis`, branch `main`.
-- **Personal data:** none collected. The plugin sends our server a list of the notes in the passage (pitches, timings, staves), not the file; the list is not stored.
+- **Personal data:** none collected. The plugin sends our server a list of the notes in the passage (pitches, timings, staves, and the score's tempo, dynamics, pedal and ornament marks), not the file; the list is kept for one day so the passage can be played in the chat, then deleted.
 - **Third-party services:** our own server at mcp.sheetmusicanalysis.com, hosted on Google Cloud, behind Cloudflare.
-- **Retention:** note lists are not stored.
+- **Retention:** note lists are deleted after one day.
 - **Age-appropriateness:** suitable for general audiences, including students under 18.
 
 ## ChatGPT: submission form
