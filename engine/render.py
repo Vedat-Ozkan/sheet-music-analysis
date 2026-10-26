@@ -159,7 +159,7 @@ class Engraving:
         return max(ink[1] - pad, 0), min(ink[3] + pad, image.height)
 
 
-def load_toolkit(score: bytes, options: dict | None = None) -> verovio.toolkit:
+def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False) -> verovio.toolkit:
     toolkit = verovio.toolkit(False)
     toolkit.setResourcePath(RESOURCE_PATH)
     toolkit.setOptions({**VEROVIO_OPTIONS, **(options or {})})
@@ -175,14 +175,14 @@ def load_toolkit(score: bytes, options: dict | None = None) -> verovio.toolkit:
         loaded = toolkit.loadData(text)
     if not loaded:
         raise ScoreError("Verovio could not read this file as MusicXML")
-    _tidy(toolkit, _readable_names(score))
+    _tidy(toolkit, _readable_names(score), keep_pedals)
     if len(set(re.findall(r'<staffDef\b[^>]*\bn="(\d+)"', toolkit.getMEI()))) <= LARGE_SCORE_STAVES:
         toolkit.setOptions({"systemDivider": "none"})
         toolkit.redoLayout()
     return toolkit
 
 
-def _tidy(toolkit: verovio.toolkit, names: dict[str, str]) -> None:
+def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool = False) -> None:
     mei = toolkit.getMEI()
     patched = mei
     for part, name in names.items():
@@ -222,7 +222,8 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str]) -> None:
     if len(re.findall(r"<staffDef\b", patched)) > BRACKET_MAX_STAVES:
         patched = re.sub(r"<scoreDef\b(?![^>]*\boptimize=)", '<scoreDef optimize="true"', patched, count=1)
     patched = _drop_title_text(patched)
-    patched = re.sub(r"<pedal\b[^>]*/>", "", patched)
+    if not keep_pedals:
+        patched = re.sub(r"<pedal\b[^>]*/>", "", patched)
     patched = re.sub(r"<dir\b[^>]*>(?:(?!</dir>).)*?\bPed(?:ale?|\b)(?:(?!</dir>).)*?</dir>", "", patched, flags=re.S)
     patched = re.sub(r"<dir\b[^>]*>(?:\s|<[^>]+>)*\*(?:\s|<[^>]+>)*</dir>", "", patched)
     patched = re.sub(r"(<tempo\b[^>]*>(?:(?!</tempo>).)*?</rend>)\(", r"\1 (", patched, flags=re.S)
