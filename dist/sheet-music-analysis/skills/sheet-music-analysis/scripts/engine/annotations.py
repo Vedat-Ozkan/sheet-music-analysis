@@ -1,17 +1,12 @@
-"""The annotation list: what the chat model writes and the renderer draws.
-
-Every annotation addresses the music by position (measure number, beat, staff,
-pitch), never by pixel. See docs/annotation-spec.md.
-"""
-
 from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 View = Literal["harmony", "voice_leading", "form"]
 Role = Literal["student", "composer"]
+Style = Literal["current", "abrsm", "figured_bass"]
 
 
 class Position(BaseModel):
@@ -81,14 +76,34 @@ class Region(Annotation):
 class NonChordTone(Annotation):
     type: Literal["nct"]
     note: NoteRef
-    label: str = Field(description='e.g. "P" passing, "N" neighbor, "S" suspension, "APP" appoggiatura')
+    label: str = Field(description='Open Music Theory abbreviation, e.g. "PT" passing, "NT" neighbor, "SUS" suspension, "APP" appoggiatura, "ET", "ANT", "RET", "PED"; the older "P", "N", "S" are drawn as PT, NT, SUS')
+
+
+FAULT_ARROW_LABELS = frozenset({"R"})
 
 
 class VoiceLeading(Annotation):
+    """A part-writing mark. Faults are drawn red (every line, ring and bracket, and an arrow labelled with a fault
+    word); other arrows are analysis marks in magenta. The label names the fault, once per pair of voices."""
+
     type: Literal["voice_leading"]
+    kind: Literal["arrow", "line", "ring", "bracket"] = Field(
+        "arrow",
+        description="arrow: a tendency tone to the note that follows (to_note); line: one voice of a parallel or "
+        "direct interval, no arrowhead (to_note); ring: circle the note (from_note only); bracket: square bracket "
+        "spanning two notes of one chord (to_note)")
     from_note: NoteRef
-    to_note: NoteRef
+    to_note: NoteRef | None = None
     label: str = ""
+    direction: Literal["up", "down"] | None = Field(
+        None, description="An improper-resolution arrow (label R) points the way the note should have gone: up for a "
+        "leading tone, down for a chordal seventh; down when omitted")
+
+    @model_validator(mode="after")
+    def _needs_to_note(self):
+        if (self.kind == "ring") == (self.to_note is not None):
+            raise ValueError("a ring takes only from_note; every other kind needs to_note")
+        return self
 
 
 class Callout(Annotation):
@@ -104,7 +119,7 @@ AnyAnnotation = Annotated[
 
 DEFAULT_VIEWS: dict[str, set[str]] = {
     "harmony": {"harmony", "voice_leading"},
-    "function": {"harmony"},  # the bands drawn from Harmony.function
+    "function": {"harmony"},
     "cadence": {"harmony", "form"},
     "phrase": {"form"},
     "region": {"harmony", "form"},
@@ -118,6 +133,7 @@ class AnnotationList(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     version: Literal[1] = 1
+    style: Style = "current"
     annotations: list[AnyAnnotation]
 
     def visible(self, kind: str, annotation: Annotation, view: str, role: str | None) -> bool:

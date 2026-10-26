@@ -7,7 +7,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from engine import reduce
+from engine import ledger, reduce
 from engine.render import ScoreError, load_toolkit
 from engine.score import PositionError, ScoreIndex
 
@@ -25,7 +25,8 @@ def main() -> int:
     parser.add_argument("--measures", help='printed measure numbers, e.g. "1-8"; default is the whole score')
     args = parser.parse_args()
     try:
-        index = ScoreIndex(load_toolkit(args.score.read_bytes()).getMEI())
+        mei = load_toolkit(args.score.read_bytes()).getMEI()
+        index = ScoreIndex(mei)
         first, last = parse_measures(args.measures)
         for number in (first, last):
             if number is not None:
@@ -34,6 +35,8 @@ def main() -> int:
         print(f"Error: {error}", file=sys.stderr)
         return 1
     print(reduce.as_text(index, first, last))
+    if section := ledger.as_text(mei, index, first, last):
+        print("\n" + section)
     return 0
 
 

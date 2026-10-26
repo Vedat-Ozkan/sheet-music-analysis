@@ -1,7 +1,7 @@
 {
   "name": "sheet-music-analysis",
   "displayName": "Sheet Music Analysis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Harmonic analysis of sheet music, drawn on the engraved score: Roman numerals, chord functions, cadences, phrases, non-chord tones and voice leading, with a short commentary. Attach a MusicXML file and ask. Needs Claude's Code execution and file creation setting (Settings → Capabilities).",
   "author": {
     "name": "Vedat Ozkan"

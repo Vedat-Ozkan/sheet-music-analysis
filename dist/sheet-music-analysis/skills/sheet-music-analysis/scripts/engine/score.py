@@ -1,13 +1,3 @@
-"""Index of a score's measures and notes, built from Verovio's MEI.
-
-Annotations address the music by position (measure number, beat, staff, pitch).
-This index turns those positions into the element IDs that Verovio draws.
-
-A measure here is a bar as a musician counts it. Files often split one bar in
-two around a repeat or a fermata (the second half unnumbered); those halves are
-joined into one measure with two segments.
-"""
-
 from __future__ import annotations
 
 import math
@@ -25,42 +15,39 @@ TOLERANCE = Fraction(1, 96)
 
 
 class PositionError(ValueError):
-    """An annotation points at a place that is not in the score."""
+    pass
 
 
 @dataclass
 class Event:
-    """A note or rest. Chord notes are separate events sharing an onset."""
 
     id: str
     measure: int
     staff: int
-    onset: Fraction  # quarter notes from the start of the measure
+    onset: Fraction
     duration: Fraction
-    pitch: str | None = None  # "Eb4" at sounding pitch; None for rests
+    pitch: str | None = None
     grace: bool = False
-    layer: int = 1  # the voice within the staff
-    tied: bool = False  # tied to the next note of the same pitch
-    segment: str = ""  # id of the engraved measure it sits in
-
+    layer: int = 1
+    tied: bool = False
+    segment: str = ""
+    attack: str = ""
 
 @dataclass
 class Segment:
-    """One engraved measure. A bar split around a repeat has two."""
 
     id: str
-    index: int  # 1-based position in the file, which is what Verovio's measureRange counts
-    start: Fraction  # where it begins within the bar, in quarter notes
-
+    index: int
+    start: Fraction
 
 @dataclass
 class Measure:
     id: str
-    number: int  # the bar number; a pickup is 0
-    index: int  # position of its first segment in the file
-    beat_length: Fraction  # quarter notes per beat (a dotted quarter in 12/8)
-    meter: str = ""  # "12/8"
-    declared_length: Fraction | None = None  # a full bar's length; None for a pickup or other incomplete measure
+    number: int
+    index: int
+    beat_length: Fraction
+    meter: str = ""
+    declared_length: Fraction | None = None
     events: list[Event] = field(default_factory=list)
     segments: list[Segment] = field(default_factory=list)
 
@@ -78,14 +65,12 @@ class Measure:
 
     @property
     def length(self) -> Fraction:
-        """Quarter notes in the measure: a full bar of its meter, or what it holds if it is incomplete."""
         return self.declared_length if self.declared_length is not None else self.content_length
 
     def segment_at(self, offset: Fraction) -> Segment:
         return next(segment for segment in reversed(self.segments) if segment.start <= offset or segment is self.segments[0])
 
     def offset_of(self, beat: float) -> Fraction:
-        """Quarter-note offset of a beat; raises if the beat lies outside the measure."""
         offset = (Fraction(beat).limit_denominator(96) - 1) * self.beat_length
         if offset < 0 or (self.length and offset >= self.length):
             beats = float(self.length / self.beat_length)
@@ -97,7 +82,6 @@ class Measure:
 
 
 def normalise_pitch(pitch: str) -> str:
-    """Accept music21 spelling ("E-4") as well as "Eb4"."""
     return pitch[0].upper() + pitch[1:].replace("-", "b")
 
 
@@ -108,7 +92,6 @@ def beat_length(count: int, unit: int) -> Fraction:
 
 
 def transpose(pitch: str, diatonic: int, semitones: int) -> str:
-    """Move a pitch by letter steps and semitones, e.g. written C5 on a B-flat clarinet (-1, -2) sounds Bb4."""
     accidental = pitch[1:].rstrip("0123456789")
     octave = int(pitch[1 + len(accidental) :])
     step = LETTERS.index(pitch[0])
@@ -124,7 +107,7 @@ def _pitch(note: ET.Element) -> str:
         child = note.find(f"{MEI}accid")
         if child is not None:
             accidental = child.get("accid") or child.get("accid.ges")
-    octave = note.get("oct.ges") or note.get("oct")  # sounding octave, e.g. under an 8va line
+    octave = note.get("oct.ges") or note.get("oct")
     return f"{note.get('pname').upper()}{ACCIDENTALS.get(accidental or '', '')}{octave}"
 
 
@@ -142,10 +125,10 @@ class ScoreIndex:
     def __init__(self, mei: str):
         root = ET.fromstring(mei)
         self.measures: list[Measure] = []
-        self.meter = ""  # "12/8", from the first score definition
-        self.key_signature = ""  # MEI form: "3f" is three flats, "2s" two sharps, "0" none
-        self.renumbered = False  # True when the file's bar numbers were unusable and bars are counted in order
-        self._ppq: dict[int, int] = {}  # each staff counts durations in its own units
+        self.meter = ""
+        self.key_signature = ""
+        self.renumbered = False
+        self._ppq: dict[int, int] = {}
         self._transposition: dict[int, tuple[int, int]] = {}
         self._beat_length = Fraction(1)
         self._meter = ""
@@ -165,7 +148,6 @@ class ScoreIndex:
 
     @classmethod
     def from_measures(cls, measures: list[Measure], meter: str, key_signature: str) -> ScoreIndex:
-        """An index built from already-read measures, for scores that arrive as a note list."""
         index = cls.__new__(cls)
         index.measures, index.meter, index.key_signature, index.renumbered = measures, meter, key_signature, False
         index._finish()
@@ -177,7 +159,6 @@ class ScoreIndex:
 
     @property
     def ppq(self) -> int:
-        """The smallest number of divisions per quarter note in which every onset and duration is whole."""
         divisions = 1
         for measure in self.measures:
             for value in [measure.length] + [part for event in measure.events for part in (event.onset, event.duration)]:
@@ -185,7 +166,6 @@ class ScoreIndex:
         return divisions
 
     def locate_segment(self, id: str) -> tuple[Measure, Segment]:
-        """The bar an engraved measure belongs to, and which part of the bar it is."""
         return self._by_segment[id]
 
     def _read_definitions(self, element: ET.Element) -> None:
@@ -222,7 +202,7 @@ class ScoreIndex:
 
     def _read_measure(self, element: ET.Element) -> None:
         self._position += 1
-        self._read_meter(element.find(f".//{MEI}meterSig"))  # a change of meter written inside the measure
+        self._read_meter(element.find(f".//{MEI}meterSig"))
         label = element.get("n", "")
         numbered = label.lstrip("-").isdigit()
         incomplete = element.get("metcon") == "false"
@@ -244,10 +224,11 @@ class ScoreIndex:
             for position, layer in enumerate(staff.findall(f"{MEI}layer"), start=1):
                 self._layer = position
                 self._read_layer(layer, measure, int(staff.get("n", "1")), Fraction(0))
+        if not measure.events and full is not None:
+            measure.declared_length = full
         for tie in element.findall(f"{MEI}tie"):
             self._tie_starts.add((tie.get("startid") or "").lstrip("#"))
 
-        # The second half of a bar that the file split in two joins the first half.
         continues = (
             previous is not None
             and incomplete
@@ -280,13 +261,13 @@ class ScoreIndex:
             grace = child.get("grace") is not None
             duration = Fraction(0) if grace else _duration(child, ppq)
             notes = child.findall(f"{MEI}note") if tag == "chord" else [child] if tag == "note" else []
-            # Unpitched percussion (drums, cymbals) has no pitch to analyse; it still takes up time.
             notes = [note for note in notes if note.get("pname")]
             for note in notes:
                 pitch = transpose(_pitch(note), *shift) if shift else _pitch(note)
                 event = Event(note.get(XML_ID), measure.number, staff, cursor, duration, pitch, grace, self._layer)
                 event.tied = note.get("tie") in ("i", "m")
                 event.segment = measure.id
+                event.attack = child.get(XML_ID, "")
                 measure.events.append(event)
             if tag == "rest":
                 rest = Event(child.get(XML_ID), measure.number, staff, cursor, duration, layer=self._layer, segment=measure.id)
@@ -295,7 +276,6 @@ class ScoreIndex:
         return cursor
 
     def _renumber_if_needed(self) -> None:
-        """Count bars in order when the file's numbers repeat or go backwards, so every bar has one address."""
         numbers = [measure.number for measure in self.measures]
         if all(a < b for a, b in zip(numbers, numbers[1:])):
             return
@@ -314,11 +294,10 @@ class ScoreIndex:
             raise PositionError(f"Measure {number} does not exist; the score has measures {first} to {last}")
         return self._by_number[number]
 
-    def measure_range(self, first: int, last: int) -> str:
-        """Verovio measureRange covering measures first..last, with the pickup when starting at 1."""
+    def measure_range(self, first: int, last: int, *, include_pickup: bool = True) -> str:
         start = self.measure(first)
         position = self.measures.index(start)
-        if first == 1 and position > 0 and self.measures[position - 1].number == 0:
+        if include_pickup and first == 1 and position > 0 and self.measures[position - 1].number == 0:
             start = self.measures[position - 1]
         return f"{start.index}-{self.measure(last).last_index}"
 
