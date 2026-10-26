@@ -15,7 +15,7 @@ import verovio
 from PIL import Image, ImageChops
 
 from engine.reduce import midi
-from engine.score import ScoreIndex
+from engine.score import TOLERANCE, ScoreIndex
 from engine.text import FONT_DIR, FONT_FILES, MAIN as TEXT_FONT
 
 os.environ.setdefault("FONTCONFIG_FILE", str(FONT_DIR / "fonts.conf"))
@@ -237,8 +237,31 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str]) -> None:
     patched = _spread_ties(patched)
     patched = _slurs_to_chords(patched)
     patched = _clefs_before_barlines(patched)
+    patched = _number_unmarked_pickup(patched)
     if patched != mei:
         toolkit.loadData(patched)
+
+
+def _number_unmarked_pickup(mei: str) -> str:
+    measures = ScoreIndex(mei).measures
+    if len(measures) < 2 or measures[0].number != 1 or measures[1].number != 2 or not measures[0].meter:
+        return mei
+    first = measures[0]
+    count, unit = first.meter.split("/")
+    full = Fraction(int(count) * 4, int(unit))
+    if not Fraction(0) < first.content_length < full - TOLERANCE:
+        return mei
+    completed_at_the_end = abs(first.content_length + measures[-1].content_length - full) <= TOLERANCE
+    lengths = {}
+    for event in first.events:
+        lengths[event.staff] = max(lengths.get(event.staff, Fraction(0)), event.onset + event.duration)
+    every_staff_even = set(lengths) == {event.staff for measure in measures for event in measure.events} and len(set(lengths.values())) == 1
+    if not (completed_at_the_end or every_staff_even):
+        return mei
+    mei = re.sub(r'(<measure\b[^>]*\bn=")(\d+)(")', lambda m: f"{m.group(1)}{int(m.group(2)) - 1}{m.group(3)}", mei)
+    opening = re.search(rf'<measure\b[^>]*xml:id="{re.escape(first.id)}"[^>]*>', mei).group(0)
+    marked = opening if "metcon=" in opening else opening.replace("<measure", '<measure metcon="false"', 1)
+    return mei.replace(opening, marked, 1)
 
 
 def _short_name(name: str) -> str:

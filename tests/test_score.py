@@ -43,3 +43,18 @@ def test_beat_outside_the_measure(index):
         index.measure(1).offset_of(5)
     with pytest.raises(PositionError, match="does not exist"):
         index.measure(99)
+
+
+def test_unmarked_pickup_numbered_one_becomes_measure_zero(chopin):
+    import re, zipfile, io
+    archive = zipfile.ZipFile(io.BytesIO(chopin))
+    name = next(n for n in archive.namelist() if not n.startswith("META"))
+    text = archive.read(name).decode()
+    text = re.sub(r'<measure number="(\d+)"( implicit="yes")?', lambda m: f'<measure number="{int(m.group(1)) + 1}"', text)
+    toolkit = load_toolkit(text.encode())
+    index = ScoreIndex(toolkit.getMEI())
+    assert [measure.number for measure in index.measures[:3]] == [0, 1, 2]
+    assert index.measure_range(1, 8) == "1-9"
+    original = ScoreIndex(load_toolkit(chopin).getMEI())
+    assert [measure.number for measure in index.measures] == [measure.number for measure in original.measures]
+    assert re.findall(r'<measure\b[^>]*\bn="(\d+)"', toolkit.getMEI()) == re.findall(r'<measure\b[^>]*\bn="(\d+)"', load_toolkit(chopin).getMEI())
