@@ -22,7 +22,7 @@ Reply:
 
 > You asked for the analysis printed on the score. I built a tool that does this, so take it with that in mind. You attach a MusicXML file (MuseScore can export one) to a chat in Claude or ChatGPT and name up to 32 bars. It gives back the engraved page as an image and a PDF, with a Roman numeral under each chord, cadences boxed, phrases bracketed and a short written explanation.
 >
-> Limits: MusicXML only for now (no PDFs, photos or audio), and it is meant for classical music from Bach to the early 1900s. It sometimes reads a borrowed chord as a change of key, and music like Debussy gets looser descriptions. Treat it as a study partner, not an answer key.
+> Limits: it reads MusicXML or a PDF of printed music (not photos or audio; scanned PDFs have more reading mistakes), and it is meant for classical music from Bach to the early 1900s. It sometimes reads a borrowed chord as a change of key, and music like Debussy gets looser descriptions. Treat it as a study partner, not an answer key.
 >
 > Example: https://sheetmusicanalysis.com/gallery/chopin-nocturne-op9-no2-all.png
 
@@ -40,7 +40,7 @@ Reply:
 
 > Not a replacement for native Dorico support, but it may help while you wait. I built a tool for Claude and ChatGPT that writes the Roman numerals onto the engraved score for you. Export your Dorico score as MusicXML, attach it, and ask for a passage of up to 32 bars. You get the page back as an image and a PDF with the numerals under each chord, plus cadences, phrases and a short explanation in plain language, which suits students.
 >
-> It does not put numerals into Dorico itself; the result is a separate picture and PDF. It takes MusicXML only (no PDFs, photos or audio yet), and covers classical music from Bach to the early 1900s. A borrowed chord can be read as a key change, and impressionist harmony gets looser descriptions.
+> It does not put numerals into Dorico itself; the result is a separate picture and PDF. It takes MusicXML or a PDF of printed music (not photos or audio), and covers classical music from Bach to the early 1900s. A borrowed chord can be read as a key change, and impressionist harmony gets looser descriptions.
 >
 > Example: https://sheetmusicanalysis.com/gallery/chopin-nocturne-op9-no2-harmony.png
 
@@ -61,7 +61,7 @@ Reply:
 
 > This will not find rule breaks such as parallel fifths, so it may not be what you need, but it shows how the voices move. I built it: in Claude or ChatGPT, attach a MusicXML score and ask how the voices move in a passage of up to 32 bars. It returns the engraved page with arrows where one note leads to the next, notes that do not belong to the chord circled and named, and a Roman numeral under each chord, with a written explanation.
 >
-> Limits: MusicXML only for now (no PDFs, photos or audio). It is aimed at classical music from Bach to the early 1900s; borrowed chords can be read as a key change, and impressionist harmony gets looser descriptions.
+> Limits: it reads MusicXML or a PDF of printed music (not photos or audio). It is aimed at classical music from Bach to the early 1900s; borrowed chords can be read as a key change, and impressionist harmony gets looser descriptions.
 >
 > Example: https://sheetmusicanalysis.com/gallery/chopin-nocturne-op9-no2-voice-leading.png
 
@@ -79,6 +79,6 @@ Gallery pages to attach:
 
 Message:
 
-> Hello Scoring Notes. I made a free tool that draws a harmonic analysis onto an engraved score, and I thought it might interest your readers who teach or study theory. You attach a MusicXML file in Claude or ChatGPT, name up to 32 bars, and get the page back as an image and a PDF with a Roman numeral under each chord, coloured bands showing each chord's job, boxed cadences, phrase brackets, circled non-chord tones and a short written explanation. It accepts MusicXML only for now (no PDFs, photos or audio), covers classical music from Bach to the early twentieth century, can read a borrowed chord as a change of key, and describes impressionist harmony more loosely. Two examples: Chopin's Nocturne Op. 9 No. 2, bars 1-8 (https://sheetmusicanalysis.com/gallery/chopin-nocturne-op9-no2-all.png), and Mozart's Symphony No. 41, bars 1-4, as a full score (https://sheetmusicanalysis.com/gallery/mozart-symphony-41-full.png) with a two-line piano version beside it. More at https://sheetmusicanalysis.com. I am happy to answer questions or set up anything you would like to try.
+> Hello Scoring Notes. I made a free tool that draws a harmonic analysis onto an engraved score, and I thought it might interest your readers who teach or study theory. You attach a MusicXML file in Claude or ChatGPT, name up to 32 bars, and get the page back as an image and a PDF with a Roman numeral under each chord, coloured bands showing each chord's job, boxed cadences, phrase brackets, circled non-chord tones and a short written explanation. It accepts MusicXML or a PDF of printed music (not photos or audio), covers classical music from Bach to the early twentieth century, can read a borrowed chord as a change of key, and describes impressionist harmony more loosely. Two examples: Chopin's Nocturne Op. 9 No. 2, bars 1-8 (https://sheetmusicanalysis.com/gallery/chopin-nocturne-op9-no2-all.png), and Mozart's Symphony No. 41, bars 1-4, as a full score (https://sheetmusicanalysis.com/gallery/mozart-symphony-41-full.png) with a two-line piano version beside it. More at https://sheetmusicanalysis.com. I am happy to answer questions or set up anything you would like to try.
 
 (Check before sending: "free" appears only if it is true when you send; the plan records no pricing decision and a $5 monthly cost cap, so confirm or delete the word.)

@@ -30,7 +30,7 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 > - arrows where the way one note moves to the next matters;
 > - numbered circles that match a short written explanation in the chat.
 >
-> A computer model trained on hundreds of expert analyses drafts the analysis; the chat model then checks it against the actual notes and corrects it. On 12 well-known pieces checked beat by beat against experts' analyses, 71% of beats matched after the review (experts match each other on about 78%). Treat it as a well-read study partner, not an answer key: it is least reliable where experts also disagree, such as music in a major key that briefly borrows chords from the minor, and music like Debussy's that doesn't follow the usual chord patterns.
+> A computer model trained on hundreds of expert analyses drafts the analysis; the chat model then checks it against the actual notes and corrects it. On 30 pieces the draft model had never seen, checked against experts' analyses, about 61% of the music matched after the review; experts analysing the same pieces match each other on about 68%. Treat it as a well-read study partner, not an answer key: it is least reliable where experts also disagree, such as music in a major key that briefly borrows chords from the minor, and music like Debussy's that doesn't follow the usual chord patterns.
 >
 > In Claude you can also listen: a small piano player in the chat plays the passage with the score's tempo, dynamics, pedalling and ornaments.
 >
