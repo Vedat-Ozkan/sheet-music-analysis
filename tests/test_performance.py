@@ -135,3 +135,9 @@ def test_a_tempo_word_sets_the_speed_when_there_is_no_metronome_mark():
     worded = plain.replace(b"<note><pitch><step>F</step>", b"<direction placement=\"above\"><direction-type><words>Adagio</words></direction-type></direction><note><pitch><step>F</step>", 1)
     assert timeline(export_midi(plain))[-1][0] == 6_000
     assert timeline(export_midi(worded))[-1][0] == round(6_000 * 120 / 66)
+
+
+def test_a_pedal_printed_just_before_the_barline_reads_back():
+    index = marked_index((DATA / "chopin_ballade_op23_pdmx.mxl").read_bytes())
+    pedals = [(mark.offset, mark.value) for mark in note_list.decode(note_list.encode(index, 246, 246)).measures[0].marks if mark.kind == "pedal"]
+    assert (0, "down") in pedals

@@ -148,6 +148,7 @@ def test_every_real_bar_round_trips(path):
         'chopin_nocturne_op9_no2.mxl': (38, 0, ''),
         'chopin_nocturne_op9_no2_pdmx.mxl': (35, 0, ''),
         'chopin_prelude_op28_no4_audiveris.mxl': (26, 0, ''),
+        'chopin_ballade_op23_pdmx.mxl': (262, 0, ''),
     }
     passed, failed, reason = expected[path.name]
     assert (accepted, sum(rejected.values())) == (passed, failed)

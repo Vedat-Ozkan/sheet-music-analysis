@@ -68,7 +68,7 @@ def marked_index(score: bytes) -> ScoreIndex:
     def place(bar_id: str, tstamp: str) -> tuple[Measure, Fraction]:
         measure, segment = index.locate_segment(bar_id)
         unit = int((measure.meter or index.meter or "4/4").split("/")[1])
-        return measure, segment.start + (Fraction(tstamp).limit_denominator(960) - 1) * 4 / unit
+        return measure, segment.start + max(Fraction(tstamp).limit_denominator(960) - 1, Fraction(0)) * 4 / unit
 
     for score_def in root.iter(f"{MEI}scoreDef"):
         if score_def.get("midi.bpm") and index.measures:
