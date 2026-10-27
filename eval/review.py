@@ -1,6 +1,6 @@
 """Have the chat model review the draft, as the skill does inside Claude, and keep what it writes.
 
-    .venv/bin/python -m eval.review [--only ID] [--model opus] [--effort medium] [--tag NAME] [--bars 24] [--jobs 4]
+    .venv/bin/python -m eval.review [--set core|heldout] [--passages N] [--only ID] [--model opus] [--effort medium] [--tag NAME] [--bars 24] [--jobs 4]
 
 For each passage the model is given what the skill gives it (the method from skill/SKILL.md, the
 annotation format, the note table and the model's draft) and nothing else: no tools, no reference
@@ -12,12 +12,14 @@ with the commentary beside it in <id>.md. Finished passages are kept, so a stopp
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import re
 import subprocess
 import tempfile
 import time
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -46,8 +48,6 @@ annotation list that says what to mark and where in the music, and a script engr
 # The task
 
 The score is {title}. Analyse bars {first} to {last} (the piece runs from bar {start} to bar {end}), for a student.
-
-Note table for these bars. Each row is one beat: the lowest note, the pitch classes sounding, and every note as pitch@beat.
 
 {table}
 
@@ -84,11 +84,13 @@ The renderer could not use that annotation list:
 Reply again in full with those problems fixed."""
 
 
-def passages(index: ScoreIndex, bars: int) -> list[tuple[int, int]]:
+def passages(index: ScoreIndex, bars: int, most: int | None = None) -> list[tuple[int, int]]:
     numbers = [measure.number for measure in index.measures]
     chunks = [numbers[i : i + bars] for i in range(0, len(numbers), bars)]
     if len(chunks) > 1 and len(chunks[-1]) < bars // 3:
         chunks[-2:] = [chunks[-2] + chunks[-1]]
+    if most and len(chunks) > most:
+        chunks = [chunks[int((k + 0.5) * len(chunks) / most)] for k in range(most)]
     return [(chunk[0], chunk[-1]) for chunk in chunks]
 
 
@@ -176,6 +178,21 @@ def overview(drafted: draft.Draft) -> str:
     return "\n".join((keys, cadences, phrases))
 
 
+TABLE = """Note table for these bars. Each row is one beat: the lowest note, the pitch classes sounding, and every note as pitch@beat.
+
+{table}"""
+
+SCORE_ONLY = """The score is in this folder as {files}. Open it with the Read tool before anything else; it is your only \
+source for the notes. Measure numbers are the ones in the file."""
+
+
+def musicxml(data: bytes) -> bytes:
+    if data[:2] != b"PK":
+        return data
+    archive = zipfile.ZipFile(io.BytesIO(data))
+    return archive.read(next(name for name in archive.namelist() if name.endswith((".xml", ".musicxml")) and "META-INF" not in name))
+
+
 IMAGE = """
 The engraved score of these bars is in this folder as {pages}. Before anything else, open every one of these pages \
 with the Read tool and look at it: the layout shows voices, register, rests and phrasing that the table does not. \
@@ -183,13 +200,14 @@ Do not start the analysis until you have seen all of them. Use the table for exa
 """
 
 
-def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: int, last: int, model: str, effort: str | None = None, tag: str | None = None, image: bool = False, whole: bool = False, alternatives: bool = False, selfcheck: bool = False, start_from: str | None = None) -> dict:
+def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: int, last: int, model: str, effort: str | None = None, tag: str | None = None, image: bool = False, whole: bool = False, alternatives: bool = False, selfcheck: bool = False, start_from: str | None = None, source: str = "table", draft_shown: bool = True) -> dict:
     path = REVIEWED / run_name(model, effort, tag) / "passages" / f"{piece.id}_{first}-{last}.json"
     if path.exists():
         return json.loads(path.read_text())
     prompt = PROMPT.format(
         method=METHOD, spec=SPEC, title=piece.title, first=first, last=last, start=index.measures[0].number, end=index.measures[-1].number,
-        table=reduce.as_text(index, first, last), draft=draft.as_text(drafted, first, last, alternatives), image="{image}",
+        table=TABLE.format(table=reduce.as_text(index, first, last)) if source == "table" else "{image}",
+        draft=draft.as_text(drafted, first, last, alternatives) if draft_shown else "", image="{image}" if source == "table" else "",
         overview=OVERVIEW.format(overview=overview(drafted)) if whole else "",
     )  # fmt: skip
     files = {}
@@ -197,6 +215,13 @@ def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: 
         # some source files print chord symbols or analysts' labels; the reviewer must not see them
         engraving = render.engrave_pages(pieces.without_harmony(pieces.score(piece)), (first, last))
         files = {f"page-{page}.png": engraving.png(page) for page in range(1, engraving.page_count + 1)}
+    if source == "musicxml":
+        files = {"score.musicxml": musicxml(pieces.without_harmony(pieces.score(piece)))}
+    elif source == "pages":
+        engraving = render.engrave_pages(pieces.without_harmony(pieces.score(piece)), (first, last))
+        files = {f"page-{page}.png": engraving.png(page) for page in range(1, engraving.page_count + 1)}
+    if source != "table":
+        prompt = prompt.replace("{image}", SCORE_ONLY.format(files=", ".join(files)), 1)
     prompt = prompt.replace("{image}", IMAGE.format(pages=", ".join(files)) if files else "")
     started, answers = time.time(), []
     earlier = REVIEWED / start_from / "passages" / f"{piece.id}_{first}-{last}.json" if start_from else None
@@ -243,7 +268,9 @@ def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--set", default="core", choices=sorted(pieces.SETS), help="which pieces: core or heldout (labelled pieces the draft model was not trained on)")
     parser.add_argument("--only", action="append", help="review only this piece (repeatable)")
+    parser.add_argument("--passages", type=int, help="review at most this many passages per piece, evenly spaced; eval.run then scores only those bars")
     parser.add_argument("--model", default="opus", help="the chat model that reviews: opus (chosen 2026-10-02), sonnet, or a full model id")
     parser.add_argument("--effort", default="medium", choices=("low", "medium", "high", "xhigh", "max", "none"), help="reasoning effort; 'none' leaves the model's own")
     parser.add_argument("--bars", type=int, default=24, help="bars per passage")
@@ -253,15 +280,17 @@ def main() -> None:
     parser.add_argument("--selfcheck", action="store_true", help="after the review, show it the labels that contradict the notes and let it correct or keep each")
     parser.add_argument("--start-from", help="reuse this run's first answers instead of reviewing afresh (with --selfcheck: tests the check alone)")
     parser.add_argument("--alternatives", action="store_true", help="show the draft model's runner-up reading where it is a close call")
+    parser.add_argument("--source", default="table", choices=("table", "musicxml", "pages"), help="what the reviewer gets of the notes: our note table, the MusicXML file alone, or the engraved pages alone")
+    parser.add_argument("--no-draft", action="store_true", help="leave out the draft model's analysis: the chat model analyses alone")
     parser.add_argument("--overview", action="store_true", help="also give the reviewer the whole piece's draft key plan, cadences and phrase ends")
     args = parser.parse_args()
     if args.effort == "none":
         args.effort = None
     jobs = []
-    for piece in [pieces.BY_ID[name] for name in args.only] if args.only else pieces.PIECES:
+    for piece in [pieces.BY_ID[name] for name in args.only] if args.only else pieces.SETS[args.set]:
         index = ScoreIndex(load_toolkit(pieces.score(piece)).getMEI())
         drafted = cached_draft(piece, index)
-        jobs += [(piece, index, drafted, first, last, args.model, args.effort, args.tag, args.image, args.overview, args.alternatives, args.selfcheck, args.start_from) for first, last in passages(index, args.bars)]
+        jobs += [(piece, index, drafted, first, last, args.model, args.effort, args.tag, args.image, args.overview, args.alternatives, args.selfcheck, args.start_from, args.source, not args.no_draft) for first, last in passages(index, args.bars, args.passages)]
     print(f"{len(jobs)} passages", flush=True)
 
     def one(job) -> tuple[pieces.Piece, dict]:
@@ -277,7 +306,7 @@ def main() -> None:
     folder = REVIEWED / run_name(args.model, args.effort, args.tag)
     for piece in {piece.id: piece for piece, _ in done}.values():
         parts = [result for owner, result in done if owner is piece]
-        (folder / f"{piece.id}.json").write_text(json.dumps({"version": 1, "annotations": [a for part in parts for a in part["annotations"]]}, indent=1))
+        (folder / f"{piece.id}.json").write_text(json.dumps({"version": 1, "annotations": [a for part in parts for a in part["annotations"]], **({"passages": [[part["first"], part["last"]] for part in parts]} if args.passages else {})}, indent=1))
         (folder / f"{piece.id}.md").write_text(
             f"# {piece.title}\n\n" + "\n\n".join(f"## Bars {part['first']} to {part['last']}\n\n{part['commentary']}" for part in parts)
         )

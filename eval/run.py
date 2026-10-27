@@ -1,6 +1,6 @@
 """Run the draft model on the evaluation pieces and score it against the human chord labels.
 
-    .venv/bin/python -m eval.run [--only ID] [--reviewed FOLDER]
+    .venv/bin/python -m eval.run [--set core|heldout] [--only ID] [--reviewed FOLDER]
 
 Each piece is read, drafted by the model (cached in out/eval/drafts/) and, where a human
 chord-by-chord reading exists, compared with it. `--reviewed` also scores annotation lists
@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import time
 from pathlib import Path
 
@@ -50,24 +51,40 @@ def run(piece: pieces.Piece, reviewed: Path | None) -> dict:
             for label in compare.from_romantext(pieces.labels(piece) or "")
         ]
         if reference:
-            result["draft"] = compare.compare(reference, compare.from_draft(drafted), index)
             path = reviewed / f"{piece.id}.json" if reviewed else None
-            if path and path.exists():
-                result["reviewed"] = compare.compare(reference, compare.from_annotations(json.loads(path.read_text())), index)
+            review = json.loads(path.read_text()) if path and path.exists() else None
+            bars = [tuple(passage) for passage in review["passages"]] if review and "passages" in review else None
+            result["draft"] = compare.compare(reference, compare.from_draft(drafted), index, bars)
+            if review:
+                result["reviewed"] = compare.compare(reference, compare.from_annotations(review), index, bars)
+                if bars:
+                    result["scored_bars"] = bars
     except Exception as error:
         result["error"] = f"{type(error).__name__}: {str(error)[:300]}"
     return result
 
 
+def totals(report: dict, stage: str, column: str = "full", resamples: int = 2000) -> tuple[float, float, float] | None:
+    weight = lambda result: sum(last - first + 1 for first, last in result["scored_bars"]) if "scored_bars" in result else result["measures"]
+    rows = [(weight(result), result[stage][column]) for result in report.values() if stage in result and result[stage][column] is not None]
+    if not rows:
+        return None
+    mean = lambda sample: sum(w * v for w, v in sample) / sum(w for w, _ in sample)
+    generator = random.Random(0)
+    spread = sorted(mean(generator.choices(rows, k=len(rows))) for _ in range(resamples))
+    return mean(rows), spread[int(0.025 * resamples)], spread[int(0.975 * resamples)]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--set", default="core", choices=sorted(pieces.SETS), help="which pieces: core (the 25 chosen pieces) or heldout (labelled pieces the draft model was not trained on)")
     parser.add_argument("--only", action="append", help="run only this piece (repeatable)")
     parser.add_argument("--reviewed", type=Path, help="folder of reviewed annotation lists, <id>.json")
     args = parser.parse_args()
-    path = pieces.OUT / "report.json"
+    path = pieces.OUT / ("report.json" if args.set == "core" else f"report-{args.set}.json")
     report = json.loads(path.read_text()) if path.exists() and args.only else {}
     print(f"{'piece':26s} bars  " + "  ".join(f"{column[:9]:>9s}" for column in COLUMNS))
-    for piece in [pieces.BY_ID[name] for name in args.only] if args.only else pieces.PIECES:
+    for piece in [pieces.BY_ID[name] for name in args.only] if args.only else pieces.SETS[args.set]:
         report[piece.id] = result = run(piece, args.reviewed)
         for stage in ("draft", "reviewed"):
             if stage in result:
@@ -76,6 +93,10 @@ def main() -> None:
             print(f"{piece.id:26s} {result.get('measures', 0):4d}  " + (result.get("error") or f"no label file; {result['draft_chords']} chords drafted"))
     pieces.OUT.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report, indent=1))
+    for stage in ("draft", "reviewed"):
+        for column in ("key", "full"):
+            if found := totals(report, stage, column):
+                print(f"{stage:8s} {column:4s} {found[0]:.3f}  (95% interval {found[1]:.3f} to {found[2]:.3f}, {sum(stage in r for r in report.values())} pieces)")
 
 
 if __name__ == "__main__":

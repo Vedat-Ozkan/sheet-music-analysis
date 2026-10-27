@@ -8,9 +8,11 @@ A record of the problems met while building this tool, what was done about each,
 
 - **A two-stage analysis pipeline, measured against human experts.** A neural draft followed by a chat-model review, scored by duration against chord-by-chord readings by human analysts on 12 pieces from Bach to Grieg, and against published teacher and textbook analyses for the rest of a 23-piece set.
 - **The review stage raises agreement with experts on 11 of 12 scored pieces.** Weighted by length across 12 pieces (1,158 bars), the share of the music where key, chord and bass all match the human analyst rose from 0.54 to 0.71, and the share with the right key from 0.81 to 0.89. The largest gains were Schumann (0.61 to 0.92), Haydn (0.42 to 0.72) and Beethoven Op. 2 No. 1 (0.47 to 0.73).
+- **Checked on 30 pieces the draft model never saw in training.** Several of the 12 pieces were in the draft model's training data. On held-out pieces the draft alone scores 0.44, and the review lifts it to 0.61 (+0.17, 95% interval +0.11 to +0.24), improving 26 of 30 pieces (challenge 58).
 - **Checked against what teachers actually wrote.** Against published analyses of 19 pieces (textbook chapters, exam-board teaching notes, articles and dissertations), our analysis agrees with 63% of 431 checkable claims, partly agrees with 26%, and disagrees with 4%, on the judge's first marking, which is lenient (a second marking of the same analysis gives 4 to 18 points less; challenge 9). Every disagreement was read by hand and sorted into areas to improve.
 - **Measured which chat model to use.** Over the full 23-piece set, Opus 5.5 at medium effort beat Sonnet 5.5 as the reviewer: full agreement with expert labels 0.66 → 0.71, agreement with teachers' claims 52% → 63%, at 36% more cost and 25% less model time.
 - **Found and fixed a silent failure in the neural model's output.** The model names each key's tonic but not its mode, so every minor key was read as major. Recovering the mode from the chords lifted key accuracy on minor-key pieces from 0.00 to 0.92 (Chopin Prelude No. 20), 0.27 to 0.79 (Beethoven Op. 2 No. 1) and 0.20 to 0.89 (Tchaikovsky).
+- **Measured how far experts agree with each other, by style.** Across 124 independent pairs of expert analyses (9,155 bars), experts agree on key, chord and bass for 0.68 of the music: 0.87 on Bach chorales, 0.77 on Mozart sonatas, 0.57-0.58 on Beethoven sonatas and Chopin mazurkas. On unseen Beethoven and Chopin our reviewed analysis matches that level (0.60, 0.58); overall it is about 0.07 below (challenge 59).
 - **Matched expert-to-expert agreement on one movement analysed by three expert teams.** On Beethoven's Op. 2 No. 1, first movement, the reviewed analysis agreed with three independent expert analyses at 0.76 full agreement, against 0.78 between the experts themselves (one movement, one review; a single review varies by about 0.04).
 - **Robust across 31 scores and four centuries.** Monteverdi to Schoenberg, choirs, quartets, songs, piano, transposing instruments: every score passes reading, engraving, drafting and rendering.
 - **Shipped around a platform limit instead of asking users to work around it.** Claude connectors cannot receive chat attachments. Rather than an upload page and a code to paste, the plugin runs the engine as a skill inside Claude's sandbox, where the file already is, and sends only a compact note list (about 1,300 characters for 8 bars) to the server for the neural draft.
@@ -1055,9 +1057,103 @@ What didn't: PM2S (MIT code, CC BY weights) was worse than Beat This! on every t
 
 Why parked: with every bar right the analysis is close enough, but the bar failures are genuinely ambiguous (half-bar against whole-bar downbeats, eighth-note tracking, tempo changes) and nothing free and local resolved them. What would reopen it: a beat tracker that gets bar lines right on unseen piano performances, or fine-tuning one (a quoted one-off GPU cost, owner approval). The harness, test set and ONNX models (release `audio-models-1`) stay for that. `site/docs.html` keeps saying audio isn't supported.
 
+### 58. A larger test on pieces the draft model never saw (2026-10-24)
+
+**Question.** Is 0.54 → 0.71 still right after about 100 engine and skill commits, and does it hold beyond 12 hand-picked pieces?
+
+**A flaw in the old test.** The training code of AnalysisGNN (`vendor/analysisgnn`) trains on the AugmentedNet collections and the Distant Listening Corpus, and each sets aside a fixed list of test pieces. Several of our 12 pieces were in training: the Bach C major prelude, the chorale, Mozart K. 332 i, Beethoven Op. 2 No. 1 i and Op. 13 ii. So the draft's own score there is flattered.
+
+**Method.** A held-out set (`eval/pieces.py`, `HELDOUT`): 94 labelled pieces in neither training set. 70 come from the DCML piano corpora (Beethoven, Chopin mazurkas, Grieg, Dvořák, Liszt, Medtner, Mozart, Schumann, Tchaikovsky) and 24 from When in Rome (15 songs, 6 Bach preludes, 3 chorales). 90 ran; 4 failed (three Liszt label files point to beats outside their bars, and one Beethoven movement timed out). Review: Opus 5.5 at medium effort on 30 of them, picked across composers from the 56 whose labels fit the file well (fit ≥ 0.85), with two evenly spaced 24-bar passages each (`eval.review --passages 2`), and draft and review scored on those same bars. Intervals come from resampling pieces 2,000 times.
+
+**Results.**
+
+| | Pieces | Draft *full* | Reviewed *full* | Key: draft → reviewed |
+|---|---|---|---|---|
+| The 12 core pieces (+ Clair de lune), today's code | 13 | 0.55 | 0.71 (0.67-0.76) | 0.82 → 0.88 |
+| Same, run of 2026-10-03 | 12 | 0.54 | 0.71 | 0.81 → 0.89 |
+| Held out, draft only | 90 | 0.42 (0.39-0.46) | | 0.75 |
+| Held out, fit ≥ 0.85, draft only | 56 | 0.47 (0.43-0.51) | | 0.73 |
+| Held out, reviewed sample, same bars | 30 (1,182 bars) | 0.44 | 0.61 | 0.72 → 0.84 |
+
+On the held-out sample the review adds 0.17 (95% interval 0.11 to 0.24) and improves 26 of 30 pieces. On the 8 core pieces that both runs reviewed in full, the review scores the same as before (0.734 on 2026-10-03, 0.733 today), so the commits since then did not change the analysis. Pieces moved both ways by up to 0.11 (Bach prelude 0.80 → 0.69, Op. 2 No. 1 0.73 → 0.78), which is within one review's variation.
+
+**What it means.** The honest draft-alone figure is about 0.45, not 0.54. The review's gain on unseen music (+0.17) matches its gain on the core pieces (+0.16), and absolute agreement after review on unseen music is about 0.61. The four pieces the review made worse include Beethoven Op. 14 No. 1 ii (0.66 → 0.50) and Chopin Op. 41 No. 1 (0.07 → 0.02, where draft and review both disagree with the expert almost everywhere; not yet read by hand). The 34 held-out pieces with fit below 0.85 are mostly songs and DCML pieces whose label file and score may number bars differently; they were left out of the review, not fixed.
+
+**Cost.** $22.49 on the API key, then the account ran out of credit and the remaining passages ran on the subscription (their estimated cost is also in `out/api-spend.jsonl`, so the ledger overstates API spending for this day by about $30).
+
 ### 60. Error messages kept out of the logs (2026-10-24)
 
 An error's message can quote what the user sent (a part name, a note, an id), and six log lines in `server/app.py` still wrote it in full, against the privacy page. They now log only the error's kind (for example `ScoreError`); the user still gets the full message in the reply. This was built on 2026-10-13 on the usage-log branch, which never merged because the observability work replaced the rest of it. Tests: 175 server-path tests pass. Goes live with the next deploy.
+
+### 59. How far experts agree, on 124 pairs instead of 9 (2026-10-24)
+
+**Question.** Challenge 14's expert ceiling rested on 9 Beethoven pairs (0.60 full) and one movement (0.78). Is that representative, do experts agree more on simpler music such as Bach, and how much of their disagreement is labelling convention rather than a different hearing?
+
+**Method (`eval/ceiling.py`, rewritten).** Every When in Rome folder with a second analysis, kept only where the two files' Analyst lines name different sources (DCML, BPS-FH, BCMH, TAVERN's two encoders, Tymoczko's TAOM team). A provenance check of all 370 such folders found many second files to be copies or conversions of the first (all 6 BPS files, 29 DCML Beethoven files, 24 Tymoczko Beethoven copies); the source rule excludes these, along with identical files. Corelli (48 pairs) is left out because its scores exist only as MuseScore files. Each analysis may be shifted one bar to fit the notes, and pairs must fit at least 0.85. TAVERN's scores are UTF-16 MusicXML, now decoded, but most of its pairs still misalign (fit about 0.5, probably bar numbers restarting per variation), so only 2 count. No published study measures duration-weighted Roman numeral agreement on scores; the nearest figures are for chord labels on recordings (roots 76-92%, major/minor chords about 73%; Koops et al. 2019, Poltronieri et al. 2025).
+
+A new scoring level, *function*, forgives three conventions on top of *chord and bass* (which already ignores key): a cadential 6/4 against V over the same bass, a triad against its seventh chord, and tonicization against modulation. It is added to `engine/comparison.py`, so our own runs report it too.
+
+**Expert against expert, 124 pairs, 9,155 bars, weighted by length:**
+
+| | Pairs | Bars | Key | Root | Chord and bass | Function | Full |
+|---|---|---|---|---|---|---|---|
+| Bach chorales (TAOM v BCMH) | 66 | 906 | 0.93 | 0.99 | 0.94 | 0.97 | 0.87 |
+| Mozart sonatas (DCML v TAOM) | 23 | 2,872 | 0.93 | 0.93 | 0.82 | 0.85 | 0.77 |
+| Chopin mazurkas (DCML v TAOM) | 20 | 1,719 | 0.75 | 0.89 | 0.73 | 0.80 | 0.58 |
+| Beethoven sonatas (DCML, BPS-FH, TAOM) | 13 | 3,304 | 0.76 | 0.85 | 0.71 | 0.77 | 0.57 |
+| TAVERN variations (a v b) | 2 | 354 | 1.00 | 0.97 | 0.92 | 0.96 | 0.92 |
+| All | 124 | 9,155 | 0.84 | 0.90 | 0.78 | 0.83 | 0.68 |
+
+With pairs down to fit 0.80 (chorales with many passing notes fit about 0.82 even when aligned): 148 pairs, full 0.68.
+
+**Where experts lose agreement** (share of all music): naming a different key 7.8% (most of it tonicization against modulation), different chord 4.7%, inversion 4.7%, cadential 6/4 or seventh 4.6%, related chord 4.1%, chord quality 2.9%, same tonic but other mode 1.7%. Close to half of the gap between *full* and 1 is convention: forgiving key naming, cadential 6/4s and sevenths lifts agreement from 0.68 to 0.83. The rest (about 0.17 of the music) are different hearings of the chord or its bass.
+
+**Our reviewed analysis, scored the same way:**
+
+| | Key | Root | Chord and bass | Function | Full |
+|---|---|---|---|---|---|
+| Core 13 pieces | 0.88 | 0.90 | 0.80 | 0.85 | 0.71 |
+| Held-out 30 pieces | 0.84 | 0.84 | 0.71 | 0.76 | 0.61 |
+| Experts against each other | 0.84 | 0.90 | 0.78 | 0.83 | 0.68 |
+
+By style, on held-out pieces: Beethoven 0.60 full (6 pieces; experts 0.57), Chopin mazurkas 0.58 (5; experts 0.58), Mozart 0.77 (1; experts 0.77), Bach chorale 0.68 (1 chorale, 13 bars; experts 0.87). The samples on our side are small and the pieces differ from the experts' pieces, so this is a comparison of levels, not a head-to-head.
+
+**What it means.** The user's intuition holds: experts agree far more on Bach chorales (0.87 full, 0.97 function) than on Beethoven or Chopin (0.57-0.58). On the sonatas and mazurkas our reviewed analysis on unseen pieces sits at the experts' own level. Overall it sits about 0.07 below them on *full* and *function*, and the gap is widest on Bach, where experts nearly agree and we do not yet (the Bach preludes, 0.38 full, are our weakest style).
+
+### 60. Claude alone, without the draft model: a first look (2026-10-24)
+
+**Question.** How well does the chat model analyse with no AnalysisGNN draft?
+
+**Method.** Three held-out pieces (Bach WTC I prelude 22, Beethoven Op. 2 No. 1 iii, Grieg Op. 38 No. 7), the same 5 passages (121 bars) already scored in challenge 58, Opus 5.5 at medium effort, one run each. Three inputs, none with the draft (`eval.review --no-draft --source table|musicxml|pages`): our note table, the MusicXML file alone (read with the Read tool), or the engraved pages alone as images. The method text from the skill and the annotation format are given in every case.
+
+| Input (bars weighted) | Key | Root | Chord and bass | Function | Full | Cost per passage |
+|---|---|---|---|---|---|---|
+| Draft alone | 0.79 | 0.78 | 0.56 | 0.67 | 0.45 | none |
+| Draft + Claude (the pipeline) | 0.96 | 0.81 | 0.72 | 0.77 | 0.68 | about $0.35 |
+| Claude + note table, no draft | 0.95 | 0.83 | 0.72 | 0.77 | 0.68 | $0.34-0.69 |
+| Claude + MusicXML, no draft | 0.96 | 0.86 | 0.76 | 0.80 | 0.72 | $1.39-5.20 |
+| Claude + page images, no draft | 0.96 | 0.76 | 0.61 | 0.69 | 0.58 | $0.37-1.69 |
+
+Per piece (*full*, draft / pipeline / table / MusicXML / pages): Bach 0.41 / 0.58 / 0.53 / 0.59 / 0.20; Beethoven 0.42 / 0.66 / 0.68 / 0.74 / 0.70; Grieg 0.51 / 0.73 / 0.76 / 0.77 / 0.65.
+
+**What it means.** On these three pieces the draft adds nothing measurable once Claude has the notes: Claude alone with the note table scores the same as the pipeline (0.68), and with the raw MusicXML slightly higher (0.72) at four to eight times the cost and up to three times the time, because it pages through the file over 3 to 10 turns. From page images it does worse (0.58), mostly on Bach, where it misreads the notes (0.20). Three pieces and one run each, against a run-to-run spread of about 0.04 per piece, so the table, MusicXML and pipeline rows are not distinguishable; only the page-image drop is clear. Worth testing on the full held-out sample before drawing conclusions about the draft model's role.
+
+### 61. A plain chat, with no method, skill or tools (2026-10-25)
+
+**Question.** What does a user get from plain Claude with the score attached, and nothing we built?
+
+**Method (`eval/plain.py`).** The same three held-out pieces and bars as challenge 60. One message: the title, the whole MusicXML file pasted in, and "give a Roman numeral analysis of bars …", with only an example of the RomanText layout so the answer can be scored. A one-line system prompt, no tools, and an empty Claude Code config folder holding only the login, so no CLAUDE.md, memory or skills reach the model (checked by asking it to list its instructions). Sonnet 5.5 and Opus 5.5 at their default effort, two runs each.
+
+| (127 bars, weighted) | Key | Root | Chord and bass | Function | Full |
+|---|---|---|---|---|---|
+| Plain Sonnet, run 1 / 2 | 0.69 / 0.84 | 0.59 / 0.67 | 0.45 / 0.47 | 0.50 / 0.58 | 0.39 / 0.42 |
+| Plain Opus, run 1 / 2 | 0.95 / 0.96 | 0.85 / 0.84 | 0.62 / 0.65 | 0.71 / 0.73 | 0.58 / 0.62 |
+| Draft alone (challenge 60) | 0.79 | 0.78 | 0.56 | 0.67 | 0.45 |
+| Our pipeline, draft + Opus review | 0.96 | 0.81 | 0.72 | 0.77 | 0.68 |
+
+Sonnet's first Bach answer wrote B-flat minor as `b:` (B minor in RomanText) and scores 0 as written; with the key code corrected it scores 0.16 on that piece and 0.42 overall, so the slip changes little. Plain Opus is weakest on Bach (0.46-0.54 against the pipeline's 0.58) and on Beethoven (0.51-0.63 against 0.66). Cost, estimated from tokens: $2.95 for the six Sonnet answers and $5.30 for the six Opus answers, each answer covering one piece's two passages, mostly for reading the whole MusicXML file.
+
+**What it means.** Plain Opus gets the keys as right as the pipeline but the chords less often: 0.60 *full* against 0.68, which is about two runs' spread apart on three pieces. Plain Sonnet is below even the draft alone. What closes the gap is the method and the note table (challenge 60), not the draft model. Three pieces only.
 
 ## Checking against teachers' prose
 
@@ -1114,7 +1210,11 @@ Modal and colouristic music is now the largest group, and Ravel is the one piece
 .venv/bin/python -m eval.judge                                     # compare with published prose analyses
 .venv/bin/python -m eval.judge --reviewer RUN --claims-from opus-medium [--repeats 3]   # re-mark the same claims (challenges 8-9)
 .venv/bin/python -m eval.review --tag NAME [--image] [--overview] [--alternatives]     # a variant run in its own folder
-.venv/bin/python -m eval.ceiling                                   # expert against expert (challenge 14)
+.venv/bin/python -m eval.run --set heldout                         # draft on pieces the draft model never saw (challenge 58)
+.venv/bin/python -m eval.review --set heldout --only ID --passages 2 --tag NAME   # review two passages per held-out piece
+.venv/bin/python -m eval.ceiling                                   # expert against expert, 124 pairs by style (challenges 14, 59)
+.venv/bin/python -m eval.review --set heldout --only ID --passages 2 --no-draft --source musicxml --tag NAME   # Claude alone (challenge 60)
+.venv/bin/python -m eval.plain --only ID [--only ID]                 # plain Sonnet and Opus chats, two runs each (challenge 61)
 .venv/bin/python -m eval.survey                                    # draft over 300 When in Rome pieces (challenge 15)
 .venv/bin/python -m eval.bass_check                                # the rejected bass rule (challenge 11)
 .venv/bin/python -m eval.review --tag NAME --selfcheck --start-from opus-medium   # the self-check alone (challenge 16)

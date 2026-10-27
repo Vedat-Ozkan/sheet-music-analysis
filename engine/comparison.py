@@ -93,6 +93,17 @@ def matches(reference: Sounding, reading: Sounding) -> dict[str, bool]:
     same_bass = same_chord and reference.bass == reading.bass
     return dict(key=same_key, root=same_root, chord=same_chord, chord_and_bass=same_bass, full=same_bass and same_key)
 
+
+def same_function(a: Sounding, b: Sounding) -> bool:
+    if a.bass != b.bass:
+        return False
+    if a.root == b.root and len(a.tones ^ b.tones) == 1 and (a.tones <= b.tones or b.tones <= a.tones):
+        return True
+    cadential = lambda s: s.root == s.tonic and s.bass == (s.tonic + 7) % 12 and len(s.tones) == 3
+    dominant = lambda s: s.root == s.bass
+    return cadential(a) and dominant(b) or cadential(b) and dominant(a)
+
+
 Span = tuple[Fraction, Fraction, Sounding | None]
 
 
@@ -143,25 +154,26 @@ class Timeline:
         return float(inside / (inside + outside)) if inside + outside else 0.0
 
 
-def compare(reference: list[Label], reading: list[Label], index: ScoreIndex) -> dict:
+def compare(reference: list[Label], reading: list[Label], index: ScoreIndex, bars: list[tuple[int, int]] | None = None) -> dict:
     timeline = Timeline(index)
     ref, ref_missing = timeline.spans(reference)
     hyp, _ = timeline.spans(reading)
-    cuts = sorted({point for start, end, _ in ref + hyp for point in (start, end)})
+    windows = [(timeline.starts[first], timeline.starts[last] + timeline.measures[last].length) for first, last in bars or []]
+    cuts = sorted({point for start, end, _ in ref + hyp for point in (start, end)} | {point for window in windows for point in window})
 
     def at(spans: list[Span], time: Fraction) -> Sounding | None:
         return next((chord for start, end, chord in spans if start <= time < end), None)
 
-    weights = dict.fromkeys(("labelled", "key", "root", "chord", "chord_and_bass", "full"), Fraction(0))
+    weights = dict.fromkeys(("labelled", "key", "root", "chord", "chord_and_bass", "function", "full"), Fraction(0))
     for start, end in zip(cuts, cuts[1:]):
         r, h = at(ref, start), at(hyp, start)
-        if r is None:
+        if r is None or windows and not any(low <= start < high for low, high in windows):
             continue
         length = end - start
         weights["labelled"] += length
         if h is None:
             continue
-        for name, agrees in matches(r, h).items():
+        for name, agrees in {**matches(r, h), "function": same_function(r, h) or matches(r, h)["chord_and_bass"]}.items():
             weights[name] += length * agrees
     labelled = weights.pop("labelled")
     result = {name: round(float(value / labelled), 3) if labelled else None for name, value in weights.items()}

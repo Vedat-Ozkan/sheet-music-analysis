@@ -4,6 +4,7 @@ import io
 import os
 import re
 import zipfile
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -240,7 +241,63 @@ PIECES = [
     ),
 ]
 
-BY_ID = {piece.id: piece for piece in PIECES}
+HELDOUT_DCML = {
+    "beethoven_piano_sonatas": ("01-3", "03-4", "05-3", "06-2", "08-3", "09-2", "09-3", "16-2", "20-2", "21-3", "23-2", "24-2", "30-2", "31-2"),
+    "chopin_mazurkas": ("BI105-4op30-4", "BI115-2op33-2", "BI126-3op41-1", "BI145-1op50-1", "BI145-3op50-3", "BI153-2op56-2", "BI153-3op56-3", "BI157-2op59-2", "BI168op68-4", "BI60-2op06-2", "BI61-2op07-2", "BI61-4op07-4", "BI77-1op17-1", "BI77-3op17-3"),
+    "dvorak_silhouettes": ("op08n01", "op08n04", "op08n09", "op08n10"),
+    "grieg_lyric_pieces": ("op12n03", "op12n04", "op38n01", "op38n02", "op38n07", "op43n01", "op47n07", "op54n01", "op54n06", "op57n01", "op62n02", "op62n04", "op65n01", "op65n02", "op65n03", "op65n04", "op71n04"),
+    "liszt_pelerinage": ("160.05_Orage", "160.06_Vallee_dObermann", "160.09_Les_Cloches_de_Geneve_(Nocturne)", "161.05_Sonetto_104_del_Petrarca", "161.06_Sonetto_123_del_Petrarca", "162.02_Canzone"),
+    "medtner_tales": ("op26n01", "op26n02", "op34n04", "op35n01", "op35n04", "op42n03"),
+    "mozart_sonatas": ("K309-1", "K310-1"),
+    "schumann_kinderszenen": ("n03", "n09", "n10", "n13"),
+    "tchaikovsky_seasons": ("op37a03", "op37a07", "op37a11"),
+}
+HELDOUT_ROME = (
+    "OpenScore-LiederCorpus/Schubert,_Franz/Die_schöne_Müllerin,_D.795/12_Pause",
+    "OpenScore-LiederCorpus/Schubert,_Franz/Schwanengesang,_D.957/08_Der_Atlas",
+    "OpenScore-LiederCorpus/Schubert,_Franz/Schwanengesang,_D.957/05_Aufenthalt",
+    "OpenScore-LiederCorpus/Schubert,_Franz/Schwanengesang,_D.957/10_Das_Fischermädchen",
+    "OpenScore-LiederCorpus/Schubert,_Franz/Winterreise,_D.911/03_Gefror’ne_Thränen",
+    "OpenScore-LiederCorpus/Schubert,_Franz/Op.59/3_Du_bist_die_Ruh",
+    "OpenScore-LiederCorpus/Wolf,_Hugo/Eichendorff-Lieder/14_Der_verzweifelte_Liebhaber",
+    "OpenScore-LiederCorpus/Wolf,_Hugo/Eichendorff-Lieder/19_Die_Nacht",
+    "OpenScore-LiederCorpus/Schumann,_Robert/Dichterliebe,_Op.48/02_Aus_meinen_Tränen_sprießen",
+    "OpenScore-LiederCorpus/Schumann,_Robert/Dichterliebe,_Op.48/04_Wenn_ich_in_deine_Augen_seh’",
+    "OpenScore-LiederCorpus/Schumann,_Robert/Dichterliebe,_Op.48/10_Hör’_ich_das_Liedchen_klingen",
+    "OpenScore-LiederCorpus/Schumann,_Robert/Dichterliebe,_Op.48/12_Am_leuchtenden_Sommermorgen",
+    "OpenScore-LiederCorpus/Schumann,_Robert/Dichterliebe,_Op.48/16_Die_alten,_bösen_Lieder",
+    "OpenScore-LiederCorpus/Reichardt,_Louise/Sechs_Lieder_von_Novalis,_Op.4/5_Noch_ein_Bergmannslied",
+    "OpenScore-LiederCorpus/Hensel,_Fanny_(Mendelssohn)/6_Lieder,_Op.9/1_Die_Ersehnte",
+    "Keyboard_Other/Bach,_Johann_Sebastian/The_Well-Tempered_Clavier_I/03",
+    "Keyboard_Other/Bach,_Johann_Sebastian/The_Well-Tempered_Clavier_I/08",
+    "Keyboard_Other/Bach,_Johann_Sebastian/The_Well-Tempered_Clavier_I/12",
+    "Keyboard_Other/Bach,_Johann_Sebastian/The_Well-Tempered_Clavier_I/15",
+    "Keyboard_Other/Bach,_Johann_Sebastian/The_Well-Tempered_Clavier_I/22",
+    "Keyboard_Other/Bach,_Johann_Sebastian/The_Well-Tempered_Clavier_I/24",
+)
+HELDOUT_CHORALES = {"riemenschneider004": "bwv86.6", "riemenschneider010": "bwv38.6", "riemenschneider019": "bwv351"}
+
+
+def _heldout() -> list[Piece]:
+    found = []
+    for corpus, stems in HELDOUT_DCML.items():
+        repository = {"mozart_sonatas": "mozart_piano_sonatas"}.get(corpus, corpus)
+        for stem in stems:
+            found.append(Piece(
+                f"heldout-{corpus}-{stem}", f"{corpus.replace('_', ' ')} {stem}", DCML + f"{corpus}/{urllib.parse.quote(stem)}.musicxml",
+                f"https://raw.githubusercontent.com/DCMLab/{repository}/main/harmonies/{urllib.parse.quote(stem)}.harmonies.tsv", fix="harmony",
+            ))  # fmt: skip
+    for folder in HELDOUT_ROME:
+        path = ROME + urllib.parse.quote(folder)
+        found.append(Piece("heldout-" + re.sub(r"\W+", "-", folder.split("/", 1)[1]).strip("-").lower(), folder.split("/", 1)[1].replace("_", " "), path + "/score.mxl", path + "/analysis.txt", fix="harmony"))
+    for analysis, chorale in HELDOUT_CHORALES.items():
+        found.append(Piece(f"heldout-bach-chorale-{chorale}", f"Bach, chorale {chorale}", f"corpus:bach/{chorale}.mxl", f"corpus:bach/choraleAnalyses/{analysis}.rntxt"))
+    return found
+
+
+HELDOUT = _heldout()
+SETS = {"core": PIECES, "heldout": HELDOUT}
+BY_ID = {piece.id: piece for piece in PIECES + HELDOUT}
 
 
 def _download(source: str, cached: Path) -> bytes:
