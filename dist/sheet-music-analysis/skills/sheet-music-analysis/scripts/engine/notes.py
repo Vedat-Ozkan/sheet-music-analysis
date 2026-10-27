@@ -4,9 +4,17 @@ import re
 from dataclasses import dataclass, field
 from fractions import Fraction
 
-from engine.score import Event, Measure, ScoreIndex, beat_length
+from engine.score import Event, Mark, Measure, ScoreIndex, beat_length
 
 VERSION = "N1"
+ORNAMENTS = ("tr", "mu", "ml", "tu", "tl")
+MARK = re.compile(
+    r"(?P<pedal>P[du])@(?P<at1>[\d.]+)"
+    r"|q=(?P<tempo>[\d.]+|[a-z]+)@(?P<at2>[\d.]+)"
+    r"|(?P<hairpin>[<>])@(?P<at3>[\d.]+)\+(?P<length>[\d.]+)"
+    r"|(?P<ornament>" + "|".join(ORNAMENTS) + r")@(?P<at4>[\d.]+):(?P<pitch>[A-G][#b]*\d)(?:\^(?P<upper>[a-z]+))?(?:_(?P<lower>[a-z]+))?"
+    r"|(?P<dynamic>[a-z]+)@(?P<at5>[\d.]+)"
+)
 MAX_CHARS = 200_000
 
 
@@ -30,7 +38,7 @@ def encode(index: ScoreIndex, first: int | None = None, last: int | None = None)
             start = 0
         measures = measures[start : end + 1]
     div = index.ppq
-    lines = [f"{VERSION} div={div} ts={index.meter} ks={index.key_signature or '0'}"]
+    lines = [f"{VERSION} div={div} ts={index.meter} ks={index.key_signature or '0'}" + (" orn=upper" if index.ornaments_from_above else "")]
     meter = index.meter
     for measure in measures:
         header = f"m{measure.number} len={_units(measure.length, div)}"
@@ -38,6 +46,8 @@ def encode(index: ScoreIndex, first: int | None = None, last: int | None = None)
             meter = measure.meter
             header += f" ts={meter}"
         lines.append(header)
+        if measure.marks:
+            lines.append("x: " + " ".join(_mark(mark) for mark in measure.marks))
         voices: dict[tuple[int, int], list[Event]] = {}
         for event in measure.events:
             if event.pitch:
@@ -45,6 +55,42 @@ def encode(index: ScoreIndex, first: int | None = None, last: int | None = None)
         for (staff, layer), events in sorted(voices.items()):
             lines.append(f"{staff}.{layer}: " + _voice(events, div))
     return "\n".join(lines)
+
+
+def _quarters(value: Fraction) -> str:
+    return f"{float(value):.3f}".rstrip("0").rstrip(".")
+
+
+def _mark(mark: Mark) -> str:
+    at = _quarters(mark.offset)
+    if mark.kind == "pedal":
+        return f"P{mark.value[0]}@{at}"
+    if mark.kind == "tempo":
+        return f"q={mark.value}@{at}"
+    if mark.kind == "hairpin":
+        return f"{mark.value}@{at}+{_quarters(mark.length)}"
+    if mark.kind == "ornament":
+        return f"{mark.value}@{at}:{mark.pitch}" + (f"^{mark.upper}" if mark.upper else "") + (f"_{mark.lower}" if mark.lower else "")
+    return f"{mark.value}@{at}"
+
+
+def _read_marks(tokens: list[str], measure: Measure) -> None:
+    for token in tokens:
+        match = MARK.fullmatch(token)
+        if not match:
+            raise ValueError(f"unknown mark {token!r}")
+        found = match.groupdict()
+        at = Fraction(next(found[f"at{n}"] for n in range(1, 6) if found[f"at{n}"])).limit_denominator(960)
+        if found["pedal"]:
+            measure.marks.append(Mark("pedal", at, "down" if found["pedal"] == "Pd" else "up"))
+        elif found["tempo"]:
+            measure.marks.append(Mark("tempo", at, found["tempo"]))
+        elif found["hairpin"]:
+            measure.marks.append(Mark("hairpin", at, found["hairpin"], Fraction(found["length"]).limit_denominator(960)))
+        elif found["ornament"]:
+            measure.marks.append(Mark("ornament", at, found["ornament"], pitch=found["pitch"], upper=found["upper"] or "", lower=found["lower"] or ""))
+        else:
+            measure.marks.append(Mark("dynamic", at, found["dynamic"]))
 
 
 def _units(value: Fraction, div: int) -> int:
@@ -68,7 +114,7 @@ def _voice(events: list[Event], div: int) -> str:
             tokens += [str(gap), "r"]
             current, cursor = gap, onset
         if grace:
-            tokens.append("g" + names)
+            tokens.append(("u" if group[0].slashed else "g") + names)
             continue
         duration = _units(group[0].duration, div)
         if duration != current:
@@ -110,6 +156,10 @@ def decode(text: str) -> ScoreIndex:
                 )
                 measure.declared_length = Fraction(int(fields["len"]), div)
                 measures.append(measure)
+            elif line.startswith("x:"):
+                if not measures:
+                    raise NotesError(f"Line {number}: a marks line needs a bar line like 'm3 len=96' before it")
+                _read_marks(line[2:].split(), measures[-1])
             else:
                 if not measures:
                     raise NotesError(f"Line {number}: a voice line needs a bar line like 'm3 len=96' before it")
@@ -126,7 +176,9 @@ def decode(text: str) -> ScoreIndex:
         raise NotesError(f"The note list could not be read: {error}") from error
     if not measures:
         raise NotesError("The note list has no measures")
-    return ScoreIndex.from_measures(measures, meter, key)
+    index = ScoreIndex.from_measures(measures, meter, key)
+    index.ornaments_from_above = settings.get("orn") == "upper"
+    return index
 
 
 def _read_voice(tokens: list[str], measure: Measure, staff: int, layer: int, div: int) -> None:
@@ -138,7 +190,7 @@ def _read_voice(tokens: list[str], measure: Measure, staff: int, layer: int, div
         if token == "r":
             cursor += duration
             continue
-        grace = token.startswith("g")
+        grace = token.startswith(("g", "u"))
         for name in token[1 if grace else 0 :].split("+"):
             tied = name.endswith("~")
             pitch = name.rstrip("~")
@@ -146,7 +198,8 @@ def _read_voice(tokens: list[str], measure: Measure, staff: int, layer: int, div
                 raise ValueError(f"unknown token {token!r}")
             identity = f"{measure.id}-{staff}.{layer}-{len(measure.events)}"
             measure.events.append(
-                Event(identity, measure.number, staff, cursor, Fraction(0) if grace else duration, pitch, grace, layer, tied, attack=str(attack) if grace else "")
+                Event(identity, measure.number, staff, cursor, Fraction(0) if grace else duration, pitch, grace, layer, tied,
+                      attack=str(attack) if grace else "", slashed=token.startswith("u"))
             )
         if not grace:
             cursor += duration

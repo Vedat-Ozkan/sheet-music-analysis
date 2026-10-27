@@ -32,6 +32,18 @@ class Event:
     tied: bool = False
     segment: str = ""
     attack: str = ""
+    slashed: bool = False
+
+@dataclass
+class Mark:
+
+    kind: str
+    offset: Fraction
+    value: str
+    length: Fraction = Fraction(0)
+    pitch: str = ""
+    upper: str = ""
+    lower: str = ""
 
 @dataclass
 class Segment:
@@ -50,6 +62,7 @@ class Measure:
     declared_length: Fraction | None = None
     events: list[Event] = field(default_factory=list)
     segments: list[Segment] = field(default_factory=list)
+    marks: list[Mark] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not self.segments:
@@ -122,6 +135,8 @@ def _duration(element: ET.Element, ppq: int) -> Fraction:
 
 
 class ScoreIndex:
+    ornaments_from_above = False
+
     def __init__(self, mei: str):
         root = ET.fromstring(mei)
         self.measures: list[Measure] = []
@@ -268,6 +283,7 @@ class ScoreIndex:
                 event.tied = note.get("tie") in ("i", "m")
                 event.segment = measure.id
                 event.attack = child.get(XML_ID, "")
+                event.slashed = child.get("grace") == "unacc"
                 measure.events.append(event)
             if tag == "rest":
                 rest = Event(child.get(XML_ID), measure.number, staff, cursor, duration, layer=self._layer, segment=measure.id)

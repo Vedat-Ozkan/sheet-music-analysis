@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 from fractions import Fraction
 
+from engine.performance import performance_midi
 from engine.reduce import STEPS
 from engine.render import load_toolkit
 from engine.score import ScoreIndex, TOLERANCE
@@ -204,7 +205,4 @@ def export_romantext(original: bytes, analysis: dict, measures: tuple[int, int] 
 
 
 def export_midi(original: bytes, measures: tuple[int, int] | None = None) -> bytes:
-    toolkit = load_toolkit(original)
-    if measures:
-        toolkit.select({'measureRange': ScoreIndex(toolkit.getMEI()).measure_range(*measures)})
-    return base64.b64decode(toolkit.renderToMIDI())
+    return performance_midi(original, measures)
