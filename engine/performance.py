@@ -16,13 +16,16 @@ SWELLS = ("cresc", "crescendo", "dim", "dimin", "diminuendo", "decresc")
 DYNAMICS = {*LEVELS, *ACCENTS, "fp", *SWELLS}
 DEFAULT_LEVEL = 66
 DEFAULT_TEMPO = 120.0
+TEMPO_WORDS = {"grave": 40, "largo": 50, "larghetto": 60, "lento": 60, "adagio": 66, "adagietto": 76, "andante": 80,
+               "andantino": 90, "moderato": 100, "allegretto": 112, "allegro": 132, "vivace": 150, "presto": 170,
+               "prestissimo": 190}
 SWELL = 15
 ORNAMENT_NOTE_MS = 70
 SLASHED_GRACE_MS = 30
 ALTER = {"s": 1, "f": -1, "n": 0, "x": 2, "ss": 2, "ff": -2}
 SHARP_ORDER, FLAT_ORDER = "FCGDAEB", "BEADGCF"
 TEXT_VERSION, TEXT_UNIT_MS = "P1", 10
-UPPER_NOTE_TRILLS = {"bach", "handel", "händel", "vivaldi", "scarlatti", "telemann", "couperin", "rameau", "purcell", "corelli", "haydn", "mozart", "clementi"}
+UPPER_NOTE_COMPOSERS = {"bach", "handel", "händel", "vivaldi", "scarlatti", "telemann", "couperin", "rameau", "purcell", "corelli", "haydn", "mozart", "clementi"}
 ORNAMENT_CODES = {("trill", "upper"): "tr", ("trill", "lower"): "tr", ("mordent", "upper"): "mu", ("mordent", "lower"): "ml",
                   ("turn", "upper"): "tu", ("turn", "lower"): "tl"}
 
@@ -39,8 +42,8 @@ def performance_midi(score: bytes, measures: tuple[int, int] | None = None) -> b
     return _write(*perform(marked_index(score), measures))
 
 
-def performance_text(index: ScoreIndex, measures: tuple[int, int] | None = None) -> str:
-    notes, pedals, offset = perform(index, measures)
+def performance_text(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: float | None = None) -> str:
+    notes, pedals, offset = perform(index, measures, tempo)
     tokens, previous, velocity = [TEXT_VERSION], 0, None
     for note in sorted(notes, key=lambda note: (note.start, note.pitch)):
         start = max(round((note.start - offset) / TEXT_UNIT_MS), previous)
@@ -71,11 +74,17 @@ def marked_index(score: bytes) -> ScoreIndex:
         if score_def.get("midi.bpm") and index.measures:
             index.measures[0].marks.append(Mark("tempo", Fraction(0), score_def.get("midi.bpm")))
         break
+    worded = []
     for bar in bars:
         bar_id = bar.get(XML_ID)
         for element in bar:
             tag = element.tag.replace(MEI, "")
             tstamp = element.get("tstamp")
+            if tag in ("dir", "tempo") and tstamp and not element.get("midi.bpm"):
+                word = next((word for word in re.findall(r"[a-z]+", "".join(element.itertext()).lower()) if word in TEMPO_WORDS), None)
+                if word:
+                    measure, offset = place(bar_id, tstamp)
+                    worded.append((measure, Mark("tempo", offset, word if measure.beat_length == 2 else f"{TEMPO_WORDS[word] * float(measure.beat_length):g}")))
             if tag == "dynam" and tstamp:
                 measure, offset = place(bar_id, tstamp)
                 text = next((word for word in re.findall(r"[a-z]+", "".join(element.itertext()).lower()) if word in DYNAMICS), None)
@@ -100,15 +109,29 @@ def marked_index(score: bytes) -> ScoreIndex:
                 code = ORNAMENT_CODES[(tag, element.get("form", "upper"))]
                 measure.marks.append(Mark("ornament", event.onset, code, pitch=event.pitch,
                                           upper=element.get("accidupper", ""), lower=element.get("accidlower", "")))
+    if not any(mark.kind == "tempo" for measure in index.measures for mark in measure.marks):
+        for measure, mark in worded:
+            measure.marks.append(mark)
     for measure in index.measures:
         measure.marks.sort(key=lambda mark: mark.offset)
-    index.trills_from_above = _starts_trills_above(root)
+    index.ornaments_from_above = _starts_ornaments_above(root)
     return index
 
 
-def perform(index: ScoreIndex, measures: tuple[int, int] | None = None) -> tuple[list[Note], list[tuple[float, int]], float]:
+def unclear_tempos(index: ScoreIndex) -> list[tuple[int, str]]:
+    return [(measure.number, mark.value) for measure in index.measures for mark in measure.marks
+            if mark.kind == "tempo" and mark.value in TEMPO_WORDS]
+
+
+def perform(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: float | None = None) -> tuple[list[Note], list[tuple[float, int]], float]:
     starts = _bar_starts(index)
-    clock = _Clock([(starts[id(measure)] + mark.offset, float(mark.value)) for measure in index.measures
+
+    def bpm(measure: Measure, value: str) -> float:
+        if value not in TEMPO_WORDS:
+            return float(value)
+        return tempo or TEMPO_WORDS[value] * float(measure.beat_length)
+
+    clock = _Clock([(starts[id(measure)] + mark.offset, bpm(measure, mark.value)) for measure in index.measures
                     for mark in measure.marks if mark.kind == "tempo"])
     at = {id(measure): (lambda offset, measure=measure: float(starts[id(measure)] + offset)) for measure in index.measures}
     notes, heads = _notes(index, starts, clock)
@@ -143,8 +166,8 @@ def perform(index: ScoreIndex, measures: tuple[int, int] | None = None) -> tuple
             continue
         mark, measure, event = ornaments[id(note)]
         upper = _neighbour(event, measure, 1, mark.upper, key)
-        lower = _neighbour(event, measure, -1, mark.lower, key)
-        performed.extend(_ornamented(note, mark.value, upper, lower, index.trills_from_above))
+        lower = note.pitch - 1 if mark.value in ("tu", "tl") and not mark.lower else _neighbour(event, measure, -1, mark.lower, key)
+        performed.extend(_ornamented(note, mark.value, upper, lower, index.ornaments_from_above))
 
     window = (0.0, max(note.end for note in performed))
     if measures:
@@ -298,9 +321,9 @@ def _key_alterations(signature: str) -> dict[str, int]:
     return alterations
 
 
-def _starts_trills_above(root: ET.Element) -> bool:
+def _starts_ornaments_above(root: ET.Element) -> bool:
     composers = " ".join("".join(name.itertext()) for name in root.iter(f"{MEI}persName") if name.get("role") == "composer")
-    return any(word in UPPER_NOTE_TRILLS for word in re.findall(r"\w+", composers.lower()))
+    return any(word in UPPER_NOTE_COMPOSERS for word in re.findall(r"\w+", composers.lower()))
 
 
 def _spelled(pitch: str) -> tuple[str, int, int]:
@@ -331,7 +354,9 @@ def _ornamented(note: Note, code: str, upper: int, lower: int, upper_start: bool
     elif code in ("mu", "ml"):
         pitches = [note.pitch, upper if code == "mu" else lower, note.pitch]
     else:
-        pitches = [upper, note.pitch, lower, note.pitch] if code == "tu" else [lower, note.pitch, upper, note.pitch]
+        first, second = (upper, lower) if code == "tu" else (lower, upper)
+        pitches = [first, note.pitch, second, note.pitch] if upper_start else [note.pitch, first, note.pitch, second, note.pitch]
+        step = length / len(pitches)
     played = []
     for position, pitch in enumerate(pitches):
         start = note.start + position * step

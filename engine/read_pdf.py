@@ -40,7 +40,7 @@ _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
 _REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_REST, _REST + _SMALL, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
-READER = "5.11.0-sma.2-best3-tuplet-rests-r5"
+READER = "5.11.0-sma.2-best3-tuplet-rests-ocr-r6"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
@@ -336,6 +336,7 @@ def audiveris_read(data: bytes, audiveris: str, options: list[str], deadline: fl
         source = Path(work) / "score.pdf"
         source.write_bytes(data)
         env = {key: value for key, value in os.environ.items() if key != "FONTCONFIG_FILE"}
+        env.setdefault("TESSDATA_PREFIX", str(Path(audiveris).parent.parent / "tessdata"))
         env.update(HOME=work, _JAVA_OPTIONS="-Xmx1g -Djava.awt.headless=true -Dsun.java2d.uiScale=1")
         try:
             output = run(audiveris, options, source, work, env, deadline)

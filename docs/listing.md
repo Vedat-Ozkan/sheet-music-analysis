@@ -15,13 +15,13 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 | Icon / logo | `site/icons/logo-1024.png` |
 | MCP server | https://mcp.sheetmusicanalysis.com/mcp (no sign-in) |
 
-**One-liner** (Claude, up to 200 characters; 158):
+**One-liner** (Claude, up to 200 characters; 165):
 
-> Harmonic analysis drawn on the score. Attach a MusicXML file and get the chords, cadences and phrases marked on the engraved page, with a short explanation.
+> Harmonic analysis drawn on the score. Attach a MusicXML file or a PDF and get the chords, cadences and phrases marked on the engraved page, with a short explanation.
 
 **Description** (Claude up to 2,000 characters, ChatGPT up to 4,000; about 1,300):
 
-> Sheet Music Analysis marks up a piece of music the way a theory teacher would pencil it in. Attach a score as a MusicXML file (.mxl or .musicxml, which MuseScore, Sibelius, Finale and Dorico can all export) and ask what is happening in the music.
+> Sheet Music Analysis marks up a piece of music the way a theory teacher would pencil it in. Attach a score as a MusicXML file (.mxl or .musicxml, which MuseScore, Sibelius, Finale and Dorico can all export) or a PDF of printed music, and ask what is happening in the music. A PDF is read first and shown to you to check before anything is analysed.
 >
 > You get the engraved score back, as an image and a PDF, with:
 > - every chord labelled with a Roman numeral, and coloured bands showing its job: home (tonic), moving away (predominant) or pulling back home (dominant);
@@ -31,6 +31,8 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 > - numbered circles that match a short written explanation in the chat.
 >
 > A computer model trained on hundreds of expert analyses drafts the analysis; the chat model then checks it against the actual notes and corrects it. On 12 well-known pieces checked beat by beat against experts' analyses, 71% of beats matched after the review (experts match each other on about 78%). Treat it as a well-read study partner, not an answer key: it is least reliable where experts also disagree, such as music in a major key that briefly borrows chords from the minor, and music like Debussy's that doesn't follow the usual chord patterns.
+>
+> In Claude you can also listen: a small piano player in the chat plays the passage with the score's tempo, dynamics, pedalling and ornaments.
 >
 > Ask for one layer at a time (harmony, voice leading or form) when a page gets busy. Each page shows up to 32 bars; longer pieces are analysed passage by passage. No account or sign-in needed.
 
@@ -59,14 +61,15 @@ Requirement to state wherever the form allows: Claude's **Code execution and fil
 
   > Sheet Music Analysis drafts a harmonic analysis of a piece of music: a Roman numeral for every chord, the cadences and phrase ends, and melody notes that don't belong to the chord. A computer model trained on hundreds of expert analyses makes the draft, and Claude checks it against the notes and explains it. It can also check a student's own Roman numerals beat by beat.
   >
-  > The connector works with the Sheet Music Analysis plugin, which reads your attached MusicXML file in Claude's sandbox (Code execution and file creation, Settings → Capabilities) and draws the analysis on the engraved score.
+  > The connector works with the Sheet Music Analysis plugin, which reads your attached MusicXML file or PDF in Claude's sandbox (Code execution and file creation, Settings → Capabilities) and draws the analysis on the engraved score. It also shows a small piano player in the chat that plays the passage.
 
 - **Categories, docs, privacy, support, icon:** as in Shared above. Slug: `sheet-music-analysis` (permanent).
 - **Use cases** (use case → example prompt, with a .mxl attached):
   - Analyse the harmony of a passage → "Analyse the harmony of bars 1–8 of this nocturne."
   - Show only one layer of the analysis → "Now show just the harmony, without the voice leading."
   - Explain the phrases and cadences → "Where are the phrases and cadences in bars 1–16?"
-- **Prerequisites:** the Sheet Music Analysis plugin installed from Claude's directory, and Claude's "Code execution and file creation" setting turned on (Settings → Capabilities). No account or sign-in. The user attaches a MusicXML score (.mxl or .musicxml); a public-domain sample is at https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl
+  - Hear the passage → "Play bars 1–8."
+- **Prerequisites:** the Sheet Music Analysis plugin installed from Claude's directory, and Claude's "Code execution and file creation" setting turned on (Settings → Capabilities). No account or sign-in. The user attaches a MusicXML score (.mxl or .musicxml) or a PDF of printed music; a public-domain sample is at https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl
 - **Reads or writes:** reads only.
 - **Company:** Sheet Music Analysis, https://sheetmusicanalysis.com.
 - **Authentication:** none.
@@ -101,7 +104,7 @@ OpenAI now takes a plugin ZIP rather than a form: the text below lives in `opena
 **Should not use the app:**
 
 1. "What is a Neapolitan sixth chord?" → answered from general knowledge; no tool call (no score is involved).
-2. "Here's an MP3 of my piece, can you analyse it?" → no tool call; explains that the app needs a MusicXML score, not audio.
+2. "Here's an MP3 of my piece, can you analyse it?" → no tool call; explains that the app needs a MusicXML score or a PDF, not audio.
 3. "Transpose this score to D major and send me the new file." → no tool call; the app only analyses.
 
 - **Demo video:** a screen recording of cases 1–5 and one of the negative cases in ChatGPT, uploaded as an unlisted video.

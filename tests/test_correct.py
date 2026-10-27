@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from engine import correct, notes
+from engine.performance import marked_index
 from engine.read_pdf import clean, problem_spots, without_slurs
 from engine.render import engrave, load_toolkit
 from engine.score import ScoreIndex
@@ -117,3 +118,12 @@ def test_replace_bars_survives_notes_running_past_the_bar_end():
     text = correct.bars_from_musicxml(score, 2)
     result = correct.replace_bars(score, text.replace("F5", "E5"))
     assert correct.bars_from_musicxml(result, 2) == text.replace("F5", "E5")
+
+
+def test_a_note_list_with_its_marks_lines_corrects_like_one_without():
+    score = (Path(__file__).parent / "data/chopin_nocturne_op9_no2.mxl").read_bytes()
+    marked = notes.encode(marked_index(score), 2, 2)
+    assert "\nx: " in marked
+    corrected = ScoreIndex(load_toolkit(correct.replace_bars(score, marked)).getMEI()).measure(2)
+    original = ScoreIndex(load_toolkit(score).getMEI()).measure(2)
+    assert [(e.onset, e.duration, e.pitch) for e in corrected.events] == [(e.onset, e.duration, e.pitch) for e in original.events]

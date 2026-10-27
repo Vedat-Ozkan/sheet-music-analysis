@@ -12,6 +12,7 @@ from PIL import Image
 
 from engine import tint
 from engine.overlay import Box, PageLayout
+from engine.performance import marked_index
 from engine.read_pdf import PREVIEW_OPTIONS, SETTINGS, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, without_slurs
 from engine.render import engrave, load_toolkit
 from engine.score import ScoreIndex
@@ -43,6 +44,14 @@ def test_reads_an_engraved_pdf_back_into_a_score(chopin):
     picture = io.BytesIO()
     Image.open(io.BytesIO(engraving.png(1))).convert("RGB").save(picture, "PDF")
     assert is_scan(open_pdf(picture.getvalue()))
+
+
+@pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
+def test_a_tempo_word_printed_in_the_pdf_reaches_the_playback():
+    reading = read_pdf((Path(__file__).parent / "data/chopin-28-4-mutopia.pdf").read_bytes(), audiveris=AUDIVERIS)
+
+    first = marked_index(reading.musicxml).measures[0]
+    assert [mark.value for mark in first.marks if mark.kind == "tempo"] == ["largo"]
 
 
 def test_names_the_bars_a_reading_likely_got_wrong():

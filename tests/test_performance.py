@@ -8,6 +8,7 @@ from engine import notes as note_list
 from engine.performance import marked_index, performance_text
 
 DATA = Path(__file__).parent / "data"
+NOCTURNE = DATA / "chopin_nocturne_op9_no2_pdmx.mxl"
 
 NOTE_ON, CONTROLLER = midi.ChannelVoiceMessages.NOTE_ON, midi.ChannelVoiceMessages.CONTROLLER_CHANGE
 
@@ -29,8 +30,13 @@ def onsets(data: bytes) -> list[tuple[int, int, int]]:
 
 
 @pytest.fixture(scope="module")
-def opening(chopin):
-    return export_midi(chopin, (1, 8))
+def nocturne():
+    return NOCTURNE.read_bytes()
+
+
+@pytest.fixture(scope="module")
+def opening(nocturne):
+    return export_midi(nocturne, (1, 8))
 
 
 def test_only_the_chosen_bars_are_played(opening):
@@ -46,11 +52,11 @@ def test_dynamics_and_hairpins_change_the_loudness(opening):
     assert len({velocity for _, _, velocity in onsets(opening)}) > 5
 
 
-def fast_runs(notes, lowest):
+def fast_runs(notes, lowest, slowest=130):
     top = [(time, pitch) for time, pitch, _ in notes if pitch >= lowest]
     runs, current = [], [top[0][1]]
     for (before, previous), (time, pitch) in zip(top, top[1:]):
-        if 40 <= time - before <= 130 and abs(pitch - previous) <= 3:
+        if 40 <= time - before <= slowest and abs(pitch - previous) <= 3:
             current.append(pitch)
         else:
             if len(current) > 2:
@@ -59,11 +65,10 @@ def fast_runs(notes, lowest):
     return runs + [current] * (len(current) > 2)
 
 
-def test_ornaments_are_played_out(chopin):
-    runs = fast_runs(onsets(export_midi(chopin)), 70)
-    starts = [run[:4] for run in runs]
+def test_ornaments_are_played_out(nocturne):
+    starts = [run[:4] for run in fast_runs(onsets(export_midi(nocturne)), 70)]
     assert any(start[:3] == [77, 79, 77] for start in starts)
-    assert [74, 72, 70, 72] in starts
+    assert [75, 74, 75, 77] in starts
     assert any(start[:3] == [75, 77, 75] for start in starts)
 
 
@@ -84,6 +89,17 @@ def test_an_accidental_printed_on_the_trill_sets_the_upper_note(bach_trills):
     assert bach_trills[1] == [70, 69]
 
 
+def test_a_romantic_turn_starts_on_its_note_and_dips_a_semitone_below():
+    runs = fast_runs(onsets(export_midi((DATA / "chopin_nocturne_op9_no2.mxl").read_bytes(), (1, 4))), 70, slowest=200)
+    assert [72, 73, 72, 71, 72] in [run[:5] for run in runs]
+
+
+def test_a_turn_dips_a_semitone_below_unless_the_score_prints_another_note():
+    runs = fast_runs(onsets(export_midi((DATA / "ornament_accidentals.musicxml").read_bytes())), 60, slowest=300)
+    assert [71, 69, 68, 69] in [run[:4] for run in runs]
+    assert [74, 72, 70, 72] in [run[:4] for run in runs]
+
+
 def read_text(text):
     notes, now, velocity = [], 0, None
     for token in text.split()[1:]:
@@ -96,19 +112,26 @@ def read_text(text):
     return notes
 
 
-def test_the_performance_text_holds_the_same_notes_as_the_midi(chopin, opening):
-    played = read_text(performance_text(marked_index(chopin), (1, 8)))
+def test_the_performance_text_holds_the_same_notes_as_the_midi(nocturne, opening):
+    played = read_text(performance_text(marked_index(nocturne), (1, 8)))
     midi = sorted(onsets(opening), key=lambda note: (note[0], note[1]))
     assert [pitch for _, _, pitch, _ in played] == [pitch for _, pitch, _ in midi]
     assert all(abs(start - time) <= 10 for (start, *_), (time, _, _) in zip(played, midi))
 
 
-def test_notes_released_under_the_pedal_ring_until_it_lifts(chopin):
-    lengths = [end - start for start, end, _, _ in read_text(performance_text(marked_index(chopin), (1, 1)))]
+def test_notes_released_under_the_pedal_ring_until_it_lifts(nocturne):
+    lengths = [end - start for start, end, _, _ in read_text(performance_text(marked_index(nocturne), (1, 1)))]
     assert max(lengths) >= 2_500
 
 
-def test_the_note_list_carries_everything_the_performance_needs(chopin):
-    index = marked_index(chopin)
+def test_the_note_list_carries_everything_the_performance_needs(nocturne):
+    index = marked_index(nocturne)
     relayed = note_list.decode(note_list.encode(index))
     assert performance_text(relayed) == performance_text(index)
+
+
+def test_a_tempo_word_sets_the_speed_when_there_is_no_metronome_mark():
+    plain = (DATA / "ornament_accidentals.musicxml").read_bytes()
+    worded = plain.replace(b"<note><pitch><step>F</step>", b"<direction placement=\"above\"><direction-type><words>Adagio</words></direction-type></direction><note><pitch><step>F</step>", 1)
+    assert timeline(export_midi(plain))[-1][0] == 6_000
+    assert timeline(export_midi(worded))[-1][0] == round(6_000 * 120 / 66)

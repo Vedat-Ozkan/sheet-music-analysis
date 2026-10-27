@@ -1,6 +1,6 @@
 ---
 name: sheet-music-analysis
-description: Analyse the harmony of sheet music and draw the analysis on the engraved score. Use when the user attaches or mentions a MusicXML score (.mxl, .musicxml) and asks for a harmonic analysis, Roman numerals, chord functions, cadences, phrase structure, non-chord tones, voice leading, key areas or modulations, or asks what is happening in a passage of a piece. Produces an annotated score as PNG and PDF plus a short written commentary. For music students and composers; classical repertoire from Bach to the early twentieth century, including modal and impressionist music.
+description: Analyse the harmony of sheet music and draw the analysis on the engraved score. Use when the user attaches or mentions a score, as MusicXML (.mxl, .musicxml) or a PDF of printed music, and asks for a harmonic analysis, Roman numerals, chord functions, cadences, phrase structure, non-chord tones, voice leading, key areas or modulations, or asks what is happening in a passage of a piece, or asks to hear it played. Produces an annotated score as PNG and PDF plus a short written commentary, and with the connector a small piano player in the chat. For music students and composers; classical repertoire from Bach to the early twentieth century, including modal and impressionist music.
 ---
 
 # Sheet music analysis
@@ -18,6 +18,20 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
    ```bash
    pip install verovio resvg-py cairosvg pikepdf pillow fonttools pydantic
    ```
+
+   **A PDF of printed music** is read first:
+
+   ```bash
+   python3 scripts/read_pdf.py SCORE.pdf --out-dir OUTPUT_FOLDER --name score
+   ```
+
+   It reads the notes from the pages (about half a minute a page; the first run also downloads the reader), engraves what it read, and prints what to show the user. Show those pages and its message, then wait: the reading can contain mistakes. Only after the user says to go ahead, use the `score.musicxml` it wrote as SCORE in every step below. If the user says a bar was misread, or you can see one is and are confident what it should be, run `model_notes.py` on `score.musicxml` for those bars, correct its output (keep every voice of each bar and every staff), save it as BARS.txt and run
+
+   ```bash
+   python3 scripts/correct_score.py OUTPUT_FOLDER/score.musicxml BARS.txt --out-dir OUTPUT_FOLDER --name corrected
+   ```
+
+   Show the redrawn bars it prints and ask the user to confirm against their copy; if you proposed the fix, say so. After they confirm, use `corrected.musicxml` as SCORE.
 
 2. **Read the notes.** Run the table script on the user's file, for the passage chosen as the method below says.
 
@@ -55,7 +69,7 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
 
 ## Playing the music
 
-When the user wants to hear the music, call the connector's `play` tool; a small piano player appears in the chat. Play the analysed passage: pass the `play_id` printed at the end of the draft from step 3. Only when the user asks for other bars or the whole piece, or there is no draft, run `model_notes.py` for those bars and pass its output, exactly as printed, as `notes`; this takes longer, because the whole note list goes through the chat. Without the connector, offer the MIDI file from step 6 instead.
+When the user wants to hear the music, call the connector's `play` tool; a small piano player appears in the chat. It plays any score you have, including the reading of a PDF, with the tempo, dynamics, pedal and ornaments marked in it; a PDF reading may miss some of these, so it can play without pedal or ornaments. If play answers that a tempo word's speed is unclear, ask the user how fast they want it and call play again with `tempo` in quarter notes per minute. Play the analysed passage: pass the `play_id` printed at the end of the draft from step 3. Only when the user asks for other bars or the whole piece, or there is no draft, run `model_notes.py` for those bars and pass its output, exactly as printed, as `notes`; this takes longer, because the whole note list goes through the chat. Without the connector, offer the MIDI file from step 6 instead.
 
 ## Method
 
@@ -112,5 +126,5 @@ Do not claim more certainty than you have. Automatic and human analyses both dif
 ## Limits
 
 - The draft model knows common-practice tonal music. For later styles the analysis rests on your own reading of the notes.
-- Input is MusicXML. For a PDF or a photo of a score, say that MusicXML is needed and that MuseScore, Dorico, Sibelius and Finale can export it.
+- Input is MusicXML or a PDF of printed music (scans work but are read less reliably). For a photo, handwriting or audio, say that a MusicXML file or a PDF is needed; MuseScore, Dorico, Sibelius and Finale can export either.
 - The engraving is a fresh rendering of the user's file, not a picture of their original edition.

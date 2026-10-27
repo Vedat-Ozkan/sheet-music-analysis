@@ -10,7 +10,7 @@ VERSION = "N1"
 ORNAMENTS = ("tr", "mu", "ml", "tu", "tl")
 MARK = re.compile(
     r"(?P<pedal>P[du])@(?P<at1>[\d.]+)"
-    r"|q=(?P<tempo>[\d.]+)@(?P<at2>[\d.]+)"
+    r"|q=(?P<tempo>[\d.]+|[a-z]+)@(?P<at2>[\d.]+)"
     r"|(?P<hairpin>[<>])@(?P<at3>[\d.]+)\+(?P<length>[\d.]+)"
     r"|(?P<ornament>" + "|".join(ORNAMENTS) + r")@(?P<at4>[\d.]+):(?P<pitch>[A-G][#b]*\d)(?:\^(?P<upper>[a-z]+))?(?:_(?P<lower>[a-z]+))?"
     r"|(?P<dynamic>[a-z]+)@(?P<at5>[\d.]+)"
@@ -38,7 +38,7 @@ def encode(index: ScoreIndex, first: int | None = None, last: int | None = None)
             start = 0
         measures = measures[start : end + 1]
     div = index.ppq
-    lines = [f"{VERSION} div={div} ts={index.meter} ks={index.key_signature or '0'}" + (" tr=upper" if index.trills_from_above else "")]
+    lines = [f"{VERSION} div={div} ts={index.meter} ks={index.key_signature or '0'}" + (" orn=upper" if index.ornaments_from_above else "")]
     meter = index.meter
     for measure in measures:
         header = f"m{measure.number} len={_units(measure.length, div)}"
@@ -177,7 +177,7 @@ def decode(text: str) -> ScoreIndex:
     if not measures:
         raise NotesError("The note list has no measures")
     index = ScoreIndex.from_measures(measures, meter, key)
-    index.trills_from_above = settings.get("tr") == "upper"
+    index.ornaments_from_above = settings.get("orn") == "upper"
     return index
 
 

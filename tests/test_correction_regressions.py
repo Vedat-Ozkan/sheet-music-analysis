@@ -146,6 +146,7 @@ def test_every_real_bar_round_trips(path):
         'chopin-prelude-4.mxl': (26, 0, ''),
         'mozart-k545-1.mxl': (73, 0, ''),
         'chopin_nocturne_op9_no2.mxl': (38, 0, ''),
+        'chopin_nocturne_op9_no2_pdmx.mxl': (35, 0, ''),
         'chopin_prelude_op28_no4_audiveris.mxl': (26, 0, ''),
     }
     passed, failed, reason = expected[path.name]

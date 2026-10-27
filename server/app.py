@@ -40,7 +40,7 @@ from engine import notes as note_list
 from engine import read_pdf as pdf_reader
 from engine import check_analysis, ledger, part_writing, reduce
 from engine.annotate import AnnotationError, render
-from engine.performance import performance_text
+from engine.performance import performance_text, unclear_tempos
 from engine.annotations import AnnotationList
 from engine.export import export_midi, export_musicxml, export_romantext
 from engine.render import ScoreError, engrave, load_toolkit
@@ -54,7 +54,7 @@ DAILY_LIMITS = {"draft": 100, "render": 200, "pdf_page": 150} | json.loads(os.en
 MAX_PDF_PAGES = 12
 CARD_URI = "ui://sheet-music-analysis/card-v2.html"
 PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v2.html"
-PLAYER_URI = "ui://sheet-music-analysis/player-v2.html"
+PLAYER_URI = "ui://sheet-music-analysis/player-v3.html"
 CONNECTOR_URL = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
 HERE = Path(__file__).parent
 
@@ -662,19 +662,29 @@ NO_PLAY_NOTES = (
         "Shows the user a small piano player in the chat, with play, pause and a seek bar. Use it when the user "
         "wants to hear the passage or score. After draft_from_notes, pass the play_id it returned. Without a draft, "
         "pass the compact note list (starting 'N1 div=') that the Sheet Music Analysis plugin's skill prints, "
-        "unchanged, as notes. It plays the score's tempo, dynamics, pedal marks and ornaments."
+        "unchanged, as notes. It plays the score's tempo, dynamics, pedal marks and ornaments. tempo, in quarter notes "
+        "per minute, is only for a tempo word whose speed play says is unclear: ask the user, then pass their answer."
     ),
     annotations=read_only("Play the score"),
 )
 @observed
-async def play(ctx: Context, play_id: str | None = None, notes: str | None = None) -> CallToolResult:
+async def play(ctx: Context, play_id: str | None = None, notes: str | None = None, tempo: float | None = None) -> CallToolResult:
     if play_id:
         stored = await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(play_id)}.notes")
         notes = stored.decode() if stored else None
     if not notes or not notes.lstrip().startswith("N1"):
         return error_result(NO_PLAY_NOTES)
     try:
-        performance = performance_text(note_list.decode(notes))
+        index = note_list.decode(notes)
+        unclear = unclear_tempos(index)
+        if unclear and not tempo:
+            bar, word = unclear[0]
+            log("play", chars_in=len(notes), relayed=not play_id, asked_tempo=word)
+            return CallToolResult(content=[TextContent(type="text", text=(
+                f"Bar {bar} is marked '{word}' with a half-note beat, so how fast to play it is unclear. Ask the user how "
+                "fast they want it, then call play again with the same arguments and tempo in quarter notes per minute."
+            ))])
+        performance = performance_text(index, tempo=tempo)
     except (note_list.NotesError, ValueError) as error:
         log("play", error=type(error).__name__, chars=len(notes), outcome=outcome_of(error))
         return error_result(str(error))
@@ -706,8 +716,8 @@ mcp = Server(
     instructions=(
         "Harmonic analysis of sheet music: Roman numerals, cadences, phrases and non-chord tones. draft_from_notes "
         "drafts the analysis from a compact note list of a score, which the Sheet Music Analysis plugin's skill makes "
-        "from the user's score file in Claude. In other clients the server also reads MusicXML and PDF scores itself "
-        "and draws the analysis on the engraved page."
+        "from the user's score file in Claude; play then shows a small piano player for the passage in the chat. In other "
+        "clients the server also reads MusicXML and PDF scores itself and draws the analysis on the engraved page."
     ),
     extensions=[apps],
 )
@@ -773,7 +783,7 @@ async def draft_analysis(
         "N1 div=24 ts=4/4 ks=0\nm3 len=96\n1.1: 24 C4 D4 48 E4\n"
         "div is units per quarter note; m3 is printed bar 3; len is its length in those units. "
         "Each staff.voice line uses numbers to set the duration for following tokens, + for chords, r for rests, "
-        "g for grace notes and ~ for ties to the next note; pitches are sounding pitches (e.g. F#4, Bb3). "
+        "g for grace notes (u for slashed ones) and ~ for ties to the next note; pitches are sounding pitches (e.g. F#4, Bb3). "
         "Every voice must explicitly fill the existing bar, including rests. Header key/meter do not change the score. "
         "Use part (a part id or name) in a score with multiple parts; staff numbers count within that part. Returns a new score_id, PNGs of only changed bars "
         "and a note per bar; runs no model. If you proposed the correction, say it is your suggestion. "

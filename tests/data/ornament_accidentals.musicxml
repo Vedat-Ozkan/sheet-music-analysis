@@ -26,5 +26,11 @@
       <note><pitch><step>E</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
         <notations><ornaments><trill-mark/></ornaments></notations></note>
     </measure>
+    <measure number="3">
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <notations><ornaments><turn/></ornaments></notations></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><type>half</type>
+        <notations><ornaments><turn/><accidental-mark placement="below">flat</accidental-mark></ornaments></notations></note>
+    </measure>
   </part>
 </score-partwise>

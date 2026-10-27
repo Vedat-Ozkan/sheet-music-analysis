@@ -3,7 +3,7 @@
     python3 read_pdf.py SCORE.pdf --out-dir DIR [--name score] [--keep-slurs]
 
 Writes DIR/score.musicxml, which the other scripts take as the score, and DIR/score.png (score-p1.png, ... for several
-pages). The first run downloads Audiveris 5.11.0 from GitHub (about 75 MB) into the temporary folder. Slurs are left
+pages). The first run downloads Audiveris 5.11.0 and its English text data from GitHub (about 100 MB) into the temporary folder. Slurs are left
 out unless --keep-slurs is given; a reading is kept per file, so asking again for the slurs does not read the PDF again.
 """
 
@@ -29,13 +29,27 @@ verovio.enableLog(False)
 DEB = "https://github.com/Audiveris/audiveris/releases/download/5.11.0/Audiveris-5.11.0-ubuntu24.04-x86_64.deb"
 JAR = "https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.2/audiveris.jar"
 JAR_SHA256 = "1fe3060f7cf86d5b7a30daec973107789e1fba85c4e06de70fc9279b1c58edc5"
+OCR = "https://github.com/tesseract-ocr/tessdata/raw/ced78752cc61322fb554c280d13360b35b8684e4/eng.traineddata"
+OCR_SHA256 = "daa0c97d651c19fba3b25e81317cd697e9908c8208090c94c3905381c23fc047"
 HOME = Path(tempfile.gettempdir()) / "audiveris-5.11.0-sma.2"
 
 
 def audiveris() -> Path:
     launcher = HOME / "opt/audiveris/bin/Audiveris"
-    if launcher.exists():
-        return launcher
+    if not launcher.exists():
+        install()
+    english = HOME / "opt/audiveris/tessdata/eng.traineddata"
+    if not english.exists():
+        english.parent.mkdir(exist_ok=True)
+        part = english.with_suffix(".part")
+        urllib.request.urlretrieve(OCR, part)
+        if hashlib.sha256(part.read_bytes()).hexdigest() != OCR_SHA256:
+            raise OSError("The downloaded OCR data does not match the tested file")
+        part.rename(english)
+    return launcher
+
+
+def install() -> None:
     deb, unpacked = HOME.with_suffix(".deb"), HOME.with_suffix(".part")
     urllib.request.urlretrieve(DEB, deb)
     shutil.rmtree(unpacked, ignore_errors=True)
@@ -46,7 +60,6 @@ def audiveris() -> Path:
         raise OSError("The downloaded Audiveris does not match the tested build")
     unpacked.rename(HOME)
     deb.unlink()
-    return launcher
 
 
 def pages(score: bytes, spots) -> Engraving:

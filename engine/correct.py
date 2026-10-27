@@ -105,7 +105,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
         current = None
         for line in corrected.strip().splitlines()[1:]:
             line = line.strip()
-            if not line:
+            if not line or line.startswith("x:"):
                 continue
             if line.startswith("m"):
                 current = int(line.split()[0][1:])
