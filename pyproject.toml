@@ -1,6 +1,6 @@
 [project]
 name = "sheet-music-analysis"
-version = "0.1.0"
+version = "0.2.0"
 description = "Harmonic analysis drawn on an engraved score, served over MCP"
 requires-python = ">=3.11"
 license = "MIT"
