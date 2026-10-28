@@ -1,2 +1,0 @@
-Command: ['/mnt/c/Program Files/MuseScore 4/bin/MuseScore4.exe', '-o', '\\\\wsl.localhost\\Ubuntu\\home\\kema\\projects\\sheet-music-plugin\\spike\\export\\a-harmony.pdf', '\\\\wsl.localhost\\Ubuntu\\home\\kema\\projects\\sheet-music-plugin\\spike\\export\\a-harmony.musicxml']
-Exit: 0

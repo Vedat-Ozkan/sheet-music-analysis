@@ -1,6 +1,36 @@
-# Sheet music analysis
+# Sheet Music Analysis
 
-Harmonic analysis drawn on an engraved score, for use inside Claude and ChatGPT. The v1 plan is in `docs/plan.md`, with its research in `docs/research-2026-10-01.md`; the plan for what comes after v1 is in `docs/plan-2026-10-11.md`.
+[![tests](https://github.com/Vedat-Ozkan/sheet-music-analysis/actions/workflows/test.yml/badge.svg)](https://github.com/Vedat-Ozkan/sheet-music-analysis/actions/workflows/test.yml)
+
+Attach a score (MusicXML or PDF) in Claude or ChatGPT and get back the engraved page with the harmonic analysis drawn on it, the way a theory teacher pencils it in: Roman numerals, cadences, phrases, non-chord tones and voice leading, with numbered callouts that match a written commentary. It can also check a student's own Roman numerals and a chorale's part-writing. Live at **[sheetmusicanalysis.com](https://sheetmusicanalysis.com)**.
+
+![Chopin, Nocturne Op. 9 No. 2, bars 1-8, analysed](site/gallery/chopin-nocturne-op9-no2-all.png)
+
+## Results
+
+Scored by duration against chord-by-chord analyses by human experts, on 30 held-out pieces the draft model never saw in training:
+
+| | Key, chord and bass all match the expert |
+|---|---|
+| Neural draft alone | 0.48 |
+| Draft reviewed by the chat model | **0.67** |
+| Two independent experts, compared with each other (151 pairs) | 0.71 |
+
+Every experiment behind these numbers, including the ones that failed, is written up in [`docs/engineering-log.md`](docs/engineering-log.md).
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[MusicXML or PDF] --> B[Note list<br/>skill in Claude's sandbox,<br/>or the server for ChatGPT]
+    B --> C[Neural draft<br/>AnalysisGNN + rule-based fixes]
+    C --> D[Chat model review<br/>against the notes]
+    D --> E[Deterministic checks<br/>positions, part-writing,<br/>labels against notes]
+    E --> F[Verovio engraving<br/>+ analysis overlay]
+    F --> G[PNG, PDF, MusicXML,<br/>MIDI, RomanText]
+```
+
+The neural model drafts, the chat model judges, and anything with a clear rule is done in code. The plans are in `docs/plan.md` (v1, with research in `docs/research-2026-10-01.md`) and `docs/plan-2026-10-11.md` (after v1).
 
 ## Thanks
 
@@ -20,14 +50,14 @@ This project would not exist without [AnalysisGNN](https://github.com/manoskary/
 | `skill/`, `tools/build_skill.py` | The skill that runs the engine inside Claude's sandbox on the attached file; the build script bundles the engine with it into `out/sheet-music-analysis.zip`. |
 | `plugin/`, `dist/sheet-music-analysis/` | The plugin: its manifest in `plugin/`, and the built plugin (skill plus a pointer to the connector at mcp.sheetmusicanalysis.com) in `dist/`, written by `tools/build_skill.py` and committed because the Claude plugin directory reads it from GitHub. Rebuild after changing `skill/`, `engine/` or `plugin/`. |
 | `engine/notes.py` | Compact text form of a score's notes, which the skill passes to the server so the draft model can run without the file being uploaded. |
-| `spike/` | Throwaway MCP server (superseded by `server/`) for plan step 1: tests how a score gets in and how a page shows up in each chat app. |
+| `spike/` | Experiments kept for their tests and benchmarks: `spike/omr/` (PDF reading) and `spike/export/` (numerals written into MusicXML). |
 | `server/`, `Dockerfile`, `Dockerfile.base` | The production MCP server (`server/app.py`): the three tools the plugin and ChatGPT use, plus `read_pdf` for ChatGPT (reads a PDF with Audiveris through `engine/read_pdf.py` and shows the engraved result to check before the analysis; `tests/test_read_pdf.py` runs when `AUDIVERIS` points at an Audiveris launcher), daily limits, storage in a Cloud Storage bucket that deletes scores and pages after a day. `server/deploy.sh PROJECT_ID` builds the image on Cloud Build and deploys it to Cloud Run (two instances at most, two calls at once each). Run locally with `.venv/bin/python -m server.app` (port 8080, files under `out/server/`). |
 | `site/`, `wrangler.jsonc` | The website at sheetmusicanalysis.com: landing page, how-to-use, privacy and terms, plus the clef icons the server reports to chat hosts. Static files served by Cloudflare; publish with `npx wrangler@4 deploy`. `site/.assetsignore` keeps local `.uuid` files off the site. `site/piano/` holds the chat player's piano samples; it is not in git, so run `uv run --with soundfile python tools/piano_samples.py` before publishing. |
 | `openai-plugin/` | The ChatGPT listing package: `plugin.json` (listing text, icon, review test cases), `mcp.json` (the server address) and icons. Upload it zipped at platform.openai.com/plugins: `cd openai-plugin && zip -r ../out/sheet-music-analysis-openai.zip plugin.json mcp.json assets`. Bump `version` with each upload. |
 | `proxy/` | A Cloudflare Worker that serves the Cloud Run server at mcp.sheetmusicanalysis.com, the address given to Claude and ChatGPT. Publish with `npx wrangler@4 deploy -c proxy/wrangler.jsonc`. |
 | `engine/read_pdf.py`, `engine/triplets.py` | Reading a PDF: Audiveris from our fork (https://github.com/Vedat-Ozkan/audiveris, release `5.11.0-sma.2`, AGPL-3.0; never delete a release, publish a new one), up to three readings with different settings keeping the one with fewest bars that don't add up, then cleaning and inferring triplets printed without a "3" (log 35). Audiveris reads text such as tempo words only with Tesseract's English data, `eng.traineddata` from https://github.com/tesseract-ocr/tessdata (Apache-2.0, pinned in `Dockerfile.base` and `skill/scripts/read_pdf.py`), in a `tessdata` folder beside its `bin` folder. |
-| `engine/correct.py` | Replaces misread bars of a reading with corrected bars in the `engine/notes.py` text form, for fixing a PDF reading in the chat. Engine only; not yet wired into the skill or server. |
-| `engine/part_writing.py`, `engine/check_analysis.py`, `engine/comparison.py`, `engine/notation.py`, `engine/export.py` | Engine work for later phases of `docs/plan-2026-10-11.md`, not yet wired in: voice-leading checks (Phase 4); reading a student's numerals and comparing them with ours (Phase 3; `comparison.py` is shared with `eval/`); ABRSM and figured-bass label text (Phase 5); writing the numerals into the user's MusicXML as bass lyrics (Phase 6, `spike/export/`). |
+| `engine/correct.py` | Replaces misread bars of a reading with corrected bars in the `engine/notes.py` text form, for fixing a PDF reading in the chat. Used by the skill's `correct_score.py` and the server. |
+| `engine/part_writing.py`, `engine/check_analysis.py`, `engine/comparison.py`, `engine/notation.py`, `engine/export.py` | Voice-leading checks for chorale-style scores (the draft's PART-WRITING CHECK); reading a student's numerals and comparing them with ours (the STUDENT CHECK; `comparison.py` is shared with `eval/`); ABRSM and figured-bass label text; writing the numerals into the user's MusicXML as bass lyrics. All used by the skill and the server. |
 | `spike/omr/bench/` | PDF reading benchmark: 23 pieces, 57 PDFs (MuseScore, LilyPond, Verovio, scans), scored at the engine's level by kind of mistake; `bench-heldout*` are unseen sets. Only the scripts are committed: `build.py` rebuilds the pieces and PDFs (some music21 encodings' licences are unverified, so they are not redistributed). |
 | `engine/draft.py` | Runs the draft model and condenses its output into chords, cadences, phrase ends and non-chord tones. |
 | `vendor/analysisgnn/` | Clone of the draft model (not committed; see `.gitignore`). |
@@ -55,25 +85,9 @@ open('out/example.pdf', 'wb').write(page.pdf())
 "
 ```
 
-## Platform spike
+## Platform test
 
-```bash
-PUBLIC_BASE_URL=https://<public-host> .venv/bin/python -m spike.server   # serves /mcp on port 8765
-```
-
-The server needs a public HTTPS address (a tunnel or a host) before Claude or ChatGPT can reach it. It has no login, so run it only while testing. Each tool call is logged to `out/spike/calls.log` with the input path that was used.
-
-| Tool | What it does |
-|---|---|
-| `draft_analysis` | Runs the draft model and returns its table for the chat model to review. |
-| `render_analysis` | Draws the reviewed annotation list and shows the page in a card, with a PDF link. `piano=true` draws it on a two-staff piano reduction (`engine/piano.py`). |
-| `draft_from_notes` | Runs the draft model on a note list sent by the Claude skill, and keeps the list for a day so `play` can use it. |
-| `play` | Claude only: shows a small piano player in the chat for a drafted passage (`play_id`) or a note list. |
-| `choose_score` | A file button in the chat, for ChatGPT users who haven't attached a score. |
-| `engrave_score`, `engrave_score_card` | Plain engraving, as an image result or in a card. |
-| `sample_analysis`, `sample_analysis_card` | The hand-annotated Chopin example, needing no file. |
-
-Results of testing in both apps are in `docs/gate1-results.md`.
+The first test server, which checked how a score gets in and how a page shows up in each chat app (plan step 1), was replaced by `server/` and removed. Its results are in `docs/gate1-results.md`.
 
 ## Robustness
 

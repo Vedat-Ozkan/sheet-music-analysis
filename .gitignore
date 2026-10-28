@@ -18,3 +18,4 @@ engine/models/model-files.txt
 
 # piano samples for the chat player, made by tools/piano_samples.py
 site/piano/
+.uuid

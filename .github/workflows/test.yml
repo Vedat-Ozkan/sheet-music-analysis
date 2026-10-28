@@ -1,0 +1,49 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.15"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libcairo2
+      - run: uv sync --frozen --group server --group dev
+      - uses: actions/cache@v4
+        id: model
+        with:
+          path: |
+            .venv-agnn
+            vendor/analysisgnn
+            artifacts/models/model.ckpt
+          key: analysisgnn-${{ hashFiles('server/requirements-agnn.txt') }}-e115182
+      - if: steps.model.outputs.cache-hit != 'true'
+        run: |
+          uv venv .venv-agnn --python 3.11
+          VIRTUAL_ENV=.venv-agnn uv pip install -r server/requirements-agnn.txt \
+            --index-url https://pypi.org/simple \
+            --extra-index-url https://download.pytorch.org/whl/cpu \
+            --find-links https://data.pyg.org/whl/torch-2.5.0+cpu.html \
+            --index-strategy unsafe-best-match
+          VIRTUAL_ENV=.venv-agnn uv pip install setuptools wheel
+          VIRTUAL_ENV=.venv-agnn uv pip install --no-deps --no-build-isolation \
+            "git+https://github.com/manoskary/graphmuse.git@acd464f0cf11c65bda38f0d32a31e078f7941d78"
+          git clone https://github.com/manoskary/analysisgnn vendor/analysisgnn
+          git -C vendor/analysisgnn checkout e115182fb29b74bdcb6bf3547ed427d967580947
+          VIRTUAL_ENV=.venv-agnn uv pip install --no-deps vendor/analysisgnn
+          mkdir -p artifacts/models
+          curl -fL -o artifacts/models/model.ckpt https://huggingface.co/spaces/manoskary/analysisgnn/resolve/main/checkpoint/model.ckpt
+          echo "53d106038fea6a5ab3d4c0a19617736dff5f0299deffaf240ebd484c11f91c67  artifacts/models/model.ckpt" | sha256sum -c
+      - run: .venv/bin/python -m pytest -q
+        env:
+          GIT_PYTHON_REFRESH: quiet
