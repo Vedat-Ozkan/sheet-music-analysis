@@ -1255,6 +1255,17 @@ The expert figure is weighted by bars, so Beethoven, with long movements, counts
 
 **Not fixed.** In When in Rome pickup bars, beats count from the start of a full bar while our readings count from the pickup's start (one bar per piece at most). Beat tokens such as `b2.67.5` are read as chords (13 in the corpus). The survey's list of which label pairs cause each miss pairs some labels with the wrong span; its totals are unaffected.
 
+### 67. Second readings: the feature and how it will be judged (2026-10-28)
+
+**The feature.** Experts disagree on about 0.30 of the music, mostly in the same few places: a modulation against a tonicization, an inversion or a pedal, a cadential six-four or a seventh, iii's family, the mode. Instead of chasing one expert there, the analysis can name the other reading. A new annotation type, `alternative` (bars, plus the other reading in numerals, e.g. `F#: V7 I`), is drawn as a dotted bracket under the numerals labelled "or …", with a callout to the commentary paragraph that explains both readings. `skill/SKILL.md` asks for one only where a teacher would accept the second reading, at most about one per phrase. Scorers read only `harmony` items, so an alternative never counts toward agreement. The deployed server rejects the new type until it is redeployed, so skill, server and plugin ship together.
+
+**How it will be judged, fixed before any run.**
+- *Isolated.* `eval.review --second-readings --start-from opus-medium-2026-10-24` adds alternatives to the existing first answers; the chords are kept exactly as they were (only `alternative` items and new callouts are taken from the second reply), so no review noise enters.
+- *Measures* (`eval/second_readings.py`): the share of alternative spans where the expert's reading differs from our main reading over at least a quarter of the span (function level); the share where the expert holds the alternative itself; coverage of our disagreements with the expert; flagged bars per 100.
+- *Pass:* the first share beats both baselines at the same span lengths, random spans and spans around the draft's least confident chords, on at least 14 development pieces; flags stay rare (no more than about 10 bars per 100).
+- *Locked final set:* `eval/locked-set.txt`, 22 held-out pieces fixed now (every second piece, sorted by id, of the 44 held-out pieces with label fit 0.85 or more that have not been reviewed). It is run once, at the end, with the single-pass production skill.
+- *Training overlap.* All 21 When in Rome held-out pieces and the 3 chorales are in AugmentedNet's test split (checked against `AugmentedNet/data/wir.py` and `wirwtc.py`; the WTC preludes are listed there under another folder name), so none was in the draft model's training data.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

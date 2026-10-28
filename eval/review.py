@@ -56,6 +56,19 @@ The score is {title}. Analyse bars {first} to {last} (the piece runs from bar {s
 Reply with the annotation list for bars {first} to {last} as one ```json block, then the commentary as plain \
 text. Give `key` on the first harmony. You have no tools here; do not ask questions."""
 
+SECOND_READINGS = """
+
+Your previous reply was:
+
+{reply}
+
+Look again for the places in these bars where another reading is one a teacher would accept: a modulation
+against a tonicization, an inversion or a pedal, a cadential six-four or a seventh, iii's family, the mode.
+Add an `alternative` annotation for each, with a callout and a commentary paragraph that explains both
+readings; at most about one per phrase, and none where your reading is the only reasonable one. Return the
+whole JSON again. Do not change anything else.
+"""
+
 SELFCHECK = """
 
 Your previous reply was:
@@ -200,7 +213,7 @@ Do not start the analysis until you have seen all of them. Use the table for exa
 """
 
 
-def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: int, last: int, model: str, effort: str | None = None, tag: str | None = None, image: bool = False, whole: bool = False, alternatives: bool = False, selfcheck: bool = False, start_from: str | None = None, source: str = "table", draft_shown: bool = True) -> dict:
+def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: int, last: int, model: str, effort: str | None = None, tag: str | None = None, image: bool = False, whole: bool = False, alternatives: bool = False, selfcheck: bool = False, start_from: str | None = None, source: str = "table", draft_shown: bool = True, second_readings: bool = False) -> dict:
     path = REVIEWED / run_name(model, effort, tag) / "passages" / f"{piece.id}_{first}-{last}.json"
     if path.exists():
         return json.loads(path.read_text())
@@ -245,6 +258,15 @@ def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: 
                 data, problems = checked, still
             else:
                 answers.pop()
+    if second_readings and data is not None:
+        answers.append(ask(prompt + SECOND_READINGS.format(reply=answers[-1]["result"]), model, effort, files))
+        added, _ = problems_in(answers[-1]["result"], index)
+        if added is not None:
+            numbers = {item["number"] for item in data["annotations"] if item["type"] == "callout"}
+            new = [item for item in added["annotations"] if item["type"] == "alternative" or item["type"] == "callout" and item["number"] not in numbers]
+            data = {**data, "annotations": data["annotations"] + new}
+        else:
+            answers.pop()
     reply = answers[-1]["result"]
     result = {
         "first": first,
@@ -279,6 +301,7 @@ def main() -> None:
     parser.add_argument("--image", action="store_true", help="also give the reviewer the engraved pages of each passage to look at")
     parser.add_argument("--selfcheck", action="store_true", help="after the review, show it the labels that contradict the notes and let it correct or keep each")
     parser.add_argument("--start-from", help="reuse this run's first answers instead of reviewing afresh (with --selfcheck: tests the check alone)")
+    parser.add_argument("--second-readings", action="store_true", help="after the review, ask for `alternative` annotations where another reading is one a teacher would accept; the chords stay as they were")
     parser.add_argument("--alternatives", action="store_true", help="show the draft model's runner-up reading where it is a close call")
     parser.add_argument("--source", default="table", choices=("table", "musicxml", "pages"), help="what the reviewer gets of the notes: our note table, the MusicXML file alone, or the engraved pages alone")
     parser.add_argument("--no-draft", action="store_true", help="leave out the draft model's analysis: the chat model analyses alone")
@@ -290,7 +313,7 @@ def main() -> None:
     for piece in [pieces.BY_ID[name] for name in args.only] if args.only else pieces.SETS[args.set]:
         index = ScoreIndex(load_toolkit(pieces.score(piece)).getMEI())
         drafted = cached_draft(piece, index)
-        jobs += [(piece, index, drafted, first, last, args.model, args.effort, args.tag, args.image, args.overview, args.alternatives, args.selfcheck, args.start_from, args.source, not args.no_draft) for first, last in passages(index, args.bars, args.passages)]
+        jobs += [(piece, index, drafted, first, last, args.model, args.effort, args.tag, args.image, args.overview, args.alternatives, args.selfcheck, args.start_from, args.source, not args.no_draft, args.second_readings) for first, last in passages(index, args.bars, args.passages)]
     print(f"{len(jobs)} passages", flush=True)
 
     def one(job) -> tuple[pieces.Piece, dict]:
