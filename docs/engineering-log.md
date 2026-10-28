@@ -1207,7 +1207,7 @@ The gains are where the habits were found. Chopin Op. 56 No. 3 rose from 0.66 to
 
 ### 65. Same chord, other mode, counts as the same key (2026-10-28)
 
-**What we changed.** Chopin Op. 41 No. 1 scored 0.04 *full* with 0.82 *function*. In bars 22-32 and 96-114 the DCML expert keeps the local key c-sharp minor and writes major-key chords in it (`I`, `V7/#vi`, `#vi`); we call the passage C-sharp major (`I`, `V7/vi`, `vi`). The notes are the same, so the key label was the only difference. `matches()` now counts the key as the same when the tonic is the same and the chord, its notes and its bass are identical, whatever the mode label says. The cause list in `eval/survey.py` follows it. `check_analysis` uses the same comparison, so a student's `C#: I` against an answer key's `c#: I` is now reported as the same chord spelt differently, not as a different key. Where the chords differ (`c#: i` against `C#: I`), the keys still differ.
+**What we changed.** Chopin Op. 41 No. 1 scored 0.04 *full* with 0.82 *function*. In bars 22-32 and 96-114 the DCML expert keeps the local key c-sharp minor and writes major-key chords in it (`I`, `V7/#vi`, `#vi`); we call the passage C-sharp major (`I`, `V7/vi`, `vi`). The notes are the same, so the key label was the only difference. `matches()` now counts the key as the same when the tonic is the same and the chord, its notes and its bass are identical, whatever the mode label says. The cause list in `eval/survey.py` follows it. `check_analysis` keeps the strict rule for students (owner's decision, 2026-10-28): a student's `C#: I` against an answer key's `c#: I` is still reported as a different key. Where the chords differ (`c#: i` against `C#: I`), the keys still differ.
 
 | | Full before | Full after |
 |---|---|---|

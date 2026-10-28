@@ -89,6 +89,8 @@ def test_reference_sustain_and_key_precedence(bach):
     assert result[0]['classification'] == 'agrees'
     assert result[1]['classification'] == 'different_key'
     assert result[1]['matches']['chord_and_bass']
+    minor = check.compare(check.from_text('bar 2 beat 2 in g: I'), reviewed, bach)
+    assert minor[0]['classification'] == 'different_key'
     with pytest.raises(ValueError, match='No reviewed harmony'):
         check.compare(check.from_text('bar 1 I'), {'annotations': [
             {'type': 'harmony', 'at': {'measure': 2}, 'label': 'I'},

@@ -300,7 +300,7 @@ def compare_labels(student: list[Label], reference: list[Label], index: ScoreInd
         agreement = matches(r, s)
         if not agreement['chord']:
             classification = 'different_chord'
-        elif not agreement['key']:
+        elif (r.tonic, r.minor) != (s.tonic, s.minor):
             classification = 'different_key'
         elif not agreement['chord_and_bass']:
             classification = 'different_inversion'
