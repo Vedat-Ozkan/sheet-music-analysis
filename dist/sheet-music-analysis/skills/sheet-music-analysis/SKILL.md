@@ -79,15 +79,15 @@ Work in this order. Each step narrows the next.
 
 0. **The passage.** If the user named bars, use them. If not, ask which bars they want, suggesting the first 8 or 16, before analysing anything. At most 32 bars per page; a longer stretch goes passage by passage.
 1. **Key and key areas.** Start from the key signature, the first and last bass notes and the cadences. Decide the local key of each stretch. A new key needs a cadence or a sustained stay; a chord or two borrowed from another key is a tonicization (`V7/ii`), not a modulation.
-2. **Harmonic rhythm.** Decide how often the harmony really changes, usually once or twice a bar, sometimes every beat. Follow the bass. One row of the table is not one chord.
+2. **Harmonic rhythm.** Decide how often the harmony really changes, usually once or twice a bar, sometimes every beat. Follow the bass. One row of the table is not one chord. When a passage returns, label it at the same rate as the first time. A bar that opens with a single line or bare octaves (a lead-in, a scale, an arpeggio) still has a harmony from its downbeat: the chord its notes outline, or for a lead-in the chord it leads into. Do not carry the previous chord over it.
 3. **Function before labels.** For each harmony decide what it does: tonic (T), predominant (PD) or dominant (D). Then choose the numeral that says so.
 4. **Filter non-chord tones.** This is where a naive reading fails. Melody notes and figuration that do not belong to the harmony are passing (P), neighbor (N), suspension (S), appoggiatura (APP) or anticipation (ANT) notes. A chord that appears for a fraction of a beat is usually one of these in disguise. A harmony over a held bass note keeps its own root; mention the pedal.
-5. **Inversions from the true bass.** In broken-chord textures the bass is the lowest note of the pattern, usually on the beat, not whatever sounds lowest a moment later.
+5. **Inversions from the true bass.** In broken-chord textures the bass is the lowest note of the pattern, usually on the beat, not whatever sounds lowest a moment later. A bass note held by the pedal or a tie is still the bass after its printed length ends: do not change the chord because the key is released.
 6. **Phrases and cadences.** Mark where each phrase starts and ends and how it ends: PAC, IAC, HC or deceptive (DC). Name repeated or varied phrases (a, a′, b).
 7. **Voice leading.** Mark one or two resolutions that matter: a chordal seventh falling, a leading tone rising, a suspension resolving.
 8. **What is unusual.** Find the two to four moments a listener would notice: a deceptive turn, mixture, a Neapolitan or augmented sixth, a delayed resolution, a chromatic bass. For each, say what was expected and what the composer did instead. These get numbered callouts.
 
-Check yourself: every numeral's pitches must be in the table for that beat (allowing for the non-chord tones you named). If you are unsure between two readings, choose the simpler one and say so in the commentary.
+Check yourself: every numeral's pitches must be in the table for that beat (allowing for the non-chord tones you named). The numeral must spell the notes as they are: a dominant seventh on the tonic is `V7/IV`, not `I7` (which has a major seventh), and a ninth must be the one printed in the score. If you are unsure between two readings, choose the simpler one and say so in the commentary.
 
 ## Music that is not common-practice tonal
 

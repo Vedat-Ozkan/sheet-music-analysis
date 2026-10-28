@@ -1184,6 +1184,25 @@ Challenge 59's source rule skipped 58 Beethoven sonata files with no Analyst lin
 
 These are fixable. Pedal points, chains of 6/3 chords and `III+` against V are matters of taste: the experts themselves differ on them.
 
+### 64. Four reviewer rules from the worst pieces (2026-10-27)
+
+**What we changed.** The hand reading in challenge 63 found habits of the reviewer that are not matters of taste. `skill/SKILL.md` now says:
+- label a returning passage at the same harmonic rate;
+- give a bar that opens with a single line or bare octaves its harmony from the downbeat, instead of carrying the previous chord over it;
+- a bass held by the pedal or a tie stays the bass;
+- the numeral must spell the notes (`V7/IV`, not `I7`, and the printed ninth).
+
+**Test.** 7 of the worst held-out pieces and 3 that already scored well, on the same 2 passages per piece as the 2026-10-24 run, Opus 5.5 at medium effort. The baseline is that run, not a fresh one, so each piece carries one review's variation (about 0.04).
+
+| (10 pieces, weighted by bars) | Function | Idea | Full |
+|---|---|---|---|
+| Before (2026-10-24) | 0.72 | 0.82 | 0.59 |
+| With the rules | 0.75 | 0.86 | 0.62 |
+
+The gains are where the habits were found. Chopin Op. 56 No. 3 rose from 0.66 to 0.83 function: `F#:I7` at bars 57-65 became `B:V7`. Grieg Op. 71 No. 4 rose from 0.83 to 0.92, and Grieg Op. 65 No. 1 rose from 0.59 to 0.80 idea, now with chords on the downbeats at bars 135-141. Four pieces fell by 0.01-0.03 function (Beethoven Op. 14 No. 1 iii, Op. 53 iii, Chopin Op. 50 No. 3, Kinderszenen No. 13), all within one review's variation. The three control pieces did not get worse. At Op. 65 No. 1 bars 29-32 the reviewer still hears one dominant where the expert labels each bass note; that is a reading, not a slip.
+
+**Cost.** On the subscription, through `claude -p`; 20 passages.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
