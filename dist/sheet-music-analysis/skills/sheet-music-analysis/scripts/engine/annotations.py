@@ -77,7 +77,7 @@ class Alternative(Annotation):
     type: Literal["alternative"]
     start: Position
     end: RangeEnd
-    label: str = Field(description='The other reading in numerals, e.g. "F#: V7 I", "V/IV", "I64"')
+    label: str = Field(description='The other reading in numerals, one chord per harmony label in the range, "-" where unchanged, e.g. "F#: V7 I", "- V43/vi vi6"')
 
 
 class NonChordTone(Annotation):

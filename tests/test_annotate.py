@@ -93,8 +93,8 @@ def test_alternative_reading_is_a_dotted_bracket_under_the_numerals(chopin, chop
         {"annotations": chopin_annotations.model_dump(exclude_none=True)["annotations"] + [alternative]})
     page = render(chopin, annotations, measures=(1, 8))
     assert page.page_count == 1
-    assert ">or c: V7 i<" in page.svgs[0] and 'stroke-dasharray="1 70"' in page.svgs[0]
-    assert ">or c: V7 i<" not in render(chopin, annotations, measures=(1, 8), view="form").svgs[0]
+    assert ">c:<" in page.svgs[0] and 'stroke-dasharray="1 70"' in page.svgs[0]
+    assert ">c:<" not in render(chopin, annotations, measures=(1, 8), view="form").svgs[0]
 
 
 def test_shipped_examples_still_validate():

@@ -1314,6 +1314,21 @@ Two cautions: batch 2 rests on 12 alternatives, and "the expert reads differentl
 - *Second measure:* the share where at least one expert holds the alternative, against the same alternative at random spans.
 - *Pass:* both shares beat random by a clear margin, with flags still rare (about 10 bars per 100 or fewer). With so few spans this is a first look, not a verdict; the locked set stays unrun until a version passes.
 
+### 71. Second readings against expert splits: right readings, wrong places (2026-10-28)
+
+**Run** (rule of challenge 70). The 7 pieces with two or more independent experts, 382 bars, second readings added to their existing first answers with the guidance of challenge 69. `eval/second_readings.py --experts-split` scores them against the music where the experts disagree with each other. The single-expert mode now counts only reviewed bars, which moves the draft baseline of challenges 68 and 69 from 0.60 and 0.92 to 0.51 and 0.75.
+
+| | Ours | Random spans | Draft's least confident |
+|---|---|---|---|
+| Spans where the experts disagree with each other | 0.29 | 0.32 | 0.29 |
+| Spans where an expert holds our alternative | 0.71 | 0.34 (same alternative) | |
+
+17 alternatives, 8.4 flagged bars per 100; they cover 0.07 of the music where the experts split.
+
+**What it means.** The reviewer does not know where experts split: its alternatives land there no more often than chance. But the alternatives themselves are good readings: an expert holds one 0.71 of the time, twice the chance rate. The feature as specified (marking where experts split) fails its rule; what holds up is narrower: when the reviewer names a second reading, a published expert usually reads it that way. Some of those may be places where the experts agree with each other and with our alternative rather than our main reading, which would make the alternative a correction, not a second view. 17 spans is a first look.
+
+**Page layout** (owner's request): each chord of the alternative is printed under the chord it replaces, in the same figures as the numeral row, with no "or"; `-` leaves a chord as it is. The label gives one chord per harmony label in the range, with an optional key first; when the counts do not match, the chords are spread evenly under the bracket.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

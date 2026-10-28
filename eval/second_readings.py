@@ -9,6 +9,10 @@ expert's reading of the span). Two baselines get spans of the same lengths in th
 spans (also carrying the same alternative, for the second check), and spans around the draft's least
 confident chords. Coverage is the share of the music where we
 disagree with the expert that lies inside a flagged span; rarity is flagged bars per 100 reviewed bars.
+
+With --experts-split, only pieces with two or more independent expert analyses at fit 0.85 or more are used
+(as in eval/any_expert.py), and the target is the music where the experts disagree with each other; the
+second check asks whether any of them holds the alternative.
 """
 
 from __future__ import annotations
@@ -22,7 +26,7 @@ from pathlib import Path
 from engine.comparison import agreement, sounding
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
-from eval import compare, pieces
+from eval import any_expert, ceiling, compare, pieces
 from eval.run import cached_draft
 
 DISAGREES = 0.25
@@ -35,17 +39,32 @@ def position(timeline: compare.Timeline, measure: int, beat: float | None, end: 
     return timeline.starts[measure] + min(max(Fraction(0), (Fraction(beat).limit_denominator(96) - 1) * bar.beat_length), bar.length)
 
 
-def share_disagreeing(start: Fraction, end: Fraction, expert: list, ours: list) -> float:
-    cuts = sorted({start, end} | {p for spans in (expert, ours) for a, b, _ in spans for p in (a, b) if start < p < end})
+def disagreements(readings: list[list], windows: list[tuple[Fraction, Fraction]], split: bool) -> list[tuple[Fraction, Fraction, bool]]:
+    cuts = sorted({p for spans in readings for a, b, _ in spans for p in (a, b)} | {p for window in windows for p in window})
     at = lambda spans, time: next((chord for a, b, chord in spans if a <= time < b), None)
-    labelled = differ = Fraction(0)
+    found = []
     for a, b in zip(cuts, cuts[1:]):
-        r, h = at(expert, a), at(ours, a)
-        if r is None:
+        if not any(low <= a < high for low, high in windows):
             continue
-        labelled += b - a
-        differ += (b - a) * (h is None or not agreement(r, h)["function"])
-    return float(differ / labelled) if labelled else 0.0
+        chords = [at(spans, a) for spans in readings]
+        if split:
+            labelled = [chord for chord in chords if chord is not None]
+            if len(labelled) < 2:
+                continue
+            differ = any(not agreement(x, y)["function"] for i, x in enumerate(labelled) for y in labelled[i + 1:])
+        else:
+            reference, reading = chords
+            if reference is None:
+                continue
+            differ = reading is None or not agreement(reference, reading)["function"]
+        found.append((a, b, differ))
+    return found
+
+
+def share(found: list[tuple[Fraction, Fraction, bool]], start: Fraction, end: Fraction) -> float:
+    parts = [(max(a, start), min(b, end), differ) for a, b, differ in found if a < end and b > start]
+    labelled = sum((b - a for a, b, _ in parts), Fraction(0))
+    return float(sum((b - a for a, b, differ in parts if differ), Fraction(0)) / labelled) if labelled else 0.0
 
 
 def holds(label: str, key: str, start: Fraction, end: Fraction, expert: list) -> bool:
@@ -63,26 +82,39 @@ def holds(label: str, key: str, start: Fraction, end: Fraction, expert: list) ->
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reviewed", type=Path, required=True)
+    parser.add_argument("--experts-split", action="store_true", help="score against places where two or more independent experts disagree with each other")
     args = parser.parse_args()
     generator = random.Random(0)
     flagged, random_hits, draft_hits, holding, random_holding = [], [], [], [], []
     reviewed_bars = flagged_bars = 0
     disagreeing = covered = Fraction(0)
+    if args.experts_split:
+        paths = set(pieces.rome_tree())
+        folders = {folder: files for folder, files, _ in ceiling.candidates(paths)}
     for piece in pieces.PIECES + pieces.HELDOUT:
         path = args.reviewed / f"{piece.id}.json"
         if not path.exists() or not pieces.labels(piece):
             continue
         review = json.loads(path.read_text())
-        bars = [tuple(passage) for passage in review.get("passages", [])]
         index = ScoreIndex(load_toolkit(pieces.score(piece)).getMEI())
         timeline = compare.Timeline(index)
-        expert = timeline.spans([compare.Label(l.measure + piece.bar_offset, l.beat, l.key, l.figure) for l in compare.from_romantext(pieces.labels(piece))])[0]
+        if args.experts_split:
+            folder = any_expert.folder_for(piece, folders, paths)
+            found = any_expert.experts_for(piece, folder, folders[folder], timeline) if folder in folders else {}
+            experts = [timeline.spans(labels)[0] for fit, labels in found.values() if fit >= ceiling.FIT]
+            if len(experts) < 2:
+                continue
+        else:
+            experts = [timeline.spans([compare.Label(l.measure + piece.bar_offset, l.beat, l.key, l.figure) for l in compare.from_romantext(pieces.labels(piece))])[0]]
         ours = timeline.spans(compare.from_annotations(review))[0]
+        bars = [tuple(passage) for passage in review.get("passages", [])] or [(index.measures[0].number, index.measures[-1].number)]
         windows = [(timeline.starts[a], timeline.starts[b] + timeline.measures[b].length) for a, b in bars]
+        found = disagreements(experts if args.experts_split else [experts[0], ours], windows, args.experts_split)
         reviewed_bars += sum(b - a + 1 for a, b in bars)
         keys = {item["at"]["measure"]: item["key"] for item in review["annotations"] if item["type"] == "harmony" and item.get("key")}
         drafted = cached_draft(piece, index)
         doubtful = sorted((chord.confidence, position(timeline, chord.measure, chord.beat)) for chord in drafted.chords if any(a <= timeline.starts.get(chord.measure, -1) < b for a, b in windows))
+        holds_any = lambda label, key, start, end: any(holds(label, key, start, end, expert) for expert in experts)
         spans = []
         for item in review["annotations"]:
             if item["type"] != "alternative":
@@ -93,30 +125,27 @@ def main() -> None:
             spans.append((start, end))
             flagged_bars += item["end"]["measure"] - item["start"]["measure"] + 1
             key = keys[max([m for m in keys if m <= item["start"]["measure"]] or [min(keys)])] if keys else "C"
-            flagged.append(share_disagreeing(start, end, expert, ours) >= DISAGREES)
-            holding.append(holds(item["label"], key, start, end, expert))
+            flagged.append(share(found, start, end) >= DISAGREES)
+            holding.append(holds_any(item["label"], key, start, end))
             for _ in range(50):
                 window = generator.choice(windows)
                 if window[1] - window[0] > end - start:
                     shift = window[0] + Fraction(generator.random()).limit_denominator(1000) * (window[1] - window[0] - (end - start))
-                    random_hits.append(share_disagreeing(shift, shift + (end - start), expert, ours) >= DISAGREES)
-                    random_holding.append(holds(item["label"], key, shift, shift + (end - start), expert))
+                    random_hits.append(share(found, shift, shift + (end - start)) >= DISAGREES)
+                    random_holding.append(holds_any(item["label"], key, shift, shift + (end - start)))
             if doubtful:
                 _, centre = doubtful.pop(0)
-                draft_hits.append(share_disagreeing(centre - (end - start) / 2, centre + (end - start) / 2, expert, ours) >= DISAGREES)
-        cuts = sorted({p for s in (expert, ours) for a, b, _ in s for p in (a, b)} | {p for w in windows for p in w})
-        at = lambda s, time: next((chord for a, b, chord in s if a <= time < b), None)
-        for a, b in zip(cuts, cuts[1:]):
-            r, h = at(expert, a), at(ours, a)
-            if r is None or not any(low <= a < high for low, high in windows) or (h is not None and agreement(r, h)["function"]):
-                continue
-            disagreeing += b - a
-            covered += (b - a) * any(low <= a < high for low, high in spans)
+                draft_hits.append(share(found, centre - (end - start) / 2, centre + (end - start) / 2) >= DISAGREES)
+        for a, b, differ in found:
+            if differ:
+                disagreeing += b - a
+                covered += (b - a) * any(low <= a < high for low, high in spans)
+    target = "the experts disagree with each other" if args.experts_split else "the expert disagrees with our main reading"
     rate = lambda hits: round(sum(hits) / len(hits), 3) if hits else None
     print(f"{len(flagged)} alternatives over {reviewed_bars} reviewed bars ({100 * flagged_bars / max(reviewed_bars, 1):.1f} flagged bars per 100)")
-    print(f"where the expert disagrees with our main reading: ours {rate(flagged)}, random spans {rate(random_hits)}, draft's least confident {rate(draft_hits)}")
-    print(f"where the expert holds our alternative: ours {rate(holding)}, the same alternative at random spans {rate(random_holding)}")
-    print(f"coverage of our disagreements with the expert: {round(float(covered / disagreeing), 3) if disagreeing else None}")
+    print(f"where {target}: ours {rate(flagged)}, random spans {rate(random_hits)}, draft's least confident {rate(draft_hits)}")
+    print(f"where {'an' if args.experts_split else 'the'} expert holds our alternative: ours {rate(holding)}, the same alternative at random spans {rate(random_holding)}")
+    print(f"coverage (share of that disagreement inside a flagged span): {round(float(covered / disagreeing), 3) if disagreeing else None}")
 
 
 if __name__ == "__main__":

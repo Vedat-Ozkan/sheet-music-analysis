@@ -491,7 +491,7 @@ class PageLayout:
             self._draw_cadence(cadence)
         self._draw_function_brackets()
         for alternative in shown("alternative", Alternative):
-            self._draw_phrase(alternative, below=True)
+            self._draw_alternative(alternative)
         self._draw_ncts(shown("nct", NonChordTone))
         self._draw_voice_marks(shown("voice_leading", VoiceLeading))
         for callout in shown("callout", Callout):
@@ -1138,13 +1138,45 @@ class PageLayout:
         self._text(cx, cy + LABEL_SIZE * 0.34, str(callout.number), LABEL_SIZE, bold=True, fill="#ffffff", anchor="middle")
         self._reserve(system, Box(cx - radius, cy - radius, 2 * radius, 2 * radius))
 
+    def _draw_alternative(self, alternative: Alternative) -> None:
+        try:
+            pieces = self.segments(alternative.start, alternative.end)
+        except NotOnPage:
+            return
+        rows = {piece.system.index: (piece, piece.system.bottom(piece.x0, piece.x1) + 230 + 90 + LABEL_SIZE * 0.75) for piece in pieces}
+        self._draw_phrase(alternative.model_copy(update={"label": ""}), below=True)
+        key, _, rest = alternative.label.partition(": ") if re.match(r"^\S+: ", alternative.label) else ("", "", alternative.label)
+        tokens = rest.split()
+        where = lambda measure, beat: (self.index.measure(measure).index, beat)
+        last = where(alternative.end.measure, alternative.end.beat if alternative.end.beat is not None else math.inf)
+        chords = [entry for at, entry in sorted(self.numerals.items(), key=lambda item: where(*item[0])) if where(alternative.start.measure, alternative.start.beat) <= where(*at) <= last and entry[0] in rows]
+        if len(chords) != len(tokens):
+            piece, _ = rows[min(rows)]
+            step = (piece.x1 - piece.x0) / (len(tokens) + 1)
+            chords = [(piece.system.index, piece.x0 + step * (n + 1)) for n in range(len(tokens))]
+        space = text.width(" ", LABEL_SIZE)
+        for n, (token, chord) in enumerate(zip(tokens, chords)):
+            if token == "-":
+                continue
+            system_index, centre = chord[0], chord[1]
+            piece, y = rows[system_index]
+            chunks, total = notation.numeral(token, None, "current", LABEL_SIZE)
+            x = centre - text.root_centre(chunks)
+            drawn = [self._text(x + chunk.dx, y + chunk.dy, chunk.text, chunk.size, bold=chunk.bold) for chunk in chunks]
+            if key and n == 0:
+                name = text.pretty_key(key) + ":"
+                drawn.append(self._text(x - space - text.width(name, LABEL_SIZE), y, name, LABEL_SIZE))
+            top, bottom = min(box.y for box in drawn), max(box.bottom for box in drawn)
+            left, right = min(box.x for box in drawn), max(box.right for box in drawn)
+            piece.system.content.append(Box(left, top, right - left, bottom - top))
+
     def _draw_phrase(self, phrase: Phrase | Region | Alternative, dashed: bool = False, below: bool = False) -> None:
         try:
             pieces = self.segments(phrase.start, phrase.end)
         except NotOnPage:
             return
         tick = -150 if below else 150
-        string = "or " + re.sub(r"^\S+:", lambda key: text.pretty_key(key[0]), phrase.label) if below else phrase.label
+        string = phrase.label
         size = PHRASE_LETTER_SIZE if re.fullmatch(r"[A-Za-z][′']?", string) else LABEL_SIZE
         label_width = text.width(string, size)
         label_y = 90 + size * 0.75 if below else -90
