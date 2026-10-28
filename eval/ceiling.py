@@ -49,7 +49,7 @@ def source(text: str, file: str) -> str | None:
     for mark, name in (("DCML", "DCML"), ("Chen", "BPS-FH"), ("Bach Chorales Melody-Harmony", "BCMH")):
         if mark in analyst:
             return name
-    return "TAOM" if analyst else None
+    return "TAOM" if analyst or file == "analysis_DT.txt" else None
 
 
 def score_url(folder: str, paths: set[str]) -> str | None:
