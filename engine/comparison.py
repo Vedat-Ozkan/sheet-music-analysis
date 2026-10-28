@@ -7,13 +7,15 @@ from functools import lru_cache
 
 from music21 import harmony
 from music21 import key as m21key
+from music21 import meter
 from music21 import roman
 
 from engine.draft import FUNCTIONS
 from engine.reduce import midi
-from engine.score import ScoreIndex
+from engine.score import ScoreIndex, beat_length
 
-MEASURE_LINE = re.compile(r"^m(\d+)(var\d+)?[a-z]?(?:-(\d+))?\s*(?:=\s*m(\d+)(?:-(\d+))?)?\s*(.*)$")
+MEASURE_LINE = re.compile(r"^m(\d+)(var\d+)?([a-z])?(?:-(\d+))?\s*(?:=\s*m(\d+)(?:-(\d+))?)?\s*(.*)$")
+TIME_SIGNATURE = re.compile(r"^Time Signature:\s*(.+?)\s*$")
 BEAT = re.compile(r"^b(\d+(?:\.\d+)?)$")
 KEY = re.compile(r"^([A-Ga-g][#b-]*):$")
 CHORD_SYMBOL = re.compile(r"^(?!Ger|Fr|It|Cad)[A-G]")
@@ -53,16 +55,33 @@ def sounding(key: str, figure: str) -> Sounding | None:
 
 
 def from_romantext(text: str) -> list[Label]:
-    by_measure: dict[int, list[tuple[float, str, str]]] = {}
+    by_measure: dict[int, list[tuple]] = {}
     key_after: dict[int, str] = {}
-    key = "C"
+    key, score_beats = "C", False
+    matches, meters, current = [], {}, None
     for line in text.splitlines():
-        match = MEASURE_LINE.match(line.strip())
-        if not match or match.group(2):
-            continue
-        first, last = int(match.group(1)), int(match.group(3) or match.group(1))
-        if match.group(4):
-            source = int(match.group(4))
+        if signature := TIME_SIGNATURE.match(line.strip()):
+            try:
+                current = meter.TimeSignature(signature.group(1))
+            except Exception:
+                pass
+        elif (match := MEASURE_LINE.match(line.strip())) and not match.group(2):
+            matches.append(match)
+            meters[id(match)] = current
+    lettered = {(int(match.group(1)), match.group(3)) for match in matches if match.group(3)}
+    firsts = {number for number, letter in lettered if letter == "a"}
+    blocks = [(start, next(length for length in range(1, len(firsts) + 2) if start + length not in firsts))
+              for start, letter in lettered if letter != "a" and start in firsts and (start - 1, letter) not in lettered]
+
+    def bar(printed: int, letter: str | None = None) -> int:
+        before = lambda start, length: start <= printed if letter and letter != "a" else start + length <= printed if letter else start < printed
+        return printed + sum(length for start, length in blocks if before(start, length))
+
+    for match in matches:
+        first = bar(int(match.group(1)), match.group(3))
+        last = bar(int(match.group(4))) if match.group(4) else first
+        if match.group(5):
+            source = bar(int(match.group(5)))
             for offset in range(last - first + 1):
                 by_measure[first + offset] = list(by_measure.get(source + offset, []))
                 key = key_after.get(source + offset, key)
@@ -70,15 +89,24 @@ def from_romantext(text: str) -> list[Label]:
             continue
         beat = 1.0
         chords = by_measure.setdefault(first, [])
-        for token in match.group(6).split():
+        signature = meters[id(match)]
+        for token in match.group(7).split():
             if BEAT.match(token):
                 beat = float(token[1:])
+                score_beats = score_beats or bool(signature) and beat >= 1 + signature.barDuration.quarterLength / signature.beatDuration.quarterLength
             elif KEY.match(token):
                 key = token[:-1].replace("-", "b")
             elif not NOT_A_CHORD.match(token):
-                chords.append((beat, key, token))
+                chords.append((beat, key, token, signature))
         key_after[first] = key
-    return [Label(number, beat, key, figure) for number in sorted(by_measure) for beat, key, figure in by_measure[number]]
+
+    def scaled(beat: float, signature) -> float:
+        if score_beats or signature is None:
+            return beat
+        ratio = Fraction(signature.beatDuration.quarterLength).limit_denominator(16) / beat_length(signature.numerator, signature.denominator)
+        return beat if ratio == 1 else float(1 + (Fraction(beat).limit_denominator(12) - 1) * ratio)
+
+    return [Label(number, scaled(beat, signature), key, figure) for number in sorted(by_measure) for beat, key, figure, signature in by_measure[number]]
 
 
 def from_draft(draft) -> list[Label]:
@@ -108,7 +136,7 @@ def same_function(a: Sounding, b: Sounding) -> bool:
     if a.root == b.root and len(a.tones ^ b.tones) == 1 and (a.tones <= b.tones or b.tones <= a.tones):
         return True
     cadential = lambda s: s.root == s.tonic and s.bass == (s.tonic + 7) % 12 and len(s.tones) == 3
-    dominant = lambda s, of: s.root == s.bass == (of.tonic + 7) % 12
+    dominant = lambda s, of: s.tonic == of.tonic and s.root == s.bass == (of.tonic + 7) % 12 and (s.root + 4) % 12 in s.tones
     return cadential(a) and dominant(b, a) or cadential(b) and dominant(a, b)
 
 
@@ -152,7 +180,7 @@ class Timeline:
             if measure is None:
                 missing += 1
                 continue
-            inside = measure.offset_of(label.beat) if measure.declared_length is not None else max(Fraction(0), (Fraction(label.beat).limit_denominator(96) - 1) * measure.beat_length)
+            inside = max(Fraction(0), (Fraction(label.beat).limit_denominator(96) - 1) * measure.beat_length)
             placed.append((self.starts[label.measure] + min(inside, measure.length), sounding(label.key, label.figure)))
         placed.sort(key=lambda item: item[0])
         ends = [start for start, _ in placed[1:]] + [self.total]

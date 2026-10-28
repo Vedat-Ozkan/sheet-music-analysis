@@ -111,7 +111,6 @@ PIECES = [
             "https://www.musictheoryacademy.com/wp-content/uploads/2019/01/Beethoven-sonata-in-F-minor-sonata-form-annotated-sheet-music.pdf",
             TONIC_CHORD + "beethoven-piano-sonata-no-1-in-f-minor-analysis/",
         ),
-        bar_offset=1,
     ),
     Piece(
         "haydn-104-1",
@@ -275,6 +274,7 @@ HELDOUT_ROME = (
     "Keyboard_Other/Bach,_Johann_Sebastian/The_Well-Tempered_Clavier_I/22",
     "Keyboard_Other/Bach,_Johann_Sebastian/The_Well-Tempered_Clavier_I/24",
 )
+HELDOUT_BAR_OFFSETS = {"OpenScore-LiederCorpus/Schumann,_Robert/Dichterliebe,_Op.48/10_Hör’_ich_das_Liedchen_klingen": -1}
 HELDOUT_CHORALES = {"riemenschneider004": "bwv86.6", "riemenschneider010": "bwv38.6", "riemenschneider019": "bwv351"}
 
 
@@ -289,7 +289,7 @@ def _heldout() -> list[Piece]:
             ))  # fmt: skip
     for folder in HELDOUT_ROME:
         path = ROME + urllib.parse.quote(folder)
-        found.append(Piece("heldout-" + re.sub(r"\W+", "-", folder.split("/", 1)[1]).strip("-").lower(), folder.split("/", 1)[1].replace("_", " "), path + "/score.mxl", path + "/analysis.txt", fix="harmony"))
+        found.append(Piece("heldout-" + re.sub(r"\W+", "-", folder.split("/", 1)[1]).strip("-").lower(), folder.split("/", 1)[1].replace("_", " "), path + "/score.mxl", path + "/analysis.txt", fix="harmony", bar_offset=HELDOUT_BAR_OFFSETS.get(folder, 0)))
     for analysis, chorale in HELDOUT_CHORALES.items():
         found.append(Piece(f"heldout-bach-chorale-{chorale}", f"Bach, chorale {chorale}", f"corpus:bach/{chorale}.mxl", f"corpus:bach/choraleAnalyses/{analysis}.rntxt"))
     return found
