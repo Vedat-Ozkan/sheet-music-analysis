@@ -35,9 +35,8 @@ def categorise(r: compare.Sounding, h: compare.Sounding | None) -> str | None:
     if h is None:
         return "no label"
     same_chord = r.root == h.root and r.tones == h.tones
-    same_key = (r.tonic, r.minor) == (h.tonic, h.minor)
     if same_chord and r.bass == h.bass:
-        return None if same_key else "key: same tonic, other mode" if r.tonic == h.tonic else "key: other tonic"
+        return None if r.tonic == h.tonic else "key: other tonic"
     if same_chord:
         return "bass/inversion"
     if r.root == h.root:

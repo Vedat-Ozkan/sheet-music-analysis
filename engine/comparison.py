@@ -95,10 +95,10 @@ def from_annotations(annotations: dict) -> list[Label]:
 
 
 def matches(reference: Sounding, reading: Sounding) -> dict[str, bool]:
-    same_key = (reference.tonic, reference.minor) == (reading.tonic, reading.minor)
     same_root = reference.root == reading.root
     same_chord = same_root and reference.tones == reading.tones
     same_bass = same_chord and reference.bass == reading.bass
+    same_key = reference.tonic == reading.tonic and (reference.minor == reading.minor or same_bass)
     return dict(key=same_key, root=same_root, chord=same_chord, chord_and_bass=same_bass, full=same_bass and same_key)
 
 
