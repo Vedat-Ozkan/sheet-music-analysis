@@ -1304,6 +1304,16 @@ The expert figure is weighted by bars, so Beethoven, with long movements, counts
 
 Two cautions: batch 2 rests on 12 alternatives, and "the expert reads differently from our main reading" is a disagreement with one expert, not a place where experts split among themselves. The next design to test lets the draft choose where (its least confident spans) and the reviewer decide whether a second reading there is one a teacher would accept, and write it.
 
+### 70. Second readings: the pass rule changes before the next run (2026-10-28)
+
+**Why.** The rule of challenge 67 asks whether an alternative falls where our main reading differs from one expert. That rewards flagging our own mistakes, not places where experts split, and it favours the draft's least confident spots by construction, since the review is built on the draft. The feature's purpose is the second: name the places where experts themselves hear the music differently.
+
+**The rule from now on, fixed before the run.**
+- *Pieces:* the reviewed pieces with two or more independent expert analyses at fit 0.85 or more (the any-expert pieces: chorales 269 and BWV 38.6, Beethoven Op. 2 No. 1 i, Op. 2 No. 1 iii, Op. 53 iii, Chopin Op. 6 No. 2, Mozart K. 310 i; 382 bars), with second readings added by the current guidance (challenge 69) to their existing first answers.
+- *Main measure:* the share of alternative spans where the experts disagree with each other (function level) over at least a quarter of the span, against random spans of the same lengths in the same bars. The draft's least confident spots are reported but no longer decide.
+- *Second measure:* the share where at least one expert holds the alternative, against the same alternative at random spans.
+- *Pass:* both shares beat random by a clear margin, with flags still rare (about 10 bars per 100 or fewer). With so few spans this is a first look, not a verdict; the locked set stays unrun until a version passes.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
