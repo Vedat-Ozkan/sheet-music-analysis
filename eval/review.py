@@ -84,8 +84,11 @@ contradict the notes:
 
 {problems}
 
-For each one, either correct the label (or its inversion), or keep it if your reading explains it (a
-non-chord tone, an implied note, a pedal, a seventh that only arrives later). Do not change anything else.
+Labels flagged this way are usually wrong. For each one, read the notes that sound there in the NOTES table,
+name the chord they make, and use that label, unless you can point to the exact note that explains the
+contradiction: the pedal note held in the bass, the chord tone that is missing and where it is implied, or the
+beat where the seventh arrives. "Pedal" or "incomplete chord" without naming that note is not enough. Do not
+change anything else.
 Reply again in full: the corrected annotation list as one ```json block, then the commentary."""
 
 RETRY = """

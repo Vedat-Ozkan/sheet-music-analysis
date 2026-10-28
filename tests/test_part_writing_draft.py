@@ -45,3 +45,10 @@ def test_note_list_path_gets_the_same_section():
 
 def test_piano_piece_gets_no_section(local_store, chopin):
     assert "PART-WRITING CHECK (" not in app.make_draft(chopin, "pw3", (1, 8))
+
+
+def test_section_keeps_only_findings_inside_the_requested_bars(local_store):
+    text = app.make_draft((DATA / "part_writing_motion.musicxml").read_bytes(), "pw4", (10, 14))
+    section = text.split("PART-WRITING CHECK", 1)[1].split("HOW TO USE", 1)[0]
+    assert "voice crossing soprano+alto m13 b1" in section
+    assert "m1 b1 to m2 b1" not in section

@@ -379,7 +379,7 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, studen
             + draft.as_text(result, first, last)
             + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
             + reduce.as_text(index, first, last)
-            + ("\n\n" + section if (section := part_writing.as_text(index, result.chords)) else "")
+            + ("\n\n" + section if (section := part_writing.as_text(index, result.chords, first, last)) else "")
             + ("\n\n" + section if (section := ledger.as_text(mei, index, first, last)) else "")
             + (
                 "\n\n" + check_analysis.as_text(check_analysis.student_labels(student_analysis, score, index), result, index)
@@ -428,7 +428,7 @@ def downloads_text(links: dict[str, str]) -> str:
         "Offer the MusicXML link once per conversation, not after every render: it downloads a file for "
         "MuseScore, Sibelius or Dorico; the result also lists a worksheet PDF, MIDI and RomanText to mention once. "
         "piano=true draws the same annotation list (written for the original score) on a two-staff piano reduction "
-        "with instrument cues. For a score with six or more instruments (an orchestra, band or large ensemble; not a quartet), draw the original first, then offer the user "
+        "with instrument cues. For a score with more than four staves (an orchestra, band or large ensemble), draw the original first, then offer the user "
         "the piano reduction once; call again with piano=true only if they accept."
     ),
     annotations=read_only("Draw the analysis on the score"),

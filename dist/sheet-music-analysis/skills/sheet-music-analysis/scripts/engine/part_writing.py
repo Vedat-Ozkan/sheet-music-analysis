@@ -321,11 +321,11 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
     return result
 
 
-def as_text(index: ScoreIndex, chords=None) -> str:
+def as_text(index: ScoreIndex, chords=None, first: int | None = None, last: int | None = None) -> str:
     if not applies(index):
         return ""
     voices, _, rows = _table(index)
-    found = check(index, chords)
+    found = [f for f in check(index, chords) if all((first is None or bar >= first) and (last is None or bar <= last) for bar in f.bars)]
     names = _names(voices)
     at = {pos: row for pos, row in rows}
 

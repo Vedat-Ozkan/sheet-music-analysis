@@ -60,6 +60,16 @@ def check(annotations: AnnotationList, index: ScoreIndex) -> None:
                     index.find_note(**annotation.to_note.model_dump())
         except PositionError as error:
             problems.append(f"annotations[{number}] ({annotation.type}): {error}")
+            continue
+        if isinstance(annotation, Alternative):
+            where = lambda measure, beat: (index.measure(measure).index, beat)
+            last = where(annotation.end.measure, annotation.end.beat if annotation.end.beat is not None else math.inf)
+            count = sum(where(annotation.start.measure, annotation.start.beat) <= where(h.at.measure, h.at.beat) <= last
+                        for h in annotations.annotations if isinstance(h, Harmony))
+            tokens = len(re.sub(r"^\S+: ", "", annotation.label).split())
+            if tokens != count:
+                problems.append(f"annotations[{number}] (alternative): its label has {tokens} chords but those bars have {count} "
+                                "harmony labels; give one chord per harmony label, '-' where unchanged")
     if problems:
         raise AnnotationError(problems)
 

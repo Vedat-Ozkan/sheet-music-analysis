@@ -1358,6 +1358,36 @@ Runs of three applied chords are the strongest single signal (0.64 against 0.26 
 
 **Not done.** The rules cover key naming only (inversions, six-fours and sevenths are the next causes of expert disagreement). How the reviewer should use the flags (keep, drop, explain) is not built or tested.
 
+### 73. Doing in code what has a rule (2026-10-28)
+
+**Why.** The owner asked that anything about music theory with a fixed answer be done by scripts, not by the chat model, with no loss of accuracy. A survey of what the skill and server ask the model to do found about 13 of 44 tasks with a fixed answer once the model has chosen the chord, bass or non-chord tones, about 24 where a rule can propose or check but the model decides, and about 7 that are judgement. The log's evidence sets the line: rules win when they compute from the model's own choices or check them (mode recovery, challenge 1; parallels, challenges 36-38), and lose when they override a hearing (the bass rule, challenge 11).
+
+**Done, none of which changes what the model decides:**
+- The draft's PART-WRITING CHECK lists only findings inside the requested bars (`part_writing.as_text` takes `first`, `last`); before, a passage carried the whole score's findings, up to about 3,700 characters.
+- The renderer sends back an `alternative` whose label has a different number of chords from the harmony labels in its range, instead of spreading the chords evenly under the wrong ones (`engine/annotate.py` `check`).
+- The server's piano-reduction offer uses the skill's rule, more than four staves.
+
+**Measured, free.** `harmony.mismatches` (a label against the notes that sound under it) flags 167 of 3,265 reviewed labels that can be scored (2026-10-24 reviews). Flagged labels agree with the expert on key, chord and bass 37% of the time, against 82% for unflagged ones; "bass never lowest" flags agree 23%, "seventh never sounds" 10%, "half the notes missing" 65%. So the flags point at real mistakes, which challenge 16 had not shown (it measured score change only).
+
+**Not done.** Sending the method text once per connection instead of with every draft: some hosts may never show server instructions to the model, so it could lose accuracy. Part-writing marks drawn by code: the skill sandbox cannot run the check. Rules that pick the reading (pedals, cadence types) stay out unless measured.
+
+### 74. The label check again, reworded: harmless, with rare large rescues (2026-10-28)
+
+**What changed from challenge 16.** The same script flags, the same design (`--selfcheck --start-from`, so only the check differs), but the prompt now says flagged labels are usually wrong and asks the reviewer to read the notes and name the chord they make, keeping its label only when it can name the exact note that explains the contradiction (the held pedal note, where the missing tone is implied, the beat where the seventh arrives). Challenge 16's reviewer changed the chord on only 4 of 29 flagged labels.
+
+**Run.** Held-out pieces with the most flags, starting from the 2026-10-24 reviews: 7, then 10 more. 31 passages, $11.06.
+
+| | Full: before → after |
+|---|---|
+| First 7 pieces | 0.622 → 0.639 |
+| Next 10 pieces | 0.641 → 0.643 |
+| All 17 | 0.633 → 0.641 |
+| All 17 without Chopin's Mazurka Op. 56 No. 3 | 0.643 → 0.643 |
+
+The reviewer now changes about a third of flagged labels. Most of the gain is one passage of the mazurka (0.474 → 0.609, keys included). Grieg Op. 38 No. 7 and Op. 71 No. 4 gained about 0.02. The largest drop is Beethoven Op. 10 No. 2, 0.705 → 0.681, about the size of review noise; nothing else fell more than 0.013.
+
+**Decision.** It passes the owner's rule (no worse beyond noise), as insurance against a passage that has gone badly wrong rather than a general gain. Planned for the product as warnings in the render reply, never rejections; not built yet.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
@@ -1422,5 +1452,6 @@ Modal and colouristic music is now the largest group, and Ravel is the one piece
 .venv/bin/python -m eval.bass_check                                # the rejected bass rule (challenge 11)
 .venv/bin/python -m eval.review --tag NAME --selfcheck --start-from opus-medium   # the self-check alone (challenge 16)
 .venv/bin/python -m eval.key_readings                              # second readings of key, by rule (challenge 72)
+.venv/bin/python -m eval.review --set heldout --only ID --passages 2 --selfcheck --start-from opus-medium-2026-10-24 --tag selfcheck-b   # the reworded check (challenge 74)
 .venv/bin/python tools/robustness.py                               # 31-score robustness run
 ```

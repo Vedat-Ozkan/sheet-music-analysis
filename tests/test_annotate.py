@@ -110,3 +110,11 @@ def test_piano_reduction_keeps_the_marked_notes():
     engraving = render(score, annotations, measures=(0, 8), piano=True)
     assert engraving.page_count == 1
     assert set(re.findall(r'class="staff" data-n="(\d+)"', engraving.svgs[0])) == {"1", "2"}
+
+
+def test_alternative_with_the_wrong_number_of_chords_is_sent_back(chopin, chopin_annotations):
+    alternative = {"type": "alternative", "start": {"measure": 6, "beat": 1}, "end": {"measure": 6}, "label": "c: V7 i iv"}
+    annotations = AnnotationList.model_validate(
+        {"annotations": chopin_annotations.model_dump(exclude_none=True)["annotations"] + [alternative]})
+    with pytest.raises(AnnotationError, match="has 3 chords but those bars have 2"):
+        render(chopin, annotations, measures=(1, 8))
