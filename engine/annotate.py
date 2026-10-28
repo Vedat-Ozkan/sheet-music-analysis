@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from xml.sax.saxutils import escape
 
 from engine import notation, slurs
-from engine.annotations import AnnotationList, Cadence, Callout, Harmony, NoteRef, NonChordTone, Phrase, Region, VoiceLeading
+from engine.annotations import Alternative, AnnotationList, Cadence, Callout, Harmony, NoteRef, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
 from engine.render import Engraving, incoming_ties, load_toolkit, shorten_ties
 from engine.score import PositionError, ScoreIndex
@@ -47,7 +47,7 @@ def check(annotations: AnnotationList, index: ScoreIndex) -> None:
         try:
             if isinstance(annotation, (Harmony, Cadence, Callout)):
                 index.measure(annotation.at.measure).offset_of(annotation.at.beat)
-            elif isinstance(annotation, (Phrase, Region)):
+            elif isinstance(annotation, (Phrase, Region, Alternative)):
                 index.measure(annotation.start.measure).offset_of(annotation.start.beat)
                 end = index.measure(annotation.end.measure)
                 if annotation.end.beat is not None:
@@ -92,7 +92,7 @@ def render(
         )
     ties = incoming_ties(toolkit, index, measures[0]) if measures else set()
     _reserve_numeral_room(toolkit, index, annotations)
-    _reserve_staff_bracket_room(toolkit, index, annotations)
+    _reserve_bracket_room(toolkit, index, annotations)
     if measures:
         toolkit.setOptions({"pageHeight": 60000})
         toolkit.select({"measureRange": index.measure_range(*measures)})
@@ -283,18 +283,23 @@ def _widest_label(label: str, key: str | None) -> str:
     return widest
 
 
-def _reserve_staff_bracket_room(toolkit, index: ScoreIndex, annotations: AnnotationList) -> None:
+def _reserve_bracket_room(toolkit, index: ScoreIndex, annotations: AnnotationList) -> None:
     mei = toolkit.getMEI()
+    bottom_staff = max(int(n) for n in re.findall(r'<staffDef\b[^>]*?\bn="(\d+)"', mei))
     added: dict[str, list[str]] = {}
     for region in annotations.annotations:
-        if not isinstance(region, Region) or not region.staff:
+        if isinstance(region, Region) and region.staff:
+            staff, place = region.staff, "above"
+        elif isinstance(region, Alternative):
+            staff, place = bottom_staff, "below"
+        else:
             continue
         first, last = index.measure(region.start.measure).index, index.measure(region.end.measure).last_index
         for measure in index.measures:
             for segment in measure.segments:
                 if first <= segment.index <= last:
                     added.setdefault(segment.id, []).append(
-                        f'<dir staff="{region.staff}" tstamp="1" place="above" type="analysis-room">{escape(region.label or "-")}<lb/>-</dir>'
+                        f'<dir staff="{staff}" tstamp="1" place="{place}" type="analysis-room">{escape(region.label or "-")}<lb/>-</dir>'
                     )
     if not added:
         return

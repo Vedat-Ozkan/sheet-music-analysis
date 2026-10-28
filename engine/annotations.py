@@ -73,6 +73,13 @@ class Region(Annotation):
     staff: int | None = Field(None, description="Draw the bracket at this staff (1 = top) when the region belongs to one instrument, e.g. a theme in the cello")
 
 
+class Alternative(Annotation):
+    type: Literal["alternative"]
+    start: Position
+    end: RangeEnd
+    label: str = Field(description='The other reading in numerals, e.g. "F#: V7 I", "V/IV", "I64"')
+
+
 class NonChordTone(Annotation):
     type: Literal["nct"]
     note: NoteRef
@@ -113,7 +120,7 @@ class Callout(Annotation):
 
 
 AnyAnnotation = Annotated[
-    Harmony | Cadence | Phrase | Region | NonChordTone | VoiceLeading | Callout,
+    Harmony | Cadence | Phrase | Region | Alternative | NonChordTone | VoiceLeading | Callout,
     Field(discriminator="type"),
 ]
 
@@ -123,6 +130,7 @@ DEFAULT_VIEWS: dict[str, set[str]] = {
     "cadence": {"harmony", "form"},
     "phrase": {"form"},
     "region": {"harmony", "form"},
+    "alternative": {"harmony"},
     "nct": {"voice_leading"},
     "voice_leading": {"voice_leading"},
     "callout": {"harmony", "voice_leading", "form"},
