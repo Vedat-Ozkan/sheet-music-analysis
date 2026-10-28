@@ -110,6 +110,7 @@ Tell the user which of these you judged the passage to be.
 - `nct` for the non-chord tones worth showing: a handful, not every one. Circle accented ones (suspensions, appoggiaturas), and the first instance of a figure that gives the passage its character (a recurring anticipation, a sighing appoggiatura); mention the later instances in the commentary. Never circle passing or neighbor notes inside a scale run or running figuration: they are the run, not an event in it. Before writing a label, check where the note goes: if the next chord holds the same pitch it is an anticipation (ANT), not a neighbor.
 - `voice_leading` for one or two resolutions.
 - `callout` numbers 1, 2, 3… at the unusual moments, matching your commentary.
+- `alternative` where experts commonly split and a teacher would accept the second reading: modulation or tonicization, an inversion or a pedal, a cadential six-four or a seventh, a iii that may be I6 or V with a non-chord tone, major or minor mode. Its `label` is the other reading in numerals (`F#: V7 I`). At most about one per phrase, each with a callout whose paragraph explains both readings.
 
 Keep the page readable. If a passage would be crowded, render separate views (harmony, voice_leading, form) instead of one page with everything.
 

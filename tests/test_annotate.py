@@ -87,6 +87,21 @@ def test_chord_symbols_and_regions_for_music_roman_numerals_do_not_fit(chopin):
     assert ">tonic<" not in svg and ">dominant<" not in svg
 
 
+def test_alternative_reading_is_a_dotted_bracket_under_the_numerals(chopin, chopin_annotations):
+    alternative = {"type": "alternative", "start": {"measure": 6, "beat": 1}, "end": {"measure": 6}, "label": "c: V7 i", "callout": 5}
+    annotations = AnnotationList.model_validate(
+        {"annotations": chopin_annotations.model_dump(exclude_none=True)["annotations"] + [alternative]})
+    page = render(chopin, annotations, measures=(1, 8))
+    assert page.page_count == 1
+    assert ">or c: V7 i<" in page.svgs[0] and 'stroke-dasharray="1 70"' in page.svgs[0]
+    assert ">or c: V7 i<" not in render(chopin, annotations, measures=(1, 8), view="form").svgs[0]
+
+
+def test_shipped_examples_still_validate():
+    for path in [Path("examples/chopin_op9_no2_m1-8.json"), *Path("examples/engraving").glob("*.json")]:
+        AnnotationList.model_validate_json(path.read_text())
+
+
 def test_piano_reduction_keeps_the_marked_notes():
     from tools.robustness import CORPUS
 
