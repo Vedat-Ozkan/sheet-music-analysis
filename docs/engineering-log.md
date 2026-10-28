@@ -12,7 +12,7 @@ A record of the problems met while building this tool, what was done about each,
 - **Checked against what teachers actually wrote.** Against published analyses of 19 pieces (textbook chapters, exam-board teaching notes, articles and dissertations), our analysis agrees with 63% of 431 checkable claims, partly agrees with 26%, and disagrees with 4%, on the judge's first marking, which is lenient (a second marking of the same analysis gives 4 to 18 points less; challenge 9). Every disagreement was read by hand and sorted into areas to improve.
 - **Measured which chat model to use.** Over the full 23-piece set, Opus 5.5 at medium effort beat Sonnet 5.5 as the reviewer: full agreement with expert labels 0.66 → 0.71, agreement with teachers' claims 52% → 63%, at 36% more cost and 25% less model time.
 - **Found and fixed a silent failure in the neural model's output.** The model names each key's tonic but not its mode, so every minor key was read as major. Recovering the mode from the chords lifted key accuracy on minor-key pieces from 0.00 to 0.92 (Chopin Prelude No. 20), 0.27 to 0.79 (Beethoven Op. 2 No. 1) and 0.20 to 0.89 (Tchaikovsky).
-- **Measured how far experts agree with each other, by style.** Across 133 independent pairs of expert analyses (10,228 bars), experts agree on key, chord and bass for 0.68 of the music: 0.87 on Bach chorales, 0.77 on Mozart sonatas, 0.58-0.61 on Chopin mazurkas and Beethoven sonatas. On unseen Beethoven and Chopin our reviewed analysis matches that level (0.60, 0.58); overall it is about 0.07 below (challenges 59, 62).
+- **Measured how far experts agree with each other, by style.** Across 146 independent pairs of expert analyses (10,552 bars), experts agree on key, chord and bass for 0.69 of the music: 0.87 on Bach chorales, 0.77 on Mozart sonatas, 0.58-0.61 on Chopin mazurkas and Beethoven sonatas. On the chord's role (same function family, inversion aside) they agree on 0.91, and we agree with at least one of them on 0.97 (7 pieces; challenge 63). On unseen Beethoven and Chopin our reviewed analysis matches that level (0.60, 0.58); overall it is about 0.07 below (challenges 59, 62).
 - **Matched expert-to-expert agreement on one movement analysed by three expert teams.** On Beethoven's Op. 2 No. 1, first movement, the reviewed analysis agreed with three independent expert analyses at 0.76 full agreement, against 0.78 between the experts themselves (one movement, one review; a single review varies by about 0.04).
 - **Robust across 31 scores and four centuries.** Monteverdi to Schoenberg, choirs, quartets, songs, piano, transposing instruments: every score passes reading, engraving, drafting and rendering.
 - **Shipped around a platform limit instead of asking users to work around it.** Claude connectors cannot receive chat attachments. Rather than an upload page and a code to paste, the plugin runs the engine as a skill inside Claude's sandbox, where the file already is, and sends only a compact note list (about 1,300 characters for 8 bars) to the server for the neural draft.
@@ -1159,6 +1159,31 @@ Sonnet's first Bach answer wrote B-flat minor as `b:` (B minor in RomanText) and
 
 Challenge 59's source rule skipped 58 Beethoven sonata files with no Analyst line: `analysis_DT.txt` and, in 24 folders, an `analysis.txt` copy of it. Elsewhere `analysis_DT.txt` carries an Analyst line naming Tymoczko's team, so these are TAOM analyses too, and `eval/ceiling.py` now counts `analysis_DT.txt` as TAOM. Copies stay excluded. Beethoven goes from 13 pairs to 22 (4,377 bars) at fit 0.85: 0.78 function, 0.61 full (was 0.77, 0.57). All styles: 133 pairs, 10,228 bars, 0.83 function, 0.68 full, unchanged. Every other pair scores exactly as before. In `eval/any_expert.py` Op. 2 No. 1 iii now has two experts, which brings the first look to 7 pieces (382 bars): ours against any expert 0.92 function, 0.88 full, experts against any other expert 0.80, 0.71.
 
+### 63. An "idea" level, and four scoring fixes (2026-10-27)
+
+**Question.** Experts agree on the function of a chord far more often than on its exact label. How often do we agree with them at that level, and which misses are scoring faults rather than analysis faults?
+
+**A new level, *idea*.** It accepts everything *function* does. It also accepts the same chord in another inversion, and two chords of the same tonic, predominant or dominant family in the same key, as in the engine's function bands (`engine/draft.py`: degrees 1, 3 and 6 are T, 2 and 4 are PD, 5 and the leading-tone chord are D; applied chords and the subtonic VII have no family). A six-four still matches only through the cadential rule, and an enharmonic diminished seventh matches its respelling. *Function* is unchanged as a level and stays the stricter figure.
+
+**Scoring fixes**, found by reading the misses in the nine worst pieces by hand:
+- Chord symbols (`Eb7`, `D9`, `Ab9/Eb`), which the skill asks for in impressionist music, were unreadable and counted as misses. They are now read as chord symbols.
+- In bars with no declared length (cadenzas, and many chorale scores), every label was placed at the bar's start. Labels are now placed at their beat. Chorale analyses fit their scores better (about 0.82 to 0.91), so 12 more chorale pairs pass the 0.85 fit.
+- The cadential six-four matched any root-position chord. It now matches only V of its own key.
+- `Sounding` carries the chord's family.
+
+**Experts against each other, 146 pairs, 10,552 bars:** function 0.83, idea 0.91, full 0.69 (chorales 0.97 / 0.99 / 0.87; Mozart 0.86 / 0.93 / 0.77; mazurkas 0.80 / 0.88 / 0.58; Beethoven 0.78 / 0.89 / 0.61).
+
+**Our reviewed readings against their one expert** (43 pieces of the 2026-10-24 run): function 0.82, idea 0.91. **Against any expert** (7 pieces, 382 bars): function 0.92, idea 0.97; the draft alone 0.62 and 0.70; experts against any other expert 0.80 and 0.87.
+
+**What it means.** At the *idea* level we agree with an expert as often as experts agree with each other, but so nearly does everything: the draft alone reaches 0.70, and experts 0.91. The level is useful for telling users what "agrees with an expert" means; it is too lenient to show improvement. Improvement is measured at *function* and *full*.
+
+**Where the remaining misses come from** (nine worst pieces, read by hand):
+- Single-line and lead-in bars, where the chord is placed late or the previous one carried over (Grieg Op. 65/1, Chopin Op. 56/3 and Op. 50/3, Beethoven Op. 14/1 iii).
+- Notation slips, such as `I7` written for a dominant seventh on the tonic, a ninth of the wrong quality, or `ii/o42` for B–D–A.
+- Harmonic rhythm that changes between a passage and its return (Op. 14/1 iii, bars 31–33 against 108–111).
+
+These are fixable. Pedal points, chains of 6/3 chords and `III+` against V are matters of taste: the experts themselves differ on them.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
@@ -1216,7 +1241,7 @@ Modal and colouristic music is now the largest group, and Ravel is the one piece
 .venv/bin/python -m eval.review --tag NAME [--image] [--overview] [--alternatives]     # a variant run in its own folder
 .venv/bin/python -m eval.run --set heldout                         # draft on pieces the draft model never saw (challenge 58)
 .venv/bin/python -m eval.review --set heldout --only ID --passages 2 --tag NAME   # review two passages per held-out piece
-.venv/bin/python -m eval.ceiling                                   # expert against expert, 133 pairs by style (challenges 14, 59, 62)
+.venv/bin/python -m eval.ceiling                                   # expert against expert, 146 pairs by style (challenges 14, 59, 62, 63)
 .venv/bin/python -m eval.review --set heldout --only ID --passages 2 --no-draft --source musicxml --tag NAME   # Claude alone (challenge 60)
 .venv/bin/python -m eval.plain --only ID [--only ID]                 # plain Sonnet and Opus chats, two runs each (challenge 61)
 .venv/bin/python -m eval.survey                                    # draft over 300 When in Rome pieces (challenge 15)

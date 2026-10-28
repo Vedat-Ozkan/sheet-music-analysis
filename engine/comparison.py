@@ -5,15 +5,18 @@ from dataclasses import dataclass
 from fractions import Fraction
 from functools import lru_cache
 
+from music21 import harmony
 from music21 import key as m21key
 from music21 import roman
 
+from engine.draft import FUNCTIONS
 from engine.reduce import midi
 from engine.score import ScoreIndex
 
 MEASURE_LINE = re.compile(r"^m(\d+)(var\d+)?[a-z]?(?:-(\d+))?\s*(?:=\s*m(\d+)(?:-(\d+))?)?\s*(.*)$")
 BEAT = re.compile(r"^b(\d+(?:\.\d+)?)$")
 KEY = re.compile(r"^([A-Ga-g][#b-]*):$")
+CHORD_SYMBOL = re.compile(r"^(?!Ger|Fr|It|Cad)[A-G]")
 NOT_A_CHORD = re.compile(r"^(\|.*|:?\|\|:?|\\\\.*|NC|N\.C\.|\(.*|.*\))$")
 
 
@@ -32,14 +35,19 @@ class Sounding:
     root: int
     tones: frozenset[int]
     bass: int
+    family: str | None = None
 
 
 @lru_cache(maxsize=None)
 def sounding(key: str, figure: str) -> Sounding | None:
     try:
         local = m21key.Key(m21key.convertKeyStringToMusic21KeyString(key))
+        if CHORD_SYMBOL.match(figure):
+            chord = harmony.ChordSymbol(re.sub(r"(^|/)([A-G])b", r"\1\2-", figure))
+            return Sounding(local.tonic.pitchClass, local.mode == "minor", chord.root().pitchClass, frozenset(p.pitchClass for p in chord.pitches), chord.bass().pitchClass)
         chord = roman.RomanNumeral(figure.replace("ø", "/o"), local, sixthMinor=roman.Minor67Default.CAUTIONARY, seventhMinor=roman.Minor67Default.CAUTIONARY)
-        return Sounding(local.tonic.pitchClass, local.mode == "minor", chord.root().pitchClass, frozenset(p.pitchClass for p in chord.pitches), chord.bass().pitchClass)
+        return Sounding(local.tonic.pitchClass, local.mode == "minor", chord.root().pitchClass, frozenset(p.pitchClass for p in chord.pitches), chord.bass().pitchClass,
+                        None if chord.secondaryRomanNumeral or chord.scaleDegree == 7 and (chord.root().pitchClass - local.tonic.pitchClass) % 12 != 11 else FUNCTIONS.get(str(chord.scaleDegree)))
     except Exception:
         return None
 
@@ -100,8 +108,26 @@ def same_function(a: Sounding, b: Sounding) -> bool:
     if a.root == b.root and len(a.tones ^ b.tones) == 1 and (a.tones <= b.tones or b.tones <= a.tones):
         return True
     cadential = lambda s: s.root == s.tonic and s.bass == (s.tonic + 7) % 12 and len(s.tones) == 3
-    dominant = lambda s: s.root == s.bass
-    return cadential(a) and dominant(b) or cadential(b) and dominant(a)
+    dominant = lambda s, of: s.root == s.bass == (of.tonic + 7) % 12
+    return cadential(a) and dominant(b, a) or cadential(b) and dominant(a, b)
+
+
+def same_idea(a: Sounding, b: Sounding) -> bool:
+    if same_function(a, b):
+        return True
+    six_four = lambda s: s.bass == (s.root + 7) % 12 and len(s.tones) == 3
+    if six_four(a) or six_four(b):
+        return False
+    if a.root == b.root and (a.tones <= b.tones or b.tones <= a.tones) and len(a.tones ^ b.tones) <= 1:
+        return True
+    if a.tones == b.tones and len(a.tones) == 4 and all((tone + 3) % 12 in a.tones for tone in a.tones):
+        return True
+    return a.tonic == b.tonic and a.family is not None and a.family == b.family
+
+
+def agreement(reference: Sounding, reading: Sounding) -> dict[str, bool]:
+    found = matches(reference, reading)
+    return {**found, "function": same_function(reference, reading) or found["chord_and_bass"], "idea": same_idea(reference, reading) or found["chord_and_bass"]}
 
 
 Span = tuple[Fraction, Fraction, Sounding | None]
@@ -126,7 +152,7 @@ class Timeline:
             if measure is None:
                 missing += 1
                 continue
-            inside = measure.offset_of(label.beat) if measure.declared_length is not None else Fraction(0)
+            inside = measure.offset_of(label.beat) if measure.declared_length is not None else max(Fraction(0), (Fraction(label.beat).limit_denominator(96) - 1) * measure.beat_length)
             placed.append((self.starts[label.measure] + min(inside, measure.length), sounding(label.key, label.figure)))
         placed.sort(key=lambda item: item[0])
         ends = [start for start, _ in placed[1:]] + [self.total]
@@ -164,7 +190,7 @@ def compare(reference: list[Label], reading: list[Label], index: ScoreIndex, bar
     def at(spans: list[Span], time: Fraction) -> Sounding | None:
         return next((chord for start, end, chord in spans if start <= time < end), None)
 
-    weights = dict.fromkeys(("labelled", "key", "root", "chord", "chord_and_bass", "function", "full"), Fraction(0))
+    weights = dict.fromkeys(("labelled", "key", "root", "chord", "chord_and_bass", "function", "idea", "full"), Fraction(0))
     for start, end in zip(cuts, cuts[1:]):
         r, h = at(ref, start), at(hyp, start)
         if r is None or windows and not any(low <= start < high for low, high in windows):
@@ -173,7 +199,7 @@ def compare(reference: list[Label], reading: list[Label], index: ScoreIndex, bar
         weights["labelled"] += length
         if h is None:
             continue
-        for name, agrees in {**matches(r, h), "function": same_function(r, h) or matches(r, h)["chord_and_bass"]}.items():
+        for name, agrees in agreement(r, h).items():
             weights[name] += length * agrees
     labelled = weights.pop("labelled")
     result = {name: round(float(value / labelled), 3) if labelled else None for name, value in weights.items()}

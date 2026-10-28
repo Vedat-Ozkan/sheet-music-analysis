@@ -30,7 +30,7 @@ from eval.survey import categorise
 ROME = "https://raw.githubusercontent.com/MarkGotham/When-in-Rome/master/"
 DCML_SCORES = "https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/"
 CACHE = pieces.OUT / "ceiling"
-COLUMNS = ("key", "root", "chord", "chord_and_bass", "function", "full")
+COLUMNS = ("key", "root", "chord", "chord_and_bass", "function", "idea", "full")
 FIT = 0.85
 KEEP = 0.75
 STYLES = (("Chorales", "Bach chorales"), ("Variations_and_Grounds", "TAVERN variations"), ("Mozart", "Mozart sonatas"), ("Beethoven", "Beethoven sonatas"), ("Mazurkas", "Chopin mazurkas"))

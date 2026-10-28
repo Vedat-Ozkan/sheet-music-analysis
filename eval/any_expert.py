@@ -22,13 +22,13 @@ import urllib.parse
 from fractions import Fraction
 from pathlib import Path
 
-from engine.comparison import matches, same_function
+from engine.comparison import agreement
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 from eval import ceiling, compare, pieces
 from eval.run import cached_draft
 
-LEVELS = ("key", "root", "chord_and_bass", "function", "full")
+LEVELS = ("key", "root", "chord_and_bass", "function", "idea", "full")
 OUT = pieces.OUT / "any-expert.json"
 
 
@@ -51,7 +51,7 @@ def compare_any(references: list[list[compare.Label]], reading: list[compare.Lab
         h = at(hyp, start)
         if h is None:
             continue
-        agreed = [{**matches(r, h), "function": same_function(r, h) or matches(r, h)["chord_and_bass"]} for r in experts]
+        agreed = [agreement(r, h) for r in experts]
         for level in LEVELS:
             weights[level] += length * any(found[level] for found in agreed)
     labelled = weights.pop("labelled")
