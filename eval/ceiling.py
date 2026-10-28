@@ -133,8 +133,9 @@ def main() -> None:
             print(f"{name:60s} skipped: {type(error).__name__}: {str(error)[:80]}")
             continue
         sources = {f: source(text, f) for f, text in texts.items()}
+        first = {s: f for f, s in reversed(sources.items())}
         timeline = compare.Timeline(index)
-        for a, b in combinations(files, 2):
+        for a, b in combinations([f for f in files if first.get(sources[f]) == f], 2):
             if None in (sources[a], sources[b]) or sources[a] == sources[b] or texts[a].split("\n", 3)[-1] == texts[b].split("\n", 3)[-1]:
                 continue
             pair = f"{sources[a]} v {sources[b]}"

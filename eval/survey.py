@@ -28,7 +28,7 @@ ROME = "https://raw.githubusercontent.com/MarkGotham/When-in-Rome/master/"
 OUT = pieces.OUT / "survey"
 FIT = 0.70
 EVALUATION = ("Well-Tempered_Clavier_I/01", "K332/1", "K545/1", "Winterreise,_D.911/05", "Preludes%2C_Op.28/20", "Preludes,_Op.28/20", "Symphony_104/1")
-CATEGORIES = ("key: same tonic, other mode", "key: other tonic", "bass/inversion", "seventh", "quality", "related chord", "different chord", "no label")
+CATEGORIES = ("key: other tonic", "bass/inversion", "seventh", "quality", "related chord", "different chord", "no label")
 
 
 def categorise(r: compare.Sounding, h: compare.Sounding | None) -> str | None:

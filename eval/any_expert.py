@@ -8,8 +8,8 @@ are the evaluation pieces whose When in Rome folder holds a second analysis from
 own reference with its bar offset, the others shifted by -1, 0 or +1 to agree best with it (some reviews
 and references share a numbering one bar off the score's notes), and kept only when their best fit to the
 notes is 0.85 or more. Each piece reports the reviewed reading and the draft against each expert and against
-any, and each expert against any of the others (the experts' own figure; with three or more experts,
-the reviewed reading is also scored against the same others, so the two are comparable). Scoring is
+any, and each expert against any of the others (the experts' own figure). The reviewed reading is also
+scored against the same others as each expert, which is the figure comparable with the experts' own. Scoring is
 limited to the reviewed passages. Results go to out/eval/any-expert.json.
 """
 
@@ -125,8 +125,7 @@ def main() -> None:
         entry["any"] = compare_any(list(kept.values()), reading, index, bars)
         entry["draft_any"] = compare_any(list(kept.values()), drafted, index, bars)
         entry["experts"] = {source: compare_any([other for name, other in kept.items() if name != source], labels, index, bars) for source, labels in kept.items()}
-        if len(kept) >= 3:
-            entry["ours_vs_others"] = {source: compare_any([other for name, other in kept.items() if name != source], reading, index, bars) for source in kept}
+        entry["ours_vs_others"] = {source: compare_any([other for name, other in kept.items() if name != source], reading, index, bars) for source in kept}
         report[piece.id] = entry
         print(f"{piece.id:45s} {'/'.join(kept)}  ours any: " + "  ".join(f"{level[:5]} {entry['any'][level]:.2f}" for level in LEVELS))
     OUT.write_text(json.dumps(report, indent=1))
@@ -137,6 +136,7 @@ def main() -> None:
     print("ours, best single expert: ", mean(lambda e: {level: max(s[level] for s in e["single"].values()) for level in LEVELS}))
     print("ours, any expert:         ", mean(lambda e: e["any"]))
     print("draft, any expert:        ", mean(lambda e: e["draft_any"]))
+    print("ours, same others as each expert:", mean(lambda e: {level: sum(x[level] for x in e["ours_vs_others"].values()) / len(e["ours_vs_others"]) for level in LEVELS}))
     print("experts, any other expert:", mean(lambda e: {level: sum(x[level] for x in e["experts"].values()) / len(e["experts"]) for level in LEVELS}))
 
 
