@@ -1284,6 +1284,26 @@ The expert figure is weighted by bars, so Beethoven, with long movements, counts
 
 **Beethoven Op. 2 No. 1 i re-reviewed** with the skill text of 2026-10-26 (before the rules of challenge 64 and the alternative), whole piece, numbering fixed. Draft 0.47, review 0.78 full; reading fit to the notes 0.91 (the stale review fitted at 0.47). It is back in the core totals: core review 0.759 full over 13 pieces, draft 0.570.
 
+### 69. Second readings, second batch: rarer, still not where it should be (2026-10-28)
+
+**What changed after challenge 68.** `skill/SKILL.md` now asks for an alternative only where the reviewer itself hesitated, usually none and rarely more than one in 24 bars. The second-readings prompt lists the draft's four least confident chords in the passage, with the draft's runner-up, as places to look. The measure gained a chance baseline for "the expert holds our alternative": the same alternative placed at random spans of the same length. On batch 1 that baseline is 0.38, against 0.73 for the reviewer's own spans.
+
+**Run.** The second fixed-rule batch of 7 held-out pieces (challenge 64), 2 passages each, chords unchanged.
+
+| | Batch 1 (challenge 68) | Batch 2 | Pass rule |
+|---|---|---|---|
+| Alternatives | 37 over 283 bars | 12 over 269 bars | |
+| Flagged bars per 100 | 36 | 12 | about 10 or fewer |
+| Spans where the expert reads differently from us | 0.43 | 0.58 | beat both baselines |
+| Random spans | 0.31 | 0.37 | beaten |
+| Spans around the draft's least confident chords | 0.60 | 0.92 | **not beaten** |
+| Expert holds our alternative / at random spans | 0.73 / 0.38 | 0.50 / 0.34 | |
+| Our disagreements inside a flagged span | 0.44 | 0.12 | |
+
+**What it means.** The revision made the alternatives rare enough and better aimed than chance, and when one is named the expert holds it more often than chance. But the draft's own least confident chords point to the places where we and the expert disagree far better than the reviewer's choice does (0.92 on batch 2, from 12 spans). The reviewer was shown those spots and mostly chose others. The rule fixed in challenge 67 is not met, so the locked set stays unrun.
+
+Two cautions: batch 2 rests on 12 alternatives, and "the expert reads differently from our main reading" is a disagreement with one expert, not a place where experts split among themselves. The next design to test lets the draft choose where (its least confident spans) and the reviewer decide whether a second reading there is one a teacher would accept, and write it.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

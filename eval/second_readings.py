@@ -6,7 +6,8 @@ For each reviewed piece with one expert analysis, every `alternative` span is ch
 expert's reading differs from our main reading over at least a quarter of the span (at the function level),
 and whether the expert holds the alternative itself (its key, or at least half of its chords, appear in the
 expert's reading of the span). Two baselines get spans of the same lengths in the same passages: random
-spans, and spans around the draft's least confident chords. Coverage is the share of the music where we
+spans (also carrying the same alternative, for the second check), and spans around the draft's least
+confident chords. Coverage is the share of the music where we
 disagree with the expert that lies inside a flagged span; rarity is flagged bars per 100 reviewed bars.
 """
 
@@ -64,7 +65,7 @@ def main() -> None:
     parser.add_argument("--reviewed", type=Path, required=True)
     args = parser.parse_args()
     generator = random.Random(0)
-    flagged, random_hits, draft_hits, holding = [], [], [], []
+    flagged, random_hits, draft_hits, holding, random_holding = [], [], [], [], []
     reviewed_bars = flagged_bars = 0
     disagreeing = covered = Fraction(0)
     for piece in pieces.PIECES + pieces.HELDOUT:
@@ -99,6 +100,7 @@ def main() -> None:
                 if window[1] - window[0] > end - start:
                     shift = window[0] + Fraction(generator.random()).limit_denominator(1000) * (window[1] - window[0] - (end - start))
                     random_hits.append(share_disagreeing(shift, shift + (end - start), expert, ours) >= DISAGREES)
+                    random_holding.append(holds(item["label"], key, shift, shift + (end - start), expert))
             if doubtful:
                 _, centre = doubtful.pop(0)
                 draft_hits.append(share_disagreeing(centre - (end - start) / 2, centre + (end - start) / 2, expert, ours) >= DISAGREES)
@@ -113,7 +115,7 @@ def main() -> None:
     rate = lambda hits: round(sum(hits) / len(hits), 3) if hits else None
     print(f"{len(flagged)} alternatives over {reviewed_bars} reviewed bars ({100 * flagged_bars / max(reviewed_bars, 1):.1f} flagged bars per 100)")
     print(f"where the expert disagrees with our main reading: ours {rate(flagged)}, random spans {rate(random_hits)}, draft's least confident {rate(draft_hits)}")
-    print(f"where the expert holds our alternative: {rate(holding)}")
+    print(f"where the expert holds our alternative: ours {rate(holding)}, the same alternative at random spans {rate(random_holding)}")
     print(f"coverage of our disagreements with the expert: {round(float(covered / disagreeing), 3) if disagreeing else None}")
 
 

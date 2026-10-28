@@ -62,11 +62,15 @@ Your previous reply was:
 
 {reply}
 
-Look again for the places in these bars where another reading is one a teacher would accept: a modulation
-against a tonicization, an inversion or a pedal, a cadential six-four or a seventh, iii's family, the mode.
-Add an `alternative` annotation for each, with a callout and a commentary paragraph that explains both
-readings; at most about one per phrase, and none where your reading is the only reasonable one. Return the
-whole JSON again. Do not change anything else.
+Look again for a place in these bars where you hesitated between two readings that a teacher would both
+accept: a modulation against a tonicization, an inversion or a pedal, a cadential six-four or a seventh,
+iii's family, the mode. The draft model was least sure here, which is where experts most often differ:
+
+{doubtful}
+
+Add an `alternative` annotation only where you yourself hesitated, with a callout and a commentary paragraph
+that explains both readings: usually none, rarely more than one in these bars. Return the whole JSON again.
+Do not change anything else.
 """
 
 SELFCHECK = """
@@ -259,7 +263,9 @@ def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: 
             else:
                 answers.pop()
     if second_readings and data is not None:
-        answers.append(ask(prompt + SECOND_READINGS.format(reply=answers[-1]["result"]), model, effort, files))
+        unsure = sorted((chord for chord in drafted.chords if first <= chord.measure <= last), key=lambda chord: chord.confidence)[:4]
+        doubtful = "\n".join(f"m{chord.measure} b{chord.beat:g} {chord.key}: {chord.label} ({chord.confidence:.2f})" + (f", or {chord.alternative} ({chord.alternative_confidence:.2f})" if chord.alternative else "") for chord in unsure)
+        answers.append(ask(prompt + SECOND_READINGS.format(reply=answers[-1]["result"], doubtful=doubtful or "none"), model, effort, files))
         added, _ = problems_in(answers[-1]["result"], index)
         if added is not None:
             numbers = {item["number"] for item in data["annotations"] if item["type"] == "callout"}
