@@ -1173,7 +1173,7 @@ Challenge 59's source rule skipped 58 Beethoven sonata files with no Analyst lin
 
 **Experts against each other, 146 pairs, 10,552 bars:** function 0.83, idea 0.91, full 0.69 (chorales 0.97 / 0.99 / 0.87; Mozart 0.86 / 0.93 / 0.77; mazurkas 0.80 / 0.88 / 0.58; Beethoven 0.78 / 0.89 / 0.61).
 
-**Our reviewed readings against their one expert** (43 pieces of the 2026-10-24 run): function 0.82, idea 0.91. **Against any expert** (7 pieces, 382 bars): function 0.92, idea 0.96; the draft alone 0.62 and 0.70; experts against any other expert 0.80 and 0.87.
+**Our reviewed readings against their one expert** (43 pieces of the 2026-10-24 run): function 0.82, idea 0.91. **Against any expert** (7 pieces, 382 bars): function 0.92, idea 0.96; the draft alone 0.62 and 0.70; experts against any other expert 0.80 and 0.87. Rescored with these fixes, the same reviews give *full* 0.72 on the core 13 pieces (was 0.71) and 0.61 held out (0.613, was 0.608), so the published figures stand.
 
 **What it means.** At the *idea* level we agree with an expert as often as experts agree with each other, but so nearly does everything: the draft alone reaches 0.70, and experts 0.91. The level is useful for telling users what "agrees with an expert" means; it is too lenient to show improvement. Improvement is measured at *function* and *full*.
 
