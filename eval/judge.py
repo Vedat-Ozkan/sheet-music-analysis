@@ -50,7 +50,8 @@ not be read in advance are listed here; fetch them yourself, and if one cannot b
 {step1}
 2. For each claim, compare it with the tool's analysis below and give a verdict: "agree", "partly", "disagree", \
 or "not_addressed" when the tool says nothing about it. A different but equivalent label (V/V in C for V in G; \
-perfect cadence for PAC) is agreement.
+perfect cadence for PAC) is agreement. A claim that matches only one of the tool's ALTERNATIVES (a second \
+reading it names beside its own) is "partly".
 
 Reply with one ```json block and nothing else:
 {{"opened": ["addresses you could read"], "failed": ["addresses you could not"],
@@ -101,6 +102,7 @@ def as_text(annotations: list[dict], commentary: str) -> str:
         ("phrase", lambda a: f"m{a['start']['measure']}-{a['end']['measure']} {a.get('label', '')}"),
         ("region", lambda a: f"m{a['start']['measure']}-{a['end']['measure']} {a.get('label', '')}"),
         ("nct", lambda a: f"m{a['note']['measure']} b{a['note'].get('beat', 1):g} {a['note'].get('pitch', '')} {a['label']}"),
+        ("alternative", lambda a: f"m{a['start']['measure']}-{a['end']['measure']} or {a['label']}"),
     ):
         found = [show(a) for a in annotations if a["type"] == kind]
         lines.append(f"\n{kind.upper()}S: " + ("; ".join(found) if found else "none"))
