@@ -13,7 +13,7 @@ A record of the problems met while building this tool, what was done about each,
 - **Measured which chat model to use.** Over the full 23-piece set, Opus 5.5 at medium effort beat Sonnet 5.5 as the reviewer: full agreement with expert labels 0.66 → 0.71, agreement with teachers' claims 52% → 63%, at 36% more cost and 25% less model time.
 - **Found and fixed a silent failure in the neural model's output.** The model names each key's tonic but not its mode, so every minor key was read as major. Recovering the mode from the chords lifted key accuracy on minor-key pieces from 0.00 to 0.92 (Chopin Prelude No. 20), 0.27 to 0.79 (Beethoven Op. 2 No. 1) and 0.20 to 0.89 (Tchaikovsky).
 - **Measured how far experts agree with each other, by style.** Across 151 independent pairs of expert analyses (10,684 bars, weighted by bars), experts agree on key, chord and bass for 0.71 of the music: 0.87 on Bach chorales, 0.79 on Mozart sonatas, 0.59-0.65 on Chopin mazurkas and Beethoven sonatas (0.69 without the chorales). On the chord's role (same function family, inversion aside) they agree on 0.91. Scored against the same other experts each expert is scored against, our reviewed analysis agrees on the chord's role 0.86 of the time, against the experts' 0.80 (6 pieces; challenge 66). On 30 unseen pieces our *full* agreement is 0.67, about 0.04 below the expert level.
-- **Matched expert-to-expert agreement on one movement analysed by three expert teams.** On Beethoven's Op. 2 No. 1, first movement, the reviewed analysis agreed with three independent expert analyses at 0.76 full agreement, against 0.78 between the experts themselves (one movement, one review; a single review varies by about 0.04). Challenge 66 found that this review and the expert files were all placed one bar off the score's notes, so the comparison held between them but not against the music; it is to be re-checked with a fresh review.
+- **Matched expert-to-expert agreement on one movement analysed by three expert teams.** On Beethoven's Op. 2 No. 1, first movement, the reviewed analysis agreed with three independent expert analyses at 0.76 full agreement, against 0.78 between the experts themselves (one movement, one review; a single review varies by about 0.04). Challenge 66 found that this review and the expert files were all placed one bar off the score's notes. Re-reviewed with the skill of that time and the numbering fixed (challenge 68): 0.80 full against the three experts on average (0.78, 0.85, 0.78), against 0.78 between the experts themselves; function 0.89 against 0.85.
 - **Robust across 31 scores and four centuries.** Monteverdi to Schoenberg, choirs, quartets, songs, piano, transposing instruments: every score passes reading, engraving, drafting and rendering.
 - **Shipped around a platform limit instead of asking users to work around it.** Claude connectors cannot receive chat attachments. Rather than an upload page and a code to paste, the plugin runs the engine as a skill inside Claude's sandbox, where the file already is, and sends only a compact note list (about 1,300 characters for 8 bars) to the server for the neural draft.
 
@@ -1265,6 +1265,24 @@ The expert figure is weighted by bars, so Beethoven, with long movements, counts
 - *Pass:* the first share beats both baselines at the same span lengths, random spans and spans around the draft's least confident chords, on at least 14 development pieces; flags stay rare (no more than about 10 bars per 100).
 - *Locked final set:* `eval/locked-set.txt`, 22 held-out pieces fixed now (every second piece, sorted by id, of the 44 held-out pieces with label fit 0.85 or more that have not been reviewed). It is run once, at the end, with the single-pass production skill.
 - *Training overlap.* All 21 When in Rome held-out pieces and the 3 chorales are in AugmentedNet's test split (checked against `AugmentedNet/data/wir.py` and `wirwtc.py`; the WTC preludes are listed there under another folder name), so none was in the draft model's training data.
+
+### 68. Second readings, first batch: not yet (2026-10-28)
+
+**Run.** The 7 held-out pieces of the first fixed-rule batch (challenge 64), 2 passages each, `--second-readings --start-from opus-medium-2026-10-24`: one extra call per passage on the subscription, chords unchanged.
+
+| | Result | Pass rule |
+|---|---|---|
+| Alternatives | 37 over 283 bars | |
+| Flagged bars per 100 | 36 | about 10 or fewer: **fails** |
+| Spans where the expert reads differently from us | 0.43 | beat both baselines |
+| Random spans of the same lengths | 0.31 | beaten |
+| Spans around the draft's least confident chords | 0.60 | **not beaten** |
+| Spans where the expert holds our alternative | 0.73 | (no baseline yet) |
+| Our disagreements with the expert inside a flagged span | 0.44 | |
+
+**What it means.** The alternatives are musically sensible (a cadential six-four against V, F-sharp major against C-sharp major leaning on IV in Chopin Op. 41 No. 1, a pedal under V), and when the reviewer names one the expert often holds it. But it names too many, about 2.6 per 24-bar passage, and it chooses where less well than the draft's own uncertainty does. "About one per phrase" allows too much. The 0.73 has no baseline yet: a long span easily contains one of the alternative's chords. Next: ask for far fewer (only where the reviewer itself would hesitate), and give it the draft's least confident spots and runner-up readings as places to look; test on the second batch of 7. The locked set stays untouched.
+
+**Beethoven Op. 2 No. 1 i re-reviewed** with the skill text of 2026-10-26 (before the rules of challenge 64 and the alternative), whole piece, numbering fixed. Draft 0.47, review 0.78 full; reading fit to the notes 0.91 (the stale review fitted at 0.47). It is back in the core totals: core review 0.759 full over 13 pieces, draft 0.570.
 
 ## Checking against teachers' prose
 
