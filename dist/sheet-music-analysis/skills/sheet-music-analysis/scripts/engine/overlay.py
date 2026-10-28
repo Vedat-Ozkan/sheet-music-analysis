@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 
 from engine import notation, text
-from engine.annotations import FAULT_ARROW_LABELS, AnnotationList, Cadence, Callout, Harmony, NonChordTone, Phrase, Region, VoiceLeading
+from engine.annotations import FAULT_ARROW_LABELS, Alternative, AnnotationList, Cadence, Callout, Harmony, NonChordTone, Phrase, Region, VoiceLeading
 from engine.score import TOLERANCE, Event, PositionError, ScoreIndex
 
 SVG_NS = "http://www.w3.org/2000/svg"
@@ -490,6 +490,8 @@ class PageLayout:
         for cadence in shown("cadence", Cadence):
             self._draw_cadence(cadence)
         self._draw_function_brackets()
+        for alternative in shown("alternative", Alternative):
+            self._draw_phrase(alternative, below=True)
         self._draw_ncts(shown("nct", NonChordTone))
         self._draw_voice_marks(shown("voice_leading", VoiceLeading))
         for callout in shown("callout", Callout):
@@ -1136,33 +1138,35 @@ class PageLayout:
         self._text(cx, cy + LABEL_SIZE * 0.34, str(callout.number), LABEL_SIZE, bold=True, fill="#ffffff", anchor="middle")
         self._reserve(system, Box(cx - radius, cy - radius, 2 * radius, 2 * radius))
 
-    def _draw_phrase(self, phrase: Phrase | Region, dashed: bool = False) -> None:
+    def _draw_phrase(self, phrase: Phrase | Region | Alternative, dashed: bool = False, below: bool = False) -> None:
         try:
             pieces = self.segments(phrase.start, phrase.end)
         except NotOnPage:
             return
-        tick = 150
-        size = PHRASE_LETTER_SIZE if re.fullmatch(r"[A-Za-z][′']?", phrase.label) else LABEL_SIZE
-        label_width = text.width(phrase.label, size)
+        tick = -150 if below else 150
+        string = "or " + re.sub(r"^\S+:", lambda key: text.pretty_key(key[0]), phrase.label) if below else phrase.label
+        size = PHRASE_LETTER_SIZE if re.fullmatch(r"[A-Za-z][′']?", string) else LABEL_SIZE
+        label_width = text.width(string, size)
+        label_y = 90 + size * 0.75 if below else -90
         wide = [piece for piece in pieces if piece.x1 - piece.x0 >= label_width + 2 * LABEL_PAD]
         labelled = wide or ([max(pieces, key=lambda piece: piece.x1 - piece.x0)] if pieces else [])
         for piece in pieces:
-            y = self._bracket_top(piece, getattr(phrase, "staff", None)) - 230
+            y = piece.system.bottom(piece.x0, piece.x1) + 230 if below else self._bracket_top(piece, getattr(phrase, "staff", None)) - 230
             path = f"M{round(piece.x0)},{round(y + tick) if piece.starts else round(y)} "
             path += f"L{round(piece.x0)},{round(y)} L{round(piece.x1)},{round(y)}"
             if piece.ends:
                 path += f" L{round(piece.x1)},{round(y + tick)}"
-            style = {"stroke_dasharray": "110 70"} if dashed else {}
-            self._add("path", d=path, fill="none", stroke=INK, stroke_width=LINE, stroke_linejoin="round", **style)
-            box = Box(piece.x0, y, piece.x1 - piece.x0, tick)
+            style = {"stroke_dasharray": "1 70", "stroke_linecap": "round"} if below else {"stroke_dasharray": "110 70"} if dashed else {}
+            self._add("path", d=path, fill="none", stroke=INK, stroke_width=LINE * 2 if below else LINE, stroke_linejoin="round", **style)
+            box = Box(piece.x0, min(y, y + tick), piece.x1 - piece.x0, abs(tick))
             if phrase.label and piece in labelled:
                 middle = min(max((piece.x0 + piece.x1) / 2, piece.system.left + label_width / 2), piece.system.right - label_width / 2)
                 shifts = [0.0] + [sign * step for step in range(100, 1500, 100) for sign in (-1, 1)]
                 x = next((middle + shift for shift in shifts if piece.x0 <= middle + shift - label_width / 2 and middle + shift + label_width / 2 <= piece.x1 + 1
-                          and self._is_free(piece.system, Box(middle + shift - label_width / 2 - LABEL_PAD, y - 90 - size * 0.75 - LABEL_PAD,
+                          and self._is_free(piece.system, Box(middle + shift - label_width / 2 - LABEL_PAD, y + label_y - size * 0.75 - LABEL_PAD,
                                                               label_width + 2 * LABEL_PAD, size + 2 * LABEL_PAD))), middle)
-                label = self._text(x, y - 90, phrase.label, size, anchor="middle")
-                box = Box(piece.x0, label.y, piece.x1 - piece.x0, y + tick - label.y)
+                label = self._text(x, y + label_y, string, size, anchor="middle")
+                box = Box(piece.x0, min(label.y, y + tick), piece.x1 - piece.x0, max(label.bottom, y + tick) - min(label.y, y + tick))
             piece.system.content.append(box)
 
     def _bracket_top(self, piece: Segment, staff: int | None) -> float:
