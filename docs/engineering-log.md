@@ -1331,6 +1331,33 @@ Two cautions: batch 2 rests on 12 alternatives, and "the expert reads differentl
 
 **Page layout** (owner's request): each chord of the alternative is printed under the chord it replaces, in the same figures as the numeral row, with no "or"; `-` leaves a chord as it is. The label gives one chord per harmony label in the range, with an optional key first; when the counts do not match, the chords are spread evenly under the bracket.
 
+### 72. Second readings of key, by rule (2026-10-28)
+
+**Why.** The reviewer could not tell where experts split (challenge 71). The biggest single cause of expert disagreement is naming the key: 7.5% of all music, mostly a short modulation against a tonicization. Two plain rules look for those places in any analysis, with no model.
+
+**The rules** (`engine/key_readings.py`):
+- *A short key area:* a key that lasts two bars or less before the next key change, with a different tonic from the key before it. Its other reading is the same chords as applied chords in the key around it (`Bb: V7 I` in E-flat becomes `Eb: V7/V V`).
+- *A run of applied chords:* three or more chords applied to the same degree (`ii7/V V7/V viio7/V`), optionally ending on that degree. Its other reading is a short modulation to that key (`Bb: ii7 V7 viio7 I`). A target chord with a seventh ends the run, since it is a new function.
+- Flat minor areas on the sixth and seventh degrees of a minor key are spelt `bvi`, `bvii`, because a lowercase vi or vii in minor is read as raised.
+
+**Chosen on half the expert pairs, checked on the other half** (`eval/key_readings.py`). Each pair is used both ways: the rules run on one expert's analysis, and a flag is a hit when the other expert names a different key over at least a quarter of it. Thresholds were picked on the first half (alternate pieces by name) to cover the most key disagreement with at most 10% of the music flagged and hits at least twice chance; the second half was then run once.
+
+| | First half | Second half |
+|---|---|---|
+| Flags | 447 | 409 |
+| Hits | 0.38 | 0.41 |
+| Random spans of the same lengths | 0.15 | 0.16 |
+| Key disagreements covered | 0.30 | 0.28 |
+| Music flagged | 9.5% | 9.5% |
+
+Runs of three applied chords are the strongest single signal (0.64 against 0.26 on the second half, as first measured).
+
+**On our own reviews** (2026-10-24 run, rules applied after the fact). They fire rarely: 13 flags in 2,412 reviewed bars, because the reviewer already writes short excursions as applied chords, as the skill asks. Where they fire, the expert names the key as the alternative does 0.54 of the time, against 0.14 for the same alternative at random spans. On the 7 pieces with several experts there are only 3 flags. The check of "an expert holds the alternative" now uses the key alone when the alternative names one, so a respelling of the same chords no longer counts.
+
+**Page.** The alternative's chords are printed under the chords they replace, and the key name sits on the bracket line just before it starts, where it does not collide with function brackets.
+
+**Not done.** The rules cover key naming only (inversions, six-fours and sevenths are the next causes of expert disagreement). How the reviewer should use the flags (keep, drop, explain) is not built or tested.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
@@ -1394,5 +1421,6 @@ Modal and colouristic music is now the largest group, and Ravel is the one piece
 .venv/bin/python -m eval.survey                                    # draft over 300 When in Rome pieces (challenge 15)
 .venv/bin/python -m eval.bass_check                                # the rejected bass rule (challenge 11)
 .venv/bin/python -m eval.review --tag NAME --selfcheck --start-from opus-medium   # the self-check alone (challenge 16)
+.venv/bin/python -m eval.key_readings                              # second readings of key, by rule (challenge 72)
 .venv/bin/python tools/robustness.py                               # 31-score robustness run
 ```

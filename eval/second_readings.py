@@ -4,8 +4,8 @@
 
 For each reviewed piece with one expert analysis, every `alternative` span is checked two ways: whether the
 expert's reading differs from our main reading over at least a quarter of the span (at the function level),
-and whether the expert holds the alternative itself (its key, or at least half of its chords, appear in the
-expert's reading of the span). Two baselines get spans of the same lengths in the same passages: random
+and whether the expert holds the alternative itself (the expert names its key over at least half of the span
+when it names one; otherwise at least half of its chords appear in the expert's reading of the span). Two baselines get spans of the same lengths in the same passages: random
 spans (also carrying the same alternative, for the second check), and spans around the draft's least
 confident chords. Coverage is the share of the music where we
 disagree with the expert that lies inside a flagged span; rarity is flagged bars per 100 reviewed bars.
@@ -72,9 +72,9 @@ def holds(label: str, key: str, start: Fraction, end: Fraction, expert: list) ->
     named = tokens[0][:-1] if tokens and tokens[0].endswith(":") else None
     chords = [sounding(named or key, token) for token in tokens[1 if named else 0:]]
     inside = [chord for a, b, chord in expert if chord is not None and a < end and b > start]
-    if named and (probe := sounding(named, "I")) and inside:
-        if sum(1 for chord in inside if (chord.tonic, chord.minor) == (probe.tonic, probe.minor)) * 2 >= len(inside):
-            return True
+    if named:
+        probe = sounding(named, "I")
+        return bool(inside) and probe is not None and sum(1 for chord in inside if (chord.tonic, chord.minor) == (probe.tonic, probe.minor)) * 2 >= len(inside)
     found = [chord for chord in chords if chord is not None]
     return bool(found) and sum(any(c.root == e.root and c.tones == e.tones for e in inside) for c in found) * 2 >= len(found)
 

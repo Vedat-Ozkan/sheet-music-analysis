@@ -1143,9 +1143,10 @@ class PageLayout:
             pieces = self.segments(alternative.start, alternative.end)
         except NotOnPage:
             return
-        rows = {piece.system.index: (piece, piece.system.bottom(piece.x0, piece.x1) + 230 + 90 + LABEL_SIZE * 0.75) for piece in pieces}
-        self._draw_phrase(alternative.model_copy(update={"label": ""}), below=True)
         key, _, rest = alternative.label.partition(": ") if re.match(r"^\S+: ", alternative.label) else ("", "", alternative.label)
+        lines = {piece.system.index: piece.system.bottom(piece.x0, piece.x1) + 230 for piece in pieces}
+        rows = {piece.system.index: (piece, lines[piece.system.index] + 90 + LABEL_SIZE * 0.75) for piece in pieces}
+        self._draw_phrase(alternative.model_copy(update={"label": ""}), below=True)
         tokens = rest.split()
         where = lambda measure, beat: (self.index.measure(measure).index, beat)
         last = where(alternative.end.measure, alternative.end.beat if alternative.end.beat is not None else math.inf)
@@ -1165,7 +1166,8 @@ class PageLayout:
             drawn = [self._text(x + chunk.dx, y + chunk.dy, chunk.text, chunk.size, bold=chunk.bold) for chunk in chunks]
             if key and n == 0:
                 name = text.pretty_key(key) + ":"
-                drawn.append(self._text(x - space - text.width(name, LABEL_SIZE), y, name, LABEL_SIZE))
+                start = min(p.x0 for p in pieces if p.system.index == system_index)
+                drawn.append(self._text(start - space - text.width(name, LABEL_SIZE), lines[system_index] + LABEL_SIZE * 0.35, name, LABEL_SIZE))
             top, bottom = min(box.y for box in drawn), max(box.bottom for box in drawn)
             left, right = min(box.x for box in drawn), max(box.right for box in drawn)
             piece.system.content.append(Box(left, top, right - left, bottom - top))
