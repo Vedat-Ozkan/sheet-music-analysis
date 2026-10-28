@@ -47,7 +47,7 @@ def sounding(key: str, figure: str) -> Sounding | None:
             return Sounding(local.tonic.pitchClass, local.mode == "minor", chord.root().pitchClass, frozenset(p.pitchClass for p in chord.pitches), chord.bass().pitchClass)
         chord = roman.RomanNumeral(figure.replace("ø", "/o"), local, sixthMinor=roman.Minor67Default.CAUTIONARY, seventhMinor=roman.Minor67Default.CAUTIONARY)
         return Sounding(local.tonic.pitchClass, local.mode == "minor", chord.root().pitchClass, frozenset(p.pitchClass for p in chord.pitches), chord.bass().pitchClass,
-                        None if chord.secondaryRomanNumeral or chord.scaleDegree == 7 and (chord.root().pitchClass - local.tonic.pitchClass) % 12 != 11 else FUNCTIONS.get(str(chord.scaleDegree)))
+                        None if chord.secondaryRomanNumeral or chord.scaleDegree == 3 or chord.scaleDegree == 7 and (chord.root().pitchClass - local.tonic.pitchClass) % 12 != 11 else FUNCTIONS.get(str(chord.scaleDegree)))
     except Exception:
         return None
 

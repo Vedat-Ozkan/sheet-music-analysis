@@ -1163,7 +1163,7 @@ Challenge 59's source rule skipped 58 Beethoven sonata files with no Analyst lin
 
 **Question.** Experts agree on the function of a chord far more often than on its exact label. How often do we agree with them at that level, and which misses are scoring faults rather than analysis faults?
 
-**A new level, *idea*.** It accepts everything *function* does. It also accepts the same chord in another inversion, and two chords of the same tonic, predominant or dominant family in the same key, as in the engine's function bands (`engine/draft.py`: degrees 1, 3 and 6 are T, 2 and 4 are PD, 5 and the leading-tone chord are D; applied chords and the subtonic VII have no family). A six-four still matches only through the cadential rule, and an enharmonic diminished seventh matches its respelling. *Function* is unchanged as a level and stays the stricter figure.
+**A new level, *idea*.** It accepts everything *function* does. It also accepts the same chord in another inversion, and two chords of the same tonic, predominant or dominant family in the same key, as in the engine's function bands (`engine/draft.py`: degrees 1 and 6 are T, 2 and 4 are PD, 5 and the leading-tone chord are D; applied chords, iii (which schools place in either the tonic or the dominant family) and the subtonic VII have no family). A six-four still matches only through the cadential rule, and an enharmonic diminished seventh matches its respelling. *Function* is unchanged as a level and stays the stricter figure.
 
 **Scoring fixes**, found by reading the misses in the nine worst pieces by hand:
 - Chord symbols (`Eb7`, `D9`, `Ab9/Eb`), which the skill asks for in impressionist music, were unreadable and counted as misses. They are now read as chord symbols.
