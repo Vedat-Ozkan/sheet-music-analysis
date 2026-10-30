@@ -5,4 +5,5 @@ COPY engine engine
 COPY server server
 COPY skill/SKILL.md skill/SKILL.md
 RUN .venv-agnn/bin/python engine/models/analysisgnn_runner.py --list-files /app/artifacts/models/model.ckpt engine/models/model-files.txt
+RUN python -m server.app --list-files
 CMD ["python", "-m", "server.app"]

@@ -24,18 +24,24 @@ from urllib.parse import urlparse
 import anyio
 import httpx
 import uvicorn
+from google.api_core.exceptions import NotFound
+from google.cloud import storage
 from mcp.server.apps import Apps, ResourceCsp
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, Icon, ImageContent, TextContent, ToolAnnotations
 from opentelemetry import context as trace_context
 from opentelemetry import trace
+from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import NonRecordingSpan, SpanContext, StatusCode, TraceFlags
 from pydantic import BaseModel, ConfigDict
 from starlette.requests import Request
 from starlette.responses import Response
 
-from engine import correct, draft
+from engine import correct, draft, read_ahead
 from engine import notes as note_list
 from engine import read_pdf as pdf_reader
 from engine import check_analysis, ledger, part_writing, reduce
@@ -45,6 +51,7 @@ from engine.annotations import AnnotationList
 from engine.export import export_midi, export_musicxml, export_romantext
 from engine.render import ScoreError, engrave, load_toolkit
 from engine.score import PositionError, ScoreIndex
+from server import IMPORTS_BEGUN, SERVER_FILES
 
 PORT = int(os.environ.get("PORT", "8080"))
 PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", f"http://localhost:{PORT}").rstrip("/")
@@ -79,16 +86,12 @@ class LocalStore:
 class BucketStore:
 
     def __init__(self, name: str):
-        from google.cloud import storage
-
         self.bucket = storage.Client().bucket(name)
 
     def put(self, key: str, data: bytes) -> None:
         self.bucket.blob(key).upload_from_string(data)
 
     def get(self, key: str) -> bytes | None:
-        from google.api_core.exceptions import NotFound
-
         try:
             return self.bucket.blob(key).download_as_bytes()
         except NotFound:
@@ -935,17 +938,17 @@ class JsonFormatter(logging.Formatter):
 
 
 def start_tracing(service: str) -> None:
-    from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
-    from opentelemetry.sdk.resources import Resource
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
     provider = TracerProvider(resource=Resource.create({"service.name": service}))
     provider.add_span_processor(BatchSpanProcessor(CloudTraceSpanExporter(project_id=PROJECT)))
     trace.set_tracer_provider(provider)
 
 
 def main() -> None:
+    if sys.argv[1:2] == ["--list-files"]:
+        read_ahead.save(SERVER_FILES)
+        return
+    write_line({"severity": "INFO", "message": "server imported", "imports_s": round(STARTED - IMPORTS_BEGUN, 1),
+                "read_ahead": read_ahead.report})
     if service := os.environ.get("K_SERVICE"):
         start_tracing(service)
     app = mcp.streamable_http_app(

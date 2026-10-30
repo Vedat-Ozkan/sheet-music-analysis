@@ -3,43 +3,21 @@ from __future__ import annotations
 import json
 import os
 import sys
-import tempfile
-import threading
 import time
 import warnings
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from engine import read_ahead  # noqa: E402
 
 warnings.filterwarnings("ignore")
 STARTED = time.monotonic()
 MODEL_FILES = Path(__file__).with_name("model-files.txt")
-opened: list[str] = []
-read_ahead: dict = {}
-
-
-def read_file(path: str) -> int:
-    try:
-        with open(path, "rb", buffering=0) as file:
-            size = 0
-            while chunk := file.read(1 << 20):
-                size += len(chunk)
-            return size
-    except OSError:
-        return 0
-
-
-def read_model_files() -> None:
-    paths = MODEL_FILES.read_text().splitlines()
-    begun = time.monotonic()
-    with ThreadPoolExecutor(16) as pool:
-        size = sum(pool.map(read_file, paths))
-    read_ahead.update(files=len(paths), bytes=size, seconds=round(time.monotonic() - begun, 1))
-
 
 if sys.argv[1:2] == ["--list-files"]:
-    sys.addaudithook(lambda event, args: opened.append(args[0]) if event == "open" and isinstance(args[0], str) else None)
-elif MODEL_FILES.is_file():
-    threading.Thread(target=read_model_files, daemon=True).start()
+    read_ahead.record()
+else:
+    read_ahead.start(MODEL_FILES)
 
 import numpy as np  # noqa: E402
 import partitura as pt  # noqa: E402
@@ -47,7 +25,6 @@ import torch  # noqa: E402
 from analysisgnn.models.analysis import ContinualAnalysisGNN  # noqa: E402
 from analysisgnn.utils.chord_representations import available_representations  # noqa: E402
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from engine import notes as note_list  # noqa: E402
 
 SKIP = {"romanNumeral"}
@@ -180,7 +157,7 @@ def serve(checkpoint: str) -> None:
     imported = time.monotonic()
     model = load(checkpoint)
     print(json.dumps({"severity": "INFO", "message": "analysisgnn ready", "imports_s": round(imported - STARTED, 1),
-                      "model_load_s": round(time.monotonic() - imported, 1), "read_ahead": read_ahead}), file=sys.stderr)
+                      "model_load_s": round(time.monotonic() - imported, 1), "read_ahead": read_ahead.report}), file=sys.stderr)
     replies.write("ready\n")
     replies.flush()
     for line in sys.stdin:
@@ -205,10 +182,7 @@ def list_files(checkpoint: str, out_path: str) -> None:
         pass
     sample.unlink(missing_ok=True)
     result.unlink(missing_ok=True)
-    libraries = [line.split()[-1] for line in Path("/proc/self/maps").read_text().splitlines() if ".so" in line.split()[-1]]
-    paths = [path for path in dict.fromkeys(os.path.realpath(path) for path in [*libraries, *opened, checkpoint])
-             if os.path.isfile(path) and not path.startswith(tempfile.gettempdir())]
-    Path(out_path).write_text("\n".join(paths) + "\n")
+    read_ahead.save(Path(out_path), [checkpoint])
 
 
 if __name__ == "__main__":
