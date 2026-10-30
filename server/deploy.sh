@@ -30,7 +30,7 @@ if ! gcloud storage buckets describe "gs://$BUCKET" >/dev/null 2>&1; then
   gcloud storage buckets create "gs://$BUCKET" --location="$REGION" --uniform-bucket-level-access
 fi
 cat > /tmp/$SERVICE-lifecycle.json <<'EOF'
-{"rule": [{"action": {"type": "Delete"}, "condition": {"age": 1, "matchesPrefix": ["scores/", "files/"]}}]}
+{"rule": [{"action": {"type": "Delete"}, "condition": {"age": 1, "matchesPrefix": ["scores/", "files/", "keys/"]}}]}
 EOF
 gcloud storage buckets update "gs://$BUCKET" --lifecycle-file=/tmp/$SERVICE-lifecycle.json
 

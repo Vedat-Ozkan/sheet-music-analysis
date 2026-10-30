@@ -5,6 +5,7 @@ import base64
 import contextvars
 import functools
 import hashlib
+import hmac
 import ipaddress
 import json
 import logging
@@ -24,7 +25,7 @@ from urllib.parse import urlparse
 import anyio
 import httpx
 import uvicorn
-from google.api_core.exceptions import NotFound
+from google.api_core.exceptions import NotFound, PreconditionFailed
 from google.cloud import storage
 from mcp.server.apps import Apps, ResourceCsp
 from mcp.server.mcpserver import Context, MCPServer
@@ -82,6 +83,15 @@ class LocalStore:
         path = self.folder / key
         return path.read_bytes() if path.is_file() else None
 
+    def add(self, key: str, data: bytes) -> None:
+        path = self.folder / key
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with open(path, "xb") as file:
+                file.write(data)
+        except FileExistsError:
+            pass
+
 
 class BucketStore:
 
@@ -97,6 +107,12 @@ class BucketStore:
         except NotFound:
             return None
 
+    def add(self, key: str, data: bytes) -> None:
+        try:
+            self.bucket.blob(key).upload_from_string(data, if_generation_match=0)
+        except PreconditionFailed:
+            pass
+
 
 store = BucketStore(BUCKET) if BUCKET else LocalStore(Path(os.environ.get("DATA_DIR", "out/server")))
 counter_lock = asyncio.Lock()
@@ -109,6 +125,18 @@ def platform(ctx: Context | None) -> str:
     except Exception:
         headers = None
     return client_of(headers)
+
+
+day_keys: dict[str, bytes] = {}
+
+
+def daily_user(subject: str) -> str:
+    day = datetime.now(timezone.utc).date().isoformat()
+    if day not in day_keys:
+        store.add(f"keys/{day}", secrets.token_bytes(32))
+        day_keys.clear()
+        day_keys[day] = store.get(f"keys/{day}")
+    return hmac.new(day_keys[day], subject.encode(), hashlib.sha256).hexdigest()[:16]
 
 
 def client_of(headers) -> str:
@@ -191,18 +219,25 @@ def observed(fn):
             headers = ctx.headers
         except Exception:
             headers = None
+        try:
+            meta = dict(ctx.request_context.meta or {})
+        except Exception:
+            meta = {}
         span = tracer.start_span(tool)
         request_id = f"{span.get_span_context().trace_id:032x}"
         call = {"event": tool, "tool": tool, "platform": client_of(headers), "request_id": request_id,
                 "logging.googleapis.com/trace": f"projects/{PROJECT}/traces/{request_id}",
                 "logging.googleapis.com/spanId": f"{span.get_span_context().span_id:016x}",
-                "cold": calls_served == 0, "uptime_s": round(time.monotonic() - STARTED)}
+                "cold": calls_served == 0, "uptime_s": round(time.monotonic() - STARTED),
+                "meta_keys": sorted(meta), "header_names": sorted(dict(headers or {}))}
         calls_served += 1
         timings = {}
         call_token, timings_token = current_call.set(call), draft.timings.set(timings)
         started = time.perf_counter()
         result = None
         try:
+            if subject := meta.get("openai/subject"):
+                call["user"] = await anyio.to_thread.run_sync(daily_user, str(subject))
             with trace.use_span(span, end_on_exit=False):
                 result = await fn(ctx, *args, **kwargs)
             return result

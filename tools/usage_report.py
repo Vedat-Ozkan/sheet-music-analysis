@@ -27,10 +27,13 @@ def main() -> None:
 
     rows: dict[tuple[str, str], Counter] = defaultdict(Counter)
     ranges: dict[tuple[str, str], Counter] = defaultdict(Counter)
+    users: dict[tuple[str, str], set[str]] = defaultdict(set)
     for entry in read_logs(args.days):
         data = entry["jsonPayload"]
         key = (entry["timestamp"][:10], data.get("platform", "?"))
         counts = rows[key]
+        if "user" in data:
+            users[key].add(data["user"])
         event = data["event"]
         if event == "limit":
             counts["limits"] += 1
@@ -60,7 +63,7 @@ def main() -> None:
         views = ", ".join(f"{k[5:]} {v}" for k, v in sorted(counts.items()) if k.startswith("view ") and v)
         spans = ", ".join(f"{k} x{v}" for k, v in ranges[key].items())
         print(
-            f"{key[0]}  {key[1]:8}  drafts {counts['drafts']}  renders {counts['renders']}  "
+            f"{key[0]}  {key[1]:8}  users {len(users[key]) if users[key] else '?'}  drafts {counts['drafts']}  renders {counts['renders']}  "
             f"piano {counts['piano renders']}  pdf reads {counts['pdf reads']} ({counts['pdf pages']} pages, "
             f"{counts['pdf cached']} cached, {counts['pdf busy']} busy)  limits {counts['limits']}  errors {counts['errors']}"
             f"  views [{views}]  ranges [{spans}]"

@@ -21,10 +21,10 @@
 <main class="wrap narrow">
   <section class="hero">
     <h1>Privacy policy</h1>
-    <p class="muted">Last updated 26 October 2026</p>
+    <p class="muted">Last updated 30 October 2026</p>
   </section>
 
-  <p>Sheet Music Analysis ("we") is a free tool. It has no accounts, no advertising and no tracking. This page explains what reaches our server, what we keep, and for how long.</p>
+  <p>Sheet Music Analysis ("we") is a free tool. It has no accounts, no advertising and no tracking: we count how many people use it each day, but cannot follow anyone from one day to the next. This page explains what reaches our server, what we keep, and for how long.</p>
 
   <h2>What reaches our server</h2>
   <h3>In Claude, with the plugin</h3>
@@ -32,7 +32,7 @@
   <h3>In ChatGPT</h3>
   <p>The score file you attach or pick is sent to our server, which drafts the analysis and draws the annotated page. We store the score, the draft and the drawn pages (PNG and PDF) so that the chat can refer back to them during your conversation.</p>
   <h3>Never</h3>
-  <p>We do not receive your chat messages, your name, your email address or your account details from Claude or ChatGPT. The analysis we draw is the one the chat model sends us; your conversation itself stays with Anthropic or OpenAI and is covered by their privacy policies.</p>
+  <p>We do not receive your chat messages, your name, your email address or your account details from Claude or ChatGPT. ChatGPT does send an anonymous ID with each request instead of who you are; we never store it as sent (see the daily user code below). The analysis we draw is the one the chat model sends us; your conversation itself stays with Anthropic or OpenAI and is covered by their privacy policies.</p>
 
   <h2>What we keep, and for how long</h2>
   <div class="table-scroll"><table>
@@ -40,7 +40,8 @@
     <tr><td>Uploaded scores, drafts and drawn pages</td><td>Deleted automatically after one day (the deletion itself can take up to one more day to run).</td></tr>
     <tr><td>Note lists sent by the Claude plugin</td><td>Deleted automatically after one day (the deletion itself can take up to one more day to run).</td></tr>
     <tr><td>Daily usage counts: how many drafts, pages and uploads, split by Claude and ChatGPT</td><td>Kept, to understand use and stay within the free service's capacity. They contain no score content and nothing that identifies you.</td></tr>
-    <tr><td>Server logs: which tool ran, file sizes, timings, errors</td><td>30 days. They never contain score content or chat text.</td></tr>
+    <tr><td>Server logs: which tool ran, file sizes, timings, errors, and the names (never the contents) of the technical fields the chat app sends with a request</td><td>30 days. They never contain score content or chat text.</td></tr>
+    <tr><td>A daily user code in the server logs (ChatGPT only): ChatGPT's anonymous ID scrambled with a random key that changes every day, so we can count how many different people used the tool that day</td><td>30 days, in the server logs. Each day's key is deleted one to two days later; after that, a code cannot be matched to the ID it came from, and codes from different days never match each other.</td></tr>
     <tr><td>Our hosting provider's standard request logs, which include the IP address of the computer making the request</td><td>30 days. For most requests this is Anthropic's or OpenAI's server, not your device; when you pick a file with ChatGPT's file button, it is your browser's address.</td></tr>
   </table></div>
   <p>We do not sell, share or use any of this for advertising or for training models.</p>
