@@ -75,7 +75,7 @@ def score_from_notes(text: str):
     voices: dict[tuple[int, int], int] = {}
     pending: dict[tuple[int, int, str], object] = {}
     for measure in index.measures:
-        if measure.meter != meter:
+        if measure.meter and measure.meter != meter:
             meter = measure.meter
             beats, beat_type = (int(value) for value in meter.split("/"))
             part.add(pt.score.TimeSignature(beats, beat_type), start)

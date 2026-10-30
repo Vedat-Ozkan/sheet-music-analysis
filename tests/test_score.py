@@ -2,6 +2,7 @@ from fractions import Fraction
 
 import pytest
 
+from engine import notes
 from engine.render import load_toolkit
 from engine.score import PositionError, ScoreIndex
 
@@ -58,3 +59,25 @@ def test_unmarked_pickup_numbered_one_becomes_measure_zero(chopin):
     original = ScoreIndex(load_toolkit(chopin).getMEI())
     assert [measure.number for measure in index.measures] == [measure.number for measure in original.measures]
     assert re.findall(r'<measure\b[^>]*\bn="(\d+)"', toolkit.getMEI()) == re.findall(r'<measure\b[^>]*\bn="(\d+)"', load_toolkit(chopin).getMEI())
+
+
+def one_bar(attributes: str, pitch: str) -> bytes:
+    step, octave = pitch[0], pitch[-1]
+    return f'''<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0"><part-list><score-part id="P1"><part-name>P</part-name></score-part></part-list>
+<part id="P1"><measure number="1"><attributes><divisions>1</divisions>{attributes}<clef><sign>G</sign><line>2</line></clef></attributes>
+<note><pitch><step>{step}</step><octave>{octave}</octave></pitch><duration>4</duration><type>whole</type></note>
+</measure></part></score-partwise>'''.encode()
+
+
+def test_baritone_saxophone_sounds_an_octave_and_a_sixth_down():
+    transpose = "<transpose><diatonic>-5</diatonic><chromatic>-9</chromatic><octave-change>-1</octave-change></transpose>"
+    index = ScoreIndex(load_toolkit(one_bar(transpose, "C5")).getMEI())
+    assert index.measures[0].events[0].pitch == "Eb3"
+
+
+def test_score_without_a_time_signature_survives_the_note_list():
+    index = ScoreIndex(load_toolkit(one_bar("", "C4")).getMEI())
+    assert index.meter == ""
+    decoded = notes.decode(notes.encode(index))
+    assert decoded.measures[0].events[0].pitch == "C4"
