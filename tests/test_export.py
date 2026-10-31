@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
+from engine import correct
 from engine.check_analysis import from_musicxml
 from engine.comparison import from_annotations
 from engine.export import export_musicxml, _document
@@ -185,3 +186,31 @@ def test_mozart_rounded_triplet_uses_existing_onset():
     assert len(labels) == 1
     assert labels[0].beat == pytest.approx(8 / 3)
     assert note_content(original) == note_content(exported)
+
+
+def one_part(*bars, time='<time><beats>4</beats><beat-type>4</beat-type></time>'):
+    body = ''.join(f'<measure number="{n}">'
+                   + (f'<attributes><divisions>4</divisions>{time}<clef><sign>G</sign><line>2</line></clef></attributes>' if n == 1 else '')
+                   + bar + '</measure>' for n, bar in enumerate(bars, 1))
+    return (f'<score-partwise version="3.1"><part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>'
+            f'<part id="P1">{body}</part></score-partwise>').encode()
+
+
+def test_multi_bar_rests_keep_every_bar():
+    whole = '<note><pitch><step>C</step><octave>4</octave></pitch><duration>16</duration><type>whole</type></note>'
+    rest = '<note><rest measure="yes"/><duration>16</duration><voice>1</voice></note>'
+    score = one_part(whole, '<attributes><measure-style><multiple-rest>3</multiple-rest></measure-style></attributes>' + rest,
+                     rest, rest, whole)
+    assert [m.number for m in ScoreIndex(load_toolkit(score).getMEI()).measures] == [1, 2, 3, 4, 5]
+    exported = export_musicxml(score, {'annotations': [{'type': 'harmony', 'at': {'measure': 5, 'beat': 1}, 'label': 'I', 'key': 'C'}]})
+    assert ET.fromstring(exported).find("part/measure[@number='5']/note/lyric/text").text == 'C: I'
+    assert correct.bars_from_musicxml(score, 5).splitlines()[1] == 'm5 len=4'
+
+
+@pytest.mark.parametrize('path', sorted(p for p in (ROOT / 'tests/data').iterdir() if p.suffix in ('.mxl', '.musicxml')), ids=lambda p: p.name)
+def test_every_xml_measure_has_one_indexed_segment(path):
+    data = path.read_bytes()
+    counts = {len(part.findall('measure')) for part in ET.fromstring(_document(data)).findall('part')}
+    if len(counts) > 1:
+        pytest.skip('parts of different lengths')
+    assert counts == {sum(len(m.segments) for m in ScoreIndex(load_toolkit(data).getMEI()).measures)}

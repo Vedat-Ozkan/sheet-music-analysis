@@ -182,7 +182,7 @@ def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool
 
 def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool = False) -> None:
     mei = toolkit.getMEI()
-    patched = mei
+    patched = re.sub(r"<measure\b(?:(?!</measure>).)*?<multiRest\b.*?</measure>", _expand_multi_rest, mei, flags=re.S)
     for part, name in names.items():
         patched = re.sub(rf'(<staffDef\b[^>]*xml:id="{re.escape(part)}"[^>]*>\s*<label\b[^>]*>)[^<]*', lambda m: m.group(1) + escape(name), patched)
     patched = re.sub(
@@ -239,6 +239,21 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool = F
     patched = _number_unmarked_pickup(patched)
     if patched != mei:
         toolkit.loadData(patched)
+
+
+def _expand_multi_rest(match: re.Match) -> str:
+    measure = match.group(0)
+    opening = measure[: measure.index(">") + 1]
+    number = re.search(r'\bn="(\d+)"', opening)
+    if not number:
+        return measure
+    count = int(re.search(r'<multiRest\b[^>]*\bnum="(\d+)"', measure).group(1))
+    right = re.search(r'\sright="[^"]*"', opening)
+    if right and count > 1:
+        measure = measure.replace(opening, opening.replace(right.group(0), ""), 1)
+    staves = "".join(f'<staff n="{n}"><layer n="1"><mRest /></layer></staff>' for n in re.findall(r'<staff\b[^>]*\bn="(\d+)"', measure))
+    copies = [f'<measure n="{int(number.group(1)) + k}"{right.group(0) if right and k == count - 1 else ""}>{staves}</measure>' for k in range(1, count)]
+    return re.sub(r"<multiRest\b[^>]*/>", "<mRest />", measure) + "".join(copies)
 
 
 def _number_unmarked_pickup(mei: str) -> str:
