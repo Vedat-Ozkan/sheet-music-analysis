@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -93,3 +94,13 @@ def test_cadential_six_four_is_split_from_the_dominant():
         (3, 3.0, "V7"),
         (4, 1.0, "I"),
     ]
+
+
+def test_chords_and_marks_sit_exactly_on_their_notes(result, index):
+    for item in result.chords + result.cadences + result.non_chord_tones:
+        measure = index.measure(item.measure)
+        assert measure.offset_of(item.beat) in {event.onset for event in measure.events}
+
+
+def test_text_shows_beats_to_two_places(result):
+    assert re.search(r"^m\d+ b1\.33 \| ", draft.as_text(result), re.M)

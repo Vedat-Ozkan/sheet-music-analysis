@@ -126,6 +126,16 @@ def test_model_hears_every_note_once(request, name):
 
 
 
+
+@score_ids
+def test_draft_positions_land_on_notes(request, name):
+    known(request, "model_notes", name)
+    _, index = load(name)
+    result = draft.draft(index)
+    for item in result.chords + result.cadences + result.non_chord_tones:
+        measure = index.measure(item.measure)
+        assert measure.offset_of(item.beat) in {event.onset for event in measure.events}, (item.measure, item.beat)
+
 @score_ids
 def test_note_list_keeps_every_bar_key(name):
     _, index = load(name)
