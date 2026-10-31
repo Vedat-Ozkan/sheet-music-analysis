@@ -262,3 +262,11 @@ def test_correction_of_a_score_without_a_time_signature():
     result = correct.replace_bars(original, 'N1 div=2 ts= ks=0\nm1 len=8\n1.1: 1 C4 D4 E4 F4 4 G4')
     assert [e.pitch for e in index(result).measure(1).events] == ['C4', 'D4', 'E4', 'F4', 'G4']
     assert ET.fromstring(result).find('.//beam') is not None
+
+
+def test_a_pitch_fix_keeps_odd_lengths_the_reading_already_had():
+    reading = (Path(__file__).parent / "data/mozart-k545-1-simulated-scan-reading.musicxml").read_bytes()
+    bar = correct.bars_from_musicxml(reading, 55)
+    assert "43 r 36 A3" in bar
+    corrected = correct.replace_bars(reading, bar.replace("43 r 36 A3", "43 r 36 B3"))
+    assert "B3" in correct.bars_from_musicxml(corrected, 55)

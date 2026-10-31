@@ -866,7 +866,7 @@ async def draft_analysis(
         "div is units per quarter note; m3 is printed bar 3; len is its length in those units. "
         "Each staff.voice line uses numbers to set the duration for following tokens, + for chords, r for rests, "
         "g for grace notes (u for slashed ones) and ~ for ties to the next note; pitches are sounding pitches (e.g. F#4, Bb3). "
-        "Every voice must explicitly fill the existing bar, including rests. Header key/meter do not change the score. "
+        "Every voice must explicitly fill the existing bar, including rests. A bar line may also carry ts= or ks= where the meter or key signature changes. Header and bar-line key/meter do not change the score. "
         "Use part (a part id or name) in a score with multiple parts; staff numbers count within that part. Returns a new score_id, PNGs of only changed bars "
         "and a note per bar; runs no model. If you proposed the correction, say it is your suggestion. "
         "Show the redrawn bars and note; ask the user to confirm against their copy. "

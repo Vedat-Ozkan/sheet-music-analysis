@@ -59,6 +59,13 @@ def bars_from_musicxml(score: bytes, first: int, last: int | None = None, *, par
     return _bars_from_index(selected, index, first, last)
 
 
+def _durations(note_list: str) -> set[Fraction]:
+    lines = note_list.splitlines()
+    div = int(lines[0].split("div=", 1)[1].split()[0])
+    return {Fraction(int(token), div) for line in lines[1:] if ":" in line and not line.startswith("x:")
+            for token in line.split(":", 1)[1].split() if token.isdigit()}
+
+
 def _bars_from_index(selected, index, first, last=None):
     staves = max([int(e.text) for e in selected.findall("measure/attributes/staves")] or [1])
     text = notes.encode(index, first, last if last is not None else first)
@@ -158,12 +165,13 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                     timed = timed or element.tag in {"note", "backup", "forward"}
             if set(s for s, _ in voices) != set(range(1, staves + 1)):
                 raise CorrectionError(f"Bar {number}: include all {staves} staves")
+            as_read = _durations(canonical)
             for label, (total, groups) in voices.items():
                 if total != original.length:
                     raise CorrectionError(f"Bar {number}, voice {label[0]}.{label[1]} adds up to {total}; expected {original.length} quarter notes")
                 for _, duration, grace in groups:
                     written = Duration(duration)
-                    if not grace and (written.type == "inexpressible"
+                    if not grace and duration not in as_read and (written.type == "inexpressible"
                                       or any(t.durationNormal.type != written.type for t in written.tuplets)):
                         raise CorrectionError(
                             f"Bar {number}: a duration of {duration * div} at div={div} cannot be written as one note; use plain "
