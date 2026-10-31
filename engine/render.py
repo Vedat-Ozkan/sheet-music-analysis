@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import base64
 import io
 import os
 import re
 import zipfile
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from fractions import Fraction
 from importlib.resources import files
@@ -163,16 +163,14 @@ def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool
     toolkit = verovio.toolkit(False)
     toolkit.setResourcePath(RESOURCE_PATH)
     toolkit.setOptions({**VEROVIO_OPTIONS, **(options or {})})
-    if score[:2] == b"PK":
-        loaded = toolkit.loadZipDataBase64(base64.b64encode(score).decode())
-    else:
-        try:
-            text = score.decode("utf-8-sig")
-        except UnicodeDecodeError:
-            text = score.decode("latin-1")
-        if not re.search(r"<score-(?:partwise|timewise)\b", text[:5000]):
-            raise ScoreError("This file is not MusicXML" + (" but a PDF" if score[:5] == b"%PDF-" else ""))
-        loaded = toolkit.loadData(text)
+    data = _musicxml(score)
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = data.decode("latin-1")
+    if not re.search(r"<score-(?:partwise|timewise)\b", text[:5000]):
+        raise ScoreError("This file is not MusicXML" + (" but a PDF" if score[:5] == b"%PDF-" else ""))
+    loaded = toolkit.loadData(_separate_reused_voices(text))
     if not loaded:
         raise ScoreError("Verovio could not read this file as MusicXML")
     _tidy(toolkit, _readable_names(score), keep_pedals)
@@ -330,12 +328,53 @@ def _drop_title_text(mei: str) -> str:
     return re.sub(r"<dir\b.*?</dir>", drop, mei, flags=re.S)
 
 
+def _musicxml(score: bytes) -> bytes:
+    if score[:2] != b"PK":
+        return score
+    with zipfile.ZipFile(io.BytesIO(score)) as archive:
+        root = re.search(rb'full-path="([^"]+)"', archive.read("META-INF/container.xml"))
+        return archive.read(root.group(1).decode()) if root else b""
+
+
+def _separate_reused_voices(text: str) -> str:
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return text
+    renumbered = [_separate_voices_in(segment) for segment in root.iter() if segment.find("note") is not None]
+    return ET.tostring(root, encoding="unicode") if any(renumbered) else text
+
+
+def _separate_voices_in(segment: ET.Element) -> bool:
+    numbers = [int(voice) for voice in (note.findtext("voice", "1") for note in segment.iter("note")) if voice.isdigit()]
+    next_voice = max(numbers, default=1) + 1
+    ends: dict[str, float] = {}
+    renamed: dict[str, str] = {}
+    time = onset = 0.0
+    for element in segment:
+        if element.tag == "backup":
+            time -= float(element.findtext("duration", "0"))
+            renamed = {}
+        elif element.tag == "forward":
+            time += float(element.findtext("duration", "0"))
+        elif element.tag == "note":
+            chord = element.find("chord") is not None
+            onset = onset if chord else time
+            duration = 0.0 if element.find("grace") is not None else float(element.findtext("duration", "0"))
+            voice = element.findtext("voice", "1")
+            if voice not in renamed and duration and onset < ends.get(voice, 0.0) and not chord:
+                renamed[voice] = str(next_voice)
+                next_voice += 1
+            target = renamed.get(voice, voice)
+            if target != voice:
+                (element.find("voice") if element.find("voice") is not None else ET.SubElement(element, "voice")).text = target
+            ends[target] = max(ends.get(target, 0.0), onset + duration)
+            time = time if chord else onset + duration
+    return next_voice > max(numbers, default=1) + 1
+
+
 def _readable_names(score: bytes) -> dict[str, str]:
-    if score[:2] == b"PK":
-        with zipfile.ZipFile(io.BytesIO(score)) as archive:
-            root = re.search(rb'full-path="([^"]+)"', archive.read("META-INF/container.xml"))
-            score = archive.read(root.group(1).decode()) if root else b""
-    text = score.decode("utf-8", errors="replace")
+    text = _musicxml(score).decode("utf-8", errors="replace")
     names = {}
     for part in re.finditer(r'<score-part\b[^>]*\bid="([^"]+)"(.*?)</score-part>', text, flags=re.S):
         label = re.search(r"<part-name\b[^>]*>\s*([a-z]+)(\d*)\s*</part-name>", part.group(2))

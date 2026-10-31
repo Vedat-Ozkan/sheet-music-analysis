@@ -54,3 +54,21 @@ def test_the_same_user_matches_within_a_day_but_not_across_days(local_store, cap
 
 def test_a_call_without_a_subject_logs_no_user(local_store, capsys):
     assert "user" not in logged_call(capsys, None)
+
+
+def test_a_failure_on_our_side_apologises_and_gives_the_support_email(monkeypatch, capsys):
+    class BrokenStore:
+        def get(self, key):
+            raise OSError("bucket unreachable")
+
+    monkeypatch.setattr(app, "store", BrokenStore())
+
+    async def call():
+        async with Client(app.mcp) as client:
+            return await client.call_tool("play", {"play_id": "ABC123"})
+
+    result = asyncio.run(call())
+    line = json.loads([line for line in capsys.readouterr().out.splitlines() if '"tool": "play"' in line][-1])
+    assert result.is_error and line["outcome"] == "server_error" and "bucket unreachable" in line["stack_trace"]
+    text = result.content[0].text
+    assert "support@sheetmusicanalysis.com" in text and line["request_id"][:8] in text and "bucket" not in text

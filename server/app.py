@@ -240,11 +240,9 @@ def observed(fn):
                 call["user"] = await anyio.to_thread.run_sync(daily_user, str(subject))
             with trace.use_span(span, end_on_exit=False):
                 result = await fn(ctx, *args, **kwargs)
-            return result
         except Exception:
             call["outcome"] = "server_error"
             call["stack_trace"] = traceback.format_exc()
-            raise
         except BaseException:
             call["outcome"] = "cancelled"
             raise
@@ -264,6 +262,7 @@ def observed(fn):
                         "message": f"{tool} {outcome}", "timings_ms": timings})
             with anyio.move_on_after(5):
                 await anyio.to_thread.run_sync(flush_traces, abandon_on_cancel=True)
+        return error_result(OUR_ERROR_MESSAGE.format(reference=request_id[:8])) if outcome == "server_error" else result
 
     return wrapper
 
@@ -282,6 +281,13 @@ async def take(kind: str, source: str, amount: int = 1) -> bool:
             await anyio.to_thread.run_sync(store.put, key, json.dumps(counts).encode())
     return True
 
+
+OUR_ERROR_MESSAGE = (
+    "Something went wrong on our side, not with the user's score or request (reference {reference}). "
+    "Apologise to the user for us, and tell them that if they would like to tell us what happened or get help, "
+    "they can email support@sheetmusicanalysis.com and mention reference {reference}; we read every message "
+    "and their feedback helps us fix it."
+)
 
 LIMIT_MESSAGE = (
     "Sheet Music Analysis has reached its daily limit; it resets at midnight UTC. "

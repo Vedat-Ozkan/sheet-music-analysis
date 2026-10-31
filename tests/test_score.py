@@ -81,3 +81,14 @@ def test_score_without_a_time_signature_survives_the_note_list():
     assert index.meter == ""
     decoded = notes.decode(notes.encode(index))
     assert decoded.measures[0].events[0].pitch == "C4"
+
+
+def test_a_voice_written_twice_in_one_bar_becomes_two_voices():
+    voice_one = '<note><pitch><step>{}</step><octave>{}</octave></pitch><duration>4</duration><voice>1</voice><type>whole</type></note>'
+    score = f'''<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0"><part-list><score-part id="P1"><part-name>P</part-name></score-part></part-list>
+<part id="P1"><measure number="1"><attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time>
+<clef><sign>G</sign><line>2</line></clef></attributes>{voice_one.format("C", 5)}<backup><duration>4</duration></backup>{voice_one.format("E", 4)}
+</measure></part></score-partwise>'''.encode()
+    events = ScoreIndex(load_toolkit(score).getMEI()).measures[0].events
+    assert sorted((event.pitch, event.onset) for event in events) == [("C5", 0), ("E4", 0)]
