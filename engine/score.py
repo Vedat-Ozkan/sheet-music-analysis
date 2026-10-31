@@ -146,6 +146,7 @@ def _duration(element: ET.Element, ppq: int) -> Fraction:
 
 class ScoreIndex:
     ornaments_from_above = False
+    played: list[Measure] | None = None
 
     def __init__(self, mei: str):
         root = ET.fromstring(mei)

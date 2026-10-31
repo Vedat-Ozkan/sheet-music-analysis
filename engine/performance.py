@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import re
 import struct
 import xml.etree.ElementTree as ET
@@ -39,7 +40,11 @@ class Note:
 
 
 def performance_midi(score: bytes, measures: tuple[int, int] | None = None) -> bytes:
-    return _write(*perform(marked_index(score), measures))
+    index = marked_index(score)
+    if index.played:
+        index = copy.copy(index)
+        index.measures = index.played
+    return _write(*perform(index, measures))
 
 
 def performance_text(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: float | None = None) -> str:
@@ -115,7 +120,23 @@ def marked_index(score: bytes) -> ScoreIndex:
     for measure in index.measures:
         measure.marks.sort(key=lambda mark: mark.offset)
     index.ornaments_from_above = _starts_ornaments_above(root)
+    index.played = _playing_order(index, root)
     return index
+
+
+def _playing_order(index: ScoreIndex, root: ET.Element) -> list[Measure] | None:
+    expansion = root.find(f".//{MEI}expansion")
+    if expansion is None:
+        return None
+    parts = {element.get(XML_ID): element for element in root.iter() if element.tag in (f"{MEI}section", f"{MEI}ending")}
+    by_id = {measure.id: measure for measure in index.measures}
+    played: list[Measure] = []
+    for reference in expansion.get("plist", "").split():
+        part = parts.get(reference.lstrip("#"))
+        for bar in [] if part is None else part.iter(f"{MEI}measure"):
+            if (measure := by_id.get(bar.get(XML_ID))) is not None:
+                played.append(copy.copy(measure) if any(seen is measure for seen in played) else measure)
+    return played or None
 
 
 def unclear_tempos(index: ScoreIndex) -> list[tuple[int, str]]:

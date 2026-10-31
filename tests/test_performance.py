@@ -165,3 +165,20 @@ def test_an_unknown_tempo_word_is_named_in_the_error():
     index = note_list.decode("N1 div=1 ts=4/4 ks=0\nm1 len=4\nx: q=lively@0\n1.1: 4 C4")
     with pytest.raises(ValueError, match="Bar 1 is marked 'lively'"):
         perform(index)
+
+
+def test_repeats_and_endings_play_in_order():
+    def bar(number, step, barlines=""):
+        return (f'<measure number="{number}">{barlines.split("|")[0]}'
+                f'<note><pitch><step>{step}</step><octave>5</octave></pitch><duration>4</duration><type>whole</type></note>'
+                f'{barlines.split("|")[1] if "|" in barlines else ""}</measure>')
+
+    first_ending = ('<barline location="left"><ending number="1" type="start"/></barline>|<barline location="right">'
+                    '<bar-style>light-heavy</bar-style><ending number="1" type="stop"/><repeat direction="backward"/></barline>')
+    second_ending = ('<barline location="left"><ending number="2" type="start"/></barline>|'
+                     '<barline location="right"><ending number="2" type="discontinue"/></barline>')
+    score = f'''<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0"><part-list><score-part id="P1"><part-name>P</part-name></score-part></part-list>
+<part id="P1">{bar(1, "C").replace("<note>", '<attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes><note>', 1)}
+{bar(2, "D", first_ending)}{bar(3, "E", second_ending)}</part></score-partwise>'''.encode()
+    assert [pitch for _, pitch, _ in onsets(export_midi(score))] == [72, 74, 72, 76]
