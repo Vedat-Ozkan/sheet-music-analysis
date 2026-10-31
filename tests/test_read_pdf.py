@@ -14,7 +14,7 @@ from engine import tint
 from engine.overlay import Box, PageLayout
 from engine.performance import marked_index
 from engine.read_pdf import PREVIEW_OPTIONS, SETTINGS, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, without_slurs
-from engine.render import engrave, load_toolkit
+from engine.render import MAX_PIXELS, engrave, load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
 from engine.tuplet_rests import infer_tuplet_rests
@@ -290,3 +290,13 @@ def test_skill_pages_keep_a_short_last_page_pulled_in_with_the_top_margin():
     score = without_slurs(gzip.decompress((Path(__file__).parent / "data/pdf_warnings/lehmann_golden_bridges_reading.musicxml.gz").read_bytes()))
     assert load_toolkit(score, PREVIEW_OPTIONS).getPageCount() == 2
     assert skill.pages(score, problem_spots(score)).page_count == 1
+
+
+def test_the_every_bar_preview_of_a_long_score_is_one_bounded_image():
+    from music21 import corpus
+    score = corpus.getWork("beethoven/opus59no1/movement1").read_bytes()
+    tall = preview(score, tall=True, spots=([], False))
+    assert tall.page_count == 1
+    assert tall.svgs[0].count('class="measure"') == len(ScoreIndex(load_toolkit(score).getMEI()).measures) == 400
+    image = Image.open(io.BytesIO(tall.png(1, width=2800, colors=256)))
+    assert image.width * image.height <= MAX_PIXELS

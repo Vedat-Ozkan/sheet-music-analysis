@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import math
 import os
 import re
 import zipfile
@@ -35,6 +36,8 @@ VEROVIO_OPTIONS = {
     "defaultBottomMargin": 1.0,
 }
 
+
+MAX_PIXELS = 40_000_000
 
 LARGE_SCORE_STAVES = 4
 
@@ -137,9 +140,12 @@ class Engraving:
         return out.getvalue()
 
     def _raster(self, page: int, width: int) -> Image.Image:
+        svg = self.svgs[page - 1]
+        _, _, w, h = map(float, re.search(r'viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"', svg).groups())
+        width = min(width, math.floor(math.sqrt(MAX_PIXELS * w / h)))
         raw = bytes(
             resvg_py.svg_to_bytes(
-                svg_string=self.svgs[page - 1],
+                svg_string=svg,
                 background="#ffffff",
                 width=width,
                 skip_system_fonts=True,
