@@ -39,3 +39,13 @@ def test_a_run_above_the_treble_staff_is_offered_an_octave_sign_not_a_clef():
                             capture_output=True, text=True, env={**os.environ, "PYTHONPATH": str(ROOT)})
     assert result.returncode == 0, result.stderr
     assert "Bars 31–35, right hand: notes sit high above the treble staff; many editions write them an octave lower under an 8va sign here." in result.stdout
+
+
+def test_transposing_parts_are_judged_by_their_written_notes():
+    symphony = ROOT / "tests/data/piano/mozart-41.mxl"
+    result = subprocess.run([sys.executable, str(ROOT / "skill/scripts/notes_table.py"), str(symphony), "--measures", "1-30"],
+                            capture_output=True, text=True, env={**os.environ, "PYTHONPATH": str(ROOT)})
+    assert result.returncode == 0, result.stderr
+    ledger = result.stdout.split("LEDGER LINES")[1]
+    assert "Contrabasses" not in ledger and "Horn II in C" not in ledger
+    assert "Bars 26–27, Bassoon I (staff 4): notes sit high above the bass staff" in ledger
