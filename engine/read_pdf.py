@@ -22,6 +22,7 @@ from engine import text, tint
 from engine.overlay import S, Box, PageLayout
 from engine.render import Engraving, ScoreError, load_toolkit
 from engine.score import TOLERANCE, ScoreIndex
+from engine.missed_clefs import restore_missed_clefs
 from engine.triplets import infer_triplets
 from engine.tuplet_rests import infer_tuplet_rests
 
@@ -40,7 +41,7 @@ _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
 _REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_REST, _REST + _SMALL, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
-READER = "5.11.0-sma.2-best3-tuplet-rests-ocr-r6"
+READER = "5.11.0-sma.2-best3-tuplet-rests-ocr-clefs-r7"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
@@ -314,7 +315,7 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
         complete = [reading for reading, count in zip(readings, counts) if count >= MIN_NOTES * max(counts)]
         best = min(complete, key=lambda reading: (len(reading[1]), len(reading[2])))
     musicxml, skipped, _ = best
-    for repair in (infer_tuplet_rests, infer_triplets):
+    for repair in (restore_missed_clefs, infer_tuplet_rests, infer_triplets):
         try:
             musicxml = repair(musicxml)
         except Exception:

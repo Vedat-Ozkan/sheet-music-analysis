@@ -300,3 +300,17 @@ def test_the_every_bar_preview_of_a_long_score_is_one_bounded_image():
     assert tall.svgs[0].count('class="measure"') == len(ScoreIndex(load_toolkit(score).getMEI()).measures) == 400
     image = Image.open(io.BytesIO(tall.png(1, width=2800, colors=256)))
     assert image.width * image.height <= MAX_PIXELS
+
+
+def test_a_left_hand_clef_change_the_reader_missed_is_put_back_where_the_hands_stop_crossing():
+    folder = Path(__file__).parent / 'data/pdf_warnings/mozart_k545_ms'
+    variant = gzip.open(folder / 'setting0.mxl.gz').read()
+
+    def raw(data, audiveris, options, deadline):
+        return variant, []
+
+    reading = read_pdf((folder / 'mozart_k545_ms.pdf').read_bytes(), raw=raw)
+    changes = [(measure.get('number'), clef.findtext('sign')) for measure in ET.fromstring(reading.musicxml).iter('measure')
+               for clef in measure.iter('clef') if clef.get('number') == '2']
+    assert {('5', 'F'), ('39', 'F'), ('46', 'F')} <= set(changes)
+    assert not {('7', 'F'), ('41', 'F'), ('48', 'F')} & set(changes)
