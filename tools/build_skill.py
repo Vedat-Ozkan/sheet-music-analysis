@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 NAME = "sheet-music-analysis"
-ENGINE_SKIP = {"draft.py", "models", "__pycache__"}
+ENGINE_SKIP = {"draft.py", "models", "read_ahead.py", "__pycache__"}
 
 
 def main() -> None:

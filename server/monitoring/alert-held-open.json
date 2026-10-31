@@ -1,0 +1,17 @@
+{
+  "displayName": "Held-open requests",
+  "documentation": {"content": "More than two requests in an hour were held open for 250 s or more. That is how both cost leaks showed up: Claude's subscriptions/listen streams (engineering log 21) and GET /mcp streams from health checkers (log 75). The user_agent label says which client; the request log has the method and path.", "mimeType": "text/markdown"},
+  "combiner": "OR",
+  "conditions": [{
+    "displayName": "more than 2 requests held open in an hour",
+    "conditionThreshold": {
+      "filter": "metric.type=\"logging.googleapis.com/user/held_open_requests\" AND resource.type=\"cloud_run_revision\"",
+      "aggregations": [{"alignmentPeriod": "3600s", "perSeriesAligner": "ALIGN_SUM", "crossSeriesReducer": "REDUCE_SUM", "groupByFields": ["resource.label.service_name"]}],
+      "comparison": "COMPARISON_GT",
+      "thresholdValue": 2,
+      "duration": "0s",
+      "trigger": {"count": 1}
+    }
+  }],
+  "alertStrategy": {"autoClose": "86400s"}
+}

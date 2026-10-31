@@ -1,0 +1,17 @@
+{
+  "displayName": "Heavy usage",
+  "documentation": {"content": "More than 50 tool calls in an hour. Normal use is a handful a day, so this is either real growth or something calling the server in a loop. tools/usage_report.py and tools/cost_report.py show who and how much; the platform label says Claude, ChatGPT or other.", "mimeType": "text/markdown"},
+  "combiner": "OR",
+  "conditions": [{
+    "displayName": "more than 50 tool calls in an hour",
+    "conditionThreshold": {
+      "filter": "metric.type=\"logging.googleapis.com/user/tool_calls\" AND resource.type=\"cloud_run_revision\" AND resource.label.service_name=\"sheet-music-analysis\"",
+      "aggregations": [{"alignmentPeriod": "3600s", "perSeriesAligner": "ALIGN_SUM", "crossSeriesReducer": "REDUCE_SUM", "groupByFields": ["resource.label.service_name"]}],
+      "comparison": "COMPARISON_GT",
+      "thresholdValue": 50,
+      "duration": "0s",
+      "trigger": {"count": 1}
+    }
+  }],
+  "alertStrategy": {"autoClose": "86400s"}
+}

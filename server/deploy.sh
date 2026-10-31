@@ -20,8 +20,15 @@ if [ "$STAGE" = staging ]; then
 elif [ "$STAGE" != production ]; then
   echo "unknown stage: $STAGE" >&2
   exit 1
+else
+  git fetch -q origin main
+  if [ -n "$(git status --porcelain -- Dockerfile Dockerfile.base cloudbuild.yaml pyproject.toml uv.lock engine server skill)" ] \
+    || [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+    echo "production deploys only from a clean checkout of origin/main; commit, push and let CI pass first" >&2
+    exit 1
+  fi
 fi
-ACCOUNT=$SERVICE@$PROJECT.iam.gserviceaccount.com
+ACCOUNT=$RUN_SERVICE@$PROJECT.iam.gserviceaccount.com
 
 gcloud config set project "$PROJECT"
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com storage.googleapis.com
@@ -32,13 +39,15 @@ fi
 cat > /tmp/$SERVICE-lifecycle.json <<'EOF'
 {"rule": [{"action": {"type": "Delete"}, "condition": {"age": 1, "matchesPrefix": ["scores/", "files/", "keys/"]}}]}
 EOF
-gcloud storage buckets update "gs://$BUCKET" --lifecycle-file=/tmp/$SERVICE-lifecycle.json
+gcloud storage buckets update "gs://$BUCKET" --lifecycle-file=/tmp/$SERVICE-lifecycle.json --clear-soft-delete
 
 if ! gcloud iam service-accounts describe "$ACCOUNT" >/dev/null 2>&1; then
-  gcloud iam service-accounts create "$SERVICE" --display-name="Sheet Music Analysis server"
+  gcloud iam service-accounts create "$RUN_SERVICE" --display-name="Sheet Music Analysis server ($STAGE)"
 fi
 for attempt in 1 2 3 4 5 6; do
-  gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" --member="serviceAccount:$ACCOUNT" --role=roles/storage.objectAdmin >/dev/null && break
+  gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" --member="serviceAccount:$ACCOUNT" --role=roles/storage.objectAdmin >/dev/null \
+    && gcloud projects add-iam-policy-binding "$PROJECT" --member="serviceAccount:$ACCOUNT" --role=roles/cloudtrace.agent --condition=None >/dev/null \
+    && break
   [ "$attempt" = 6 ] && exit 1
   sleep 10
 done
@@ -49,7 +58,8 @@ fi
 cat > /tmp/$SERVICE-cleanup.json <<'EOF'
 [{"name": "untagged", "action": {"type": "Delete"}, "condition": {"tagState": "UNTAGGED"}},
  {"name": "old-bases", "action": {"type": "Delete"}, "condition": {"tagState": "ANY", "packageNamePrefixes": ["base"], "olderThan": "7d"}},
- {"name": "recent-bases", "action": {"type": "Keep"}, "mostRecentVersions": {"packageNamePrefixes": ["base"], "keepCount": 2}}]
+ {"name": "recent-bases", "action": {"type": "Keep"}, "mostRecentVersions": {"packageNamePrefixes": ["base"], "keepCount": 2}},
+ {"name": "recent-servers", "action": {"type": "Keep"}, "mostRecentVersions": {"packageNamePrefixes": ["server"], "keepCount": 5}}]
 EOF
 gcloud artifacts repositories set-cleanup-policies "$SERVICE" --location="$REGION" --policy=/tmp/$SERVICE-cleanup.json --no-dry-run
 BASE=$REGION-docker.pkg.dev/$PROJECT/$SERVICE/base:$(cat Dockerfile.base pyproject.toml uv.lock server/requirements-agnn.txt | sha256sum | cut -c1-16)
@@ -69,7 +79,7 @@ fi
 PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://mcp.sheetmusicanalysis.com}
 gcloud run deploy "$RUN_SERVICE" --image="$DIGEST" --region="$REGION" \
   --service-account="$ACCOUNT" "$ACCESS" \
-  --execution-environment=gen2 --cpu=2 --memory=4Gi --concurrency=2 --min-instances=0 --max-instances=2 --timeout=300 \
+  --execution-environment=gen2 --cpu=2 --memory=4Gi --concurrency=2 --min-instances=0 --max-instances=1 --timeout=300 \
   --startup-probe=tcpSocket.port=8080,timeoutSeconds=240,periodSeconds=240,failureThreshold=3 \
   --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL$LIMITS"
 echo "Connector URL: $PUBLIC_BASE_URL/mcp"
