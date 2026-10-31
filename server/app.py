@@ -465,7 +465,7 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, studen
         return (
             f"score_id: {code}\nThe score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n\n"
             + draft.as_text(result, first, last)
-            + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
+            + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat~length in beats)\n"
             + reduce.as_text(index, first, last)
             + ("\n\n" + section if (section := part_writing.as_text(index, result.chords, first, last)) else "")
             + ("\n\n" + section if (section := ledger.as_text(mei, index, first, last)) else "")

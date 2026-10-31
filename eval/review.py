@@ -138,7 +138,28 @@ def tokens(answer: dict) -> int:
     return sum(usage.get(kind) or 0 for kind in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens"))
 
 
+def ask_gpt(prompt: str, model: str, effort: str | None = None) -> dict:
+    with tempfile.TemporaryDirectory() as config, tempfile.TemporaryDirectory() as folder:
+        (Path(config) / "auth.json").symlink_to(Path.home() / ".codex" / "auth.json")
+        reply = Path(folder) / "reply.txt"
+        process = subprocess.run(
+            ["codex", "exec", "--skip-git-repo-check", "--ephemeral", "--sandbox", "read-only", "--json", "-m", model,
+             *(["-c", f"model_reasoning_effort={effort}"] if effort else []), "-o", str(reply), "-"],
+            input=prompt, capture_output=True, text=True, cwd=folder, env={**os.environ, "CODEX_HOME": config}, timeout=2400,
+        )
+        if process.returncode != 0 or not reply.exists():
+            raise RuntimeError(f"codex exited {process.returncode}: {(process.stderr or process.stdout)[-300:]}")
+        usage = {}
+        for line in process.stdout.splitlines():
+            if '"turn.completed"' in line:
+                usage = json.loads(line).get("usage") or {}
+        return {"result": reply.read_text(), "total_cost_usd": 0, "modelUsage": {model: {}},
+                "usage": {"input_tokens": usage.get("input_tokens", 0), "output_tokens": usage.get("output_tokens", 0)}}
+
+
 def ask(prompt: str, model: str, effort: str | None = None, files: dict[str, bytes] | None = None) -> dict:
+    if model.startswith("gpt"):
+        return ask_gpt(prompt, model, effort)
     with fresh_claude() as environment, tempfile.TemporaryDirectory() as folder:
         for name, data in (files or {}).items():
             (Path(folder) / name).write_bytes(data)
@@ -201,7 +222,7 @@ def overview(drafted: draft.Draft) -> str:
     return "\n".join((keys, cadences, phrases))
 
 
-TABLE = """Note table for these bars. Each row is one beat: the lowest note, the pitch classes sounding, and every note as pitch@beat.
+TABLE = """Note table for these bars. Each row is one beat: the lowest note, the pitch classes sounding, and every note as pitch@beat~length in beats.
 
 {table}"""
 

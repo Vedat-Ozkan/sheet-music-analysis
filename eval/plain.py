@@ -21,7 +21,7 @@ from pathlib import Path
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 from eval import compare, pieces
-from eval.review import fresh_claude, musicxml, record_spend
+from eval.review import ask_gpt, fresh_claude, musicxml, record_spend
 
 OUT = pieces.OUT / "plain"
 PASSAGES = pieces.OUT / "reviewed" / "opus-medium-2026-10-24"
@@ -40,6 +40,8 @@ m2 I b2 IV b3 G: V7"""
 
 
 def ask(prompt: str, model: str) -> dict:
+    if model.startswith("gpt"):
+        return ask_gpt(prompt, model)
     with fresh_claude() as environment, tempfile.TemporaryDirectory() as folder:
         process = subprocess.run(
             ["claude", "-p", "--model", model, "--system-prompt", "You are Claude, a helpful AI assistant.", "--tools", "", "--disable-slash-commands", "--strict-mcp-config", "--output-format", "json"],
@@ -67,7 +69,7 @@ def run(piece: pieces.Piece, model: str, number: int) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--only", action="append", required=True, help="held-out piece to ask about (repeatable)")
-    parser.add_argument("--model", action="append", help="sonnet, opus or a full model id (repeatable; default both)")
+    parser.add_argument("--model", action="append", help="sonnet, opus, a full model id, or a GPT model run through Codex on the ChatGPT login (repeatable; default sonnet and opus)")
     parser.add_argument("--runs", type=int, default=2)
     args = parser.parse_args()
     jobs = [(pieces.BY_ID[name], model, number) for name in args.only for model in args.model or ["sonnet", "opus"] for number in range(1, args.runs + 1)]

@@ -38,9 +38,11 @@ def _beat_rows(measure: Measure) -> list[str]:
             if event.pitch.rstrip("0123456789") not in classes:
                 classes.append(event.pitch.rstrip("0123456789"))
         row = f"  b{number + 1} | bass {sounding[0].pitch} | {' '.join(classes)}"
-        staves = sorted({event.staff for event in starting})
-        for staff in staves:
-            row += f" | staff {staff}: " + _onsets(measure, [event for event in starting if event.staff == staff])
+        for staff in sorted({event.staff for event in starting}):
+            layers = sorted({event.layer for event in notes if event.staff == staff})
+            for layer in sorted({event.layer for event in starting if event.staff == staff}):
+                voice = f" voice {layers.index(layer) + 1}" if len(layers) > 1 else ""
+                row += f" | staff {staff}{voice}: " + _onsets(measure, [event for event in starting if event.staff == staff and event.layer == layer])
         if held:
             row += " | held: " + " ".join(event.pitch for event in sorted(held, key=lambda event: midi(event.pitch)))
         rows.append(row)
@@ -48,13 +50,13 @@ def _beat_rows(measure: Measure) -> list[str]:
 
 
 def _onsets(measure: Measure, events: list[Event]) -> str:
-    groups: dict[Fraction, list[Event]] = {}
+    groups: dict[tuple[Fraction, Fraction], list[Event]] = {}
     for event in events:
-        groups.setdefault(event.onset, []).append(event)
+        groups.setdefault((event.onset, event.duration), []).append(event)
     parts = []
-    for onset in sorted(groups):
-        names = "+".join(event.pitch for event in sorted(groups[onset], key=lambda event: midi(event.pitch)))
-        parts.append(f"{names}@{round(measure.beat_of(onset), 2):g}")
+    for onset, duration in sorted(groups):
+        names = "+".join(event.pitch for event in sorted(groups[onset, duration], key=lambda event: midi(event.pitch)))
+        parts.append(f"{names}@{round(measure.beat_of(onset), 2):g}~{round(float(duration / measure.beat_length), 2):g}")
     return " ".join(parts)
 
 
@@ -67,7 +69,7 @@ def as_text(index: ScoreIndex, first: int | None = None, last: int | None = None
         f"The score has measures {index.measures[0].number} to {index.measures[-1].number}"
         + (" (0 is a pickup; its beat 1 is its first note)." if index.measures[0].number == 0 else ".")
         + (" The file's own bar numbers repeat, so bars are counted here in order." if index.renumbered else ""),
-        "Each row: beat | lowest note | pitch classes sounding, low to high | notes per staff as pitch@beat-where-it-starts.",
+        "Each row: beat | lowest note | pitch classes sounding, low to high | notes per staff (and per voice, where a staff has more than one) as pitch@beat-where-it-starts~length-in-beats.",
         "",
     ]
     meter, key = shown.meter, shown.key_signature

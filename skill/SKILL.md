@@ -39,7 +39,7 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
    python3 scripts/notes_table.py SCORE --measures 1-8
    ```
 
-   Each row is one beat: the lowest note, the pitch classes sounding, and every note as `pitch@beat`. Use these exact measure numbers, beats and pitches in your annotations. Work on at most 32 bars at a time; for a longer piece, go passage by passage. The render script refuses a page of more than 32 bars.
+   Each row is one beat: the lowest note, the pitch classes sounding, and every note as `pitch@beat~length` in beats, by voice where a staff has more than one. Use these exact measure numbers, beats and pitches in your annotations. Work on at most 32 bars at a time; for a longer piece, go passage by passage. The render script refuses a page of more than 32 bars.
 
 3. **Get the model's draft, if the connector is there.** If a tool named `draft_from_notes` is available (the sheet-music-analysis connector), run
 
