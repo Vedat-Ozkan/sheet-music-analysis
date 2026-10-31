@@ -4,11 +4,18 @@ import pytest
 
 from engine.render import load_toolkit
 from engine.score import PositionError, ScoreIndex
+from tools.robustness import CORPUS
 
 
 @pytest.fixture(scope="module")
 def index(chopin) -> ScoreIndex:
     return ScoreIndex(load_toolkit(chopin).getMEI())
+
+
+def test_the_key_signature_is_the_concert_one_when_the_top_staff_transposes():
+    weber = ScoreIndex(load_toolkit((CORPUS / "weber/concertino_clarinet.mxl").read_bytes()).getMEI())
+    assert weber.key_signature == "3f"
+    assert {measure.key_signature for measure in weber.measures[:20]} == {"3f"}
 
 
 def test_pickup_is_measure_zero(index):

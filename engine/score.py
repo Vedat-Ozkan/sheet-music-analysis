@@ -198,7 +198,9 @@ class ScoreIndex:
                 self._transposition[staff] = (int(staff_def.get("trans.diat", "0")), int(staff_def.get("trans.semi")))
         count, unit = element.get("meter.count"), element.get("meter.unit")
         self._read_meter(element.find(f".//{MEI}meterSig"), count, unit)
-        key = element.find(f".//{MEI}keySig")
+        concert = [element.find(f"{MEI}keySig")] + [staff_def.find(f"{MEI}keySig") for staff_def in element.iter(f"{MEI}staffDef")
+                                                   if int(staff_def.get("n", "1")) not in self._transposition]
+        key = next((found for found in concert if found is not None), element.find(f".//{MEI}keySig"))
         signature = key.get("sig") if key is not None else element.get("keysig") or element.get("key.sig")
         if signature:
             self._key_signature = signature
