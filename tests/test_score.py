@@ -1,9 +1,12 @@
 from fractions import Fraction
 
+import io
+import zipfile
+
 import pytest
 
 from engine import notes
-from engine.render import load_toolkit
+from engine.render import ScoreError, load_toolkit
 from engine.score import PositionError, ScoreIndex
 
 
@@ -92,3 +95,28 @@ def test_a_voice_written_twice_in_one_bar_becomes_two_voices():
 </measure></part></score-partwise>'''.encode()
     events = ScoreIndex(load_toolkit(score).getMEI()).measures[0].events
     assert sorted((event.pitch, event.onset) for event in events) == [("C5", 0), ("E4", 0)]
+
+
+def mxl(container: str | None, score: bytes) -> bytes:
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, "w") as archive:
+        if container is not None:
+            archive.writestr("META-INF/container.xml", container)
+        archive.writestr("score.xml", score)
+    return data.getvalue()
+
+
+def test_an_mxl_container_is_read_as_xml():
+    container = "<container><rootfiles><rootfile full-path = 'score.xml'/></rootfiles></container>"
+    assert ScoreIndex(load_toolkit(mxl(container, one_bar("", "C4"))).getMEI()).measures[0].events[0].pitch == "C4"
+
+
+@pytest.mark.parametrize("data", [mxl(None, one_bar("", "C4")), b"PK\x03\x04 not a zip"])
+def test_a_broken_mxl_is_refused_as_not_musicxml(data):
+    with pytest.raises(ScoreError, match="not MusicXML"):
+        load_toolkit(data)
+
+
+def test_an_empty_duration_does_not_stop_the_score_loading():
+    score = one_bar("", "C4").replace(b"<duration>4</duration>", b"<duration/>")
+    assert load_toolkit(score).getMEI()

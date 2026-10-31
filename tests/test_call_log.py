@@ -71,4 +71,4 @@ def test_a_failure_on_our_side_apologises_and_gives_the_support_email(monkeypatc
     line = json.loads([line for line in capsys.readouterr().out.splitlines() if '"tool": "play"' in line][-1])
     assert result.is_error and line["outcome"] == "server_error" and "bucket unreachable" in line["stack_trace"]
     text = result.content[0].text
-    assert "support@sheetmusicanalysis.com" in text and line["request_id"][:8] in text and "bucket" not in text
+    assert "support@sheetmusicanalysis.com" in text and line["reference"] in text and "bucket" not in text

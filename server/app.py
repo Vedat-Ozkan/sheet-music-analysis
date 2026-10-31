@@ -58,6 +58,8 @@ PORT = int(os.environ.get("PORT", "8080"))
 PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", f"http://localhost:{PORT}").rstrip("/")
 BUCKET = os.environ.get("BUCKET")
 MAX_SCORE_BYTES = 10 * 1024 * 1024
+DOWNLOAD_SECONDS = 30
+MAX_REDIRECTS = 5
 DAILY_LIMITS = {"draft": 100, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
 MAX_PDF_PAGES = 12
 CARD_URI = "ui://sheet-music-analysis/card-v2.html"
@@ -86,11 +88,14 @@ class LocalStore:
     def add(self, key: str, data: bytes) -> None:
         path = self.folder / key
         path.parent.mkdir(parents=True, exist_ok=True)
+        draft_path = path.with_name(f"{path.name}.{secrets.token_hex(8)}")
+        draft_path.write_bytes(data)
         try:
-            with open(path, "xb") as file:
-                file.write(data)
+            os.link(draft_path, path)
         except FileExistsError:
             pass
+        finally:
+            draft_path.unlink()
 
 
 class BucketStore:
@@ -132,11 +137,15 @@ day_keys: dict[str, bytes] = {}
 
 def daily_user(subject: str) -> str:
     day = datetime.now(timezone.utc).date().isoformat()
-    if day not in day_keys:
+    key = day_keys.get(day)
+    if key is None:
         store.add(f"keys/{day}", secrets.token_bytes(32))
+        key = store.get(f"keys/{day}")
+        if not key:
+            raise ValueError(f"no user key for {day}")
         day_keys.clear()
-        day_keys[day] = store.get(f"keys/{day}")
-    return hmac.new(day_keys[day], subject.encode(), hashlib.sha256).hexdigest()[:16]
+        day_keys[day] = key
+    return hmac.new(key, subject.encode(), hashlib.sha256).hexdigest()[:16]
 
 
 def client_of(headers) -> str:
@@ -173,7 +182,7 @@ def remote_parent(headers: dict[str, str]) -> SpanContext:
     trace_hex, span = uuid.uuid4().hex, 0
     if match := re.fullmatch(r"[0-9a-f]{2}-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}", headers.get("traceparent", "")):
         trace_hex, span = match[1], int(match[2], 16)
-    elif match := re.match(r"([0-9a-f]{32})(?:/(\d+))?", headers.get("x-cloud-trace-context", "")):
+    elif match := re.match(r"([0-9a-f]{32})(?:/(\d{1,20}))?", headers.get("x-cloud-trace-context", "")):
         trace_hex, span = match[1], int(match[2] or 0) % 2**64
     return SpanContext(int(trace_hex, 16), span or secrets.randbits(63) + 1, is_remote=True,
                        trace_flags=TraceFlags(TraceFlags.SAMPLED))
@@ -191,6 +200,17 @@ def traced(app):
             trace_context.detach(token)
 
     return with_trace
+
+
+def without_event_stream(app):
+    refusal = Response("This server sends no event stream; use POST.", status_code=405, headers={"Allow": "POST"})
+
+    async def refusing_get(scope, receive, send):
+        if scope["type"] == "http" and scope["method"] == "GET" and scope["path"] == "/mcp":
+            return await refusal(scope, receive, send)
+        return await app(scope, receive, send)
+
+    return refusing_get
 
 
 @contextmanager
@@ -229,15 +249,18 @@ def observed(fn):
                 "logging.googleapis.com/trace": f"projects/{PROJECT}/traces/{request_id}",
                 "logging.googleapis.com/spanId": f"{span.get_span_context().span_id:016x}",
                 "cold": calls_served == 0, "uptime_s": round(time.monotonic() - STARTED),
-                "meta_keys": sorted(meta), "header_names": sorted(dict(headers or {}))}
+                "meta_keys": sorted(meta), "header_names": sorted(dict(headers or {})), "reference": secrets.token_hex(4)}
+        if subject := meta.get("openai/subject"):
+            try:
+                call["user"] = await anyio.to_thread.run_sync(daily_user, str(subject))
+            except Exception as error:
+                call["user_code_error"] = f"{type(error).__name__}: {error}"
         calls_served += 1
         timings = {}
         call_token, timings_token = current_call.set(call), draft.timings.set(timings)
         started = time.perf_counter()
         result = None
         try:
-            if subject := meta.get("openai/subject"):
-                call["user"] = await anyio.to_thread.run_sync(daily_user, str(subject))
             with trace.use_span(span, end_on_exit=False):
                 result = await fn(ctx, *args, **kwargs)
         except Exception:
@@ -262,7 +285,7 @@ def observed(fn):
                         "message": f"{tool} {outcome}", "timings_ms": timings})
             with anyio.move_on_after(5):
                 await anyio.to_thread.run_sync(flush_traces, abandon_on_cancel=True)
-        return error_result(OUR_ERROR_MESSAGE.format(reference=request_id[:8])) if outcome == "server_error" else result
+        return error_result(OUR_ERROR_MESSAGE.format(reference=call["reference"])) if outcome == "server_error" else result
 
     return wrapper
 
@@ -325,14 +348,26 @@ def is_public_https(url: str) -> bool:
 
 
 async def download(url: str) -> bytes:
-    if not is_public_https(url):
-        raise ScoreError("The attached file's link is not a public https URL")
-    async with httpx.AsyncClient(follow_redirects=True, timeout=20) as client:
-        response = await client.get(url)
-    response.raise_for_status()
-    if len(response.content) > MAX_SCORE_BYTES:
-        raise ScoreError("The score file is larger than 10 MB")
-    return response.content
+    try:
+        with anyio.fail_after(DOWNLOAD_SECONDS):
+            async with httpx.AsyncClient(timeout=20) as client:
+                for _ in range(MAX_REDIRECTS + 1):
+                    if not await anyio.to_thread.run_sync(is_public_https, url):
+                        raise ScoreError("The attached file's link is not a public https URL")
+                    async with client.stream("GET", url) as response:
+                        if response.is_redirect:
+                            url = str(response.url.join(response.headers["location"]))
+                            continue
+                        response.raise_for_status()
+                        data = bytearray()
+                        async for chunk in response.aiter_bytes():
+                            data += chunk
+                            if len(data) > MAX_SCORE_BYTES:
+                                raise ScoreError("The score file is larger than 10 MB")
+                        return bytes(data)
+    except TimeoutError as error:
+        raise ScoreError(f"The attached file took longer than {DOWNLOAD_SECONDS} seconds to download") from error
+    raise ScoreError("The attached file's link redirects too many times")
 
 
 def clean_id(score_id: str) -> str:
@@ -374,7 +409,10 @@ def parse_measures(measure_range: str) -> tuple[int, int] | None:
     match = re.fullmatch(r"\s*(\d+)\s*-\s*(\d+)\s*", measure_range)
     if not match:
         raise ScoreError('measure_range must look like "1-8", or be "all"')
-    return int(match[1]), int(match[2])
+    first, last = int(match[1]), int(match[2])
+    if first > last:
+        raise ScoreError(f'measure_range must start at the lower bar, e.g. "{last}-{first}"')
+    return first, last
 
 
 SKILL_RULES = re.sub(r"<!--.*?-->\n+", "", (HERE.parent / "skill" / "SKILL.md").read_text().split("## Method", 1)[1])
@@ -528,7 +566,7 @@ async def render_analysis(
         return found
 
     with stage("render"):
-        png = engraving.png(1)
+        png = await anyio.to_thread.run_sync(engraving.png, 1)
     def publish_all():
         with stage("render"):
             image, pdf = engraving.png(1, width=2800, colors=256), engraving.pdf()
@@ -597,7 +635,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
         if cached:
             reading = json.loads(cached)
         else:
-            pages = len(pdf_reader.open_pdf(data).pages)
+            pages = len((await anyio.to_thread.run_sync(pdf_reader.open_pdf, data)).pages)
             if pages > MAX_PDF_PAGES:
                 log("read_pdf", platform=source, error="too many pages", pages=pages)
                 return error_result(
@@ -613,14 +651,14 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
                     return error_result(LIMIT_MESSAGE)
                 with stage("omr"):
                     result = await anyio.to_thread.run_sync(pdf_reader.read_pdf, data)
-            reading = {"score_id": secrets.token_hex(3).upper(), "pages": result.pages, "scan": result.scan,
+            reading = {"score_id": secrets.token_hex(8).upper(), "pages": result.pages, "scan": result.scan,
                        "skipped": result.skipped}
             await anyio.to_thread.run_sync(store.put, f"scores/{reading['score_id']}", result.musicxml)
             await anyio.to_thread.run_sync(store.put, cache_key, json.dumps(reading).encode())
         score, _ = await resolve_score(None, reading["score_id"])
         score_id = reading["score_id"] if keep_slurs else reading["score_id"] + "N"
         if not keep_slurs:
-            score = pdf_reader.without_slurs(score)
+            score = await anyio.to_thread.run_sync(pdf_reader.without_slurs, score)
             await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
         def render():
             spots = pdf_reader.problem_spots(score)
@@ -633,7 +671,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
         log("read_pdf", platform=source, error=type(error).__name__)
         return error_result(str(error))
     with stage("render"):
-        pages = [shaded.png(page) for page in range(1, shaded.page_count + 1)]
+        pages = await anyio.to_thread.run_sync(lambda: [shaded.png(page) for page in range(1, shaded.page_count + 1)])
     with stage("publish"):
         image_url, pdf_url = await anyio.to_thread.run_sync(
             lambda: (publish(tall.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"))
@@ -719,7 +757,7 @@ async def play(ctx: Context, play_id: str | None = None, notes: str | None = Non
     if not notes or not notes.lstrip().startswith("N1"):
         return error_result(NO_PLAY_NOTES)
     try:
-        index = note_list.decode(notes)
+        index = await anyio.to_thread.run_sync(note_list.decode, notes)
         unclear = unclear_tempos(index)
         if unclear and not tempo:
             bar, word = unclear[0]
@@ -728,7 +766,7 @@ async def play(ctx: Context, play_id: str | None = None, notes: str | None = Non
                 f"Bar {bar} is marked '{word}' with a half-note beat, so how fast to play it is unclear. Ask the user how "
                 "fast they want it, then call play again with the same arguments and tempo in quarter notes per minute."
             ))])
-        performance = performance_text(index, tempo=tempo)
+        performance = await anyio.to_thread.run_sync(lambda: performance_text(index, tempo=tempo))
     except (note_list.NotesError, ValueError) as error:
         log("play", error=type(error).__name__, chars=len(notes), outcome=outcome_of(error))
         return error_result(str(error))
@@ -801,7 +839,7 @@ async def draft_analysis(
             code = clean_id(score_id)
             fresh = await anyio.to_thread.run_sync(store.get, f"scores/{code}.draft.json") is None
         else:
-            code = secrets.token_hex(3).upper()
+            code = secrets.token_hex(8).upper()
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)
             fresh = True
         if fresh and not await take("draft", source):
@@ -868,7 +906,7 @@ async def correct_bars(
                 lambda: [publish(engraving.png(page, width=2800, colors=256), "png")
                          for engraving in review.engravings for page in range(1, engraving.page_count + 1)]
             )
-            code = secrets.token_hex(3).upper()
+            code = secrets.token_hex(8).upper()
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", after)
     except (correct.CorrectionError, ScoreError, PositionError) as error:
         log("correct_bars", platform=source, error=type(error).__name__)
@@ -924,21 +962,25 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         with tracer.start_as_current_span("model"):
             result = await anyio.to_thread.run_sync(draft.draft_from_notes, notes)
         with stage("parse"):
-            index = note_list.decode(notes)
+            index = await anyio.to_thread.run_sync(note_list.decode, notes)
         if student_analysis:
-            student = check_analysis.student_labels(student_analysis, None, index)
+            student = await anyio.to_thread.run_sync(check_analysis.student_labels, student_analysis, None, index)
     except check_analysis.ClarificationNeeded as error:
         return error_result(QUESTION_FOR_USER + error.question)
     except (note_list.NotesError, draft.DraftError, PositionError, ValueError) as error:
         log("draft_from_notes", platform=source, error=type(error).__name__, chars=len(notes), outcome=outcome_of(error))
         return error_result(str(error))
-    with stage("build"):
+    def build() -> str:
         text = draft.as_text(result)
         if section := part_writing.as_text(index, result.chords):
             text += "\n\n" + section
         if student_analysis:
             text += "\n\n" + check_analysis.as_text(student, result, index)
-    play_id = secrets.token_hex(3).upper()
+        return text
+
+    with stage("build"):
+        text = await anyio.to_thread.run_sync(build)
+    play_id = secrets.token_hex(8).upper()
     await anyio.to_thread.run_sync(store.put, f"scores/{play_id}.notes", notes.encode())
     text += f"\n\nPLAY: play_id {play_id} plays this passage. Call play with it when the user wants to hear it."
     log("draft_from_notes", platform=source, chars_in=len(notes), seconds=round(time.time() - started, 1))
@@ -1000,7 +1042,7 @@ def main() -> None:
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(JsonFormatter())
     logging.basicConfig(level=logging.WARNING, handlers=[handler], force=True)
-    uvicorn.run(traced(app), host="0.0.0.0", port=PORT, log_level="warning", log_config=None)
+    uvicorn.run(traced(without_event_stream(app)), host="0.0.0.0", port=PORT, log_level="warning", log_config=None)
 
 
 if __name__ == "__main__":

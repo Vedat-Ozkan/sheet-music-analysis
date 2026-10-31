@@ -37,6 +37,7 @@ VEROVIO_OPTIONS = {
 
 
 LARGE_SCORE_STAVES = 4
+MAX_MUSICXML_BYTES = 50 * 1024 * 1024
 
 BRACKET_MAX_STAVES = 5
 
@@ -331,9 +332,15 @@ def _drop_title_text(mei: str) -> str:
 def _musicxml(score: bytes) -> bytes:
     if score[:2] != b"PK":
         return score
-    with zipfile.ZipFile(io.BytesIO(score)) as archive:
-        root = re.search(rb'full-path="([^"]+)"', archive.read("META-INF/container.xml"))
-        return archive.read(root.group(1).decode()) if root else b""
+    try:
+        with zipfile.ZipFile(io.BytesIO(score)) as archive:
+            container = ET.fromstring(archive.read("META-INF/container.xml"))
+            path = next(e.get("full-path") for e in container.iter() if e.tag.endswith("rootfile") and e.get("full-path"))
+            if archive.getinfo(path).file_size > MAX_MUSICXML_BYTES:
+                raise ScoreError("The score inside this .mxl file is larger than 50 MB")
+            return archive.read(path)
+    except (zipfile.BadZipFile, KeyError, StopIteration, ET.ParseError) as error:
+        raise ScoreError("This file is not MusicXML: its .mxl archive could not be read") from error
 
 
 def _separate_reused_voices(text: str) -> str:
@@ -353,14 +360,14 @@ def _separate_voices_in(segment: ET.Element) -> bool:
     time = onset = 0.0
     for element in segment:
         if element.tag == "backup":
-            time -= float(element.findtext("duration", "0"))
+            time -= float(element.findtext("duration") or 0)
             renamed = {}
         elif element.tag == "forward":
-            time += float(element.findtext("duration", "0"))
+            time += float(element.findtext("duration") or 0)
         elif element.tag == "note":
             chord = element.find("chord") is not None
             onset = onset if chord else time
-            duration = 0.0 if element.find("grace") is not None else float(element.findtext("duration", "0"))
+            duration = 0.0 if element.find("grace") is not None else float(element.findtext("duration") or 0)
             voice = element.findtext("voice", "1")
             if voice not in renamed and duration and onset < ends.get(voice, 0.0) and not chord:
                 renamed[voice] = str(next_voice)
