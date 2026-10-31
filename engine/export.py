@@ -6,6 +6,9 @@ import xml.etree.ElementTree as ET
 import zipfile
 from fractions import Fraction
 
+from music21 import meter as m21meter
+
+from engine.comparison import beat_ratio
 from engine.performance import performance_midi
 from engine.reduce import STEPS
 from engine.render import check_range, load_toolkit
@@ -180,27 +183,29 @@ def export_romantext(original: bytes, analysis: dict, measures: tuple[int, int] 
         if new_key:
             key = new_key
         number = annotation['at']['measure']
-        if not _in_range(number, measures):
+        words = annotation['label'].translate(_SUPERSCRIPTS).split()
+        if not _in_range(number, measures) or not words:
             continue
         if key is None:
             return None
-        beat = annotation['at'].get('beat', 1)
+        beat = Fraction(annotation['at'].get('beat', 1)).limit_denominator(96)
         measure = index.measure(number)
         if number == 0:
             full = index.measure(1).length
-            beat += float((full - measure.length) / measure.beat_length)
+            beat += (full - measure.length) / measure.beat_length
+        if measure.meter:
+            beat = 1 + (beat - 1) / beat_ratio(m21meter.TimeSignature(measure.meter))
         if number != bar:
             bar = number
-            current = index.measure(number).meter
-            if current != meter:
-                meter = current
+            if measure.meter and measure.meter != meter:
+                meter = measure.meter
                 lines.append(f'Time Signature: {meter}')
             lines.append(f'm{number}')
-        text = annotation['label'].translate(_SUPERSCRIPTS).split()[0]
+        text = words[0]
         if key != shown:
             shown = key
             text = f'{key}: {text}'
-        lines[-1] += (f' b{beat:g}' if beat != 1 or len(lines[-1].split()) > 1 else '') + f' {text}'
+        lines[-1] += (f' b{round(float(beat), 2):g}' if beat != 1 or len(lines[-1].split()) > 1 else '') + f' {text}'
     return ('\n'.join(lines) + '\n').encode()
 
 
