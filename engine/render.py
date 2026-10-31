@@ -6,6 +6,7 @@ import os
 import re
 import zipfile
 import xml.etree.ElementTree as ET
+from collections.abc import Collection
 from dataclasses import dataclass
 from fractions import Fraction
 from importlib.resources import files
@@ -166,7 +167,7 @@ class Engraving:
         return max(ink[1] - pad, 0), min(ink[3] + pad, image.height)
 
 
-def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False) -> verovio.toolkit:
+def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False, labelled_bars: Collection[int] = ()) -> verovio.toolkit:
     toolkit = verovio.toolkit(False)
     toolkit.setResourcePath(RESOURCE_PATH)
     toolkit.setOptions({**VEROVIO_OPTIONS, **(options or {})})
@@ -180,16 +181,16 @@ def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool
     loaded = toolkit.loadData(_separate_reused_voices(text))
     if not loaded:
         raise ScoreError("Verovio could not read this file as MusicXML")
-    _tidy(toolkit, _readable_names(score), keep_pedals)
+    _tidy(toolkit, _readable_names(score), keep_pedals, labelled_bars)
     if len(set(re.findall(r'<staffDef\b[^>]*\bn="(\d+)"', toolkit.getMEI()))) <= LARGE_SCORE_STAVES:
         toolkit.setOptions({"systemDivider": "none"})
         toolkit.redoLayout()
     return toolkit
 
 
-def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool = False) -> None:
+def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool, labelled_bars: Collection[int]) -> None:
     mei = toolkit.getMEI()
-    patched = re.sub(r"<measure\b(?:(?!</measure>).)*?<multiRest\b.*?</measure>", _expand_multi_rest, mei, flags=re.S)
+    patched = re.sub(r"<measure\b(?:(?!</measure>).)*?<multiRest\b.*?</measure>", lambda m: _multi_rest(m, labelled_bars), mei, flags=re.S)
     for part, name in names.items():
         patched = re.sub(rf'(<staffDef\b[^>]*xml:id="{re.escape(part)}"[^>]*>\s*<label\b[^>]*>)[^<]*', lambda m: m.group(1) + escape(name), patched)
     patched = re.sub(
@@ -248,18 +249,21 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool = F
         toolkit.loadData(patched)
 
 
-def _expand_multi_rest(match: re.Match) -> str:
+def _multi_rest(match: re.Match, labelled_bars: Collection[int]) -> str:
     measure = match.group(0)
     opening = measure[: measure.index(">") + 1]
     number = re.search(r'\bn="(\d+)"', opening)
     if not number:
         return measure
     count = int(re.search(r'<multiRest\b[^>]*\bnum="(\d+)"', measure).group(1))
+    first = int(number.group(1))
+    if count > 1 and not any(first < bar < first + count for bar in labelled_bars):
+        return measure
     right = re.search(r'\sright="[^"]*"', opening)
     if right and count > 1:
         measure = measure.replace(opening, opening.replace(right.group(0), ""), 1)
     staves = "".join(f'<staff n="{n}"><layer n="1"><mRest /></layer></staff>' for n in re.findall(r'<staff\b[^>]*\bn="(\d+)"', measure))
-    copies = [f'<measure n="{int(number.group(1)) + k}"{right.group(0) if right and k == count - 1 else ""}>{staves}</measure>' for k in range(1, count)]
+    copies = [f'<measure n="{first + k}"{right.group(0) if right and k == count - 1 else ""}>{staves}</measure>' for k in range(1, count)]
     return re.sub(r"<multiRest\b[^>]*/>", "<mRest />", measure) + "".join(copies)
 
 
@@ -667,7 +671,7 @@ def _repair_broken_ties(mei: str) -> str:
 
 
 def incoming_ties(toolkit: verovio.toolkit, index: ScoreIndex, first: int, *, include_pickup: bool = True) -> set[str]:
-    start = int(index.measure_range(first, first, include_pickup=include_pickup).split("-")[0])
+    start = index.range_start(first, include_pickup=include_pickup).index
     earlier = {e.id for m in index.measures if m.last_index < start for e in m.events}
     return {
         tie for tie, note in re.findall(r'<tie\b[^>]*xml:id="([^"]+)"[^>]*startid="#([^"]+)"', toolkit.getMEI()) if note in earlier

@@ -1483,6 +1483,14 @@ Rescoring moved plain Opus from 0.58-0.62 to 0.62-0.66 and plain Sonnet from 0.3
 
 At the owner's request, the analysis card asks "Was this analysis helpful?" once per ChatGPT conversation, at its third analysis. The server counts analyses per conversation under the conversation ID scrambled with the daily key (`chats/`, deleted after a day) and sets a flag in the result's card-only metadata, so the chat model does not see it. The thumbs call `rate_analysis`, a tool only the card can call, which logs the answer with the daily user code; the card says thanks only when the call succeeds. The card keeps its approved address, so a held ChatGPT update still finds it. The card now follows ChatGPT's light or dark theme; the score page stays white. The privacy page lists both new records. Not yet tried in ChatGPT itself (staging needs a login); expected answers are few, since the busiest day so far had 13 ChatGPT analyses.
 
+### 82. Multi-bar rests drawn compact again, with every bar still counted (2026-10-30)
+
+The fix that kept every bar of a multi-bar rest wrote the rest out as separate empty bars, so a "9" rest became nine bars across the page. The owner prefers the compact sign. The drawing now keeps it, and the score index counts a rest of N as N bars, each with its own number. Bar positions in the file (used by export, corrections and PDF warnings) and bar positions on the page (used to pick a passage to draw) are now kept apart, because they differ after a compact rest. A label, a student's label or a PDF warning on a bar inside a compact rest has nowhere to go, so that drawing writes that one rest out bar by bar, as before.
+
+Checked on the 19 of the first 5,000 PDMX files that have a multi-bar rest: the index (numbers, positions, lengths, notes), the export of a label on every bar and the correction note list are identical to the expanded version for all 19. On the page, a label inside a rest draws the rest out with the label under its bar, and a PDF warning on bar 52 shades bar 52.
+
+Not fixed: a correction that puts notes into a bar inside a multi-bar rest is lost, before and after this change, because the reader skips those bars of the file.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
