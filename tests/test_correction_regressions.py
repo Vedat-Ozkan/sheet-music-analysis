@@ -225,3 +225,40 @@ def test_renumbered_xml_addresses():
     result = correct.replace_bars(original, text.replace('D4', 'F4'))
     assert [e.pitch for m in index(result).measures for e in m.events if e.pitch] == ['C4', 'F4']
     assert [m.get('number') for m in ET.fromstring(result).findall('part/measure')] == ['5', '5']
+
+
+def bars(*bodies, attributes='<time><beats>4</beats><beat-type>4</beat-type></time>'):
+    measures = ''.join(f'<measure number="{n}">' + (f'<attributes><divisions>1</divisions>{attributes}<clef><sign>G</sign><line>2</line></clef></attributes>' if n == 1 else '') + body + '</measure>'
+                       for n, body in enumerate(bodies, 1))
+    return f'<score-partwise version="4.0"><part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list><part id="P1">{measures}</part></score-partwise>'.encode()
+
+
+def tied(pitch, octave, duration, kind, tie):
+    return (f'<note><pitch><step>{pitch}</step><octave>{octave}</octave></pitch><duration>{duration}</duration><tie type="{tie}"/>'
+            f'<type>{kind}</type><notations><tied type="{tie}"/></notations></note>')
+
+
+def test_ties_across_a_corrected_bar_stay_while_the_notes_still_match():
+    original = bars(note('C', 1, 'quarter') + note('D', 1, 'quarter') + note('E', 1, 'quarter') + tied('G', 4, 1, 'quarter', 'start'),
+                    tied('G', 4, 1, 'quarter', 'stop') + note('A', 1, 'quarter') + note('B', 2, 'half'),
+                    note('C', 4, 'whole'))
+
+    def ties(result):
+        return [(m.number, e.pitch) for m in index(result).measures for e in m.events if e.tied]
+
+    out_of_bar = correct.replace_bars(original, correct.bars_from_musicxml(original, 1).replace('D4', 'F4'))
+    into_bar = correct.replace_bars(original, correct.bars_from_musicxml(original, 2).replace('A4', 'F4'))
+    assert ties(out_of_bar) == ties(into_bar) == [(1, 'G4')]
+    changed_end = correct.replace_bars(original, correct.bars_from_musicxml(original, 1).replace('G4~', 'F4~'))
+    changed_start = correct.replace_bars(original, 'N1 div=1 ts=4/4 ks=0\nm2 len=4\n1.1: 1 A4 A4 2 B4')
+    for result in (changed_end, changed_start):
+        assert ties(result) == []
+        assert ET.fromstring(result).find('.//tie') is None and ET.fromstring(result).find('.//tied') is None
+
+
+def test_correction_of_a_score_without_a_time_signature():
+    original = bars(''.join(note(p, 1, 'quarter') for p in 'CDEG'), note('G', 4, 'whole'), attributes='')
+    assert correct.bars_from_musicxml(original, 1).startswith('N1 div=1 ts= ks=0')
+    result = correct.replace_bars(original, 'N1 div=2 ts= ks=0\nm1 len=8\n1.1: 1 C4 D4 E4 F4 4 G4')
+    assert [e.pitch for e in index(result).measure(1).events] == ['C4', 'D4', 'E4', 'F4', 'G4']
+    assert ET.fromstring(result).find('.//beam') is not None

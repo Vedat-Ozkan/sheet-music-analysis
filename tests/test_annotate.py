@@ -7,7 +7,10 @@ from PIL import Image, ImageChops, ImageStat
 
 from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
+from engine.export import export_midi
 from engine.overlay import ARROW, ERROR
+from engine.render import engrave
+from engine.score import PositionError
 
 GOLDEN = Path(__file__).parent / "golden" / "chopin_m1-8_all.png"
 
@@ -118,3 +121,11 @@ def test_alternative_with_the_wrong_number_of_chords_is_sent_back(chopin, chopin
         {"annotations": chopin_annotations.model_dump(exclude_none=True)["annotations"] + [alternative]})
     with pytest.raises(AnnotationError, match="has 3 chords but those bars have 2"):
         render(chopin, annotations, measures=(1, 8))
+
+
+def test_a_backwards_bar_range_is_refused(chopin, chopin_annotations):
+    for make in (lambda: render(chopin, chopin_annotations, measures=(37, 1)),
+                 lambda: engrave(chopin, (37, 1)),
+                 lambda: export_midi(chopin, (37, 1))):
+        with pytest.raises(PositionError, match="run backwards"):
+            make()

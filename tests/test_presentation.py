@@ -102,3 +102,12 @@ def test_other_directions_stay():
 def test_only_large_scores_hide_resting_staves():
     assert 'optimize="true"' not in _mei(["Violin 1", "Violin 2", "Viola", "Cello"])
     assert 'optimize="true"' in _mei([f"Part {i}" for i in range(9)])
+
+
+def test_only_directions_that_name_the_piece_or_composer_are_dropped():
+    header = ('<movement-title>I</movement-title>'
+              '<identification><creator type="composer">W. A. Mozart</creator></identification><part-list>')
+    score = _score(["Violin"], directions=("Tempo I", "Il basso", "Sonata by W. A. Mozart", "W. A. Mozart"))
+    text = re.sub(r"<[^>]+>", "|", load_toolkit(score.replace(b"<part-list>", header.encode(), 1)).getMEI().split("</meiHead>")[1]).split("|")
+    assert "Tempo I" in text and "Il basso" in text
+    assert "Sonata by W. A. Mozart" not in text and "W. A. Mozart" not in text

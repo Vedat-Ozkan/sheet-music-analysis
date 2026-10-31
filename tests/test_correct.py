@@ -107,6 +107,8 @@ def test_internal_ties_trailing_rests_and_terminal_ties():
     ("N1 div=1 ts=4/4 ks=0\nm1 len=4\n1.1: C4", "no duration"),
     ("N1 div=1 ts=4/4 ks=0\nm1 len=4\n1.1: 0 C4", "positive"),
     ("N1 div=1 ts=4/4 ks=0\nm1 len=4\n2.1: 4 C4", "all 1 staves"),
+    ("N1 div=1000 ts=4/4 ks=0\nm1 len=4000\n1.1: 1 C4 3999 D4", "cannot be written as one note"),
+    ("N1 div=6 ts=4/4 ks=0\nm1 len=24\n1.1: 5 C4 19 D4", "cannot be written as one note"),
 ])
 def test_invalid_voice_data(text, message):
     with pytest.raises(correct.CorrectionError, match=message):

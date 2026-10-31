@@ -1,15 +1,18 @@
 from copy import deepcopy
+from fractions import Fraction
 import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
 import pytest
+from music21 import converter
 
+from engine import correct
 from engine.check_analysis import from_musicxml
 from engine.comparison import from_annotations
-from engine.export import export_musicxml, _document
+from engine.export import export_musicxml, export_romantext, _document
 from engine.render import load_toolkit
-from engine.score import ScoreIndex
+from engine.score import ScoreIndex, beat_length
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -185,3 +188,52 @@ def test_mozart_rounded_triplet_uses_existing_onset():
     assert len(labels) == 1
     assert labels[0].beat == pytest.approx(8 / 3)
     assert note_content(original) == note_content(exported)
+
+
+def one_part(*bars, time='<time><beats>4</beats><beat-type>4</beat-type></time>'):
+    body = ''.join(f'<measure number="{n}">'
+                   + (f'<attributes><divisions>4</divisions>{time}<clef><sign>G</sign><line>2</line></clef></attributes>' if n == 1 else '')
+                   + bar + '</measure>' for n, bar in enumerate(bars, 1))
+    return (f'<score-partwise version="3.1"><part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>'
+            f'<part id="P1">{body}</part></score-partwise>').encode()
+
+
+@pytest.mark.parametrize('count', [2, 3, 4, 6, 9, 12])
+@pytest.mark.parametrize('unit', [2, 4, 8, 16])
+def test_romantext_beats_are_music21_beats(count, unit):
+    whole_bar = f'<note><rest measure="yes"/><duration>{16 * count // unit}</duration></note>'
+    score = one_part(whole_bar, whole_bar, time=f'<time><beats>{count}</beats><beat-type>{unit}</beat-type></time>')
+    second = Fraction(3, 2) if count == 2 else 2
+    analysis = {'annotations': [{'type': 'harmony', 'at': {'measure': 1, 'beat': 1}, 'label': 'I', 'key': 'C'},
+                                {'type': 'harmony', 'at': {'measure': 1, 'beat': float(second)}, 'label': 'V'},
+                                {'type': 'harmony', 'at': {'measure': 2, 'beat': 1}, 'label': 'I'}]}
+    parsed = converter.parse(export_romantext(score, analysis).decode(), format='romanText')
+    offsets = [(rn.measureNumber, rn.offset) for rn in parsed.recurse().getElementsByClass('RomanNumeral')]
+    assert offsets == [(1, 0), (1, pytest.approx(float((second - 1) * beat_length(count, unit)), abs=0.01)), (2, 0)]
+
+
+def test_romantext_skips_empty_labels_and_a_missing_time_signature():
+    score = one_part('<note><pitch><step>C</step><octave>4</octave></pitch><duration>16</duration><type>whole</type></note>', time='')
+    analysis = {'annotations': [{'type': 'harmony', 'at': {'measure': 1, 'beat': 1}, 'label': 'I', 'key': 'C'},
+                                {'type': 'harmony', 'at': {'measure': 1, 'beat': 3}, 'label': ''}]}
+    assert export_romantext(score, analysis).decode() == 'm1 C: I\n'
+
+
+def test_multi_bar_rests_keep_every_bar():
+    whole = '<note><pitch><step>C</step><octave>4</octave></pitch><duration>16</duration><type>whole</type></note>'
+    rest = '<note><rest measure="yes"/><duration>16</duration><voice>1</voice></note>'
+    score = one_part(whole, '<attributes><measure-style><multiple-rest>3</multiple-rest></measure-style></attributes>' + rest,
+                     rest, rest, whole)
+    assert [m.number for m in ScoreIndex(load_toolkit(score).getMEI()).measures] == [1, 2, 3, 4, 5]
+    exported = export_musicxml(score, {'annotations': [{'type': 'harmony', 'at': {'measure': 5, 'beat': 1}, 'label': 'I', 'key': 'C'}]})
+    assert ET.fromstring(exported).find("part/measure[@number='5']/note/lyric/text").text == 'C: I'
+    assert correct.bars_from_musicxml(score, 5).splitlines()[1] == 'm5 len=4'
+
+
+@pytest.mark.parametrize('path', sorted(p for p in (ROOT / 'tests/data').iterdir() if p.suffix in ('.mxl', '.musicxml')), ids=lambda p: p.name)
+def test_every_xml_measure_has_one_indexed_segment(path):
+    data = path.read_bytes()
+    counts = {len(part.findall('measure')) for part in ET.fromstring(_document(data)).findall('part')}
+    if len(counts) > 1:
+        pytest.skip('parts of different lengths')
+    assert counts == {sum(len(m.segments) for m in ScoreIndex(load_toolkit(data).getMEI()).measures)}
