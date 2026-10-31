@@ -60,7 +60,7 @@ def _read(part: ET.Element):
                 cursor -= Fraction(element.findtext("duration", "0")) / divisions
             elif element.tag == "forward":
                 cursor += Fraction(element.findtext("duration", "0")) / divisions
-            elif element.tag == "note" and element.find("grace") is None:
+            elif element.tag == "note":
                 length = Fraction(element.findtext("duration", "0")) / divisions
                 if element.find("chord") is not None:
                     cursor -= length
@@ -106,9 +106,10 @@ def _set_pitch(note: _Note, step: int, octave: int, alter: int) -> None:
         pitch.insert(1, element)
 
 
-def _repair(part: ET.Element) -> None:
+def _repair(part: ET.Element) -> bool:
     notes, clefs, keys, line_starts, starts = _read(part)
     measures = list(part.iter("measure"))
+    repaired = False
     for k, at, staff, clef, attributes, element in clefs:
         if k == 0 or k not in line_starts or at != starts[k]:
             continue
@@ -138,7 +139,7 @@ def _repair(part: ET.Element) -> None:
             moved = [(note, new) for note, new, _ in changes if note.start >= point]
             for note, new in moved:
                 _set_pitch(note, *new)
-            first = min((note for note, _ in moved), key=lambda note: (note.measure, list(measures[note.measure]).index(note.element)))
+            first = min((note for note, _ in moved), key=lambda note: (note.start, list(measures[note.measure]).index(note.element)))
             restated = ET.Element("attributes")
             restated.append(element)
             attributes.remove(element)
@@ -146,11 +147,11 @@ def _repair(part: ET.Element) -> None:
                 measures[k].remove(attributes)
             target = measures[first.measure]
             target.insert(list(target).index(first.element), restated)
+            repaired = True
+    return repaired
 
 
 def restore_missed_clefs(score: bytes) -> bytes:
     root = ET.fromstring(score)
-    for part in root.iter("part"):
-        if part.find("measure/attributes/staves") is not None:
-            _repair(part)
-    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+    repaired = [_repair(part) for part in root.iter("part") if part.find("measure/attributes/staves") is not None]
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True) if any(repaired) else score

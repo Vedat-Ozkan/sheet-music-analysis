@@ -140,13 +140,16 @@ def tokens(answer: dict) -> int:
 
 def ask_gpt(prompt: str, model: str, effort: str | None = None) -> dict:
     with tempfile.TemporaryDirectory() as config, tempfile.TemporaryDirectory() as folder:
-        (Path(config) / "auth.json").symlink_to(Path.home() / ".codex" / "auth.json")
+        login = Path.home() / ".codex" / "auth.json"
+        (Path(config) / "auth.json").symlink_to(login)
         reply = Path(folder) / "reply.txt"
         process = subprocess.run(
             ["codex", "exec", "--skip-git-repo-check", "--ephemeral", "--sandbox", "read-only", "--json", "-m", model,
              *(["-c", f"model_reasoning_effort={effort}"] if effort else []), "-o", str(reply), "-"],
             input=prompt, capture_output=True, text=True, cwd=folder, env={**os.environ, "CODEX_HOME": config}, timeout=2400,
         )
+        if not (Path(config) / "auth.json").is_symlink():
+            login.write_bytes((Path(config) / "auth.json").read_bytes())
         events = [json.loads(line) for line in process.stdout.splitlines() if line.startswith("{")]
         if process.returncode != 0 or not reply.exists():
             errors = [event["message"] for event in events if event.get("type") == "error"]
@@ -158,6 +161,8 @@ def ask_gpt(prompt: str, model: str, effort: str | None = None) -> dict:
 
 def ask(prompt: str, model: str, effort: str | None = None, files: dict[str, bytes] | None = None) -> dict:
     if model.startswith("gpt"):
+        if files:
+            raise ValueError("the GPT route sends the prompt only; use --source table without --image")
         return ask_gpt(prompt, model, effort)
     with fresh_claude() as environment, tempfile.TemporaryDirectory() as folder:
         for name, data in (files or {}).items():

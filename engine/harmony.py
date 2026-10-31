@@ -76,7 +76,7 @@ def chord(key: str, label: str) -> Chord | None:
         tones = frozenset((tonic + s) % 12 for s in steps)
         return Chord((tonic + steps[0]) % 12, tones, (tonic + steps[0]) % 12, None, None)
     match = LABEL.match(head)
-    if not match:
+    if not match or match["numeral"].lower() not in ROMAN:
         return None
     numeral, quality, figures = match["numeral"], match["quality"] or "", match["figures"] or ""
     if figures in ("9", "11", "13"):
