@@ -45,13 +45,14 @@ def score_from_notes(text: str):
     index = note_list.decode(text)
     div = index.ppq
     part = pt.score.Part("P1", quarter_duration=div)
-    signature = index.key_signature
-    fifths = 0 if signature in ("", "0") else int(signature[:-1]) * FIFTHS.get(signature[-1], 0)
-    part.add(pt.score.KeySignature(fifths, "major"), 0)
-    start, meter = 0, None
+    start, meter, signature = 0, None, None
     voices: dict[tuple[int, int], int] = {}
-    pending: dict[tuple[int, int, str], object] = {}
+    pending: dict[tuple[int, str], tuple[object, int]] = {}
     for measure in index.measures:
+        if measure.key_signature != signature:
+            signature = measure.key_signature
+            fifths = 0 if signature in ("", "0") else int(signature[:-1]) * FIFTHS.get(signature[-1], 0)
+            part.add(pt.score.KeySignature(fifths, "major"), start)
         if measure.meter and measure.meter != meter:
             meter = measure.meter
             beats, beat_type = (int(value) for value in meter.split("/"))
@@ -68,13 +69,14 @@ def score_from_notes(text: str):
                 part.add(pt.score.GraceNote(grace_type="acciaccatura", **details), onset, onset)
                 continue
             note = pt.score.Note(**details)
-            part.add(note, onset, onset + int(event.duration * div))
-            key = (event.staff, event.layer, event.pitch)
-            if key in pending:
-                previous = pending.pop(key)
-                previous.tie_next, note.tie_prev = note, previous
+            end = onset + int(event.duration * div)
+            part.add(note, onset, end)
+            key = (event.staff, event.pitch)
+            held = pending.pop(key, None)
+            if held and held[1] == onset:
+                held[0].tie_next, note.tie_prev = note, held[0]
             if event.tied:
-                pending[key] = note
+                pending[key] = (note, end)
         start += length
     return pt.score.Score(partlist=[part])
 

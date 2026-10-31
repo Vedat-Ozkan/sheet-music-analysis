@@ -3,7 +3,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from itertools import groupby
 
-from engine.score import LETTERS, MEI, XML_ID, ScoreIndex
+from engine.score import LETTERS, MEI, XML_ID, ScoreIndex, _pitch, in_range
 
 LEDGER_LINES = 3
 MIN_BARS = 2
@@ -53,14 +53,16 @@ def _steps(pitch: str) -> int:
 
 
 def passages(mei: str, index: ScoreIndex, first: int | None = None, last: int | None = None) -> list[tuple[int, int, int, str, str]]:
-    clefs = _clefs(ET.fromstring(mei))
+    root = ET.fromstring(mei)
+    clefs = _clefs(root)
+    written = {note.get(XML_ID): _pitch(note) for note in root.iter(f"{MEI}note") if note.get("pname")}
     found = []
     staves = sorted({event.staff for measure in index.measures for event in measure.events})
     for staff in staves:
         heavy: dict[int, str] = {}
         clef_of: dict[int, str] = {}
         for measure in index.measures:
-            if (first is not None and measure.number < first) or (last is not None and measure.number > last):
+            if not in_range(measure.number, first, last):
                 continue
             sides = []
             for event in measure.events:
@@ -69,7 +71,7 @@ def passages(mei: str, index: ScoreIndex, first: int | None = None, last: int | 
                 clef = clefs.get((event.segment, staff))
                 if clef is None:
                     continue
-                position = _steps(event.pitch) - clef[0]
+                position = _steps(written[event.id]) - clef[0]
                 lines = (position - 8) // 2 if position >= 10 else (-position) // 2 if position <= -2 else 0
                 sides.append(("above" if position > 0 else "below") if lines >= LEDGER_LINES else None)
                 clef_of[measure.number] = clef[1]

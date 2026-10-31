@@ -9,7 +9,8 @@ from engine import piano
 from tools.robustness import CORPUS
 
 SCORES = Path(__file__).parent / "data" / "piano"
-CORPUS_SCORES = {"mozart-k458": "mozart/k458/movement1.mxl", "beethoven-59-1": "beethoven/opus59no1/movement1.mxl"}
+CORPUS_SCORES = {"mozart-k458": "mozart/k458/movement1.mxl", "beethoven-59-1": "beethoven/opus59no1/movement1.mxl",
+                 "weber-concertino": "weber/concertino_clarinet.mxl"}
 
 
 def _score(name: str) -> bytes:
@@ -150,3 +151,8 @@ def test_no_note_of_the_original_is_lost(name, first, last):
                 for k in range(int(length * 12)):
                     t = start + (k + 0.5) / 12
                     assert any(p % 12 == ps % 12 and o <= t < o + d for o, d, p, _ in here), (name, number, start, ps)
+
+
+def test_a_bar_whose_part_runs_past_its_time_signature_is_written_at_the_signatures_length():
+    _, reduced = _both("weber-concertino", 1, 10)
+    assert [float(m.quarterLength) for m in reduced.parts[0].getElementsByClass(stream.Measure)] == [3.0] * 10

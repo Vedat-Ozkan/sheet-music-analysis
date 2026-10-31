@@ -14,7 +14,7 @@ from pathlib import Path
 
 from engine import notes as note_list
 from engine.annotations import AnnotationList
-from engine.score import Measure, ScoreIndex
+from engine.score import Measure, ScoreIndex, in_range
 
 ROOT = Path(__file__).parent.parent
 ANALYSISGNN_PYTHON = os.environ.get("ANALYSISGNN_PYTHON", str(ROOT / ".venv-agnn/bin/python"))
@@ -384,7 +384,7 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
         chords.append(
             Chord(
                 measure=measure.number,
-                beat=round(measure.beat_of(positions[0][1]), 2),
+                beat=measure.beat_of(positions[0][1]),
                 key=key,
                 label=label,
                 confidence=round(min(confidence, 1.0), 2),
@@ -405,7 +405,7 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
             if not positive(label) or (per_note and (notes["duration"][i] == 0 or not in_score[i])):
                 continue
             measure, offset = placed[i]
-            mark = Mark(measure.number, round(measure.beat_of(offset), 2), label, round(probability, 2))
+            mark = Mark(measure.number, measure.beat_of(offset), label, round(probability, 2))
             if per_note:
                 mark.staff, mark.pitch = notes["staff"][i], notes["pitch"][i]
             identity = (notes["measure"][i], offset, mark.pitch)
@@ -433,7 +433,7 @@ def draft_from_notes(text: str, model: str = "analysisgnn") -> Draft:
 
 def as_text(result: Draft, first: int | None = None, last: int | None = None, alternatives: bool = False) -> str:
     def wanted(measure: int) -> bool:
-        return (first is None or measure >= first) and (last is None or measure <= last)
+        return in_range(measure, first, last)
 
     lines = [
         f"Draft analysis from {result.model}. The model's full chord labels are exactly right only about half",
@@ -445,15 +445,15 @@ def as_text(result: Draft, first: int | None = None, last: int | None = None, al
     for chord in result.chords:
         if wanted(chord.measure):
             lines.append(
-                f"m{chord.measure} b{chord.beat:g} | {chord.key} | {chord.label} | {chord.confidence:.2f} | {chord.beats:g} | "
+                f"m{chord.measure} b{round(chord.beat, 2):g} | {chord.key} | {chord.label} | {chord.confidence:.2f} | {chord.beats:g} | "
                 f"{chord.bass} | {' '.join(chord.pitches)} | {' '.join(chord.melody)}"
                 + (f" | or {chord.alternative} ({chord.alternative_confidence:.2f})" if alternatives and chord.alternative else "")
             )
     for title, items, show in (
-        ("CADENCES", result.cadences, lambda m: f"m{m.measure} b{m.beat:g} {m.label} ({m.confidence:.2f})"),
-        ("PHRASE ENDS", result.phrase_ends, lambda m: f"m{m.measure} b{m.beat:g} ({m.confidence:.2f})"),
-        ("PEDAL POINTS", result.pedals, lambda m: f"m{m.measure} b{m.beat:g} {m.pitch} staff {m.staff} ({m.confidence:.2f})"),
-        ("POSSIBLE NON-CHORD TONES", result.non_chord_tones, lambda m: f"m{m.measure} b{m.beat:g} {m.pitch} staff {m.staff}"),
+        ("CADENCES", result.cadences, lambda m: f"m{m.measure} b{round(m.beat, 2):g} {m.label} ({m.confidence:.2f})"),
+        ("PHRASE ENDS", result.phrase_ends, lambda m: f"m{m.measure} b{round(m.beat, 2):g} ({m.confidence:.2f})"),
+        ("PEDAL POINTS", result.pedals, lambda m: f"m{m.measure} b{round(m.beat, 2):g} {m.pitch} staff {m.staff} ({m.confidence:.2f})"),
+        ("POSSIBLE NON-CHORD TONES", result.non_chord_tones, lambda m: f"m{m.measure} b{round(m.beat, 2):g} {m.pitch} staff {m.staff}"),
     ):
         shown = [show(item) for item in items if wanted(item.measure)]
         lines += ["", f"{title}: " + ("; ".join(shown) if shown else "none found")]
@@ -462,7 +462,7 @@ def as_text(result: Draft, first: int | None = None, last: int | None = None, al
 
 def as_annotations(result: Draft, first: int | None = None, last: int | None = None, functions: bool = False) -> AnnotationList:
     def wanted(measure: int) -> bool:
-        return (first is None or measure >= first) and (last is None or measure <= last)
+        return in_range(measure, first, last)
 
     items: list[dict] = []
     key = None

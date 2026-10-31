@@ -1,15 +1,17 @@
 import re
 import xml.etree.ElementTree as ET
+from fractions import Fraction
 from pathlib import Path
 
 import pytest
 
-from engine import correct
+from engine import correct, draft, notes, piano, reduce
 from engine.annotate import render
 from engine.annotations import AnnotationList
 from engine.check_analysis import ClarificationNeeded, from_text
 from engine.export import _document, export_musicxml
 from engine.part_writing import applies, as_text, check
+from engine.performance import marked_index, perform
 from engine.read_pdf import problem_spots
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
@@ -29,7 +31,9 @@ SCORES = {
     "pdf-reading-prelude": DATA / "chopin_prelude_op28_no4_reading.musicxml",
     "pdf-reading-overrun": DATA / "awkward" / "kinkel-op8-5-trennung-reading.musicxml",
 }
-KNOWN: dict[tuple[str, str], str] = {}
+KNOWN: dict[tuple[str, str], str] = {
+    ("model_notes", "key-change-tuplets"): "notes in its last bar run past the bar's length, so the model refuses the score",
+}
 
 score_ids = pytest.mark.parametrize("name", list(SCORES))
 
@@ -100,6 +104,79 @@ def test_correct_roundtrip(request, name):
         except Exception as error:
             failures.append(f"bar {bar}: {type(error).__name__}: {error}")
     assert not failures, failures
+
+
+@score_ids
+def test_model_hears_every_note_once(request, name):
+    known(request, "model_notes", name)
+    _, index = load(name)
+    text = notes.encode(index)
+    expected, held, start = 0, {}, Fraction(0)
+    for measure in notes.decode(text).measures:
+        for event in measure.events:
+            if not event.pitch or event.grace:
+                continue
+            begin = start + event.onset
+            if held.pop((event.staff, event.pitch), None) != begin:
+                expected += 1
+            if event.tied:
+                held[(event.staff, event.pitch)] = begin + event.duration
+        start += measure.length
+    raw = draft.MODELS["analysisgnn"](text.encode(), "notes")
+    assert sum(1 for duration in raw["notes"]["duration"] if duration > 0) == expected
+
+
+
+
+@score_ids
+def test_draft_positions_land_on_notes(request, name):
+    known(request, "model_notes", name)
+    _, index = load(name)
+    result = draft.draft(index)
+    for item in result.chords + result.cadences + result.non_chord_tones:
+        measure = index.measure(item.measure)
+        assert measure.offset_of(item.beat) in {event.onset for event in measure.events}, (item.measure, item.beat)
+        assert measure.offset_of(round(item.beat, 2)) == measure.offset_of(item.beat), (item.measure, item.beat)
+
+@score_ids
+def test_note_list_keeps_every_bar_key(name):
+    _, index = load(name)
+    decoded = notes.decode(notes.encode(index))
+    assert [m.key_signature or "0" for m in decoded.measures] == [m.key_signature or "0" for m in index.measures]
+
+
+
+@score_ids
+def test_piano_reduction(name):
+    data, index = load(name)
+    numbers = [m.number for m in index.measures]
+    assert piano.reduce(data, (numbers[0], numbers[-1]))
+
+
+
+@score_ids
+def test_notes_table_shows_the_bars_of_the_note_list(name):
+    _, index = load(name)
+    numbers = [m.number for m in index.measures if m.number > 0]
+    first, last = numbers[0], numbers[min(3, len(numbers) - 1)]
+    listed = [line.split()[0] for line in notes.encode(index, first, last).splitlines() if line.startswith("m")]
+    table = reduce.as_text(index, first, last)
+    assert [line.split()[0] for line in table.splitlines() if line.startswith("m")] == listed
+    unit = float(index.measure(int(listed[0][1:])).beat_length)
+    assert f"one beat = {unit:g} quarter note" in table.splitlines()[0]
+
+
+
+@score_ids
+def test_played_range_stops_before_the_next_bar(name):
+    data, _ = load(name)
+    index = marked_index(data)
+    numbers = [m.number for m in index.measures]
+    for first, last in zip(numbers, numbers[1:-1]):
+        played, _, _ = perform(index, (first, last))
+        _, _, next_bar = perform(index, (numbers[numbers.index(last) + 1],) * 2)
+        if played:
+            assert max(note.start for note in played) < next_bar, (first, last)
 
 
 TYPED = [line for line in (DATA / "awkward" / "typed.txt").read_text().splitlines() if line.strip()]

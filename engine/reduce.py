@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fractions import Fraction
 
-from engine.score import Event, Measure, ScoreIndex
+from engine.score import Event, Measure, ScoreIndex, in_range
 
 STEPS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 SIGNATURES = {"f": "flat", "s": "sharp"}
@@ -59,18 +59,30 @@ def _onsets(measure: Measure, events: list[Event]) -> str:
 
 
 def as_text(index: ScoreIndex, first: int | None = None, last: int | None = None) -> str:
-    measures = [m for m in index.measures if (first is None or m.number >= first) and (last is None or m.number <= last)]
-    unit = float(index.measures[-1].beat_length)
+    measures = [m for m in index.measures if in_range(m.number, first, last)]
+    shown = measures[0] if measures else index.measures[0]
     lines = [
-        f"Key signature: {describe_key_signature(index.key_signature)}. Meter: {index.meter or 'unknown'}; "
-        f"one beat = {unit:g} quarter note{'' if unit == 1 else 's'}.",
+        f"Key signature: {describe_key_signature(shown.key_signature or index.key_signature)}. Meter: {shown.meter or index.meter or 'unknown'}; "
+        f"one beat = {_beat(shown)}.",
         f"The score has measures {index.measures[0].number} to {index.measures[-1].number}"
         + (" (0 is a pickup; its beat 1 is its first note)." if index.measures[0].number == 0 else ".")
         + (" The file's own bar numbers repeat, so bars are counted here in order." if index.renumbered else ""),
         "Each row: beat | lowest note | pitch classes sounding, low to high | notes per staff as pitch@beat-where-it-starts.",
         "",
     ]
+    meter, key = shown.meter, shown.key_signature
     for measure in measures:
-        lines.append(f"m{measure.number}")
+        changes = []
+        if measure.meter != meter:
+            changes.append(f"{measure.meter}; one beat = {_beat(measure)}")
+        if measure.key_signature != key:
+            changes.append(f"key signature: {describe_key_signature(measure.key_signature)}")
+        meter, key = measure.meter, measure.key_signature
+        lines.append(f"m{measure.number}" + (f" ({'; '.join(changes)})" if changes else ""))
         lines += _beat_rows(measure)
     return "\n".join(lines)
+
+
+def _beat(measure: Measure) -> str:
+    unit = float(measure.beat_length)
+    return f"{unit:g} quarter note{'' if unit == 1 else 's'}"

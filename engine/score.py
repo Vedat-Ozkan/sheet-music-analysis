@@ -59,6 +59,7 @@ class Measure:
     index: int
     beat_length: Fraction
     meter: str = ""
+    key_signature: str = ""
     declared_length: Fraction | None = None
     events: list[Event] = field(default_factory=list)
     segments: list[Segment] = field(default_factory=list)
@@ -85,6 +86,10 @@ class Measure:
 
     def offset_of(self, beat: float) -> Fraction:
         offset = (Fraction(beat).limit_denominator(96) - 1) * self.beat_length
+        if round(beat, 2) == beat:
+            nearest = min((event.onset for event in self.events), key=lambda onset: abs(onset - offset), default=offset)
+            if abs(nearest - offset) <= self.beat_length / 200:
+                offset = nearest
         if offset < 0 or (self.length and offset >= self.length):
             beats = float(self.length / self.beat_length)
             raise PositionError(f"Measure {self.number} has no beat {beat}; its beats run from 1 up to {1 + beats:g}")
@@ -102,6 +107,10 @@ def beat_length(count: int, unit: int) -> Fraction:
     if unit == 8 and count > 3 and count % 3 == 0:
         return Fraction(3, 2)
     return Fraction(4, unit)
+
+
+def in_range(number: int, first: int | None, last: int | None) -> bool:
+    return (first is None or number >= first or (first == 1 and number == 0)) and (last is None or number <= last)
 
 
 def transpose(pitch: str, semitones: int) -> str:
@@ -148,6 +157,7 @@ class ScoreIndex:
         self._transposition: dict[int, int] = {}
         self._beat_length = Fraction(1)
         self._meter = ""
+        self._key_signature = ""
         self._position = 0
         self._tie_starts: set[str] = set()
         for score_def in root.iter(f"{MEI}scoreDef"):
@@ -193,10 +203,13 @@ class ScoreIndex:
                 self._transposition[staff] = int(staff_def.get("trans.semi"))
         count, unit = element.get("meter.count"), element.get("meter.unit")
         self._read_meter(element.find(f".//{MEI}meterSig"), count, unit)
-        key = element.find(f".//{MEI}keySig")
+        concert = [element.find(f"{MEI}keySig")] + [staff_def.find(f"{MEI}keySig") for staff_def in element.iter(f"{MEI}staffDef")
+                                                   if int(staff_def.get("n", "1")) not in self._transposition]
+        key = next((found for found in concert if found is not None), element.find(f".//{MEI}keySig"))
         signature = key.get("sig") if key is not None else element.get("keysig") or element.get("key.sig")
-        if signature and not self.key_signature:
-            self.key_signature = signature
+        if signature:
+            self._key_signature = signature
+            self.key_signature = self.key_signature or signature
 
     def _read_meter(self, meter: ET.Element | None, count: str | None = None, unit: str | None = None) -> None:
         if meter is not None:
@@ -229,6 +242,7 @@ class ScoreIndex:
             index=self._position,
             beat_length=self._beat_length,
             meter=self._meter,
+            key_signature=self._key_signature,
         )
         full = None
         if self._meter:

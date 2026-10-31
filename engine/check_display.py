@@ -38,11 +38,8 @@ FOOT = {UNLABELLED: "? = you didn't label this chord; the tool's reading is belo
 def compare(student, reviewed, index):
     reference = check_analysis._finish(
         [item for item in from_annotations(reviewed) if item.measure in {m.number for m in index.measures}], index)
-    first = (reference[0].measure, reference[0].beat)
     student = check_analysis._finish(student, index)
-    results = check_analysis.compare_labels([s for s in student if (s.measure, s.beat) >= first], reference, index)
-    results += [{'at': {'measure': s.measure, 'beat': s.beat}, 'student': asdict(s), 'reviewed': None,
-                 'classification': UNCHECKED, 'is_error': False} for s in student if (s.measure, s.beat) < first]
+    results = check_analysis.compare_labels(student, reference, index)
     written = {(s.measure, s.beat) for s in student}
     results += [{'at': {'measure': r.measure, 'beat': r.beat}, 'student': None, 'reviewed': asdict(r),
                  'classification': UNLABELLED, 'is_error': False} for r in reference if (r.measure, r.beat) not in written]

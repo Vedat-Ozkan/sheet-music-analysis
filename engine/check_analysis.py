@@ -21,6 +21,7 @@ TOKEN = re.compile(
     rf"|(?P<shortkey>{KEY_NAME}\s*:)"
     r"|(?P<label>[^\s,;:]+)", re.IGNORECASE,
 )
+SCRIPT_DIGITS = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', 'o1234567890123456789')
 
 
 class ClarificationNeeded(ValueError):
@@ -42,7 +43,7 @@ def _key(text: str) -> str:
 def _figure(text: str, key: str) -> str:
     groups = text.split('/\0')
     text = text.replace('\0', '')
-    figure = text.translate(str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', '01234567890123456789'))
+    figure = text.translate(SCRIPT_DIGITS)
     figure = re.sub(r'(?<=\d)/(?=\d)', '', figure)
     figure = figure.replace('°', 'o').replace('♯', '#').replace('♭', 'b').replace('/o', 'ø')
     figure = {'It+6': 'It6', 'Ger+6': 'Ger6', 'Fr+6': 'Fr6'}.get(figure, figure)
@@ -90,7 +91,7 @@ def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
 
 
 def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None) -> list[Label]:
-    text = text.translate(str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', '01234567890123456789'))
+    text = text.translate(SCRIPT_DIGITS)
     text = re.sub(r'(?:\s+/\s*|\s*/\s+)(?=[#b-]*[ivIV])', '/\0', text)
     text = re.sub(r'\s*/\s*', '/', text)
     text = re.sub(r'\bCad\s*6\s*[-–—]\s*4', 'Cad64', text, flags=re.IGNORECASE)
@@ -125,7 +126,7 @@ def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None
             value = value.strip('()[]\"\'.!')
             if re.fullmatch(r'\d[-–—]\d', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label':
                 continue
-            if re.fullmatch(r'(?:6|64|7|65|43|42)(?:/\S+)?', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label' and text[tokens[position - 1].end():token.start()].isspace():
+            if re.fullmatch(r'\d+(?:/\S+)?', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label' and text[tokens[position - 1].end():token.start()].isspace():
                 previous = labels.pop()
                 labels.append(Label(previous.measure, previous.beat, previous.key, _figure(previous.figure + value, previous.key)))
                 continue
@@ -287,13 +288,16 @@ def compare(student: list[Label], reviewed: dict, index: ScoreIndex) -> list[dic
 def compare_labels(student: list[Label], reference: list[Label], index: ScoreIndex) -> list[dict]:
     student = _finish(student, index)
     numbers = {measure.number for measure in index.measures}
-    reference = _finish([item for item in reference if item.measure in numbers], index)
+    reference = [item for item in reference if item.measure in numbers]
+    reference = _finish(reference, index) if reference else []
     results = []
     for label in student:
         position = (label.measure, label.beat)
         expected = next((item for item in reversed(reference) if (item.measure, item.beat) <= position), None)
         if expected is None:
-            raise ValueError(f"No reviewed harmony at bar {label.measure} beat {label.beat:g}")
+            results.append({'at': {'measure': label.measure, 'beat': label.beat}, 'student': asdict(label), 'reviewed': None,
+                            'classification': 'unchecked', 'is_error': False})
+            continue
         r, s = sounding(expected.key, expected.figure), sounding(label.key, label.figure)
         if r is None or s is None:
             raise ValueError(f"Unreadable harmony at bar {label.measure} beat {label.beat:g}")
@@ -352,11 +356,11 @@ def as_text(student: list[Label], draft, index: ScoreIndex) -> str:
     ]
     for item in compare_labels(student, from_draft(draft), index):
         label, expected = item['student'], item['reviewed']
-        chord = chords.get((expected['measure'], expected['beat']))
-        confidence = f" ({chord.confidence:.2f}" + (f", runner-up {chord.alternative} {chord.alternative_confidence:.2f}" if chord.alternative else '') + ')'
+        chord = chords.get((expected['measure'], expected['beat'])) if expected else None
+        confidence = f" ({chord.confidence:.2f}" + (f", runner-up {chord.alternative} {chord.alternative_confidence:.2f}" if chord.alternative else '') + ')' if chord else ''
         lines.append(
             f"m{label['measure']} b{label['beat']:g} | {label['key']}: {label['figure']} | "
-            f"{expected['key']}: {expected['figure']}{confidence if chord else ''} | "
+            f"{expected['key'] + ': ' + expected['figure'] + confidence if expected else 'none'} | "
             f"{chord.bass if chord else ''} | {' '.join(chord.pitches) if chord else ''} | "
             + item['classification'].replace('_', ' ')
         )

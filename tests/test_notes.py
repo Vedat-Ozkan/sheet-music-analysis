@@ -1,9 +1,10 @@
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
 
-from engine import draft, notes
+from engine import draft, notes, reduce
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 
@@ -54,6 +55,17 @@ def test_bad_note_lists_are_refused():
         notes.decode("N1 " + "x" * 300_000)
 
 
+@pytest.mark.parametrize("header, bar, message", [
+    ("div=0 ts=4/4 ks=0", "", "div="), ("div=-2 ts=4/4 ks=0", "", "div="),
+    ("div=1 ts=4/0 ks=0", "", "ts=3/4"), ("div=1 ts=0/4 ks=0", "", "ts=3/4"), ("div=1 ts=3 ks=0", "", "ts=3/4"),
+    ("div=1 ts=3/4/2 ks=0", "", "ts=3/4"), ("div=1 ts=4/4 ks=0", " ts=4/0", "ts=3/4"), ("div=1 ts=4/4 ks=0", " ts=3", "ts=3/4"),
+    ("div=1 ts=4/4 ks=x", "", "ks=2s"), ("div=1 ts=4/4 ks=0", " ks=9s", "ks=2s"),
+])
+def test_malformed_headers_are_refused_with_a_reason(header, bar, message):
+    with pytest.raises(notes.NotesError, match=message):
+        notes.decode(f"N1 {header}\nm1 len=4{bar}\n1.1: 4 C4")
+
+
 def test_draft_builds_against_a_decoded_note_list(index):
     decoded = notes.decode(notes.encode(index))
     result = draft.build(json.loads(RAW.read_text()), decoded)
@@ -68,3 +80,62 @@ def test_grace_notes_after_a_rest_keep_their_place():
     grace = [event for event in index.measures[0].events if event.grace]
     assert {event.onset for event in grace} == {2}
     assert notes.encode(index).splitlines()[2] == "1.1: 2 r gA5+B5 1 C6"
+
+
+def test_a_tie_into_another_voice_keeps_every_note_for_the_model():
+    text = ("N1 div=1 ts=4/4 ks=0\nm1 len=4\n1.1: 4 C5\n1.2: 4 E4~\nm2 len=4\n1.1: 4 E4\n"
+            "m3 len=4\n1.1: 4 D5\n1.2: 4 G4\nm4 len=4\n1.1: 4 C5\n1.2: 4 E4")
+    raw = draft.MODELS["analysisgnn"](text.encode(), "notes")
+    heard = sorted(zip(raw["notes"]["measure"], raw["notes"]["pitch"], raw["notes"]["duration"]))
+    assert heard == [(1, "C5", 4.0), (1, "E4", 8.0), (3, "D5", 4.0), (3, "G4", 4.0), (4, "C5", 4.0), (4, "E4", 4.0)]
+
+
+@pytest.fixture(scope="module")
+def haydn() -> ScoreIndex:
+    return ScoreIndex(load_toolkit((Path(__file__).parent / "data" / "piano" / "haydn-104.mxl").read_bytes()).getMEI())
+
+
+def test_a_key_change_is_written_on_its_bar_and_read_back(haydn):
+    text = notes.encode(haydn)
+    assert text.splitlines()[0].startswith("N1 div=") and " ks=1f" in text.splitlines()[0]
+    assert [line.split()[0] for line in text.splitlines() if " ks=" in line[1:] and line.startswith("m")] == ["m17"]
+    assert [m.key_signature for m in notes.decode(text).measures] == [m.key_signature for m in haydn.measures]
+
+
+def test_a_note_list_without_bar_keys_keeps_the_header_key():
+    index = notes.decode("N1 div=1 ts=4/4 ks=2f\nm1 len=4\n1.1: 4 C4\nm2 len=3 ts=3/4\n1.1: 3 D4")
+    assert [m.key_signature for m in index.measures] == ["2f", "2f"]
+
+
+def test_the_model_reads_each_key_signature_at_its_bar(haydn):
+    code = ("import sys; sys.path.insert(0, 'engine/models'); import analysisgnn_runner as runner; "
+            "score = runner.score_from_notes(sys.stdin.read()); "
+            "print([(k.start.t, k.fifths) for k in score[0].iter_all(runner.pt.score.KeySignature)])")
+    text = notes.encode(haydn, 1, 20)
+    decoded = notes.decode(text)
+    bar_17 = sum(m.length for m in decoded.measures[: [m.number for m in decoded.measures].index(17)]) * decoded.ppq
+    out = subprocess.run([draft.ANALYSISGNN_PYTHON, "-c", code], input=text, cwd=Path(__file__).parent.parent,
+                         capture_output=True, text=True, check=True).stdout
+    assert out.strip() == str([(0, -1), (int(bar_17), 2)])
+
+
+def test_notes_table_gives_the_beat_of_the_bars_it_shows(index):
+    assert "Meter: 12/8; one beat = 1.5 quarter notes." in reduce.as_text(index)
+    assert "Meter: 6/4; one beat = 1 quarter note." in reduce.as_text(index, 33, 34)
+    lines = reduce.as_text(index, 32, 36).splitlines()
+    assert "Meter: 12/8; one beat = 1.5 quarter notes." in lines[0]
+    assert [line for line in lines if line.startswith("m")] == [
+        "m32", "m33 (6/4; one beat = 1 quarter note)", "m34", "m35 (2/4; one beat = 1 quarter note)",
+        "m36 (12/8; one beat = 1.5 quarter notes)"]
+
+
+def test_notes_table_from_bar_one_includes_the_pickup_as_the_note_list_does(index):
+    listed = [line.split()[0] for line in notes.encode(index, 1, 2).splitlines() if line.startswith("m")]
+    shown = [line.split()[0] for line in reduce.as_text(index, 1, 2).splitlines() if line.startswith("m")]
+    assert listed == shown == ["m0", "m1", "m2"]
+
+
+def test_notes_table_marks_a_key_change_on_its_bar(haydn):
+    lines = reduce.as_text(haydn, 16, 17).splitlines()
+    assert lines[0].startswith("Key signature: 1 flat.")
+    assert "m17 (key signature: 2 sharps)" in lines

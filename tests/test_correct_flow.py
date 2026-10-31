@@ -78,7 +78,7 @@ def test_server_correct_real_triplet_and_draft_score_loading(tmp_path, monkeypat
     ('', 'N1 div='),
     ('N1 ts=2/2 ks=1s\nm18 len=96\n1.1: 96 D5', 'div='),
     (None, 'voice 1.1 adds up to 7/2; expected 4 quarter notes'),
-    ('N1 div=24 ts=4/0 ks=0\nm18 len=96\n1.1: 96 D5\n2.1: 96 r', 'meter denominator'),
+    ('N1 div=24 ts=4/0 ks=0\nm18 len=96\n1.1: 96 D5\n2.1: 96 r', 'looks like ts=3/4'),
 ])
 def test_server_correct_invalid_bars_are_actionable(tmp_path, monkeypatch, bad, message):
     monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
@@ -185,7 +185,7 @@ def test_skill_invalid_voice_writes_no_outputs(tmp_path):
     ('', 'N1 div='),
     ('N1 ts=2/2 ks=1s\nm18 len=96\n1.1: 96 D5', 'N1 div='),
     ('N1 div=bad ts=2/2 ks=1s\nm18 len=96\n1.1: 96 D5', 'N1 div='),
-    ('N1 div=24 ts=4/0 ks=0\nm18 len=96\n1.1: 96 D5\n2.1: 96 r', 'meter denominator'),
+    ('N1 div=24 ts=4/0 ks=0\nm18 len=96\n1.1: 96 D5\n2.1: 96 r', 'looks like ts=3/4'),
 ])
 def test_malformed_correction_has_actionable_error(text, message):
     with pytest.raises(correct.CorrectionError, match=message):
