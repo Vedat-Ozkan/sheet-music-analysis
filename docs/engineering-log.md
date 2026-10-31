@@ -1493,6 +1493,23 @@ A Sonnet review found that marks reaching "N bars ahead" (hairpins) still counte
 
 Not fixed: a correction that puts notes into a bar inside a multi-bar rest is lost, before and after this change, because the reader skips those bars of the file.
 
+### 85. Plain Claude against our setup, both given a printed PDF (2026-10-31)
+
+**Question.** Entry 82 gave both sides the MusicXML. With a PDF instead, the way most users arrive, how do plain Sonnet, Opus and Fable compare with our setup, and at what cost?
+
+**Method.** The three held-out pieces and 127 bars of entry 82, as scans of modern published editions from IMSLP (1963-1977), cut to the pages holding those bars. Plain: the PDF attached, the Read tool only, a one-line system prompt and the RomanText question of challenge 61. Ours: our reader's MusicXML of the same PDF, drafted, and each passage reviewed by the same model. Every call at the model's default effort, in a fresh config folder on the subscription, one run each. Our reading: Bach 24 of 24 bars with 91% of notes but no time signature; Beethoven 76 bars for 74 (a misread bar line moves every later bar number by 2); Grieg 53 of 53 with 98% of notes. Ours is scored as read, and "lined up": each read bar matched back to the source bar with the same notes, so a label is not marked wrong only for sitting under a shifted bar number.
+
+| 127 bars, 3 pieces | Full | Function | Key | Tokens | Cost US$ (estimated) | Per piece, full (Bach / Beethoven / Grieg) |
+|---|---|---|---|---|---|---|
+| Plain Sonnet | 0.23 | 0.28 | 0.60 | 32k | 0.18 | 0.00 / 0.12 / 0.43 |
+| Ours, Sonnet, as read / lined up | 0.49 / 0.56 | 0.56 / 0.64 | 0.89 | 284k | 1.16 | 0.12 / 0.41-0.58 / 0.73 |
+| Plain Opus | 0.52 | 0.64 | 0.96 | 46k | 0.63 | 0.22 / 0.64 / 0.54 |
+| Ours, Opus, as read / lined up | 0.53 / 0.65 | 0.60 / 0.72 | 0.92-0.95 | 321k | 3.24 | 0.24 / 0.48-0.78 / 0.70 |
+| Plain Fable | 0.26 | 0.32 | 0.77 | 222k | 9.87 | 0.07 / 0.26 / 0.34 |
+| Ours, Fable, as read / lined up | 0.46 / 0.56 | 0.56 / 0.68 | 0.92 | 377k | 8.71 | 0.18 / 0.41-0.65 / 0.64 |
+
+**What it means.** From a PDF, our setup roughly doubles exact agreement for Sonnet (0.23 to 0.49-0.56) and Fable (0.26 to 0.46-0.56). For Opus the gain is in the chords themselves (0.52 to 0.65 lined up) but the misread Beethoven bar line cancels it as read (0.53): bar lines are now the main loss from a PDF. Bach is poor on every side; our reading missed the time signature. Ours costs 5-6 times plain Sonnet or Opus, since it sends a full note list and reviews passage by passage; plain Fable spends more than ours reading the PDF itself. One run each on three pieces: the Sonnet and Fable gaps are clear, the Opus figure is not a published one. Fable's Bach review passed the 15-minute limit twice; the limit is now 40 minutes.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
@@ -1558,5 +1575,6 @@ Modal and colouristic music is now the largest group, and Ravel is the one piece
 .venv/bin/python -m eval.review --tag NAME --selfcheck --start-from opus-medium   # the self-check alone (challenge 16)
 .venv/bin/python -m eval.key_readings                              # second readings of key, by rule (challenge 72)
 .venv/bin/python -m eval.review --set heldout --only ID --passages 2 --selfcheck --start-from opus-medium-2026-10-24 --tag selfcheck-b   # the reworded check (challenge 74)
+.venv/bin/python -m eval.pdf_compare --kind real                 # plain chats and our setup from the same PDF (entry 85)
 .venv/bin/python tools/robustness.py                               # 31-score robustness run
 ```

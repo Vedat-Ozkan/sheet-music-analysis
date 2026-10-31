@@ -133,6 +133,11 @@ def record_spend(script: str, answer: dict) -> None:
         ledger.write(json.dumps({"time": time.strftime("%Y-%m-%dT%H:%M:%S"), "script": script, "cost_usd": answer.get("total_cost_usd") or 0}) + "\n")
 
 
+def tokens(answer: dict) -> int:
+    usage = answer.get("usage") or {}
+    return sum(usage.get(kind) or 0 for kind in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens"))
+
+
 def ask(prompt: str, model: str, effort: str | None = None, files: dict[str, bytes] | None = None) -> dict:
     with fresh_claude() as environment, tempfile.TemporaryDirectory() as folder:
         for name, data in (files or {}).items():
@@ -145,7 +150,7 @@ def ask(prompt: str, model: str, effort: str | None = None, files: dict[str, byt
             text=True,
             cwd=folder,
             env=environment,
-            timeout=900,
+            timeout=2400,
         )
     if process.returncode != 0:
         try:
@@ -284,6 +289,7 @@ def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: 
         "attempts": len(answers),
         "seconds": round(time.time() - started),
         "cost_usd": round(sum(answer.get("total_cost_usd") or 0 for answer in answers), 3),
+        "tokens": sum(tokens(answer) for answer in answers),
         "models": sorted({name for answer in answers for name in answer.get("modelUsage", {})}),
         "effort": effort,
         "pages_shown": len(files),
