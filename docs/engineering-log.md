@@ -1388,6 +1388,50 @@ The reviewer now changes about a third of flagged labels. Most of the gain is on
 
 **Decision.** It passes the owner's rule (no worse beyond noise), as insurance against a passage that has gone badly wrong rather than a general gain. Planned for the product as warnings in the render reply, never rejections; not built yet.
 
+### 75. Held-open GET streams, and alerts that say so (2026-10-30)
+
+**Problem.** From 27 October production billed 7,300-10,800 instance-seconds a day against about 300 before, with a few dozen tool calls. The cost guard emailed on the 27th and was not seen. October still ended near the free tier (92,693 instance-seconds, 103% of it, about US$0.16), but a full month at that rate would be about US$10-12.
+
+**Cause.** `GET /mcp` with `Accept: text/event-stream` opens the transport's standalone event stream, which the server held until Cloud Run's 300 s timeout. A directory health checker (`ado-p5-health/1`) sends one about 25 times a day, and `node`, `undici`, Bun and `curl` clients did the same. Reproduced locally: 200 and still open after 8 s. Log 21's fix covered only Claude's `subscriptions/listen` POST.
+
+**What we did.**
+- `server/app.py` answers `GET /mcp` with 405 and `Allow: POST` before the MCP app sees it, as the protocol allows for servers without the stream; `/mcp/` redirects to it. `tests/test_server_process.py` starts the real server and checks the refusal, a tool list over POST and `/health`.
+- A log-based metric, `held_open_requests` (requests of 250 s or more), and an alert on more than two in an hour (`server/monitoring/`). Over October it would have fired on the first day of both leaks.
+- `tools/cost_report.py` prints billed instance-seconds per UTC day and service from Cloud Monitoring and the month against the free tier.
+- `--max-instances=1` (owner's choice): the worst case for a stuck instance halves, to about US$145 a month at list price; two calls at once still run.
+
+**Result.** To be confirmed from the next day's metric: production back to a few hundred seconds a day, and the health checker's GET refused in under a second.
+
+### 76. Three crashes from real ChatGPT files in one day (2026-10-30)
+
+**Problem.** The first ChatGPT users hit three different server errors on 30 October, none of them covered by a test: a scanned PDF read without a time signature (the note list header came out as `ts=`, which `decode` and the model runner could not read back); a band score whose baritone and tenor saxophones use `<octave-change>` (Verovio writes a wrong `trans.diat`, e.g. -16 for -12, so pitches came out as `F########2` and the model refused them; tenor notes were silently spelled A#3 for Bb3); and a piano transcription that writes voice 1 twice in a bar after a `<backup>` (Verovio chains the two passes into one 8-beat voice; 112 of 118 bars had notes past the barline).
+
+**What we did.** An empty meter is valid in the note list and the runner (partitura falls back to 4/4); the diatonic step of a transposition comes from its semitones; before Verovio reads a score, a voice whose notes after a `<backup>` would overlap its own earlier notes gets its own number. The `.mxl` container is read as XML, and broken archives, oversize members and empty durations are refused or tolerated as before. When a call fails on our side the chat is told to apologise and give support@sheetmusicanalysis.com with an 8-character reference that finds the log line.
+
+**Result.** All three files draft on staging and production. Old against new on the 64 scores in `tests/data`: 63 read identically, the other is a malformed bar that now lands inside the bar. `tools/diff_check.py`: render 28, export 6, part writing 80 inputs unchanged; the 122 awkward-input tests pass.
+
+### 77. Cold starts: reading the server's own files ahead (2026-10-30)
+
+**Problem.** Instances took 11-20 s to start, sometimes 40-95 s, and twice after deploys over 240 s, where Cloud Run's startup probe dropped them. Pairing 355 starts by instance id showed the delay was before `server/app.py` finished importing (68-137 s of 142 s, 5-8 s after): the first reads of about 1,500 small files from the image, the cost log 49 measured for the model.
+
+**What we did.** The model's read-ahead moved to `engine/read_ahead.py`; the image build records the files the server opens while importing (`python -m server.app --list-files`), and a new instance reads them 16 at a time while it imports. Storage and Cloud Trace imports moved to the top of `app.py` so the recording sees them. The startup probe allows three 240 s attempts.
+
+**Result.** Staging starts 2.9 s twice (imports 2 s, read-ahead 1,543 files in 0.7-1 s); production 3.7 s and 4 s after deploys, against 142 s and a failed 240 s earlier the same day.
+
+### 78. Counting users without tracking them (2026-10-30)
+
+**Problem.** The logs could not tell how many people used the app: each call had a platform but nothing per person, and IP addresses are OpenAI's servers.
+
+**What we did.** Each call logs the names (never the values) of the request headers and `_meta` fields, and for ChatGPT a 16-character HMAC of its anonymous user id (`_meta["openai/subject"]`) under a random key made each UTC day and kept in the bucket under `keys/`, which the lifecycle rule deletes; bucket soft delete is turned off so deleted keys, scores and pages are gone. `tools/usage_report.py` prints distinct users per day. The privacy page says so. A failure in this step is logged and never fails the call.
+
+**Result.** On staging the same id gives the same code within a day and a different one for another id, with no values in the log. Before the change, distinct pieces suggest about four real users, all through ChatGPT on 30 October.
+
+### 79. An eight-reviewer pass, and why defects kept reaching users (2026-10-30)
+
+Eight independent reviewers read the whole project and found about 40 issues, most reproduced: unbounded downloads and `.mxl` decompression (1.5 MB became 3 GB), slow senders holding a request slot for 300 s, redirects to private addresses, 24-bit score ids, reversed bar ranges bypassing the 32-bar limit, blocking work on the event loop, and correctness bugs in ties, key changes, compound meters, corrections and previews. Fixed the same day: downloads stream with a 10 MB cap, a 30 s deadline and every redirect re-checked; ids are 64-bit; reversed ranges are refused; slow work runs in threads; staging gets its own service account; the five newest server images are kept for rollback. Daily limits stay global by the owner's choice.
+
+A retrospective over the past sessions found the main cause in process, not skill: the owner's review rules (old-against-new checks, awkward inputs, review before merge, deploy rules) lived in a memory folder that sessions started from the parent directory never loaded, the repo had no `CLAUDE.md`, deploys ran from whatever tree was checked out, CI had never run because `main` was not pushed, and the test corpus held only well-edited scores, so every production failure was found by a user or the bill.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
