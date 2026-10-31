@@ -27,6 +27,7 @@ from engine.score import ScoreIndex
 verovio.enableLog(False)
 
 DEB = "https://github.com/Audiveris/audiveris/releases/download/5.11.0/Audiveris-5.11.0-ubuntu24.04-x86_64.deb"
+DEB_SHA256 = "f20113aaa33b3149ec8d6a09b2a7963360e65fafd92d69389987a85bbc3ec7a3"
 JAR = "https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.2/audiveris.jar"
 JAR_SHA256 = "1fe3060f7cf86d5b7a30daec973107789e1fba85c4e06de70fc9279b1c58edc5"
 OCR = "https://github.com/tesseract-ocr/tessdata/raw/ced78752cc61322fb554c280d13360b35b8684e4/eng.traineddata"
@@ -52,6 +53,8 @@ def audiveris() -> Path:
 def install() -> None:
     deb, unpacked = HOME.with_suffix(".deb"), HOME.with_suffix(".part")
     urllib.request.urlretrieve(DEB, deb)
+    if hashlib.sha256(deb.read_bytes()).hexdigest() != DEB_SHA256:
+        raise OSError("The downloaded Audiveris package does not match the tested release")
     shutil.rmtree(unpacked, ignore_errors=True)
     subprocess.run(["dpkg-deb", "-x", str(deb), str(unpacked)], check=True)
     jar = unpacked / "opt/audiveris/lib/app/audiveris.jar"
