@@ -161,7 +161,8 @@ TOP_CLEARANCE = 3 * tint.SPACE
 
 def preview(score: bytes, tall: bool = False, spots=None) -> Engraving:
     tall_page = {"adjustPageHeight": True, "pageHeight": 60000} if tall else {}
-    engraving = shade(load_toolkit(score, {**PREVIEW_OPTIONS, **tall_page}), score, spots)
+    spots = spots or problem_spots(score)
+    engraving = shade(load_toolkit(score, {**PREVIEW_OPTIONS, **tall_page}, labelled_bars=spots[0]), spots)
     return Engraving([_stacked(engraving.svgs)]) if tall and engraving.page_count > 1 else engraving
 
 
@@ -249,8 +250,8 @@ def fit_top_margin(toolkit, index: ScoreIndex) -> list[PageLayout]:
     return layouts
 
 
-def shade(toolkit, score: bytes, spots=None) -> Engraving:
-    uneven, _ = spots or problem_spots(score)
+def shade(toolkit, spots) -> Engraving:
+    uneven, _ = spots
     index = ScoreIndex(toolkit.getMEI())
     layouts = fit_top_margin(toolkit, index)
     for layout in layouts:

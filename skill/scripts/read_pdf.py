@@ -66,7 +66,7 @@ def install() -> None:
 
 
 def pages(score: bytes, spots) -> Engraving:
-    toolkit = load_toolkit(score, PREVIEW_OPTIONS)
+    toolkit = load_toolkit(score, PREVIEW_OPTIONS, labelled_bars=spots[0])
     fit_top_margin(toolkit, ScoreIndex(toolkit.getMEI()))
     height = VEROVIO_OPTIONS["pageHeight"]
     count = toolkit.getPageCount()
@@ -78,7 +78,7 @@ def pages(score: bytes, spots) -> Engraving:
         toolkit.redoLayout()
         if toolkit.getPageCount() < count:
             break
-    return shade(toolkit, score, spots)
+    return shade(toolkit, spots)
 
 
 def main() -> int:

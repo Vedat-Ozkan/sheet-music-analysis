@@ -228,6 +228,9 @@ def test_multi_bar_rests_keep_every_bar():
     exported = export_musicxml(score, {'annotations': [{'type': 'harmony', 'at': {'measure': 5, 'beat': 1}, 'label': 'I', 'key': 'C'}]})
     assert ET.fromstring(exported).find("part/measure[@number='5']/note/lyric/text").text == 'C: I'
     assert correct.bars_from_musicxml(score, 5).splitlines()[1] == 'm5 len=4'
+    assert load_toolkit(score).getMEI().count('<measure ') == 3
+    assert load_toolkit(score, labelled_bars={3}).getMEI().count('<measure ') == 5
+    assert ScoreIndex(load_toolkit(score).getMEI()).measure_range(5, 5) == '3-3'
 
 
 @pytest.mark.parametrize('path', sorted(p for p in (ROOT / 'tests/data').iterdir() if p.suffix in ('.mxl', '.musicxml')), ids=lambda p: p.name)

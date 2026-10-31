@@ -160,6 +160,8 @@ class ScoreIndex:
         self._meter = ""
         self._key_signature = ""
         self._position = 0
+        self._drawn_bars = 0
+        self._drawn_position: dict[int, int] = {}
         self._tie_starts: set[str] = set()
         for score_def in root.iter(f"{MEI}scoreDef"):
             self._read_definitions(score_def)
@@ -232,6 +234,8 @@ class ScoreIndex:
 
     def _read_measure(self, element: ET.Element) -> None:
         self._position += 1
+        self._drawn_bars += 1
+        self._drawn_position[self._position] = self._drawn_bars
         self._read_meter(element.find(f".//{MEI}meterSig"))
         label = element.get("n", "")
         numbered = label.lstrip("-").isdigit()
@@ -278,6 +282,12 @@ class ScoreIndex:
             previous.events.extend(measure.events)
             return
         self.measures.append(measure)
+        rest = element.find(f".//{MEI}multiRest")
+        for following in range(1, int(rest.get("num", "1")) if rest is not None else 1):
+            self._position += 1
+            self._drawn_position[self._position] = self._drawn_bars
+            self.measures.append(Measure(f"{measure.id}-{following}", measure.number + following, self._position, self._beat_length,
+                                         self._meter, self._key_signature, full))
 
     def _read_layer(self, element: ET.Element, measure: Measure, staff: int, cursor: Fraction) -> Fraction:
         ppq = self._ppq.get(staff) or next(iter(self._ppq.values()), 1)
@@ -326,12 +336,16 @@ class ScoreIndex:
             raise PositionError(f"Measure {number} does not exist; the score has measures {first} to {last}")
         return self._by_number[number]
 
-    def measure_range(self, first: int, last: int, *, include_pickup: bool = True) -> str:
+    def range_start(self, first: int, *, include_pickup: bool = True) -> Measure:
         start = self.measure(first)
         position = self.measures.index(start)
         if include_pickup and first == 1 and position > 0 and self.measures[position - 1].number == 0:
-            start = self.measures[position - 1]
-        return f"{start.index}-{self.measure(last).last_index}"
+            return self.measures[position - 1]
+        return start
+
+    def measure_range(self, first: int, last: int, *, include_pickup: bool = True) -> str:
+        start = self.range_start(first, include_pickup=include_pickup)
+        return f"{self._drawn_position[start.index]}-{self._drawn_position[self.measure(last).last_index]}"
 
     def find_note(self, measure: int, beat: float, staff: int | None = None, pitch: str | None = None) -> Event:
         bar = self.measure(measure)

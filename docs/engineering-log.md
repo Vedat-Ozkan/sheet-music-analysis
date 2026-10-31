@@ -1460,6 +1460,14 @@ Also from the review: an .mxl archive's index file is now size-checked like the 
 
 Not fixed, for the owner: more music21 work now runs on worker threads, and two requests can overlap on one instance, so two threads can use music21 at once. Render and export already did this before the branch. One reported flaky test did not fail again in the same combination (259 passed).
 
+### 82. Multi-bar rests drawn compact again, with every bar still counted (2026-10-30)
+
+The fix that kept every bar of a multi-bar rest wrote the rest out as separate empty bars, so a "9" rest became nine bars across the page. The owner prefers the compact sign. The drawing now keeps it, and the score index counts a rest of N as N bars, each with its own number. Bar positions in the file (used by export, corrections and PDF warnings) and bar positions on the page (used to pick a passage to draw) are now kept apart, because they differ after a compact rest. A label, a student's label or a PDF warning on a bar inside a compact rest has nowhere to go, so that drawing writes that one rest out bar by bar, as before.
+
+Checked on the 19 of the first 5,000 PDMX files that have a multi-bar rest: the index (numbers, positions, lengths, notes), the export of a label on every bar and the correction note list are identical to the expanded version for all 19. On the page, a label inside a rest draws the rest out with the label under its bar, and a PDF warning on bar 52 shades bar 52.
+
+Not fixed: a correction that puts notes into a bar inside a multi-bar rest is lost, before and after this change, because the reader skips those bars of the file.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

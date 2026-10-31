@@ -86,7 +86,9 @@ def render(
     check_range(measures)
     if piano:
         score, annotations = _piano_version(score, annotations, measures)
-    toolkit = load_toolkit(score, ANNOTATED_OPTIONS)
+    labelled_bars = {place.measure for annotation in annotations.annotations for place in vars(annotation).values() if hasattr(place, "measure")}
+    labelled_bars |= {label.measure for label in student_labels or []}
+    toolkit = load_toolkit(score, ANNOTATED_OPTIONS, labelled_bars=labelled_bars)
     index = ScoreIndex(toolkit.getMEI())
     check(annotations, index)
     results = None
