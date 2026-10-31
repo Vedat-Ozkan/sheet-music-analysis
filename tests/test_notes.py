@@ -55,6 +55,17 @@ def test_bad_note_lists_are_refused():
         notes.decode("N1 " + "x" * 300_000)
 
 
+@pytest.mark.parametrize("header, bar, message", [
+    ("div=0 ts=4/4 ks=0", "", "div="), ("div=-2 ts=4/4 ks=0", "", "div="),
+    ("div=1 ts=4/0 ks=0", "", "ts=3/4"), ("div=1 ts=0/4 ks=0", "", "ts=3/4"), ("div=1 ts=3 ks=0", "", "ts=3/4"),
+    ("div=1 ts=3/4/2 ks=0", "", "ts=3/4"), ("div=1 ts=4/4 ks=0", " ts=4/0", "ts=3/4"), ("div=1 ts=4/4 ks=0", " ts=3", "ts=3/4"),
+    ("div=1 ts=4/4 ks=x", "", "ks=2s"), ("div=1 ts=4/4 ks=0", " ks=9s", "ks=2s"),
+])
+def test_malformed_headers_are_refused_with_a_reason(header, bar, message):
+    with pytest.raises(notes.NotesError, match=message):
+        notes.decode(f"N1 {header}\nm1 len=4{bar}\n1.1: 4 C4")
+
+
 def test_draft_builds_against_a_decoded_note_list(index):
     decoded = notes.decode(notes.encode(index))
     result = draft.build(json.loads(RAW.read_text()), decoded)

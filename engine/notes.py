@@ -16,10 +16,19 @@ MARK = re.compile(
     r"|(?P<dynamic>[a-z]+)@(?P<at5>[\d.]+)"
 )
 MAX_CHARS = 200_000
+METER = re.compile(r"[1-9]\d*/[1-9]\d*")
+KEY = re.compile(r"0|[1-7][sf]")
 
 
 class NotesError(ValueError):
     pass
+
+
+def _check_signatures(meter: str, key: str) -> None:
+    if not METER.fullmatch(meter):
+        raise NotesError(f"A time signature looks like ts=3/4, not ts={meter}")
+    if not KEY.fullmatch(key):
+        raise NotesError(f"A key signature looks like ks=0, ks=2s or ks=3f, not ks={key}")
 
 
 @dataclass
@@ -138,6 +147,9 @@ def decode(text: str) -> ScoreIndex:
     try:
         settings = dict(part.split("=", 1) for part in lines[0].split()[1:])
         div, meter, key = int(settings["div"]), settings["ts"], settings.get("ks", "0")
+        if div < 1:
+            raise NotesError(f"div= is the number of units in a quarter note, so it must be at least 1, not {div}")
+        _check_signatures(meter, key)
         measures: list[Measure] = []
         current_meter, current_key = meter, key
         for number, line in numbered[1:]:
@@ -150,6 +162,7 @@ def decode(text: str) -> ScoreIndex:
                     raise NotesError(f"Line {number}: bar line '{parts[0]}' needs len=…, e.g. '{parts[0]} len=96'")
                 current_meter = fields.get("ts", current_meter)
                 current_key = fields.get("ks", current_key)
+                _check_signatures(current_meter, current_key)
                 count, unit = current_meter.split("/")
                 measure = Measure(
                     id=f"m{len(measures) + 1}",
