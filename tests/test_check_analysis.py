@@ -5,8 +5,9 @@ from pathlib import Path
 import pytest
 
 from engine import check_analysis as check
+from engine import notes as note_list
 from engine.draft import Chord, Draft
-from engine.comparison import Label, from_annotations
+from engine.comparison import Label, from_annotations, from_draft
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 from eval import compare as evaluation
@@ -207,3 +208,11 @@ def test_student_check_marks_labels_with_no_draft_chord_before_them(bach):
     assert 'm2 b1 | G: V | G: V (0.90) |' in text
     empty = check.as_text(student, Draft('analysisgnn', [], [], [], [], []), bach)
     assert empty.count('| none |  |  | unchecked') == 2
+
+
+def test_a_beat_typed_as_the_draft_prints_it_matches_the_draft_chord_on_a_triplet():
+    triplet = note_list.decode("N1 div=3 ts=4/4 ks=0\nm1 len=12\n1.1: 3 C4 1 E4 G4 B4 6 C5\n")
+    student = check.from_text('m1 b1 I m1 b2.33 V', index=triplet)
+    draft = Draft('analysisgnn', [Chord(1, 1.0, 'C', 'I', 0.9, 1, 'T'), Chord(1, 7 / 3, 'C', 'V', 0.9, 1, 'D')], [], [], [], [])
+    results = check.compare_labels(student, from_draft(draft), triplet)
+    assert [result['classification'] for result in results] == ['agrees', 'agrees']

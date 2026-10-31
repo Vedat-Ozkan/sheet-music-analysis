@@ -1447,7 +1447,18 @@ A reviewer reproduced eleven defects in the analysis engine. Each now has a chec
 - **Malformed note-list headers** (`div=0`, `ts=4/0`, `ts=3`) gave internal errors or were accepted; they are now refused with a reason.
 - **Typed answers** such as "V 4/3", "V6 5" and "vii⁰⁷" now read as V43, V65 and viio7. The differential check on typed answers changed 5 of 191 inputs, all from a question to the right reading. Part writing, PDF warnings and export did not change. Rendering changed only for the Mozart K. 458 example, whose analysis gives beats 2.67 and 1.17: the V in bar 7 and the NT in bar 5 now sit on their notes (checked on the page).
 
-Known limits: the Brahms Frühlingstrost fixture still fails in the model because its last bar's notes run past the bar. The server's own description of the note-list format does not yet mention `ks=`.
+Known limits: the Brahms Frühlingstrost fixture still fails in the model because its last bar's notes run past the bar. The server's description of the note-list format now mentions `ks=`.
+
+### 81. A second-model review of the merged branch (2026-10-30)
+
+A Sonnet review of the branch reproduced two regressions that our tests had missed:
+
+- **The Claude skill could not start two of its five scripts.** The RomanText export now borrowed a beat helper from the comparison module, which imported a table from the model-only module that is left out of the skill. `model_notes.py` and `render_analysis.py` stopped with "No module named engine.draft". The table moved to the comparison module, and a new test copies the skill as it is built and starts every script; it failed on 2 of 5 scripts before the fix.
+- **The student check compared triplet beats against the wrong chord.** The draft now keeps exact beats (entry 80), but a student who typed 2.33, as the table prints it, was placed just before the chord at 2⅓ and compared with the previous one. A student's beat is now moved onto the note within 1/200 of a beat, the same rule the drawing uses.
+
+Also from the review: an .mxl archive's index file is now size-checked like the score inside it. MIDI export now plays repeats and first and second endings in order (it played the written order); the note list still uses written order. Of the 61 test scores, exactly the 15 with repeat signs changed.
+
+Not fixed, for the owner: more music21 work now runs on worker threads, and two requests can overlap on one instance, so two threads can use music21 at once. Render and export already did this before the branch. One reported flaky test did not fail again in the same combination (259 passed).
 
 ## Checking against teachers' prose
 

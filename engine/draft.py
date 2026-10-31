@@ -14,6 +14,7 @@ from pathlib import Path
 
 from engine import notes as note_list
 from engine.annotations import AnnotationList
+from engine.comparison import FUNCTIONS
 from engine.score import Measure, ScoreIndex, in_range
 
 ROOT = Path(__file__).parent.parent
@@ -46,7 +47,6 @@ AUGMENTED_SIXTHS = {
 TRIAD_FIGURES = ["", "6", "64", "64"]
 SEVENTH_FIGURES = ["7", "65", "43", "42"]
 DIATONIC_LOWERCASE = {"major": {"2", "3", "6", "7"}, "minor": {"1", "2", "4"}}
-FUNCTIONS = {"1": "T", "3": "T", "6": "T", "2": "PD", "4": "PD", "5": "D", "7": "D"}
 STEPS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 MINOR_STEPS = {"3": 3, "6": 8, "7": 10}
 MAJOR_STEPS = {"3": 4, "6": 9, "7": 11}

@@ -4,7 +4,7 @@ import io
 import re
 import xml.etree.ElementTree as ET
 import zipfile
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from fractions import Fraction
 
 from music21 import key as m21key
@@ -80,10 +80,11 @@ def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
     found = {}
     for label in labels:
         if index:
-            index.measure(label.measure).offset_of(label.beat)
+            measure = index.measure(label.measure)
+            label = replace(label, beat=measure.beat_of(measure.offset_of(label.beat)))
         position = (label.measure, label.beat)
         if position in found and found[position] != label:
-            raise ClarificationNeeded(f"Conflicting labels at bar {label.measure} beat {label.beat:g}", f'Which label belongs at bar {label.measure} beat {label.beat:g}: {found[position].figure} or {label.figure}?')
+            raise ClarificationNeeded(f"Conflicting labels at bar {label.measure} beat {round(label.beat, 2):g}", f'Which label belongs at bar {label.measure} beat {round(label.beat, 2):g}: {found[position].figure} or {label.figure}?')
         found[position] = label
     if not found:
         raise ValueError('No Roman numeral labels found')

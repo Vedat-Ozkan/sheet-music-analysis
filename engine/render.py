@@ -356,11 +356,14 @@ def _musicxml(score: bytes) -> bytes:
         return score
     try:
         with zipfile.ZipFile(io.BytesIO(score)) as archive:
-            container = ET.fromstring(archive.read("META-INF/container.xml"))
+            def member(name: str) -> bytes:
+                if archive.getinfo(name).file_size > MAX_MUSICXML_BYTES:
+                    raise ScoreError("The score inside this .mxl file is larger than 50 MB")
+                return archive.read(name)
+
+            container = ET.fromstring(member("META-INF/container.xml"))
             path = next(e.get("full-path") for e in container.iter() if e.tag.endswith("rootfile") and e.get("full-path"))
-            if archive.getinfo(path).file_size > MAX_MUSICXML_BYTES:
-                raise ScoreError("The score inside this .mxl file is larger than 50 MB")
-            return archive.read(path)
+            return member(path)
     except (zipfile.BadZipFile, KeyError, StopIteration, ET.ParseError) as error:
         raise ScoreError("This file is not MusicXML: its .mxl archive could not be read") from error
 

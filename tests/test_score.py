@@ -124,6 +124,12 @@ def test_a_broken_mxl_is_refused_as_not_musicxml(data):
         load_toolkit(data)
 
 
+def test_a_huge_mxl_container_is_refused_before_it_is_unpacked():
+    container = "<container>" + " " * (50 * 1024 * 1024) + "</container>"
+    with pytest.raises(ScoreError, match="larger than 50 MB"):
+        load_toolkit(mxl(container, one_bar("", "C4")))
+
+
 def test_an_empty_duration_does_not_stop_the_score_loading():
     score = one_bar("", "C4").replace(b"<duration>4</duration>", b"<duration/>")
     assert load_toolkit(score).getMEI()
