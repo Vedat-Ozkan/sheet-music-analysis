@@ -1546,6 +1546,20 @@ GPT runs through `codex exec` on the owner's ChatGPT login, in an empty config f
 
 **Not done.** Reviewing several samples and voting (the review measured +0.002 on cached runs), and a 15-20-piece set of labelled real PDFs.
 
+### 88. Entry 85 again on the branch's reader and skill (2026-10-31)
+
+The three PDFs re-read with entry 86's clef repair, then drafted and reviewed with entry 87's skill text and note table (plain answers reused). Full agreement as read (lined up):
+
+| | Plain | Ours, entry 85 | Ours, now | Cost now |
+|---|---|---|---|---|
+| Sonnet | 0.23 | 0.49 (0.56) | 0.41 (0.48) | $1.61 |
+| Opus | 0.52 | 0.53 (0.65) | 0.52 (0.64) | $2.57 |
+| Fable | 0.26 | 0.46 (0.56) | 0.49 (0.58) | $12.63 |
+
+The clef repair cannot show here: the scored Beethoven passages (bars 0-23 and 48-73) miss the repaired bars 37-40, and Grieg's reading did not change. The Sonnet drop is Grieg (0.73 to 0.54), whose reading is unchanged, so it is the new skill text and table or Sonnet's run-to-run spread; items 4-5 were tested on Opus only. Not settled.
+
+Also tried and dropped for the Bach failure: retiming the notes of voices that do not fill their bar from their printed horizontal position, using the voices that do as a clock. On the reading benchmark it made Bach's bars the right length (18 to 13 wrong) without putting more notes at the right time (379 to 377 of 807) and lost slightly on the main set (86.85% to 86.82%). Instead, when most bars do not add up, the reading's message now says the analysis will be much better from a MusicXML file.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
