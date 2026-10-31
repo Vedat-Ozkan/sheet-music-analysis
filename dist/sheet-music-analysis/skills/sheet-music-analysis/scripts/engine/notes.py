@@ -146,12 +146,11 @@ def decode(text: str) -> ScoreIndex:
                 if "len" not in fields:
                     raise NotesError(f"Line {number}: bar line '{parts[0]}' needs len=…, e.g. '{parts[0]} len=96'")
                 current_meter = fields.get("ts", current_meter)
-                count, unit = current_meter.split("/")
                 measure = Measure(
                     id=f"m{len(measures) + 1}",
                     number=int(parts[0][1:]),
                     index=len(measures) + 1,
-                    beat_length=beat_length(int(count), int(unit)),
+                    beat_length=beat_length(*map(int, current_meter.split("/"))) if current_meter else Fraction(1),
                     meter=current_meter,
                 )
                 measure.declared_length = Fraction(int(fields["len"]), div)

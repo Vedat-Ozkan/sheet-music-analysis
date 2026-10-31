@@ -1432,6 +1432,8 @@ Eight independent reviewers read the whole project and found about 40 issues, mo
 
 A retrospective over the past sessions found the main cause in process, not skill: the owner's review rules (old-against-new checks, awkward inputs, review before merge, deploy rules) lived in a memory folder that sessions started from the parent directory never loaded, the repo had no `CLAUDE.md`, deploys ran from whatever tree was checked out, CI had never run because `main` was not pushed, and the test corpus held only well-edited scores, so every production failure was found by a user or the bill.
 
+Released on its own as plugin 1.3.0, ahead of the engine fixes, so the held-open fix is not held up. Moving slow work to threads let two requests run music21 at once, and music21 is not thread-safe; score work now takes turns in one queue (a second request waits for the first, in order), shown by a test where two simultaneous calls never overlap. A Sonnet review found two student-answer checks still parsing on the main loop; they now queue too. The model runs inside the queue, so a cold model load (about a minute) makes other requests wait; at today's traffic that is accepted. PDF reading stays outside the queue: it does not use music21, already runs one at a time, and takes 20–310 s in production. A test that builds the skill and starts each script found `model_notes.py` failing on this release (a table imported from the model-only module); the table moved.
+
 ### 80. Eleven engine defects from a review, each with a check across the test scores (2026-10-30)
 
 A reviewer reproduced eleven defects in the analysis engine. Each now has a check that runs over every awkward score in `tests/test_awkward.py` (or the real scores in `tests/data/piano`), written to fail first:
@@ -1458,7 +1460,7 @@ A Sonnet review of the branch reproduced two regressions that our tests had miss
 
 Also from the review: an .mxl archive's index file is now size-checked like the score inside it. MIDI export now plays repeats and first and second endings in order (it played the written order); the note list still uses written order. Of the 61 test scores, exactly the 15 with repeat signs changed.
 
-Not fixed, for the owner: more music21 work now runs on worker threads, and two requests can overlap on one instance, so two threads can use music21 at once. Render and export already did this before the branch. One reported flaky test did not fail again in the same combination (259 passed).
+More music21 work runs on worker threads; since the queue of entry 79, score work takes turns, so two threads no longer use music21 at once. One reported flaky test did not fail again in the same combination (259 passed).
 
 ### 82. Our setup against plain Claude, after the fixes (2026-10-31)
 

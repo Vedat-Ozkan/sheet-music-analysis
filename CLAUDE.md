@@ -16,6 +16,8 @@ These are the owner's standing rules. Older detail is in the memory notes for th
 - Measure and quote any change that adds Cloud Run compute before deploying it. Running cost target is about US$5 a month; the Google Cloud account is on a free trial that ends 2027-01-05.
 - Never raise max instances or the daily limits without asking. Daily limits are shared by everyone by design; ask before changing anything about usage counting or limits.
 - After a deploy, check the new revision's startup lines and errors in the logs.
+- The published Claude plugin is `dist/sheet-music-analysis` on GitHub `main`: pushing a changed `dist/` is a plugin release. Ask first, rebuild it with `tools/build_skill.py` and bump the version in `plugin/.claude-plugin/plugin.json`.
+- ChatGPT holds new or changed tools until OpenAI approves them, and an update that is held keeps the old tool metadata. Keep every widget address an approved tool points to working until the update is approved.
 
 ## Owner decisions
 - Display, upload or UI choices: show real examples from both Claude and ChatGPT first; the owner decides.

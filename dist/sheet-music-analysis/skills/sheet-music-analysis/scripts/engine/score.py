@@ -104,7 +104,8 @@ def beat_length(count: int, unit: int) -> Fraction:
     return Fraction(4, unit)
 
 
-def transpose(pitch: str, diatonic: int, semitones: int) -> str:
+def transpose(pitch: str, semitones: int) -> str:
+    diatonic = round(semitones * 7 / 12)
     accidental = pitch[1:].rstrip("0123456789")
     octave = int(pitch[1 + len(accidental) :])
     step = LETTERS.index(pitch[0])
@@ -144,7 +145,7 @@ class ScoreIndex:
         self.key_signature = ""
         self.renumbered = False
         self._ppq: dict[int, int] = {}
-        self._transposition: dict[int, tuple[int, int]] = {}
+        self._transposition: dict[int, int] = {}
         self._beat_length = Fraction(1)
         self._meter = ""
         self._position = 0
@@ -189,7 +190,7 @@ class ScoreIndex:
             if staff_def.get("ppq"):
                 self._ppq[staff] = int(staff_def.get("ppq"))
             if staff_def.get("trans.semi") is not None:
-                self._transposition[staff] = (int(staff_def.get("trans.diat", "0")), int(staff_def.get("trans.semi")))
+                self._transposition[staff] = int(staff_def.get("trans.semi"))
         count, unit = element.get("meter.count"), element.get("meter.unit")
         self._read_meter(element.find(f".//{MEI}meterSig"), count, unit)
         key = element.find(f".//{MEI}keySig")
@@ -278,7 +279,7 @@ class ScoreIndex:
             notes = child.findall(f"{MEI}note") if tag == "chord" else [child] if tag == "note" else []
             notes = [note for note in notes if note.get("pname")]
             for note in notes:
-                pitch = transpose(_pitch(note), *shift) if shift else _pitch(note)
+                pitch = transpose(_pitch(note), shift) if shift else _pitch(note)
                 event = Event(note.get(XML_ID), measure.number, staff, cursor, duration, pitch, grace, self._layer)
                 event.tied = note.get("tie") in ("i", "m")
                 event.segment = measure.id

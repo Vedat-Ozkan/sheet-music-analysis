@@ -16,7 +16,7 @@ The skill reads your attached file inside Claude's own sandbox and engraves the 
 
 ## Data
 
-The score file stays in your conversation. The connector receives the notes of the passage (pitches and durations, no titles, lyrics or text) and returns the draft; it keeps nothing afterwards. Privacy policy: https://sheetmusicanalysis.com/privacy.html
+The score file stays in your conversation. The connector receives the notes of the passage (pitches and durations, no titles, lyrics or text) and returns the draft; it keeps the notes for one day so the passage can be played in the chat, then deletes them. Privacy policy: https://sheetmusicanalysis.com/privacy.html
 
 ## More
 

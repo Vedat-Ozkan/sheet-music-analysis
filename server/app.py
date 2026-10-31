@@ -123,6 +123,11 @@ class BucketStore:
 store = BucketStore(BUCKET) if BUCKET else LocalStore(Path(os.environ.get("DATA_DIR", "out/server")))
 counter_lock = asyncio.Lock()
 pdf_lock = asyncio.Lock()
+score_work = anyio.CapacityLimiter(1)
+
+
+async def in_turn(function, *args):
+    return await anyio.to_thread.run_sync(function, *args, limiter=score_work)
 
 
 def platform(ctx: Context | None) -> str:
@@ -534,7 +539,7 @@ async def render_analysis(
         score, _ = await resolve_score(None, score_id)
         measures = parse_measures(measure_range)
         with stage("render"):
-            engraving = await anyio.to_thread.run_sync(lambda: render(score, annotations, measures=measures, view=view, piano=piano))
+            engraving = await in_turn(lambda: render(score, annotations, measures=measures, view=view, piano=piano))
     except AnnotationError as error:
         log("render_analysis", platform=source, problems=len(error.problems))
         return error_result("Fix these annotations and call again:\n" + "\n".join(error.problems))
@@ -544,7 +549,7 @@ async def render_analysis(
     musicxml, export_warning = None, None
     try:
         with stage("export"):
-            musicxml = await anyio.to_thread.run_sync(export_musicxml, score, annotations.model_dump())
+            musicxml = await in_turn(export_musicxml, score, annotations.model_dump())
     except Exception as error:
         export_warning = "MusicXML export unavailable for this score. PNG and PDF are available."
         log("render_analysis", platform=source, export_error=type(error).__name__)
@@ -567,7 +572,7 @@ async def render_analysis(
         return found
 
     with stage("render"):
-        png = await anyio.to_thread.run_sync(engraving.png, 1)
+        png = await in_turn(engraving.png, 1)
     def publish_all():
         with stage("render"):
             image, pdf = engraving.png(1, width=2800, colors=256), engraving.pdf()
@@ -579,7 +584,7 @@ async def render_analysis(
             for name, data in files.items():
                 links[f"{name}_url"] = publish(data, *EXTRA_FILES[name])
         return links
-    links = await anyio.to_thread.run_sync(publish_all)
+    links = await in_turn(publish_all)
     pdf_url = links["pdf_url"]
     caption = f"Analysis, measures {measure_range}, view {view}" + (", piano reduction" if piano else "")
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
@@ -692,7 +697,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
         score, _ = await resolve_score(None, reading["score_id"])
         score_id = reading["score_id"] if keep_slurs else reading["score_id"] + "N"
         if not keep_slurs:
-            score = await anyio.to_thread.run_sync(pdf_reader.without_slurs, score)
+            score = await in_turn(pdf_reader.without_slurs, score)
             await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
         def render():
             spots = pdf_reader.problem_spots(score)
@@ -700,14 +705,14 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
                     pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots))
 
         with stage("render"):
-            tall, shaded, engraving, notice = await anyio.to_thread.run_sync(render)
+            tall, shaded, engraving, notice = await in_turn(render)
     except (ScoreError, pdf_reader.ReadError, httpx.HTTPError) as error:
         log("read_pdf", platform=source, error=type(error).__name__)
         return error_result(str(error))
     with stage("render"):
-        pages = await anyio.to_thread.run_sync(lambda: [shaded.png(page) for page in range(1, shaded.page_count + 1)])
+        pages = await in_turn(lambda: [shaded.png(page) for page in range(1, shaded.page_count + 1)])
     with stage("publish"):
-        image_url, pdf_url = await anyio.to_thread.run_sync(
+        image_url, pdf_url = await in_turn(
             lambda: (publish(tall.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"))
         )
     caption = "What I read from your PDF, every bar"
@@ -791,7 +796,7 @@ async def play(ctx: Context, play_id: str | None = None, notes: str | None = Non
     if not notes or not notes.lstrip().startswith("N1"):
         return error_result(NO_PLAY_NOTES)
     try:
-        index = await anyio.to_thread.run_sync(note_list.decode, notes)
+        index = await in_turn(note_list.decode, notes)
         unclear = unclear_tempos(index)
         if unclear and not tempo:
             bar, word = unclear[0]
@@ -800,7 +805,7 @@ async def play(ctx: Context, play_id: str | None = None, notes: str | None = Non
                 f"Bar {bar} is marked '{word}' with a half-note beat, so how fast to play it is unclear. Ask the user how "
                 "fast they want it, then call play again with the same arguments and tempo in quarter notes per minute."
             ))])
-        performance = await anyio.to_thread.run_sync(lambda: performance_text(index, tempo=tempo))
+        performance = await in_turn(lambda: performance_text(index, tempo=tempo))
     except (note_list.NotesError, ValueError) as error:
         log("play", error=type(error).__name__, chars=len(notes), outcome=outcome_of(error))
         return error_result(str(error))
@@ -868,7 +873,7 @@ async def draft_analysis(
     try:
         score, given = await resolve_score(score_file, score_id)
         if student_analysis and student_analysis.strip().lower() != "score":
-            check_analysis.from_text(student_analysis)
+            await in_turn(check_analysis.from_text, student_analysis)
         if given == "score_id":
             code = clean_id(score_id)
             fresh = await anyio.to_thread.run_sync(store.get, f"scores/{code}.draft.json") is None
@@ -879,7 +884,7 @@ async def draft_analysis(
         if fresh and not await take("draft", source):
             log("limit", tool="draft_analysis", platform=source)
             return error_result(LIMIT_MESSAGE)
-        text = await anyio.to_thread.run_sync(make_draft, score, code, parse_measures(measure_range), student_analysis)
+        text = await in_turn(make_draft, score, code, parse_measures(measure_range), student_analysis)
     except check_analysis.ClarificationNeeded as error:
         return error_result(error.question)
     except (ScoreError, PositionError, ValueError, draft.DraftError, httpx.HTTPError) as error:
@@ -917,12 +922,12 @@ async def correct_bars(
     try:
         before, _ = await resolve_score(None, score_id)
         with stage("parse"):
-            after = await anyio.to_thread.run_sync(lambda: correct.replace_bars(before, replacement_bars, part=part))
+            after = await in_turn(lambda: correct.replace_bars(before, replacement_bars, part=part))
         if not await take("render", source):
             log("limit", tool="correct_bars", platform=source)
             return error_result(LIMIT_MESSAGE)
         with stage("render"):
-            review = await anyio.to_thread.run_sync(lambda: correct.review_correction(before, after, part=part))
+            review = await in_turn(lambda: correct.review_correction(before, after, part=part))
         if not review.changed_bars:
             log("correct_bars", platform=source, changed=0)
             return CallToolResult(
@@ -931,12 +936,12 @@ async def correct_bars(
                 structured_content={"score_id": score_id, "changed_bars": [], "image_urls": [], "notes": {}},
             )
         with stage("render"):
-            pages = await anyio.to_thread.run_sync(
+            pages = await in_turn(
                 lambda: [engraving.png(page) for engraving in review.engravings
                          for page in range(1, engraving.page_count + 1)]
             )
         with stage("publish"):
-            urls = await anyio.to_thread.run_sync(
+            urls = await in_turn(
                 lambda: [publish(engraving.png(page, width=2800, colors=256), "png")
                          for engraving in review.engravings for page in range(1, engraving.page_count + 1)]
             )
@@ -983,7 +988,7 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         return error_result(NO_NOTE_LIST)
     try:
         if student_analysis:
-            check_analysis.student_labels(student_analysis, None, None)
+            await in_turn(check_analysis.student_labels, student_analysis, None, None)
     except check_analysis.ClarificationNeeded as error:
         return error_result(QUESTION_FOR_USER + error.question)
     except ValueError as error:
@@ -994,11 +999,11 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
     started = time.time()
     try:
         with tracer.start_as_current_span("model"):
-            result = await anyio.to_thread.run_sync(draft.draft_from_notes, notes)
+            result = await in_turn(draft.draft_from_notes, notes)
         with stage("parse"):
-            index = await anyio.to_thread.run_sync(note_list.decode, notes)
+            index = await in_turn(note_list.decode, notes)
         if student_analysis:
-            student = await anyio.to_thread.run_sync(check_analysis.student_labels, student_analysis, None, index)
+            student = await in_turn(check_analysis.student_labels, student_analysis, None, index)
     except check_analysis.ClarificationNeeded as error:
         return error_result(QUESTION_FOR_USER + error.question)
     except (note_list.NotesError, draft.DraftError, PositionError, ValueError) as error:
@@ -1013,7 +1018,7 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         return text
 
     with stage("build"):
-        text = await anyio.to_thread.run_sync(build)
+        text = await in_turn(build)
     play_id = secrets.token_hex(8).upper()
     await anyio.to_thread.run_sync(store.put, f"scores/{play_id}.notes", notes.encode())
     text += f"\n\nPLAY: play_id {play_id} plays this passage. Call play with it when the user wants to hear it."

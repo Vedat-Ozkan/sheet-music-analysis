@@ -10,10 +10,10 @@ from music21 import key as m21key
 from music21 import meter
 from music21 import roman
 
-from engine.draft import FUNCTIONS
 from engine.reduce import midi
 from engine.score import ScoreIndex, beat_length
 
+FUNCTIONS = {"1": "T", "3": "T", "6": "T", "2": "PD", "4": "PD", "5": "D", "7": "D"}
 MEASURE_LINE = re.compile(r"^m(\d+)(var\d+)?([a-z])?(?:-(\d+))?\s*(?:=\s*m(\d+)(?:-(\d+))?)?\s*(.*)$")
 TIME_SIGNATURE = re.compile(r"^Time Signature:\s*(.+?)\s*$")
 BEAT = re.compile(r"^b(\d+(?:\.\d+)?)$")
