@@ -59,7 +59,7 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
    python3 scripts/render_analysis.py SCORE annotations.json --measures 1-8 --out-dir OUTPUT_FOLDER --name analysis
    ```
 
-   For one layer of the analysis, add `--view harmony`, `--view voice_leading` or `--view form`. Add `--piano` to draw the same annotation list on a two-staff piano reduction of the passage, with instrument cues where the tune changes hands; write the list for the original score as usual. The reduction needs `pip install music21` once first. If it lists annotations that do not match the score, fix exactly those and run again. Look at the PNG yourself before showing it: labels should sit where you meant them.
+   For one layer of the analysis, add `--view harmony`, `--view voice_leading` or `--view form`. Add `--piano` to draw the same annotation list on a two-staff piano reduction of the passage, with instrument cues where the tune changes hands; write the list for the original score as usual. The reduction needs `pip install music21` once first. If it lists annotations that do not match the score, fix exactly those and run again. If it prints chord labels that contradict the notes, check each one as it says and run again if you change any. Look at the PNG yourself before showing it: labels should sit where you meant them.
 
 7. **Reply** with the annotated page shown to the user (the PNG), the PDF offered as a download, and the commentary.
 

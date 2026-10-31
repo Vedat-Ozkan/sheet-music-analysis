@@ -5,7 +5,7 @@ import re
 from typing import TYPE_CHECKING
 from xml.sax.saxutils import escape
 
-from engine import notation, slurs
+from engine import harmony, notation, slurs
 from engine.annotations import Alternative, AnnotationList, Cadence, Callout, Harmony, NoteRef, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
 from engine.render import Engraving, check_range, incoming_ties, load_toolkit, shorten_ties
@@ -125,8 +125,9 @@ def render(
         _make_room_for_checks(toolkit, relayout, index, ties, results)
     else:
         drawn = _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role)
+    contradictions = harmony.mismatches(annotations.model_dump(exclude_none=True)["annotations"], index) if results is None else []
     if drawn:
-        return Engraving([layout.to_svg() for layout in drawn])
+        return Engraving([layout.to_svg() for layout in drawn], contradictions)
     pages = []
     for page in range(1, toolkit.getPageCount() + 1):
         layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
@@ -135,7 +136,7 @@ def render(
         else:
             check_display.draw(layout, results, page == toolkit.getPageCount())
         pages.append(layout.to_svg())
-    return Engraving(pages)
+    return Engraving(pages, contradictions)
 
 
 def _make_room_for_checks(toolkit, relayout, index, ties, results) -> None:

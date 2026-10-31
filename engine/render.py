@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 from bisect import bisect_right
 from collections.abc import Collection
 from itertools import accumulate
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fractions import Fraction
 from importlib.resources import files
 from xml.sax.saxutils import escape, unescape
@@ -97,6 +97,7 @@ class ScoreError(ValueError):
 @dataclass
 class Engraving:
     svgs: list[str]
+    contradictions: list[str] = field(default_factory=list)
 
     @property
     def page_count(self) -> int:

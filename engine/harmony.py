@@ -161,3 +161,16 @@ def mismatches(annotations: list[dict], index: ScoreIndex) -> list[str]:
             bottom = NAMES[min(groups[0])[0] % 12]
             found.append(f"{where}: its bass, {NAMES[named.bass]}, is never the lowest note while it lasts (the lowest at its start is {bottom})")
     return found
+
+
+SHOWN_CONTRADICTIONS = 25
+
+
+def contradictions_text(found: list[str]) -> str:
+    if not found:
+        return ""
+    return ("These chord labels contradict the notes that sound while they last, and labels like this are usually wrong:\n"
+            + "\n".join(found[:SHOWN_CONTRADICTIONS])
+            + "\nFor each one, read the notes there and name the chord they make. Keep a label only if you can point to the exact"
+            " note that explains it: a pedal note held in the bass, a chord tone implied elsewhere, or the beat where the seventh"
+            " arrives. If you change any, draw the analysis again before showing it.")

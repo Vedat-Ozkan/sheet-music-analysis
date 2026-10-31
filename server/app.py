@@ -45,7 +45,7 @@ from starlette.responses import Response
 from engine import correct, draft, read_ahead
 from engine import notes as note_list
 from engine import read_pdf as pdf_reader
-from engine import check_analysis, ledger, part_writing, reduce
+from engine import check_analysis, harmony, ledger, part_writing, reduce
 from engine.annotate import AnnotationError, render
 from engine.performance import performance_text, unclear_tempos
 from engine.annotations import AnnotationList
@@ -587,15 +587,17 @@ async def render_analysis(
     links = await in_turn(publish_all)
     pdf_url = links["pdf_url"]
     caption = f"Analysis, measures {measure_range}, view {view}" + (", piano reduction" if piano else "")
+    contradictions = harmony.contradictions_text(engraving.contradictions)
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
-        view=view, measure_range=measure_range)
+        view=view, measure_range=measure_range, contradictions=len(engraving.contradictions))
     structured_content = {**links, "caption": caption}
     return CallToolResult(
         meta={"ask_for_rating": True} if await rating_is_due(ctx) else None,
         content=[
             ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png"),
             TextContent(type="text", text=f"{caption}, shown in a card. PDF: {pdf_url}\n"
-                        + (export_warning or musicxml_text(links["musicxml_url"], annotations)) + downloads_text(links)),
+                        + (export_warning or musicxml_text(links["musicxml_url"], annotations)) + downloads_text(links)
+                        + ("\n\n" + contradictions if contradictions else "")),
         ],
         structured_content=structured_content,
     )

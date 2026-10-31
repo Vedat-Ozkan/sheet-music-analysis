@@ -9,6 +9,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from engine import harmony
 from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
 from engine.export import export_midi, export_musicxml, export_romantext
@@ -68,6 +69,8 @@ def main() -> int:
     pdf = args.out_dir / f"{args.name}.pdf"
     pdf.write_bytes(engraving.pdf())
     print(pdf)
+    if engraving.contradictions:
+        print(harmony.contradictions_text(engraving.contradictions))
     for suffix, make in (("-worksheet.pdf", lambda: render(score, AnnotationList(annotations=[]), measures=measures, piano=args.piano).pdf()),
                          (".mid", lambda: export_midi(score, measures)),
                          (".rntxt", lambda: export_romantext(score, annotations.model_dump(), measures))):
