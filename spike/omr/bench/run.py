@@ -81,6 +81,9 @@ def score(truth: Path, omr: Path) -> dict:
     return json.loads(p.stdout.strip().splitlines()[-1])
 
 
+BAR_CHECKS = ("missing_bars", "extra_bars", "wrong_length_bars", "clef_shifted_notes", "time_signature_missing")
+
+
 def summarise(rows: list[dict]) -> dict:
     t = collections.Counter()
     for r in rows:
@@ -91,7 +94,7 @@ def summarise(rows: list[dict]) -> dict:
         t["seconds"] += r["seconds"]
         t["truth_notes"] += r["truth_notes"]
         s = r.get("score") or {}
-        for k in ("omr_notes", "shared_pitch", "shared_pitch_onset", "uneven_bars_omr", "uneven_bars_truth", "truth_bars", "omr_bars"):
+        for k in ("omr_notes", "shared_pitch", "shared_pitch_onset", "uneven_bars_omr", "uneven_bars_truth", "truth_bars", "omr_bars", *BAR_CHECKS):
             t[k] += s.get(k, 0)
         for k, v in (s.get("kinds") or {}).items():
             for f in ("truth", "found", "invented"):
@@ -103,7 +106,7 @@ def summarise(rows: list[dict]) -> dict:
            "truth_notes": t["truth_notes"], "omr_notes": t["omr_notes"],
            "pitch": round(t["shared_pitch"] / n, 4), "pitch_onset": round(t["shared_pitch_onset"] / n, 4),
            "bar_duration_errors": t["uneven_bars_omr"], "bar_duration_errors_in_truth": t["uneven_bars_truth"],
-           "truth_bars": t["truth_bars"]}
+           "truth_bars": t["truth_bars"], **{k: t[k] for k in BAR_CHECKS}}
     for k in KINDS:
         out[k] = {f: t[f"{k}_{f}"] for f in ("truth", "found", "invented")}
         out[k]["missed"] = out[k]["truth"] - out[k]["found"]
@@ -157,7 +160,7 @@ def main():
         result = {"audiveris_install": sig, "wall_seconds_this_run": round(time.time() - t0, 1), "jobs": jobs,
                   "totals": summarise(rows), "by_engraver": by_eng, "pdfs": rows, "not_built": manifest.get("not_built", [])}
         (folder / a.out).write_text(json.dumps(result, indent=1))
-        print(name, json.dumps({k: result["totals"][k] for k in ("pdfs", "crashed", "pitch", "pitch_onset", "bar_duration_errors")}))
+        print(name, json.dumps({k: result["totals"][k] for k in ("pdfs", "crashed", "pitch", "pitch_onset", "bar_duration_errors", *BAR_CHECKS)}))
 
 
 if __name__ == "__main__":

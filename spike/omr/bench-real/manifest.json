@@ -1,0 +1,40 @@
+{
+ "pieces": {
+  "real-bach-wtc1-22-prelude": {
+   "kind": "keyboard",
+   "truth": "truth/real-bach-wtc1-22-prelude.mxl",
+   "source": "When in Rome heldout-bach-_johann_sebastian-the_well-tempered_clavier_i-22; PDF: IMSLP scan of Peters (Kreutz), 1963 (local only, not committed)"
+  },
+  "real-beethoven-op2no1-iii": {
+   "kind": "keyboard",
+   "truth": "truth/real-beethoven-op2no1-iii.musicxml",
+   "source": "When in Rome heldout-beethoven_piano_sonatas-01-3; PDF: IMSLP scan of Henle, 1971 (local only, not committed)"
+  },
+  "real-grieg-op38no7": {
+   "kind": "keyboard",
+   "truth": "truth/real-grieg-op38no7.musicxml",
+   "source": "When in Rome heldout-grieg_lyric_pieces-op38n07; PDF: IMSLP scan of Peters, 1977 (local only, not committed)"
+  }
+ },
+ "pdfs": [
+  {
+   "pdf": "pdfs/real-bach-wtc1-22-prelude--scan.pdf",
+   "piece": "real-bach-wtc1-22-prelude",
+   "engraver": "scan",
+   "pages": 2
+  },
+  {
+   "pdf": "pdfs/real-beethoven-op2no1-iii--scan.pdf",
+   "piece": "real-beethoven-op2no1-iii",
+   "engraver": "scan",
+   "pages": 2
+  },
+  {
+   "pdf": "pdfs/real-grieg-op38no7--scan.pdf",
+   "piece": "real-grieg-op38no7",
+   "engraver": "scan",
+   "pages": 2
+  }
+ ],
+ "not_built": []
+}

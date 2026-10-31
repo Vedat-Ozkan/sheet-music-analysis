@@ -8,6 +8,8 @@ sys.path.insert(0, str(HERE))
 from compare import align, bars as xml_bars  # noqa: E402
 from engine_check import load, overlap  # noqa: E402
 from engine.read_pdf import problem_spots  # noqa: E402
+from engine.render import load_toolkit  # noqa: E402
+from engine.score import ScoreIndex  # noqa: E402
 from features import KINDS, per_bar, read_xml  # noqa: E402
 
 
@@ -18,6 +20,25 @@ def fill(pairs, nt, no):
         if i2 - i1 == j2 - j1:
             out += [(i1 + k, j1 + k) for k in range(1, i2 - i1)]
     return sorted(out)
+
+
+CLEF_SHIFTS = range(19, 23)
+
+
+def lengths(data):
+    return [m.length for m in ScoreIndex(load_toolkit(data).getMEI()).measures]
+
+
+def clef_shifted(truth_bar, omr_bar):
+    lost, added = truth_bar - omr_bar, omr_bar - truth_bar
+    count = 0
+    for (pitch, onset), n in lost.items():
+        for _ in range(n):
+            twin = next(((p, onset) for d in CLEF_SHIFTS for p in (pitch + d, pitch - d) if added[(p, onset)] > 0), None)
+            if twin:
+                added[twin] -= 1
+                count += 1
+    return count
 
 
 def main():
@@ -40,7 +61,16 @@ def main():
         invented = sum(max(0, o_bars[j][k] - t_bars[i][k]) for i, j in bar_pairs)
         invented += sum(o_bars[j][k] for j in range(len(o_bars)) if j not in aligned_o)
         kinds[k] = {"truth": truth_total, "found": found, "invented": invented, "omr_total": sum(b[k] for b in o_bars)}
-    print(json.dumps({
+    index_pairs = fill(pairs, len(truth), len(omr))
+    t_len, o_len = lengths(truth_data), (lengths(omr_data) if omr_data else [])
+    bar_checks = {
+        "missing_bars": len(truth) - len({i for i, _ in index_pairs}),
+        "extra_bars": len(omr) - len({j for _, j in index_pairs}),
+        "wrong_length_bars": sum(1 for i, j in index_pairs if t_len[i] != o_len[j]),
+        "clef_shifted_notes": sum(clef_shifted(truth[i], omr[j]) for i, j in index_pairs),
+        "time_signature_missing": int(b"<time" in read_xml(truth_data) and (omr_data is None or b"<time" not in read_xml(omr_data))),
+    }
+    print(json.dumps({**bar_checks, 
         "truth_notes": tn, "omr_notes": on, "truth_bars": len(truth), "omr_bars": len(omr),
         "xml_bars": [len(t_bars), len(o_bars)], "bars_paired": len(bar_pairs),
         "shared_pitch": shared_pitch, "shared_pitch_onset": shared_onset,

@@ -5,6 +5,7 @@
 # The benchmark's scripts and notes (its pieces, PDFs and readings are rebuilt by build.py, not committed)
 !bench/
 !bench-heldout*/
+!bench-real/
 bench*/*/
 !bench/analysis*/
 !bench/triplet-evaluation/
