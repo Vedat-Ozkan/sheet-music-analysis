@@ -14,7 +14,7 @@ from pathlib import Path
 
 from engine import notes as note_list
 from engine.annotations import AnnotationList
-from engine.score import Measure, ScoreIndex
+from engine.score import Measure, ScoreIndex, in_range
 
 ROOT = Path(__file__).parent.parent
 ANALYSISGNN_PYTHON = os.environ.get("ANALYSISGNN_PYTHON", str(ROOT / ".venv-agnn/bin/python"))
@@ -433,7 +433,7 @@ def draft_from_notes(text: str, model: str = "analysisgnn") -> Draft:
 
 def as_text(result: Draft, first: int | None = None, last: int | None = None, alternatives: bool = False) -> str:
     def wanted(measure: int) -> bool:
-        return (first is None or measure >= first) and (last is None or measure <= last)
+        return in_range(measure, first, last)
 
     lines = [
         f"Draft analysis from {result.model}. The model's full chord labels are exactly right only about half",
@@ -462,7 +462,7 @@ def as_text(result: Draft, first: int | None = None, last: int | None = None, al
 
 def as_annotations(result: Draft, first: int | None = None, last: int | None = None, functions: bool = False) -> AnnotationList:
     def wanted(measure: int) -> bool:
-        return (first is None or measure >= first) and (last is None or measure <= last)
+        return in_range(measure, first, last)
 
     items: list[dict] = []
     key = None

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from engine import correct, draft, notes, piano
+from engine import correct, draft, notes, piano, reduce
 from engine.annotate import render
 from engine.annotations import AnnotationList
 from engine.check_analysis import ClarificationNeeded, from_text
@@ -149,6 +149,19 @@ def test_piano_reduction(name):
     data, index = load(name)
     numbers = [m.number for m in index.measures]
     assert piano.reduce(data, (numbers[0], numbers[-1]))
+
+
+
+@score_ids
+def test_notes_table_shows_the_bars_of_the_note_list(name):
+    _, index = load(name)
+    numbers = [m.number for m in index.measures if m.number > 0]
+    first, last = numbers[0], numbers[min(3, len(numbers) - 1)]
+    listed = [line.split()[0] for line in notes.encode(index, first, last).splitlines() if line.startswith("m")]
+    table = reduce.as_text(index, first, last)
+    assert [line.split()[0] for line in table.splitlines() if line.startswith("m")] == listed
+    unit = float(index.measure(int(listed[0][1:])).beat_length)
+    assert f"one beat = {unit:g} quarter note" in table.splitlines()[0]
 
 
 TYPED = [line for line in (DATA / "awkward" / "typed.txt").read_text().splitlines() if line.strip()]

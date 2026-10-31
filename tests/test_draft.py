@@ -104,3 +104,8 @@ def test_chords_and_marks_sit_exactly_on_their_notes(result, index):
 
 def test_text_shows_beats_to_two_places(result):
     assert re.search(r"^m\d+ b1\.33 \| ", draft.as_text(result), re.M)
+
+
+def test_text_from_bar_one_includes_the_pickup(result):
+    assert "m0 b1 | " in draft.as_text(result, 1, 2)
+    assert any(item["at"]["measure"] == 0 for item in draft.as_annotations(result, 1, 2).model_dump()["annotations"])

@@ -105,6 +105,10 @@ def beat_length(count: int, unit: int) -> Fraction:
     return Fraction(4, unit)
 
 
+def in_range(number: int, first: int | None, last: int | None) -> bool:
+    return (first is None or number >= first or (first == 1 and number == 0)) and (last is None or number <= last)
+
+
 def transpose(pitch: str, diatonic: int, semitones: int) -> str:
     accidental = pitch[1:].rstrip("0123456789")
     octave = int(pitch[1 + len(accidental) :])

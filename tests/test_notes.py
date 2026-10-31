@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from engine import draft, notes
+from engine import draft, notes, reduce
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 
@@ -106,3 +106,25 @@ def test_the_model_reads_each_key_signature_at_its_bar(haydn):
     out = subprocess.run([draft.ANALYSISGNN_PYTHON, "-c", code], input=text, cwd=Path(__file__).parent.parent,
                          capture_output=True, text=True, check=True).stdout
     assert out.strip() == str([(0, -1), (int(bar_17), 2)])
+
+
+def test_notes_table_gives_the_beat_of_the_bars_it_shows(index):
+    assert "Meter: 12/8; one beat = 1.5 quarter notes." in reduce.as_text(index)
+    assert "Meter: 6/4; one beat = 1 quarter note." in reduce.as_text(index, 33, 34)
+    lines = reduce.as_text(index, 32, 36).splitlines()
+    assert "Meter: 12/8; one beat = 1.5 quarter notes." in lines[0]
+    assert [line for line in lines if line.startswith("m")] == [
+        "m32", "m33 (6/4; one beat = 1 quarter note)", "m34", "m35 (2/4; one beat = 1 quarter note)",
+        "m36 (12/8; one beat = 1.5 quarter notes)"]
+
+
+def test_notes_table_from_bar_one_includes_the_pickup_as_the_note_list_does(index):
+    listed = [line.split()[0] for line in notes.encode(index, 1, 2).splitlines() if line.startswith("m")]
+    shown = [line.split()[0] for line in reduce.as_text(index, 1, 2).splitlines() if line.startswith("m")]
+    assert listed == shown == ["m0", "m1", "m2"]
+
+
+def test_notes_table_marks_a_key_change_on_its_bar(haydn):
+    lines = reduce.as_text(haydn, 16, 17).splitlines()
+    assert lines[0].startswith("Key signature: 1 flat.")
+    assert "m17 (key signature: 2 sharps)" in lines
