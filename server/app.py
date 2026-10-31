@@ -839,7 +839,7 @@ async def draft_analysis(
     try:
         score, given = await resolve_score(score_file, score_id)
         if student_analysis and student_analysis.strip().lower() != "score":
-            check_analysis.from_text(student_analysis)
+            await in_turn(check_analysis.from_text, student_analysis)
         if given == "score_id":
             code = clean_id(score_id)
             fresh = await anyio.to_thread.run_sync(store.get, f"scores/{code}.draft.json") is None
@@ -954,7 +954,7 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         return error_result(NO_NOTE_LIST)
     try:
         if student_analysis:
-            check_analysis.student_labels(student_analysis, None, None)
+            await in_turn(check_analysis.student_labels, student_analysis, None, None)
     except check_analysis.ClarificationNeeded as error:
         return error_result(QUESTION_FOR_USER + error.question)
     except ValueError as error:
