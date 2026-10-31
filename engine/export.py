@@ -8,7 +8,7 @@ from fractions import Fraction
 
 from engine.performance import performance_midi
 from engine.reduce import STEPS
-from engine.render import load_toolkit
+from engine.render import check_range, load_toolkit
 from engine.score import ScoreIndex, TOLERANCE
 
 _SUPERSCRIPTS = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹', '0123456789')
@@ -205,4 +205,5 @@ def export_romantext(original: bytes, analysis: dict, measures: tuple[int, int] 
 
 
 def export_midi(original: bytes, measures: tuple[int, int] | None = None) -> bytes:
+    check_range(measures)
     return performance_midi(original, measures)

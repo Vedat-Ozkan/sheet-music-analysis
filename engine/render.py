@@ -15,7 +15,7 @@ import verovio
 from PIL import Image, ImageChops
 
 from engine.reduce import midi
-from engine.score import TOLERANCE, ScoreIndex
+from engine.score import TOLERANCE, PositionError, ScoreIndex
 from engine.text import FONT_DIR, FONT_FILES, MAIN as TEXT_FONT
 
 os.environ.setdefault("FONTCONFIG_FILE", str(FONT_DIR / "fonts.conf"))
@@ -662,7 +662,13 @@ def shorten_ties(svg: str, ties: set[str]) -> str:
     return re.sub(r'<g class="tie id-([^" ]+) spanning">(?:\s*<g id="bbox-[^"]*"[^>]*>.*?</g>)?\s*<path d="([^"]+)"', shorten, svg, flags=re.S)
 
 
+def check_range(measures: tuple[int, int] | None) -> None:
+    if measures and measures[0] > measures[1]:
+        raise PositionError(f"Measures {measures[0]}-{measures[1]} run backwards; give the first bar first, e.g. {measures[1]}-{measures[0]}")
+
+
 def engrave(score: bytes, measures: tuple[int, int] | None = None, *, include_pickup: bool = True) -> Engraving:
+    check_range(measures)
     if not measures:
         toolkit = load_toolkit(score)
     else:
