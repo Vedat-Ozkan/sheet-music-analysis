@@ -323,7 +323,8 @@ def _drop_title_text(mei: str) -> str:
     def drop(match: re.Match) -> str:
         text = " ".join(unescape(re.sub(r"<[^>]+>", " ", match.group(0))).split())
         heading = re.fullmatch(r"Movement [IVX\d]+", text)
-        return "" if heading or any(name and name in text for name in names) else match.group(0)
+        named = any(name == text or len(name.split()) > 1 and re.search(rf"(?<!\w){re.escape(name)}(?!\w)", text) for name in names)
+        return "" if heading or named else match.group(0)
 
     return re.sub(r"<dir\b.*?</dir>", drop, mei, flags=re.S)
 
