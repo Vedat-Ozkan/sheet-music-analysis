@@ -147,3 +147,21 @@ def test_a_trill_after_a_key_change_takes_its_upper_note_from_the_new_key():
     played, _, _ = perform(marked_index((DATA / "piano" / "dvorak-9-2.mxl").read_bytes()), (91, 91))
     pitches = {note.pitch for note in played}
     assert {82, 85} <= pitches
+
+
+def test_a_range_stops_before_the_next_bar_begins(nocturne):
+    index = marked_index(nocturne)
+    played, _, _ = perform(index, (1, 2))
+    _, _, next_bar = perform(index, (3, 3))
+    assert max(note.start for note in played) < next_bar
+
+
+def test_a_note_list_of_rests_plays_nothing():
+    assert perform(note_list.decode("N1 div=1 ts=4/4 ks=0\nm1 len=4\nm2 len=4"))[0] == []
+    assert perform(note_list.decode("N1 div=1 ts=4/4 ks=0\nm1 len=4\n1.1: 4 C4\nm2 len=4"), (2, 2))[0] == []
+
+
+def test_an_unknown_tempo_word_is_named_in_the_error():
+    index = note_list.decode("N1 div=1 ts=4/4 ks=0\nm1 len=4\nx: q=lively@0\n1.1: 4 C4")
+    with pytest.raises(ValueError, match="Bar 1 is marked 'lively'"):
+        perform(index)

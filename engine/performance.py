@@ -128,7 +128,11 @@ def perform(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: f
 
     def bpm(measure: Measure, value: str) -> float:
         if value not in TEMPO_WORDS:
-            return float(value)
+            try:
+                return float(value)
+            except ValueError:
+                raise ValueError(f"Bar {measure.number} is marked {value!r}; give the tempo in quarter notes per minute "
+                                 f"or as one of {', '.join(TEMPO_WORDS)}") from None
         return tempo or TEMPO_WORDS[value] * float(measure.beat_length)
 
     clock = _Clock([(starts[id(measure)] + mark.offset, bpm(measure, mark.value)) for measure in index.measures
@@ -169,13 +173,13 @@ def perform(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: f
         lower = note.pitch - 1 if mark.value in ("tu", "tl") and not mark.lower else _neighbour(event, measure, -1, mark.lower, key)
         performed.extend(_ornamented(note, mark.value, upper, lower, index.ornaments_from_above))
 
-    window = (0.0, max(note.end for note in performed))
+    window = (0.0, max((note.end for note in performed), default=0.0))
     if measures:
-        chosen = {id(measure) for measure in _chosen(index, measures)}
-        kept = [note for note, measure in notes if id(measure) in chosen]
-        if kept:
-            window = (min(note.start for note in kept), max(note.end for note in kept))
-        performed = [note for note in performed if window[0] - 1 <= note.start <= window[1]]
+        chosen = _chosen(index, measures)
+        ids = {id(measure) for measure in chosen}
+        kept = [note.start for note, measure in notes if id(measure) in ids]
+        window = (min(kept, default=clock.ms(float(starts[id(chosen[0])]))), clock.ms(float(starts[id(chosen[-1])] + chosen[-1].length)))
+        performed = [note for note in performed if window[0] - 1 <= note.start < window[1]]
     pedal_events, down = [], False
     for time, value in sorted(pedals):
         if time < window[0]:

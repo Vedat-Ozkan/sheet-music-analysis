@@ -11,6 +11,7 @@ from engine.annotations import AnnotationList
 from engine.check_analysis import ClarificationNeeded, from_text
 from engine.export import _document, export_musicxml
 from engine.part_writing import applies, as_text, check
+from engine.performance import marked_index, perform
 from engine.read_pdf import problem_spots
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
@@ -162,6 +163,19 @@ def test_notes_table_shows_the_bars_of_the_note_list(name):
     assert [line.split()[0] for line in table.splitlines() if line.startswith("m")] == listed
     unit = float(index.measure(int(listed[0][1:])).beat_length)
     assert f"one beat = {unit:g} quarter note" in table.splitlines()[0]
+
+
+
+@score_ids
+def test_played_range_stops_before_the_next_bar(name):
+    data, _ = load(name)
+    index = marked_index(data)
+    numbers = [m.number for m in index.measures]
+    for first, last in zip(numbers, numbers[1:-1]):
+        played, _, _ = perform(index, (first, last))
+        _, _, next_bar = perform(index, (numbers[numbers.index(last) + 1],) * 2)
+        if played:
+            assert max(note.start for note in played) < next_bar, (first, last)
 
 
 TYPED = [line for line in (DATA / "awkward" / "typed.txt").read_text().splitlines() if line.strip()]
