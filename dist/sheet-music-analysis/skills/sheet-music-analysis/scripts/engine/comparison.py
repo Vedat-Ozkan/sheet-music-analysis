@@ -54,6 +54,10 @@ def sounding(key: str, figure: str) -> Sounding | None:
         return None
 
 
+def beat_ratio(signature: meter.TimeSignature) -> Fraction:
+    return Fraction(signature.beatDuration.quarterLength).limit_denominator(16) / beat_length(signature.numerator, signature.denominator)
+
+
 def from_romantext(text: str) -> list[Label]:
     by_measure: dict[int, list[tuple]] = {}
     key_after: dict[int, str] = {}
@@ -103,7 +107,7 @@ def from_romantext(text: str) -> list[Label]:
     def scaled(beat: float, signature) -> float:
         if score_beats or signature is None:
             return beat
-        ratio = Fraction(signature.beatDuration.quarterLength).limit_denominator(16) / beat_length(signature.numerator, signature.denominator)
+        ratio = beat_ratio(signature)
         return beat if ratio == 1 else float(1 + (Fraction(beat).limit_denominator(12) - 1) * ratio)
 
     return [Label(number, scaled(beat, signature), key, figure) for number in sorted(by_measure) for beat, key, figure, signature in by_measure[number]]

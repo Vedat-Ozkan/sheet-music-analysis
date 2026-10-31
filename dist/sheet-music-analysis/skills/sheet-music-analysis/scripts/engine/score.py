@@ -59,6 +59,7 @@ class Measure:
     index: int
     beat_length: Fraction
     meter: str = ""
+    key_signature: str = ""
     declared_length: Fraction | None = None
     events: list[Event] = field(default_factory=list)
     segments: list[Segment] = field(default_factory=list)
@@ -85,6 +86,10 @@ class Measure:
 
     def offset_of(self, beat: float) -> Fraction:
         offset = (Fraction(beat).limit_denominator(96) - 1) * self.beat_length
+        if round(beat, 2) == beat:
+            nearest = min((event.onset for event in self.events), key=lambda onset: abs(onset - offset), default=offset)
+            if abs(nearest - offset) <= self.beat_length / 200:
+                offset = nearest
         if offset < 0 or (self.length and offset >= self.length):
             beats = float(self.length / self.beat_length)
             raise PositionError(f"Measure {self.number} has no beat {beat}; its beats run from 1 up to {1 + beats:g}")
@@ -102,6 +107,10 @@ def beat_length(count: int, unit: int) -> Fraction:
     if unit == 8 and count > 3 and count % 3 == 0:
         return Fraction(3, 2)
     return Fraction(4, unit)
+
+
+def in_range(number: int, first: int | None, last: int | None) -> bool:
+    return (first is None or number >= first or (first == 1 and number == 0)) and (last is None or number <= last)
 
 
 def transpose(pitch: str, semitones: int) -> str:
@@ -137,6 +146,7 @@ def _duration(element: ET.Element, ppq: int) -> Fraction:
 
 class ScoreIndex:
     ornaments_from_above = False
+    played: list[Measure] | None = None
 
     def __init__(self, mei: str):
         root = ET.fromstring(mei)
@@ -148,7 +158,10 @@ class ScoreIndex:
         self._transposition: dict[int, int] = {}
         self._beat_length = Fraction(1)
         self._meter = ""
+        self._key_signature = ""
         self._position = 0
+        self._drawn_bars = 0
+        self._drawn_position: dict[int, int] = {}
         self._tie_starts: set[str] = set()
         for score_def in root.iter(f"{MEI}scoreDef"):
             self._read_definitions(score_def)
@@ -193,10 +206,13 @@ class ScoreIndex:
                 self._transposition[staff] = int(staff_def.get("trans.semi"))
         count, unit = element.get("meter.count"), element.get("meter.unit")
         self._read_meter(element.find(f".//{MEI}meterSig"), count, unit)
-        key = element.find(f".//{MEI}keySig")
+        concert = [element.find(f"{MEI}keySig")] + [staff_def.find(f"{MEI}keySig") for staff_def in element.iter(f"{MEI}staffDef")
+                                                   if int(staff_def.get("n", "1")) not in self._transposition]
+        key = next((found for found in concert if found is not None), element.find(f".//{MEI}keySig"))
         signature = key.get("sig") if key is not None else element.get("keysig") or element.get("key.sig")
-        if signature and not self.key_signature:
-            self.key_signature = signature
+        if signature:
+            self._key_signature = signature
+            self.key_signature = self.key_signature or signature
 
     def _read_meter(self, meter: ET.Element | None, count: str | None = None, unit: str | None = None) -> None:
         if meter is not None:
@@ -218,6 +234,8 @@ class ScoreIndex:
 
     def _read_measure(self, element: ET.Element) -> None:
         self._position += 1
+        self._drawn_bars += 1
+        self._drawn_position[self._position] = self._drawn_bars
         self._read_meter(element.find(f".//{MEI}meterSig"))
         label = element.get("n", "")
         numbered = label.lstrip("-").isdigit()
@@ -229,6 +247,7 @@ class ScoreIndex:
             index=self._position,
             beat_length=self._beat_length,
             meter=self._meter,
+            key_signature=self._key_signature,
         )
         full = None
         if self._meter:
@@ -263,6 +282,12 @@ class ScoreIndex:
             previous.events.extend(measure.events)
             return
         self.measures.append(measure)
+        rest = element.find(f".//{MEI}multiRest")
+        for following in range(1, int(rest.get("num", "1")) if rest is not None else 1):
+            self._position += 1
+            self._drawn_position[self._position] = self._drawn_bars
+            self.measures.append(Measure(f"{measure.id}-{following}", measure.number + following, self._position, self._beat_length,
+                                         self._meter, self._key_signature, full))
 
     def _read_layer(self, element: ET.Element, measure: Measure, staff: int, cursor: Fraction) -> Fraction:
         ppq = self._ppq.get(staff) or next(iter(self._ppq.values()), 1)
@@ -311,12 +336,16 @@ class ScoreIndex:
             raise PositionError(f"Measure {number} does not exist; the score has measures {first} to {last}")
         return self._by_number[number]
 
-    def measure_range(self, first: int, last: int, *, include_pickup: bool = True) -> str:
+    def range_start(self, first: int, *, include_pickup: bool = True) -> Measure:
         start = self.measure(first)
         position = self.measures.index(start)
         if include_pickup and first == 1 and position > 0 and self.measures[position - 1].number == 0:
-            start = self.measures[position - 1]
-        return f"{start.index}-{self.measure(last).last_index}"
+            return self.measures[position - 1]
+        return start
+
+    def measure_range(self, first: int, last: int, *, include_pickup: bool = True) -> str:
+        start = self.range_start(first, include_pickup=include_pickup)
+        return f"{self._drawn_position[start.index]}-{self._drawn_position[self.measure(last).last_index]}"
 
     def find_note(self, measure: int, beat: float, staff: int | None = None, pitch: str | None = None) -> Event:
         bar = self.measure(measure)

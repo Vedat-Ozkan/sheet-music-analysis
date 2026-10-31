@@ -59,6 +59,13 @@ def bars_from_musicxml(score: bytes, first: int, last: int | None = None, *, par
     return _bars_from_index(selected, index, first, last)
 
 
+def _durations(note_list: str) -> set[Fraction]:
+    lines = note_list.splitlines()
+    div = int(lines[0].split("div=", 1)[1].split()[0])
+    return {Fraction(int(token), div) for line in lines[1:] if ":" in line and not line.startswith("x:")
+            for token in line.split(":", 1)[1].split() if token.isdigit()}
+
+
 def _bars_from_index(selected, index, first, last=None):
     staves = max([int(e.text) for e in selected.findall("measure/attributes/staves")] or [1])
     text = notes.encode(index, first, last if last is not None else first)
@@ -158,9 +165,17 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                     timed = timed or element.tag in {"note", "backup", "forward"}
             if set(s for s, _ in voices) != set(range(1, staves + 1)):
                 raise CorrectionError(f"Bar {number}: include all {staves} staves")
-            for label, (total, _) in voices.items():
+            as_read = _durations(canonical)
+            for label, (total, groups) in voices.items():
                 if total != original.length:
                     raise CorrectionError(f"Bar {number}, voice {label[0]}.{label[1]} adds up to {total}; expected {original.length} quarter notes")
+                for _, duration, grace in groups:
+                    written = Duration(duration)
+                    if not grace and duration not in as_read and (written.type == "inexpressible"
+                                      or any(t.durationNormal.type != written.type for t in written.tuplets)):
+                        raise CorrectionError(
+                            f"Bar {number}: a duration of {duration * div} at div={div} cannot be written as one note; use plain "
+                            "or dotted note values, notes of a simple tuplet such as a triplet, or tied notes")
             if decoded.measure(number).length != original.length:
                 raise CorrectionError(f"Bar {number}: len must match the existing bar length")
     except CorrectionError:
@@ -248,12 +263,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                     next_pitches = {name.rstrip("~") for name in names.split("+")} - {"r"}
                     for pitch in list(pending):
                         if pitch not in next_pitches:
-                            dangling = pending.pop(pitch)
-                            for parent in [dangling, dangling.find("notations")]:
-                                if parent is not None:
-                                    for tie in list(parent):
-                                        if tie.tag in {"tie", "tied"} and tie.get("type") == "start":
-                                            parent.remove(tie)
+                            _remove_tie(pending.pop(pitch), "start")
                 for chord, name in enumerate(names.split("+")):
                     note = ET.Element("note")
                     if grace:
@@ -297,12 +307,6 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                             ET.SubElement(notations, "tied", type=kind)
                     content.append(note)
                     voice_notes.append(note)
-            for note in (pending.values() if number == owners[number].last_index else []):
-                for parent in [note, note.find("notations")]:
-                    if parent is not None:
-                        for tie in list(parent):
-                            if tie.tag in {"tie", "tied"} and tie.get("type") == "start":
-                                parent.remove(tie)
             run = []
             for note in voice_notes + [None]:
                 mod = note.find("time-modification") if note is not None else None
@@ -318,18 +322,26 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                     run.append((ratio, note))
             _beam_voice(voice_notes, owners[number], number, divisions)
         bar[insertion:insertion] = content
+    _join_ties(selected, set(replacements))
     result = ET.tostring(root, encoding="utf-8", xml_declaration=True)
     _, _, after = _read(result, part)
     def timing(bar):
         return [(e.staff, e.layer, e.onset, e.duration, e.pitch, e.grace) for e in bar.events]
-    for original in index.measures:
-        if original.number not in changed_numbers and timing(original) != timing(after.measure(original.number)):
+    def ties(bar):
+        return [e.tied for e in bar.events]
+    for original, following in zip(index.measures, index.measures[1:] + [None]):
+        if original.number in changed_numbers:
+            continue
+        if timing(original) != timing(after.measure(original.number)):
             raise CorrectionError("Divisions normalization would change untouched bars' imported timing")
+        if (following is None or following.number not in changed_numbers) and ties(original) != ties(after.measure(original.number)):
+            raise CorrectionError(f"Bar {original.number}: the correction would change ties in this untouched bar")
     return result
 
 
 def _beam_voice(voice_notes, measure, segment, divisions):
-    signature = meter.TimeSignature(measure.meter)
+    length = measure.length
+    signature = meter.TimeSignature(measure.meter or f"{length.numerator}/{4 * length.denominator}")
     offset = next(s.start for s in measure.segments if s.index == segment)
     if measure.number == 0:
         offset += Fraction(signature.barDuration.quarterLength) - measure.length
@@ -570,24 +582,78 @@ def _drop_crossings(part: ET.Element, replaced: set[int]) -> None:
     starts = {}
     for number, bar in enumerate(part.findall("measure"), 1):
         for note in bar.findall("note"):
-            for parent in [note, note.find("notations")]:
-                if parent is None:
+            notations = note.find("notations")
+            for mark in list(notations) if notations is not None else []:
+                if mark.tag != "slur":
                     continue
-                for mark in list(parent):
-                    if mark.tag not in {"tie", "tied", "slur"}:
-                        continue
-                    key = (mark.tag, mark.get("number", "1"))
-                    if mark.tag != "slur":
-                        key += (note.findtext("staff", "1"), note.findtext("voice", "1"),
-                                note.findtext("pitch/step"), note.findtext("pitch/alter", "0"),
-                                note.findtext("pitch/octave"))
-                    if mark.get("type") == "start":
-                        starts[key] = (number, parent, mark)
-                    elif mark.get("type") == "stop" and key in starts:
-                        first, owner, start = starts.pop(key)
-                        if first != number and any(first <= bar <= number for bar in replaced):
-                            owner.remove(start)
-                            parent.remove(mark)
-    for key, (number, owner, start) in starts.items():
-        if key[0] in {"tie", "tied"} and number + 1 in replaced:
-            owner.remove(start)
+                key = mark.get("number", "1")
+                if mark.get("type") == "start":
+                    starts[key] = (number, notations, mark)
+                elif mark.get("type") == "stop" and key in starts:
+                    first, owner, start = starts.pop(key)
+                    if first != number and any(first <= bar <= number for bar in replaced):
+                        owner.remove(start)
+                        notations.remove(mark)
+
+
+def _join_ties(part: ET.Element, replaced: set[int]) -> None:
+    bars = part.findall("measure")
+    for number in sorted({n for r in replaced for n in (r - 1, r)} - {0}):
+        starts, _ = _loose_ties(bars[number - 1])
+        _, stops = _loose_ties(bars[number]) if number < len(bars) else ({}, {})
+        rewritten = number + 1 in replaced
+        opening = _opening_notes(bars[number]) if rewritten else {}
+        for key, note in starts.items():
+            if key in stops:
+                del stops[key]
+            elif key in opening:
+                target = opening[key]
+                target.insert(list(target).index(target.find("duration")) + 1, ET.Element("tie", type="stop"))
+                notations = target.find("notations")
+                if notations is None:
+                    notations = ET.SubElement(target, "notations")
+                ET.SubElement(notations, "tied", type="stop")
+            else:
+                _remove_tie(note, "start")
+        for note in stops.values():
+            _remove_tie(note, "stop")
+
+
+def _tie_key(note: ET.Element):
+    return (note.findtext("staff", "1"), note.findtext("pitch/step"),
+            float(note.findtext("pitch/alter", "0")), note.findtext("pitch/octave"))
+
+
+def _loose_ties(bar: ET.Element):
+    starts, stops = {}, {}
+    for note in bar.findall("note"):
+        kinds = {mark.get("type") for mark in note.findall("tie") + note.findall("notations/tied")}
+        key = _tie_key(note)
+        if "stop" in kinds and starts.pop(key, None) is None:
+            stops[key] = note
+        if "start" in kinds:
+            starts[key] = note
+    return starts, stops
+
+
+def _opening_notes(bar: ET.Element):
+    cursor = onset = Fraction(0)
+    found = {}
+    for element in bar:
+        if element.tag in {"backup", "forward"}:
+            cursor += Fraction(element.findtext("duration", "0")) * (-1 if element.tag == "backup" else 1)
+        elif element.tag == "note" and element.find("grace") is None:
+            if element.find("chord") is None:
+                onset = cursor
+                cursor += Fraction(element.findtext("duration", "0"))
+            if onset == 0 and element.find("pitch") is not None:
+                found.setdefault(_tie_key(element), element)
+    return found
+
+
+def _remove_tie(note: ET.Element, kind: str) -> None:
+    for parent in [note, note.find("notations")]:
+        if parent is not None:
+            for mark in list(parent):
+                if mark.tag in {"tie", "tied"} and mark.get("type") == kind:
+                    parent.remove(mark)

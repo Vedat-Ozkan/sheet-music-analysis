@@ -1483,7 +1483,7 @@ Rescoring moved plain Opus from 0.58-0.62 to 0.62-0.66 and plain Sonnet from 0.3
 
 At the owner's request, the analysis card asks "Was this analysis helpful?" once per ChatGPT conversation, at its third analysis. The server counts analyses per conversation under the conversation ID scrambled with the daily key (`chats/`, deleted after a day) and sets a flag in the result's card-only metadata, so the chat model does not see it. The thumbs call `rate_analysis`, a tool only the card can call, which logs the answer with the daily user code; the card says thanks only when the call succeeds. The card keeps its approved address, so a held ChatGPT update still finds it. The card now follows ChatGPT's light or dark theme; the score page stays white. The privacy page lists both new records. Not yet tried in ChatGPT itself (staging needs a login); expected answers are few, since the busiest day so far had 13 ChatGPT analyses.
 
-### 82. Multi-bar rests drawn compact again, with every bar still counted (2026-10-30)
+### 84. Multi-bar rests drawn compact again, with every bar still counted (2026-10-30)
 
 The fix that kept every bar of a multi-bar rest wrote the rest out as separate empty bars, so a "9" rest became nine bars across the page. The owner prefers the compact sign. The drawing now keeps it, and the score index counts a rest of N as N bars, each with its own number. Bar positions in the file (used by export, corrections and PDF warnings) and bar positions on the page (used to pick a passage to draw) are now kept apart, because they differ after a compact rest. A label, a student's label or a PDF warning on a bar inside a compact rest has nowhere to go, so that drawing writes that one rest out bar by bar, as before.
 

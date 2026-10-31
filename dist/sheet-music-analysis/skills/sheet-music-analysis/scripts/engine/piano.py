@@ -446,7 +446,7 @@ def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, fi
     def tune_at(time: float) -> float | None:
         return next((e.pitch.ps for e in sounding if e.offset <= time < e.offset + e.quarterLength), None)
 
-    length = opFrac(ref.duration.quarterLength)
+    length = opFrac(min(ref.duration.quarterLength, ref.barDuration.quarterLength))
     in_tune = {(opFrac(e.offset), e.pitch.ps) for e in sounding}
     notes = [n for name in bar for n in _sounding(bar[name], name) if not (name == best and (n.start, n.ps) in in_tune)]
     doubled = {(opFrac(e.offset), e.pitch.pitchClass) for e in sounding}

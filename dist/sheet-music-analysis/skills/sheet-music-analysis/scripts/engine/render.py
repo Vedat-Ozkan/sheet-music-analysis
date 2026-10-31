@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import io
+import math
 import os
 import re
 import zipfile
 import xml.etree.ElementTree as ET
+from collections.abc import Collection
 from dataclasses import dataclass
 from fractions import Fraction
 from importlib.resources import files
@@ -15,7 +17,7 @@ import verovio
 from PIL import Image, ImageChops
 
 from engine.reduce import midi
-from engine.score import TOLERANCE, ScoreIndex
+from engine.score import TOLERANCE, PositionError, ScoreIndex
 from engine.text import FONT_DIR, FONT_FILES, MAIN as TEXT_FONT
 
 os.environ.setdefault("FONTCONFIG_FILE", str(FONT_DIR / "fonts.conf"))
@@ -35,6 +37,8 @@ VEROVIO_OPTIONS = {
     "defaultBottomMargin": 1.0,
 }
 
+
+MAX_PIXELS = 40_000_000
 
 LARGE_SCORE_STAVES = 4
 MAX_MUSICXML_BYTES = 50 * 1024 * 1024
@@ -138,9 +142,12 @@ class Engraving:
         return out.getvalue()
 
     def _raster(self, page: int, width: int) -> Image.Image:
+        svg = self.svgs[page - 1]
+        _, _, w, h = map(float, re.search(r'viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"', svg).groups())
+        width = min(width, math.floor(math.sqrt(MAX_PIXELS * w / h)))
         raw = bytes(
             resvg_py.svg_to_bytes(
-                svg_string=self.svgs[page - 1],
+                svg_string=svg,
                 background="#ffffff",
                 width=width,
                 skip_system_fonts=True,
@@ -160,7 +167,7 @@ class Engraving:
         return max(ink[1] - pad, 0), min(ink[3] + pad, image.height)
 
 
-def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False) -> verovio.toolkit:
+def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False, labelled_bars: Collection[int] = ()) -> verovio.toolkit:
     toolkit = verovio.toolkit(False)
     toolkit.setResourcePath(RESOURCE_PATH)
     toolkit.setOptions({**VEROVIO_OPTIONS, **(options or {})})
@@ -174,16 +181,16 @@ def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool
     loaded = toolkit.loadData(_separate_reused_voices(text))
     if not loaded:
         raise ScoreError("Verovio could not read this file as MusicXML")
-    _tidy(toolkit, _readable_names(score), keep_pedals)
+    _tidy(toolkit, _readable_names(score), keep_pedals, labelled_bars)
     if len(set(re.findall(r'<staffDef\b[^>]*\bn="(\d+)"', toolkit.getMEI()))) <= LARGE_SCORE_STAVES:
         toolkit.setOptions({"systemDivider": "none"})
         toolkit.redoLayout()
     return toolkit
 
 
-def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool = False) -> None:
+def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool, labelled_bars: Collection[int]) -> None:
     mei = toolkit.getMEI()
-    patched = mei
+    patched = re.sub(r"<measure\b(?:(?!</measure>).)*?<multiRest\b.*?</measure>", lambda m: _multi_rest(m, labelled_bars), mei, flags=re.S)
     for part, name in names.items():
         patched = re.sub(rf'(<staffDef\b[^>]*xml:id="{re.escape(part)}"[^>]*>\s*<label\b[^>]*>)[^<]*', lambda m: m.group(1) + escape(name), patched)
     patched = re.sub(
@@ -240,6 +247,24 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool = F
     patched = _number_unmarked_pickup(patched)
     if patched != mei:
         toolkit.loadData(patched)
+
+
+def _multi_rest(match: re.Match, labelled_bars: Collection[int]) -> str:
+    measure = match.group(0)
+    opening = measure[: measure.index(">") + 1]
+    number = re.search(r'\bn="(\d+)"', opening)
+    if not number:
+        return measure
+    count = int(re.search(r'<multiRest\b[^>]*\bnum="(\d+)"', measure).group(1))
+    first = int(number.group(1))
+    if count > 1 and not any(first < bar < first + count for bar in labelled_bars):
+        return measure
+    right = re.search(r'\sright="[^"]*"', opening)
+    if right and count > 1:
+        measure = measure.replace(opening, opening.replace(right.group(0), ""), 1)
+    staves = "".join(f'<staff n="{n}"><layer n="1"><mRest /></layer></staff>' for n in re.findall(r'<staff\b[^>]*\bn="(\d+)"', measure))
+    copies = [f'<measure n="{first + k}"{right.group(0) if right and k == count - 1 else ""}>{staves}</measure>' for k in range(1, count)]
+    return re.sub(r"<multiRest\b[^>]*/>", "<mRest />", measure) + "".join(copies)
 
 
 def _number_unmarked_pickup(mei: str) -> str:
@@ -324,7 +349,8 @@ def _drop_title_text(mei: str) -> str:
     def drop(match: re.Match) -> str:
         text = " ".join(unescape(re.sub(r"<[^>]+>", " ", match.group(0))).split())
         heading = re.fullmatch(r"Movement [IVX\d]+", text)
-        return "" if heading or any(name and name in text for name in names) else match.group(0)
+        named = any(name == text or len(name.split()) > 1 and re.search(rf"(?<!\w){re.escape(name)}(?!\w)", text) for name in names)
+        return "" if heading or named else match.group(0)
 
     return re.sub(r"<dir\b.*?</dir>", drop, mei, flags=re.S)
 
@@ -334,11 +360,14 @@ def _musicxml(score: bytes) -> bytes:
         return score
     try:
         with zipfile.ZipFile(io.BytesIO(score)) as archive:
-            container = ET.fromstring(archive.read("META-INF/container.xml"))
+            def member(name: str) -> bytes:
+                if archive.getinfo(name).file_size > MAX_MUSICXML_BYTES:
+                    raise ScoreError("The score inside this .mxl file is larger than 50 MB")
+                return archive.read(name)
+
+            container = ET.fromstring(member("META-INF/container.xml"))
             path = next(e.get("full-path") for e in container.iter() if e.tag.endswith("rootfile") and e.get("full-path"))
-            if archive.getinfo(path).file_size > MAX_MUSICXML_BYTES:
-                raise ScoreError("The score inside this .mxl file is larger than 50 MB")
-            return archive.read(path)
+            return member(path)
     except (zipfile.BadZipFile, KeyError, StopIteration, ET.ParseError) as error:
         raise ScoreError("This file is not MusicXML: its .mxl archive could not be read") from error
 
@@ -642,7 +671,7 @@ def _repair_broken_ties(mei: str) -> str:
 
 
 def incoming_ties(toolkit: verovio.toolkit, index: ScoreIndex, first: int, *, include_pickup: bool = True) -> set[str]:
-    start = int(index.measure_range(first, first, include_pickup=include_pickup).split("-")[0])
+    start = index.range_start(first, include_pickup=include_pickup).index
     earlier = {e.id for m in index.measures if m.last_index < start for e in m.events}
     return {
         tie for tie, note in re.findall(r'<tie\b[^>]*xml:id="([^"]+)"[^>]*startid="#([^"]+)"', toolkit.getMEI()) if note in earlier
@@ -669,7 +698,13 @@ def shorten_ties(svg: str, ties: set[str]) -> str:
     return re.sub(r'<g class="tie id-([^" ]+) spanning">(?:\s*<g id="bbox-[^"]*"[^>]*>.*?</g>)?\s*<path d="([^"]+)"', shorten, svg, flags=re.S)
 
 
+def check_range(measures: tuple[int, int] | None) -> None:
+    if measures and measures[0] > measures[1]:
+        raise PositionError(f"Measures {measures[0]}-{measures[1]} run backwards; give the first bar first, e.g. {measures[1]}-{measures[0]}")
+
+
 def engrave(score: bytes, measures: tuple[int, int] | None = None, *, include_pickup: bool = True) -> Engraving:
+    check_range(measures)
     if not measures:
         toolkit = load_toolkit(score)
     else:

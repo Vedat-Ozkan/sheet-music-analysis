@@ -8,7 +8,7 @@ from xml.sax.saxutils import escape
 from engine import notation, slurs
 from engine.annotations import Alternative, AnnotationList, Cadence, Callout, Harmony, NoteRef, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
-from engine.render import Engraving, incoming_ties, load_toolkit, shorten_ties
+from engine.render import Engraving, check_range, incoming_ties, load_toolkit, shorten_ties
 from engine.score import PositionError, ScoreIndex
 
 if TYPE_CHECKING:
@@ -83,9 +83,12 @@ def render(
     piano: bool = False,
     student_labels: list[Label] | None = None,
 ) -> Engraving:
+    check_range(measures)
     if piano:
         score, annotations = _piano_version(score, annotations, measures)
-    toolkit = load_toolkit(score, ANNOTATED_OPTIONS)
+    labelled_bars = {place.measure for annotation in annotations.annotations for place in vars(annotation).values() if hasattr(place, "measure")}
+    labelled_bars |= {label.measure for label in student_labels or []}
+    toolkit = load_toolkit(score, ANNOTATED_OPTIONS, labelled_bars=labelled_bars)
     index = ScoreIndex(toolkit.getMEI())
     check(annotations, index)
     results = None
