@@ -1489,6 +1489,8 @@ The fix that kept every bar of a multi-bar rest wrote the rest out as separate e
 
 Checked on the 19 of the first 5,000 PDMX files that have a multi-bar rest: the index (numbers, positions, lengths, notes), the export of a label on every bar and the correction note list are identical to the expanded version for all 19. On the page, a label inside a rest draws the rest out with the label under its bar, and a PDF warning on bar 52 shades bar 52.
 
+A Sonnet review found that marks reaching "N bars ahead" (hairpins) still counted the file's bars, so a crescendo across a compact rest ran 4 beats too long in playback and in the drawing's hairpin spacing. Where a rest stays compact, those counts are now rewritten in drawn bars, so the drawing, the hairpin spacing and playback agree; a test plays a crescendo across a 3-bar rest exactly as with every bar drawn.
+
 Not fixed: a correction that puts notes into a bar inside a multi-bar rest is lost, before and after this change, because the reader skips those bars of the file.
 
 ## Checking against teachers' prose

@@ -11,6 +11,7 @@ from engine import correct
 from engine.check_analysis import from_musicxml
 from engine.comparison import from_annotations
 from engine.export import export_musicxml, export_romantext, _document
+from engine.performance import marked_index, performance_text
 from engine.render import load_toolkit
 from engine.score import ScoreIndex, beat_length
 
@@ -231,6 +232,17 @@ def test_multi_bar_rests_keep_every_bar():
     assert load_toolkit(score).getMEI().count('<measure ') == 3
     assert load_toolkit(score, labelled_bars={3}).getMEI().count('<measure ') == 5
     assert ScoreIndex(load_toolkit(score).getMEI()).measure_range(5, 5) == '3-3'
+
+
+def test_a_hairpin_across_a_compact_rest_ends_where_it_does_with_every_bar_drawn():
+    whole = '<note><pitch><step>C</step><octave>4</octave></pitch><duration>16</duration><type>whole</type></note>'
+    rest = '<note><rest measure="yes"/><duration>16</duration><voice>1</voice></note>'
+    wedge = '<direction placement="below"><direction-type><wedge type="{}"/></direction-type></direction>'
+    score = one_part(wedge.format('crescendo') + whole, '<attributes><measure-style><multiple-rest>3</multiple-rest></measure-style></attributes>' + rest,
+                     rest, rest, wedge.format('stop') + whole, whole)
+    assert 'tstamp2="2m+1"' in load_toolkit(score).getMEI()
+    assert 'tstamp2="4m+1"' in load_toolkit(score, labelled_bars={3}).getMEI()
+    assert performance_text(marked_index(score)) == 'P1 v66 0.200.60 800.200.60 200.200.60'
 
 
 @pytest.mark.parametrize('path', sorted(p for p in (ROOT / 'tests/data').iterdir() if p.suffix in ('.mxl', '.musicxml')), ids=lambda p: p.name)

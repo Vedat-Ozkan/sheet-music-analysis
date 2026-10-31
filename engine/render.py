@@ -6,7 +6,9 @@ import os
 import re
 import zipfile
 import xml.etree.ElementTree as ET
+from bisect import bisect_right
 from collections.abc import Collection
+from itertools import accumulate
 from dataclasses import dataclass
 from fractions import Fraction
 from importlib.resources import files
@@ -191,6 +193,7 @@ def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool
 def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool, labelled_bars: Collection[int]) -> None:
     mei = toolkit.getMEI()
     patched = re.sub(r"<measure\b(?:(?!</measure>).)*?<multiRest\b.*?</measure>", lambda m: _multi_rest(m, labelled_bars), mei, flags=re.S)
+    patched = _count_ahead_in_drawn_bars(patched)
     for part, name in names.items():
         patched = re.sub(rf'(<staffDef\b[^>]*xml:id="{re.escape(part)}"[^>]*>\s*<label\b[^>]*>)[^<]*', lambda m: m.group(1) + escape(name), patched)
     patched = re.sub(
@@ -265,6 +268,26 @@ def _multi_rest(match: re.Match, labelled_bars: Collection[int]) -> str:
     staves = "".join(f'<staff n="{n}"><layer n="1"><mRest /></layer></staff>' for n in re.findall(r'<staff\b[^>]*\bn="(\d+)"', measure))
     copies = [f'<measure n="{first + k}"{right.group(0) if right and k == count - 1 else ""}>{staves}</measure>' for k in range(1, count)]
     return re.sub(r"<multiRest\b[^>]*/>", "<mRest />", measure) + "".join(copies)
+
+
+def _count_ahead_in_drawn_bars(mei: str) -> str:
+    measures = re.findall(r"<measure\b.*?</measure>", mei, flags=re.S)
+    spans = [int(rest.group(1)) if (rest := re.search(r'<multiRest\b[^>]*\bnum="(\d+)"', measure)) else 1 for measure in measures]
+    if all(span == 1 for span in spans):
+        return mei
+    starts = list(accumulate(spans, initial=0))
+    positions = iter(range(len(measures)))
+
+    def redrawn(match: re.Match) -> str:
+        position = next(positions)
+
+        def ahead(finish: re.Match) -> str:
+            landing = min(bisect_right(starts, starts[position] + int(finish.group(1))) - 1, len(measures) - 1)
+            return f'tstamp2="{landing - position}m+'
+
+        return re.sub(r'tstamp2="(\d+)m\+', ahead, match.group(0))
+
+    return re.sub(r"<measure\b.*?</measure>", redrawn, mei, flags=re.S)
 
 
 def _number_unmarked_pickup(mei: str) -> str:

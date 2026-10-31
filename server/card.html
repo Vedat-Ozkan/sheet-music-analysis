@@ -60,6 +60,7 @@
     if (hostContext && (hostContext.theme === "light" || hostContext.theme === "dark")) document.documentElement.dataset.theme = hostContext.theme;
   }
   let askForRating = false;
+  let answeredHere = false;
   function show(data) {
     if (!data || !data.image_url) return;
     const image = document.getElementById("page");
@@ -72,7 +73,7 @@
     }
     document.getElementById("more").hidden = !Object.values(extras).some(Boolean);
     const rated = window.openai && window.openai.widgetState && window.openai.widgetState.rated;
-    document.getElementById("rating").hidden = !askForRating || Boolean(rated);
+    document.getElementById("rating").hidden = !askForRating || (Boolean(rated) && !answeredHere);
   }
 
   window.addEventListener("message", (event) => {
@@ -107,6 +108,7 @@
         for (const id of ["up", "down"]) document.getElementById(id).disabled = false;
         return;
       }
+      answeredHere = true;
       if (window.openai && window.openai.setWidgetState) window.openai.setWidgetState({ rated: true });
       for (const id of ["question", "up", "down"]) document.getElementById(id).hidden = true;
       document.getElementById("thanks").hidden = false;
