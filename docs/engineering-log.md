@@ -1059,20 +1059,20 @@ Why parked: with every bar right the analysis is close enough, but the bar failu
 
 An error's message can quote what the user sent (a part name, a note, an id), and six log lines in `server/app.py` still wrote it in full, against the privacy page. They now log only the error's kind (for example `ScoreError`); the user still gets the full message in the reply. This was built on 2026-10-13 on the usage-log branch, which never merged because the observability work replaced the rest of it. Tests: 175 server-path tests pass. Goes live with the next deploy.
 
-### 61. Eleven engine defects from a review, each with a check across the test scores (2026-10-30)
+### 70. Eleven engine defects from a review, each with a check across the test scores (2026-10-30)
 
 A reviewer reproduced eleven defects in the analysis engine. Each now has a check that runs over every awkward score in `tests/test_awkward.py` (or the real scores in `tests/data/piano`), written to fail first:
 
 - **The model lost notes.** A tie into another voice left a waiting note that later swallowed an unrelated one. The Mayer quartet fixture lost one note; every awkward score now gives the model exactly its notes.
-- **Key changes were dropped.** Each bar now has its own key signature, written as `ks=` on the note list's bar line (old lists read as before) and passed to the model at that bar. Dvorak 9/2 bar 91: four trills played their own note as the upper note; they now reach A♯5 and C♯6.
-- **Chords on a third of a beat were missed.** The draft rounded beats to 1.33 or 1.67, which match no note, so the part-writing check found no chord there and a drawn label landed at 157/94 of a beat. Beats are now exact and rounded only in the text, which is unchanged. Before the fix, chords missed their notes in 6 of 11 awkward scores.
+- **Key changes were dropped.** Each bar now has its own key signature, written as `ks=` on the note list's bar line (old lists read as before) and passed to the model at that bar. Dvorak 9/2 bar 91: four trills played their own note as the upper note; they now reach A♯5 and C♯6. The key is also taken from a non-transposing staff: Weber's Concertino, with the B♭ clarinet on top, read as 1 flat instead of 3.
+- **Chords on a third of a beat were missed.** The draft rounded beats to 1.33 or 1.67, which match no note, so the part-writing check found no chord there, and a label copied from the table at 1.67 was read as 157/94 of a beat, just past its chord's notes. Beats are now exact and rounded only in the text, which is unchanged, and a beat given to two places takes the note within 1/200 of a beat of it. Before the fix, chords missed their notes in 6 of 11 awkward scores.
 - **The student check stopped** when a label came before the draft's first chord, or the draft had none. Such labels are now listed as unchecked.
 - **Piano reduction crashed** on Weber's Concertino bar 1, where a direction's offset runs past 3/4. A bar is now never longer than its time signature.
 - **The notes table gave the wrong beat** when the meter changes (it took the last bar's), and range text from bar 1 left out the pickup the note list includes (6 of 12 awkward scores). Bars that change meter or key now say so.
 - **False ledger-line advice for transposing parts.** Mozart 41's contrabasses and horn in C, and Dvorak 9's clarinet in A and horns, were judged at sounding pitch: 25 of 41 Mozart lines and 4 of 13 Dvorak lines were false and are gone, and one Dvorak clarinet run shrank from bars 1–14 to 1–3; no other score changed.
 - **Playback of a bar range** let in the next bar's first notes whenever a note was held over the barline (6 of 12 awkward scores). It now stops at the last bar's barline. A range with no notes of its own plays nothing instead of the whole piece, and an unknown tempo word gets a plain message.
 - **Malformed note-list headers** (`div=0`, `ts=4/0`, `ts=3`) gave internal errors or were accepted; they are now refused with a reason.
-- **Typed answers** such as "V 4/3", "V6 5" and "vii⁰⁷" now read as V43, V65 and viio7. The differential check on typed answers changed 5 of 191 inputs, all from a question to the right reading. Part writing, PDF warnings, export and rendering did not change.
+- **Typed answers** such as "V 4/3", "V6 5" and "vii⁰⁷" now read as V43, V65 and viio7. The differential check on typed answers changed 5 of 191 inputs, all from a question to the right reading. Part writing, PDF warnings and export did not change. Rendering changed only for the Mozart K. 458 example, whose analysis gives beats 2.67 and 1.17: the V in bar 7 and the NT in bar 5 now sit on their notes (checked on the page).
 
 Known limits: the Brahms Frühlingstrost fixture still fails in the model because its last bar's notes run past the bar. The server's own description of the note-list format does not yet mention `ks=`.
 
