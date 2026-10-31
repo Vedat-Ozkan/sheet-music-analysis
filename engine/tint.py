@@ -45,4 +45,4 @@ def finish(layouts: list[PageLayout], trim: bool = False) -> Engraving:
                 box.set("viewBox", f"{x} {y} {float(w) * ratio:g} {h}")
         pages.append(layout.to_svg())
         ratios.append(ratio)
-    return Trimmed(pages, ratios)
+    return Trimmed(pages, ratios=ratios)
