@@ -68,13 +68,14 @@ def score_from_notes(text: str):
     index = note_list.decode(text)
     div = index.ppq
     part = pt.score.Part("P1", quarter_duration=div)
-    signature = index.key_signature
-    fifths = 0 if signature in ("", "0") else int(signature[:-1]) * FIFTHS.get(signature[-1], 0)
-    part.add(pt.score.KeySignature(fifths, "major"), 0)
-    start, meter = 0, None
+    start, meter, signature = 0, None, None
     voices: dict[tuple[int, int], int] = {}
     pending: dict[tuple[int, str], tuple[object, int]] = {}
     for measure in index.measures:
+        if measure.key_signature != signature:
+            signature = measure.key_signature
+            fifths = 0 if signature in ("", "0") else int(signature[:-1]) * FIFTHS.get(signature[-1], 0)
+            part.add(pt.score.KeySignature(fifths, "major"), start)
         if measure.meter != meter:
             meter = measure.meter
             beats, beat_type = (int(value) for value in meter.split("/"))

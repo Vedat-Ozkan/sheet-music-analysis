@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -76,3 +77,32 @@ def test_a_tie_into_another_voice_keeps_every_note_for_the_model():
     raw = draft.MODELS["analysisgnn"](text.encode(), "notes")
     heard = sorted(zip(raw["notes"]["measure"], raw["notes"]["pitch"], raw["notes"]["duration"]))
     assert heard == [(1, "C5", 4.0), (1, "E4", 8.0), (3, "D5", 4.0), (3, "G4", 4.0), (4, "C5", 4.0), (4, "E4", 4.0)]
+
+
+@pytest.fixture(scope="module")
+def haydn() -> ScoreIndex:
+    return ScoreIndex(load_toolkit((Path(__file__).parent / "data" / "piano" / "haydn-104.mxl").read_bytes()).getMEI())
+
+
+def test_a_key_change_is_written_on_its_bar_and_read_back(haydn):
+    text = notes.encode(haydn)
+    assert text.splitlines()[0].startswith("N1 div=") and " ks=1f" in text.splitlines()[0]
+    assert [line.split()[0] for line in text.splitlines() if " ks=" in line[1:] and line.startswith("m")] == ["m17"]
+    assert [m.key_signature for m in notes.decode(text).measures] == [m.key_signature for m in haydn.measures]
+
+
+def test_a_note_list_without_bar_keys_keeps_the_header_key():
+    index = notes.decode("N1 div=1 ts=4/4 ks=2f\nm1 len=4\n1.1: 4 C4\nm2 len=3 ts=3/4\n1.1: 3 D4")
+    assert [m.key_signature for m in index.measures] == ["2f", "2f"]
+
+
+def test_the_model_reads_each_key_signature_at_its_bar(haydn):
+    code = ("import sys; sys.path.insert(0, 'engine/models'); import analysisgnn_runner as runner; "
+            "score = runner.score_from_notes(sys.stdin.read()); "
+            "print([(k.start.t, k.fifths) for k in score[0].iter_all(runner.pt.score.KeySignature)])")
+    text = notes.encode(haydn, 1, 20)
+    decoded = notes.decode(text)
+    bar_17 = sum(m.length for m in decoded.measures[: [m.number for m in decoded.measures].index(17)]) * decoded.ppq
+    out = subprocess.run([draft.ANALYSISGNN_PYTHON, "-c", code], input=text, cwd=Path(__file__).parent.parent,
+                         capture_output=True, text=True, check=True).stdout
+    assert out.strip() == str([(0, -1), (int(bar_17), 2)])

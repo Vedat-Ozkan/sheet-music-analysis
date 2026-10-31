@@ -125,6 +125,14 @@ def test_model_hears_every_note_once(request, name):
     assert sum(1 for duration in raw["notes"]["duration"] if duration > 0) == expected
 
 
+
+@score_ids
+def test_note_list_keeps_every_bar_key(name):
+    _, index = load(name)
+    decoded = notes.decode(notes.encode(index))
+    assert [m.key_signature or "0" for m in decoded.measures] == [m.key_signature or "0" for m in index.measures]
+
+
 TYPED = [line for line in (DATA / "awkward" / "typed.txt").read_text().splitlines() if line.strip()]
 
 

@@ -150,7 +150,6 @@ def perform(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: f
     for note, _ in notes:
         note.velocity = loudness.at(note.start)
 
-    key = _key_alterations(index.key_signature)
     ornaments = {}
     for measure in index.measures:
         for mark in measure.marks:
@@ -165,6 +164,7 @@ def perform(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: f
             performed.append(note)
             continue
         mark, measure, event = ornaments[id(note)]
+        key = _key_alterations(measure.key_signature)
         upper = _neighbour(event, measure, 1, mark.upper, key)
         lower = note.pitch - 1 if mark.value in ("tu", "tl") and not mark.lower else _neighbour(event, measure, -1, mark.lower, key)
         performed.extend(_ornamented(note, mark.value, upper, lower, index.ornaments_from_above))

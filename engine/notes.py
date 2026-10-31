@@ -38,13 +38,16 @@ def encode(index: ScoreIndex, first: int | None = None, last: int | None = None)
             start = 0
         measures = measures[start : end + 1]
     div = index.ppq
-    lines = [f"{VERSION} div={div} ts={index.meter} ks={index.key_signature or '0'}" + (" orn=upper" if index.ornaments_from_above else "")]
-    meter = index.meter
+    meter, key = index.meter, index.key_signature or "0"
+    lines = [f"{VERSION} div={div} ts={meter} ks={key}" + (" orn=upper" if index.ornaments_from_above else "")]
     for measure in measures:
         header = f"m{measure.number} len={_units(measure.length, div)}"
         if measure.meter and measure.meter != meter:
             meter = measure.meter
             header += f" ts={meter}"
+        if measure.key_signature and measure.key_signature != key:
+            key = measure.key_signature
+            header += f" ks={key}"
         lines.append(header)
         if measure.marks:
             lines.append("x: " + " ".join(_mark(mark) for mark in measure.marks))
@@ -136,7 +139,7 @@ def decode(text: str) -> ScoreIndex:
         settings = dict(part.split("=", 1) for part in lines[0].split()[1:])
         div, meter, key = int(settings["div"]), settings["ts"], settings.get("ks", "0")
         measures: list[Measure] = []
-        current_meter = meter
+        current_meter, current_key = meter, key
         for number, line in numbered[1:]:
             if line.startswith("m"):
                 parts = line.split()
@@ -146,6 +149,7 @@ def decode(text: str) -> ScoreIndex:
                 if "len" not in fields:
                     raise NotesError(f"Line {number}: bar line '{parts[0]}' needs len=…, e.g. '{parts[0]} len=96'")
                 current_meter = fields.get("ts", current_meter)
+                current_key = fields.get("ks", current_key)
                 count, unit = current_meter.split("/")
                 measure = Measure(
                     id=f"m{len(measures) + 1}",
@@ -153,6 +157,7 @@ def decode(text: str) -> ScoreIndex:
                     index=len(measures) + 1,
                     beat_length=beat_length(int(count), int(unit)),
                     meter=current_meter,
+                    key_signature=current_key,
                 )
                 measure.declared_length = Fraction(int(fields["len"]), div)
                 measures.append(measure)

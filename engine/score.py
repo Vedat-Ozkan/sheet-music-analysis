@@ -59,6 +59,7 @@ class Measure:
     index: int
     beat_length: Fraction
     meter: str = ""
+    key_signature: str = ""
     declared_length: Fraction | None = None
     events: list[Event] = field(default_factory=list)
     segments: list[Segment] = field(default_factory=list)
@@ -147,6 +148,7 @@ class ScoreIndex:
         self._transposition: dict[int, tuple[int, int]] = {}
         self._beat_length = Fraction(1)
         self._meter = ""
+        self._key_signature = ""
         self._position = 0
         self._tie_starts: set[str] = set()
         for score_def in root.iter(f"{MEI}scoreDef"):
@@ -194,8 +196,9 @@ class ScoreIndex:
         self._read_meter(element.find(f".//{MEI}meterSig"), count, unit)
         key = element.find(f".//{MEI}keySig")
         signature = key.get("sig") if key is not None else element.get("keysig") or element.get("key.sig")
-        if signature and not self.key_signature:
-            self.key_signature = signature
+        if signature:
+            self._key_signature = signature
+            self.key_signature = self.key_signature or signature
 
     def _read_meter(self, meter: ET.Element | None, count: str | None = None, unit: str | None = None) -> None:
         if meter is not None:
@@ -228,6 +231,7 @@ class ScoreIndex:
             index=self._position,
             beat_length=self._beat_length,
             meter=self._meter,
+            key_signature=self._key_signature,
         )
         full = None
         if self._meter:

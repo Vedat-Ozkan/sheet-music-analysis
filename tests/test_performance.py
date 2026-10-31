@@ -5,7 +5,7 @@ from music21 import midi
 
 from engine.export import export_midi
 from engine import notes as note_list
-from engine.performance import marked_index, performance_text
+from engine.performance import marked_index, perform, performance_text
 
 DATA = Path(__file__).parent / "data"
 NOCTURNE = DATA / "chopin_nocturne_op9_no2_pdmx.mxl"
@@ -141,3 +141,9 @@ def test_a_pedal_printed_just_before_the_barline_reads_back():
     index = marked_index((DATA / "chopin_ballade_op23_pdmx.mxl").read_bytes())
     pedals = [(mark.offset, mark.value) for mark in note_list.decode(note_list.encode(index, 246, 246)).measures[0].marks if mark.kind == "pedal"]
     assert (0, "down") in pedals
+
+
+def test_a_trill_after_a_key_change_takes_its_upper_note_from_the_new_key():
+    played, _, _ = perform(marked_index((DATA / "piano" / "dvorak-9-2.mxl").read_bytes()), (91, 91))
+    pitches = {note.pitch for note in played}
+    assert {82, 85} <= pitches
