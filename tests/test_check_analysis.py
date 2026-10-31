@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from engine import check_analysis as check
+from engine.draft import Chord, Draft
 from engine.comparison import Label, from_annotations
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
@@ -89,10 +90,10 @@ def test_reference_sustain_and_key_precedence(bach):
     assert result[0]['classification'] == 'agrees'
     assert result[1]['classification'] == 'different_key'
     assert result[1]['matches']['chord_and_bass']
-    with pytest.raises(ValueError, match='No reviewed harmony'):
-        check.compare(check.from_text('bar 1 I'), {'annotations': [
-            {'type': 'harmony', 'at': {'measure': 2}, 'label': 'I'},
-        ]}, bach)
+    before = check.compare(check.from_text('bar 1 I'), {'annotations': [
+        {'type': 'harmony', 'at': {'measure': 2}, 'label': 'I'},
+    ]}, bach)
+    assert before[0]['classification'] == 'unchecked' and before[0]['reviewed'] is None
 
 
 def test_xml_timing_and_keys():
@@ -186,3 +187,13 @@ def test_musescore_native_roman_export():
     reviewed = {'annotations': [{'type': 'harmony', 'at': {'measure': item.measure}, 'key': item.key, 'label': item.figure} for item in student]}
     results = check.compare(labels, reviewed, index)
     assert [item['at']['measure'] for item in results if item['is_error']] == [3, 4, 5, 6, 9]
+
+
+def test_student_check_marks_labels_with_no_draft_chord_before_them(bach):
+    student = check.from_text('key: G major; bar 1 I bar 2 V', index=bach)
+    later = Draft('analysisgnn', [Chord(2, 1.0, 'G', 'V', 0.9, 1, 'D')], [], [], [], [])
+    text = check.as_text(student, later, bach)
+    assert 'm1 b1 | G: I | none |  |  | unchecked' in text
+    assert 'm2 b1 | G: V | G: V (0.90) |' in text
+    empty = check.as_text(student, Draft('analysisgnn', [], [], [], [], []), bach)
+    assert empty.count('| none |  |  | unchecked') == 2

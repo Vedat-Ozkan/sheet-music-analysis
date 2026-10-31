@@ -287,13 +287,16 @@ def compare(student: list[Label], reviewed: dict, index: ScoreIndex) -> list[dic
 def compare_labels(student: list[Label], reference: list[Label], index: ScoreIndex) -> list[dict]:
     student = _finish(student, index)
     numbers = {measure.number for measure in index.measures}
-    reference = _finish([item for item in reference if item.measure in numbers], index)
+    reference = [item for item in reference if item.measure in numbers]
+    reference = _finish(reference, index) if reference else []
     results = []
     for label in student:
         position = (label.measure, label.beat)
         expected = next((item for item in reversed(reference) if (item.measure, item.beat) <= position), None)
         if expected is None:
-            raise ValueError(f"No reviewed harmony at bar {label.measure} beat {label.beat:g}")
+            results.append({'at': {'measure': label.measure, 'beat': label.beat}, 'student': asdict(label), 'reviewed': None,
+                            'classification': 'unchecked', 'is_error': False})
+            continue
         r, s = sounding(expected.key, expected.figure), sounding(label.key, label.figure)
         if r is None or s is None:
             raise ValueError(f"Unreadable harmony at bar {label.measure} beat {label.beat:g}")
@@ -352,11 +355,11 @@ def as_text(student: list[Label], draft, index: ScoreIndex) -> str:
     ]
     for item in compare_labels(student, from_draft(draft), index):
         label, expected = item['student'], item['reviewed']
-        chord = chords.get((expected['measure'], expected['beat']))
-        confidence = f" ({chord.confidence:.2f}" + (f", runner-up {chord.alternative} {chord.alternative_confidence:.2f}" if chord.alternative else '') + ')'
+        chord = chords.get((expected['measure'], expected['beat'])) if expected else None
+        confidence = f" ({chord.confidence:.2f}" + (f", runner-up {chord.alternative} {chord.alternative_confidence:.2f}" if chord.alternative else '') + ')' if chord else ''
         lines.append(
             f"m{label['measure']} b{label['beat']:g} | {label['key']}: {label['figure']} | "
-            f"{expected['key']}: {expected['figure']}{confidence if chord else ''} | "
+            f"{expected['key'] + ': ' + expected['figure'] + confidence if expected else 'none'} | "
             f"{chord.bass if chord else ''} | {' '.join(chord.pitches) if chord else ''} | "
             + item['classification'].replace('_', ' ')
         )
