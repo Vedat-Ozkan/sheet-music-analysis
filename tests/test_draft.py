@@ -100,6 +100,7 @@ def test_chords_and_marks_sit_exactly_on_their_notes(result, index):
     for item in result.chords + result.cadences + result.non_chord_tones:
         measure = index.measure(item.measure)
         assert measure.offset_of(item.beat) in {event.onset for event in measure.events}
+        assert measure.offset_of(round(item.beat, 2)) == measure.offset_of(item.beat)
 
 
 def test_text_shows_beats_to_two_places(result):

@@ -86,6 +86,10 @@ class Measure:
 
     def offset_of(self, beat: float) -> Fraction:
         offset = (Fraction(beat).limit_denominator(96) - 1) * self.beat_length
+        if round(beat, 2) == beat:
+            nearest = min((event.onset for event in self.events), key=lambda onset: abs(onset - offset), default=offset)
+            if abs(nearest - offset) <= self.beat_length / 200:
+                offset = nearest
         if offset < 0 or (self.length and offset >= self.length):
             beats = float(self.length / self.beat_length)
             raise PositionError(f"Measure {self.number} has no beat {beat}; its beats run from 1 up to {1 + beats:g}")

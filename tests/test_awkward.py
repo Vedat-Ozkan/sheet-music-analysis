@@ -136,6 +136,7 @@ def test_draft_positions_land_on_notes(request, name):
     for item in result.chords + result.cadences + result.non_chord_tones:
         measure = index.measure(item.measure)
         assert measure.offset_of(item.beat) in {event.onset for event in measure.events}, (item.measure, item.beat)
+        assert measure.offset_of(round(item.beat, 2)) == measure.offset_of(item.beat), (item.measure, item.beat)
 
 @score_ids
 def test_note_list_keeps_every_bar_key(name):
