@@ -147,12 +147,11 @@ def ask_gpt(prompt: str, model: str, effort: str | None = None) -> dict:
              *(["-c", f"model_reasoning_effort={effort}"] if effort else []), "-o", str(reply), "-"],
             input=prompt, capture_output=True, text=True, cwd=folder, env={**os.environ, "CODEX_HOME": config}, timeout=2400,
         )
+        events = [json.loads(line) for line in process.stdout.splitlines() if line.startswith("{")]
         if process.returncode != 0 or not reply.exists():
-            raise RuntimeError(f"codex exited {process.returncode}: {(process.stderr or process.stdout)[-300:]}")
-        usage = {}
-        for line in process.stdout.splitlines():
-            if '"turn.completed"' in line:
-                usage = json.loads(line).get("usage") or {}
+            errors = [event["message"] for event in events if event.get("type") == "error"]
+            raise RuntimeError(f"codex exited {process.returncode}: {(errors or [process.stderr[-300:]])[-1]}")
+        usage = next((event.get("usage") or {} for event in reversed(events) if event.get("type") == "turn.completed"), {})
         return {"result": reply.read_text(), "total_cost_usd": 0, "modelUsage": {model: {}},
                 "usage": {"input_tokens": usage.get("input_tokens", 0), "output_tokens": usage.get("output_tokens", 0)}}
 

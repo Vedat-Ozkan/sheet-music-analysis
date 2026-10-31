@@ -1522,6 +1522,30 @@ Not fixed: a correction that puts notes into a bar inside a multi-bar rest is lo
 
 **Not fixed.** A change missed and changed back inside one line leaves no trace at a line start. Bach WTC I 22 is a different failure: the reader broke the four voices into up to seven fragments held in place by invisible gaps, so 18 of 24 bars have the wrong length; no rule repairs that. The Beethoven bar shift (a key change at the end of a line read as a bar with two invented notes, and the Trio's upbeat as its own bar) is also left.
 
+### 87. A second-opinion plan, and four of its items tried (2026-10-31)
+
+**Where the plan came from.** An Opus review at maximum effort looked at the whole direction from cached results (no model calls). Its main points, with its own numbers: 0.71 (two experts agreeing on the exact label) is a floor, not a ceiling; the best single answer can match one expert more often than two experts match each other, so the honest ceiling for exact labels is somewhere between 0.71 and about 0.84. The fairer measures to publish are the share of labelled music that contradicts its own notes (bass never lowest, seventh never sounding: experts 0.03, ours 0.05, plain Opus 0.12-0.13, plain Sonnet 0.25-0.35 on entry 82's 127 bars) and agreement with any of several experts. The "against any expert 0.88" figure compared us with the better of two experts and each expert with one, so it is not to be published. Not yet re-checked by us.
+
+**1. PDF reading.** Entry 86 (clefs). No image-reading model calls on the server.
+
+**2. What users run.** Same three held-out pieces and passages as entry 82, from MusicXML, full agreement over 127 bars:
+
+| | Plain chat | Our setup |
+|---|---|---|
+| Sonnet, default effort | 0.41 / 0.44 | 0.61 (function 0.74), $1.88 |
+| Opus, medium effort | 0.62 / 0.66 | 0.705 (0.715 before items 4-5), $2.59 |
+| GPT-6 Chat Thinking, default effort, through Codex | 0.31 / 0.53 | not measured |
+
+GPT runs through `codex exec` on the owner's ChatGPT login, in an empty config folder with only the login; Codex adds about 16,000 tokens of its own instructions, so this is close to the ChatGPT app, not the same. The two plain runs used up the free-tier Codex allowance (resets 2026-11-30), so our setup with GPT is not measured. Plain GPT varies a lot between runs: run 1 read most of the Bach in the wrong key.
+
+**3. Labels that contradict the notes.** Challenge 74's check is now in the product: every drawn analysis (server reply and the skill's render script) lists labels whose bass is never lowest, whose seventh never sounds or half of whose notes are missing, with challenge 74's instruction. Challenge 74 measured it at +0.008 with rare large rescues. Building it found a crash: labels without a key were read with key None.
+
+**5. Harmonic rhythm.** Step 2 of the method now says to follow the bass, that many pieces change every beat, and that a chord lasting a beat or more gets its own label. On 12 held-out passages (three pieces where we wrote about half as many chords as the expert, three typical), against the 2026-10-24 reviews: our chord changes per expert change 0.66 to 0.72, expert changes we also mark 62% to 68%, ours that the expert also marks 94% to 94%, function 0.808 to 0.817, full 0.766 to 0.742. The full drop comes from two pieces whose number of changes did not move (Chopin Op. 6 No. 2 0.98 to 0.81 with function unchanged, Grieg Op. 38 No. 7), so it is run-to-run noise, not the wording; kept. $5.97.
+
+**4. Note table.** Each note now shows its length in beats (`pitch@beat~length`) and a staff with several voices is split by voice. The table is 26-81% longer (81% on the four-voice Bach). Same 12 passages, after item 5: full 0.742 to 0.752, function 0.817 to 0.824, within noise; kept, unproven. $4.32.
+
+**Not done.** Reviewing several samples and voting (the review measured +0.002 on cached runs), and a 15-20-piece set of labelled real PDFs.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
