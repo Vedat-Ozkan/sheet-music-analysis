@@ -60,6 +60,7 @@ BUCKET = os.environ.get("BUCKET")
 MAX_SCORE_BYTES = 10 * 1024 * 1024
 DOWNLOAD_SECONDS = 30
 MAX_REDIRECTS = 5
+RATING_AFTER_ANALYSES = 3
 DAILY_LIMITS = {"draft": 100, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
 MAX_PDF_PAGES = 12
 CARD_URI = "ui://sheet-music-analysis/card-v2.html"
@@ -135,7 +136,7 @@ def platform(ctx: Context | None) -> str:
 day_keys: dict[str, bytes] = {}
 
 
-def daily_user(subject: str) -> str:
+def daily_code(value: str) -> str:
     day = datetime.now(timezone.utc).date().isoformat()
     key = day_keys.get(day)
     if key is None:
@@ -145,7 +146,7 @@ def daily_user(subject: str) -> str:
             raise ValueError(f"no user key for {day}")
         day_keys.clear()
         day_keys[day] = key
-    return hmac.new(key, subject.encode(), hashlib.sha256).hexdigest()[:16]
+    return hmac.new(key, value.encode(), hashlib.sha256).hexdigest()[:16]
 
 
 def client_of(headers) -> str:
@@ -252,7 +253,7 @@ def observed(fn):
                 "meta_keys": sorted(meta), "header_names": sorted(dict(headers or {})), "reference": secrets.token_hex(4)}
         if subject := meta.get("openai/subject"):
             try:
-                call["user"] = await anyio.to_thread.run_sync(daily_user, str(subject))
+                call["user"] = await anyio.to_thread.run_sync(daily_code, str(subject))
             except Exception as error:
                 call["user_code_error"] = f"{type(error).__name__}: {error}"
         calls_served += 1
@@ -585,6 +586,7 @@ async def render_analysis(
         view=view, measure_range=measure_range)
     structured_content = {**links, "caption": caption}
     return CallToolResult(
+        meta={"ask_for_rating": True} if await rating_is_due(ctx) else None,
         content=[
             ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png"),
             TextContent(type="text", text=f"{caption}, shown in a card. PDF: {pdf_url}\n"
@@ -592,6 +594,38 @@ async def render_analysis(
         ],
         structured_content=structured_content,
     )
+
+
+async def rating_is_due(ctx: Context) -> bool:
+    try:
+        chat = dict(ctx.request_context.meta or {}).get("openai/session")
+        if not chat:
+            return False
+
+        def count_analysis() -> int:
+            key = f"chats/{daily_code(str(chat))}"
+            analyses = int(store.get(key) or 0) + 1
+            store.put(key, str(analyses).encode())
+            return analyses
+
+        return await anyio.to_thread.run_sync(count_analysis) == RATING_AFTER_ANALYSES
+    except Exception as error:
+        log("render_analysis", rating_error=f"{type(error).__name__}: {error}")
+        return False
+
+
+@apps.tool(
+    resource_uri=CARD_URI,
+    visibility=["app"],
+    title="Rate an analysis",
+    description="Records the user's thumbs up or down from the analysis card.",
+    annotations=ToolAnnotations(title="Rate an analysis", read_only_hint=False, destructive_hint=False,
+                                idempotent_hint=False, open_world_hint=False),
+)
+@observed
+async def rate_analysis(ctx: Context, helpful: bool) -> CallToolResult:
+    log("rate_analysis", helpful=helpful)
+    return CallToolResult(content=[TextContent(type="text", text="Thanks; the rating is recorded.")])
 
 
 apps.add_html_resource(

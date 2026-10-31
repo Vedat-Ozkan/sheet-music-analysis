@@ -3,16 +3,22 @@
 <head>
 <meta charset="utf-8">
 <style>
-  body { margin: 0; font: 14px system-ui, sans-serif; background: #fff; color: #111; }
-  img { display: block; width: 100%; height: auto; }
+  :root { color-scheme: light; --bg: #fff; --fg: #111; --muted: #555; --border: #d0d0d0; --button: #0d0d0d; --button-fg: #fff; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --bg: #212121; --fg: #f2f2f5; --muted: #a1a1a6; --border: #48484a; --button: #f2f2f5; --button-fg: #111; } }
+  :root[data-theme="dark"] { color-scheme: dark; --bg: #212121; --fg: #f2f2f5; --muted: #a1a1a6; --border: #48484a; --button: #f2f2f5; --button-fg: #111; }
+  body { margin: 0; font: 14px system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+  img { display: block; width: 100%; height: auto; background: #fff; }
   .actions { display: flex; flex-direction: column; gap: 4px; padding: 12px; }
   .actions button { width: 100%; height: 40px; border: 0; border-radius: 20px; font: inherit; font-size: 15px; cursor: pointer; }
   .actions button[hidden] { display: none; }
-  #pdf { background: #0d0d0d; color: #fff; }
-  .more { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 0 12px 12px; color: #555; font-size: 13px; }
+  #pdf { background: var(--button); color: var(--button-fg); }
+  .more { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 0 12px 12px; color: var(--muted); font-size: 13px; }
   .more[hidden] { display: none; }
-  .more button { width: auto; height: 32px; padding: 0 12px; border: 1px solid #d0d0d0; border-radius: 16px; background: none; color: #0d0d0d; font: inherit; font-size: 13px; cursor: pointer; }
+  .more button { width: auto; height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: 16px; background: none; color: var(--fg); font: inherit; font-size: 13px; cursor: pointer; }
   .more button[hidden] { display: none; }
+  .rating { display: flex; align-items: center; gap: 8px; padding: 0 12px 12px; color: var(--muted); font-size: 13px; }
+  .rating[hidden], .rating [hidden] { display: none; }
+  .rating button { height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: 16px; background: none; font-size: 16px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -26,6 +32,12 @@
   <button id="worksheet" hidden>Worksheet</button>
   <button id="midi" hidden>MIDI</button>
   <button id="romantext" hidden>RomanText</button>
+</div>
+<div class="rating" id="rating" hidden>
+  <span id="question">Was this analysis helpful?</span>
+  <button id="up" aria-label="Yes, helpful">👍</button>
+  <button id="down" aria-label="Not helpful">👎</button>
+  <span id="thanks" hidden>Thanks for telling us.</span>
 </div>
 <script>
   let nextId = 1;
@@ -44,6 +56,10 @@
     send({ jsonrpc: "2.0", method: "ui/notifications/size-changed",
            params: { width: root.scrollWidth, height: root.scrollHeight } });
   }
+  function applyTheme(hostContext) {
+    if (hostContext && (hostContext.theme === "light" || hostContext.theme === "dark")) document.documentElement.dataset.theme = hostContext.theme;
+  }
+  let askForRating = false;
   function show(data) {
     if (!data || !data.image_url) return;
     const image = document.getElementById("page");
@@ -55,6 +71,8 @@
       document.getElementById(name).hidden = !extras[name];
     }
     document.getElementById("more").hidden = !Object.values(extras).some(Boolean);
+    const rated = window.openai && window.openai.widgetState && window.openai.widgetState.rated;
+    document.getElementById("rating").hidden = !askForRating || Boolean(rated);
   }
 
   window.addEventListener("message", (event) => {
@@ -63,7 +81,10 @@
     if (message.id !== undefined && pending[message.id]) {
       pending[message.id](message.result);
       delete pending[message.id];
+    } else if (message.method === "ui/notifications/host-context-changed") {
+      applyTheme(message.params);
     } else if (message.method === "ui/notifications/tool-result") {
+      askForRating = Boolean(message.params && message.params._meta && message.params._meta.ask_for_rating);
       show(message.params && message.params.structuredContent);
     }
   });
@@ -79,15 +100,42 @@
   download("pdf", () => pdfUrl);
   for (const name in extras) download(name, () => extras[name]);
 
+  function rate(helpful) {
+    for (const id of ["up", "down"]) document.getElementById(id).disabled = true;
+    request("tools/call", { name: "rate_analysis", arguments: { helpful } }).then((result) => {
+      if (!result || result.isError) {
+        for (const id of ["up", "down"]) document.getElementById(id).disabled = false;
+        return;
+      }
+      if (window.openai && window.openai.setWidgetState) window.openai.setWidgetState({ rated: true });
+      for (const id of ["question", "up", "down"]) document.getElementById(id).hidden = true;
+      document.getElementById("thanks").hidden = false;
+    });
+  }
+  document.getElementById("up").addEventListener("click", () => rate(true));
+  document.getElementById("down").addEventListener("click", () => rate(false));
+
   reportSize();
   new ResizeObserver(reportSize).observe(document.body);
 
   const identity = { name: "score-card", version: "0.0.1" };
   request("ui/initialize", { protocolVersion: "2026-01-26", appInfo: identity, clientInfo: identity, appCapabilities: {} })
-    .then(() => send({ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {} }));
+    .then((result) => {
+      applyTheme(result && result.hostContext);
+      send({ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {} });
+    });
 
-  if (window.openai && window.openai.toolOutput) show(window.openai.toolOutput);
-  window.addEventListener("openai:set_globals", () => show(window.openai && window.openai.toolOutput));
+  if (window.openai) applyTheme(window.openai);
+  function showFromOpenAI() {
+    const metadata = window.openai.toolResponseMetadata;
+    askForRating = Boolean(metadata && metadata.ask_for_rating);
+    show(window.openai.toolOutput);
+  }
+  if (window.openai && window.openai.toolOutput) showFromOpenAI();
+  window.addEventListener("openai:set_globals", () => {
+    applyTheme(window.openai);
+    if (window.openai) showFromOpenAI();
+  });
 </script>
 </body>
 </html>
