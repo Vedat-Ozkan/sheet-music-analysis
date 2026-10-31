@@ -33,6 +33,8 @@ TIMEOUT = 240
 PAINT_OPERATORS = {"S", "s", "f", "F", "f*", "B", "B*", "b", "b*"}
 CHECK = "This is what I read from your PDF; check it against your copy before I analyse it."
 SCAN_WARNING = "Scanned pages often have reading mistakes, so please check carefully."
+MOSTLY_MISREAD = ("Most bars could not be read reliably, so the analysis will be much more accurate from a MusicXML file of the piece,"
+                  " which most notation programs and sheet music websites can provide.")
 SLURS_LEFT_OUT = "Slurs are left out, because they are often misread from PDFs; ask if you want them kept."
 SHOWN = 4
 _LENGTH = {"whole": 4, "half": 2, "quarter": 1, "eighth": Fraction(1, 2),
@@ -68,6 +70,8 @@ def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool, spots
         verb = "doesn't" if len(uneven) == 1 else "don't"
         who = f"The shaded bars ({_numbers(uneven)[5:]})" if len(uneven) > SHOWN else f"{_numbers(uneven)} (shaded)"
         text += f" {who} {verb} add up to a full bar, so a note or triplet may be misread there."
+        if len(uneven) * 2 > len(ET.fromstring(score).find("part").findall("measure")):
+            text += " " + MOSTLY_MISREAD
     return text + ("" if slurs_kept else " " + SLURS_LEFT_OUT)
 
 

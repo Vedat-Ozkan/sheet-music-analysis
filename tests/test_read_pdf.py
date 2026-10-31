@@ -13,7 +13,7 @@ from PIL import Image
 from engine import tint
 from engine.overlay import Box, PageLayout
 from engine.performance import marked_index
-from engine.read_pdf import PREVIEW_OPTIONS, SETTINGS, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, without_slurs
+from engine.read_pdf import MOSTLY_MISREAD, PREVIEW_OPTIONS, SETTINGS, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, without_slurs
 from engine.render import MAX_PIXELS, engrave, load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
@@ -314,3 +314,11 @@ def test_a_left_hand_clef_change_the_reader_missed_is_put_back_where_the_hands_s
                for clef in measure.iter('clef') if clef.get('number') == '2']
     assert {('5', 'F'), ('39', 'F'), ('46', 'F')} <= set(changes)
     assert not {('7', 'F'), ('41', 'F'), ('48', 'F')} & set(changes)
+
+
+def test_a_reading_with_most_bars_misread_suggests_a_musicxml_file_instead():
+    folder = Path(__file__).parent / 'data/pdf_warnings'
+    mostly_wrong = gzip.open(folder / 'lehmann_golden_bridges_reading.musicxml.gz').read()
+    mostly_right = gzip.open(folder / 'joplin_maple_leaf_rag_reading.musicxml.gz').read()
+    assert MOSTLY_MISREAD in notice(mostly_wrong, scan=False, skipped=[], slurs_kept=False)
+    assert MOSTLY_MISREAD not in notice(mostly_right, scan=False, skipped=[], slurs_kept=False)
