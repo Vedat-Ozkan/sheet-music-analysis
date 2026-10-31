@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from engine import correct, draft, notes
+from engine import correct, draft, notes, piano
 from engine.annotate import render
 from engine.annotations import AnnotationList
 from engine.check_analysis import ClarificationNeeded, from_text
@@ -141,6 +141,14 @@ def test_note_list_keeps_every_bar_key(name):
     _, index = load(name)
     decoded = notes.decode(notes.encode(index))
     assert [m.key_signature or "0" for m in decoded.measures] == [m.key_signature or "0" for m in index.measures]
+
+
+
+@score_ids
+def test_piano_reduction(name):
+    data, index = load(name)
+    numbers = [m.number for m in index.measures]
+    assert piano.reduce(data, (numbers[0], numbers[-1]))
 
 
 TYPED = [line for line in (DATA / "awkward" / "typed.txt").read_text().splitlines() if line.strip()]
