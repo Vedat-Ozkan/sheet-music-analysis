@@ -68,3 +68,11 @@ def test_grace_notes_after_a_rest_keep_their_place():
     grace = [event for event in index.measures[0].events if event.grace]
     assert {event.onset for event in grace} == {2}
     assert notes.encode(index).splitlines()[2] == "1.1: 2 r gA5+B5 1 C6"
+
+
+def test_a_tie_into_another_voice_keeps_every_note_for_the_model():
+    text = ("N1 div=1 ts=4/4 ks=0\nm1 len=4\n1.1: 4 C5\n1.2: 4 E4~\nm2 len=4\n1.1: 4 E4\n"
+            "m3 len=4\n1.1: 4 D5\n1.2: 4 G4\nm4 len=4\n1.1: 4 C5\n1.2: 4 E4")
+    raw = draft.MODELS["analysisgnn"](text.encode(), "notes")
+    heard = sorted(zip(raw["notes"]["measure"], raw["notes"]["pitch"], raw["notes"]["duration"]))
+    assert heard == [(1, "C5", 4.0), (1, "E4", 8.0), (3, "D5", 4.0), (3, "G4", 4.0), (4, "C5", 4.0), (4, "E4", 4.0)]

@@ -1,10 +1,11 @@
 import re
 import xml.etree.ElementTree as ET
+from fractions import Fraction
 from pathlib import Path
 
 import pytest
 
-from engine import correct
+from engine import correct, draft, notes
 from engine.annotate import render
 from engine.annotations import AnnotationList
 from engine.check_analysis import ClarificationNeeded, from_text
@@ -29,7 +30,9 @@ SCORES = {
     "pdf-reading-prelude": DATA / "chopin_prelude_op28_no4_reading.musicxml",
     "pdf-reading-overrun": DATA / "awkward" / "kinkel-op8-5-trennung-reading.musicxml",
 }
-KNOWN: dict[tuple[str, str], str] = {}
+KNOWN: dict[tuple[str, str], str] = {
+    ("model_notes", "key-change-tuplets"): "notes in its last bar run past the bar's length, so the model refuses the score",
+}
 
 score_ids = pytest.mark.parametrize("name", list(SCORES))
 
@@ -100,6 +103,26 @@ def test_correct_roundtrip(request, name):
         except Exception as error:
             failures.append(f"bar {bar}: {type(error).__name__}: {error}")
     assert not failures, failures
+
+
+@score_ids
+def test_model_hears_every_note_once(request, name):
+    known(request, "model_notes", name)
+    _, index = load(name)
+    text = notes.encode(index)
+    expected, held, start = 0, {}, Fraction(0)
+    for measure in notes.decode(text).measures:
+        for event in measure.events:
+            if not event.pitch or event.grace:
+                continue
+            begin = start + event.onset
+            if held.pop((event.staff, event.pitch), None) != begin:
+                expected += 1
+            if event.tied:
+                held[(event.staff, event.pitch)] = begin + event.duration
+        start += measure.length
+    raw = draft.MODELS["analysisgnn"](text.encode(), "notes")
+    assert sum(1 for duration in raw["notes"]["duration"] if duration > 0) == expected
 
 
 TYPED = [line for line in (DATA / "awkward" / "typed.txt").read_text().splitlines() if line.strip()]
