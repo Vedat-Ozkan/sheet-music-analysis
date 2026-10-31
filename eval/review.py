@@ -21,6 +21,7 @@ import tempfile
 import time
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from pathlib import Path
 
 from engine import draft, harmony, reduce, render
@@ -114,18 +115,16 @@ def passages(index: ScoreIndex, bars: int, most: int | None = None) -> list[tupl
     return [(chunk[0], chunk[-1]) for chunk in chunks]
 
 
-ENV_FILE = Path(__file__).parent.parent / ".env"
 SPEND = Path(__file__).parent.parent / "out" / "api-spend.jsonl"
 
 
-def claude_environment() -> dict[str, str]:
-    environment = {name: value for name, value in os.environ.items() if not name.startswith("CLAUDE")}
-    if ENV_FILE.exists():
-        for line in ENV_FILE.read_text().splitlines():
-            name, _, value = line.partition("=")
-            if name.strip() == "ANTHROPIC_API_KEY" and value.strip():
-                environment["ANTHROPIC_API_KEY"] = value.strip().strip('"')
-    return environment
+@contextmanager
+def fresh_claude():
+    with tempfile.TemporaryDirectory() as config:
+        (Path(config) / ".credentials.json").symlink_to(Path.home() / ".claude" / ".credentials.json")
+        environment = {name: value for name, value in os.environ.items() if not name.startswith(("CLAUDE", "ANTHROPIC_API_KEY"))}
+        environment["CLAUDE_CONFIG_DIR"] = config
+        yield environment
 
 
 def record_spend(script: str, answer: dict) -> None:
@@ -135,8 +134,7 @@ def record_spend(script: str, answer: dict) -> None:
 
 
 def ask(prompt: str, model: str, effort: str | None = None, files: dict[str, bytes] | None = None) -> dict:
-    environment = claude_environment()
-    with tempfile.TemporaryDirectory() as folder:
+    with fresh_claude() as environment, tempfile.TemporaryDirectory() as folder:
         for name, data in (files or {}).items():
             (Path(folder) / name).write_bytes(data)
         blocked = NO_TOOLS.replace("Read,", "") if files else NO_TOOLS
@@ -156,7 +154,7 @@ def ask(prompt: str, model: str, effort: str | None = None, files: dict[str, byt
             reason = (process.stderr or process.stdout)[-300:]
         raise RuntimeError(f"claude exited {process.returncode}: {reason}")
     answer = json.loads(process.stdout)
-    record_spend("review", answer)
+    record_spend("review (subscription, estimated)", answer)
     return answer
 
 

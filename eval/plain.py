@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
@@ -22,7 +21,7 @@ from pathlib import Path
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 from eval import compare, pieces
-from eval.review import musicxml, record_spend
+from eval.review import fresh_claude, musicxml, record_spend
 
 OUT = pieces.OUT / "plain"
 PASSAGES = pieces.OUT / "reviewed" / "opus-medium-2026-10-24"
@@ -41,10 +40,7 @@ m2 I b2 IV b3 G: V7"""
 
 
 def ask(prompt: str, model: str) -> dict:
-    with tempfile.TemporaryDirectory() as config, tempfile.TemporaryDirectory() as folder:
-        (Path(config) / ".credentials.json").symlink_to(Path.home() / ".claude" / ".credentials.json")
-        environment = {name: value for name, value in os.environ.items() if not name.startswith(("CLAUDE", "ANTHROPIC_API_KEY"))}
-        environment["CLAUDE_CONFIG_DIR"] = config
+    with fresh_claude() as environment, tempfile.TemporaryDirectory() as folder:
         process = subprocess.run(
             ["claude", "-p", "--model", model, "--system-prompt", "You are Claude, a helpful AI assistant.", "--tools", "", "--disable-slash-commands", "--strict-mcp-config", "--output-format", "json"],
             input=prompt, capture_output=True, text=True, cwd=folder, env=environment, timeout=1800,

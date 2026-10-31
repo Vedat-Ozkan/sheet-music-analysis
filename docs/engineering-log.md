@@ -1460,6 +1460,23 @@ Also from the review: an .mxl archive's index file is now size-checked like the 
 
 Not fixed, for the owner: more music21 work now runs on worker threads, and two requests can overlap on one instance, so two threads can use music21 at once. Render and export already did this before the branch. One reported flaky test did not fail again in the same combination (259 passed).
 
+### 82. Our setup against plain Claude, after the fixes (2026-10-31)
+
+**Question.** How does the full setup compare with plain Claude, and did entries 80-81 change it?
+
+**Method.** The three held-out pieces and 127 bars of challenge 61, all scored by the same code with the corrected scorer (entry 66). The plain answers are the saved ones from challenge 61, rescored. The new run drafted again from the fixed note lists and reviewed with Opus at medium effort, as on 2026-10-24. Every Claude call in `eval/` now runs in a fresh config folder holding only the subscription login, with no API key, CLAUDE.md, memory, plugins or skills (checked by asking the model to quote any it had: none). Before this, reviews and the judge ran with the owner's normal config folder.
+
+| 127 bars, 3 pieces | Full | Function | Key | Per piece, full (Bach / Beethoven / Grieg) |
+|---|---|---|---|---|
+| Plain Sonnet, run 1 / 2 | 0.41 / 0.44 | 0.51 / 0.59 | 0.69 / 0.84 | 0.00-0.16 / 0.46-0.47 / 0.54-0.55 |
+| Plain Opus, run 1 / 2 | 0.62 / 0.66 | 0.72 / 0.73 | 0.97 / 0.96 | 0.50-0.58 / 0.60-0.70 / 0.66-0.69 |
+| Our setup, 2026-10-24 | 0.70 | 0.77 | 0.96 | 0.58 / 0.72 / 0.73 |
+| Our setup, after entries 80-81 | 0.71 | 0.79 | 0.96 | 0.59 / 0.79 / 0.70 |
+
+Rescoring moved plain Opus from 0.58-0.62 to 0.62-0.66 and plain Sonnet from 0.39-0.42 to 0.41-0.44. The draft alone barely moved with the fixes (Beethoven 0.45 to 0.48 over the whole piece, Bach and Grieg unchanged). Estimated cost of the new review: about $5 of subscription use.
+
+**What it means.** Our setup leads plain Opus by about 5-9 points and plain Sonnet by about 27-30. One run of ours against two of each plain model, on three pieces, with a run-to-run spread of about 0.04 per piece: the Sonnet gap is clear, the Opus gap is suggestive but not yet a published figure. The 30-piece comparison would settle it.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

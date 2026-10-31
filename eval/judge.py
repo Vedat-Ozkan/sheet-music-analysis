@@ -26,7 +26,7 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import groupby
 
 from eval import pieces
-from eval.review import REVIEWED, claude_environment, record_spend
+from eval.review import REVIEWED, fresh_claude, record_spend
 
 JUDGED = pieces.OUT / "judged"
 VERDICTS = ("agree", "partly", "disagree", "not_addressed")
@@ -138,14 +138,13 @@ def judge(piece: pieces.Piece, reviewer: str, claims_from: str | None = None, re
         analysis=as_text(annotations, commentary),
         published="\n\n".join(texts) or "(none could be read in advance)",
     )
-    environment = claude_environment()
-    with tempfile.TemporaryDirectory() as folder:
+    with fresh_claude() as environment, tempfile.TemporaryDirectory() as folder:
         process = subprocess.run(
             ["claude", "-p", "--output-format", "json", "--allowedTools", "WebFetch", "--disallowedTools", "Bash,Write,Edit,Agent,Task,Skill"],
             input=prompt, capture_output=True, text=True, cwd=folder, env=environment, timeout=1500,
         )  # fmt: skip
     answer = json.loads(process.stdout)
-    record_spend("judge", answer)
+    record_spend("judge (subscription, estimated)", answer)
     block = re.search(r"```json\s*(.*?)```", answer["result"], re.DOTALL)
     result = json.loads(block.group(1) if block else answer["result"])
     result["cost_usd"] = round(answer.get("total_cost_usd") or 0, 3)
