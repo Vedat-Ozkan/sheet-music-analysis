@@ -21,6 +21,7 @@ TOKEN = re.compile(
     rf"|(?P<shortkey>{KEY_NAME}\s*:)"
     r"|(?P<label>[^\s,;:]+)", re.IGNORECASE,
 )
+SCRIPT_DIGITS = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', 'o1234567890123456789')
 
 
 class ClarificationNeeded(ValueError):
@@ -42,7 +43,7 @@ def _key(text: str) -> str:
 def _figure(text: str, key: str) -> str:
     groups = text.split('/\0')
     text = text.replace('\0', '')
-    figure = text.translate(str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', '01234567890123456789'))
+    figure = text.translate(SCRIPT_DIGITS)
     figure = re.sub(r'(?<=\d)/(?=\d)', '', figure)
     figure = figure.replace('°', 'o').replace('♯', '#').replace('♭', 'b').replace('/o', 'ø')
     figure = {'It+6': 'It6', 'Ger+6': 'Ger6', 'Fr+6': 'Fr6'}.get(figure, figure)
@@ -90,7 +91,7 @@ def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
 
 
 def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None) -> list[Label]:
-    text = text.translate(str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', '01234567890123456789'))
+    text = text.translate(SCRIPT_DIGITS)
     text = re.sub(r'(?:\s+/\s*|\s*/\s+)(?=[#b-]*[ivIV])', '/\0', text)
     text = re.sub(r'\s*/\s*', '/', text)
     text = re.sub(r'\bCad\s*6\s*[-–—]\s*4', 'Cad64', text, flags=re.IGNORECASE)
@@ -125,7 +126,7 @@ def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None
             value = value.strip('()[]\"\'.!')
             if re.fullmatch(r'\d[-–—]\d', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label':
                 continue
-            if re.fullmatch(r'(?:6|64|7|65|43|42)(?:/\S+)?', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label' and text[tokens[position - 1].end():token.start()].isspace():
+            if re.fullmatch(r'\d+(?:/\S+)?', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label' and text[tokens[position - 1].end():token.start()].isspace():
                 previous = labels.pop()
                 labels.append(Label(previous.measure, previous.beat, previous.key, _figure(previous.figure + value, previous.key)))
                 continue

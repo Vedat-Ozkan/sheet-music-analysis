@@ -53,6 +53,14 @@ def test_musicxml_variants(bach):
     assert all(metrics[name] == 1 for name in ('key', 'root', 'chord', 'chord_and_bass', 'full'))
 
 
+@pytest.mark.parametrize('text, figure', [
+    ('m1 V 4/3 m2 I', 'V43'), ('m1 V 4/2 m2 I6', 'V42'), ('m1 V6 5 m2 I', 'V65'), ('m1 V6 4 m2 I', 'V64'),
+    ('m1 V 6 5 m2 I', 'V65'), ('m1 vii⁰⁷ m2 I', 'viio7'), ('m1 vii⁰⁶₅ m2 I', 'viio65'),
+])
+def test_spaced_and_superscript_figures(text, figure):
+    assert check.from_text(text)[0].figure == figure
+
+
 def test_chat_grammar():
     assert check.from_text('key: G major; bar 1 I, bar 2 V6 IV, bar 3 beat 3 ii65, bar 5 in D: V7/V') == [
         Label(1, 1, 'G', 'I'), Label(2, 1, 'G', 'V6'), Label(2, 2, 'G', 'IV'),

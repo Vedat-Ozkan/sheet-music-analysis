@@ -47,3 +47,7 @@ G: bar 1 I, bar 2 IV, D: bar 3 I
 m1 I, m2 V, key: D, m3 I
 bar 1 I, bar 2 V7/ IV, bar 3 IV
 m1 I m2 V m3 I m4 V m5 I m6 IV m7 V m8 I
+m1 I m2 V 4/3 m3 I6
+m1 I m2 V6 5 m3 I
+key: F, m1 I m2 vii⁰⁷ m3 I
+m1 I IV6 4 I m2 V 4/2 I6
