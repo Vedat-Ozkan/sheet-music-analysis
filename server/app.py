@@ -14,6 +14,7 @@ import re
 import secrets
 import socket
 import sys
+import threading
 import time
 import traceback
 import uuid
@@ -76,6 +77,7 @@ def read_only(title: str) -> ToolAnnotations:
 class LocalStore:
     def __init__(self, folder: Path):
         self.folder = folder
+        self.writing = threading.Lock()
 
     def put(self, key: str, data: bytes) -> None:
         path = self.folder / key
@@ -88,6 +90,17 @@ class LocalStore:
 
     def delete(self, key: str) -> None:
         (self.folder / key).unlink(missing_ok=True)
+
+    def get_versioned(self, key: str) -> tuple[bytes | None, int]:
+        path = self.folder / key
+        return (path.read_bytes(), path.stat().st_mtime_ns) if path.is_file() else (None, 0)
+
+    def put_if(self, key: str, data: bytes, version: int) -> bool:
+        with self.writing:
+            if self.get_versioned(key)[1] != version:
+                return False
+            self.put(key, data)
+            return True
 
     def add(self, key: str, data: bytes) -> None:
         path = self.folder / key
@@ -121,6 +134,22 @@ class BucketStore:
             self.bucket.blob(key).delete()
         except NotFound:
             pass
+
+    def get_versioned(self, key: str) -> tuple[bytes | None, int]:
+        blob = self.bucket.get_blob(key)
+        if blob is None:
+            return None, 0
+        try:
+            return blob.download_as_bytes(if_generation_match=blob.generation), blob.generation
+        except (NotFound, PreconditionFailed):
+            return self.get_versioned(key)
+
+    def put_if(self, key: str, data: bytes, version: int) -> bool:
+        try:
+            self.bucket.blob(key).upload_from_string(data, if_generation_match=version)
+            return True
+        except PreconditionFailed:
+            return False
 
     def add(self, key: str, data: bytes) -> None:
         try:
@@ -310,14 +339,15 @@ async def take(kind: str, source: str, amount: int = 1) -> bool:
     key = f"usage/{day}.json"
     with stage("counter"):
         async with counter_lock:
-            raw = await anyio.to_thread.run_sync(store.get, key)
-            counts = json.loads(raw) if raw else {}
-            if counts.get(kind, 0) + amount > DAILY_LIMITS[kind]:
-                return False
-            counts[kind] = counts.get(kind, 0) + amount
-            counts[f"{kind}:{source}"] = counts.get(f"{kind}:{source}", 0) + amount
-            await anyio.to_thread.run_sync(store.put, key, json.dumps(counts).encode())
-    return True
+            while True:
+                raw, version = await anyio.to_thread.run_sync(store.get_versioned, key)
+                counts = json.loads(raw) if raw else {}
+                if counts.get(kind, 0) + amount > DAILY_LIMITS[kind]:
+                    return False
+                counts[kind] = counts.get(kind, 0) + amount
+                counts[f"{kind}:{source}"] = counts.get(f"{kind}:{source}", 0) + amount
+                if await anyio.to_thread.run_sync(store.put_if, key, json.dumps(counts).encode(), version):
+                    return True
 
 
 OUR_ERROR_MESSAGE = (

@@ -1,4 +1,5 @@
 import asyncio
+import anyio
 import json
 from datetime import datetime, timezone
 
@@ -72,3 +73,23 @@ def test_a_failure_on_our_side_apologises_and_gives_the_support_email(monkeypatc
     assert result.is_error and line["outcome"] == "server_error" and "bucket unreachable" in line["stack_trace"]
     text = result.content[0].text
     assert "support@sheetmusicanalysis.com" in text and line["reference"] in text and "bucket" not in text
+
+
+def test_a_count_made_by_another_machine_between_read_and_write_is_kept(monkeypatch, tmp_path):
+    store = app.LocalStore(tmp_path)
+    monkeypatch.setattr(app, "store", store)
+    read = store.get_versioned
+    interfered = []
+
+    def other_machine_counts_in_between(key):
+        found = read(key)
+        if not interfered:
+            interfered.append(True)
+            store.put(key, json.dumps({"render": 5, "render:chatgpt": 5}).encode())
+        return found
+
+    monkeypatch.setattr(store, "get_versioned", other_machine_counts_in_between)
+    assert anyio.run(app.take, "render", "claude")
+    day = app.datetime.now(app.timezone.utc).strftime("%Y-%m-%d")
+    counts = json.loads(store.get(f"usage/{day}.json"))
+    assert counts["render"] == 6 and counts["render:chatgpt"] == 5 and counts["render:claude"] == 1
