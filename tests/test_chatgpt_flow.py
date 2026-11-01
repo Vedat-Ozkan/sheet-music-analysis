@@ -231,7 +231,7 @@ def test_a_whole_score_draft_gives_its_instructions_before_the_chords_and_the_no
     assert text.index("HOW TO USE THIS DRAFT") < text.index("CHORDS:") < text.index("## Method") < text.index("NOTES (one row")
 
 
-def test_extra_downloads_are_made_when_first_opened(server):
+def test_the_worksheet_is_made_when_first_opened_and_the_other_downloads_with_the_drawing(server):
     from starlette.requests import Request
 
     score_id = score_id_of(call("read_pdf", ATTACHED))
@@ -239,16 +239,18 @@ def test_extra_downloads_are_made_when_first_opened(server):
     result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1-4"})
     links = result.structured_content
     names = {key: links[key].rsplit("/", 1)[1] for key in ("worksheet_url", "midi_url", "romantext_url")}
-    assert all(server.get(f"files/{name}") is None for name in names.values())
+    assert server.get(f"files/{names['worksheet_url']}") is None
+    assert server.get(f"files/{names['midi_url']}").startswith(b"MThd")
+    assert server.get(f"files/{names['romantext_url']}").startswith(b"Time Signature")
+    server.delete(f"scores/{score_id}")
 
     def opened(name):
         request = Request({"type": "http", "method": "GET", "path_params": {"name": name}, "headers": []})
         return anyio.run(app.files, request)
 
-    for key, start in (("worksheet_url", b"%PDF"), ("midi_url", b"MThd"), ("romantext_url", b"Time Signature")):
-        response = opened(names[key])
-        assert response.status_code == 200 and response.body.startswith(start), key
-        assert server.get(f"files/{names[key]}") == response.body
+    response = opened(names["worksheet_url"])
+    assert response.status_code == 200 and response.body.startswith(b"%PDF")
+    assert server.get(f"files/{names['worksheet_url']}") == response.body
 
 
 @pytest.mark.parametrize("name, plan", [

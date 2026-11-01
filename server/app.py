@@ -440,10 +440,20 @@ def publish(data: bytes, extension: str, suffix: str = "") -> str:
     return f"{PUBLIC_BASE_URL}/files/{name}"
 
 
-def publish_later(recipe: dict, extension: str, suffix: str = "") -> str:
-    name = f"{secrets.token_urlsafe(12)}{suffix}.{extension}"
-    store.put(f"files/{name}.recipe", json.dumps(recipe).encode())
+def publish_worksheet(score: bytes, measures: tuple[int, int] | None, piano: bool) -> str:
+    name = f"{secrets.token_urlsafe(12)}-worksheet.pdf"
+    store.put(f"files/{name}.score", score)
+    store.put(f"files/{name}.recipe", json.dumps({"measures": measures, "piano": piano}).encode())
     return f"{PUBLIC_BASE_URL}/files/{name}"
+
+
+def make_worksheet(name: str) -> bytes | None:
+    score, recipe = store.get(f"files/{name}.score"), store.get(f"files/{name}.recipe")
+    if score is None or recipe is None:
+        return None
+    recipe = json.loads(recipe)
+    measures = tuple(recipe["measures"]) if recipe["measures"] else None
+    return render(score, AnnotationList(annotations=[]), measures=measures, piano=recipe["piano"]).pdf()
 
 
 def outcome_of(error: Exception) -> str:
@@ -566,21 +576,8 @@ def musicxml_text(url: str, annotations: AnnotationList) -> str:
             "The file uses standard Roman numerals whatever the page style.")
 
 
-EXTRA_FILES = {"worksheet": ("pdf", "-worksheet"), "midi": ("mid", ""), "romantext": ("rntxt", "")}
-MAKE_EXTRA = {
-    "worksheet": lambda score, measures, recipe: render(score, AnnotationList(annotations=[]), measures=measures,
-                                                        piano=recipe["piano"]).pdf(),
-    "midi": lambda score, measures, recipe: export_midi(score, measures),
-    "romantext": lambda score, measures, recipe: export_romantext(score, recipe["annotations"], measures),
-}
-
-
-def make_extra(recipe: dict) -> bytes | None:
-    score = store.get(f"scores/{clean_id(recipe['score_id'])}")
-    if score is None:
-        return None
-    measures = tuple(recipe["measures"]) if recipe["measures"] else None
-    return MAKE_EXTRA[recipe["kind"]](score, measures, recipe)
+EXTRA_FILES = {"midi": ("mid", ""), "romantext": ("rntxt", "")}
+worksheet_lock = anyio.Lock()
 
 
 def downloads_text(links: dict[str, str]) -> str:
@@ -666,8 +663,7 @@ async def render_analysis(
     except ValueError as error:
         log("render_analysis", platform=source, error=type(error).__name__)
         return error_result(str(error))
-    if measures:
-        measure_range = f"{measures[0]}-{measures[1]}"
+    measure_range = f"{measures[0]}-{measures[1]}" if measures else "all"
     musicxml, export_warning = None, None
     try:
         with stage("export"):
@@ -686,10 +682,16 @@ async def render_analysis(
             if musicxml is not None:
                 links["musicxml_url"] = publish(musicxml, "musicxml")
             if asked:
-                recipe = {"score_id": score_id, "measures": measures, "piano": piano, "annotations": annotations.model_dump()}
-                for name in EXTRA_FILES:
-                    if name != "romantext" or any(mark.type == "harmony" for mark in annotations.annotations):
-                        links[f"{name}_url"] = publish_later({**recipe, "kind": name}, *EXTRA_FILES[name])
+                links["worksheet_url"] = publish_worksheet(score, measures, piano)
+                for name, make in (("midi", lambda: export_midi(score, measures)),
+                                   ("romantext", lambda: export_romantext(score, annotations.model_dump(), measures))):
+                    try:
+                        data = make()
+                    except Exception as error:
+                        log("render_analysis", platform=source, extra_error=f"{name}: {type(error).__name__}")
+                        continue
+                    if data:
+                        links[f"{name}_url"] = publish(data, *EXTRA_FILES[name])
         return links
     links = await in_turn(publish_all)
     pdf_url = links["pdf_url"]
@@ -1343,15 +1345,19 @@ async def files(request: Request) -> Response:
     data = None
     if re.fullmatch(r"[A-Za-z0-9_-]+\.(png|pdf|musicxml|mid|rntxt)", name):
         data = await anyio.to_thread.run_sync(store.get, f"files/{name}")
-        recipe = None if data is not None else await anyio.to_thread.run_sync(store.get, f"files/{name}.recipe")
-        if recipe is not None:
-            try:
-                data = await in_turn(make_extra, json.loads(recipe))
-            except Exception as error:
-                log("extra_file", error=type(error).__name__, stack_trace=traceback.format_exc())
-            if data:
-                await anyio.to_thread.run_sync(store.put, f"files/{name}", data)
-    if data is None:
+        if data is None and name.endswith("-worksheet.pdf"):
+            async with worksheet_lock:
+                data = await anyio.to_thread.run_sync(store.get, f"files/{name}")
+                if data is None:
+                    try:
+                        data = await in_turn(make_worksheet, name)
+                    except Exception as error:
+                        log("worksheet", error=type(error).__name__, stack_trace=traceback.format_exc())
+                        return Response("This worksheet could not be made; the analysis PDF is unaffected.",
+                                        status_code=500)
+                    if data:
+                        await anyio.to_thread.run_sync(store.put, f"files/{name}", data)
+    if not data:
         return Response("This file has expired; pages are kept for one day.", status_code=404)
     media_types = {"png": "image/png", "pdf": "application/pdf", "musicxml": "application/vnd.recordare.musicxml+xml",
                    "mid": "audio/midi", "rntxt": "text/plain; charset=utf-8"}
