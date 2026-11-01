@@ -769,7 +769,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
         log("limit", tool="read_pdf", platform=source, pages=details.get("pages"))
     else:
         log("read_pdf", platform=source, keep_slurs=keep_slurs,
-            **{key: details[key] for key in ("pages", "scan", "skipped", "cached", "busy", "error") if key in details})
+            **{key: details[key] for key in ("busy", "error") if key in details})
     return pdf_card_result(result, keep_slurs) if isinstance(result, dict) else result
 
 

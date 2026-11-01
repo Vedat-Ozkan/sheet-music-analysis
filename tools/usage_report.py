@@ -7,7 +7,7 @@ from collections import Counter, defaultdict
 
 GCLOUD = "gcloud"
 PROJECT = "sheet-music-analysis"
-EVENTS = ("draft_analysis", "draft_from_notes", "render_analysis", "read_pdf", "limit")
+EVENTS = ("draft_analysis", "draft_from_notes", "render_analysis", "read_pdf", "read_pdf_work", "limit")
 
 
 def read_logs(days: int) -> list[dict]:
@@ -35,7 +35,11 @@ def main() -> None:
         if "user" in data:
             users[key].add(data["user"])
         event = data["event"]
-        if event == "limit":
+        if event == "read_pdf_work":
+            if data.get("outcome") == "ok" and not data.get("cached"):
+                counts["pdf reads"] += 1
+                counts["pdf pages"] += data.get("pages", 0)
+        elif event == "limit":
             counts["limits"] += 1
         elif "error" in data or "problems" in data or data.get("outcome") in ("user_error", "server_error", "degraded"):
             counts["errors"] += 1
@@ -44,9 +48,9 @@ def main() -> None:
                 counts["pdf busy"] += 1
             elif data.get("cached"):
                 counts["pdf cached"] += 1
-            else:
+            elif "pages" in data:
                 counts["pdf reads"] += 1
-                counts["pdf pages"] += data.get("pages", 0)
+                counts["pdf pages"] += data["pages"]
         elif event == "render_analysis":
             counts["piano renders" if data.get("piano") else "renders"] += 1
             if "view" in data:
