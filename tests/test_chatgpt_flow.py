@@ -114,3 +114,22 @@ def test_a_pdf_that_cannot_be_read_says_what_to_try_next(server, monkeypatch):
     monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable)
     result = call("read_pdf", ATTACHED)
     assert result.is_error and "a MusicXML file" in text_of(result)
+
+
+def test_a_mark_beyond_the_bars_that_fit_is_left_off_the_page(server):
+    server.put("scores/NOCTURNE", NOCTURNE)
+    marks = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "Eb"},
+             {"type": "harmony", "at": {"measure": 35, "beat": 1}, "label": "V"}]
+    result = call("render_analysis", {"score_id": "NOCTURNE", "annotations": {"annotations": marks}})
+    assert not result.is_error
+    assert "This page shows measures 0-32" in text_of(result)
+
+
+def test_numbers_of_marks_left_out_refer_to_the_list_the_model_sent(server):
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    marks = [{"type": "harmony", "at": {"measure": 99, "beat": 1}, "label": "V"},
+             {"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "i", "key": "e"},
+             {"type": "harmony", "at": {"measure": 98, "beat": 1}, "label": "V"}]
+    result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1-4"})
+    assert "annotations[0] (harmony): Measure 99" in text_of(result)
+    assert "annotations[2] (harmony): Measure 98" in text_of(result)

@@ -15,7 +15,7 @@ from PIL import Image
 from engine import tint
 from engine.overlay import Box, PageLayout
 from engine.performance import marked_index
-from engine.read_pdf import PREVIEW_OPTIONS, SETTINGS, RawReading, ReadError, audiveris_read, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, without_slurs
+from engine.read_pdf import PREVIEW_OPTIONS, SETTINGS, AudiverisRun, RawReading, ReadError, audiveris_facts, audiveris_read, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, without_slurs
 from engine.render import MAX_PIXELS, engrave, load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
@@ -321,12 +321,33 @@ def test_no_reading_reports_why_each_setting_failed():
     folder = Path(__file__).parent / 'data/pdf_warnings'
 
     def raw(data, audiveris, options, deadline, stop):
-        return RawReading(None, [], {"outcome": "no music", "problems": ["StepException: No regularly spaced lines found"]})
+        return RawReading(None, [], {"outcome": "no music", "problems": ["StepException", "no staff lines found"]})
 
     with pytest.raises(ReadError) as caught:
         read_pdf((folder / 'kinkel_trennung_scan.pdf').read_bytes(), raw=raw)
     assert str(caught.value) == "No music could be read from this PDF"
-    assert [p["problems"] for p in caught.value.passes] == [["StepException: No regularly spaced lines found"]] * len(SETTINGS)
+    assert [p["problems"] for p in caught.value.passes] == [["StepException", "no staff lines found"]] * len(SETTINGS)
+
+
+def test_the_reasons_logged_for_a_failed_page_carry_no_text_from_it():
+    output = ("WARN  [score]  Book 2044 | Error processing stub org.audiveris.omr.step.StepException: "
+              "Sonata in C by A Composer\nSheet score#1 flagged as invalid.\n")
+    facts = audiveris_facts(AudiverisRun("done", 1, output, {}))
+    assert facts["problems"] == ["StepException", "page flagged as invalid"]
+
+
+def test_the_second_setting_is_stopped_when_the_first_fails():
+    stopped = threading.Event()
+
+    def raw(data, audiveris, options, deadline, stop):
+        if SETTINGS.index(options) == 0:
+            raise OSError("reader missing")
+        stopped.set() if stop.wait(5) else None
+        return RawReading(None, [], {"outcome": "cancelled"})
+
+    with pytest.raises(OSError):
+        read_pdf((Path(__file__).parent / 'data/pdf_warnings/kinkel_trennung_scan.pdf').read_bytes(), raw=raw)
+    assert stopped.is_set()
 
 
 def test_a_reader_that_does_not_finish_is_stopped_at_the_deadline(tmp_path):

@@ -310,10 +310,13 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
     stop = threading.Event()
     with ThreadPoolExecutor(len(SETTINGS)) as pool:
         futures = [pool.submit(_read, data, audiveris, options, deadline, raw, stop) for options in SETTINGS]
-        first = futures[0].result()
-        if first[1] is not None and len(first[1][2]) <= RETRY_ABOVE:
+        try:
+            first = futures[0].result()
+            if first[1] is not None and len(first[1][2]) <= RETRY_ABOVE:
+                stop.set()
+            results = [first, *(future.result() for future in futures[1:])]
+        finally:
             stop.set()
-        results = [first, *(future.result() for future in futures[1:])]
     passes = [record for record, _ in results]
     readings = [reading for _, reading in results if reading is not None]
     if not readings:
@@ -386,6 +389,11 @@ class AudiverisRun:
     step_seconds: dict[str, float]
 
 
+KNOWN_PROBLEMS = {
+    "No regularly spaced lines found": "no staff lines found",
+    "flagged as invalid": "page flagged as invalid",
+    "OutOfMemoryError": "out of memory",
+}
 STEP = re.compile(r"StepMonitoring\s+\d+\s+\|\s+([A-Z_]+)\s*$")
 
 
@@ -430,10 +438,8 @@ def run(audiveris: str, options: list[str], source: Path, work: str, env: dict, 
 
 def audiveris_facts(run_: AudiverisRun) -> dict:
     output = run_.output
-    problems = {f"{name}: {message}" if message else name
-                for name, message in re.findall(r"Error processing stub (?:\S+\.)?(\w+)(?:: ([^\n]{0,80}))?", output)}
-    if "OutOfMemoryError" in output:
-        problems.add("OutOfMemoryError")
+    problems = set(re.findall(r"Error processing stub (?:\S+\.)?(\w+)", output))
+    problems |= {label for marker, label in KNOWN_PROBLEMS.items() if marker in output}
     return {"outcome": run_.ending, "exit_code": run_.exit_code,
             "images": re.findall(r"Loaded image #\d+ (\d+x\d+)", output),
             "interlines": [int(value) for value in re.findall(r"interline\(\d+,(\d+),\d+\)", output)],

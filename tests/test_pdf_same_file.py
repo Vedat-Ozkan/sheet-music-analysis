@@ -60,13 +60,27 @@ def test_a_repeat_of_the_same_pdf_waits_for_the_reading_already_running(monkeypa
         assert not result.is_error and "score_id:" in text_of(result)
 
 
-def test_a_repeat_that_outwaits_its_limit_is_told_the_pdf_is_still_being_read(monkeypatch, tmp_path):
+def test_calls_that_outwait_their_limit_are_told_the_pdf_is_still_being_read(monkeypatch, tmp_path):
     reads = slow_reader(monkeypatch, tmp_path, 3)
     monkeypatch.setattr(app, "SAME_FILE_WAIT", 1)
     results = call_twice(0.5)
     assert len(reads) == 1
-    assert "score_id:" in text_of(results["first"])
-    assert not results["second"].is_error and "still being read" in text_of(results["second"])
+    for result in results.values():
+        assert not result.is_error and "still being read" in text_of(result)
+
+
+def test_a_read_carries_on_when_the_call_that_started_it_is_cancelled(monkeypatch, tmp_path):
+    reads = slow_reader(monkeypatch, tmp_path, 2)
+
+    async def cancel_then_resend():
+        async with Client(app.mcp) as client:
+            with anyio.move_on_after(0.5):
+                await client.call_tool("read_pdf", ATTACHED)
+            return await client.call_tool("read_pdf", ATTACHED)
+
+    result = anyio.run(cancel_then_resend)
+    assert len(reads) == 1
+    assert not result.is_error and "score_id:" in text_of(result)
 
 
 def test_a_pdf_read_once_comes_back_from_the_saved_card(monkeypatch, tmp_path):
