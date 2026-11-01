@@ -43,7 +43,7 @@ _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
 _REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_REST, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
-READER = "5.11.0-sma.2-best2-tuplet-rests-ocr-r7"
+READER = "5.11.0-sma.3-best2-tuplet-rests-ocr-r7"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
