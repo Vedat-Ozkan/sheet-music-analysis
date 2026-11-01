@@ -18,6 +18,7 @@ import threading
 import time
 import traceback
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -960,11 +961,17 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
 
     with stage("render"):
         tall, shaded, engraving, notice, measures = await in_turn(render)
-        pages = await in_turn(lambda: [shaded.png(page) for page in range(1, shaded.page_count + 1)])
+
+    def files():
+        with ThreadPoolExecutor(4) as pool:
+            image = pool.submit(tall.png, 1, width=2800, colors=256)
+            pdf = pool.submit(engraving.pdf)
+            pages = list(pool.map(shaded.png, range(1, shaded.page_count + 1)))
+            return image.result(), pdf.result(), pages
+
     with stage("publish"):
-        image_url, pdf_url = await in_turn(
-            lambda: (publish(tall.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"))
-        )
+        image, pdf, pages = await in_turn(files)
+        image_url, pdf_url = await in_turn(lambda: (publish(image, "png"), publish(pdf, "pdf")))
     log("read_pdf_work", pages=reading["pages"], scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached),
         passes=passes)
     return {"score_id": score_id, "pages": reading["pages"], "measures": measures, "notice": notice, "image_url": image_url,
