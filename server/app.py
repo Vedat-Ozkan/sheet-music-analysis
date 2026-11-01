@@ -469,7 +469,10 @@ REVIEW_GUIDE = (
     "score_id and your annotation list (its `view` argument draws one layer: harmony, voice_leading or form), "
     "show the page and write the commentary.\n"
     "Positions: `measure` is the printed number (a pickup is 0); `beat` is 1-based in the unit given above; "
-    "`pitch` is like \"Eb4\" at sounding pitch; `staff` 1 is the top staff.\n\n"
+    "`pitch` is like \"Eb4\" at sounding pitch; `staff` 1 is the top staff. Positions are nested objects, e.g. "
+    "{\"type\": \"harmony\", \"at\": {\"measure\": 1, \"beat\": 1}, \"label\": \"I\", \"key\": \"F\"}, "
+    "{\"type\": \"cadence\", \"at\": {\"measure\": 8, \"beat\": 1}, \"label\": \"PAC\"}, "
+    "{\"type\": \"phrase\", \"start\": {\"measure\": 1, \"beat\": 1}, \"end\": {\"measure\": 8}}.\n\n"
     "If the draft has a PART-WRITING CHECK section (chorale-style scores only), your first reply must include one "
     "sentence offering to check the voice leading, even when it also asks which bars to analyse; draw nothing from it "
     "unless the user says yes or asked for it. When they want it, add "
@@ -1028,6 +1031,22 @@ NO_NOTE_LIST = (
 QUESTION_FOR_USER = "Question for the user about their Roman numerals: "
 
 
+def inline_definitions(schema: dict) -> dict:
+    definitions = schema.get("$defs", {})
+
+    def expand(node):
+        if isinstance(node, list):
+            return [expand(item) for item in node]
+        if not isinstance(node, dict):
+            return node
+        rest = {key: expand(value) for key, value in node.items() if key not in ("$ref", "$defs", "discriminator")}
+        if "$ref" in node:
+            return {**expand(definitions[node["$ref"].rsplit("/", 1)[1]]), **rest}
+        return rest
+
+    return expand(schema)
+
+
 class Server(MCPServer):
     async def _handle_list_tools(self, ctx, params):
         result = await super()._handle_list_tools(ctx, params)
@@ -1035,6 +1054,8 @@ class Server(MCPServer):
             result.tools = [tool for tool in result.tools if tool.name in CLAUDE_TOOLS]
         else:
             result.tools = [tool for tool in result.tools if tool.name not in CLAUDE_ONLY_TOOLS]
+        for tool in result.tools:
+            tool.input_schema = inline_definitions(tool.input_schema)
         return result
 
 

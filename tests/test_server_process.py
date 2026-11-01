@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import socket
 import subprocess
@@ -47,6 +48,17 @@ def test_tools_still_answer_over_post(server):
             return {tool.name for tool in (await client.list_tools()).tools}
 
     assert "draft_analysis" in asyncio.run(tools())
+
+
+def test_tool_inputs_spell_out_every_field(server):
+    async def schemas():
+        async with Client(f"{server}/mcp") as client:
+            return {tool.name: tool.input_schema for tool in (await client.list_tools()).tools}
+
+    listed = asyncio.run(schemas())
+    assert "render_analysis" in listed
+    for name, schema in listed.items():
+        assert "$ref" not in json.dumps(schema), name
 
 
 def test_health_still_answers(server):
