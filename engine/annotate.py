@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from engine.comparison import Label
 
 ONE_PAGE_HEIGHT = 60000
+ONE_PAGE_BARS = 32
 
 ANNOTATED_OPTIONS = {
     "svgBoundingBoxes": True,
@@ -108,8 +109,11 @@ def render(
         toolkit.select({"measureRange": index.measure_range(*measures)})
     toolkit.redoLayout()
     _balance_systems(toolkit, index, measures, annotations)
-    toolkit.setOptions({"pageHeight": VEROVIO_OPTIONS["pageHeight"]})
-    toolkit.redoLayout()
+    first, last = measures or (index.measures[0].number, index.measures[-1].number)
+    bars = sum(1 for measure in index.measures if first <= measure.number <= last and measure.number > 0)
+    if not measures or bars > ONE_PAGE_BARS:
+        toolkit.setOptions({"pageHeight": VEROVIO_OPTIONS["pageHeight"]})
+        toolkit.redoLayout()
 
     def relayout(mei: str) -> None:
         toolkit.loadData(mei)

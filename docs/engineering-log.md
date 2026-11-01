@@ -1538,11 +1538,13 @@ Not fixed: a correction that puts notes into a bar inside a multi-bar rest is lo
 **What drawing time depends on.** Measured locally, warm, without marks: Prelude 598 notes on 2 staves 2.9 s; Nocturne 1,253 notes 6.4 s; Rondo 1,577 notes 7.7 s; Ballade 5,258 notes 34.4 s; Dvořák 4,195 notes on 25 staves 70.3 s; Mozart 41, 16,893 notes on 17 staves 124.4 s. Time follows notes and staves, not bars; 95 marks added 1.3 s. Counting notes from MusicXML takes 1-17 ms.
 
 **What we did.**
-- The 32-bar cap is removed. The stretch is laid out on one tall page so the phrase-aware line breaks still apply, then split into normal printable pages (layout A, owner's choice over one tall page). Excerpts that fit one page look as before.
+- The 32-bar cap is removed. A stretch of up to 32 bars stays one tall page, as before. A longer stretch or a whole score is laid out on one tall page so the phrase-aware line breaks still apply, then split into normal printable pages (layout A, owner's choice over one tall page). A first version split every excerpt into printable pages, so 8 Chopin bars with marks came out on 2 pages; 31 tests caught it, and `diff_check render` shows 28 of 28 inputs unchanged after the fix.
 - Building the PDF probed each page's ink at full size; it now probes at 1000 px wide. The 6-page Rondo PDF: 17.3 s before, 2.4 s after, same page sizes.
 - The ChatGPT card shows the first 2 pages stacked (owner's choice); the result tells the model the PDF has the rest.
 - The tool description and the method tell the model to analyse a long piece passage by passage and draw it once.
 - A draw counts once towards the daily limit however long it is (owner's decision).
+
+**PDF reader 5.11.0-sma.3.** Note-head template matching on 64-bit masks and the beam step's disk smoothing done row by row (fork branch `sma-5.11.0-speed`). On all 83 benchmark PDFs, run twice: main set pitch 94.36 → 94.37%, pitch and onset 86.60 → 86.66/86.67%, uneven bars 393 → 392; the other four sets equal or up to 0.07 points better. Local seconds a page 30.2 → 20.8-22.8 on a shared machine. The Rondo full read locally 73.6 → 48.3 s (the research agent's single-core-pair timing). Audiveris does not repeat exactly on some songs (6 of 12 song PDFs moved in an unpatched re-run); log 35 said it did.
 
 **Open.** The first PDF in each server process pays about 20 s of one-time font set-up locally; not yet measured on Cloud Run. A note budget for what can be drawn within ChatGPT's two minutes is still to be measured on staging. Production ChatGPT keeps the old 32-bar tool text until OpenAI approves the update.
 
