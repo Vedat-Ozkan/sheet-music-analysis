@@ -118,7 +118,7 @@ def test_an_mxl_container_is_read_as_xml():
     assert ScoreIndex(load_toolkit(mxl(container, one_bar("", "C4"))).getMEI()).measures[0].events[0].pitch == "C4"
 
 
-@pytest.mark.parametrize("data", [mxl(None, one_bar("", "C4")), b"PK\x03\x04 not a zip"])
+@pytest.mark.parametrize("data", [mxl(None, one_bar("", "C4")), b"PK\x03\x04 not a zip"], ids=["no container", "not a zip"])
 def test_a_broken_mxl_is_refused_as_not_musicxml(data):
     with pytest.raises(ScoreError, match="not MusicXML"):
         load_toolkit(data)
