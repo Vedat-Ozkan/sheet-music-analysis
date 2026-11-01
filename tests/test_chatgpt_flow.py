@@ -229,3 +229,36 @@ def test_a_whole_score_draft_gives_its_instructions_before_the_chords_and_the_no
     text = text_of(call("draft_analysis", {"score_id": score_id}))
     assert text.index("HOW TO USE THIS DRAFT") < 1000
     assert text.index("HOW TO USE THIS DRAFT") < text.index("CHORDS:") < text.index("## Method") < text.index("NOTES (one row")
+
+
+def test_extra_downloads_are_made_when_first_opened(server):
+    from starlette.requests import Request
+
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    marks = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "i", "key": "e"}]
+    result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1-4"})
+    links = result.structured_content
+    names = {key: links[key].rsplit("/", 1)[1] for key in ("worksheet_url", "midi_url", "romantext_url")}
+    assert all(server.get(f"files/{name}") is None for name in names.values())
+
+    def opened(name):
+        request = Request({"type": "http", "method": "GET", "path_params": {"name": name}, "headers": []})
+        return anyio.run(app.files, request)
+
+    for key, start in (("worksheet_url", b"%PDF"), ("midi_url", b"MThd"), ("romantext_url", b"Time Signature")):
+        response = opened(names[key])
+        assert response.status_code == 200 and response.body.startswith(start), key
+        assert server.get(f"files/{names[key]}") == response.body
+
+
+@pytest.mark.parametrize("name, plan", [
+    ("chopin_nocturne_op9_no2.mxl", 'for the whole piece pass measure_range "all"'),
+    ("piano/dvorak-9-2.mxl", "passages of at most 80 bars"),
+])
+def test_the_draft_says_whether_the_whole_score_can_be_drawn_in_one_call(server, monkeypatch, name, plan):
+    def unavailable(*args):
+        raise draft.DraftError("not needed here")
+
+    monkeypatch.setitem(app.draft.MODELS, "analysisgnn", unavailable)
+    text = app.make_draft((DATA / name).read_bytes(), "PLAN", None)
+    assert plan in text[:1000]

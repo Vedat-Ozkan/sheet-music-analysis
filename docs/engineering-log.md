@@ -1564,6 +1564,30 @@ Not fixed: a correction that puts notes into a bar inside a multi-bar rest is lo
 
 **On production with the published app (still the old tool metadata), after the move:** ChatGPT drew. It called render_analysis twice (bars 1-20 with 30 marks in 11.9 s, bars 21-40 with 22 marks in 10.3 s), as the old 32-bar text tells it, and then built its own combined side-panel PDF for "one PDF", offering ours as two sections. The whole piece in one call, as on staging, should follow once OpenAI approves the new tool text.
 
+### 89. Before the next release: results read from the top, whole pieces sized to ChatGPT's two minutes, the Claude skill installs what it imports (2026-11-01)
+
+Two audits (ChatGPT/OpenAI side and Claude side) listed what to fix before one OpenAI resubmission and a plugin release. This entry covers the server and skill fixes that are not tool metadata, so they ship without review.
+
+**Results read from the top.** ChatGPT reads only the start of long results. The draft now runs: summary, label format, drawing plan, how-to, part-writing / ledger / student sections, draft chords, method, and the notes table last (Hensel's how-to was at character 25,742 of 35,348). Drawing results put left-out marks and "nothing drawn" first. On 11-01 a production user drew bars 1-32 twice with no marks (46 and 54 s) and left with nothing.
+
+**Arguments ChatGPT guesses.** An unknown `view` ("full", tried in the audit) hid every mark and was still charged; views are now matched without case or dash differences and unknown ones refused before charging. Ranges accept a long dash and a single bar. One parser and one view check in engine/ serve the server and the skill scripts.
+
+**Whole pieces against the 125 s cut-off.** Whole-piece renders on staging (4 vCPU), one harmony label per bar:
+
+| Score | Bars | Staves | Total | Drawing | Extra files |
+|---|---|---|---|---|---|
+| Hensel | 39 | 3 | 18 s | | |
+| Chopin Nocturne | 37 | 2 | 22 s | | |
+| Chopin Ballade | 262 | 2 | 103 s | 47 s | 55 s |
+| Dvořák Largo | 127 | 25 | 219 s | 99 s | 120 s |
+| Mozart "Jupiter" | 433 | 17 | 382 s | 183 s | 198 s |
+
+The extra files were mostly the worksheet, a second full drawing (Dvořák locally: drawing 34.7 s, worksheet 32.2 s, MIDI 4.8 s, MusicXML 2.5 s, RomanText 2.1 s). The worksheet, MIDI and RomanText are now made the first time their link is opened; the links are the same. This removes work from every render (most are never opened), so compute goes down. Drawing time on the cloud fits about 36 s + 0.02 s per staff-bar (staves x bars). The draft now tells the model to draw the whole piece in one call up to 2,000 staff-bars (about 76 s), and otherwise passages of at most 2,000 / staves bars (Dvořák 80, Jupiter 117). Drawings with no marks skip the extra files.
+
+**Claude skill.** A real claude.ai sandbox today: Python 3.13.18, no music21, verovio or cairosvg; numpy, matplotlib, pikepdf and pydantic present. The skill's pip line lacked music21, which the draft and drawing scripts import, so both crashed in a new chat. The line now pins uv.lock's versions (all have Python 3.13 wheels) and includes music21; a test builds a fresh 3.13 environment from exactly that line and runs the scripts (it fails on the old line). The skill now reads at most 12 pages, the first 8, with the server's wording and next step.
+
+**Not done here (owner decisions or held metadata):** the view enum and parameter descriptions, file-input shape, read-only hints, per-client server instructions, the submission package and demo video, README text on what the plugin downloads, the plugin release.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

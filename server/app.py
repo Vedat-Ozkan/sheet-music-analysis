@@ -440,6 +440,12 @@ def publish(data: bytes, extension: str, suffix: str = "") -> str:
     return f"{PUBLIC_BASE_URL}/files/{name}"
 
 
+def publish_later(recipe: dict, extension: str, suffix: str = "") -> str:
+    name = f"{secrets.token_urlsafe(12)}{suffix}.{extension}"
+    store.put(f"files/{name}.recipe", json.dumps(recipe).encode())
+    return f"{PUBLIC_BASE_URL}/files/{name}"
+
+
 def outcome_of(error: Exception) -> str:
     return "server_error" if isinstance(error, draft.DraftError) else "user_error"
 
@@ -454,6 +460,18 @@ ANNOTATION_FORMAT = (
     "{\"type\": \"cadence\", \"at\": {\"measure\": 8, \"beat\": 1}, \"label\": \"PAC\"}, "
     "{\"type\": \"phrase\", \"start\": {\"measure\": 1, \"beat\": 1}, \"end\": {\"measure\": 8}}.\n"
 )
+DRAW_BUDGET = 2000
+
+
+def drawing_plan(mei: str, index: ScoreIndex) -> str:
+    staves = max(int(n) for n in re.findall(r'<staffDef\b[^>]*?\bn="(\d+)"', mei))
+    if staves * len(index.measures) <= DRAW_BUDGET:
+        return ('One render_analysis call draws any number of bars: for the whole piece pass measure_range "all", '
+                "so the user gets one PDF.\n")
+    return (f"This score is too large to draw whole in one call: call render_analysis on passages of at most "
+            f"{DRAW_BUDGET // staves} bars.\n")
+
+
 SKILL_RULES = re.sub(r"<!--.*?-->\n+", "", (HERE.parent / "skill" / "SKILL.md").read_text().split("## Method", 1)[1])
 REVIEW_GUIDE = (
     "HOW TO USE THIS DRAFT\n"
@@ -516,7 +534,7 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, studen
         ]
         return (
             f"score_id: {code}\nThe score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n"
-            + ANNOTATION_FORMAT + "\n"
+            + ANNOTATION_FORMAT + drawing_plan(mei, index) + "\n"
             + REVIEW_GUIDE
             + "".join("\n" + text + "\n" for text in (optional(name, make) for name, make in sections) if text)
             + "\n" + (draft.as_text(result, first, last) if result else DRAFT_UNAVAILABLE)
@@ -549,6 +567,20 @@ def musicxml_text(url: str, annotations: AnnotationList) -> str:
 
 
 EXTRA_FILES = {"worksheet": ("pdf", "-worksheet"), "midi": ("mid", ""), "romantext": ("rntxt", "")}
+MAKE_EXTRA = {
+    "worksheet": lambda score, measures, recipe: render(score, AnnotationList(annotations=[]), measures=measures,
+                                                        piano=recipe["piano"]).pdf(),
+    "midi": lambda score, measures, recipe: export_midi(score, measures),
+    "romantext": lambda score, measures, recipe: export_romantext(score, recipe["annotations"], measures),
+}
+
+
+def make_extra(recipe: dict) -> bytes | None:
+    score = store.get(f"scores/{clean_id(recipe['score_id'])}")
+    if score is None:
+        return None
+    measures = tuple(recipe["measures"]) if recipe["measures"] else None
+    return MAKE_EXTRA[recipe["kind"]](score, measures, recipe)
 
 
 def downloads_text(links: dict[str, str]) -> str:
@@ -644,35 +676,20 @@ async def render_analysis(
         export_warning = "MusicXML export unavailable for this score. PNG and PDF are available."
         log("render_analysis", platform=source, export_error=type(error).__name__)
 
-    def extras() -> dict[str, bytes]:
-        found, errors = {}, []
-        for name, make in (("worksheet", lambda: render(score, AnnotationList(annotations=[]), measures=measures, piano=piano).pdf()),
-                           ("midi", lambda: export_midi(score, measures)),
-                           ("romantext", lambda: export_romantext(score, annotations.model_dump(), measures))):
-            try:
-                with stage("export"):
-                    data = make()
-            except Exception as error:
-                errors.append(f"{name}: {error}")
-                continue
-            if data:
-                found[name] = data
-        if errors:
-            log("render_analysis", platform=source, extra_errors=errors)
-        return found
-
     with stage("render"):
         png = await in_turn(lambda: engraving.png(1, pages=CARD_PAGES))
     def publish_all():
         with stage("render"):
             image, pdf = engraving.png(1, width=1400, colors=256, pages=CARD_PAGES), engraving.pdf()
-        files = extras() if asked else {}
         with stage("publish"):
             links = {"image_url": publish(image, "png"), "pdf_url": publish(pdf, "pdf")}
             if musicxml is not None:
                 links["musicxml_url"] = publish(musicxml, "musicxml")
-            for name, data in files.items():
-                links[f"{name}_url"] = publish(data, *EXTRA_FILES[name])
+            if asked:
+                recipe = {"score_id": score_id, "measures": measures, "piano": piano, "annotations": annotations.model_dump()}
+                for name in EXTRA_FILES:
+                    if name != "romantext" or any(mark.type == "harmony" for mark in annotations.annotations):
+                        links[f"{name}_url"] = publish_later({**recipe, "kind": name}, *EXTRA_FILES[name])
         return links
     links = await in_turn(publish_all)
     pdf_url = links["pdf_url"]
@@ -1326,6 +1343,14 @@ async def files(request: Request) -> Response:
     data = None
     if re.fullmatch(r"[A-Za-z0-9_-]+\.(png|pdf|musicxml|mid|rntxt)", name):
         data = await anyio.to_thread.run_sync(store.get, f"files/{name}")
+        recipe = None if data is not None else await anyio.to_thread.run_sync(store.get, f"files/{name}.recipe")
+        if recipe is not None:
+            try:
+                data = await in_turn(make_extra, json.loads(recipe))
+            except Exception as error:
+                log("extra_file", error=type(error).__name__, stack_trace=traceback.format_exc())
+            if data:
+                await anyio.to_thread.run_sync(store.put, f"files/{name}", data)
     if data is None:
         return Response("This file has expired; pages are kept for one day.", status_code=404)
     media_types = {"png": "image/png", "pdf": "application/pdf", "musicxml": "application/vnd.recordare.musicxml+xml",
