@@ -1013,7 +1013,7 @@ apps.add_html_resource(
 
 
 CLAUDE_TOOLS = {"draft_from_notes", "play"}
-CLAUDE_ONLY_TOOLS = {"play"}
+CLAUDE_ONLY_TOOLS = {"play", "draft_from_notes"}
 NO_NOTE_LIST = (
     "No note list: draft_from_notes needs the compact note list (starting 'N1 div=') that the Sheet Music Analysis "
     "plugin's skill makes from the user's score file; this server cannot read the score in Claude. The plugin is "
