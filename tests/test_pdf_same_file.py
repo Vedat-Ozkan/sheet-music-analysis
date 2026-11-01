@@ -1,3 +1,4 @@
+import json
 import threading
 import time
 from pathlib import Path
@@ -95,3 +96,48 @@ def test_a_pdf_read_once_comes_back_from_the_saved_card(monkeypatch, tmp_path):
     second = anyio.run(call)
     assert len(reads) == 1
     assert text_of(first) == text_of(second)
+
+
+def test_a_call_on_the_other_machine_waits_for_that_machines_reading(monkeypatch, tmp_path):
+    reads = slow_reader(monkeypatch, tmp_path, 0)
+
+    async def call():
+        async with Client(app.mcp) as client:
+            return await client.call_tool("read_pdf", ATTACHED)
+
+    first = anyio.run(call)
+    card_key = next(key for key in (p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*"))
+                    if "pdf-card-" in key)
+    card = app.store.get(card_key)
+    app.store.delete(card_key)
+    app.store.put(app.marker_of(card_key), json.dumps({"token": "other", "started": time.time()}).encode())
+    monkeypatch.setattr(app, "POLL_SECONDS", 0.2)
+
+    async def other_machine_finishes_then_call():
+        async def finish():
+            await anyio.sleep(1)
+            app.store.put(card_key, card)
+
+        async with anyio.create_task_group() as group:
+            group.start_soon(finish)
+            result = await call()
+        return result
+
+    second = anyio.run(other_machine_finishes_then_call)
+    assert len(reads) == 1
+    assert text_of(first) == text_of(second)
+
+
+def test_a_marker_left_by_a_machine_that_stopped_is_taken_over(monkeypatch, tmp_path):
+    reads = slow_reader(monkeypatch, tmp_path, 0)
+    digest = __import__("hashlib").sha256(PDF).hexdigest()
+    card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}-no-slurs.json"
+    app.store.put(app.marker_of(card_key), json.dumps({"token": "gone", "started": time.time() - 3600}).encode())
+
+    async def call():
+        async with Client(app.mcp) as client:
+            return await client.call_tool("read_pdf", ATTACHED)
+
+    result = anyio.run(call)
+    assert len(reads) == 1 and "score_id:" in text_of(result)
+    assert app.store.get(app.marker_of(card_key)) is None

@@ -30,6 +30,7 @@ log = logging.getLogger(__name__)
 
 AUDIVERIS = os.environ.get("AUDIVERIS", "/opt/audiveris/bin/Audiveris")
 TIMEOUT = 240
+SECOND_PASS_SECONDS = 190
 PAINT_OPERATORS = {"S", "s", "f", "F", "f*", "B", "B*", "b", "b*"}
 CHECK = "This is what I read from your PDF; check it against your copy before I analyse it."
 SCAN_WARNING = "Scanned pages often have reading mistakes, so please check carefully."
@@ -309,7 +310,9 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
     raw = raw or audiveris_read
     stop = threading.Event()
     with ThreadPoolExecutor(len(SETTINGS)) as pool:
-        futures = [pool.submit(_read, data, audiveris, options, deadline, raw, stop) for options in SETTINGS]
+        second = min(deadline, time.monotonic() + SECOND_PASS_SECONDS)
+        futures = [pool.submit(_read, data, audiveris, options, deadline if number == 0 else second, raw, stop)
+                   for number, options in enumerate(SETTINGS)]
         try:
             first = futures[0].result()
             if first[1] is not None and len(first[1][2]) <= RETRY_ABOVE:
@@ -399,7 +402,8 @@ STEP = re.compile(r"StepMonitoring\s+\d+\s+\|\s+([A-Z_]+)\s*$")
 
 def run(audiveris: str, options: list[str], source: Path, work: str, env: dict, deadline: float,
         stop: threading.Event) -> AudiverisRun:
-    command = [audiveris, "-batch", *options, "-export", "-output", work, str(source)]
+    command = ([] if options == SETTINGS[0] else ["nice", "-n", "19"]) + [
+        audiveris, "-batch", *options, "-export", "-output", work, str(source)]
     output_path = Path(work) / f"audiveris-{source.suffix[1:]}.txt"
     steps: Counter = Counter()
     current, since, pending = "START", time.monotonic(), b""

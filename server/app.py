@@ -86,6 +86,9 @@ class LocalStore:
         path = self.folder / key
         return path.read_bytes() if path.is_file() else None
 
+    def delete(self, key: str) -> None:
+        (self.folder / key).unlink(missing_ok=True)
+
     def add(self, key: str, data: bytes) -> None:
         path = self.folder / key
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -112,6 +115,12 @@ class BucketStore:
             return self.bucket.blob(key).download_as_bytes()
         except NotFound:
             return None
+
+    def delete(self, key: str) -> None:
+        try:
+            self.bucket.blob(key).delete()
+        except NotFound:
+            pass
 
     def add(self, key: str, data: bytes) -> None:
         try:
@@ -712,7 +721,9 @@ PDF_NEXT_STEP = (
     "should be straight, sharp and about 300 dpi; a long PDF can be sent a few pages at a time; a MusicXML file "
     "(.mxl or .musicxml) needs no reading at all."
 )
-SAME_FILE_WAIT = 90
+SAME_FILE_WAIT = 100
+READ_MARKER_SECONDS = 360
+POLL_SECONDS = 3
 STILL_READING = (
     "This PDF is still being read ({seconds} s so far; a long PDF takes up to about 4 minutes). Tell the user it is "
     "still being read, then call read_pdf again with the same file; each call waits up to {wait} s for the result."
@@ -751,6 +762,8 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
         log("read_pdf", platform=source, pages=card["pages"], cached="card", keep_slurs=keep_slurs)
         return pdf_card_result(card, keep_slurs)
     if card_key not in pdfs_reading:
+        if (elsewhere := await claim_read(card_key)) is not None:
+            return await wait_for_other_machine(card_key, elsewhere, source, keep_slurs)
         work = contextvars.copy_context()
         work.run(current_call.set, None)
         work.run(draft.timings.set, None)
@@ -771,6 +784,43 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
         log("read_pdf", platform=source, keep_slurs=keep_slurs,
             **{key: details[key] for key in ("busy", "error") if key in details})
     return pdf_card_result(result, keep_slurs) if isinstance(result, dict) else result
+
+
+def marker_of(card_key: str) -> str:
+    return card_key.replace("pdf-card-", "pdf-reading-")
+
+
+def failure_of(card_key: str) -> str:
+    return card_key.replace("pdf-card-", "pdf-failed-")
+
+
+async def claim_read(card_key: str) -> float | None:
+    token, now = secrets.token_hex(8), time.time()
+    mine = json.dumps({"token": token, "started": now}).encode()
+    await anyio.to_thread.run_sync(store.add, marker_of(card_key), mine)
+    found = json.loads(await anyio.to_thread.run_sync(store.get, marker_of(card_key)) or b"{}")
+    if found.get("token") == token:
+        return None
+    if now - found.get("started", 0) > READ_MARKER_SECONDS:
+        await anyio.to_thread.run_sync(store.put, marker_of(card_key), mine)
+        return None
+    return found["started"]
+
+
+async def wait_for_other_machine(card_key: str, since: float, source: str, keep_slurs: bool) -> CallToolResult:
+    with anyio.move_on_after(SAME_FILE_WAIT):
+        while True:
+            if card := await anyio.to_thread.run_sync(store.get, card_key):
+                log("read_pdf", platform=source, keep_slurs=keep_slurs, other_machine=True)
+                return pdf_card_result(json.loads(card), keep_slurs)
+            failure = json.loads(await anyio.to_thread.run_sync(store.get, failure_of(card_key)) or b"{}")
+            if failure.get("at", 0) >= since:
+                log("read_pdf", platform=source, keep_slurs=keep_slurs, other_machine=True, error=failure["error"])
+                return error_result(failure["text"])
+            await anyio.sleep(POLL_SECONDS)
+    log("read_pdf", platform=source, busy=True, same_file=True, other_machine=True, keep_slurs=keep_slurs)
+    return CallToolResult(content=[TextContent(type="text", text=STILL_READING.format(
+        seconds=round(time.time() - since), wait=SAME_FILE_WAIT))])
 
 
 async def pdf_work(data: bytes, digest: str, keep_slurs: bool, source: str, card_key: str) -> tuple[dict | CallToolResult, dict]:
@@ -794,6 +844,10 @@ async def pdf_work(data: bytes, digest: str, keep_slurs: bool, source: str, card
         details["reference"] = reference
         result = error_result(OUR_ERROR_MESSAGE.format(reference=reference))
         outcome = "server_error"
+    if not isinstance(result, dict):
+        failure = {"at": time.time(), "error": details.get("error", outcome), "text": result.content[0].text}
+        await anyio.to_thread.run_sync(store.put, failure_of(card_key), json.dumps(failure).encode())
+    await anyio.to_thread.run_sync(store.delete, marker_of(card_key))
     timings["total"] = round((time.perf_counter() - started) * 1000)
     write_line({**details, "outcome": outcome, "severity": SEVERITY[outcome], "message": f"read_pdf_work {outcome}",
                 "timings_ms": timings})
