@@ -33,7 +33,7 @@ def call(tool, **arguments):
 
 
 def section_of(text):
-    return text.split("STUDENT CHECK", 1)[1].split("HOW TO USE", 1)[0]
+    return text.split("STUDENT CHECK (", 1)[1].split("Draft analysis from", 1)[0]
 
 
 def assert_planted_differences(section):
@@ -50,7 +50,7 @@ def test_draft_analysis_checks_typed_answer(local_store):
     assert not result.is_error
     text = result.content[0].text
     assert_planted_differences(section_of(text))
-    assert "If the draft has a STUDENT CHECK section" in text.split("HOW TO USE", 1)[1]
+    assert "If there is a STUDENT CHECK section" in text.split("HOW TO USE", 1)[1]
 
 
 def test_draft_analysis_without_answer_has_no_section(local_store):

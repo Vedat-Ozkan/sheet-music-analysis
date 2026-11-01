@@ -50,9 +50,9 @@ from engine import read_pdf as pdf_reader
 from engine import check_analysis, ledger, part_writing, reduce
 from engine.annotate import AnnotationError, render
 from engine.performance import marked_index, performance_text, unclear_tempos
-from engine.annotations import AnnotationList
+from engine.annotations import AnnotationList, view_named
 from engine.export import export_midi, export_musicxml, export_romantext
-from engine.render import ScoreError, engrave, load_toolkit
+from engine.render import ScoreError, engrave, load_toolkit, parse_measures
 from engine.score import PositionError, ScoreIndex
 from server import IMPORTS_BEGUN, SERVER_FILES
 
@@ -64,7 +64,6 @@ DOWNLOAD_SECONDS = 30
 MAX_REDIRECTS = 5
 RATING_AFTER_ANALYSES = 3
 DAILY_LIMITS = {"draft": 100, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
-MAX_PDF_PAGES = 12
 CARD_URI = "ui://sheet-music-analysis/card-v2.html"
 PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v2.html"
 PLAYER_URI = "ui://sheet-music-analysis/player-v3.html"
@@ -449,18 +448,6 @@ def error_result(message: str) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=message)], is_error=True)
 
 
-def parse_measures(measure_range: str) -> tuple[int, int] | None:
-    if measure_range == "all":
-        return None
-    match = re.fullmatch(r"\s*(\d+)\s*-\s*(\d+)\s*", measure_range)
-    if not match:
-        raise ScoreError('measure_range must look like "1-8", or be "all"')
-    first, last = int(match[1]), int(match[2])
-    if first > last:
-        raise ScoreError(f'measure_range must start at the lower bar, e.g. "{last}-{first}"')
-    return first, last
-
-
 ANNOTATION_FORMAT = (
     "render_analysis annotations are nested objects, e.g. "
     "{\"type\": \"harmony\", \"at\": {\"measure\": 1, \"beat\": 1}, \"label\": \"I\", \"key\": \"F\"}, "
@@ -470,24 +457,24 @@ ANNOTATION_FORMAT = (
 SKILL_RULES = re.sub(r"<!--.*?-->\n+", "", (HERE.parent / "skill" / "SKILL.md").read_text().split("## Method", 1)[1])
 REVIEW_GUIDE = (
     "HOW TO USE THIS DRAFT\n"
-    "The draft above is a neural model's starting point, right about half the time on full chord labels. Check "
+    "The draft below is a neural model's starting point, right about half the time on full chord labels. Check "
     "each line against the NOTES table, analyse following the method below, then call render_analysis with the "
     "score_id and your annotation list (its `view` argument draws one layer: harmony, voice_leading or form), "
     "show the page and write the commentary.\n"
     "Positions: `measure` is the printed number (a pickup is 0); `beat` is 1-based in the unit given above; "
     "`pitch` is like \"Eb4\" at sounding pitch; `staff` 1 is the top staff.\n\n"
-    "If the draft has a PART-WRITING CHECK section (chorale-style scores only), your first reply must include one "
+    "If there is a PART-WRITING CHECK section (chorale-style scores only), your first reply must include one "
     "sentence offering to check the voice leading, even when it also asks which bars to analyse; draw nothing from it "
     "unless the user says yes or asked for it. When they want it, add "
     "one callout per numbered spot and the voice_leading marks listed under it (kind, notes and label exactly as given; use the NoteRefs "
     "given), and explain every finding of a spot in its numbered paragraph of the commentary, in terms of the notes. "
     "Call these strict classroom rules, not verdicts on a composer.\n\n"
-    "If the draft has a STUDENT CHECK section, the user wants their own numerals checked: draw the "
+    "If there is a STUDENT CHECK section, the user wants their own numerals checked: draw the "
     "page as usual from your reviewed analysis (how their numerals are marked on it is not decided yet), and write the commentary as a second "
     "reader would, not as an answer key, following that section's guidance. This is for learning; if they say it is "
-    "coursework, remind them to check their course's rules on AI help.\n\n"
-    "## Method" + SKILL_RULES
+    "coursework, remind them to check their course's rules on AI help.\n"
 )
+METHOD = "## Method" + SKILL_RULES
 
 
 DRAFT_UNAVAILABLE = (
@@ -530,12 +517,12 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, studen
         return (
             f"score_id: {code}\nThe score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n"
             + ANNOTATION_FORMAT + "\n"
-            + (draft.as_text(result, first, last) if result else DRAFT_UNAVAILABLE)
+            + REVIEW_GUIDE
+            + "".join("\n" + text + "\n" for text in (optional(name, make) for name, make in sections) if text)
+            + "\n" + (draft.as_text(result, first, last) if result else DRAFT_UNAVAILABLE)
+            + "\n\n" + METHOD
             + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
             + reduce.as_text(index, first, last)
-            + "".join("\n\n" + text for text in (optional(name, make) for name, make in sections) if text)
-            + "\n\n"
-            + REVIEW_GUIDE
         )
 
 
@@ -635,6 +622,7 @@ async def render_analysis(
     try:
         score, _ = await resolve_score(None, score_id)
         measures = parse_measures(measure_range)
+        view = view_named(view)
         if not await take("render", source):
             log("limit", tool="render_analysis", platform=source)
             return error_result(LIMIT_MESSAGE)
@@ -678,7 +666,7 @@ async def render_analysis(
     def publish_all():
         with stage("render"):
             image, pdf = engraving.png(1, width=1400, colors=256, pages=CARD_PAGES), engraving.pdf()
-        files = extras()
+        files = extras() if asked else {}
         with stage("publish"):
             links = {"image_url": publish(image, "png"), "pdf_url": publish(pdf, "pdf")}
             if musicxml is not None:
@@ -700,9 +688,9 @@ async def render_analysis(
         meta={"ask_for_rating": True} if await rating_is_due(ctx) else None,
         content=[
             ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png"),
-            TextContent(type="text", text=f"{caption}, shown in a card. PDF: {pdf_url}\nPNG: {links['image_url']}{more_pages}\n"
-                        + (export_warning or musicxml_text(links["musicxml_url"], annotations)) + downloads_text(links)
-                        + "".join(f"\n\n{note}" for note in left_out)),
+            TextContent(type="text", text="".join(f"{note}\n\n" for note in left_out)
+                        + f"{caption}, shown in a card. PDF: {pdf_url}\nPNG: {links['image_url']}{more_pages}\n"
+                        + (export_warning or musicxml_text(links["musicxml_url"], annotations)) + downloads_text(links)),
         ],
         structured_content=structured_content,
     )
@@ -753,11 +741,6 @@ BUSY_MESSAGE = (
     "Another PDF is being read right now, and a PDF can take several minutes to read. Tell the user plainly that the "
     "service is busy reading another PDF and to send theirs again in a few minutes."
 )
-PDF_NEXT_STEP = (
-    ". Tell the user plainly, and suggest what may work: a PDF exported from notation software reads best; a scan "
-    "should be straight, sharp and about 300 dpi; a long PDF can be sent a few pages at a time; a MusicXML file "
-    "(.mxl or .musicxml) needs no reading at all."
-)
 SAME_FILE_WAIT = 100
 REQUEST_SECONDS = 900
 STARTER_WAIT = REQUEST_SECONDS - DOWNLOAD_SECONDS - 15
@@ -779,7 +762,7 @@ claiming = asyncio.Lock()
         "Use this when the user attaches a PDF of printed sheet music (born-digital or scanned) and wants it analysed. "
         "Reads the music from the PDF and shows the user the engraved result in a card, so they can check it against "
         "their copy. Returns a score_id. Do not analyse yet: wait until the user says to go ahead, then call "
-        f"draft_analysis with that score_id. PDFs of more than {MAX_PDF_PAGES} pages are refused. Slurs are left out "
+        f"draft_analysis with that score_id. PDFs of more than {pdf_reader.MAX_PAGES} pages are refused. Slurs are left out "
         "unless keep_slurs is true; set it only when the user asks for them."
     ),
     annotations=read_only("Read a PDF of sheet music"),
@@ -903,7 +886,7 @@ async def pdf_outcome(data: bytes, digest: str, keep_slurs: bool, source: str, c
         outcome = "ok" if isinstance(result, dict) else "limit" if details.get("limit") else "busy" if details.get("busy") else "user_error"
     except (ScoreError, pdf_reader.ReadError) as error:
         details.update(error=type(error).__name__, passes=getattr(error, "passes", None) or None)
-        result = error_result(str(error) + (PDF_NEXT_STEP if isinstance(error, pdf_reader.ReadError) else ""))
+        result = error_result(str(error) + (pdf_reader.NEXT_STEP if isinstance(error, pdf_reader.ReadError) else ""))
         outcome = "user_error"
     except Exception:
         details["stack_trace"] = traceback.format_exc()
@@ -930,12 +913,9 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
         reading = json.loads(cached)
     else:
         pages = len((await anyio.to_thread.run_sync(pdf_reader.open_pdf, data)).pages)
-        if pages > MAX_PDF_PAGES:
+        if pages > pdf_reader.MAX_PAGES:
             log("read_pdf_work", error="too many pages", pages=pages)
-            return error_result(
-                f"This PDF has {pages} pages; the most that can be read is {MAX_PDF_PAGES}. Tell the user plainly, "
-                f"and suggest they attach a PDF of just the pages they want analysed."
-            )
+            return error_result(pdf_reader.too_many_pages(pages))
         read = min(pages, pdf_reader.READ_PAGES)
         if read < pages:
             data = await anyio.to_thread.run_sync(pdf_reader.first_pages, data, read)
@@ -963,7 +943,7 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
         spots = pdf_reader.problem_spots(score)
         numbers = [measure.number for measure in ScoreIndex(load_toolkit(score).getMEI()).measures]
         return (pdf_reader.preview(score, tall=True, spots=spots), pdf_reader.preview(score, spots=spots), engrave(score),
-                pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots) + unread_pages(reading),
+                pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
                 f"{numbers[0]} to {numbers[-1]}")
 
     with stage("render"):
@@ -983,14 +963,6 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
         passes=passes)
     return {"score_id": score_id, "pages": reading["pages"], "measures": measures, "notice": notice, "image_url": image_url,
             "pdf_url": pdf_url, "page_images": [base64.b64encode(png).decode() for png in pages]}
-
-
-def unread_pages(reading: dict) -> str:
-    total = reading.get("of_pages", reading["pages"])
-    if total <= reading["pages"]:
-        return ""
-    return (f" Only pages 1-{reading['pages']} of the {total} were read, to keep the wait short; to analyse the rest, "
-            "send those pages as a separate PDF.")
 
 
 def pdf_card_result(card: dict, keep_slurs: bool) -> CallToolResult:

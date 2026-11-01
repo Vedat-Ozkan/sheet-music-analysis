@@ -20,7 +20,7 @@ def local_store(tmp_path, monkeypatch):
 
 def test_draft_analysis_lists_planted_motion_errors(local_store):
     text = app.make_draft((DATA / "part_writing_motion.musicxml").read_bytes(), "pw1", None)
-    section = text.split("PART-WRITING CHECK", 1)[1].split("HOW TO USE", 1)[0]
+    section = text.split("PART-WRITING CHECK (", 1)[1].split("Draft analysis from", 1)[0]
     assert "parallel fifths soprano+tenor m1 b1 to m2 b1" in section
     assert "voice crossing soprano+alto m13 b1" in section
     assert '(Open Music Theory)' in section
@@ -49,6 +49,6 @@ def test_piano_piece_gets_no_section(local_store, chopin):
 
 def test_section_keeps_only_findings_inside_the_requested_bars(local_store):
     text = app.make_draft((DATA / "part_writing_motion.musicxml").read_bytes(), "pw4", (10, 14))
-    section = text.split("PART-WRITING CHECK", 1)[1].split("HOW TO USE", 1)[0]
+    section = text.split("PART-WRITING CHECK (", 1)[1].split("Draft analysis from", 1)[0]
     assert "voice crossing soprano+alto m13 b1" in section
     assert "m1 b1 to m2 b1" not in section

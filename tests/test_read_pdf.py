@@ -9,13 +9,14 @@ import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
+import pikepdf
 import pytest
 from PIL import Image
 
 from engine import tint
 from engine.overlay import Box, PageLayout
 from engine.performance import marked_index
-from engine.read_pdf import PREVIEW_OPTIONS, SETTINGS, AudiverisRun, RawReading, ReadError, audiveris_facts, audiveris_read, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, without_slurs
+from engine.read_pdf import PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, audiveris_facts, audiveris_read, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, without_slurs
 from engine.render import MAX_PIXELS, engrave, load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
@@ -359,3 +360,49 @@ def test_a_reader_that_does_not_finish_is_stopped_at_the_deadline(tmp_path):
     assert time.monotonic() - started < 10
     assert got.mxl is None and got.facts["outcome"] == "timeout"
     assert got.facts["step_seconds"]["LOAD"] >= 1
+
+
+def _skill_read_pdf():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("skill_read_pdf", Path(__file__).parent.parent / "skill/scripts/read_pdf.py")
+    skill = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(skill)
+    return skill
+
+
+def _pdf_of(pages: int) -> bytes:
+    source = pikepdf.open(Path(__file__).parent / "data/chopin-28-4-mutopia.pdf")
+    out = pikepdf.new()
+    for _ in range(pages):
+        out.pages.append(source.pages[0])
+    buffer = io.BytesIO()
+    out.save(buffer)
+    return buffer.getvalue()
+
+
+def test_the_skill_refuses_a_pdf_over_the_page_limit_like_the_server(tmp_path, monkeypatch, capsys):
+    skill = _skill_read_pdf()
+    (tmp_path / "long.pdf").write_bytes(_pdf_of(13))
+    monkeypatch.setattr(skill, "HOME", tmp_path / "reader")
+    monkeypatch.setattr("sys.argv", ["read_pdf.py", str(tmp_path / "long.pdf"), "--out-dir", str(tmp_path / "out")])
+    assert skill.main() == 1
+    assert "This PDF has 13 pages; the most that can be read is 12" in capsys.readouterr().err
+
+
+def test_the_skill_reads_the_first_eight_pages_and_says_so(tmp_path, monkeypatch, capsys):
+    skill = _skill_read_pdf()
+    seen = []
+
+    def fake_read(data, audiveris):
+        seen.append(len(pikepdf.open(io.BytesIO(data)).pages))
+        return PdfReading(clean((Path(__file__).parent / "data/pdf_warnings/schubert_die_stadt.mxl").read_bytes()), 8, False, [])
+
+    (tmp_path / "nine.pdf").write_bytes(_pdf_of(9))
+    monkeypatch.setattr(skill, "HOME", tmp_path / "reader")
+    monkeypatch.setattr(skill, "read_pdf", fake_read)
+    monkeypatch.setattr(skill, "audiveris", lambda: tmp_path / "Audiveris")
+    monkeypatch.setattr("sys.argv", ["read_pdf.py", str(tmp_path / "nine.pdf"), "--out-dir", str(tmp_path / "out")])
+    assert skill.main() == 0
+    assert seen == [8]
+    assert "Only pages 1-8 of the 9 were read" in capsys.readouterr().out

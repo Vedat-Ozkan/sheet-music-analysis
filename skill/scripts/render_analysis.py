@@ -10,10 +10,9 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from engine.annotate import AnnotationError, render
-from engine.annotations import AnnotationList
+from engine.annotations import VIEWS, AnnotationList
 from engine.export import export_midi, export_musicxml, export_romantext
-
-VIEWS = ("all", "harmony", "voice_leading", "form")
+from engine.render import parse_measures
 
 
 def main() -> int:
@@ -39,11 +38,8 @@ def main() -> int:
     if args.style:
         annotations = annotations.model_copy(update={"style": args.style})
 
-    measures = None
-    if args.measures and args.measures != "all":
-        first, _, last = args.measures.partition("-")
-        measures = (int(first), int(last or first))
     try:
+        measures = parse_measures(args.measures)
         score = args.score.read_bytes()
         engraving = render(score, annotations, measures=measures, view=args.view, piano=args.piano)
     except AnnotationError as error:

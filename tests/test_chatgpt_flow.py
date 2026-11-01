@@ -199,3 +199,33 @@ def test_a_whole_score_draft_shows_the_drawing_format_before_the_long_tables(ser
     result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1-8"})
     assert not result.is_error
     assert "Left out" not in text_of(result)
+
+
+def test_an_unknown_view_is_refused_before_it_is_charged(server):
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    marks = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "i", "key": "e"}]
+    result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1-4", "view": "full"})
+    assert result.is_error and "view must be one of all, harmony, voice_leading, form" in text_of(result)
+    assert charged(server, "render") == 0
+
+
+def test_a_view_in_other_case_and_a_range_with_a_long_dash_are_drawn(server):
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    marks = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "i", "key": "e"}]
+    result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1–4", "view": "Harmony"})
+    assert not result.is_error
+    assert text_of(result).startswith("Analysis, measures 1-4, view harmony")
+
+
+def test_a_drawing_with_no_marks_says_so_first_and_skips_the_extra_downloads(server):
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": []}, "measure_range": "1-4"})
+    assert text_of(result).startswith("No analysis marks were drawn")
+    assert "worksheet" not in text_of(result).lower()
+
+
+def test_a_whole_score_draft_gives_its_instructions_before_the_chords_and_the_notes_last(server):
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    text = text_of(call("draft_analysis", {"score_id": score_id}))
+    assert text.index("HOW TO USE THIS DRAFT") < 1000
+    assert text.index("HOW TO USE THIS DRAFT") < text.index("CHORDS:") < text.index("## Method") < text.index("NOTES (one row")

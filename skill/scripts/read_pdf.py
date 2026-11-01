@@ -20,7 +20,9 @@ from pathlib import Path
 
 import verovio
 
-from engine.read_pdf import PREVIEW_OPTIONS, READER, PdfReading, ReadError, fit_top_margin, notice, problem_spots, read_pdf, shade, without_slurs
+from engine.read_pdf import (MAX_PAGES, NEXT_STEP, PREVIEW_OPTIONS, READ_PAGES, READER, PdfReading, ReadError, first_pages,
+                             fit_top_margin, notice, open_pdf, problem_spots, read_pdf, shade, too_many_pages,
+                             unread_pages, without_slurs)
 from engine.render import VEROVIO_OPTIONS, Engraving, ScoreError, load_toolkit
 from engine.score import ScoreIndex
 
@@ -92,18 +94,26 @@ def main() -> int:
     try:
         data = args.pdf.read_bytes()
         cache = HOME.parent / f"read-pdf-{READER}-{hashlib.sha256(data).hexdigest()}.json"
+        total = len(open_pdf(data).pages)
+        if total > MAX_PAGES:
+            print(too_many_pages(total), file=sys.stderr)
+            return 1
         if cache.exists():
             saved = json.loads(cache.read_text())
             reading = PdfReading(saved["musicxml"].encode(), saved["pages"], saved["scan"], saved["skipped"])
         else:
-            reading = read_pdf(data, audiveris=str(audiveris()))
+            read = min(total, READ_PAGES)
+            reading = read_pdf(first_pages(data, read) if read < total else data, audiveris=str(audiveris()))
             saved = {"musicxml": reading.musicxml.decode(), "pages": reading.pages, "scan": reading.scan, "skipped": reading.skipped}
             cache.write_text(json.dumps(saved))
         shown = reading.musicxml if args.keep_slurs else without_slurs(reading.musicxml)
         spots = problem_spots(shown)
         engraving = pages(shown, spots)
-        message = notice(shown, reading.scan, reading.skipped, args.keep_slurs, spots)
-    except (ReadError, ScoreError, OSError, subprocess.CalledProcessError) as error:
+        message = notice(shown, reading.scan, reading.skipped, args.keep_slurs, spots) + unread_pages(reading.pages, total)
+    except ReadError as error:
+        print(f"Error: {error}{NEXT_STEP}", file=sys.stderr)
+        return 1
+    except (ScoreError, OSError, subprocess.CalledProcessError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
 

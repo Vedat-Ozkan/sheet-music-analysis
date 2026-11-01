@@ -108,6 +108,18 @@ class ScoreError(ValueError):
     pass
 
 
+def parse_measures(measure_range: str | None) -> tuple[int, int] | None:
+    if not measure_range or measure_range.strip().lower() == "all":
+        return None
+    match = re.fullmatch(r"\s*(\d+)\s*(?:[-\u2013\u2014]\s*(\d+)\s*)?", measure_range)
+    if not match:
+        raise ScoreError('measure_range must look like "1-8" or "5", or be "all"')
+    first, last = int(match[1]), int(match[2] or match[1])
+    if first > last:
+        raise ScoreError(f'measure_range must start at the lower bar, e.g. "{last}-{first}"')
+    return first, last
+
+
 @dataclass
 class Engraving:
     svgs: list[str]

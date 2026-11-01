@@ -32,6 +32,12 @@ AUDIVERIS = os.environ.get("AUDIVERIS", "/opt/audiveris/bin/Audiveris")
 TIMEOUT = 480
 SECOND_PASS_SECONDS = 400
 READ_PAGES = 8
+MAX_PAGES = 12
+NEXT_STEP = (
+    ". Tell the user plainly, and suggest what may work: a PDF exported from notation software reads best; a scan "
+    "should be straight, sharp and about 300 dpi; a long PDF can be sent a few pages at a time; a MusicXML file "
+    "(.mxl or .musicxml) needs no reading at all."
+)
 PAINT_OPERATORS = {"S", "s", "f", "F", "f*", "B", "B*", "b", "b*"}
 CHECK = "This is what I read from your PDF; check it against your copy before I analyse it."
 SCAN_WARNING = "Scanned pages often have reading mistakes, so please check carefully."
@@ -287,6 +293,18 @@ def open_pdf(data: bytes) -> pikepdf.Pdf:
         return pikepdf.open(io.BytesIO(data))
     except pikepdf.PdfError as error:
         raise ReadError("This file could not be opened as a PDF") from error
+
+
+def too_many_pages(pages: int) -> str:
+    return (f"This PDF has {pages} pages; the most that can be read is {MAX_PAGES}. Tell the user plainly, "
+            "and suggest they attach a PDF of just the pages they want analysed.")
+
+
+def unread_pages(read: int, total: int) -> str:
+    if total <= read:
+        return ""
+    return (f" Only pages 1-{read} of the {total} were read, to keep the wait short; to analyse the rest, "
+            "send those pages as a separate PDF.")
 
 
 def first_pages(data: bytes, count: int) -> bytes:
