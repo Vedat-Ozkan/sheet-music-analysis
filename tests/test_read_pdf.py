@@ -15,7 +15,7 @@ from PIL import Image
 from engine import tint
 from engine.overlay import Box, PageLayout
 from engine.performance import marked_index
-from engine.read_pdf import PREVIEW_OPTIONS, SETTINGS, AudiverisRun, RawReading, ReadError, audiveris_facts, audiveris_read, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, without_slurs
+from engine.read_pdf import PARTS_DISAGREE, PREVIEW_OPTIONS, SETTINGS, AudiverisRun, RawReading, ReadError, audiveris_facts, audiveris_read, clean, is_scan, notice, number_bars, open_pdf, parts_disagree, preview, problem_spots, _problem_spots, read_pdf, without_slurs
 from engine.render import MAX_PIXELS, engrave, load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
@@ -113,6 +113,20 @@ def test_a_reading_that_dropped_notes_is_not_chosen_for_having_fewer_problem_bar
     counts = [pitched(clean(variant)) for variant in variants]
     reading = read_pdf((folder / 'hensel_vr.pdf').read_bytes(), raw=raw)
     assert pitched(reading.musicxml) >= 0.95 * max(counts)
+
+
+STORED_READINGS = sorted(path for path in (Path(__file__).parent / 'data/pdf_warnings').rglob('*')
+                         if path.name.endswith(('.mxl', '.musicxml', '.mxl.gz', '.musicxml.gz')))
+SPLIT_READINGS = {'setting0.mxl.gz', 'setting1.mxl.gz', 'setting2.mxl.gz', 'schubert_die_stadt_audiveris.musicxml'}
+
+
+@pytest.mark.parametrize('path', STORED_READINGS, ids=lambda path: path.name)
+def test_readings_whose_instruments_have_different_bar_counts_are_named(path):
+    data = path.read_bytes()
+    data = gzip.decompress(data) if path.suffix == '.gz' else data
+    score = clean(data) if data[:2] == b'PK' else data
+    assert parts_disagree(score) == (path.name in SPLIT_READINGS)
+    assert (PARTS_DISAGREE in notice(score, False, [], False)) == (path.name in SPLIT_READINGS)
 
 
 def test_fractional_durations_do_not_backup_before_the_bar():

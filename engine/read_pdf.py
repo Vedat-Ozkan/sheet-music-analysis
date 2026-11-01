@@ -36,6 +36,8 @@ PAINT_OPERATORS = {"S", "s", "f", "F", "f*", "B", "B*", "b", "b*"}
 CHECK = "This is what I read from your PDF; check it against your copy before I analyse it."
 SCAN_WARNING = "Scanned pages often have reading mistakes, so please check carefully."
 SLURS_LEFT_OUT = "Slurs are left out, because they are often misread from PDFs; ask if you want them kept."
+PARTS_DISAGREE = ("The instruments came out with different numbers of bars, so some staves were misread; compare "
+                  "the opening of each page with your copy.")
 SHOWN = 4
 _LENGTH = {"whole": 4, "half": 2, "quarter": 1, "eighth": Fraction(1, 2),
            "16th": Fraction(1, 4), "32nd": Fraction(1, 8), "64th": Fraction(1, 16)}
@@ -73,7 +75,13 @@ def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool, spots
         verb = "doesn't" if len(uneven) == 1 else "don't"
         who = f"The shaded bars ({_numbers(uneven)[5:]})" if len(uneven) > SHOWN else f"{_numbers(uneven)} (shaded)"
         text += f" {who} {verb} add up to a full bar, so a note or triplet may be misread there."
+    if parts_disagree(score):
+        text += " " + PARTS_DISAGREE
     return text + ("" if slurs_kept else " " + SLURS_LEFT_OUT)
+
+
+def parts_disagree(score: bytes) -> bool:
+    return len({len(part.findall("measure")) for part in ET.fromstring(score).iter("part")}) > 1
 
 
 def _numbers(bars: list[int]) -> str:
@@ -336,7 +344,7 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
         raise ReadError("Reading this PDF took too long" if timed_out else "No music could be read from this PDF", passes)
     counts = [_pitched_notes(reading[0]) for reading in readings]
     complete = [reading for reading, count in zip(readings, counts) if count >= MIN_NOTES * max(counts)]
-    musicxml, skipped, _ = min(complete, key=lambda reading: (len(reading[1]), len(reading[2])))
+    musicxml, skipped, _ = min(complete, key=lambda reading: (parts_disagree(reading[0]), len(reading[1]), len(reading[2])))
     for repair in (infer_tuplet_rests, infer_triplets):
         try:
             musicxml = repair(musicxml)
