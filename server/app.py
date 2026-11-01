@@ -46,8 +46,8 @@ from engine import correct, draft, read_ahead
 from engine import notes as note_list
 from engine import read_pdf as pdf_reader
 from engine import check_analysis, ledger, part_writing, reduce
-from engine.annotate import AnnotationError, render
-from engine.performance import performance_text, unclear_tempos
+from engine.annotate import AnnotationError, TooManyBars, render
+from engine.performance import marked_index, performance_text, unclear_tempos
 from engine.annotations import AnnotationList
 from engine.export import export_midi, export_musicxml, export_romantext
 from engine.render import ScoreError, engrave, load_toolkit
@@ -161,7 +161,7 @@ def client_of(headers) -> str:
 
 PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "sheet-music-analysis")
 STARTED = time.monotonic()
-SEVERITY = {"ok": "INFO", "user_error": "WARNING", "limit": "WARNING", "busy": "WARNING", "server_error": "ERROR", "cancelled": "WARNING"}
+SEVERITY = {"ok": "INFO", "degraded": "ERROR", "user_error": "WARNING", "limit": "WARNING", "busy": "WARNING", "server_error": "ERROR", "cancelled": "WARNING"}
 current_call: contextvars.ContextVar[dict | None] = contextvars.ContextVar("current_call", default=None)
 calls_served = 0
 
@@ -444,6 +444,13 @@ REVIEW_GUIDE = (
 )
 
 
+DRAFT_UNAVAILABLE = (
+    "DRAFT UNAVAILABLE: the draft model failed on this score this time. Analyse from the NOTES table below alone, "
+    "following the method, and tell the user in one sentence that the automatic first draft was unavailable. If they "
+    "asked for their own numerals to be checked, compare them with your reading of the NOTES table."
+)
+
+
 def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, student_analysis: str | None = None) -> str:
     with stage("parse"):
         mei = load_toolkit(score).getMEI()
@@ -453,29 +460,46 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, studen
     if cached:
         raw = json.loads(cached)
     else:
-        with tracer.start_as_current_span("model"):
-            raw = draft.MODELS["analysisgnn"](note_list.encode(index).encode(), "notes")
-        with stage("publish"):
-            store.put(f"scores/{code}.draft.json", json.dumps(raw).encode())
+        try:
+            with tracer.start_as_current_span("model"):
+                raw = draft.MODELS["analysisgnn"](note_list.encode(index).encode(), "notes")
+        except draft.DraftError as error:
+            raw = None
+            log("draft_analysis", outcome="degraded", draft_error=str(error)[:300], stack_trace=traceback.format_exc())
+        else:
+            with stage("publish"):
+                store.put(f"scores/{code}.draft.json", json.dumps(raw).encode())
     with stage("build"):
-        result = draft.build(raw, index)
+        result = draft.build(raw, index) if raw is not None else None
         first, last = measures or (None, None)
         unit = index.measure(first or index.measures[-1].number).beat_length
         numbers = f"{index.measures[0].number} to {index.measures[-1].number}"
+        sections = [
+            ("part_writing", lambda: part_writing.as_text(index, result.chords, first, last) if result else ""),
+            ("ledger", lambda: ledger.as_text(mei, index, first, last)),
+            ("student_check", lambda: check_analysis.as_text(
+                check_analysis.student_labels(student_analysis, score, index), result, index)
+                if student_analysis and result else ""),
+        ]
         return (
             f"score_id: {code}\nThe score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n\n"
-            + draft.as_text(result, first, last)
+            + (draft.as_text(result, first, last) if result else DRAFT_UNAVAILABLE)
             + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
             + reduce.as_text(index, first, last)
-            + ("\n\n" + section if (section := part_writing.as_text(index, result.chords, first, last)) else "")
-            + ("\n\n" + section if (section := ledger.as_text(mei, index, first, last)) else "")
-            + (
-                "\n\n" + check_analysis.as_text(check_analysis.student_labels(student_analysis, score, index), result, index)
-                if student_analysis else ""
-            )
+            + "".join("\n\n" + text for text in (optional(name, make) for name, make in sections) if text)
             + "\n\n"
             + REVIEW_GUIDE
         )
+
+
+def optional(name: str, make) -> str:
+    try:
+        return make()
+    except check_analysis.ClarificationNeeded:
+        raise
+    except Exception as error:
+        log("draft_analysis", section_error=f"{name}: {type(error).__name__}", stack_trace=traceback.format_exc())
+        return ""
 
 
 apps = Apps()
@@ -500,6 +524,33 @@ def downloads_text(links: dict[str, str]) -> str:
         return ""
     return ("\nMore downloads, shown on the card under \"More downloads\"; mention them to the user once per "
             "conversation, not after every render:\n" + "\n".join(present))
+
+
+NOTHING_DRAWN = (
+    "No analysis marks were drawn: the annotation list was empty, so the page shows only the score. To analyse, "
+    "call draft_analysis with score_id {score_id}, review the draft, then call render_analysis with your annotation list."
+)
+
+
+async def draw(score: bytes, annotations: AnnotationList, measures: tuple[int, int] | None, view: str, piano: bool):
+    left_out = []
+    while True:
+        try:
+            engraving = await in_turn(lambda: render(score, annotations, measures=measures, view=view, piano=piano))
+            return engraving, annotations, measures, left_out
+        except AnnotationError as error:
+            if not error.rejected or len(left_out) > 1:
+                raise
+            annotations = annotations.model_copy(update={"annotations": [
+                annotation for number, annotation in enumerate(annotations.annotations) if number not in error.rejected]})
+            left_out.append("Left out because their positions do not fit the score (fix them and call again to add "
+                            "them; numbers refer to your list):\n" + "\n".join(error.problems))
+        except TooManyBars as error:
+            if len(left_out) > 1:
+                raise
+            measures = error.fits
+            left_out.append(f"{error} This page shows measures {measures[0]}-{measures[1]}; call again with "
+                            f"measure_range for the bars after {measures[1]}.")
 
 
 @apps.tool(
@@ -532,20 +583,23 @@ async def render_analysis(
     piano: bool = False,
 ) -> CallToolResult:
     source = platform(ctx)
-    if not await take("render", source):
-        log("limit", tool="render_analysis", platform=source)
-        return error_result(LIMIT_MESSAGE)
+    asked = len(annotations.annotations)
     try:
         score, _ = await resolve_score(None, score_id)
         measures = parse_measures(measure_range)
+        if not await take("render", source):
+            log("limit", tool="render_analysis", platform=source)
+            return error_result(LIMIT_MESSAGE)
         with stage("render"):
-            engraving = await in_turn(lambda: render(score, annotations, measures=measures, view=view, piano=piano))
+            engraving, annotations, measures, left_out = await draw(score, annotations, measures, view, piano)
     except AnnotationError as error:
         log("render_analysis", platform=source, problems=len(error.problems))
         return error_result("Fix these annotations and call again:\n" + "\n".join(error.problems))
     except ValueError as error:
         log("render_analysis", platform=source, error=type(error).__name__)
         return error_result(str(error))
+    if measures:
+        measure_range = f"{measures[0]}-{measures[1]}"
     musicxml, export_warning = None, None
     try:
         with stage("export"):
@@ -588,14 +642,17 @@ async def render_analysis(
     pdf_url = links["pdf_url"]
     caption = f"Analysis, measures {measure_range}, view {view}" + (", piano reduction" if piano else "")
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
-        view=view, measure_range=measure_range)
+        view=view, measure_range=measure_range, left_out=len(left_out) or None)
     structured_content = {**links, "caption": caption}
+    if not asked:
+        left_out.append(NOTHING_DRAWN.format(score_id=score_id))
     return CallToolResult(
         meta={"ask_for_rating": True} if await rating_is_due(ctx) else None,
         content=[
             ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png"),
             TextContent(type="text", text=f"{caption}, shown in a card. PDF: {pdf_url}\n"
-                        + (export_warning or musicxml_text(links["musicxml_url"], annotations)) + downloads_text(links)),
+                        + (export_warning or musicxml_text(links["musicxml_url"], annotations)) + downloads_text(links)
+                        + "".join(f"\n\n{note}" for note in left_out)),
         ],
         structured_content=structured_content,
     )
@@ -646,7 +703,12 @@ BUSY_MESSAGE = (
     "Another PDF is being read right now; a PDF takes up to about 4 minutes to read. Tell the user plainly that the "
     "service is busy reading another PDF and to send theirs again in a few minutes."
 )
-SAME_FILE_WAIT = 30
+PDF_NEXT_STEP = (
+    ". Tell the user plainly, and suggest what may work: a PDF exported from notation software reads best; a scan "
+    "should be straight, sharp and about 300 dpi; a long PDF can be sent a few pages at a time; a MusicXML file "
+    "(.mxl or .musicxml) needs no reading at all."
+)
+SAME_FILE_WAIT = 90
 STILL_READING = (
     "This PDF is still being read ({seconds} s so far; a long PDF takes up to about 4 minutes). Tell the user it is "
     "still being read, then call read_pdf again with the same file; each call waits up to {wait} s for the result."
@@ -705,14 +767,14 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
             await anyio.to_thread.run_sync(store.put, card_key, json.dumps(card).encode())
             return pdf_card_result(card, keep_slurs)
         except (ScoreError, pdf_reader.ReadError) as error:
-            failure = (type(error).__name__, str(error))
+            failure = (type(error).__name__, str(error) + (PDF_NEXT_STEP if isinstance(error, pdf_reader.ReadError) else ""))
             raise
         finally:
             del pdfs_reading[digest]
             running.set_result(failure)
     except (ScoreError, pdf_reader.ReadError, httpx.HTTPError) as error:
         log("read_pdf", platform=source, error=type(error).__name__, passes=getattr(error, "passes", None) or None)
-        return error_result(str(error))
+        return error_result(str(error) + (PDF_NEXT_STEP if isinstance(error, pdf_reader.ReadError) else ""))
 
 
 async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str, started: float) -> dict | CallToolResult:
@@ -751,11 +813,13 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str,
 
     def render():
         spots = pdf_reader.problem_spots(score)
+        numbers = [measure.number for measure in ScoreIndex(load_toolkit(score).getMEI()).measures]
         return (pdf_reader.preview(score, tall=True, spots=spots), pdf_reader.preview(score, spots=spots), engrave(score),
-                pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots))
+                pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots),
+                f"{numbers[0]} to {numbers[-1]}")
 
     with stage("render"):
-        tall, shaded, engraving, notice = await in_turn(render)
+        tall, shaded, engraving, notice, measures = await in_turn(render)
         pages = await in_turn(lambda: [shaded.png(page) for page in range(1, shaded.page_count + 1)])
     with stage("publish"):
         image_url, pdf_url = await in_turn(
@@ -763,7 +827,7 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str,
         )
     log("read_pdf", platform=source, pages=reading["pages"], seconds=round(time.time() - started, 1),
         scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached), keep_slurs=keep_slurs, passes=passes)
-    return {"score_id": score_id, "pages": reading["pages"], "notice": notice, "image_url": image_url,
+    return {"score_id": score_id, "pages": reading["pages"], "measures": measures, "notice": notice, "image_url": image_url,
             "pdf_url": pdf_url, "page_images": [base64.b64encode(png).decode() for png in pages]}
 
 
@@ -772,6 +836,7 @@ def pdf_card_result(card: dict, keep_slurs: bool) -> CallToolResult:
         f"score_id: {card['score_id']}\n"
         f"The card shows the user every bar of the engraved score read from their {card['pages']}-page PDF, in one "
         f"image. The card holds no text, so give the user this message in your reply: \"{card['notice']}\"\n"
+        f"The score has measures {card['measures']}; a drawn page shows at most 32 bars.\n"
         "Then stop and wait. Analyse only after the user says to go ahead: "
         "then call draft_analysis with this score_id and continue exactly as for an attached MusicXML file."
         + ("" if keep_slurs else " If the user asks to keep the slurs, call read_pdf again with the same file and "
@@ -923,6 +988,7 @@ async def draft_analysis(
     started = time.time()
     try:
         score, given = await resolve_score(score_file, score_id)
+        measures = parse_measures(measure_range)
         if student_analysis and student_analysis.strip().lower() != "score":
             await in_turn(check_analysis.from_text, student_analysis)
         if given == "score_id":
@@ -935,7 +1001,7 @@ async def draft_analysis(
         if fresh and not await take("draft", source):
             log("limit", tool="draft_analysis", platform=source)
             return error_result(LIMIT_MESSAGE)
-        text = await in_turn(make_draft, score, code, parse_measures(measure_range), student_analysis)
+        text = await in_turn(make_draft, score, code, measures, student_analysis)
     except check_analysis.ClarificationNeeded as error:
         return error_result(error.question)
     except (ScoreError, PositionError, ValueError, draft.DraftError, httpx.HTTPError) as error:
@@ -944,6 +1010,19 @@ async def draft_analysis(
     log("draft_analysis", platform=source, input=given, score_bytes=len(score), measure_range=measure_range,
         seconds=round(time.time() - started, 1))
     return CallToolResult(content=[TextContent(type="text", text=text)])
+
+
+async def current_bars(score: bytes | None, replacement_bars: str, part: str | None) -> str:
+    bars = sorted({int(number) for number in re.findall(r"^\s*m(\d+)\b", replacement_bars, re.M)})
+    if score is None or not bars or part is not None:
+        return ""
+    first, last = bars[0], min(bars[-1], bars[0] + 3)
+    try:
+        text = await in_turn(lambda: note_list.encode(marked_index(score), first, last))
+    except Exception as error:
+        log("correct_bars", current_bars_error=type(error).__name__)
+        return ""
+    return f"\nThe score's current notes for measures {first}-{last}, in the same format, to edit:\n{text}"
 
 
 @mcp.tool(
@@ -970,6 +1049,7 @@ async def correct_bars(
     ctx: Context, score_id: str, replacement_bars: str, part: str | None = None,
 ) -> CallToolResult:
     source = platform(ctx)
+    before = None
     try:
         before, _ = await resolve_score(None, score_id)
         with stage("parse"):
@@ -1000,7 +1080,8 @@ async def correct_bars(
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", after)
     except (correct.CorrectionError, ScoreError, PositionError) as error:
         log("correct_bars", platform=source, error=type(error).__name__)
-        return error_result("Fix the replacement bars and call correct_bars again: " + str(error))
+        return error_result("Fix the replacement bars and call correct_bars again: " + str(error)
+                            + await current_bars(before, replacement_bars, part))
     log("correct_bars", platform=source, changed=len(review.changed_bars), pages=len(pages))
     descriptions = list(review.notes.values())
     text = (
@@ -1057,7 +1138,12 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
             student = await in_turn(check_analysis.student_labels, student_analysis, None, index)
     except check_analysis.ClarificationNeeded as error:
         return error_result(QUESTION_FOR_USER + error.question)
-    except (note_list.NotesError, draft.DraftError, PositionError, ValueError) as error:
+    except draft.DraftError as error:
+        log("draft_from_notes", platform=source, outcome="degraded", draft_error=str(error)[:300],
+            stack_trace=traceback.format_exc(), chars=len(notes))
+        return CallToolResult(content=[TextContent(type="text", text=DRAFT_UNAVAILABLE.replace(
+            "the NOTES table below", "the note list"))])
+    except (note_list.NotesError, PositionError, ValueError) as error:
         log("draft_from_notes", platform=source, error=type(error).__name__, chars=len(notes), outcome=outcome_of(error))
         return error_result(str(error))
     def build() -> str:
@@ -1132,6 +1218,9 @@ def main() -> None:
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(JsonFormatter())
     logging.basicConfig(level=logging.WARNING, handlers=[handler], force=True)
+    tool_calls = logging.getLogger("mcp.server.mcpserver.server")
+    tool_calls.setLevel(logging.INFO)
+    tool_calls.addFilter(lambda record: record.levelno > logging.INFO or record.msg.startswith("Tool %r rejected arguments"))
     uvicorn.run(traced(without_event_stream(app)), host="0.0.0.0", port=PORT, log_level="warning", log_config=None)
 
 

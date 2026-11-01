@@ -37,7 +37,7 @@ def main() -> None:
         event = data["event"]
         if event == "limit":
             counts["limits"] += 1
-        elif "error" in data or "problems" in data or data.get("outcome") in ("user_error", "server_error"):
+        elif "error" in data or "problems" in data or data.get("outcome") in ("user_error", "server_error", "degraded"):
             counts["errors"] += 1
         elif event == "read_pdf":
             if data.get("busy"):

@@ -27,22 +27,30 @@ ANNOTATED_OPTIONS = {
 
 
 class AnnotationError(ValueError):
-    def __init__(self, problems: list[str]):
+    def __init__(self, problems: list[str], rejected: set[int] | None = None):
         super().__init__("\n".join(problems))
         self.problems = problems
+        self.rejected = rejected or set()
+
+
+class TooManyBars(PositionError):
+    def __init__(self, message: str, fits: tuple[int, int]):
+        super().__init__(message)
+        self.fits = fits
 
 
 def check(annotations: AnnotationList, index: ScoreIndex) -> None:
-    problems = []
+    problems, rejected = [], set()
     key = None
-    for harmony in sorted((a for a in annotations.annotations if isinstance(a, Harmony)),
-                          key=lambda h: (h.at.measure, h.at.beat)):
+    for number, harmony in sorted(((number, a) for number, a in enumerate(annotations.annotations) if isinstance(a, Harmony)),
+                                  key=lambda pair: (pair[1].at.measure, pair[1].at.beat)):
         key = harmony.key or key
         if annotations.style == "figured_bass":
             try:
                 notation.numeral(harmony.label, key, annotations.style, 440)
             except ValueError as error:
                 problems.append(f"harmony at measure {harmony.at.measure} beat {harmony.at.beat}: {error}")
+                rejected.add(number)
     for number, annotation in enumerate(annotations.annotations):
         try:
             if isinstance(annotation, (Harmony, Cadence, Callout)):
@@ -60,6 +68,7 @@ def check(annotations: AnnotationList, index: ScoreIndex) -> None:
                     index.find_note(**annotation.to_note.model_dump())
         except PositionError as error:
             problems.append(f"annotations[{number}] ({annotation.type}): {error}")
+            rejected.add(number)
             continue
         if isinstance(annotation, Alternative):
             where = lambda measure, beat: (index.measure(measure).index, beat)
@@ -70,8 +79,9 @@ def check(annotations: AnnotationList, index: ScoreIndex) -> None:
             if tokens != count:
                 problems.append(f"annotations[{number}] (alternative): its label has {tokens} chords but those bars have {count} "
                                 "harmony labels; give one chord per harmony label, '-' where unchanged")
+                rejected.add(number)
     if problems:
-        raise AnnotationError(problems)
+        raise AnnotationError(problems, rejected)
 
 
 def render(
@@ -99,9 +109,11 @@ def render(
     first, last = measures or (index.measures[0].number, index.measures[-1].number)
     bars = sum(1 for measure in index.measures if first <= measure.number <= last and measure.number > 0)
     if bars > MAX_BARS:
-        raise PositionError(
+        counted = [measure.number for measure in index.measures if first <= measure.number <= last and measure.number > 0]
+        raise TooManyBars(
             f"A page can show at most {MAX_BARS} bars and measures {first}-{last} have {bars}. "
-            f"Draw the analysis passage by passage, {MAX_BARS} bars or fewer each."
+            f"Draw the analysis passage by passage, {MAX_BARS} bars or fewer each.",
+            (first, counted[MAX_BARS - 1]),
         )
     ties = incoming_ties(toolkit, index, measures[0]) if measures else set()
     _reserve_numeral_room(toolkit, index, annotations)
