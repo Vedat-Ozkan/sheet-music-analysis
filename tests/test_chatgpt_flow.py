@@ -186,3 +186,16 @@ def test_a_long_pdf_reads_its_first_pages_and_says_which(server, monkeypatch):
     assert pages_read == [pdf_reader.READ_PAGES]
     assert f"Only pages 1-{pdf_reader.READ_PAGES} of the 10 were read" in text_of(result)
     assert charged(server, "pdf_page") == pdf_reader.READ_PAGES
+
+
+def test_a_whole_score_draft_shows_the_drawing_format_before_the_long_tables(server):
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    text = text_of(call("draft_analysis", {"score_id": score_id}))
+    assert len(text) > 10000
+    example = text.index('{"type": "harmony", "at": {"measure": 1')
+    assert example < 500
+    line = text[example:].split("\n", 1)[0].rstrip(".")
+    marks = json.loads("[" + line + "]")
+    result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1-8"})
+    assert not result.is_error
+    assert "Left out" not in text_of(result)

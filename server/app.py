@@ -461,6 +461,12 @@ def parse_measures(measure_range: str) -> tuple[int, int] | None:
     return first, last
 
 
+ANNOTATION_FORMAT = (
+    "render_analysis annotations are nested objects, e.g. "
+    "{\"type\": \"harmony\", \"at\": {\"measure\": 1, \"beat\": 1}, \"label\": \"I\", \"key\": \"F\"}, "
+    "{\"type\": \"cadence\", \"at\": {\"measure\": 8, \"beat\": 1}, \"label\": \"PAC\"}, "
+    "{\"type\": \"phrase\", \"start\": {\"measure\": 1, \"beat\": 1}, \"end\": {\"measure\": 8}}.\n"
+)
 SKILL_RULES = re.sub(r"<!--.*?-->\n+", "", (HERE.parent / "skill" / "SKILL.md").read_text().split("## Method", 1)[1])
 REVIEW_GUIDE = (
     "HOW TO USE THIS DRAFT\n"
@@ -469,10 +475,7 @@ REVIEW_GUIDE = (
     "score_id and your annotation list (its `view` argument draws one layer: harmony, voice_leading or form), "
     "show the page and write the commentary.\n"
     "Positions: `measure` is the printed number (a pickup is 0); `beat` is 1-based in the unit given above; "
-    "`pitch` is like \"Eb4\" at sounding pitch; `staff` 1 is the top staff. Positions are nested objects, e.g. "
-    "{\"type\": \"harmony\", \"at\": {\"measure\": 1, \"beat\": 1}, \"label\": \"I\", \"key\": \"F\"}, "
-    "{\"type\": \"cadence\", \"at\": {\"measure\": 8, \"beat\": 1}, \"label\": \"PAC\"}, "
-    "{\"type\": \"phrase\", \"start\": {\"measure\": 1, \"beat\": 1}, \"end\": {\"measure\": 8}}.\n\n"
+    "`pitch` is like \"Eb4\" at sounding pitch; `staff` 1 is the top staff.\n\n"
     "If the draft has a PART-WRITING CHECK section (chorale-style scores only), your first reply must include one "
     "sentence offering to check the voice leading, even when it also asks which bars to analyse; draw nothing from it "
     "unless the user says yes or asked for it. When they want it, add "
@@ -525,7 +528,8 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, studen
                 if student_analysis and result else ""),
         ]
         return (
-            f"score_id: {code}\nThe score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n\n"
+            f"score_id: {code}\nThe score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n"
+            + ANNOTATION_FORMAT + "\n"
             + (draft.as_text(result, first, last) if result else DRAFT_UNAVAILABLE)
             + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
             + reduce.as_text(index, first, last)
