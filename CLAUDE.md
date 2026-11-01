@@ -9,7 +9,7 @@ These are the owner's standing rules. Older detail is in the memory notes for th
 - Run `tests/test_awkward.py` and the real-world inputs in `tests/data/` for any change to reading, analysis or drawing. Every file that crashed for a user goes into the test data.
 - Look at produced pages full size against the original before reporting that they work. Use real inputs only, never invented demo ones.
 - A different model or agent reviews a branch before it is merged.
-- For the full suite, have a subagent run it and report only failures. Report checks that could not run as NOT RUN.
+- For the full suite, have a subagent run it (`.venv/bin/python -m pytest -q -rs -n auto`, about 10 minutes; set `AUDIVERIS` to run the real PDF tests) and report only failures. Report checks that could not run as NOT RUN.
 
 ## Deploying
 - Production deploys only from a clean, committed tree on `main` that CI has passed. Staging may run a branch.

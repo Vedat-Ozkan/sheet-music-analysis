@@ -10,7 +10,7 @@
   img { display: block; width: 100%; height: auto; background: #fff; }
   .actions { display: flex; flex-direction: column; gap: 4px; padding: 12px; }
   .actions button { width: 100%; height: 40px; border: 0; border-radius: 20px; font: inherit; font-size: 15px; cursor: pointer; }
-  .actions button[hidden] { display: none; }
+  .actions button[hidden], .actions[hidden] { display: none; }
   #pdf { background: var(--button); color: var(--button-fg); }
   .more { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 0 12px 12px; color: var(--muted); font-size: 13px; }
   .more[hidden] { display: none; }
@@ -23,7 +23,7 @@
 </head>
 <body>
 <img id="page" alt="Engraved score">
-<div class="actions">
+<div class="actions" id="actions" hidden>
   <button id="pdf">Download PDF</button>
 </div>
 <div class="more" id="more" hidden>
@@ -63,6 +63,7 @@
   let answeredHere = false;
   function show(data) {
     if (!data || !data.image_url) return;
+    document.getElementById("actions").hidden = false;
     const image = document.getElementById("page");
     image.onload = reportSize;
     image.src = data.image_url;

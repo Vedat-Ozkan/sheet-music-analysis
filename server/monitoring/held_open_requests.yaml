@@ -1,5 +1,5 @@
-description: One per request held open 250 s or more, close to Cloud Run's 300 s timeout
-filter: resource.type="cloud_run_revision" AND httpRequest.latency>="250s"
+description: One per request held open 880 s or more, close to Cloud Run's 900 s timeout (a PDF read can legitimately hold its first call for up to about 855 s)
+filter: resource.type="cloud_run_revision" AND httpRequest.latency>="880s"
 labelExtractors:
   method: EXTRACT(httpRequest.requestMethod)
   user_agent: EXTRACT(httpRequest.userAgent)

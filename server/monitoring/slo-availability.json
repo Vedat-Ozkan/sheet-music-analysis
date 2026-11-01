@@ -3,7 +3,7 @@
   "goal": 0.99,
   "rollingPeriod": "2419200s",
   "serviceLevelIndicator": {"requestBased": {"goodTotalRatio": {
-    "badServiceFilter": "metric.type=\"logging.googleapis.com/user/tool_calls\" resource.type=\"cloud_run_revision\" resource.label.\"service_name\"=\"sheet-music-analysis\" metric.label.\"outcome\"=\"server_error\"",
+    "badServiceFilter": "metric.type=\"logging.googleapis.com/user/tool_calls\" resource.type=\"cloud_run_revision\" resource.label.\"service_name\"=\"sheet-music-analysis\" metric.label.\"outcome\"=one_of(\"server_error\",\"degraded\")",
     "totalServiceFilter": "metric.type=\"logging.googleapis.com/user/tool_calls\" resource.type=\"cloud_run_revision\" resource.label.\"service_name\"=\"sheet-music-analysis\""
   }}}
 }

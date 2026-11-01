@@ -29,8 +29,9 @@ from engine.tuplet_rests import infer_tuplet_rests
 log = logging.getLogger(__name__)
 
 AUDIVERIS = os.environ.get("AUDIVERIS", "/opt/audiveris/bin/Audiveris")
-TIMEOUT = 240
-SECOND_PASS_SECONDS = 190
+TIMEOUT = 480
+SECOND_PASS_SECONDS = 400
+READ_PAGES = 8
 PAINT_OPERATORS = {"S", "s", "f", "F", "f*", "B", "B*", "b", "b*"}
 CHECK = "This is what I read from your PDF; check it against your copy before I analyse it."
 SCAN_WARNING = "Scanned pages often have reading mistakes, so please check carefully."
@@ -286,6 +287,14 @@ def open_pdf(data: bytes) -> pikepdf.Pdf:
         return pikepdf.open(io.BytesIO(data))
     except pikepdf.PdfError as error:
         raise ReadError("This file could not be opened as a PDF") from error
+
+
+def first_pages(data: bytes, count: int) -> bytes:
+    pdf = open_pdf(data)
+    del pdf.pages[count:]
+    out = io.BytesIO()
+    pdf.save(out)
+    return out.getvalue()
 
 
 def is_scan(pdf: pikepdf.Pdf) -> bool:

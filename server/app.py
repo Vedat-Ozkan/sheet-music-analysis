@@ -693,7 +693,7 @@ async def render_analysis(
         meta={"ask_for_rating": True} if await rating_is_due(ctx) else None,
         content=[
             ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png"),
-            TextContent(type="text", text=f"{caption}, shown in a card. PDF: {pdf_url}\n"
+            TextContent(type="text", text=f"{caption}, shown in a card. PDF: {pdf_url}\nPNG: {links['image_url']}\n"
                         + (export_warning or musicxml_text(links["musicxml_url"], annotations)) + downloads_text(links)
                         + "".join(f"\n\n{note}" for note in left_out)),
         ],
@@ -743,7 +743,7 @@ apps.add_html_resource(
 )
 
 BUSY_MESSAGE = (
-    "Another PDF is being read right now; a PDF takes up to about 4 minutes to read. Tell the user plainly that the "
+    "Another PDF is being read right now, and a PDF can take several minutes to read. Tell the user plainly that the "
     "service is busy reading another PDF and to send theirs again in a few minutes."
 )
 PDF_NEXT_STEP = (
@@ -752,11 +752,13 @@ PDF_NEXT_STEP = (
     "(.mxl or .musicxml) needs no reading at all."
 )
 SAME_FILE_WAIT = 100
-STARTER_WAIT = 300 - DOWNLOAD_SECONDS - 15
-READ_MARKER_SECONDS = 300
+REQUEST_SECONDS = 900
+STARTER_WAIT = REQUEST_SECONDS - DOWNLOAD_SECONDS - 15
+READ_MARKER_SECONDS = REQUEST_SECONDS
+READ_MINUTES = round((pdf_reader.TIMEOUT + 120) / 60)
 POLL_SECONDS = 3
 STILL_READING = (
-    "This PDF is still being read ({seconds} s so far; a long PDF takes up to about 4 minutes). Tell the user it is "
+    "This PDF is still being read ({seconds} s so far; a long PDF takes up to about {minutes} minutes). Tell the user it is "
     "still being read, then call read_pdf again with the same file; each call waits up to {wait} s for the result."
 )
 pdfs_reading: dict[str, tuple[asyncio.Task, float]] = {}
@@ -810,10 +812,16 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
     with anyio.move_on_after(STARTER_WAIT if started_here else SAME_FILE_WAIT):
         await asyncio.shield(task)
     if not task.done():
-        log("read_pdf", platform=source, busy=True, same_file=True, keep_slurs=keep_slurs)
+        log("read_pdf", platform=source, reading=True, keep_slurs=keep_slurs)
         return CallToolResult(content=[TextContent(type="text", text=STILL_READING.format(
-            seconds=round(time.time() - since), wait=SAME_FILE_WAIT))])
+            seconds=round(time.time() - since), wait=SAME_FILE_WAIT, minutes=READ_MINUTES))])
     result, details = task.result()
+    if started_here and (timings := draft.timings.get()) is not None:
+        timings.update({name: value for name, value in details.get("timings_ms", {}).items() if name != "total"})
+    if details["outcome"] == "server_error":
+        current_call.get().update(event="read_pdf", platform=source, outcome="server_error",
+                                  reference=details["reference"], stack_trace=details["stack_trace"])
+        return result
     if details.get("limit"):
         log("limit", tool="read_pdf", platform=source, pages=details.get("pages"))
     else:
@@ -861,9 +869,9 @@ async def wait_for_other_machine(card_key: str, since: float, source: str, keep_
                 log("read_pdf", platform=source, keep_slurs=keep_slurs, other_machine=True, error=failure["error"])
                 return error_result(failure["text"])
             await anyio.sleep(POLL_SECONDS)
-    log("read_pdf", platform=source, busy=True, same_file=True, other_machine=True, keep_slurs=keep_slurs)
+    log("read_pdf", platform=source, reading=True, other_machine=True, keep_slurs=keep_slurs)
     return CallToolResult(content=[TextContent(type="text", text=STILL_READING.format(
-        seconds=round(time.time() - since), wait=SAME_FILE_WAIT))])
+        seconds=round(time.time() - since), wait=SAME_FILE_WAIT, minutes=READ_MINUTES))])
 
 
 async def pdf_work(data: bytes, digest: str, keep_slurs: bool, source: str, card_key: str,
@@ -900,6 +908,8 @@ async def pdf_outcome(data: bytes, digest: str, keep_slurs: bool, source: str, c
         failure = {"at": time.time(), "error": details.get("error", outcome), "text": result.content[0].text}
         await anyio.to_thread.run_sync(store.put, failure_of(card_key), json.dumps(failure).encode())
     timings["total"] = round((time.perf_counter() - started) * 1000)
+    details["outcome"] = outcome
+    details["timings_ms"] = timings
     write_line({**details, "outcome": outcome, "severity": SEVERITY[outcome], "message": f"read_pdf_work {outcome}",
                 "timings_ms": timings})
     return result, details
@@ -919,18 +929,21 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
                 f"This PDF has {pages} pages; the most that can be read is {MAX_PDF_PAGES}. Tell the user plainly, "
                 f"and suggest they attach a PDF of just the pages they want analysed."
             )
+        read = min(pages, pdf_reader.READ_PAGES)
+        if read < pages:
+            data = await anyio.to_thread.run_sync(pdf_reader.first_pages, data, read)
         if pdf_lock.locked():
             log("read_pdf_work", busy=True)
             return error_result(BUSY_MESSAGE)
         async with pdf_lock:
-            if not await take("pdf_page", source, pages):
-                log("read_pdf_work", limit=True, pages=pages)
+            if not await take("pdf_page", source, read):
+                log("read_pdf_work", limit=True, pages=read)
                 return error_result(LIMIT_MESSAGE)
             with stage("omr"):
                 result = await anyio.to_thread.run_sync(pdf_reader.read_pdf, data)
         passes = result.passes
         reading = {"score_id": secrets.token_hex(8).upper(), "pages": result.pages, "scan": result.scan,
-                   "skipped": result.skipped}
+                   "skipped": result.skipped, "of_pages": pages}
         await anyio.to_thread.run_sync(store.put, f"scores/{reading['score_id']}", result.musicxml)
         await anyio.to_thread.run_sync(store.put, cache_key, json.dumps(reading).encode())
     score, _ = await resolve_score(None, reading["score_id"])
@@ -943,7 +956,7 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
         spots = pdf_reader.problem_spots(score)
         numbers = [measure.number for measure in ScoreIndex(load_toolkit(score).getMEI()).measures]
         return (pdf_reader.preview(score, tall=True, spots=spots), pdf_reader.preview(score, spots=spots), engrave(score),
-                pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots),
+                pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots) + unread_pages(reading),
                 f"{numbers[0]} to {numbers[-1]}")
 
     with stage("render"):
@@ -957,6 +970,14 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
         passes=passes)
     return {"score_id": score_id, "pages": reading["pages"], "measures": measures, "notice": notice, "image_url": image_url,
             "pdf_url": pdf_url, "page_images": [base64.b64encode(png).decode() for png in pages]}
+
+
+def unread_pages(reading: dict) -> str:
+    total = reading.get("of_pages", reading["pages"])
+    if total <= reading["pages"]:
+        return ""
+    return (f" Only pages 1-{reading['pages']} of the {total} were read, to keep the wait short; to analyse the rest, "
+            "send those pages as a separate PDF.")
 
 
 def pdf_card_result(card: dict, keep_slurs: bool) -> CallToolResult:
@@ -1034,9 +1055,11 @@ NO_PLAY_NOTES = (
 )
 @observed
 async def play(ctx: Context, play_id: str | None = None, notes: str | None = None, tempo: float | None = None) -> CallToolResult:
-    if play_id:
-        stored = await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(play_id)}.notes")
-        notes = stored.decode() if stored else None
+    if play_id and (stored := await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(play_id)}.notes")):
+        notes = stored.decode()
+    elif play_id and not notes:
+        return error_result(f"No draft has the play_id {play_id!r}; drafts are kept for one day. Call draft_from_notes "
+                            "again, or pass the note list as notes.")
     if not notes or not notes.lstrip().startswith("N1"):
         return error_result(NO_PLAY_NOTES)
     try:
@@ -1131,7 +1154,7 @@ async def draft_analysis(
             return error_result(LIMIT_MESSAGE)
         text = await in_turn(make_draft, score, code, measures, student_analysis)
     except check_analysis.ClarificationNeeded as error:
-        return error_result(error.question)
+        return error_result(QUESTION_FOR_USER + error.question)
     except (ScoreError, PositionError, ValueError, draft.DraftError, httpx.HTTPError) as error:
         log("draft_analysis", platform=source, error=type(error).__name__, outcome=outcome_of(error))
         return error_result(str(error))
@@ -1177,9 +1200,12 @@ async def correct_bars(
     ctx: Context, score_id: str, replacement_bars: str, part: str | None = None,
 ) -> CallToolResult:
     source = platform(ctx)
-    before = None
     try:
         before, _ = await resolve_score(None, score_id)
+    except ScoreError as error:
+        log("correct_bars", platform=source, error=type(error).__name__)
+        return error_result(str(error))
+    try:
         with stage("parse"):
             after = await in_turn(lambda: correct.replace_bars(before, replacement_bars, part=part))
         if not await take("render", source):
@@ -1270,7 +1296,7 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         log("draft_from_notes", platform=source, outcome="degraded", draft_error=str(error)[:300],
             stack_trace=traceback.format_exc(), chars=len(notes))
         return CallToolResult(content=[TextContent(type="text", text=DRAFT_UNAVAILABLE.replace(
-            "the NOTES table below", "the note list"))])
+            "the NOTES table below", "the note list").replace("your reading of the NOTES table", "your reading of the note list"))])
     except (note_list.NotesError, PositionError, ValueError) as error:
         log("draft_from_notes", platform=source, error=type(error).__name__, chars=len(notes), outcome=outcome_of(error))
         return error_result(str(error))

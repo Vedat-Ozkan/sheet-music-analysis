@@ -133,3 +133,60 @@ def test_numbers_of_marks_left_out_refer_to_the_list_the_model_sent(server):
     result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1-4"})
     assert "annotations[0] (harmony): Measure 99" in text_of(result)
     assert "annotations[2] (harmony): Measure 98" in text_of(result)
+
+
+def logged(capsys, tool):
+    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")]
+    return [line for line in lines if line.get("tool") == tool or line.get("event") == f"{tool}_work"]
+
+
+def test_a_crash_while_reading_a_pdf_is_a_server_error_with_the_reference_the_user_sees(server, monkeypatch, capsys):
+    def crash(data):
+        raise RuntimeError("injected")
+
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", crash)
+    result = call("read_pdf", ATTACHED)
+    lines = logged(capsys, "read_pdf")
+    calls = [line for line in lines if line.get("tool") == "read_pdf"]
+    assert result.is_error and calls[-1]["outcome"] == "server_error" and calls[-1]["severity"] == "ERROR"
+    assert f"reference {calls[-1]['reference']}" in text_of(result)
+
+
+def test_a_failed_draft_model_is_logged_as_degraded(server, monkeypatch, capsys):
+    def broken(*args):
+        raise draft.DraftError("AnalysisGNN failed: injected")
+
+    monkeypatch.setitem(app.draft.MODELS, "analysisgnn", broken)
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    capsys.readouterr()
+    call("draft_analysis", {"score_id": score_id, "measure_range": "1-4"})
+    line = logged(capsys, "draft_analysis")[-1]
+    assert line["outcome"] == "degraded" and line["severity"] == "ERROR"
+
+
+def test_a_long_pdf_reads_its_first_pages_and_says_which(server, monkeypatch):
+    pages_read = []
+
+    def read(data):
+        pages_read.append(len(pdf_reader.open_pdf(data).pages))
+        return pdf_reader.PdfReading(READING, pages_read[-1], False, [], [])
+
+    def pdf_of(count):
+        import io
+        import pikepdf
+        pdf = pikepdf.new()
+        for _ in range(count):
+            pdf.add_blank_page()
+        out = io.BytesIO()
+        pdf.save(out)
+        return out.getvalue()
+
+    async def download(url):
+        return pdf_of(10)
+
+    monkeypatch.setattr(app, "download", download)
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", read)
+    result = call("read_pdf", ATTACHED)
+    assert pages_read == [pdf_reader.READ_PAGES]
+    assert f"Only pages 1-{pdf_reader.READ_PAGES} of the 10 were read" in text_of(result)
+    assert charged(server, "pdf_page") == pdf_reader.READ_PAGES

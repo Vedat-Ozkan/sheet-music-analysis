@@ -44,6 +44,6 @@ jobs:
           mkdir -p artifacts/models
           curl -fL -o artifacts/models/model.ckpt https://huggingface.co/spaces/manoskary/analysisgnn/resolve/main/checkpoint/model.ckpt
           echo "53d106038fea6a5ab3d4c0a19617736dff5f0299deffaf240ebd484c11f91c67  artifacts/models/model.ckpt" | sha256sum -c
-      - run: .venv/bin/python -m pytest -q
+      - run: .venv/bin/python -m pytest -q -rs -n auto
         env:
           GIT_PYTHON_REFRESH: quiet

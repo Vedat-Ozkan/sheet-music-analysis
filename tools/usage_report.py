@@ -44,7 +44,9 @@ def main() -> None:
         elif "error" in data or "problems" in data or data.get("outcome") in ("user_error", "server_error", "degraded"):
             counts["errors"] += 1
         elif event == "read_pdf":
-            if data.get("busy"):
+            if data.get("reading"):
+                counts["pdf still reading"] += 1
+            elif data.get("busy"):
                 counts["pdf busy"] += 1
             elif data.get("cached"):
                 counts["pdf cached"] += 1
@@ -69,7 +71,7 @@ def main() -> None:
         print(
             f"{key[0]}  {key[1]:8}  users {len(users[key]) if users[key] else '?'}  drafts {counts['drafts']}  renders {counts['renders']}  "
             f"piano {counts['piano renders']}  pdf reads {counts['pdf reads']} ({counts['pdf pages']} pages, "
-            f"{counts['pdf cached']} cached, {counts['pdf busy']} busy)  limits {counts['limits']}  errors {counts['errors']}"
+            f"{counts['pdf cached']} cached, {counts['pdf busy']} busy, {counts['pdf still reading']} still reading)  limits {counts['limits']}  errors {counts['errors']}"
             f"  views [{views}]  ranges [{spans}]"
         )
 

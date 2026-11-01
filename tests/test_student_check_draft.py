@@ -65,7 +65,7 @@ def test_numerals_written_in_the_score_are_read_only_when_asked(local_store):
 
 def test_ambiguous_answer_comes_back_as_the_question(local_store):
     result = call(app.draft_analysis, score_id="CHOPIN", student_analysis="I IV V I")
-    assert result.is_error and result.content[0].text == QUESTION
+    assert result.is_error and result.content[0].text == app.QUESTION_FOR_USER + QUESTION
 
 
 def test_draft_from_notes_checks_typed_answer(local_store):

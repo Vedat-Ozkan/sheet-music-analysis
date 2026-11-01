@@ -46,7 +46,7 @@ def test_a_note_list_plays_without_a_draft(local_store):
 
 def test_an_unknown_play_id_explains_what_to_pass(local_store):
     result = call(app.play, play_id="NOPE00")
-    assert result.is_error and "play_id that draft_from_notes returned" in result.content[0].text
+    assert result.is_error and "drafts are kept for one day. Call draft_from_notes again, or pass the note list as notes" in result.content[0].text
 
 
 def test_only_claude_is_offered_the_player():
