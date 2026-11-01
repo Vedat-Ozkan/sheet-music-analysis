@@ -1546,7 +1546,9 @@ Not fixed: a correction that puts notes into a bar inside a multi-bar rest is lo
 
 **PDF reader 5.11.0-sma.3.** Note-head template matching on 64-bit masks and the beam step's disk smoothing done row by row (fork branch `sma-5.11.0-speed`). On all 83 benchmark PDFs, run twice: main set pitch 94.36 → 94.37%, pitch and onset 86.60 → 86.66/86.67%, uneven bars 393 → 392; the other four sets equal or up to 0.07 points better. Local seconds a page 30.2 → 20.8-22.8 on a shared machine. The Rondo full read locally 73.6 → 48.3 s (the research agent's single-core-pair timing). Audiveris does not repeat exactly on some songs (6 of 12 song PDFs moved in an unpatched re-run); log 35 said it did.
 
-**Open.** The first PDF in each server process pays about 20 s of one-time font set-up locally; not yet measured on Cloud Run. A note budget for what can be drawn within ChatGPT's two minutes is still to be measured on staging. Production ChatGPT keeps the old 32-bar tool text until OpenAI approves the update.
+**The first PDF's 15-20 s.** The first PDF in each process paid 15-20 s in cairo's font lookup. Cause: `engine/fonts/fonts.conf` named its fonts folder as `<dir prefix="relative">.</dir>`, which fontconfig (2.13.1 here) read as the current working directory, so every new process scanned the whole working tree (the repository locally, `/app` with its Python packages and the reader on Cloud Run) and wrote `.uuid` files into the folders it scanned; that is where the stray `.uuid` in the reader's `tessdata` came from. The config now names the fonts folder by its absolute path, written to a temporary file when `engine/render.py` is imported. A first PDF in a fresh process: 15.2 s before, 0.01 s after; a real score PDF still embeds Score Serif.
+
+**Open.** A note budget for what can be drawn within ChatGPT's two minutes is still to be measured on staging. Production ChatGPT keeps the old 32-bar tool text until OpenAI approves the update.
 
 ## Checking against teachers' prose
 

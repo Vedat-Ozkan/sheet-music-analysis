@@ -4,11 +4,14 @@ import io
 import math
 import os
 import re
+import tempfile
 import zipfile
+import zlib
 import xml.etree.ElementTree as ET
 from bisect import bisect_right
 from collections.abc import Collection
 from itertools import accumulate
+from pathlib import Path
 from dataclasses import dataclass
 from fractions import Fraction
 from importlib.resources import files
@@ -22,7 +25,17 @@ from engine.reduce import midi
 from engine.score import TOLERANCE, PositionError, ScoreIndex
 from engine.text import FONT_DIR, FONT_FILES, MAIN as TEXT_FONT
 
-os.environ.setdefault("FONTCONFIG_FILE", str(FONT_DIR / "fonts.conf"))
+
+
+def _font_config() -> str:
+    path = Path(tempfile.gettempdir()) / f"sheet-music-fonts-{zlib.crc32(str(FONT_DIR).encode())}.conf"
+    part = path.with_suffix(f".{os.getpid()}")
+    part.write_text((FONT_DIR / "fonts.conf").read_text().replace("<dir>FONTS</dir>", f"<dir>{escape(str(FONT_DIR))}</dir>"))
+    part.replace(path)
+    return str(path)
+
+
+os.environ.setdefault("FONTCONFIG_FILE", _font_config())
 
 RESOURCE_PATH = str(files("verovio") / "data")
 VEROVIO_OPTIONS = {
