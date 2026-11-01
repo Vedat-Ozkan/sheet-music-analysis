@@ -34,7 +34,7 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 >
 > In Claude you can also listen: a small piano player in the chat plays the passage with the score's tempo, dynamics, pedalling and ornaments.
 >
-> Ask for one layer at a time (harmony, voice leading or form) when a page gets busy. Each page shows up to 32 bars; longer pieces are analysed passage by passage. No account or sign-in needed.
+> Ask for one layer at a time (harmony, voice leading or form) when a page gets busy. Ask for a whole piece and you get it back as one PDF. No account or sign-in needed.
 
 **Categories** (Claude, one to five; pick from the portal's list): Education; whichever of Music / Arts / Creative the portal offers.
 

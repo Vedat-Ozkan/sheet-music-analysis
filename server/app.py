@@ -670,7 +670,7 @@ async def render_analysis(
         png = await in_turn(lambda: engraving.png(1, pages=CARD_PAGES))
     def publish_all():
         with stage("render"):
-            image, pdf = engraving.png(1, width=2800, colors=256, pages=CARD_PAGES), engraving.pdf()
+            image, pdf = engraving.png(1, width=1400, colors=256, pages=CARD_PAGES), engraving.pdf()
         files = extras()
         with stage("publish"):
             links = {"image_url": publish(image, "png"), "pdf_url": publish(pdf, "pdf")}

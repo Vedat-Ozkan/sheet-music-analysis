@@ -6,7 +6,7 @@ Harmonic analysis of sheet music, drawn on the engraved score, for music student
 
 First turn on **Code execution and file creation** in Claude's Settings → Capabilities: the plugin reads your file in Claude's sandbox.
 
-Attach a MusicXML score (`.mxl` or `.musicxml`; MuseScore, Dorico, Sibelius and Finale can export one) and ask Claude to analyse a passage, for example "Analyse bars 1–8 and show me the annotated score". Claude returns the page as PNG and PDF with Roman numerals, chord functions, cadences, phrase brackets, non-chord tones and voice-leading arrows, plus a short commentary numbered to match the page. Each page shows up to 32 bars; for a longer piece, go passage by passage.
+Attach a MusicXML score (`.mxl` or `.musicxml`; MuseScore, Dorico, Sibelius and Finale can export one) and ask Claude to analyse a passage, for example "Analyse bars 1–8 and show me the annotated score". Claude returns the page as PNG and PDF with Roman numerals, chord functions, cadences, phrase brackets, non-chord tones and voice-leading arrows, plus a short commentary numbered to match the page. Ask for a whole piece and Claude analyses it passage by passage, then returns it as one PDF.
 
 Works with any Claude model; the analysis is most accurate with Claude Opus, since Claude checks and corrects the draft analysis itself (see below).
 
