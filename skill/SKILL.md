@@ -39,7 +39,7 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
    python3 scripts/notes_table.py SCORE --measures 1-8
    ```
 
-   Each row is one beat: the lowest note, the pitch classes sounding, and every note as `pitch@beat`. Use these exact measure numbers, beats and pitches in your annotations. Work on at most 32 bars at a time; for a longer piece, go passage by passage. The render script refuses a page of more than 32 bars.
+   Each row is one beat: the lowest note, the pitch classes sounding, and every note as `pitch@beat`. Use these exact measure numbers, beats and pitches in your annotations. Analyse a long piece passage by passage, about 16 to 32 bars at a time, then render the whole stretch the user asked for once, with all your annotations, so they get one PDF.
 
 3. **Get the model's draft, if the connector is there.** If a tool named `draft_from_notes` is available (the sheet-music-analysis connector), run
 
@@ -77,7 +77,7 @@ When the user wants to hear the music, call the connector's `play` tool; a small
 
 Work in this order. Each step narrows the next.
 
-0. **The passage.** If the user named bars, use them. If not, ask which bars they want, suggesting the first 8 or 16, before analysing anything. At most 32 bars per page; a longer stretch goes passage by passage.
+0. **The passage.** If the user named bars, use them. If not, ask which bars they want, suggesting the first 8 or 16, before analysing anything. If they asked for the whole piece, analyse all of it: review the draft passage by passage, then draw everything in one render, so the user gets the whole piece in one PDF, not one file per passage.
 1. **Key and key areas.** Start from the key signature, the first and last bass notes and the cadences. Decide the local key of each stretch. A new key needs a cadence or a sustained stay; a chord or two borrowed from another key is a tonicization (`V7/ii`), not a modulation.
 2. **Harmonic rhythm.** Decide how often the harmony really changes, usually once or twice a bar, sometimes every beat. Follow the bass. One row of the table is not one chord. When a passage returns, label it at the same rate as the first time. A bar that opens with a single line or bare octaves (a lead-in, a scale, an arpeggio) still has a harmony from its downbeat: the chord its notes outline, or for a lead-in the chord it leads into. Do not carry the previous chord over it.
 3. **Function before labels.** For each harmony decide what it does: tonic (T), predominant (PD) or dominant (D). Then choose the numeral that says so.

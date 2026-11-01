@@ -8,13 +8,13 @@ from xml.sax.saxutils import escape
 from engine import notation, slurs
 from engine.annotations import Alternative, AnnotationList, Cadence, Callout, Harmony, NoteRef, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
-from engine.render import Engraving, check_range, incoming_ties, load_toolkit, shorten_ties
+from engine.render import VEROVIO_OPTIONS, Engraving, check_range, incoming_ties, load_toolkit, shorten_ties
 from engine.score import PositionError, ScoreIndex
 
 if TYPE_CHECKING:
     from engine.comparison import Label
 
-MAX_BARS = 32
+ONE_PAGE_HEIGHT = 60000
 
 ANNOTATED_OPTIONS = {
     "svgBoundingBoxes": True,
@@ -31,12 +31,6 @@ class AnnotationError(ValueError):
         super().__init__("\n".join(problems))
         self.problems = problems
         self.rejected = rejected or set()
-
-
-class TooManyBars(PositionError):
-    def __init__(self, message: str, fits: tuple[int, int]):
-        super().__init__(message)
-        self.fits = fits
 
 
 def check(annotations: AnnotationList, index: ScoreIndex) -> None:
@@ -106,23 +100,16 @@ def render(
         from engine import check_analysis, check_display
         results = check_display.compare(student_labels, annotations.model_dump(exclude_none=True), index)
         annotations = check_display.reserve(results)
-    first, last = measures or (index.measures[0].number, index.measures[-1].number)
-    bars = sum(1 for measure in index.measures if first <= measure.number <= last and measure.number > 0)
-    if bars > MAX_BARS:
-        counted = [measure.number for measure in index.measures if first <= measure.number <= last and measure.number > 0]
-        raise TooManyBars(
-            f"A page can show at most {MAX_BARS} bars and measures {first}-{last} have {bars}. "
-            f"Draw the analysis passage by passage, {MAX_BARS} bars or fewer each.",
-            (first, counted[MAX_BARS - 1]),
-        )
     ties = incoming_ties(toolkit, index, measures[0]) if measures else set()
     _reserve_numeral_room(toolkit, index, annotations)
     _reserve_bracket_room(toolkit, index, annotations)
+    toolkit.setOptions({"pageHeight": ONE_PAGE_HEIGHT})
     if measures:
-        toolkit.setOptions({"pageHeight": 60000})
         toolkit.select({"measureRange": index.measure_range(*measures)})
-        toolkit.redoLayout()
+    toolkit.redoLayout()
     _balance_systems(toolkit, index, measures, annotations)
+    toolkit.setOptions({"pageHeight": VEROVIO_OPTIONS["pageHeight"]})
+    toolkit.redoLayout()
 
     def relayout(mei: str) -> None:
         toolkit.loadData(mei)

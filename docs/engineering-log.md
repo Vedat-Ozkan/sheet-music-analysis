@@ -1531,6 +1531,21 @@ Not fixed: a correction that puts notes into a bar inside a multi-bar rest is lo
 
 **Result.** Staging, 4-page scan: 207 s for a new read (OMR 183 s), 0.4 s for the repeat. Tests: 8 end-to-end ChatGPT-flow tests with injected failures, 3 same-file tests, 3 reader tests; the full suite passed (1,211) before the second commit. `diff_check`: pdfwarn 80 and render 28 inputs unchanged; `test_awkward` 196 pass. A new read is still over ChatGPT's limit, so the first reply is lost and the user's re-send gets the result; how to read faster within about US$10 a month is being measured next. Not yet confirmed in ChatGPT itself.
 
+### 87. A whole piece drawn as one PDF (2026-11-01)
+
+**Problem.** A page showed at most 32 bars, so a whole piece came back as one PDF per passage. The owner wants the whole piece in one file. The cap dated from the single tall page used for excerpts, not from cost.
+
+**What drawing time depends on.** Measured locally, warm, without marks: Prelude 598 notes on 2 staves 2.9 s; Nocturne 1,253 notes 6.4 s; Rondo 1,577 notes 7.7 s; Ballade 5,258 notes 34.4 s; Dvořák 4,195 notes on 25 staves 70.3 s; Mozart 41, 16,893 notes on 17 staves 124.4 s. Time follows notes and staves, not bars; 95 marks added 1.3 s. Counting notes from MusicXML takes 1-17 ms.
+
+**What we did.**
+- The 32-bar cap is removed. The stretch is laid out on one tall page so the phrase-aware line breaks still apply, then split into normal printable pages (layout A, owner's choice over one tall page). Excerpts that fit one page look as before.
+- Building the PDF probed each page's ink at full size; it now probes at 1000 px wide. The 6-page Rondo PDF: 17.3 s before, 2.4 s after, same page sizes.
+- The ChatGPT card shows the first 2 pages stacked (owner's choice); the result tells the model the PDF has the rest.
+- The tool description and the method tell the model to analyse a long piece passage by passage and draw it once.
+- A draw counts once towards the daily limit however long it is (owner's decision).
+
+**Open.** The first PDF in each server process pays about 20 s of one-time font set-up locally; not yet measured on Cloud Run. A note budget for what can be drawn within ChatGPT's two minutes is still to be measured on staging. Production ChatGPT keeps the old 32-bar tool text until OpenAI approves the update.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

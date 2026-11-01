@@ -41,6 +41,7 @@ VEROVIO_OPTIONS = {
 
 
 MAX_PIXELS = 40_000_000
+INK_PROBE_WIDTH = 1000
 
 LARGE_SCORE_STAVES = 4
 MAX_MUSICXML_BYTES = 50 * 1024 * 1024
@@ -102,10 +103,17 @@ class Engraving:
     def page_count(self) -> int:
         return len(self.svgs)
 
-    def png(self, page: int = 1, width: int = 1400, colors: int = 128) -> bytes:
-        image = self._raster(page, width)
-        top, bottom = self._ink(image)
-        image = image.crop((0, top, image.width, bottom))
+    def png(self, page: int = 1, width: int = 1400, colors: int = 128, pages: int = 1) -> bytes:
+        parts = []
+        for number in range(page, min(page + pages, self.page_count + 1)):
+            image = self._raster(number, width)
+            top, bottom = self._ink(image)
+            parts.append(image.crop((0, top, image.width, bottom)))
+        image = Image.new("RGB", (max(part.width for part in parts), sum(part.height for part in parts)), "#ffffff")
+        y = 0
+        for part in parts:
+            image.paste(part, (0, y))
+            y += part.height
         image = image.quantize(colors, method=Image.Quantize.MAXCOVERAGE, dither=Image.Dither.NONE)
         out = io.BytesIO()
         image.save(out, "PNG", optimize=True)
@@ -125,7 +133,7 @@ class Engraving:
             svg = self.svgs[page - 1]
             box = re.search(r'viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"', svg)
             x, y, w, h = map(float, box.groups())
-            image = self._raster(page, round(w))
+            image = self._raster(page, INK_PROBE_WIDTH)
             top, bottom = self._ink(image)
             scale = h / image.height
             page_svg = svg.replace("<svg ", f'<svg width="{w:g}" height="{h:g}" ', 1)

@@ -1,8 +1,10 @@
+import io
 import json
 from datetime import datetime, timezone
 from pathlib import Path
 
 import anyio
+import pikepdf
 import pytest
 from mcp.client.client import Client
 
@@ -74,14 +76,6 @@ def test_marks_that_fit_are_drawn_and_the_rest_are_listed(server):
     assert "annotations[1] (harmony): Measure 99 does not exist" in text_of(result)
 
 
-def test_a_range_longer_than_a_page_draws_the_first_32_bars(server):
-    server.put("scores/NOCTURNE", NOCTURNE)
-    result = call("render_analysis", {"score_id": "NOCTURNE", "annotations": {"annotations": []}})
-    assert not result.is_error
-    assert "This page shows measures 0-32" in text_of(result)
-    assert "measures 0-32" in result.structured_content["caption"]
-
-
 def test_a_request_turned_away_before_any_work_is_not_charged(server):
     result = call("render_analysis", {"score_id": "NOSUCHSCORE", "annotations": {"annotations": []}})
     assert result.is_error and "No score has the id" in text_of(result)
@@ -116,13 +110,15 @@ def test_a_pdf_that_cannot_be_read_says_what_to_try_next(server, monkeypatch):
     assert result.is_error and "a MusicXML file" in text_of(result)
 
 
-def test_a_mark_beyond_the_bars_that_fit_is_left_off_the_page(server):
+def test_a_whole_piece_comes_back_as_one_pdf_with_every_mark(server):
     server.put("scores/NOCTURNE", NOCTURNE)
     marks = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "Eb"},
              {"type": "harmony", "at": {"measure": 35, "beat": 1}, "label": "V"}]
     result = call("render_analysis", {"score_id": "NOCTURNE", "annotations": {"annotations": marks}})
     assert not result.is_error
-    assert "This page shows measures 0-32" in text_of(result)
+    assert "Left out" not in text_of(result)
+    pdf = pikepdf.open(io.BytesIO(server.get("files/" + result.structured_content["pdf_url"].rsplit("/", 1)[1])))
+    assert len(pdf.pages) > 1
 
 
 def test_numbers_of_marks_left_out_refer_to_the_list_the_model_sent(server):

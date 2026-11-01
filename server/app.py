@@ -47,7 +47,7 @@ from engine import correct, draft, read_ahead
 from engine import notes as note_list
 from engine import read_pdf as pdf_reader
 from engine import check_analysis, ledger, part_writing, reduce
-from engine.annotate import MAX_BARS, AnnotationError, TooManyBars, render
+from engine.annotate import AnnotationError, render
 from engine.performance import marked_index, performance_text, unclear_tempos
 from engine.annotations import AnnotationList
 from engine.export import export_midi, export_musicxml, export_romantext
@@ -566,6 +566,9 @@ def downloads_text(links: dict[str, str]) -> str:
             "conversation, not after every render:\n" + "\n".join(present))
 
 
+CARD_PAGES = 2
+
+
 NOTHING_DRAWN = (
     "No analysis marks were drawn: the annotation list was empty, so the page shows only the score. To analyse, "
     "call draft_analysis with score_id {score_id}, review the draft, then call render_analysis with your annotation list."
@@ -577,7 +580,7 @@ async def draw(score: bytes, annotations: AnnotationList, measures: tuple[int, i
     while True:
         try:
             engraving = await in_turn(lambda: render(score, annotations, measures=measures, view=view, piano=piano))
-            return engraving, annotations, measures, left_out
+            return engraving, annotations, left_out
         except AnnotationError as error:
             if not error.rejected or len(left_out) > 1:
                 raise
@@ -588,12 +591,6 @@ async def draw(score: bytes, annotations: AnnotationList, measures: tuple[int, i
             numbers = [numbers[i] for i in kept]
             left_out.append("Left out because their positions do not fit the score (fix them and call again to add "
                             "them; numbers refer to your list):\n" + "\n".join(problems))
-        except TooManyBars as error:
-            if len(left_out) > 1:
-                raise
-            measures = error.fits
-            left_out.append(f"{error} This page shows measures {measures[0]}-{measures[1]}; call again with "
-                            f"measure_range for the bars after {measures[1]}.")
 
 
 @apps.tool(
@@ -603,8 +600,8 @@ async def draw(score: bytes, annotations: AnnotationList, measures: tuple[int, i
         "Use this after draft_analysis, once you have reviewed the draft, to draw your analysis on the engraved "
         "score. Takes the score_id and your annotation list and returns the page as an image plus PNG, PDF and MusicXML "
         "links, shown to the user in a card. If a position does not exist in the score, the error lists each "
-        "problem so you can fix the list and call again. A page shows at most 32 bars: for a longer piece, pass "
-        "measure_range (e.g. 1-16) and draw it passage by passage. view is one of all, harmony, voice_leading, form. "
+        "problem so you can fix the list and call again. Draw the whole stretch the user asked for in one call, "
+        "even a whole piece, so they get one PDF; analyse a long piece passage by passage first. view is one of all, harmony, voice_leading, form. "
         "Set annotations.style to abrsm (letter inversions, Ib, Vc) when the user mentions ABRSM, figured_bass when they ask "
         "for figured bass, otherwise leave it out. "
         "Offer the MusicXML link once per conversation, not after every render: it downloads a file for "
@@ -634,7 +631,7 @@ async def render_analysis(
             log("limit", tool="render_analysis", platform=source)
             return error_result(LIMIT_MESSAGE)
         with stage("render"):
-            engraving, annotations, measures, left_out = await draw(score, annotations, measures, view, piano)
+            engraving, annotations, left_out = await draw(score, annotations, measures, view, piano)
     except AnnotationError as error:
         log("render_analysis", platform=source, problems=len(error.problems))
         return error_result("Fix these annotations and call again:\n" + "\n".join(error.problems))
@@ -669,10 +666,10 @@ async def render_analysis(
         return found
 
     with stage("render"):
-        png = await in_turn(engraving.png, 1)
+        png = await in_turn(lambda: engraving.png(1, pages=CARD_PAGES))
     def publish_all():
         with stage("render"):
-            image, pdf = engraving.png(1, width=2800, colors=256), engraving.pdf()
+            image, pdf = engraving.png(1, width=2800, colors=256, pages=CARD_PAGES), engraving.pdf()
         files = extras()
         with stage("publish"):
             links = {"image_url": publish(image, "png"), "pdf_url": publish(pdf, "pdf")}
@@ -684,6 +681,8 @@ async def render_analysis(
     links = await in_turn(publish_all)
     pdf_url = links["pdf_url"]
     caption = f"Analysis, measures {measure_range}, view {view}" + (", piano reduction" if piano else "")
+    more_pages = (f"\nThe card shows the first {CARD_PAGES} of the {engraving.page_count} pages; the PDF has them all. "
+                  "Tell the user to open the PDF for the rest." if engraving.page_count > CARD_PAGES else "")
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
         view=view, measure_range=measure_range, left_out=len(left_out) or None)
     structured_content = {**links, "caption": caption}
@@ -693,7 +692,7 @@ async def render_analysis(
         meta={"ask_for_rating": True} if await rating_is_due(ctx) else None,
         content=[
             ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png"),
-            TextContent(type="text", text=f"{caption}, shown in a card. PDF: {pdf_url}\nPNG: {links['image_url']}\n"
+            TextContent(type="text", text=f"{caption}, shown in a card. PDF: {pdf_url}\nPNG: {links['image_url']}{more_pages}\n"
                         + (export_warning or musicxml_text(links["musicxml_url"], annotations)) + downloads_text(links)
                         + "".join(f"\n\n{note}" for note in left_out)),
         ],
@@ -985,7 +984,7 @@ def pdf_card_result(card: dict, keep_slurs: bool) -> CallToolResult:
         f"score_id: {card['score_id']}\n"
         f"The card shows the user every bar of the engraved score read from their {card['pages']}-page PDF, in one "
         f"image. The card holds no text, so give the user this message in your reply: \"{card['notice']}\"\n"
-        f"The score has measures {card['measures']}; a drawn page shows at most {MAX_BARS} bars.\n"
+        f"The score has measures {card['measures']}.\n"
         "Then stop and wait. Analyse only after the user says to go ahead: "
         "then call draft_analysis with this score_id and continue exactly as for an attached MusicXML file."
         + ("" if keep_slurs else " If the user asks to keep the slurs, call read_pdf again with the same file and "
