@@ -16,10 +16,10 @@ reader = importlib.import_module('engine.read_pdf')
 def _read_cached(monkeypatch, name):
     xml = (DATA / name).read_bytes()
 
-    def cached_run(audiveris, options, source, work, env, deadline):
+    def cached_run(audiveris, options, source, work, env, deadline, stop):
         with zipfile.ZipFile(Path(work) / 'score.mxl', 'w') as archive:
             archive.writestr('score.musicxml', xml)
-        return ''
+        return reader.AudiverisRun('done', 0, '', {})
 
     monkeypatch.setattr(reader, 'run', cached_run)
     pdf = (DATA / 'chopin-28-4-mutopia.pdf').read_bytes()

@@ -22,29 +22,28 @@ def install_signature(binary: Path) -> str:
 def cached_raw(cache: Path, sig: str, slots: threading.Semaphore, calls: list):
     from engine import read_pdf as reader
 
-    def raw(data, audiveris, options, deadline):
+    def raw(data, audiveris, options, deadline, stop):
         key = hashlib.sha256(data + sig.encode() + " ".join(options).encode()).hexdigest()[:32]
         meta, mxl = cache / f"{key}.json", cache / f"{key}.mxl"
         index = reader.SETTINGS.index(options)
         if not meta.exists():
             with slots:
                 t0 = time.monotonic()
-                try:
-                    got = reader.audiveris_read(data, audiveris, options, time.monotonic() + reader.TIMEOUT)
-                    out = {"timeout": True} if got is None else {"skipped": got[1]}
-                    if got:
-                        mxl.write_bytes(got[0])
-                except reader.ReadError as e:
-                    out = {"error": str(e)}
+                got = reader.audiveris_read(data, audiveris, options, time.monotonic() + reader.TIMEOUT, threading.Event())
+                if got.mxl is not None:
+                    out = {"skipped": got.skipped}
+                    mxl.write_bytes(got.mxl)
+                else:
+                    out = {"timeout": True} if got.facts["outcome"] == "timeout" else {"error": got.facts["outcome"]}
                 out["seconds"] = round(time.monotonic() - t0, 1)
                 meta.write_text(json.dumps(out))
             calls.append((index, out["seconds"], False))
         else:
             out = json.loads(meta.read_text())
             calls.append((index, out["seconds"], True))
-        if "error" in out:
-            raise reader.ReadError(out["error"])
-        return None if out.get("timeout") else (mxl.read_bytes(), out["skipped"])
+        if "error" in out or out.get("timeout"):
+            return reader.RawReading(None, [], {"outcome": "timeout" if out.get("timeout") else "no music"})
+        return reader.RawReading(mxl.read_bytes(), out["skipped"], {"outcome": "done"})
 
     return raw
 

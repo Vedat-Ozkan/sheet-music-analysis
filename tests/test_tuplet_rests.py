@@ -7,7 +7,7 @@ import zipfile
 
 import pytest
 
-from engine.read_pdf import SETTINGS, clean, read_pdf
+from engine.read_pdf import SETTINGS, RawReading, clean, read_pdf
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
@@ -44,7 +44,7 @@ def test_unproven_cursor_elements_leave_bar_exactly_as_read(production, position
         container.writestr('score.musicxml', ET.tostring(root))
     mxl = archive.getvalue()
     before = clean(mxl)
-    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: (mxl, [])).musicxml
+    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: RawReading(mxl, [], {'outcome': 'done'})).musicxml
                if production else infer_tuplet_rests(before))
     assert reading == before
 
@@ -67,7 +67,7 @@ def test_directions_follow_only_their_own_voice_segment(production, position):
         container.writestr('score.musicxml', ET.tostring(root))
     mxl = archive.getvalue()
     before = clean(mxl)
-    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: (mxl, [])).musicxml
+    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: RawReading(mxl, [], {'outcome': 'done'})).musicxml
                if production else infer_tuplet_rests(before))
     assert ET.fromstring(reading).findtext('.//note/duration') == '4'
     def timestamp(score):
@@ -98,7 +98,7 @@ def test_other_tuplet_on_repaired_staff_leaves_bar_exactly_as_read(production, m
         container.writestr('score.musicxml', ET.tostring(root))
     mxl = archive.getvalue()
     before = clean(mxl)
-    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: (mxl, [])).musicxml
+    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: RawReading(mxl, [], {'outcome': 'done'})).musicxml
                if production else infer_tuplet_rests(before))
     assert reading == before
 
@@ -110,7 +110,7 @@ def test_interleaved_reading_preserves_independent_note_at_thirteen_twelfths(pro
         container.writestr('score.musicxml', (DATA / 'interleaved_voices.musicxml').read_bytes())
     mxl = archive.getvalue()
     before = clean(mxl)
-    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: (mxl, [])).musicxml
+    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: RawReading(mxl, [], {'outcome': 'done'})).musicxml
                if production else infer_tuplet_rests(before))
     assert reading == before
     assert [(e.pitch, e.onset) for e in _bar(reading, 1).events if e.pitch == 'G3'] == [
@@ -151,7 +151,7 @@ def test_ambiguous_voice_serialization_leaves_bar_exactly_as_read(production, la
         container.writestr('score.musicxml', ET.tostring(root))
     mxl = archive.getvalue()
     before = clean(mxl)
-    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: (mxl, [])).musicxml
+    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: RawReading(mxl, [], {'outcome': 'done'})).musicxml
                if production else infer_tuplet_rests(before))
     assert reading == before
 
@@ -168,7 +168,7 @@ def test_independent_partial_backup_keeps_its_onset_after_rest_repair(production
         container.writestr('score.musicxml', ET.tostring(root))
     mxl = archive.getvalue()
     before = clean(mxl)
-    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: (mxl, [])).musicxml
+    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: RawReading(mxl, [], {'outcome': 'done'})).musicxml
                if production else infer_tuplet_rests(before))
     repaired = ET.fromstring(reading)
     assert repaired.findtext('.//note/duration') == '4'
@@ -189,7 +189,7 @@ def test_independent_bass_forward_keeps_its_onset_after_rest_repair(complete):
         container.writestr('score.musicxml', ET.tostring(root))
     mxl = archive.getvalue()
     before = clean(mxl)
-    reading = read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: (mxl, [])).musicxml
+    reading = read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: RawReading(mxl, [], {'outcome': 'done'})).musicxml
     repaired = ET.fromstring(reading)
     assert repaired.findtext('.//note/duration') == '4'
     assert repaired.findtext('.//backup/duration') == '96'
@@ -225,7 +225,7 @@ def test_offset_tuplet_voice_keeps_its_onsets_after_rest_repair(production, trai
         container.writestr('score.musicxml', ET.tostring(root))
     mxl = archive.getvalue()
     before = clean(mxl)
-    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: (mxl, [])).musicxml
+    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: RawReading(mxl, [], {'outcome': 'done'})).musicxml
                if production else infer_tuplet_rests(before))
     repaired = ET.fromstring(reading)
     if staff == 1:
@@ -265,7 +265,7 @@ def test_ordinary_offset_voice_keeps_its_timeline_after_rest_repair(production, 
         container.writestr('score.musicxml', ET.tostring(root))
     mxl = archive.getvalue()
     before = clean(mxl)
-    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: (mxl, [])).musicxml
+    reading = (read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=lambda *args: RawReading(mxl, [], {'outcome': 'done'})).musicxml
                if production else infer_tuplet_rests(before))
     repaired = ET.fromstring(reading)
     assert repaired.findtext('.//note/duration') == '4'
@@ -288,10 +288,10 @@ def test_ordinary_offset_voice_keeps_its_timeline_after_rest_repair(production, 
 
 
 def _reading():
-    variants = [(DATA / f'ave_maria_variant{i}.mxl').read_bytes() for i in range(3)]
+    variants = [(DATA / f'ave_maria_variant{i}.mxl').read_bytes() for i in (0, 2)]
 
-    def raw(data, audiveris, options, deadline):
-        return variants[SETTINGS.index(options)], []
+    def raw(data, audiveris, options, deadline, stop):
+        return RawReading(variants[SETTINGS.index(options)], [], {'outcome': 'done'})
 
     return read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=raw).musicxml
 

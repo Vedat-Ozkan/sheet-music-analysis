@@ -643,8 +643,15 @@ apps.add_html_resource(
 )
 
 BUSY_MESSAGE = (
-    "Another PDF is being read right now. Tell the user plainly that the service is busy and to try again in a minute."
+    "Another PDF is being read right now; a PDF takes up to about 4 minutes to read. Tell the user plainly that the "
+    "service is busy reading another PDF and to send theirs again in a few minutes."
 )
+SAME_FILE_WAIT = 30
+STILL_READING = (
+    "This PDF is still being read ({seconds} s so far; a long PDF takes up to about 4 minutes). Tell the user it is "
+    "still being read, then call read_pdf again with the same file; each call waits up to {wait} s for the result."
+)
+pdfs_reading: dict[str, tuple[asyncio.Future, float]] = {}
 
 
 @apps.tool(
@@ -669,59 +676,102 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
             data = await download(pdf_file.download_url)
         if not data.startswith(b"%PDF"):
             raise ScoreError("This file is not a PDF. Ask the user to attach a PDF of the printed music or a MusicXML file.")
-        cache_key = f"scores/pdf-{pdf_reader.READER}-{hashlib.sha256(data).hexdigest()}.json"
-        cached = await anyio.to_thread.run_sync(store.get, cache_key)
-        if cached:
-            reading = json.loads(cached)
-        else:
-            pages = len((await anyio.to_thread.run_sync(pdf_reader.open_pdf, data)).pages)
-            if pages > MAX_PDF_PAGES:
-                log("read_pdf", platform=source, error="too many pages", pages=pages)
-                return error_result(
-                    f"This PDF has {pages} pages; the most that can be read is {MAX_PDF_PAGES}. Tell the user plainly, "
-                    f"and suggest they attach a PDF of just the pages they want analysed."
-                )
-            if pdf_lock.locked():
-                log("read_pdf", platform=source, busy=True)
-                return error_result(BUSY_MESSAGE)
-            async with pdf_lock:
-                if not await take("pdf_page", source, pages):
-                    log("limit", tool="read_pdf", platform=source, pages=pages)
-                    return error_result(LIMIT_MESSAGE)
-                with stage("omr"):
-                    result = await anyio.to_thread.run_sync(pdf_reader.read_pdf, data)
-            reading = {"score_id": secrets.token_hex(8).upper(), "pages": result.pages, "scan": result.scan,
-                       "skipped": result.skipped}
-            await anyio.to_thread.run_sync(store.put, f"scores/{reading['score_id']}", result.musicxml)
-            await anyio.to_thread.run_sync(store.put, cache_key, json.dumps(reading).encode())
-        score, _ = await resolve_score(None, reading["score_id"])
-        score_id = reading["score_id"] if keep_slurs else reading["score_id"] + "N"
-        if not keep_slurs:
-            score = await in_turn(pdf_reader.without_slurs, score)
-            await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
-        def render():
-            spots = pdf_reader.problem_spots(score)
-            return (pdf_reader.preview(score, tall=True, spots=spots), pdf_reader.preview(score, spots=spots), engrave(score),
-                    pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots))
-
-        with stage("render"):
-            tall, shaded, engraving, notice = await in_turn(render)
+        digest = hashlib.sha256(data).hexdigest()
+        if digest in pdfs_reading:
+            running, since = pdfs_reading[digest]
+            with anyio.move_on_after(SAME_FILE_WAIT):
+                await asyncio.shield(running)
+            if not running.done():
+                log("read_pdf", platform=source, busy=True, same_file=True)
+                return CallToolResult(content=[TextContent(type="text", text=STILL_READING.format(
+                    seconds=round(time.time() - since), wait=SAME_FILE_WAIT))])
+            if failure := running.result():
+                log("read_pdf", platform=source, error=failure[0], same_file=True)
+                return error_result(failure[1])
+        card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}-{'slurs' if keep_slurs else 'no-slurs'}.json"
+        if card := await anyio.to_thread.run_sync(store.get, card_key):
+            card = json.loads(card)
+            log("read_pdf", platform=source, pages=card["pages"], cached="card", keep_slurs=keep_slurs)
+            return pdf_card_result(card, keep_slurs)
+        if digest in pdfs_reading:
+            return error_result(BUSY_MESSAGE)
+        running = asyncio.get_running_loop().create_future()
+        pdfs_reading[digest] = running, started
+        failure = None
+        try:
+            card = await read_pdf_card(data, digest, keep_slurs, source, started)
+            if isinstance(card, CallToolResult):
+                return card
+            await anyio.to_thread.run_sync(store.put, card_key, json.dumps(card).encode())
+            return pdf_card_result(card, keep_slurs)
+        except (ScoreError, pdf_reader.ReadError) as error:
+            failure = (type(error).__name__, str(error))
+            raise
+        finally:
+            del pdfs_reading[digest]
+            running.set_result(failure)
     except (ScoreError, pdf_reader.ReadError, httpx.HTTPError) as error:
-        log("read_pdf", platform=source, error=type(error).__name__)
+        log("read_pdf", platform=source, error=type(error).__name__, passes=getattr(error, "passes", None) or None)
         return error_result(str(error))
+
+
+async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str, started: float) -> dict | CallToolResult:
+    cache_key = f"scores/pdf-{pdf_reader.READER}-{digest}.json"
+    cached = await anyio.to_thread.run_sync(store.get, cache_key)
+    passes = None
+    if cached:
+        reading = json.loads(cached)
+    else:
+        pages = len((await anyio.to_thread.run_sync(pdf_reader.open_pdf, data)).pages)
+        if pages > MAX_PDF_PAGES:
+            log("read_pdf", platform=source, error="too many pages", pages=pages)
+            return error_result(
+                f"This PDF has {pages} pages; the most that can be read is {MAX_PDF_PAGES}. Tell the user plainly, "
+                f"and suggest they attach a PDF of just the pages they want analysed."
+            )
+        if pdf_lock.locked():
+            log("read_pdf", platform=source, busy=True)
+            return error_result(BUSY_MESSAGE)
+        async with pdf_lock:
+            if not await take("pdf_page", source, pages):
+                log("limit", tool="read_pdf", platform=source, pages=pages)
+                return error_result(LIMIT_MESSAGE)
+            with stage("omr"):
+                result = await anyio.to_thread.run_sync(pdf_reader.read_pdf, data)
+        passes = result.passes
+        reading = {"score_id": secrets.token_hex(8).upper(), "pages": result.pages, "scan": result.scan,
+                   "skipped": result.skipped}
+        await anyio.to_thread.run_sync(store.put, f"scores/{reading['score_id']}", result.musicxml)
+        await anyio.to_thread.run_sync(store.put, cache_key, json.dumps(reading).encode())
+    score, _ = await resolve_score(None, reading["score_id"])
+    score_id = reading["score_id"] if keep_slurs else reading["score_id"] + "N"
+    if not keep_slurs:
+        score = await in_turn(pdf_reader.without_slurs, score)
+        await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
+
+    def render():
+        spots = pdf_reader.problem_spots(score)
+        return (pdf_reader.preview(score, tall=True, spots=spots), pdf_reader.preview(score, spots=spots), engrave(score),
+                pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots))
+
     with stage("render"):
+        tall, shaded, engraving, notice = await in_turn(render)
         pages = await in_turn(lambda: [shaded.png(page) for page in range(1, shaded.page_count + 1)])
     with stage("publish"):
         image_url, pdf_url = await in_turn(
             lambda: (publish(tall.png(1, width=2800, colors=256), "png"), publish(engraving.pdf(), "pdf"))
         )
-    caption = "What I read from your PDF, every bar"
     log("read_pdf", platform=source, pages=reading["pages"], seconds=round(time.time() - started, 1),
-        scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached), keep_slurs=keep_slurs)
+        scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached), keep_slurs=keep_slurs, passes=passes)
+    return {"score_id": score_id, "pages": reading["pages"], "notice": notice, "image_url": image_url,
+            "pdf_url": pdf_url, "page_images": [base64.b64encode(png).decode() for png in pages]}
+
+
+def pdf_card_result(card: dict, keep_slurs: bool) -> CallToolResult:
     text = (
-        f"score_id: {score_id}\n"
-        f"The card shows the user every bar of the engraved score read from their {reading['pages']}-page PDF, in one "
-        f"image. The card holds no text, so give the user this message in your reply: \"{notice}\"\n"
+        f"score_id: {card['score_id']}\n"
+        f"The card shows the user every bar of the engraved score read from their {card['pages']}-page PDF, in one "
+        f"image. The card holds no text, so give the user this message in your reply: \"{card['notice']}\"\n"
         "Then stop and wait. Analyse only after the user says to go ahead: "
         "then call draft_analysis with this score_id and continue exactly as for an attached MusicXML file."
         + ("" if keep_slurs else " If the user asks to keep the slurs, call read_pdf again with the same file and "
@@ -729,10 +779,11 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
     )
     return CallToolResult(
         content=[
-            *(ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png") for png in pages),
-            TextContent(type="text", text=f"{text}\nPDF of the engraved score: {pdf_url}"),
+            *(ImageContent(type="image", data=png, mime_type="image/png") for png in card["page_images"]),
+            TextContent(type="text", text=f"{text}\nPDF of the engraved score: {card['pdf_url']}"),
         ],
-        structured_content={"image_url": image_url, "pdf_url": pdf_url, "caption": caption, "title": "What I read from your PDF"},
+        structured_content={"image_url": card["image_url"], "pdf_url": card["pdf_url"],
+                            "caption": "What I read from your PDF, every bar", "title": "What I read from your PDF"},
     )
 
 

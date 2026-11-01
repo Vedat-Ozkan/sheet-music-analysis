@@ -3,6 +3,8 @@ import gzip
 import io
 import os
 import re
+import threading
+import time
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
@@ -13,7 +15,7 @@ from PIL import Image
 from engine import tint
 from engine.overlay import Box, PageLayout
 from engine.performance import marked_index
-from engine.read_pdf import PREVIEW_OPTIONS, SETTINGS, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, without_slurs
+from engine.read_pdf import PREVIEW_OPTIONS, SETTINGS, RawReading, ReadError, audiveris_read, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, without_slurs
 from engine.render import MAX_PIXELS, engrave, load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
@@ -87,27 +89,26 @@ def test_names_bars_whose_backup_runs_before_the_start(filename):
     assert "(1, " in notice(score, False, [], False)
 
 
-def test_warning_signals_preserve_haydn_reading_selection():
+def test_haydn_readings_tied_on_problem_bars_keep_the_first_setting():
     folder = Path(__file__).parent / 'data/pdf_warnings'
-    variants = [(folder / f'haydn_she_never_told_variant{i}.mxl').read_bytes() for i in range(3)]
+    variants = [(folder / f'haydn_she_never_told_variant{i}.mxl').read_bytes() for i in (0, 2)]
 
-    def raw(data, audiveris, options, deadline):
-        return variants[SETTINGS.index(options)], []
+    def raw(data, audiveris, options, deadline, stop):
+        return RawReading(variants[SETTINGS.index(options)], [], {"outcome": "done"})
 
     reading = read_pdf((folder / 'haydn_she_never_told.pdf').read_bytes(), raw=raw)
-    assert reading.musicxml == infer_triplets(clean(variants[1]))
-    assert 1 in problem_spots(reading.musicxml)[0]
+    assert reading.musicxml == infer_triplets(clean(variants[0]))
 
 
 def test_a_reading_that_dropped_notes_is_not_chosen_for_having_fewer_problem_bars():
     folder = Path(__file__).parent / 'data/pdf_warnings/hensel_vr'
-    variants = [gzip.open(folder / f'setting{i}.mxl.gz').read() for i in range(3)]
+    variants = [gzip.open(folder / f'setting{i}.mxl.gz').read() for i in (0, 2)]
 
     def pitched(score):
         return sum(1 for note in ET.fromstring(score).iter('note') if note.find('pitch') is not None)
 
-    def raw(data, audiveris, options, deadline):
-        return variants[SETTINGS.index(options)], []
+    def raw(data, audiveris, options, deadline, stop):
+        return RawReading(variants[SETTINGS.index(options)], [], {"outcome": "done"})
 
     counts = [pitched(clean(variant)) for variant in variants]
     reading = read_pdf((folder / 'hensel_vr.pdf').read_bytes(), raw=raw)
@@ -121,10 +122,10 @@ def test_fractional_durations_do_not_backup_before_the_bar():
 
 def test_kinkel_reading_missing_notes_is_not_chosen():
     folder = Path(__file__).parent / 'data/pdf_warnings'
-    variants = [(folder / f'kinkel_trennung_variant{i}.mxl').read_bytes() for i in range(3)]
+    variants = [(folder / f'kinkel_trennung_variant{i}.mxl').read_bytes() for i in (0, 2)]
 
-    def raw(data, audiveris, options, deadline):
-        return variants[SETTINGS.index(options)], []
+    def raw(data, audiveris, options, deadline, stop):
+        return RawReading(variants[SETTINGS.index(options)], [], {"outcome": "done"})
 
     reading = read_pdf((folder / 'kinkel_trennung_scan.pdf').read_bytes(), raw=raw)
     assert reading.musicxml == infer_triplets(infer_tuplet_rests(clean(variants[1])))
@@ -300,3 +301,40 @@ def test_the_every_bar_preview_of_a_long_score_is_one_bounded_image():
     assert tall.svgs[0].count('class="measure"') == len(ScoreIndex(load_toolkit(score).getMEI()).measures) == 400
     image = Image.open(io.BytesIO(tall.png(1, width=2800, colors=256)))
     assert image.width * image.height <= MAX_PIXELS
+
+
+def test_a_reading_is_returned_when_the_other_setting_runs_out_of_time():
+    folder = Path(__file__).parent / 'data/pdf_warnings'
+    variant = (folder / 'kinkel_trennung_variant2.mxl').read_bytes()
+
+    def raw(data, audiveris, options, deadline, stop):
+        if SETTINGS.index(options) == 0:
+            return RawReading(None, [], {"outcome": "timeout"})
+        return RawReading(variant, [], {"outcome": "done"})
+
+    reading = read_pdf((folder / 'kinkel_trennung_scan.pdf').read_bytes(), raw=raw)
+    assert reading.musicxml == infer_triplets(infer_tuplet_rests(clean(variant)))
+    assert [p["outcome"] for p in reading.passes] == ["timeout", "done"]
+
+
+def test_no_reading_reports_why_each_setting_failed():
+    folder = Path(__file__).parent / 'data/pdf_warnings'
+
+    def raw(data, audiveris, options, deadline, stop):
+        return RawReading(None, [], {"outcome": "no music", "problems": ["StepException: No regularly spaced lines found"]})
+
+    with pytest.raises(ReadError) as caught:
+        read_pdf((folder / 'kinkel_trennung_scan.pdf').read_bytes(), raw=raw)
+    assert str(caught.value) == "No music could be read from this PDF"
+    assert [p["problems"] for p in caught.value.passes] == [["StepException: No regularly spaced lines found"]] * len(SETTINGS)
+
+
+def test_a_reader_that_does_not_finish_is_stopped_at_the_deadline(tmp_path):
+    reader = tmp_path / "Audiveris"
+    reader.write_text("#!/bin/sh\necho 'INFO  [score#1]            StepMonitoring 98   | LOAD'\nexec sleep 60\n")
+    reader.chmod(0o755)
+    started = time.monotonic()
+    got = audiveris_read(b"%PDF-1.4", str(reader), SETTINGS[0], time.monotonic() + 2, threading.Event())
+    assert time.monotonic() - started < 10
+    assert got.mxl is None and got.facts["outcome"] == "timeout"
+    assert got.facts["step_seconds"]["LOAD"] >= 1
