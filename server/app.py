@@ -964,7 +964,7 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
 
     def files():
         with ThreadPoolExecutor(4) as pool:
-            image = pool.submit(tall.png, 1, width=2800, colors=256)
+            image = pool.submit(tall.png, 1, width=1400, colors=256)
             pdf = pool.submit(engraving.pdf)
             pages = list(pool.map(shaded.png, range(1, shaded.page_count + 1)))
             return image.result(), pdf.result(), pages
