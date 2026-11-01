@@ -722,7 +722,8 @@ PDF_NEXT_STEP = (
     "(.mxl or .musicxml) needs no reading at all."
 )
 SAME_FILE_WAIT = 100
-READ_MARKER_SECONDS = 360
+STARTER_WAIT = 280
+READ_MARKER_SECONDS = 420
 POLL_SECONDS = 3
 STILL_READING = (
     "This PDF is still being read ({seconds} s so far; a long PDF takes up to about 4 minutes). Tell the user it is "
@@ -761,7 +762,8 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
         card = json.loads(card)
         log("read_pdf", platform=source, pages=card["pages"], cached="card", keep_slurs=keep_slurs)
         return pdf_card_result(card, keep_slurs)
-    if card_key not in pdfs_reading:
+    started_here = card_key not in pdfs_reading
+    if started_here:
         if (elsewhere := await claim_read(card_key)) is not None:
             return await wait_for_other_machine(card_key, elsewhere, source, keep_slurs)
         work = contextvars.copy_context()
@@ -771,7 +773,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
         pdfs_reading[card_key] = task, time.time()
         task.add_done_callback(lambda _: pdfs_reading.pop(card_key, None))
     task, since = pdfs_reading[card_key]
-    with anyio.move_on_after(SAME_FILE_WAIT):
+    with anyio.move_on_after(STARTER_WAIT if started_here else SAME_FILE_WAIT):
         await asyncio.shield(task)
     if not task.done():
         log("read_pdf", platform=source, busy=True, same_file=True, keep_slurs=keep_slurs)
