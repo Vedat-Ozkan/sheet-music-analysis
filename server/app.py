@@ -722,14 +722,15 @@ PDF_NEXT_STEP = (
     "(.mxl or .musicxml) needs no reading at all."
 )
 SAME_FILE_WAIT = 100
-STARTER_WAIT = 280
-READ_MARKER_SECONDS = 420
+STARTER_WAIT = 300 - DOWNLOAD_SECONDS - 15
+READ_MARKER_SECONDS = 300
 POLL_SECONDS = 3
 STILL_READING = (
     "This PDF is still being read ({seconds} s so far; a long PDF takes up to about 4 minutes). Tell the user it is "
     "still being read, then call read_pdf again with the same file; each call waits up to {wait} s for the result."
 )
 pdfs_reading: dict[str, tuple[asyncio.Task, float]] = {}
+claiming = asyncio.Lock()
 
 
 @apps.tool(
@@ -762,16 +763,19 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
         card = json.loads(card)
         log("read_pdf", platform=source, pages=card["pages"], cached="card", keep_slurs=keep_slurs)
         return pdf_card_result(card, keep_slurs)
-    started_here = card_key not in pdfs_reading
-    if started_here:
-        if (elsewhere := await claim_read(card_key)) is not None:
-            return await wait_for_other_machine(card_key, elsewhere, source, keep_slurs)
-        work = contextvars.copy_context()
-        work.run(current_call.set, None)
-        work.run(draft.timings.set, None)
-        task = asyncio.create_task(pdf_work(data, digest, keep_slurs, source, card_key), context=work)
-        pdfs_reading[card_key] = task, time.time()
-        task.add_done_callback(lambda _: pdfs_reading.pop(card_key, None))
+    async with claiming:
+        started_here = card_key not in pdfs_reading
+        if started_here:
+            token, elsewhere = await claim_read(card_key)
+        if started_here and token is not None:
+            work = contextvars.copy_context()
+            work.run(current_call.set, None)
+            work.run(draft.timings.set, None)
+            task = asyncio.create_task(pdf_work(data, digest, keep_slurs, source, card_key, token), context=work)
+            pdfs_reading[card_key] = task, time.time()
+            task.add_done_callback(lambda _: pdfs_reading.pop(card_key, None))
+    if started_here and token is None:
+        return await wait_for_other_machine(card_key, elsewhere, source, keep_slurs)
     task, since = pdfs_reading[card_key]
     with anyio.move_on_after(STARTER_WAIT if started_here else SAME_FILE_WAIT):
         await asyncio.shield(task)
@@ -796,17 +800,24 @@ def failure_of(card_key: str) -> str:
     return card_key.replace("pdf-card-", "pdf-failed-")
 
 
-async def claim_read(card_key: str) -> float | None:
+async def claim_read(card_key: str) -> tuple[str | None, float]:
     token, now = secrets.token_hex(8), time.time()
     mine = json.dumps({"token": token, "started": now}).encode()
-    await anyio.to_thread.run_sync(store.add, marker_of(card_key), mine)
+    for _ in range(2):
+        await anyio.to_thread.run_sync(store.add, marker_of(card_key), mine)
+        found = json.loads(await anyio.to_thread.run_sync(store.get, marker_of(card_key)) or b"{}")
+        if found.get("token") == token:
+            return token, now
+        if now - found.get("started", 0) <= READ_MARKER_SECONDS:
+            return None, found["started"]
+        await release_read(card_key, found.get("token"))
+    return None, now
+
+
+async def release_read(card_key: str, token: str | None) -> None:
     found = json.loads(await anyio.to_thread.run_sync(store.get, marker_of(card_key)) or b"{}")
     if found.get("token") == token:
-        return None
-    if now - found.get("started", 0) > READ_MARKER_SECONDS:
-        await anyio.to_thread.run_sync(store.put, marker_of(card_key), mine)
-        return None
-    return found["started"]
+        await anyio.to_thread.run_sync(store.delete, marker_of(card_key))
 
 
 async def wait_for_other_machine(card_key: str, since: float, source: str, keep_slurs: bool) -> CallToolResult:
@@ -825,12 +836,21 @@ async def wait_for_other_machine(card_key: str, since: float, source: str, keep_
         seconds=round(time.time() - since), wait=SAME_FILE_WAIT))])
 
 
-async def pdf_work(data: bytes, digest: str, keep_slurs: bool, source: str, card_key: str) -> tuple[dict | CallToolResult, dict]:
+async def pdf_work(data: bytes, digest: str, keep_slurs: bool, source: str, card_key: str,
+                   token: str) -> tuple[dict | CallToolResult, dict]:
     details = {"event": "read_pdf_work", "platform": source, "keep_slurs": keep_slurs}
     timings = {}
     current_call.set(details)
     draft.timings.set(timings)
     started = time.perf_counter()
+    try:
+        return await pdf_outcome(data, digest, keep_slurs, source, card_key, details, timings, started)
+    finally:
+        await release_read(card_key, token)
+
+
+async def pdf_outcome(data: bytes, digest: str, keep_slurs: bool, source: str, card_key: str, details: dict,
+                      timings: dict, started: float) -> tuple[dict | CallToolResult, dict]:
     try:
         result = await read_pdf_card(data, digest, keep_slurs, source)
         if isinstance(result, dict):
@@ -849,7 +869,6 @@ async def pdf_work(data: bytes, digest: str, keep_slurs: bool, source: str, card
     if not isinstance(result, dict):
         failure = {"at": time.time(), "error": details.get("error", outcome), "text": result.content[0].text}
         await anyio.to_thread.run_sync(store.put, failure_of(card_key), json.dumps(failure).encode())
-    await anyio.to_thread.run_sync(store.delete, marker_of(card_key))
     timings["total"] = round((time.perf_counter() - started) * 1000)
     write_line({**details, "outcome": outcome, "severity": SEVERITY[outcome], "message": f"read_pdf_work {outcome}",
                 "timings_ms": timings})
