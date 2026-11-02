@@ -1644,7 +1644,9 @@ Owner goal: under 100 flagged bars ("don't add up", `problem_spots`) on the main
 | real (scans) | 28 → 28 | unchanged | unchanged |
 | blind | 431 → 421 | 0.9426 → 0.9513 | 0.8386 → 0.8430 |
 
-No set gets worse on any of the three; read time unchanged. A separate review found nothing serious (one unlikely case: an unused Leland font left in an edited or merged PDF would turn Leland on). Full suite passed after updating a test stand-in for `run()`. Staging revision 00070: Haydn "She never told her love" (MuseScore, 3 pages) read in 70 s, OMR 60 s, peak memory 25% of 4 GiB, no errors.
+The blind set is no longer unseen for this rule: it is what showed the Verovio regression and so chose "PDFs that embed Leland" over "every non-scan PDF". The rule follows from matching shapes to the printed font, not from a threshold, but the next reader change needs a fresh unseen set.
+
+No set gets worse on any of the three; read time unchanged. A separate review found nothing serious (one unlikely case: an unused Leland font left in an edited or merged PDF would turn Leland on). Full suite passed after updating a test stand-in for `run()`; `diff_check` pdfwarn 0 of 80 changed, `test_awkward` 196 passed. Staging revision 00070: Haydn "She never told her love" (MuseScore, 3 pages) read in 70 s, OMR 60 s, peak memory 25% of 4 GiB, no errors.
 
 ## Checking against teachers' prose
 
