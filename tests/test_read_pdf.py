@@ -80,6 +80,7 @@ def test_only_a_pdf_drawn_with_the_leland_font_is_read_with_leland_shapes():
     assert "org.audiveris.omr.ui.symbol.MusicFont.defaultMusicFamily=Leland" in audiveris_options(1, True)
     assert not any("MusicFont" in option for option in audiveris_options(1, False))
 
+
 def test_names_the_bars_a_reading_likely_got_wrong():
     score = without_slurs(clean((Path(__file__).parent / "data/chopin_prelude_op28_no4_audiveris.mxl").read_bytes()))
 

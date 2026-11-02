@@ -26,7 +26,6 @@ def cached_raw(cache: Path, sig: str, slots: threading.Semaphore, calls: list):
         options = reader.audiveris_options(setting, leland)
         key = hashlib.sha256(data + sig.encode() + " ".join(options).encode()).hexdigest()[:32]
         meta, mxl = cache / f"{key}.json", cache / f"{key}.mxl"
-        index = setting
         if not meta.exists():
             with slots:
                 t0 = time.monotonic()
@@ -38,10 +37,10 @@ def cached_raw(cache: Path, sig: str, slots: threading.Semaphore, calls: list):
                     out = {"timeout": True} if got.facts["outcome"] == "timeout" else {"error": got.facts["outcome"]}
                 out["seconds"] = round(time.monotonic() - t0, 1)
                 meta.write_text(json.dumps(out))
-            calls.append((index, out["seconds"], False))
+            calls.append((setting, out["seconds"], False))
         else:
             out = json.loads(meta.read_text())
-            calls.append((index, out["seconds"], True))
+            calls.append((setting, out["seconds"], True))
         if "error" in out or out.get("timeout"):
             return reader.RawReading(None, [], {"outcome": "timeout" if out.get("timeout") else "no music"})
         return reader.RawReading(mxl.read_bytes(), out["skipped"], {"outcome": "done"})
