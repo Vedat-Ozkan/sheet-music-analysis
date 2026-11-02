@@ -21,41 +21,44 @@
 <main class="wrap narrow">
   <section class="hero">
     <h1>Privacy policy</h1>
-    <p class="muted">Last updated 30 October 2026</p>
+    <p class="muted">Last updated 2 November 2026</p>
   </section>
 
-  <p>Sheet Music Analysis ("we") is a free tool. It has no accounts, no advertising and no tracking: we count how many different people use it each day, using a code that changes every day, so the code cannot connect your visits on different days. This page explains what reaches our server, what we keep, and for how long.</p>
+  <p>This policy explains what data Sheet Music Analysis ("we") receives, why we use it and how long we keep it. The service has no user accounts and no advertising.</p>
 
-  <h2>What reaches our server</h2>
+  <h2>What we receive</h2>
   <h3>In Claude, with the plugin</h3>
-  <p>Your score file stays in Claude's own workspace. The plugin sends our server only a compact list of the notes in the passage (pitches, timings and staves), so our model can draft the analysis, along with the score's tempo, dynamics, pedal and ornament marks so the passage can be played back in the chat. We keep this list for one day so that you can play the passage, then it is deleted.</p>
+  <p>Your score file stays in Claude. The plugin sends us only the notes of the passage you ask about (pitches, timings and staves) and its performance markings (tempo, dynamics, pedal and ornaments). We use them to draft the analysis and to play the passage back.</p>
   <h3>In ChatGPT</h3>
-  <p>The score file you attach or pick is sent to our server, which drafts the analysis and draws the annotated page. We store the score, the draft and the drawn pages (PNG and PDF) so that the chat can refer back to them during your conversation.</p>
-  <h3>Never</h3>
-  <p>We do not receive your chat messages, your name, your email address or your account details from Claude or ChatGPT. With each request ChatGPT also sends an anonymous user ID, an anonymous ID for the conversation and your language setting. We record only the names of these fields, never their contents, except that the user ID becomes the daily user code below, and the conversation ID, scrambled the same way, is used to count the analyses in that conversation. The analysis we draw is the one the chat model sends us; your conversation itself stays with Anthropic or OpenAI and is covered by their privacy policies.</p>
+  <p>The score you attach is sent to our server. We use it to read the music (for a PDF), draft the analysis and draw the annotated pages. We store the score, the music read from a PDF, the draft and the drawn pages so the conversation can refer back to them.</p>
+  <h3>What we do not receive</h3>
+  <p>We do not receive your chat messages, name, email address or account details. With each request ChatGPT also sends an anonymous user ID, an anonymous conversation ID and your language setting. We do not store any of these as sent. From the two IDs we make the pseudonymous identifiers described below; we do not use the language setting.</p>
+  <p>A pseudonymous identifier is a code made from ChatGPT's ID with a secret key held on our server. The same ID always gives the same code. Without the key the code cannot be turned back into the ID, and we have no way to link it to your name or account.</p>
 
   <h2>What we keep, and for how long</h2>
   <div class="table-scroll"><table>
     <tr><th>Data</th><th>Kept for</th></tr>
-    <tr><td>Uploaded scores, drafts and drawn pages</td><td>Deleted automatically after one day (the deletion itself can take up to one more day to run).</td></tr>
-    <tr><td>Note lists sent by the Claude plugin</td><td>Deleted automatically after one day (the deletion itself can take up to one more day to run).</td></tr>
-    <tr><td>Daily usage counts: how many drafts, pages and uploads, split by Claude and ChatGPT</td><td>Kept, to understand use and stay within the free service's capacity. They contain no score content and nothing that identifies you.</td></tr>
-    <tr><td>Server logs: which tool ran, file sizes, timings, errors, and the names (never the contents) of the technical fields the chat app sends with a request</td><td>30 days. They never contain score content or chat text.</td></tr>
-    <tr><td>A daily user code in the server logs (ChatGPT only): ChatGPT's anonymous ID scrambled with a random key that changes every day, so we can count how many different people used the tool that day</td><td>30 days, in the server logs. Each day's key is deleted within two days after that day ends; after that, a code cannot be matched to the ID it came from, and codes from different days never match each other.</td></tr>
-    <tr><td>A count of the analyses drawn in each ChatGPT conversation, filed under the conversation's ID scrambled with the daily key, so that we ask "Was this analysis helpful?" only once, at the third analysis</td><td>Deleted automatically after one day (the deletion itself can take up to one more day to run).</td></tr>
-    <tr><td>Your thumbs up or thumbs down, if you answer that question, with the daily user code</td><td>30 days, in the server logs.</td></tr>
-    <tr><td>Our hosting provider's standard request logs, which include the IP address of the computer making the request</td><td>30 days. For most requests this is Anthropic's or OpenAI's server, not your device; when you pick a file with ChatGPT's file button, it is your browser's address.</td></tr>
+    <tr><td>Scores, music read from PDFs, drafts and drawn pages (ChatGPT)</td><td>Deleted automatically one day after they are stored; deletion can take up to one more day.</td></tr>
+    <tr><td>Notes and markings sent by the Claude plugin</td><td>Deleted automatically one day after they are stored; deletion can take up to one more day.</td></tr>
+    <tr><td>Usage identifier (ChatGPT): a pseudonymous identifier made from your ChatGPT user ID, with the calendar months in which it was used. Used to count unique and returning users.</td><td>As long as the service operates.</td></tr>
+    <tr><td>Conversation identifier (ChatGPT): a pseudonymous identifier made from the conversation ID, with the number of analyses drawn in that conversation. Used to ask "Was this analysis helpful?" only once per conversation.</td><td>Deleted automatically one day after the conversation's last analysis; deletion can take up to one more day.</td></tr>
+    <tr><td>Server logs: which tool ran, when, file sizes, timings, errors and the usage identifier. No score content or chat text.</td><td>30 days.</td></tr>
+    <tr><td>Your answer to "Was this analysis helpful?", if you give one, with the usage identifier</td><td>30 days, in the server logs.</td></tr>
+    <tr><td>Daily usage totals: numbers of analyses, pages and uploads, by platform</td><td>Kept. They contain no identifiers.</td></tr>
+    <tr><td>Our hosting provider's request logs, including the IP address the request came from. For most requests this is Anthropic's or OpenAI's server; when you choose a file with ChatGPT's file picker, it is your browser's.</td><td>30 days.</td></tr>
   </table></div>
-  <p>We do not sell, share or use any of this for advertising or for training models.</p>
 
-  <h2>Who processes the data</h2>
+  <h2>How we use it</h2>
+  <p>We use this data only to provide the service, keep it within its capacity, fix problems and measure usage. We do not sell it, share it with anyone other than the service providers below, use it for advertising, or use it to train models.</p>
+
+  <h2>Service providers</h2>
   <ul>
     <li><strong>Google Cloud</strong> (United States) runs the analysis server and stores the files and logs above.</li>
-    <li><strong>Cloudflare</strong> hosts this website and our domain, and passes requests on to the analysis server without keeping them. This website sets no cookies and uses no analytics.</li>
+    <li><strong>Cloudflare</strong> hosts this website and our domain, and forwards requests to the analysis server without storing them. This website sets no cookies and uses no analytics.</li>
   </ul>
 
-  <h2>Your choices</h2>
-  <p>In Claude, your file is never sent to us. To have something deleted sooner, or to ask what we hold, email <a href="mailto:support@sheetmusicanalysis.com">support@sheetmusicanalysis.com</a>. Because we do not know who sent a given file, include the date and the name of the piece so we can find it.</p>
+  <h2>Your rights</h2>
+  <p>You can ask what data we hold about you, or ask us to delete it, by emailing <a href="mailto:support@sheetmusicanalysis.com">support@sheetmusicanalysis.com</a>. We do not know who sent a given file, so include the date and the name of the piece. We cannot link a usage identifier to a person, so we cannot find one person's identifier on request.</p>
   <p>The service is meant for general audiences, including students under 18. It does not knowingly collect personal information from anyone.</p>
 
   <h2>Changes</h2>
