@@ -1671,6 +1671,16 @@ No set gets worse on any of the three; read time unchanged. A separate review fo
 
 **What it does not test.** Voices and tuplets (which notes form a line, where the triplets are) are not checked; they sank solver phase 1 and need their own test. The PDFs are ones we engraved; real exports may have their fonts turned into outlines.
 
+### 95. Test: voices and triplets when every symbol is read exactly (2026-11-02)
+
+**Question.** Entry 94 showed the printed symbols can be read from the drawing instructions. Solver phase 1 failed at the next step: working out voices and triplets. Given exact symbols, is that step tractable? Stop rule written before running (`spike/omr/speed/vector_ceiling/STOP_RULE_ASSEMBLY.md`): a simple fixed assembler, scored on the 2,902 staff-bars whose symbols entry 94 read exactly; a bar matches when every event's start, sounding length and rest/note equal the truth. 90%+ → tractable, under 75% → stop.
+
+**Result as registered: 70.6%, under the stop line.** One-voice bars 91.8%, bars split into two voices 14.4%, bars with triplets 8.8%. MuseScore and LilyPond alike (70.8%, 70.3%).
+
+**Why, from the failures:** the fixed rule called a bar two-voiced whenever stems pointed different ways, but most were one melody whose stems flip as it crosses the middle line. **Diagnostic, decided after seeing the data:** try one voice first and split only if that does not fill the bar: 89.1% (one voice 93.4% of 2,650; bars that really need two voices 44% of 252; triplet bars 27.5% of 91). No printed tuplet number was found as a music-font character, so every triplet had to be inferred.
+
+**Reading.** With exact symbols, the plain one-voice bars are mostly solved. The hard part is the same as in phase 1, now isolated: real two-voice bars (9% of bars) and triplets (3%). A vector reader is only worth months if those two can be solved, and this simple assembler does not; that needs its own design (simultaneous notes line up vertically, which the drawing gives exactly) and a fresh test, not a tweak of this one.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
