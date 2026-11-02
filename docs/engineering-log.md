@@ -1648,6 +1648,19 @@ The blind set is no longer unseen for this rule: it is what showed the Verovio r
 
 No set gets worse on any of the three; read time unchanged. A separate review found nothing serious (one unlikely case: an unused Leland font left in an edited or merged PDF would turn Leland on). Full suite passed after updating a test stand-in for `run()`; `diff_check` pdfwarn 0 of 80 changed, `test_awkward` 196 passed. Staging revision 00070: Haydn "She never told her love" (MuseScore, 3 pages) read in 70 s, OMR 60 s, peak memory 25% of 4 GiB, no errors.
 
+### 93. Ceiling check: reading symbols from the PDF's music font (2026-11-02)
+
+**Question.** Before 5-8 days on reading rests, flags, dots and noteheads from the font characters in MuseScore and LilyPond PDFs, how many flagged bars could it fix? Stop rule written before running (`spike/omr/speed/font_ceiling/STOP_RULE.md`): 60+ fully covered bars of 214 → go; under 30 → stop; between → owner decides.
+
+**Method.** Solver phase 0 lists, for each of the 214 flagged bars on ms and ly PDFs (int3 reading, main set), what the bar needs to match the truth, with page, staff and x. `ceiling.py` extracts every rest, flag, dot and notehead character from the PDF and checks for one of the needed kind on that staff near that x (for an extra note Audiveris invented: that no notehead is there). Check of the mapping: at notes Audiveris invented (real positions), a notehead character is there 32 of 36 times, so the coordinates line up; the misses are positions phase 0 had to estimate from the rhythm.
+
+**Result.** Fully covered bars: 22 (within 1 staff space), 27 (2 spaces), 32 (3 spaces); this counts the kind of symbol only, not its exact value, so it is generous. Under the rule's stop line at the strict window, at its bottom edge at the loosest.
+- 64 of the 214 bars need only voice changes, and 87 need a change no symbol supplies (tuplets, dropping a beam or a dot).
+- Of 62 notes needing a shorter value, 37 have no flag character near them, 27 none on the whole staff: they are beamed, and the missing beam is a drawn shape, not a font character.
+- 6 missing rests have no rest character on that staff at all; hidden rests in the truth explain only a few (0-3 per piece).
+
+**Decision.** Font characters alone are not where the flagged bars are; not doing the 5-8 days. Reading beams from the drawn shapes as well would add the beam bars (about 37 needing one more beam, 59 needing one fewer) but is a much larger, full vector reader; it needs its own ceiling check first.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
