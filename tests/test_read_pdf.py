@@ -16,7 +16,7 @@ from PIL import Image
 from engine import tint
 from engine.overlay import Box, PageLayout
 from engine.performance import marked_index
-from engine.read_pdf import PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, audiveris_facts, audiveris_read, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, without_slurs
+from engine.read_pdf import PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, audiveris_facts, audiveris_options, audiveris_read, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
 from engine.render import MAX_PIXELS, engrave, load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
@@ -70,6 +70,16 @@ def test_a_scan_with_a_background_fill_is_still_a_scan():
     assert not is_scan(open_pdf((data / "pdf_warnings/hensel_vr/hensel_vr.pdf").read_bytes()))
 
 
+def test_only_a_pdf_drawn_with_the_leland_font_is_read_with_leland_shapes():
+    data = Path(__file__).parent / "data"
+    readings = {name: uses_leland(open_pdf((data / name).read_bytes())) for name in (
+        "pdf_warnings/haydn_she_never_told.pdf", "pdf_warnings/hensel_vr/hensel_vr.pdf",
+        "chopin-28-4-mutopia.pdf", "mozart-k545-1-scan.pdf")}
+    assert readings == {"pdf_warnings/haydn_she_never_told.pdf": True, "pdf_warnings/hensel_vr/hensel_vr.pdf": False,
+                        "chopin-28-4-mutopia.pdf": False, "mozart-k545-1-scan.pdf": False}
+    assert "org.audiveris.omr.ui.symbol.MusicFont.defaultMusicFamily=Leland" in audiveris_options(1, True)
+    assert not any("MusicFont" in option for option in audiveris_options(1, False))
+
 def test_names_the_bars_a_reading_likely_got_wrong():
     score = without_slurs(clean((Path(__file__).parent / "data/chopin_prelude_op28_no4_audiveris.mxl").read_bytes()))
 
@@ -107,8 +117,8 @@ def test_haydn_readings_tied_on_problem_bars_keep_the_first_setting():
     folder = Path(__file__).parent / 'data/pdf_warnings'
     variants = [(folder / f'haydn_she_never_told_variant{i}.mxl').read_bytes() for i in (0, 2)]
 
-    def raw(data, audiveris, options, deadline, stop):
-        return RawReading(variants[SETTINGS.index(options)], [], {"outcome": "done"})
+    def raw(data, audiveris, setting, leland, deadline, stop):
+        return RawReading(variants[setting], [], {"outcome": "done"})
 
     reading = read_pdf((folder / 'haydn_she_never_told.pdf').read_bytes(), raw=raw)
     assert reading.musicxml == infer_triplets(clean(variants[0]))
@@ -121,8 +131,8 @@ def test_a_reading_that_dropped_notes_is_not_chosen_for_having_fewer_problem_bar
     def pitched(score):
         return sum(1 for note in ET.fromstring(score).iter('note') if note.find('pitch') is not None)
 
-    def raw(data, audiveris, options, deadline, stop):
-        return RawReading(variants[SETTINGS.index(options)], [], {"outcome": "done"})
+    def raw(data, audiveris, setting, leland, deadline, stop):
+        return RawReading(variants[setting], [], {"outcome": "done"})
 
     counts = [pitched(clean(variant)) for variant in variants]
     reading = read_pdf((folder / 'hensel_vr.pdf').read_bytes(), raw=raw)
@@ -138,8 +148,8 @@ def test_kinkel_reading_missing_notes_is_not_chosen():
     folder = Path(__file__).parent / 'data/pdf_warnings'
     variants = [(folder / f'kinkel_trennung_variant{i}.mxl').read_bytes() for i in (0, 2)]
 
-    def raw(data, audiveris, options, deadline, stop):
-        return RawReading(variants[SETTINGS.index(options)], [], {"outcome": "done"})
+    def raw(data, audiveris, setting, leland, deadline, stop):
+        return RawReading(variants[setting], [], {"outcome": "done"})
 
     reading = read_pdf((folder / 'kinkel_trennung_scan.pdf').read_bytes(), raw=raw)
     assert reading.musicxml == infer_triplets(infer_tuplet_rests(clean(variants[1])))
@@ -321,8 +331,8 @@ def test_a_reading_is_returned_when_the_other_setting_runs_out_of_time():
     folder = Path(__file__).parent / 'data/pdf_warnings'
     variant = (folder / 'kinkel_trennung_variant2.mxl').read_bytes()
 
-    def raw(data, audiveris, options, deadline, stop):
-        if SETTINGS.index(options) == 0:
+    def raw(data, audiveris, setting, leland, deadline, stop):
+        if setting == 0:
             return RawReading(None, [], {"outcome": "timeout"})
         return RawReading(variant, [], {"outcome": "done"})
 
@@ -334,7 +344,7 @@ def test_a_reading_is_returned_when_the_other_setting_runs_out_of_time():
 def test_no_reading_reports_why_each_setting_failed():
     folder = Path(__file__).parent / 'data/pdf_warnings'
 
-    def raw(data, audiveris, options, deadline, stop):
+    def raw(data, audiveris, setting, leland, deadline, stop):
         return RawReading(None, [], {"outcome": "no music", "problems": ["StepException", "no staff lines found"]})
 
     with pytest.raises(ReadError) as caught:
@@ -353,8 +363,8 @@ def test_the_reasons_logged_for_a_failed_page_carry_no_text_from_it():
 def test_the_second_setting_is_stopped_when_the_first_fails():
     stopped = threading.Event()
 
-    def raw(data, audiveris, options, deadline, stop):
-        if SETTINGS.index(options) == 0:
+    def raw(data, audiveris, setting, leland, deadline, stop):
+        if setting == 0:
             raise OSError("reader missing")
         stopped.set() if stop.wait(5) else None
         return RawReading(None, [], {"outcome": "cancelled"})
@@ -369,7 +379,7 @@ def test_a_reader_that_does_not_finish_is_stopped_at_the_deadline(tmp_path):
     reader.write_text("#!/bin/sh\necho 'INFO  [score#1]            StepMonitoring 98   | LOAD'\nexec sleep 60\n")
     reader.chmod(0o755)
     started = time.monotonic()
-    got = audiveris_read(b"%PDF-1.4", str(reader), SETTINGS[0], time.monotonic() + 2, threading.Event())
+    got = audiveris_read(b"%PDF-1.4", str(reader), 0, False, time.monotonic() + 2, threading.Event())
     assert time.monotonic() - started < 10
     assert got.mxl is None and got.facts["outcome"] == "timeout"
     assert got.facts["step_seconds"]["LOAD"] >= 1

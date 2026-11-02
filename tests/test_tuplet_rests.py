@@ -7,7 +7,7 @@ import zipfile
 
 import pytest
 
-from engine.read_pdf import SETTINGS, RawReading, clean, read_pdf
+from engine.read_pdf import RawReading, clean, read_pdf
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
@@ -290,8 +290,8 @@ def test_ordinary_offset_voice_keeps_its_timeline_after_rest_repair(production, 
 def _reading():
     variants = [(DATA / f'ave_maria_variant{i}.mxl').read_bytes() for i in (0, 2)]
 
-    def raw(data, audiveris, options, deadline, stop):
-        return RawReading(variants[SETTINGS.index(options)], [], {'outcome': 'done'})
+    def raw(data, audiveris, setting, leland, deadline, stop):
+        return RawReading(variants[setting], [], {'outcome': 'done'})
 
     return read_pdf((DATA / 'ave_maria.pdf').read_bytes(), raw=raw).musicxml
 

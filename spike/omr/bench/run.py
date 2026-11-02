@@ -22,14 +22,15 @@ def install_signature(binary: Path) -> str:
 def cached_raw(cache: Path, sig: str, slots: threading.Semaphore, calls: list):
     from engine import read_pdf as reader
 
-    def raw(data, audiveris, options, deadline, stop):
+    def raw(data, audiveris, setting, leland, deadline, stop):
+        options = reader.audiveris_options(setting, leland)
         key = hashlib.sha256(data + sig.encode() + " ".join(options).encode()).hexdigest()[:32]
         meta, mxl = cache / f"{key}.json", cache / f"{key}.mxl"
-        index = reader.SETTINGS.index(options)
+        index = setting
         if not meta.exists():
             with slots:
                 t0 = time.monotonic()
-                got = reader.audiveris_read(data, audiveris, options, time.monotonic() + reader.TIMEOUT, threading.Event())
+                got = reader.audiveris_read(data, audiveris, setting, leland, time.monotonic() + reader.TIMEOUT, threading.Event())
                 if got.mxl is not None:
                     out = {"skipped": got.skipped}
                     mxl.write_bytes(got.mxl)
