@@ -1698,6 +1698,20 @@ No set gets worse on any of the three; read time unchanged. A separate review fo
 
 **Consequence.** The honest target is wrong bars (1,028 here), not flagged bars. The cheapest large wins look like: the dropped-low-notes side effect (a known, diagnosed cause), and a check that compares noteheads counted from the PDF with the reading, which would turn many silent misses into flags.
 
+### 97. Real-world PDFs: are the music symbols still font characters? (2026-11-02)
+
+**Question.** Every benchmark PDF was engraved by us (MuseScore 4, LilyPond, Verovio). A reader built on drawing instructions only helps if real files keep their music symbols as font characters. Sample: 28 PDFs marked "Typeset" on IMSLP, 2 per work from 15 well-known works (picked at random with a fixed seed; one more failed to download), plus 15 Mutopia PDFs. Script `spike/omr/speed/vector_ceiling/real_census.py` (fonts embedded, producer, text vs drawing operators, images).
+
+| What the PDF holds | PDFs | Made by |
+|---|---|---|
+| Music font with its own (pre-SMuFL) layout | 30 | LilyPond Emmentaler 17, Sibelius Opus 6, Finale Maestro/Petrucci/Engraver 4, MuseScore 1-2 MScore 3 |
+| Music font in the SMuFL layout (what entries 93-94 read) | 5 | MuseScore 2 and 4 |
+| Shapes only, no music font | 7 | print-to-PDF drivers, InDesign, one Sibelius export, unknown |
+| Type3 drawn glyphs | 1 | PostScript driver |
+| Scan | 1 | (a "Typeset" file that is an image) |
+
+**Reading.** 35 of 44 (80%) keep their music symbols as font characters, but only 5 in the layout the prototype reads. Covering most real files needs about four character maps: SMuFL, Emmentaler (by glyph name, already done), the Sonata-compatible layout shared by Sibelius's Opus and Finale's Maestro/Petrucci/Engraver, and MuseScore 1-2's MScore. Beams, stems and barlines are drawn shapes in all of them. MuseScore 4 is 3 of 28 IMSLP typeset files, so the benchmark (70 MuseScore 4 PDFs) over-represents it. This sample is IMSLP's typeset files, not what users upload; production read 2 scans of 3 PDFs last month.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
