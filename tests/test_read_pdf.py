@@ -57,6 +57,15 @@ def test_a_tempo_word_printed_in_the_pdf_reaches_the_playback():
     assert [mark.value for mark in first.marks if mark.kind == "tempo"] == ["largo"]
 
 
+def test_a_scan_with_a_background_fill_is_still_a_scan():
+    data = Path(__file__).parent / "data"
+    scan = open_pdf((data / "mozart-k545-1-scan.pdf").read_bytes())
+    for page in scan.pages:
+        page.contents_add(scan.make_stream(b"q 1 g 0 0 612 792 re f Q"), prepend=True)
+    assert is_scan(scan)
+    assert not is_scan(open_pdf((data / "pdf_warnings/hensel_vr/hensel_vr.pdf").read_bytes()))
+
+
 def test_names_the_bars_a_reading_likely_got_wrong():
     score = without_slurs(clean((Path(__file__).parent / "data/chopin_prelude_op28_no4_audiveris.mxl").read_bytes()))
 

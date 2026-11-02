@@ -49,7 +49,7 @@ _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
 _REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_REST, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
-READER = "5.11.0-sma.3-best2-tuplet-rests-ocr-r7"
+READER = "5.11.0-sma.4-best2-tuplet-rests-ocr-r7"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
@@ -317,17 +317,24 @@ def first_pages(data: bytes, count: int) -> bytes:
 
 def is_scan(pdf: pikepdf.Pdf) -> bool:
 
-    def paints(stream, seen: set) -> bool:
-        if any(str(operator) in PAINT_OPERATORS for _, operator in pikepdf.parse_content_stream(stream)):
-            return True
-        for xobject in (stream.get("/Resources", {}).get("/XObject", {}) or {}).values():
-            if xobject.get("/Subtype") == "/Form" and xobject.objgen not in seen:
-                seen.add(xobject.objgen)
-                if paints(xobject, seen):
-                    return True
-        return False
+    def drawn(stream, seen: set, found: set) -> set:
+        xobjects = stream.get("/Resources", {}).get("/XObject", {}) or {}
+        for operands, operator in pikepdf.parse_content_stream(stream):
+            name = str(operator)
+            if name in PAINT_OPERATORS:
+                found.add("paths")
+            elif name == "INLINE IMAGE":
+                found.add("image")
+            elif name == "Do" and operands and str(operands[0]) in xobjects:
+                xobject = xobjects[str(operands[0])]
+                if xobject.get("/Subtype") == "/Image":
+                    found.add("image")
+                elif xobject.get("/Subtype") == "/Form" and xobject.objgen not in seen:
+                    seen.add(xobject.objgen)
+                    drawn(xobject, seen, found)
+        return found
 
-    return not any(paints(page.obj, set()) for page in pdf.pages)
+    return not any(drawn(page.obj, set(), set()) == {"paths"} for page in pdf.pages)
 
 
 def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
