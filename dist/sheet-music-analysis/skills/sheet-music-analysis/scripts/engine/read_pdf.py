@@ -46,10 +46,11 @@ SHOWN = 4
 _LENGTH = {"whole": 4, "half": 2, "quarter": 1, "eighth": Fraction(1, 2),
            "16th": Fraction(1, 4), "32nd": Fraction(1, 8), "64th": Fraction(1, 16)}
 _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
-_REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
+_BASE = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0",
+         "-option", "org.audiveris.omr.sig.inter.AbstractTimeInter.optionalTimes=6/4, 7/8, 8/8"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
-SETTINGS = [_REST, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
-READER = "5.11.0-sma.3-best2-tuplet-rests-ocr-r7"
+SETTINGS = [_BASE, _BASE + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
+READER = "5.11.0-sma.4-best2-tuplet-rests-eight-ocr-r7"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
@@ -317,17 +318,29 @@ def first_pages(data: bytes, count: int) -> bytes:
 
 def is_scan(pdf: pikepdf.Pdf) -> bool:
 
-    def paints(stream, seen: set) -> bool:
-        if any(str(operator) in PAINT_OPERATORS for _, operator in pikepdf.parse_content_stream(stream)):
-            return True
-        for xobject in (stream.get("/Resources", {}).get("/XObject", {}) or {}).values():
-            if xobject.get("/Subtype") == "/Form" and xobject.objgen not in seen:
-                seen.add(xobject.objgen)
-                if paints(xobject, seen):
-                    return True
-        return False
+    def inherited_resources(node):
+        while node is not None and "/Resources" not in node:
+            node = node.get("/Parent")
+        return node.Resources if node is not None else {}
 
-    return not any(paints(page.obj, set()) for page in pdf.pages)
+    def drawn(stream, resources, seen: set, found: set) -> set:
+        xobjects = resources.get("/XObject", {}) or {}
+        for operands, operator in pikepdf.parse_content_stream(stream):
+            name = str(operator)
+            if name in PAINT_OPERATORS:
+                found.add("paths")
+            elif name == "INLINE IMAGE":
+                found.add("image")
+            elif name == "Do" and operands and str(operands[0]) in xobjects:
+                xobject = xobjects[str(operands[0])]
+                if xobject.get("/Subtype") == "/Image":
+                    found.add("image")
+                elif xobject.get("/Subtype") == "/Form" and xobject.objgen not in seen:
+                    seen.add(xobject.objgen)
+                    drawn(xobject, xobject.get("/Resources", resources), seen, found)
+        return found
+
+    return not any(drawn(page.obj, inherited_resources(page.obj), set(), set()) == {"paths"} for page in pdf.pages)
 
 
 def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
