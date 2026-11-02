@@ -1625,6 +1625,27 @@ Owner goal: under 100 flagged bars ("don't add up", `problem_spots`) on the main
 
 **Result.** Counting starts at the production deploy; daily codes from before cannot be joined to the new ones.
 
+### 92. Leland symbol shapes for PDFs drawn with Leland (2026-11-02)
+
+**Problem.** Audiveris matches symbols against Bravura shapes. MuseScore 4 PDFs (every `ms` benchmark PDF) embed Leland, whose rests, flags and heads differ in shape. LilyPond PDFs embed Emmentaler, Verovio PDFs Leipzig or plain paths, scans none.
+
+**What we tried.** Leland for every PDF: main 321 → 309 flagged bars, but bench-real (scans) pitch+timing 0.7244 → 0.7121. Leland for every non-scan PDF: all five tuning sets better, but the blind set (`bench-timechange`, never tuned on) went 431 → 451 flagged bars, all from Verovio PDFs (+30 bars, 11 of 28 PDFs worse) while MuseScore PDFs gained (−10). Shapes have to match the font actually printed.
+
+**What we did.** `uses_leland` looks for an embedded font named Leland (true for all 70 MuseScore benchmark PDFs, false for every LilyPond, Verovio and scanned one) and only then passes `MusicFont.defaultMusicFamily=Leland`. Each Audiveris run now gets its setting number directly instead of finding it by its option list.
+
+**Result (measured end to end, sma.4 + 8/8 → + Leland):**
+
+| Set | Flagged bars | Pitch | Pitch+timing |
+|---|---|---|---|
+| main | 321 → 317 | 0.9559 → 0.9592 | 0.8945 → 0.8952 |
+| heldout | 63 → 62 | 0.9815 → 0.9844 | 0.9318 → 0.9346 |
+| heldout2 | 60 → 45 | 0.9484 → 0.9623 | 0.8494 → 0.8716 |
+| heldout3 | 62 → 61 | 0.9584 → 0.9630 | 0.8121 → 0.8165 |
+| real (scans) | 28 → 28 | unchanged | unchanged |
+| blind | 431 → 421 | 0.9426 → 0.9513 | 0.8386 → 0.8430 |
+
+No set gets worse on any of the three; read time unchanged.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
