@@ -1588,7 +1588,11 @@ After the change, on staging: the whole Ballade 63 s (was 103 s; drawing 49.5 s,
 
 **Claude skill.** A real claude.ai sandbox today: Python 3.13.18, no music21, verovio or cairosvg; numpy, matplotlib, pikepdf and pydantic present. The skill's pip line lacked music21, which the draft and drawing scripts import, so both crashed in a new chat. The line now pins uv.lock's versions (all have Python 3.13 wheels) and includes music21; a test builds a fresh 3.13 environment from exactly that line and runs the scripts (it fails on the old line). The skill now reads at most 12 pages, the first 8, with the server's wording and next step.
 
-**Not done here (owner decisions or held metadata):** the view enum and parameter descriptions, file-input shape, read-only hints, per-client server instructions, the submission package and demo video, README text on what the plugin downloads, the plugin release.
+**Real claude.ai tests with the built skill (Sonnet 5.5, fresh chats, uploaded as a personal skill).** Bars 1-8 and the whole Nocturne (one 7-page PDF) drew correctly. Two failures, each root-caused by a separate agent before fixing:
+- The chat never called `draft_from_notes`, though `play` worked in the same chat. In claude.ai connector tools load on demand, so "if a tool named draft_from_notes is available ... otherwise skip" read as false; the step also named the connector by a name the account does not use. Step 3 now says to search for the tool and skip only if the search finds nothing, and the Opus sentence leads step 7 (the first answer had left it out). Retest: production logged `draft_from_notes` from Claude at 00:21, and the first answer ended with the Opus sentence.
+- PDF reading failed in every Claude chat: "the network policy blocked it with a 403". A researched theory (GitHub's redirect hosts not allowed) turned out wrong when checked in a chat: the reader package (77.7 MB) and our jar download through the redirect fine; only `github.com/tesseract-ocr/tessdata/raw/...` is refused, while the same file on raw.githubusercontent.com (same checksum) downloads. The skill now uses that URL; retest: Hensel read in about 2 minutes with pages and notice shown. The sandbox has 2 CPUs, 8 GB, Java 21, dpkg-deb and git; our own server is not reachable from it.
+
+ the view enum and parameter descriptions, file-input shape, read-only hints, per-client server instructions, the submission package and demo video, README text on what the plugin downloads, the plugin release.
 
 ## Checking against teachers' prose
 
