@@ -1681,6 +1681,23 @@ No set gets worse on any of the three; read time unchanged. A separate review fo
 
 **Reading.** With exact symbols, the plain one-voice bars are mostly solved. The hard part is the same as in phase 1, now isolated: real two-voice bars (9% of bars) and triplets (3%). A vector reader is only worth months if those two can be solved, and this simple assembler does not; that needs its own design (simultaneous notes line up vertically, which the drawing gives exactly) and a fresh test, not a tweak of this one.
 
+### 96. Silent errors: wrong bars nothing flags (2026-11-02)
+
+**Question.** "Bars that don't add up" only catches rhythm faults. How many bars are wrong but not shaded? Script `spike/omr/speed/silent_errors.py`, on the current reader (sma.4 + 8/8 + Leland, cached readings of all five sets, 2,951 truth bars): each truth bar is paired with its read bar; wrong means the (pitch, start) multiset differs.
+
+| Bars | Count | Share |
+|---|---|---|
+| right | 1,900 | 64.4% |
+| pitch wrong, not flagged | 472 | 16.0% |
+| rhythm wrong, flagged | 251 | 8.5% |
+| pitch wrong, flagged | 235 | 8.0% |
+| rhythm wrong, not flagged | 70 | 2.4% |
+| right but flagged | 23 | 0.8% |
+
+**So 542 of 1,028 wrong bars (53%) are silent**, and the flagged count understates errors by about half. Silent ones by size: 131 bars one note off, 97 two, 149 six or more (whole passages, likely clefs or octave lines). Spot checks of one- and two-note cases are real misreads, mostly dropped low notes (Bach 846 bars 32-33 low C, Beethoven op. 48/5 low octaves): the "low whole notes on ledger lines dropped" side effect from entry 90. By engraver, silent of wrong: MuseScore 273/527, LilyPond 64/148, Verovio 50/103, scans 143/234.
+
+**Consequence.** The honest target is wrong bars (1,028 here), not flagged bars. The cheapest large wins look like: the dropped-low-notes side effect (a known, diagnosed cause), and a check that compares noteheads counted from the PDF with the reading, which would turn many silent misses into flags.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
