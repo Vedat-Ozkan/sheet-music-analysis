@@ -176,20 +176,27 @@ def platform(ctx: Context | None) -> str:
     return client_of(headers)
 
 
-day_keys: dict[str, bytes] = {}
+pseudonym_key: bytes | None = None
+months_recorded: set[str] = set()
 
 
-def daily_code(value: str) -> str:
-    day = datetime.now(timezone.utc).date().isoformat()
-    key = day_keys.get(day)
-    if key is None:
-        store.add(f"keys/{day}", secrets.token_bytes(32))
-        key = store.get(f"keys/{day}")
-        if not key:
-            raise ValueError(f"no user key for {day}")
-        day_keys.clear()
-        day_keys[day] = key
-    return hmac.new(key, value.encode(), hashlib.sha256).hexdigest()[:16]
+def pseudonym(value: str) -> str:
+    global pseudonym_key
+    if pseudonym_key is None:
+        store.add("pseudonym-key", secrets.token_bytes(32))
+        pseudonym_key = store.get("pseudonym-key")
+        if not pseudonym_key:
+            raise ValueError("no pseudonym key")
+    return hmac.new(pseudonym_key, value.encode(), hashlib.sha256).hexdigest()[:16]
+
+
+def user_code(subject: str) -> str:
+    code = pseudonym(subject)
+    month_record = f"users/{code}/{datetime.now(timezone.utc):%Y-%m}"
+    if month_record not in months_recorded:
+        store.add(month_record, b"")
+        months_recorded.add(month_record)
+    return code
 
 
 def client_of(headers) -> str:
@@ -296,7 +303,7 @@ def observed(fn):
                 "meta_keys": sorted(meta), "header_names": sorted(dict(headers or {})), "reference": secrets.token_hex(4)}
         if subject := meta.get("openai/subject"):
             try:
-                call["user"] = await anyio.to_thread.run_sync(daily_code, str(subject))
+                call["user"] = await anyio.to_thread.run_sync(user_code, str(subject))
             except Exception as error:
                 call["user_code_error"] = f"{type(error).__name__}: {error}"
         calls_served += 1
@@ -722,7 +729,7 @@ async def rating_is_due(ctx: Context) -> bool:
             return False
 
         def count_analysis() -> int:
-            key = f"chats/{daily_code(str(chat))}"
+            key = f"chats/{pseudonym(str(chat))}"
             analyses = int(store.get(key) or 0) + 1
             store.put(key, str(analyses).encode())
             return analyses

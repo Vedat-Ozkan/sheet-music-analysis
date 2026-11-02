@@ -1594,6 +1594,14 @@ After the change, on staging: the whole Ballade 63 s (was 103 s; drawing 49.5 s,
 
 **Not done here (owner decisions or held metadata):** the view enum and parameter descriptions, file-input shape, read-only hints, per-client server instructions, the submission package and demo video, README text on what the plugin downloads, the plugin release.
 
+### 91. Users per month, new and returning (2026-11-02)
+
+**Problem.** The user code from entry 78 changed every UTC day, so the logs could only count people per day. The same person on two days looked like two people, and nothing showed users per month, users since launch, or who came back. Three days of production (31 Oct to 2 Nov) gave 4, 5 and 3 ChatGPT users a day, somewhere between 5 and 12 different people.
+
+**What we did.** The owner chose a permanent code. `pseudonym()` scrambles ChatGPT's anonymous ID with one random key kept in the bucket at `pseudonym-key`, made once and never deleted, so a person keeps the same code. `user_code()` also adds an empty object `users/<code>/<YYYY-MM>` for each month a code is active. The lifecycle rule doesn't cover `users/` or the key, so these are kept, and monthly counts don't depend on the 30-day log retention. Each server instance writes a given month's record at most once. `tools/usage_report.py` prints ChatGPT users since launch and, per month, active, new and returning. The conversation count for the rating question now uses the same key; its `chats/` files are still deleted after a day. `keys/` stays in the lifecycle rule until the last daily keys are gone. The privacy page says the code is permanent and drops "no tracking". Claude sends no user ID, so Claude users are still not counted.
+
+**Result.** Counting starts at the production deploy; daily codes from before cannot be joined to the new ones.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
