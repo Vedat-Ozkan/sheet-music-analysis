@@ -24,7 +24,7 @@
     <p class="muted">Last updated 2 November 2026</p>
   </section>
 
-  <p>Sheet Music Analysis ("we") is a free tool. It has no accounts and no advertising. We count how many different people use it with an anonymous code (see below). This page explains what reaches our server, what we keep, and for how long.</p>
+  <p>Sheet Music Analysis ("we") is a free tool. It has no accounts and no advertising. This page explains what reaches our server, what we keep, and for how long.</p>
 
   <h2>What reaches our server</h2>
   <h3>In Claude, with the plugin</h3>
@@ -32,7 +32,7 @@
   <h3>In ChatGPT</h3>
   <p>The score file you attach or pick is sent to our server, which drafts the analysis and draws the annotated page. We store the score, the draft and the drawn pages (PNG and PDF) so that the chat can refer back to them during your conversation.</p>
   <h3>Never</h3>
-  <p>We do not receive your chat messages, your name, your email address or your account details from Claude or ChatGPT. With each request ChatGPT also sends an anonymous user ID, an anonymous ID for the conversation and your language setting. We record only the names of these fields, never their contents, except that the user ID becomes the anonymous user code below, and the conversation ID, scrambled the same way, is used to count the analyses in that conversation. The analysis we draw is the one the chat model sends us; your conversation itself stays with Anthropic or OpenAI and is covered by their privacy policies.</p>
+  <p>We do not receive your chat messages, your name, your email address or your account details from Claude or ChatGPT. With each request ChatGPT also sends an anonymous user ID, an anonymous ID for the conversation and your language setting. We record only the names of these fields, never their contents, except that the user ID becomes the usage identifier below, and the conversation ID, scrambled the same way, is used to count the analyses in that conversation. The analysis we draw is the one the chat model sends us; your conversation itself stays with Anthropic or OpenAI and is covered by their privacy policies.</p>
 
   <h2>What we keep, and for how long</h2>
   <div class="table-scroll"><table>
@@ -41,9 +41,9 @@
     <tr><td>Note lists sent by the Claude plugin</td><td>Deleted automatically after one day (the deletion itself can take up to one more day to run).</td></tr>
     <tr><td>Daily usage counts: how many drafts, pages and uploads, split by Claude and ChatGPT</td><td>Kept, to understand use and stay within the free service's capacity. They contain no score content and nothing that identifies you.</td></tr>
     <tr><td>Server logs: which tool ran, file sizes, timings, errors, and the names (never the contents) of the technical fields the chat app sends with a request</td><td>30 days. They never contain score content or chat text.</td></tr>
-    <tr><td>An anonymous user code (ChatGPT only), made from ChatGPT's anonymous ID, and the months in which it was used, so we can count how many people use the tool and how many come back</td><td>As long as the service runs. The code is not linked to your name, email address or account, so we cannot find or delete one person's code.</td></tr>
+    <tr><td>Usage identifier (ChatGPT only): an anonymous identifier derived from ChatGPT's user ID, and the months in which it was used, to measure usage</td><td>For as long as the service operates.</td></tr>
     <tr><td>A count of the analyses drawn in each ChatGPT conversation, filed under the conversation's ID scrambled the same way, so that we ask "Was this analysis helpful?" only once, at the third analysis</td><td>Deleted automatically after one day (the deletion itself can take up to one more day to run).</td></tr>
-    <tr><td>Your thumbs up or thumbs down, if you answer that question, with the anonymous user code</td><td>30 days, in the server logs.</td></tr>
+    <tr><td>Your thumbs up or thumbs down, if you answer that question, with the usage identifier</td><td>30 days, in the server logs.</td></tr>
     <tr><td>Our hosting provider's standard request logs, which include the IP address of the computer making the request</td><td>30 days. For most requests this is Anthropic's or OpenAI's server, not your device; when you pick a file with ChatGPT's file button, it is your browser's address.</td></tr>
   </table></div>
   <p>We do not sell, share or use any of this for advertising or for training models.</p>
