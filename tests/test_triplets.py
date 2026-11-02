@@ -16,7 +16,7 @@ reader = importlib.import_module('engine.read_pdf')
 def _read_cached(monkeypatch, name):
     xml = (DATA / name).read_bytes()
 
-    def cached_run(audiveris, options, source, work, env, deadline, stop):
+    def cached_run(audiveris, options, setting, source, work, env, deadline, stop):
         with zipfile.ZipFile(Path(work) / 'score.mxl', 'w') as archive:
             archive.writestr('score.musicxml', xml)
         return reader.AudiverisRun('done', 0, '', {})
