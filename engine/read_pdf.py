@@ -318,8 +318,13 @@ def first_pages(data: bytes, count: int) -> bytes:
 
 def is_scan(pdf: pikepdf.Pdf) -> bool:
 
-    def drawn(stream, seen: set, found: set) -> set:
-        xobjects = stream.get("/Resources", {}).get("/XObject", {}) or {}
+    def inherited_resources(node):
+        while node is not None and "/Resources" not in node:
+            node = node.get("/Parent")
+        return node.Resources if node is not None else {}
+
+    def drawn(stream, resources, seen: set, found: set) -> set:
+        xobjects = resources.get("/XObject", {}) or {}
         for operands, operator in pikepdf.parse_content_stream(stream):
             name = str(operator)
             if name in PAINT_OPERATORS:
@@ -332,10 +337,10 @@ def is_scan(pdf: pikepdf.Pdf) -> bool:
                     found.add("image")
                 elif xobject.get("/Subtype") == "/Form" and xobject.objgen not in seen:
                     seen.add(xobject.objgen)
-                    drawn(xobject, seen, found)
+                    drawn(xobject, xobject.get("/Resources", resources), seen, found)
         return found
 
-    return not any(drawn(page.obj, set(), set()) == {"paths"} for page in pdf.pages)
+    return not any(drawn(page.obj, inherited_resources(page.obj), set(), set()) == {"paths"} for page in pdf.pages)
 
 
 def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:

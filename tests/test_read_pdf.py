@@ -63,6 +63,10 @@ def test_a_scan_with_a_background_fill_is_still_a_scan():
     for page in scan.pages:
         page.contents_add(scan.make_stream(b"q 1 g 0 0 612 792 re f Q"), prepend=True)
     assert is_scan(scan)
+    for page in scan.pages:
+        scan.Root.Pages.Resources = page.obj.Resources
+        del page.obj["/Resources"]
+    assert is_scan(scan)
     assert not is_scan(open_pdf((data / "pdf_warnings/hensel_vr/hensel_vr.pdf").read_bytes()))
 
 
