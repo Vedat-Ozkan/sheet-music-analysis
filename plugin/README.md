@@ -18,7 +18,7 @@ The skill reads your attached file inside Claude's own sandbox and engraves the 
 
 ## What the plugin downloads and runs
 
-Inside Claude's sandbox only, the plugin installs its Python packages from PyPI at fixed versions. The first time you attach a PDF it also downloads the music-reading program (about 105 MB) from GitHub: the program itself, our adjusted version of one of its files, and English text-recognition data. Each download is checked against a fixed checksum before it runs. Nothing is installed on your own computer.
+Inside Claude's sandbox only, the plugin installs its Python packages from PyPI at fixed versions. The first time you attach a PDF it also downloads the music-reading program (about 107 MB) from GitHub: the program itself, our adjusted version of one of its files, and English text-recognition data. Each download is checked against a fixed checksum before it runs. Nothing is installed on your own computer.
 
 ## Data
 
