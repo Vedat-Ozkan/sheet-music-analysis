@@ -1644,7 +1644,7 @@ Owner goal: under 100 flagged bars ("don't add up", `problem_spots`) on the main
 | real (scans) | 28 → 28 | unchanged | unchanged |
 | blind | 431 → 421 | 0.9426 → 0.9513 | 0.8386 → 0.8430 |
 
-No set gets worse on any of the three; read time unchanged.
+No set gets worse on any of the three; read time unchanged. A separate review found nothing serious (one unlikely case: an unused Leland font left in an edited or merged PDF would turn Leland on). Full suite passed after updating a test stand-in for `run()`. Staging revision 00070: Haydn "She never told her love" (MuseScore, 3 pages) read in 70 s, OMR 60 s, peak memory 25% of 4 GiB, no errors.
 
 ## Checking against teachers' prose
 
