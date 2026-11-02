@@ -32,7 +32,7 @@ DEB = "https://github.com/Audiveris/audiveris/releases/download/5.11.0/Audiveris
 DEB_SHA256 = "f20113aaa33b3149ec8d6a09b2a7963360e65fafd92d69389987a85bbc3ec7a3"
 JAR = "https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.3/audiveris.jar"
 JAR_SHA256 = "af257f23a32e5e86acde4ec604b733e3a52d113516302db191cbb7a06103dff7"
-OCR = "https://github.com/tesseract-ocr/tessdata/raw/ced78752cc61322fb554c280d13360b35b8684e4/eng.traineddata"
+OCR = "https://raw.githubusercontent.com/tesseract-ocr/tessdata/ced78752cc61322fb554c280d13360b35b8684e4/eng.traineddata"
 OCR_SHA256 = "daa0c97d651c19fba3b25e81317cd697e9908c8208090c94c3905381c23fc047"
 HOME = Path(tempfile.gettempdir()) / "audiveris-5.11.0-sma.3"
 
