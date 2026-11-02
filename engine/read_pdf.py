@@ -46,10 +46,11 @@ SHOWN = 4
 _LENGTH = {"whole": 4, "half": 2, "quarter": 1, "eighth": Fraction(1, 2),
            "16th": Fraction(1, 4), "32nd": Fraction(1, 8), "64th": Fraction(1, 16)}
 _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
-_REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
+_BASE = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0",
+         "-option", "org.audiveris.omr.sig.inter.AbstractTimeInter.optionalTimes=6/4, 7/8, 8/8"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
-SETTINGS = [_REST, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
-READER = "5.11.0-sma.4-best2-tuplet-rests-ocr-r7"
+SETTINGS = [_BASE, _BASE + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
+READER = "5.11.0-sma.4-best2-tuplet-rests-eight-ocr-r7"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
