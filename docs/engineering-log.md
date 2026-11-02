@@ -1661,6 +1661,16 @@ No set gets worse on any of the three; read time unchanged. A separate review fo
 
 **Decision.** Font characters alone are not where the flagged bars are; not doing the 5-8 days. Reading beams from the drawn shapes as well would add the beam bars (about 37 needing one more beam, 59 needing one fewer) but is a much larger, full vector reader; it needs its own ceiling check first.
 
+### 94. Ceiling check: can a PDF's drawing instructions give every note's printed value? (2026-11-02)
+
+**Question.** A reader built on the PDF's drawing instructions instead of an image would only be worth months if it recovers the printed symbols almost perfectly. Stop rule written before running (`spike/omr/speed/vector_ceiling/STOP_RULE.md`): per staff and bar, compare the multiset of (rest or note, printed value, dots) for every chord and rest with the truth; 95% or more → viable, under 85% → stop, between → owner decides.
+
+**Method (prototype, about 3.5 hours).** `extract.py` reads font characters (heads, rests, flags, dots) and drawn shapes (stems, barlines, beams as thick filled four-sided shapes); `ceiling.py` cuts each staff into bars at barlines, attaches heads to stems, counts beams stacked from the stem end, and lines read bars up with truth bars by content (a truth bar with no identical read bar counts as a miss).
+
+**Result, all 34 main-set ms and ly PDFs:** 89.4% of 3,247 staff-bars match exactly (MuseScore 93.2%, LilyPond 82.1%). 9 PDFs at 95-100%. Bugs found and fixed on the way: flat beams taken for staff lines, LilyPond beams drawn twice, dots of a chord counted per note. Remaining misses seen are still prototype faults, not missing information: some LilyPond beams not recognised (Mozart K155: eighths read as quarters; the MuseScore engraving of the same piece scores 100%), barlines missed (Bach 846 LilyPond, 32 of 34 bars), rests drawn between staves given to the wrong staff. So 89% is closer to a floor than a ceiling.
+
+**What it does not test.** Voices and tuplets (which notes form a line, where the triplets are) are not checked; they sank solver phase 1 and need their own test. The PDFs are ones we engraved; real exports may have their fonts turned into outlines.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
