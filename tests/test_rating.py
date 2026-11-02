@@ -13,7 +13,7 @@ CHOPIN = Path(__file__).parent / "data/chopin_nocturne_op9_no2.mxl"
 @pytest.fixture
 def chopin(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
-    monkeypatch.setattr(app, "day_keys", {})
+    monkeypatch.setattr(app, "pseudonym_key", None)
     monkeypatch.setattr(app, "publish", lambda data, *kind: "https://example.com/file")
     app.store.put("scores/ABC", CHOPIN.read_bytes())
 
