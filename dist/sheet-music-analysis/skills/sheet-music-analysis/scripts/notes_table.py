@@ -8,15 +8,8 @@ import sys
 from pathlib import Path
 
 from engine import ledger, reduce
-from engine.render import ScoreError, load_toolkit
+from engine.render import ScoreError, load_toolkit, parse_measures
 from engine.score import PositionError, ScoreIndex
-
-
-def parse_measures(text: str | None) -> tuple[int | None, int | None]:
-    if not text or text == "all":
-        return None, None
-    first, _, last = text.partition("-")
-    return int(first), int(last or first)
 
 
 def main() -> int:
@@ -27,7 +20,7 @@ def main() -> int:
     try:
         mei = load_toolkit(args.score.read_bytes()).getMEI()
         index = ScoreIndex(mei)
-        first, last = parse_measures(args.measures)
+        first, last = parse_measures(args.measures) or (None, None)
         for number in (first, last):
             if number is not None:
                 index.measure(number)

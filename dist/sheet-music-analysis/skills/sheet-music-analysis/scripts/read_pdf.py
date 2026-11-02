@@ -20,7 +20,9 @@ from pathlib import Path
 
 import verovio
 
-from engine.read_pdf import PREVIEW_OPTIONS, READER, PdfReading, ReadError, fit_top_margin, notice, problem_spots, read_pdf, shade, without_slurs
+from engine.read_pdf import (MAX_PAGES, NEXT_STEP, PREVIEW_OPTIONS, READ_PAGES, READER, PdfReading, ReadError, first_pages,
+                             fit_top_margin, notice, open_pdf, problem_spots, read_pdf, shade, too_many_pages,
+                             unread_pages, without_slurs)
 from engine.render import VEROVIO_OPTIONS, Engraving, ScoreError, load_toolkit
 from engine.score import ScoreIndex
 
@@ -28,11 +30,11 @@ verovio.enableLog(False)
 
 DEB = "https://github.com/Audiveris/audiveris/releases/download/5.11.0/Audiveris-5.11.0-ubuntu24.04-x86_64.deb"
 DEB_SHA256 = "f20113aaa33b3149ec8d6a09b2a7963360e65fafd92d69389987a85bbc3ec7a3"
-JAR = "https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.2/audiveris.jar"
-JAR_SHA256 = "1fe3060f7cf86d5b7a30daec973107789e1fba85c4e06de70fc9279b1c58edc5"
-OCR = "https://github.com/tesseract-ocr/tessdata/raw/ced78752cc61322fb554c280d13360b35b8684e4/eng.traineddata"
+JAR = "https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.3/audiveris.jar"
+JAR_SHA256 = "af257f23a32e5e86acde4ec604b733e3a52d113516302db191cbb7a06103dff7"
+OCR = "https://raw.githubusercontent.com/tesseract-ocr/tessdata/ced78752cc61322fb554c280d13360b35b8684e4/eng.traineddata"
 OCR_SHA256 = "daa0c97d651c19fba3b25e81317cd697e9908c8208090c94c3905381c23fc047"
-HOME = Path(tempfile.gettempdir()) / "audiveris-5.11.0-sma.2"
+HOME = Path(tempfile.gettempdir()) / "audiveris-5.11.0-sma.3"
 
 
 def audiveris() -> Path:
@@ -92,18 +94,26 @@ def main() -> int:
     try:
         data = args.pdf.read_bytes()
         cache = HOME.parent / f"read-pdf-{READER}-{hashlib.sha256(data).hexdigest()}.json"
+        total = len(open_pdf(data).pages)
+        if total > MAX_PAGES:
+            print(too_many_pages(total), file=sys.stderr)
+            return 1
         if cache.exists():
             saved = json.loads(cache.read_text())
             reading = PdfReading(saved["musicxml"].encode(), saved["pages"], saved["scan"], saved["skipped"])
         else:
-            reading = read_pdf(data, audiveris=str(audiveris()))
+            read = min(total, READ_PAGES)
+            reading = read_pdf(first_pages(data, read) if read < total else data, audiveris=str(audiveris()))
             saved = {"musicxml": reading.musicxml.decode(), "pages": reading.pages, "scan": reading.scan, "skipped": reading.skipped}
             cache.write_text(json.dumps(saved))
         shown = reading.musicxml if args.keep_slurs else without_slurs(reading.musicxml)
         spots = problem_spots(shown)
         engraving = pages(shown, spots)
-        message = notice(shown, reading.scan, reading.skipped, args.keep_slurs, spots)
-    except (ReadError, ScoreError, OSError, subprocess.CalledProcessError) as error:
+        message = notice(shown, reading.scan, reading.skipped, args.keep_slurs, spots) + unread_pages(reading.pages, total)
+    except ReadError as error:
+        print(f"Error: {error}{NEXT_STEP}", file=sys.stderr)
+        return 1
+    except (ScoreError, OSError, subprocess.CalledProcessError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
 

@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import tempfile
+import threading
 import time
 import xml.etree.ElementTree as ET
 import zipfile
@@ -28,7 +29,15 @@ from engine.tuplet_rests import infer_tuplet_rests
 log = logging.getLogger(__name__)
 
 AUDIVERIS = os.environ.get("AUDIVERIS", "/opt/audiveris/bin/Audiveris")
-TIMEOUT = 240
+TIMEOUT = 480
+SECOND_PASS_SECONDS = 400
+READ_PAGES = 8
+MAX_PAGES = 12
+NEXT_STEP = (
+    ". Tell the user plainly, and suggest what may work: a PDF exported from notation software reads best; a scan "
+    "should be straight, sharp and about 300 dpi; a long PDF can be sent a few pages at a time; a MusicXML file "
+    "(.mxl or .musicxml) needs no reading at all."
+)
 PAINT_OPERATORS = {"S", "s", "f", "F", "f*", "B", "B*", "b", "b*"}
 CHECK = "This is what I read from your PDF; check it against your copy before I analyse it."
 SCAN_WARNING = "Scanned pages often have reading mistakes, so please check carefully."
@@ -39,13 +48,15 @@ _LENGTH = {"whole": 4, "half": 2, "quarter": 1, "eighth": Fraction(1, 2),
 _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
 _REST = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
-SETTINGS = [_REST, _REST + _SMALL, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
-READER = "5.11.0-sma.2-best3-tuplet-rests-ocr-r6"
+SETTINGS = [_REST, _REST + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
+READER = "5.11.0-sma.3-best2-tuplet-rests-ocr-r7"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
 class ReadError(ValueError):
-    pass
+    def __init__(self, message: str, passes: list[dict] | None = None):
+        super().__init__(message)
+        self.passes = passes or []
 
 
 @dataclass
@@ -54,6 +65,7 @@ class PdfReading:
     pages: int
     scan: bool
     skipped: list[int] = field(default_factory=list)
+    passes: list[dict] = field(default_factory=list)
 
 def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool, spots=None) -> str:
     text = CHECK + (" " + SCAN_WARNING if scan else "")
@@ -283,6 +295,26 @@ def open_pdf(data: bytes) -> pikepdf.Pdf:
         raise ReadError("This file could not be opened as a PDF") from error
 
 
+def too_many_pages(pages: int) -> str:
+    return (f"This PDF has {pages} pages; the most that can be read is {MAX_PAGES}. Tell the user plainly, "
+            "and suggest they attach a PDF of just the pages they want analysed.")
+
+
+def unread_pages(read: int, total: int) -> str:
+    if total <= read:
+        return ""
+    return (f" Only pages 1-{read} of the {total} were read, to keep the wait short; to analyse the rest, "
+            "send those pages as a separate PDF.")
+
+
+def first_pages(data: bytes, count: int) -> bytes:
+    pdf = open_pdf(data)
+    del pdf.pages[count:]
+    out = io.BytesIO()
+    pdf.save(out)
+    return out.getvalue()
+
+
 def is_scan(pdf: pikepdf.Pdf) -> bool:
 
     def paints(stream, seen: set) -> bool:
@@ -303,73 +335,148 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
     pages, scan = len(pdf.pages), is_scan(pdf)
     deadline = time.monotonic() + TIMEOUT
     raw = raw or audiveris_read
-    best = _read(data, audiveris, SETTINGS[0], deadline, raw)
-    if best is None:
-        raise ReadError("Reading this PDF took too long")
-    if len(best[2]) > RETRY_ABOVE and deadline - time.monotonic() > 30:
-        with ThreadPoolExecutor(len(SETTINGS) - 1) as pool:
-            others = list(pool.map(lambda options: _retry(data, audiveris, options, deadline, raw), SETTINGS[1:]))
-        readings = [best, *(other for other in others if other)]
-        counts = [_pitched_notes(reading[0]) for reading in readings]
-        complete = [reading for reading, count in zip(readings, counts) if count >= MIN_NOTES * max(counts)]
-        best = min(complete, key=lambda reading: (len(reading[1]), len(reading[2])))
-    musicxml, skipped, _ = best
+    stop = threading.Event()
+    with ThreadPoolExecutor(len(SETTINGS)) as pool:
+        second = min(deadline, time.monotonic() + SECOND_PASS_SECONDS)
+        futures = [pool.submit(_read, data, audiveris, options, deadline if number == 0 else second, raw, stop)
+                   for number, options in enumerate(SETTINGS)]
+        try:
+            first = futures[0].result()
+            if first[1] is not None and len(first[1][2]) <= RETRY_ABOVE:
+                stop.set()
+            results = [first, *(future.result() for future in futures[1:])]
+        finally:
+            stop.set()
+    passes = [record for record, _ in results]
+    readings = [reading for _, reading in results if reading is not None]
+    if not readings:
+        timed_out = any(record["outcome"] == "timeout" for record in passes)
+        raise ReadError("Reading this PDF took too long" if timed_out else "No music could be read from this PDF", passes)
+    counts = [_pitched_notes(reading[0]) for reading in readings]
+    complete = [reading for reading, count in zip(readings, counts) if count >= MIN_NOTES * max(counts)]
+    musicxml, skipped, _ = min(complete, key=lambda reading: (len(reading[1]), len(reading[2])))
     for repair in (infer_tuplet_rests, infer_triplets):
         try:
             musicxml = repair(musicxml)
         except Exception:
             log.exception("PDF reading repair %s failed", repair.__name__)
-    return PdfReading(musicxml, pages, scan, skipped)
+    return PdfReading(musicxml, pages, scan, skipped, passes)
 
 
 def _pitched_notes(musicxml: bytes) -> int:
     return sum(1 for note in ET.fromstring(musicxml).iter("note") if note.find("pitch") is not None)
 
 
-def _retry(data: bytes, audiveris: str, options: list[str], deadline: float, raw):
+def _read(data: bytes, audiveris: str, options: list[str], deadline: float, raw, stop: threading.Event):
+    started = time.monotonic()
+    read = raw(data, audiveris, options, deadline, stop)
+    record = {"setting": SETTINGS.index(options), **read.facts, "seconds": round(time.monotonic() - started, 1)}
+    if read.mxl is None:
+        return record, None
     try:
-        return _read(data, audiveris, options, deadline, raw)
-    except (ReadError, ScoreError, zipfile.BadZipFile, ET.ParseError):
-        return None
+        musicxml = clean(read.mxl)
+        return record, (musicxml, read.skipped, _problem_spots(musicxml, timing=False)[0])
+    except (ScoreError, zipfile.BadZipFile, ET.ParseError) as error:
+        record["outcome"] = f"unusable output ({type(error).__name__})"
+        return record, None
 
 
-def _read(data: bytes, audiveris: str, options: list[str], deadline: float, raw):
-    read = raw(data, audiveris, options, deadline)
-    if read is None:
-        return None
-    mxl, skipped = read
-    musicxml = clean(mxl)
-    return musicxml, skipped, _problem_spots(musicxml, timing=False)[0]
-
-
-def audiveris_read(data: bytes, audiveris: str, options: list[str], deadline: float) -> tuple[bytes, list[int]] | None:
+def audiveris_read(data: bytes, audiveris: str, options: list[str], deadline: float, stop: threading.Event) -> RawReading:
     with tempfile.TemporaryDirectory(prefix="read_pdf_") as work:
         source = Path(work) / "score.pdf"
         source.write_bytes(data)
         env = {key: value for key, value in os.environ.items() if key != "FONTCONFIG_FILE"}
         env.setdefault("TESSDATA_PREFIX", str(Path(audiveris).parent.parent / "tessdata"))
         env.update(HOME=work, _JAVA_OPTIONS="-Xmx1g -Djava.awt.headless=true -Dsun.java2d.uiScale=1")
-        try:
-            output = run(audiveris, options, source, work, env, deadline)
-            books = sorted(Path(work).glob("*.omr"))
-            if not list(Path(work).glob("*.mxl")) and books:
-                run(audiveris, options, books[0], work, env, deadline)
-        except subprocess.TimeoutExpired:
-            return None
+        run_ = run(audiveris, options, source, work, env, deadline, stop)
+        facts = audiveris_facts(run_)
+        books = sorted(Path(work).glob("*.omr"))
+        if run_.ending == "done" and not list(Path(work).glob("*.mxl")) and books:
+            export = run(audiveris, options, books[0], work, env, deadline, stop)
+            facts["outcome"] = "done" if export.ending == "done" else export.ending
         scores = sorted(Path(work).glob("*.mxl"))
+        if facts["outcome"] != "done":
+            return RawReading(None, [], facts)
         if not scores:
-            raise ReadError("No music could be read from this PDF")
-        skipped = sorted({int(page) for page in re.findall(r"Sheet \S+#(\d+) flagged as invalid", output)})
-        return scores[0].read_bytes(), skipped
+            facts["outcome"] = "no music"
+            return RawReading(None, [], facts)
+        skipped = sorted({int(page) for page in re.findall(r"Sheet \S+#(\d+) flagged as invalid", run_.output)})
+        return RawReading(scores[0].read_bytes(), skipped, facts)
 
 
-def run(audiveris: str, options: list[str], source: Path, work: str, env: dict, deadline: float) -> str:
-    command = [audiveris, "-batch", *options, "-export", "-output", work, str(source)]
-    remaining = deadline - time.monotonic()
-    if remaining <= 0:
-        raise subprocess.TimeoutExpired(command, 0)
-    result = subprocess.run(command, capture_output=True, text=True, env=env, timeout=remaining)
-    return result.stdout + result.stderr
+@dataclass
+class RawReading:
+    mxl: bytes | None
+    skipped: list[int]
+    facts: dict
+
+
+@dataclass
+class AudiverisRun:
+    ending: str
+    exit_code: int | None
+    output: str
+    step_seconds: dict[str, float]
+
+
+KNOWN_PROBLEMS = {
+    "No regularly spaced lines found": "no staff lines found",
+    "flagged as invalid": "page flagged as invalid",
+    "OutOfMemoryError": "out of memory",
+}
+STEP = re.compile(r"StepMonitoring\s+\d+\s+\|\s+([A-Z_]+)\s*$")
+
+
+def run(audiveris: str, options: list[str], source: Path, work: str, env: dict, deadline: float,
+        stop: threading.Event) -> AudiverisRun:
+    command = ([] if options == SETTINGS[0] else ["nice", "-n", "19"]) + [
+        audiveris, "-batch", *options, "-export", "-output", work, str(source)]
+    output_path = Path(work) / f"audiveris-{source.suffix[1:]}.txt"
+    steps: Counter = Counter()
+    current, since, pending = "START", time.monotonic(), b""
+
+    def follow(reader) -> None:
+        nonlocal current, since, pending
+        pending += reader.read()
+        *lines, pending = pending.split(b"\n")
+        for line in lines:
+            if match := STEP.search(line.decode(errors="replace")):
+                now = time.monotonic()
+                steps[current] += now - since
+                current, since = match.group(1), now
+
+    with open(output_path, "wb") as sink, open(output_path, "rb") as reader:
+        process = subprocess.Popen(command, stdout=sink, stderr=subprocess.STDOUT, env=env)
+        ending = "done"
+        try:
+            while process.poll() is None:
+                if stop.wait(0.25):
+                    ending = "cancelled"
+                    break
+                if time.monotonic() >= deadline:
+                    ending = "timeout"
+                    break
+                follow(reader)
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+        follow(reader)
+        steps[current] += time.monotonic() - since
+    return AudiverisRun(ending, process.returncode, output_path.read_text(errors="replace"),
+                        {name: round(seconds, 1) for name, seconds in steps.items()})
+
+
+def audiveris_facts(run_: AudiverisRun) -> dict:
+    output = run_.output
+    problems = set(re.findall(r"Error processing stub (?:\S+\.)?(\w+)", output))
+    problems |= {label for marker, label in KNOWN_PROBLEMS.items() if marker in output}
+    return {"outcome": run_.ending, "exit_code": run_.exit_code,
+            "images": re.findall(r"Loaded image #\d+ (\d+x\d+)", output),
+            "interlines": [int(value) for value in re.findall(r"interline\(\d+,(\d+),\d+\)", output)],
+            "pages_done": len(re.findall(r"\|\s+PAGE\s*$", output, re.M)),
+            "invalid_pages": output.count("flagged as invalid"),
+            "problems": sorted(problems), "step_seconds": run_.step_seconds}
 
 
 def clean(mxl: bytes) -> bytes:

@@ -4,11 +4,14 @@ import io
 import math
 import os
 import re
+import tempfile
 import zipfile
+import zlib
 import xml.etree.ElementTree as ET
 from bisect import bisect_right
 from collections.abc import Collection
 from itertools import accumulate
+from pathlib import Path
 from dataclasses import dataclass
 from fractions import Fraction
 from importlib.resources import files
@@ -22,7 +25,17 @@ from engine.reduce import midi
 from engine.score import TOLERANCE, PositionError, ScoreIndex
 from engine.text import FONT_DIR, FONT_FILES, MAIN as TEXT_FONT
 
-os.environ.setdefault("FONTCONFIG_FILE", str(FONT_DIR / "fonts.conf"))
+
+
+def _font_config() -> str:
+    path = Path(tempfile.gettempdir()) / f"sheet-music-fonts-{zlib.crc32(str(FONT_DIR).encode())}.conf"
+    part = path.with_suffix(f".{os.getpid()}")
+    part.write_text((FONT_DIR / "fonts.conf").read_text().replace("<dir>FONTS</dir>", f"<dir>{escape(str(FONT_DIR))}</dir>"))
+    part.replace(path)
+    return str(path)
+
+
+os.environ.setdefault("FONTCONFIG_FILE", _font_config())
 
 RESOURCE_PATH = str(files("verovio") / "data")
 VEROVIO_OPTIONS = {
@@ -41,6 +54,7 @@ VEROVIO_OPTIONS = {
 
 
 MAX_PIXELS = 40_000_000
+INK_PROBE_WIDTH = 1000
 
 LARGE_SCORE_STAVES = 4
 MAX_MUSICXML_BYTES = 50 * 1024 * 1024
@@ -94,6 +108,18 @@ class ScoreError(ValueError):
     pass
 
 
+def parse_measures(measure_range: str | None) -> tuple[int, int] | None:
+    if not measure_range or measure_range.strip().lower() == "all":
+        return None
+    match = re.fullmatch(r"\s*(\d+)\s*(?:[-\u2013\u2014]\s*(\d+)\s*)?", measure_range)
+    if not match:
+        raise ScoreError('measure_range must look like "1-8" or "5", or be "all"')
+    first, last = int(match[1]), int(match[2] or match[1])
+    if first > last:
+        raise ScoreError(f'measure_range must start at the lower bar, e.g. "{last}-{first}"')
+    return first, last
+
+
 @dataclass
 class Engraving:
     svgs: list[str]
@@ -102,10 +128,17 @@ class Engraving:
     def page_count(self) -> int:
         return len(self.svgs)
 
-    def png(self, page: int = 1, width: int = 1400, colors: int = 128) -> bytes:
-        image = self._raster(page, width)
-        top, bottom = self._ink(image)
-        image = image.crop((0, top, image.width, bottom))
+    def png(self, page: int = 1, width: int = 1400, colors: int = 128, pages: int = 1) -> bytes:
+        parts = []
+        for number in range(page, min(page + pages, self.page_count + 1)):
+            image = self._raster(number, width)
+            top, bottom = self._ink(image)
+            parts.append(image.crop((0, top, image.width, bottom)))
+        image = Image.new("RGB", (max(part.width for part in parts), sum(part.height for part in parts)), "#ffffff")
+        y = 0
+        for part in parts:
+            image.paste(part, (0, y))
+            y += part.height
         image = image.quantize(colors, method=Image.Quantize.MAXCOVERAGE, dither=Image.Dither.NONE)
         out = io.BytesIO()
         image.save(out, "PNG", optimize=True)
@@ -125,7 +158,7 @@ class Engraving:
             svg = self.svgs[page - 1]
             box = re.search(r'viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"', svg)
             x, y, w, h = map(float, box.groups())
-            image = self._raster(page, round(w))
+            image = self._raster(page, INK_PROBE_WIDTH)
             top, bottom = self._ink(image)
             scale = h / image.height
             page_svg = svg.replace("<svg ", f'<svg width="{w:g}" height="{h:g}" ', 1)

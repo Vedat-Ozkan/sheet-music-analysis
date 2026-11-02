@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 View = Literal["harmony", "voice_leading", "form"]
+VIEWS = ("all", "harmony", "voice_leading", "form")
 Role = Literal["student", "composer"]
 Style = Literal["current", "abrsm", "figured_bass"]
 
@@ -150,3 +151,10 @@ class AnnotationList(BaseModel):
         if view == "all":
             return True
         return view in (annotation.views or DEFAULT_VIEWS[kind])
+
+
+def view_named(view: str) -> str:
+    name = view.strip().lower().replace("-", "_").replace(" ", "_")
+    if name not in VIEWS:
+        raise ValueError(f"view must be one of {', '.join(VIEWS)}")
+    return name

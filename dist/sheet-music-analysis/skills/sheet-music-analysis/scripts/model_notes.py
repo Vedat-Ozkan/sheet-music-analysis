@@ -15,7 +15,7 @@ from pathlib import Path
 
 from engine import check_analysis, notes
 from engine.performance import marked_index
-from engine.render import ScoreError
+from engine.render import ScoreError, parse_measures
 from engine.score import PositionError
 
 
@@ -25,11 +25,8 @@ def main() -> int:
     parser.add_argument("--measures", help='printed measure numbers, e.g. "1-8"; default is the whole score')
     parser.add_argument("--student-analysis", help='the user\'s Roman numerals to check, or "score" for those written in the file')
     args = parser.parse_args()
-    first = last = None
     try:
-        if args.measures and args.measures != "all":
-            start, _, end = args.measures.partition("-")
-            first, last = int(start), int(end or start)
+        first, last = parse_measures(args.measures) or (None, None)
         score = args.score.read_bytes()
         index = marked_index(score)
         student = check_analysis.student_labels(args.student_analysis, score, index) if args.student_analysis else None

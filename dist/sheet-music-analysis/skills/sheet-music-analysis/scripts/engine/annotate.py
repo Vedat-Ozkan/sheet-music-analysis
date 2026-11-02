@@ -8,13 +8,14 @@ from xml.sax.saxutils import escape
 from engine import notation, slurs
 from engine.annotations import Alternative, AnnotationList, Cadence, Callout, Harmony, NoteRef, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
-from engine.render import Engraving, check_range, incoming_ties, load_toolkit, shorten_ties
+from engine.render import VEROVIO_OPTIONS, Engraving, check_range, incoming_ties, load_toolkit, shorten_ties
 from engine.score import PositionError, ScoreIndex
 
 if TYPE_CHECKING:
     from engine.comparison import Label
 
-MAX_BARS = 32
+ONE_PAGE_HEIGHT = 60000
+ONE_PAGE_BARS = 32
 
 ANNOTATED_OPTIONS = {
     "svgBoundingBoxes": True,
@@ -27,22 +28,24 @@ ANNOTATED_OPTIONS = {
 
 
 class AnnotationError(ValueError):
-    def __init__(self, problems: list[str]):
+    def __init__(self, problems: list[str], rejected: set[int] | None = None):
         super().__init__("\n".join(problems))
         self.problems = problems
+        self.rejected = rejected or set()
 
 
 def check(annotations: AnnotationList, index: ScoreIndex) -> None:
-    problems = []
+    problems, rejected = [], set()
     key = None
-    for harmony in sorted((a for a in annotations.annotations if isinstance(a, Harmony)),
-                          key=lambda h: (h.at.measure, h.at.beat)):
+    for number, harmony in sorted(((number, a) for number, a in enumerate(annotations.annotations) if isinstance(a, Harmony)),
+                                  key=lambda pair: (pair[1].at.measure, pair[1].at.beat)):
         key = harmony.key or key
         if annotations.style == "figured_bass":
             try:
                 notation.numeral(harmony.label, key, annotations.style, 440)
             except ValueError as error:
                 problems.append(f"harmony at measure {harmony.at.measure} beat {harmony.at.beat}: {error}")
+                rejected.add(number)
     for number, annotation in enumerate(annotations.annotations):
         try:
             if isinstance(annotation, (Harmony, Cadence, Callout)):
@@ -60,6 +63,7 @@ def check(annotations: AnnotationList, index: ScoreIndex) -> None:
                     index.find_note(**annotation.to_note.model_dump())
         except PositionError as error:
             problems.append(f"annotations[{number}] ({annotation.type}): {error}")
+            rejected.add(number)
             continue
         if isinstance(annotation, Alternative):
             where = lambda measure, beat: (index.measure(measure).index, beat)
@@ -70,8 +74,9 @@ def check(annotations: AnnotationList, index: ScoreIndex) -> None:
             if tokens != count:
                 problems.append(f"annotations[{number}] (alternative): its label has {tokens} chords but those bars have {count} "
                                 "harmony labels; give one chord per harmony label, '-' where unchanged")
+                rejected.add(number)
     if problems:
-        raise AnnotationError(problems)
+        raise AnnotationError(problems, rejected)
 
 
 def render(
@@ -96,21 +101,19 @@ def render(
         from engine import check_analysis, check_display
         results = check_display.compare(student_labels, annotations.model_dump(exclude_none=True), index)
         annotations = check_display.reserve(results)
-    first, last = measures or (index.measures[0].number, index.measures[-1].number)
-    bars = sum(1 for measure in index.measures if first <= measure.number <= last and measure.number > 0)
-    if bars > MAX_BARS:
-        raise PositionError(
-            f"A page can show at most {MAX_BARS} bars and measures {first}-{last} have {bars}. "
-            f"Draw the analysis passage by passage, {MAX_BARS} bars or fewer each."
-        )
     ties = incoming_ties(toolkit, index, measures[0]) if measures else set()
     _reserve_numeral_room(toolkit, index, annotations)
     _reserve_bracket_room(toolkit, index, annotations)
+    toolkit.setOptions({"pageHeight": ONE_PAGE_HEIGHT})
     if measures:
-        toolkit.setOptions({"pageHeight": 60000})
         toolkit.select({"measureRange": index.measure_range(*measures)})
-        toolkit.redoLayout()
+    toolkit.redoLayout()
     _balance_systems(toolkit, index, measures, annotations)
+    first, last = measures or (index.measures[0].number, index.measures[-1].number)
+    bars = sum(1 for measure in index.measures if first <= measure.number <= last and measure.number > 0)
+    if not measures or bars > ONE_PAGE_BARS:
+        toolkit.setOptions({"pageHeight": VEROVIO_OPTIONS["pageHeight"]})
+        toolkit.redoLayout()
 
     def relayout(mei: str) -> None:
         toolkit.loadData(mei)

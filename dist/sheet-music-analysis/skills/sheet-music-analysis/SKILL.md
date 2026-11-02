@@ -16,7 +16,7 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
 1. **Set up once per conversation.**
 
    ```bash
-   pip install verovio resvg-py cairosvg pikepdf pillow fonttools pydantic
+   pip install verovio==6.3.0 resvg-py==0.5.0 cairosvg==2.9.1 pikepdf==10.16.0 pillow==12.3.0 fonttools==4.66.1 pydantic==2.13.5 music21==10.5.0
    ```
 
    **A PDF of printed music** is read first:
@@ -39,15 +39,15 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
    python3 scripts/notes_table.py SCORE --measures 1-8
    ```
 
-   Each row is one beat: the lowest note, the pitch classes sounding, and every note as `pitch@beat`. Use these exact measure numbers, beats and pitches in your annotations. Work on at most 32 bars at a time; for a longer piece, go passage by passage. The render script refuses a page of more than 32 bars.
+   Each row is one beat: the lowest note, the pitch classes sounding, and every note as `pitch@beat`. Use these exact measure numbers, beats and pitches in your annotations. Analyse a long piece passage by passage, about 16 to 32 bars at a time, then render the whole stretch the user asked for once, with all your annotations, so they get one PDF.
 
-3. **Get the model's draft, if the connector is there.** If a tool named `draft_from_notes` is available (the sheet-music-analysis connector), run
+3. **Get the model's draft.** Call the connector's `draft_from_notes` tool. It comes from the same connector as `play`, whatever the user named that connector, and its full name may start with the connector's name. Connector tools are often loaded only when searched for, so if it is not in your tool list, search your tools for `draft_from_notes` first. Run
 
    ```bash
    python3 scripts/model_notes.py SCORE --measures 1-8
    ```
 
-   and pass its output, exactly as printed, as the tool's `notes` argument. The tool returns a neural model's draft: chords with confidences, cadences, phrase ends and possible non-chord tones. The draft is a starting point, right about half the time on full chord labels; check each line against the table from step 2. If the tool is not available, skip this step and analyse from the table alone.
+   and pass its output, exactly as printed, as the tool's `notes` argument. The tool returns a neural model's draft: chords with confidences, cadences, phrase ends and possible non-chord tones, and the `play_id` that `play` needs. The draft is a starting point, right about half the time on full chord labels; check each line against the table from step 2. Skip this step only if the search finds no such tool, and then analyse from the table alone.
 
 4. **Analyse**, following the method below.
 
@@ -59,13 +59,11 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
    python3 scripts/render_analysis.py SCORE annotations.json --measures 1-8 --out-dir OUTPUT_FOLDER --name analysis
    ```
 
-   For one layer of the analysis, add `--view harmony`, `--view voice_leading` or `--view form`. Add `--piano` to draw the same annotation list on a two-staff piano reduction of the passage, with instrument cues where the tune changes hands; write the list for the original score as usual. The reduction needs `pip install music21` once first. If it lists annotations that do not match the score, fix exactly those and run again. Look at the PNG yourself before showing it: labels should sit where you meant them.
+   For one layer of the analysis, add `--view harmony`, `--view voice_leading` or `--view form`. Add `--piano` to draw the same annotation list on a two-staff piano reduction of the passage, with instrument cues where the tune changes hands; write the list for the original score as usual. If it lists annotations that do not match the score, fix exactly those and run again. Look at the PNG yourself before showing it: labels should sit where you meant them.
 
-7. **Reply** with the annotated page shown to the user (the PNG), the PDF offered as a download, and the commentary.
+7. **Reply.** If you are Claude Sonnet or Claude Haiku and this is your first analysis in the conversation, the reply ends with this one sentence: "For the most accurate analysis, use Claude Opus." Do not repeat it later; if you are Opus or do not know which model you are, leave it out. The reply shows the annotated page (the PNG), offers the PDF as a download, and gives the commentary.
 
    For a score with more than four staves (orchestra, band, a large ensemble), draw the original score first. Then, once per conversation, offer the same passage as a piano reduction, which is easier to read. If the user says yes, run the render again with `--piano`.
-
-   If you are Claude Sonnet or Claude Haiku, end your first analysis in the conversation with this one sentence, and do not repeat it later: "For the most accurate analysis, use Claude Opus." If you are Opus or do not know which model you are, leave it out.
 
 ## Playing the music
 
@@ -77,7 +75,7 @@ When the user wants to hear the music, call the connector's `play` tool; a small
 
 Work in this order. Each step narrows the next.
 
-0. **The passage.** If the user named bars, use them. If not, ask which bars they want, suggesting the first 8 or 16, before analysing anything. At most 32 bars per page; a longer stretch goes passage by passage.
+0. **The passage.** If the user named bars, use them. If not, ask which bars they want, suggesting the first 8 or 16, before analysing anything. If they asked for the whole piece, analyse all of it: review the draft passage by passage, then draw everything in one render, so the user gets the whole piece in one PDF, not one file per passage.
 1. **Key and key areas.** Start from the key signature, the first and last bass notes and the cadences. Decide the local key of each stretch. A new key needs a cadence or a sustained stay; a chord or two borrowed from another key is a tonicization (`V7/ii`), not a modulation.
 2. **Harmonic rhythm.** Decide how often the harmony really changes, usually once or twice a bar, sometimes every beat. Follow the bass. One row of the table is not one chord. When a passage returns, label it at the same rate as the first time. A bar that opens with a single line or bare octaves (a lead-in, a scale, an arpeggio) still has a harmony from its downbeat: the chord its notes outline, or for a lead-in the chord it leads into. Do not carry the previous chord over it.
 3. **Function before labels.** For each harmony decide what it does: tonic (T), predominant (PD) or dominant (D). Then choose the numeral that says so.
