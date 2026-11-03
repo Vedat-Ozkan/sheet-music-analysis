@@ -50,7 +50,8 @@ _BASE = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0",
          "-option", "org.audiveris.omr.sig.inter.AbstractTimeInter.optionalTimes=6/4, 7/8, 8/8"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_BASE, _BASE + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
-READER = "5.11.0-sma.4-best2-tuplet-rests-eight-ocr-r7"
+_LELAND = ["-option", "org.audiveris.omr.ui.symbol.MusicFont.defaultMusicFamily=Leland"]
+READER = "5.11.0-sma.5-best2-tuplet-rests-eight-leland-ocr-r7"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
@@ -343,16 +344,21 @@ def is_scan(pdf: pikepdf.Pdf) -> bool:
     return not any(drawn(page.obj, inherited_resources(page.obj), set(), set()) == {"paths"} for page in pdf.pages)
 
 
+def uses_leland(pdf: pikepdf.Pdf) -> bool:
+    return any(isinstance(item, pikepdf.Dictionary) and item.get("/Type") == "/Font"
+               and str(item.get("/BaseFont", "")).split("+")[-1].lstrip("/") == "Leland" for item in pdf.objects)
+
+
 def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
     pdf = open_pdf(data)
-    pages, scan = len(pdf.pages), is_scan(pdf)
+    pages, scan, leland = len(pdf.pages), is_scan(pdf), uses_leland(pdf)
     deadline = time.monotonic() + TIMEOUT
     raw = raw or audiveris_read
     stop = threading.Event()
     with ThreadPoolExecutor(len(SETTINGS)) as pool:
         second = min(deadline, time.monotonic() + SECOND_PASS_SECONDS)
-        futures = [pool.submit(_read, data, audiveris, options, deadline if number == 0 else second, raw, stop)
-                   for number, options in enumerate(SETTINGS)]
+        futures = [pool.submit(_read, data, audiveris, setting, leland, deadline if setting == 0 else second, raw, stop)
+                   for setting in range(len(SETTINGS))]
         try:
             first = futures[0].result()
             if first[1] is not None and len(first[1][2]) <= RETRY_ABOVE:
@@ -380,10 +386,10 @@ def _pitched_notes(musicxml: bytes) -> int:
     return sum(1 for note in ET.fromstring(musicxml).iter("note") if note.find("pitch") is not None)
 
 
-def _read(data: bytes, audiveris: str, options: list[str], deadline: float, raw, stop: threading.Event):
+def _read(data: bytes, audiveris: str, setting: int, leland: bool, deadline: float, raw, stop: threading.Event):
     started = time.monotonic()
-    read = raw(data, audiveris, options, deadline, stop)
-    record = {"setting": SETTINGS.index(options), **read.facts, "seconds": round(time.monotonic() - started, 1)}
+    read = raw(data, audiveris, setting, leland, deadline, stop)
+    record = {"setting": setting, **read.facts, "seconds": round(time.monotonic() - started, 1)}
     if read.mxl is None:
         return record, None
     try:
@@ -394,18 +400,24 @@ def _read(data: bytes, audiveris: str, options: list[str], deadline: float, raw,
         return record, None
 
 
-def audiveris_read(data: bytes, audiveris: str, options: list[str], deadline: float, stop: threading.Event) -> RawReading:
+def audiveris_options(setting: int, leland: bool) -> list[str]:
+    return SETTINGS[setting] + (_LELAND if leland else [])
+
+
+def audiveris_read(data: bytes, audiveris: str, setting: int, leland: bool, deadline: float,
+                   stop: threading.Event) -> RawReading:
+    options = audiveris_options(setting, leland)
     with tempfile.TemporaryDirectory(prefix="read_pdf_") as work:
         source = Path(work) / "score.pdf"
         source.write_bytes(data)
         env = {key: value for key, value in os.environ.items() if key != "FONTCONFIG_FILE"}
         env.setdefault("TESSDATA_PREFIX", str(Path(audiveris).parent.parent / "tessdata"))
         env.update(HOME=work, _JAVA_OPTIONS="-Xmx1g -Djava.awt.headless=true -Dsun.java2d.uiScale=1")
-        run_ = run(audiveris, options, source, work, env, deadline, stop)
+        run_ = run(audiveris, options, setting, source, work, env, deadline, stop)
         facts = audiveris_facts(run_)
         books = sorted(Path(work).glob("*.omr"))
         if run_.ending == "done" and not list(Path(work).glob("*.mxl")) and books:
-            export = run(audiveris, options, books[0], work, env, deadline, stop)
+            export = run(audiveris, options, setting, books[0], work, env, deadline, stop)
             facts["outcome"] = "done" if export.ending == "done" else export.ending
         scores = sorted(Path(work).glob("*.mxl"))
         if facts["outcome"] != "done":
@@ -440,9 +452,9 @@ KNOWN_PROBLEMS = {
 STEP = re.compile(r"StepMonitoring\s+\d+\s+\|\s+([A-Z_]+)\s*$")
 
 
-def run(audiveris: str, options: list[str], source: Path, work: str, env: dict, deadline: float,
+def run(audiveris: str, options: list[str], setting: int, source: Path, work: str, env: dict, deadline: float,
         stop: threading.Event) -> AudiverisRun:
-    command = ([] if options == SETTINGS[0] else ["nice", "-n", "19"]) + [
+    command = ([] if setting == 0 else ["nice", "-n", "19"]) + [
         audiveris, "-batch", *options, "-export", "-output", work, str(source)]
     output_path = Path(work) / f"audiveris-{source.suffix[1:]}.txt"
     steps: Counter = Counter()
@@ -513,10 +525,8 @@ def clean(mxl: bytes) -> bytes:
         _drop_restated_keys(part)
         open_lines, unclosed = {}, []
         for measure in part.iter("measure"):
-            for direction in measure.findall("direction"):
+            for direction in _octave_shifts_in_time_order(measure):
                 shift = direction.find("direction-type/octave-shift")
-                if shift is None:
-                    continue
                 number = shift.get("number", "1")
                 if shift.get("type") == "stop":
                     open_lines.pop(number, None)
@@ -527,6 +537,36 @@ def clean(mxl: bytes) -> bytes:
         for measure, direction in unclosed + list(open_lines.values()):
             measure.remove(direction)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _octave_shifts_in_time_order(measure: ET.Element) -> list[ET.Element]:
+    timed, cursor = [], 0
+    for element in list(measure):
+        if element.tag == "direction" and element.find("direction-type/octave-shift") is not None:
+            timed.append((cursor, len(timed), element))
+            measure.remove(element)
+        else:
+            cursor += _advance(element)
+    timed.sort(key=lambda item: item[:2])
+    cursor, position, ordered = 0, 0, []
+    for offset, _, direction in timed:
+        while position < len(measure) and (cursor < offset or measure[position].tag in ("attributes", "print")):
+            cursor += _advance(measure[position])
+            position += 1
+        measure.insert(position, direction)
+        position += 1
+        ordered.append(direction)
+    return ordered
+
+
+def _advance(element: ET.Element) -> int:
+    if element.tag == "backup":
+        return -int(element.findtext("duration"))
+    if element.tag == "forward":
+        return int(element.findtext("duration"))
+    if element.tag == "note" and element.find("chord") is None and element.find("grace") is None:
+        return int(element.findtext("duration") or 0)
+    return 0
 
 
 def _drop_restated_keys(part: ET.Element) -> None:
