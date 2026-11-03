@@ -29,7 +29,8 @@ def cached_raw(cache: Path, sig: str, slots: threading.Semaphore, calls: list):
         if not meta.exists():
             with slots:
                 t0 = time.monotonic()
-                got = reader.audiveris_read(data, audiveris, setting, leland, time.monotonic() + reader.TIMEOUT, threading.Event())
+                limit = reader.TIMEOUT * float(os.environ.get("BENCH_TIME_SCALE", "1"))
+                got = reader.audiveris_read(data, audiveris, setting, leland, time.monotonic() + limit, threading.Event())
                 if got.mxl is not None:
                     out = {"skipped": got.skipped}
                     mxl.write_bytes(got.mxl)
