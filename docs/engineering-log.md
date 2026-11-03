@@ -1694,7 +1694,7 @@ No set gets worse on any of the three; read time unchanged. A separate review fo
 | rhythm wrong, not flagged | 70 | 2.4% |
 | right but flagged | 23 | 0.8% |
 
-**So 542 of 1,028 wrong bars (53%) are silent**, and the flagged count understates errors by about half. Silent ones by size: 131 bars one note off, 97 two, 149 six or more (whole passages, likely clefs or octave lines). Spot checks of one- and two-note cases are real misreads, mostly dropped low notes (Bach 846 bars 32-33 low C, Beethoven op. 48/5 low octaves): the "low whole notes on ledger lines dropped" side effect from entry 90. By engraver, silent of wrong: MuseScore 273/527, LilyPond 64/148, Verovio 50/103, scans 143/234.
+**So 542 of 1,028 wrong bars (53%) are silent**, and the flagged count understates errors by about half. Silent ones by size: 131 bars one note off, 97 two, 149 six or more (whole passages, likely clefs or octave lines). Spot checks of one- and two-note cases are real misreads (Bach 846 bars 32-33 low C, Beethoven op. 48/5 low octaves). Entry 98 corrects the first guess that these are the "low whole notes on ledger lines dropped" side effect from entry 90: they are mostly grace notes and notes on ledger lines, and most predate sma.4. By engraver, silent of wrong: MuseScore 273/527, LilyPond 64/148, Verovio 50/103, scans 143/234.
 
 **Consequence.** The honest target is wrong bars (1,028 here), not flagged bars. The cheapest large wins look like: the dropped-low-notes side effect (a known, diagnosed cause), and a check that compares noteheads counted from the PDF with the reading, which would turn many silent misses into flags.
 
@@ -1711,6 +1711,25 @@ No set gets worse on any of the three; read time unchanged. A separate review fo
 | Scan | 1 | (a "Typeset" file that is an image) |
 
 **Reading.** 35 of 44 (80%) keep their music symbols as font characters, but only 5 in the layout the prototype reads. Covering most real files needs about four character maps: SMuFL, Emmentaler (by glyph name, already done), the Sonata-compatible layout shared by Sibelius's Opus and Finale's Maestro/Petrucci/Engraver, and MuseScore 1-2's MScore. Beams, stems and barlines are drawn shapes in all of them. MuseScore 4 is 3 of 28 IMSLP typeset files, so the benchmark (70 MuseScore 4 PDFs) over-represents it. This sample is IMSLP's typeset files, not what users upload; production read 2 scans of 3 PDFs last month.
+
+### 98. Notes lost silently: grace notes first, not low whole notes (2026-11-02)
+
+**Question.** Entry 96's silent pitch errors were guessed to be entry 90's "low whole notes on ledger lines dropped". Measured instead: bars where the read bar has every other note right, nothing extra, and is not flagged (current reader: sma.4 + 8/8 + Leland only for Leland PDFs, variant `sma4-fontmatch`), compared bar by bar with sma3-88. An Opus agent checked the causes on rendered pages, both of `read_pdf`'s raw readings and one saved Audiveris book (Bach 846).
+
+| Bars that only lose notes, silently | 215 |
+|---|---|
+| right in sma3-88, wrong now | 18 |
+| already wrong in sma3-88 | 197 |
+
+**Causes** (a first pass ran on `sma4-leland`, which forces Leland on every PDF and is not the shipped rule; it made 227 bars, the classes below come from that pass):
+- **Grace notes, about 130 bars.** `read_pdf` keeps one whole reading per PDF. Setting 1 (small heads) has the grace notes, setting 0 doesn't. In about 55 bars the grace note sits in the reading that was not chosen; the 18 new losses are almost all this, since int1 changed which setting wins on Bizet, Haydn, Erlkönig, Hensel, Ave Maria and K80 (now 0 grace notes). About 50 are never detected or attached to the wrong note.
+- **Ledger-line and crowded chord notes, about 53 bars.** Bach 846 bars 32-33 (from the saved book): where a tie touches the ledger line, no ledger is built, so no head is made. Haydn bars 18-19 and Clara Schumann op. 3 bar 12 look the same on the page.
+- **Whole notes only about 6 bars.** Removing small whole heads (fork b4c631a9f, entry 90) causes none of the regressions: sma5-88, which has it, is right on all of them.
+- **Whole bars gone, about 6.**
+
+The engine's analysis ignores grace notes (`part_writing`, `comparison`); they affect the notes table and playback only.
+
+**Fix options.** Copy setting 1's grace notes into the chosen reading where the bar's other notes agree (about 1-2 days, about 70 bars); choose per bar instead of per PDF (more, riskier); build ledgers a tie touches (fork, medium-high); count noteheads from the PDF and flag bars that come up short (flags only, low risk).
 
 ## Checking against teachers' prose
 
