@@ -48,16 +48,45 @@ def cached_raw(cache: Path, sig: str, slots: threading.Semaphore, calls: list):
     return raw
 
 
-def read(pdf: Path, out_xml: Path, raw_cache: Path, sig: str, audiveris: str, slots) -> dict:
+def production_raw(raw):
+    from engine import read_pdf as reader
+    decided, stops = threading.Event(), []
+
+    def raw_(data, audiveris, setting, leland, deadline, stop):
+        if setting == 0:
+            try:
+                got = raw(data, audiveris, setting, leland, deadline, stop)
+                if got.mxl is not None:
+                    try:
+                        stops.append(len(reader._problem_spots(reader.clean(got.mxl), timing=False)[0]) <= reader.RETRY_ABOVE)
+                    except Exception:  # noqa: BLE001
+                        pass
+                return got
+            finally:
+                decided.set()
+        decided.wait()
+        if any(stops):
+            return reader.RawReading(None, [], {"outcome": "cancelled"})
+        return raw(data, audiveris, setting, leland, deadline, stop)
+
+    return raw_
+
+
+def read(pdf: Path, out_xml: Path, raw_cache: Path, sig: str, audiveris: str, slots, production: bool = False) -> dict:
     from engine.read_pdf import ReadError, read_pdf
     calls, fresh = [], False
     out = {}
+
+    def reader_raw():
+        cached = cached_raw(raw_cache, sig, slots, calls)
+        return production_raw(cached) if production else cached
+
     try:
-        r = read_pdf(pdf.read_bytes(), audiveris, raw=cached_raw(raw_cache, sig, slots, calls))
+        r = read_pdf(pdf.read_bytes(), audiveris, raw=reader_raw())
         fresh = bool(calls) and not calls[0][2]
         if fresh:
             calls.clear()
-            r = read_pdf(pdf.read_bytes(), audiveris, raw=cached_raw(raw_cache, sig, slots, calls))
+            r = read_pdf(pdf.read_bytes(), audiveris, raw=reader_raw())
         out_xml.write_bytes(r.musicxml)
         out.update(ok=True, pages=r.pages, skipped=r.skipped, scan=r.scan)
     except ReadError as e:

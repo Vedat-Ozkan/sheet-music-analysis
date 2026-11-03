@@ -1788,6 +1788,28 @@ Silent wrong-pitch bars 238 → 107; all wrong-pitch bars, flagged or not, 402 �
 
 **Before release** (one release with Leland, plugin 1.7.0): full test suite, `diff_check`, `test_awkward`, a different-model review of the fork diff, the unseen `bench-pitch` run (aggregates only), staging, owner's yes.
 
+### 101. Silent wrong pitches, continued: 107 → 102 (2026-11-03)
+
+**Goal.** The owner asked for 20 more of entry 100's 107 bars. Result so far: 5 (107 → 102 with both settings read; 106 → 101 read the way production reads). Build `pitch31`, fork commits a8a789552, 9ec73e0b0, ce37c25ae on `sma-pitch`. Pitch and pitch+onset are equal or higher on every set and no PDF lost a correct pitch on the five sets; flagged bars are unchanged with both settings read (317/63/46/60/28).
+
+| Cause fixed (reader) | What was wrong | Bars |
+|---|---|---|
+| Key at the end of a bar | a key printed after the bar's last chord (before a repeat, or a bracketed reminder) was applied to the whole bar; it now opens the next bar | Joplin 51, Polonaise No. 1 ms 28 |
+| One-staff key change | a sign right after a barline read as a key change on that staff alone; a key change beyond the staff header now needs another staff of the system with one within 2 spaces. Removed false keys in 7 PDFs; every one was checked against the reference and none was real | Brahms *Frühlingstrost* 8, 39 |
+| Small treble clef | a small treble clef in mid-bar graded 0.49 and was dropped, both by the symbol step and by entry 41's clef rescue; the bass-clef rule (size and centre of a drawn clef) now covers treble clefs too: full 7.05 × 2.65 spaces, small 5.7 × 2.05, centre on the middle line | K545 LilyPond 37 |
+
+**Second set** (`bench-tune2`, 80 PDFs): 122 → 120, pitch 0.9529 → 0.9533. Cost: Burleigh *Ethiopia Saluting the Colors* (both editions) loses 2 and 4 pitches in bars 37–38. A false one-staff key there had been turning missed sharps right by chance; with it gone, 3 bars count as accidental errors instead of 1 key error.
+
+**Measured the way production reads.** The benchmark now stops setting 1 when setting 0 has 3 problems or fewer, as production does (default from now on; `--both-settings` for the old way). With pitch31: five sets 101, second set 120; flagged bars on the main set are 318 this way (317 with both settings).
+
+**Tried and dropped.** Treating a slur under contextual grade 0.6 as uncertain when erasing ink before the symbol step (a false slur had erased part of a sharp in Hensel *Mayenlied* bar 9): fixed that bar but broke Polonaise No. 4 vr bar 12; on the second set 120 → 117 but two PDFs lost 27 and 10 pitches and flagged bars rose 453 → 457. It also exposed an old crash (a dot removed during exclusion reduction removes one link twice). Both reverted. The Peters K545 scan's small clefs grade 0.06 as treble clefs; no size rule can safely rescue that.
+
+**Reference-file errors** (found, not counted, not edited): Polonaise No. 1 ms bars 23, 25, 35, 37 and vr 25, 35, 37: a natural tied across the barline into the next bar; the reference has no tie, so it reads the note flat; the printed flat two notes later confirms the reader. K545 LilyPond bar 31: the reference is an octave below what this edition prints.
+
+**Left (101, production way).** Out of reach for now: Peters scan ~20, reference errors 8, French violin clef 3, grace-note accidentals 5. The rest are mostly one-offs: a sign crossed by a slur's tail (Haydn 20), fused with tremolo slashes (*Gesungen* LilyPond 10, 26), a clef crossed by a beam (Polonaise No. 1 ms 24, 36), stacked signs given to the wrong note (Berg *Nacht* 14), and the piano split into three parts by a trill line (Polonaise No. 3 LilyPond).
+
+**Faster benchmark.** Readings can now be spread over three home PCs (`spike/omr/speed/farm`; this PC 10 readings at once, an i3-12100F 6, an i5-8400 4), longest PDFs first: all six sets in about 19 minutes instead of about 80. Remote readings matched local ones on all 9 PDFs compared; a PC that does not answer is skipped, and a reading that fails for a network reason is redone locally instead of being cached as a failure. A quick set (`quick.txt`, 49 PDFs: every five-set PDF with a remaining error plus 10 guards) is for trying ideas; numbers are only quoted from full runs.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
