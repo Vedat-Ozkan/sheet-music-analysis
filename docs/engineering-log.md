@@ -1733,6 +1733,28 @@ The engine's analysis ignores grace notes (`part_writing`, `comparison`); they a
 
 **Ceiling for a notehead-count check** (`spike/omr/speed/headcount_bound.py`, before any PDF code: the truth's head count stands in for a perfect count from the PDF; a bar is caught when the reading has fewer heads). Of 542 silent wrong bars: 120 are short of normal-size heads, 164 short of grace heads only, 258 not short at all (wrong pitches with the right number of notes: clefs, octave lines, misplaced heads). Scans can't be counted from the PDF (42 of the 120), so **at most 78 silent bars could be caught on normal heads, about 14%**, or about 200 counting grace notes, which the analysis ignores. No right bar is short, so the ceiling has no false flags; a real counter would.
 
+### 99. Silent wrong pitches: octave lines, missed clefs, accidentals (2026-11-02)
+
+**Question.** Of entry 98's silent wrong bars, 266 have notes at wrong pitches rather than missing (`spike/omr/speed/wrong_pitch_kinds.py`, current reader `sma4-fontmatch`). An Opus agent traced each to its cause against both raw Audiveris readings, with about 25 bars checked on rendered pages. The script over-counts: about 22 rows have the right pitches at the wrong time (its "accidental" kind does not require a different pitch) and 11 are missing or extra notes, so about 233 are real pitch errors.
+
+**Our code changes no pitch:** in 266 of 266 bars the final pitches equal one raw Audiveris reading (Audiveris writes an explicit alteration on every note).
+
+| Cause | Bars (about) | Where it goes wrong |
+|---|---|---|
+| Octave lines cut short or missed | 61 | Audiveris shifts only notes between the line's two end chords and skips a line whose end is missing; `clean()` then removes unclosed line starts, the only trace. Faisst Lied der Nacht 42 bars (all engravers), Lehmann 12, Faisst Sehnsucht 5 |
+| Clef changes missed | 52 | small mid-staff clefs (after key/time signature, end of bar, mid-bar); about 20 on scans, mostly Peters K545 |
+| Printed accidental not linked to its head | 45 | mostly chords with one accidental |
+| Grace-note accidental put on the main note | 18 | setting 0 drops the grace head, its accidental attaches to the next note and carries through the bar (K545 bars 22-23, 67-68 in every edition) |
+| Accidental misread or on another note | 13 | 5 in one spot (Die Stadt, dense 9-tuplet) |
+| Slur read as tie, carrying a natural | 7 | |
+| Key signatures | 5 | key change at a bar's end applied to that bar (2), mid-system change missed (2), accidental after a barline read as a key (1) |
+| Tie copying a wrong pitch | 4 | |
+| Note one or two steps off, mixed | about 22 | |
+
+Extending each unclosed octave line to its system's end recovers 15 bars and breaks 11, so no simple rule fixes it.
+
+**Fix options.** Engine: flag bars from an unclosed octave line to its system's end instead of dropping it silently (about 25-30 bars flagged, small). Fork: keep small accidentals off full-size heads in setting 0 (about 15 bars, low risk); key change at a bar's end (2, small); octave-line extent across systems (up to about 55, several days, a false line shifts whole passages); small-clef detection and accidental linking (larger, riskier). Fork changes need a fresh unseen test set (entry 92).
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
