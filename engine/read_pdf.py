@@ -525,10 +525,8 @@ def clean(mxl: bytes) -> bytes:
         _drop_restated_keys(part)
         open_lines, unclosed = {}, []
         for measure in part.iter("measure"):
-            for direction in measure.findall("direction"):
+            for direction in _octave_shifts_in_time_order(measure):
                 shift = direction.find("direction-type/octave-shift")
-                if shift is None:
-                    continue
                 number = shift.get("number", "1")
                 if shift.get("type") == "stop":
                     open_lines.pop(number, None)
@@ -539,6 +537,36 @@ def clean(mxl: bytes) -> bytes:
         for measure, direction in unclosed + list(open_lines.values()):
             measure.remove(direction)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _octave_shifts_in_time_order(measure: ET.Element) -> list[ET.Element]:
+    timed, cursor = [], 0
+    for element in list(measure):
+        if element.tag == "direction" and element.find("direction-type/octave-shift") is not None:
+            timed.append((cursor, len(timed), element))
+            measure.remove(element)
+        else:
+            cursor += _advance(element)
+    timed.sort(key=lambda item: item[:2])
+    cursor, position, ordered = 0, 0, []
+    for offset, _, direction in timed:
+        while position < len(measure) and (cursor < offset or measure[position].tag in ("attributes", "print")):
+            cursor += _advance(measure[position])
+            position += 1
+        measure.insert(position, direction)
+        position += 1
+        ordered.append(direction)
+    return ordered
+
+
+def _advance(element: ET.Element) -> int:
+    if element.tag == "backup":
+        return -int(element.findtext("duration"))
+    if element.tag == "forward":
+        return int(element.findtext("duration"))
+    if element.tag == "note" and element.find("chord") is None and element.find("grace") is None:
+        return int(element.findtext("duration") or 0)
+    return 0
 
 
 def _drop_restated_keys(part: ET.Element) -> None:
