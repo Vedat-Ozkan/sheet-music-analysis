@@ -1757,7 +1757,7 @@ Extending each unclosed octave line to its system's end recovers 15 bars and bre
 
 ### 100. Silent wrong pitches halved: 238 → 119 (2026-11-03)
 
-**Goal.** Fix a majority of entry 99's 238 silent wrong-pitch bars by root-cause changes to the reader (fork branch `sma-pitch`, 21 commits on top of sma.4), with no set getting worse. Counted by `spike/omr/speed/pitch_causes.py` over the five tuning sets; current reader `sma4-fontmatch` against build `pitch27`, same engine for both.
+**Goal.** Fix a majority of entry 99's 238 silent wrong-pitch bars by root-cause changes to the reader (fork branch `sma-pitch`, 21 commits on top of sma.4). Result: exactly half on the benchmark's count (119 of 238), a majority on production's (119 of 237). Pitch and pitch+onset improved on every set; heldout and heldout2 each have one more flagged bar (see Costs). Counted by `spike/omr/speed/pitch_causes.py` over the five tuning sets; current reader `sma4-fontmatch` against build `pitch27`, same engine for both. Both counts skip the same 5 PDFs whose truth and reading parse to different bar counts.
 
 | Set | PDFs | Pitch before → after | Pitch+onset before → after | Flagged bars before → after |
 |---|---|---|---|---|
@@ -1767,7 +1767,7 @@ Extending each unclosed octave line to its system's end recovers 15 bars and bre
 | heldout3 | 6 | 0.9630 → 0.9825 | 0.8165 → 0.8342 | 61 → 60 |
 | real scans | 3 | 0.8756 → 0.8794 | 0.7244 → 0.7282 | 28 → 28 |
 
-Silent wrong-pitch bars 238 → 119; all wrong-pitch bars, flagged or not, 402 → 254. The benchmark always has both reader settings, while production stops setting 1 when setting 0 has 3 problems or fewer; replaying production's choice from the cache (`prod_choice.py`) changes one of 83 readings and gives 237 → 118. A second set chosen to stress these errors (`spike/omr/bench-tune2`, 40 pieces, 80 PDFs, not used to design the first fixes) went 258 → 124, pitch 0.9306 → 0.9528, pitch+onset 0.8450 → 0.8661; 3 single bars are newly wrong there. The pre-registered unseen set `bench-pitch` has NOT been run yet.
+Silent wrong-pitch bars 238 → 119; all wrong-pitch bars, flagged or not, 402 → 254. The benchmark always has both reader settings, while production stops setting 1 when setting 0 has 3 problems or fewer; replaying production's choice from the cache (`prod_choice.py`) changes one of 83 readings and gives 237 → 118. A second tuning set chosen to stress these errors (`spike/omr/bench-tune2`, 40 pieces, 80 PDFs; the cancel-key, key-overlap and dash-drift fixes were found or tuned on it, so this is not an unseen result) went 258 → 124, pitch 0.9306 → 0.9528, pitch+onset 0.8450 → 0.8661; 3 single bars are newly wrong there. The pre-registered unseen set `bench-pitch` has NOT been run yet.
 
 | Cause fixed (reader) | What was wrong |
 |---|---|
