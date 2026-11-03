@@ -1731,6 +1731,8 @@ The engine's analysis ignores grace notes (`part_writing`, `comparison`); they a
 
 **Fix options.** Copy setting 1's grace notes into the chosen reading where the bar's other notes agree (about 1-2 days, about 70 bars); choose per bar instead of per PDF (more, riskier); build ledgers a tie touches (fork, medium-high); count noteheads from the PDF and flag bars that come up short (flags only, low risk).
 
+**Ceiling for a notehead-count check** (`spike/omr/speed/headcount_bound.py`, before any PDF code: the truth's head count stands in for a perfect count from the PDF; a bar is caught when the reading has fewer heads). Of 542 silent wrong bars: 119 are short of normal-size heads, 164 short of grace heads only, 259 not short at all (wrong pitches with the right number of notes: clefs, octave lines, misplaced heads). Scans can't be counted from the PDF (42 of the 119), so **at most 77 silent bars could be caught on normal heads, about 14%**, or about 200 counting grace notes, which the analysis ignores. No right bar is short, so the ceiling has no false flags; a real counter would.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
