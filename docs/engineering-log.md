@@ -1755,19 +1755,19 @@ Extending each unclosed octave line to its system's end recovers 15 bars and bre
 
 **Fix options.** Engine: flag bars from an unclosed octave line to its system's end instead of dropping it silently (about 25-30 bars flagged, small). Fork: keep small accidentals off full-size heads in setting 0 (about 15 bars, low risk); key change at a bar's end (2, small); octave-line extent across systems (up to about 55, several days, a false line shifts whole passages); small-clef detection and accidental linking (larger, riskier). Fork changes need a fresh unseen test set (entry 92).
 
-### 100. Silent wrong pitches halved: 238 → 119 (2026-11-03)
+### 100. Silent wrong pitches: 238 → 107 (2026-11-03)
 
-**Goal.** Fix a majority of entry 99's 238 silent wrong-pitch bars by root-cause changes to the reader (fork branch `sma-pitch`, 21 commits on top of sma.4). Result: exactly half on the benchmark's count (119 of 238), a majority on production's (119 of 237). Pitch and pitch+onset improved on every set; heldout and heldout2 each have one more flagged bar (see Costs). Counted by `spike/omr/speed/pitch_causes.py` over the five tuning sets; current reader `sma4-fontmatch` against build `pitch27`, same engine for both. Both counts skip the same 5 PDFs whose truth and reading parse to different bar counts.
+**Goal.** Fix a majority of entry 99's 238 silent wrong-pitch bars by root-cause changes to the reader (fork branch `sma-pitch`, 22 commits on top of sma.4). Result: 131 of 238 fixed (55%); 131 of 237 on production's choice. Pitch and pitch+onset improved on every set; heldout and heldout2 each have one more flagged bar (see Costs). Counted by `spike/omr/speed/pitch_causes.py` over the five tuning sets; current reader `sma4-fontmatch` against build `pitch28`, same engine for both. Both counts skip the same 5 PDFs whose truth and reading parse to different bar counts.
 
 | Set | PDFs | Pitch before → after | Pitch+onset before → after | Flagged bars before → after |
 |---|---|---|---|---|
-| main | 57 | 0.9592 → 0.9764 | 0.8952 → 0.9123 | 317 → 317 |
-| heldout | 11 | 0.9844 → 0.9865 | 0.9346 → 0.9358 | 62 → 63 |
-| heldout2 | 6 | 0.9623 → 0.9858 | 0.8716 → 0.8906 | 45 → 46 |
-| heldout3 | 6 | 0.9630 → 0.9825 | 0.8165 → 0.8342 | 61 → 60 |
-| real scans | 3 | 0.8756 → 0.8794 | 0.7244 → 0.7282 | 28 → 28 |
+| main | 57 | 0.9592 → 0.9766 | 0.8952 → 0.9124 | 317 → 317 |
+| heldout | 11 | 0.9844 → 0.9868 | 0.9346 → 0.9360 | 62 → 63 |
+| heldout2 | 6 | 0.9623 → 0.9863 | 0.8716 → 0.8910 | 45 → 46 |
+| heldout3 | 6 | 0.9630 → 0.9830 | 0.8165 → 0.8345 | 61 → 60 |
+| real scans | 3 | 0.8756 → 0.8799 | 0.7244 → 0.7282 | 28 → 28 |
 
-Silent wrong-pitch bars 238 → 119; all wrong-pitch bars, flagged or not, 402 → 254. The benchmark always has both reader settings, while production stops setting 1 when setting 0 has 3 problems or fewer; replaying production's choice from the cache (`prod_choice.py`) changes one of 83 readings and gives 237 → 118. A second tuning set chosen to stress these errors (`spike/omr/bench-tune2`, 40 pieces, 80 PDFs; the cancel-key, key-overlap and dash-drift fixes were found or tuned on it, so this is not an unseen result) went 258 → 124, pitch 0.9306 → 0.9528, pitch+onset 0.8450 → 0.8661; 3 single bars are newly wrong there. The pre-registered unseen set `bench-pitch` has NOT been run yet.
+Silent wrong-pitch bars 238 → 107; all wrong-pitch bars, flagged or not, 402 → 242. The benchmark always has both reader settings, while production stops setting 1 when setting 0 has 3 problems or fewer; replaying production's choice from the cache (`prod_choice.py`) changes one of 83 readings and gives 237 → 106. A second tuning set chosen to stress these errors (`spike/omr/bench-tune2`, 40 pieces, 80 PDFs; the cancel-key, key-overlap and dash-drift fixes were found or tuned on it, so this is not an unseen result) went 258 → 122, pitch 0.9306 → 0.9529, pitch+onset 0.8450 → 0.8662; 3 single bars are newly wrong there. The pre-registered unseen set `bench-pitch` has NOT been run yet.
 
 | Cause fixed (reader) | What was wrong |
 |---|---|
@@ -1779,11 +1779,12 @@ Silent wrong-pitch bars 238 → 119; all wrong-pitch bars, flagged or not, 402 �
 | "8" inside a word | the "ss" of *espressione*, read as an octave line |
 | Dynamics height | a flat with an "f" above it read as one tall "sf" (6 spaces; real dynamics ≤ 3.8) |
 | Cancel key (naturals) | a two-natural blob broke the sequence, and a cancel key lost its value before export |
+| Accidental on the wrong chord | among heads at the same pitch the one with the smaller vertical gap won, even a chord further on by 1 pixel; now the nearest at the same pitch (13 bars fixed, 1 new: Polonaise No. 3 ms bar 22) |
 | Low-grade lyrics | a false lyric item ("[a", "W") erased an accidental before symbols were read; lyric items under contextual grade 0.6 are now handed back as possible symbols |
 
 **Costs.** One more flagged bar in heldout and heldout2: 3 bars whose timing changed with the lyric change (*Ave Maria* bar 12, *Erlkönig* bar 22, Boulanger bar 17) now don't add up and are flagged; pitch+onset in those PDFs fell by 6 notes or fewer.
 
-**Left (119).** Accidentals 54 (missed signs: a sign touching an undetected slur, a sign merged with another shape, false text; each sign also carries to later notes), other 21, clef 17 (10 in the Peters K545 scan, where small treble clefs are never recognised; a French violin clef in Clara Schumann's Polonaise No. 3, which the reader has no kind for, rare, not added), step off 9, octave with no line in truth 8, key 5, grace-note accidental 5 (production stops setting 1, the only one that sees the grace notes). Tried and dropped: erasing only a band along slurs (no gain), preferring the reading with more notes on a tie (production would not see it), a grade floor for undashed "8" (real ones go down to 0.59).
+**Left (107).** Accidentals 43 (missed signs: a sign touching an undetected slur, a sign merged with another shape, false text; each sign also carries to later notes), other 21, clef 17 (10 in the Peters K545 scan, where small treble clefs are never recognised; a French violin clef in Clara Schumann's Polonaise No. 3, which the reader has no kind for, rare, not added), step off 8, octave with no line in truth 8, key 5, grace-note accidental 5 (production stops setting 1, the only one that sees the grace notes). Tried and dropped: erasing only a band along slurs (no gain), preferring the reading with more notes on a tie (production would not see it), a grade floor for undashed "8" (real ones go down to 0.59).
 
 **Before release** (one release with Leland, plugin 1.7.0): full test suite, `diff_check`, `test_awkward`, a different-model review of the fork diff, the unseen `bench-pitch` run (aggregates only), staging, owner's yes.
 
