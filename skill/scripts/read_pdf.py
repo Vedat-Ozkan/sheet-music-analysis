@@ -30,11 +30,11 @@ verovio.enableLog(False)
 
 DEB = "https://github.com/Audiveris/audiveris/releases/download/5.11.0/Audiveris-5.11.0-ubuntu24.04-x86_64.deb"
 DEB_SHA256 = "f20113aaa33b3149ec8d6a09b2a7963360e65fafd92d69389987a85bbc3ec7a3"
-JAR = "https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.4/audiveris.jar"
-JAR_SHA256 = "3fcb58d3c45e227227ed9854566515d454520532f228780a74199a2a0cbd0a3f"
+JAR = "https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.5/audiveris.jar"
+JAR_SHA256 = "3be674ea82e55250d0de450e59d9543d2834811edccf5e986104404385259544"
 OCR = "https://raw.githubusercontent.com/tesseract-ocr/tessdata/ced78752cc61322fb554c280d13360b35b8684e4/eng.traineddata"
 OCR_SHA256 = "daa0c97d651c19fba3b25e81317cd697e9908c8208090c94c3905381c23fc047"
-HOME = Path(tempfile.gettempdir()) / "audiveris-5.11.0-sma.4"
+HOME = Path(tempfile.gettempdir()) / "audiveris-5.11.0-sma.5"
 
 
 def audiveris() -> Path:

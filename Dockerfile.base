@@ -38,9 +38,9 @@ RUN curl -fL -o /tmp/audiveris.deb https://github.com/Audiveris/audiveris/releas
  && echo "f20113aaa33b3149ec8d6a09b2a7963360e65fafd92d69389987a85bbc3ec7a3  /tmp/audiveris.deb" | sha256sum -c \
  && dpkg-deb -x /tmp/audiveris.deb /audiveris && rm /tmp/audiveris.deb
 # Our fixes to it (tuplets sharing a beam, crashes that lost pages and bars; log 35), built from
-# https://github.com/Vedat-Ozkan/audiveris branch sma-5.11.0 as its licence (AGPL-3.0) requires.
-RUN curl -fL -o /audiveris/opt/audiveris/lib/app/audiveris.jar https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.4/audiveris.jar \
- && echo "3fcb58d3c45e227227ed9854566515d454520532f228780a74199a2a0cbd0a3f  /audiveris/opt/audiveris/lib/app/audiveris.jar" | sha256sum -c
+# https://github.com/Vedat-Ozkan/audiveris branch sma-pitch as its licence (AGPL-3.0) requires.
+RUN curl -fL -o /audiveris/opt/audiveris/lib/app/audiveris.jar https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.5/audiveris.jar \
+ && echo "3be674ea82e55250d0de450e59d9543d2834811edccf5e986104404385259544  /audiveris/opt/audiveris/lib/app/audiveris.jar" | sha256sum -c
 
 RUN mkdir /audiveris/opt/audiveris/tessdata \
  && curl -fL -o /audiveris/opt/audiveris/tessdata/eng.traineddata https://github.com/tesseract-ocr/tessdata/raw/ced78752cc61322fb554c280d13360b35b8684e4/eng.traineddata \
