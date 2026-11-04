@@ -1880,7 +1880,7 @@ Chopin: lines 31 (longer search only) to 38 of 42, notes 43 to 223 of 255. Six o
 
 **Bar 16 (fork c1a864c06).** A stemless head shares a slot with a nearby head only when they touch. Chopin Op. 10/1 bar 16 is now right. Tightening `maxAdjacencyXGap` to 0.2 was tried first: same-time bars 671 to 675, timing worse on four sets, dropped. The narrow rule moves that count only 671 to 668 and costs 4 notes of 183 PDFs, so it fixes this bar and not a general class; the review's stop rule for that class failed.
 
-**Retiming (not built).** Re-timing chords from a complete voice, through `speed/retime_test.py`: +0.30 point of pitch with timing, 232 bars, one set -0.09. Between go (+0.5, no set down) and stop (+0.2). Owner to decide.
+**Retiming (not built).** Re-timing chords from a complete voice, through `speed/retime_test.py`: +0.30 point of pitch with timing, 232 bars, one set -0.09. Between go (+0.5, no set down) and stop (+0.2). Owner decided on 2026-11-04 to skip it.
 
 | 183 PDFs, tuning sets | sma.6 | now |
 |---|---|---|
