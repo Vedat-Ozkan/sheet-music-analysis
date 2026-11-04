@@ -1902,6 +1902,8 @@ Chopin: lines 31 (longer search only) to 38 of 42, notes 43 to 223 of 255. Six o
 
 **Real scans (`spike/omr/bench-olimpic`, 40 single systems).** 9.9% of bars exact, notes 70.0% and 51.1%, 6 failing, unchanged by this work. Short and sometimes tiny systems, and 36 of 40 time signatures were inferred, so this overstates the gap on full pages. It is below the review's 40% line where scan work outranks the rest; owner to decide.
 
+**Review (Sonnet).** A book where every page failed reported success: fixed, the step now fails when no page is left valid. Left as is: the parallel path in `reachBookStep` still fails the whole book (not used by default); `invalidate()` can throw inside the catch, no worse than before; the flag overlap test could undercount a tall flag box next to a real stacked flag (no case found in 183 PDFs); the column check compares voices on different staves (0.03% on references).
+
 **Limits.** The review's bars and sets are now used bar by bar, so the next change needs a fresh unseen set. Runs in this entry were on this PC alone, except part of the octave work. One PDF, p-op26n04--ms, varied between benchmark runs but not when read alone, so a load effect remains in the numbers.
 
 ## Checking against teachers' prose
