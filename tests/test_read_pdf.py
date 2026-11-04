@@ -16,7 +16,7 @@ from PIL import Image
 from engine import tint
 from engine.overlay import Box, PageLayout
 from engine.performance import marked_index
-from engine.read_pdf import PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, audiveris_facts, audiveris_options, audiveris_read, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
+from engine.read_pdf import _repaired, text_meaning, PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, audiveris_facts, audiveris_options, audiveris_read, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
 from engine.render import engrave, load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
@@ -420,3 +420,38 @@ def test_the_skill_reads_the_first_eight_pages_and_says_so(tmp_path, monkeypatch
     assert skill.main() == 0
     assert seen == [8]
     assert "Only pages 1-8 of the 9 were read" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("text", ["5 1", "3 2 1", "1", "1 2 351", "81161 ““““5“ ““““ 5"])
+def test_fingerings_read_as_text_are_recognised(text):
+    assert text_meaning(text) == "fingering"
+
+
+@pytest.mark.parametrize("text", ["cresc.", "a tempo", "risoluto", "L.H.", "D.C.", "Mit Kraft und Feuer", "dimin."])
+def test_musical_words_are_kept(text):
+    assert text_meaning(text) == "words"
+
+
+@pytest.mark.parametrize("text", ["( = 138)", ". = 72", "ca. 48)", "ca 72)"])
+def test_tempo_numbers_are_kept(text):
+    assert text_meaning(text) == "tempo"
+
+
+@pytest.mark.parametrize("text", ["8va-----", "80a,", "8va"])
+def test_text_copies_of_octave_lines_are_recognised(text):
+    assert text_meaning(text) == "octave"
+
+
+@pytest.mark.parametrize("text", ["= =", "—", "|_ —|", ".C.I{", 'Sum-"5““““\''])
+def test_stray_marks_are_recognised(text):
+    assert text_meaning(text) == "stray"
+
+
+@pytest.mark.parametrize("misread", ["CFESC.", "CFGSC.", "CI'GSC."])
+def test_a_misread_cresc_is_repaired(misread):
+    assert _repaired(misread) == "cresc."
+
+
+@pytest.mark.parametrize("word", ["cresc.", "Cresc.", "cross", "Trio.", "dolce"])
+def test_other_words_are_not_repaired(word):
+    assert _repaired(word) == word

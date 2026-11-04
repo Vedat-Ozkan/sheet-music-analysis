@@ -51,7 +51,7 @@ _BASE = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0",
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_BASE, _BASE + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
 _LELAND = ["-option", "org.audiveris.omr.ui.symbol.MusicFont.defaultMusicFamily=Leland"]
-READER = "5.11.0-sma.5-best2-tuplet-rests-eight-leland-ocr-r7"
+READER = "5.11.0-sma.5-best2-tuplet-rests-eight-leland-ocr-r8"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
@@ -493,6 +493,46 @@ def audiveris_facts(run_: AudiverisRun) -> dict:
             "problems": sorted(problems), "step_seconds": run_.step_seconds}
 
 
+_MISREAD_CRESC = re.compile(r"c..sc")
+_TEMPO_NUMBER = re.compile(r"=\s*\d|\bca\.?\s*\d")
+_OCTAVE_TEXT = re.compile(r"(8|15)\s*[v0o]?(a|b|ma|mb)?[\s,.'\"_|—–-]*$", re.IGNORECASE)
+_ROMAN_NUMERAL = re.compile(r"[ivIV]+[o+]?[\d()/ivIVo+]*$")
+
+
+def text_meaning(text: str) -> str:
+    stripped = text.strip()
+    if _TEMPO_NUMBER.search(stripped):
+        return "tempo"
+    letters = sum(char.isalpha() for char in stripped)
+    if letters == 0:
+        return "fingering" if any(char.isdigit() for char in stripped) else "stray"
+    if _OCTAVE_TEXT.match(stripped):
+        return "octave"
+    if _ROMAN_NUMERAL.match(stripped):
+        return "numeral"
+    return "words" if letters / len(stripped.replace(" ", "")) >= 0.5 else "stray"
+
+
+def _repaired(text: str) -> str:
+    plain = re.sub(r"\W", "", text).lower()
+    return "cresc." if _MISREAD_CRESC.fullmatch(plain) and plain != "cresc" else text
+
+
+def _keep_meaningful_text(root: ET.Element) -> None:
+    for measure in root.iter("measure"):
+        for direction in measure.findall("direction"):
+            for kind in direction.findall("direction-type"):
+                for words in kind.findall("words"):
+                    if text_meaning(words.text or "") in {"fingering", "stray", "octave"}:
+                        kind.remove(words)
+                    else:
+                        words.text = _repaired(words.text or "")
+                if len(kind) == 0:
+                    direction.remove(kind)
+            if direction.find("direction-type") is None:
+                measure.remove(direction)
+
+
 def clean(mxl: bytes) -> bytes:
     with zipfile.ZipFile(io.BytesIO(mxl)) as archive:
         name = next(n for n in archive.namelist() if n.endswith((".xml", ".musicxml")) and not n.startswith("META-INF"))
@@ -509,6 +549,7 @@ def clean(mxl: bytes) -> bytes:
                     barline.remove(ending)
                 if endings and len(barline) == 0:
                     measure.remove(barline)
+    _keep_meaningful_text(root)
     for part in root.iter("part"):
         _one_division(part)
         _drop_restated_keys(part)
