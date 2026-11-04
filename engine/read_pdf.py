@@ -523,7 +523,7 @@ def _keep_meaningful_text(root: ET.Element) -> None:
         for direction in measure.findall("direction"):
             for kind in direction.findall("direction-type"):
                 for words in kind.findall("words"):
-                    if text_meaning(words.text or "") in {"fingering", "stray", "octave"}:
+                    if text_meaning(words.text or "") in {"fingering", "stray"}:
                         kind.remove(words)
                     else:
                         words.text = _repaired(words.text or "")
