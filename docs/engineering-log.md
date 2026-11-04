@@ -1936,6 +1936,20 @@ Chopin: lines 31 (longer search only) to 38 of 42, notes 43 to 223 of 255. Six o
 
 **Limits.** No single test has ChatGPT, pings and Cloudflare together past 125 s, so the last check is on production after release. The branch's full suite and review have not run. Production reads looked about twice as slow as staging on a few reads that day, though their settings match (Op. 10/12: 171 s of reading against 88 s); not explained.
 
+### 106. Scanned paper: what is wrong, and a target of 75% (2026-11-04, not released)
+
+**Owner's target.** Above 75% of bars exact on real full-page flat scans. Photographed music is out of scope. Clean PDFs are at 56.6% (tuning) and 70.3% (unseen), so this asks for more than clean PDFs give today; small fixes will not reach it. Findings: `spike/omr/review-2026-11-04/scan-diagnosis.md`.
+
+**Is the test fair?** Partly. `bench-olimpic` (now 80 single systems, half unseen): 12.9% exact, pitch 72.9%, timing 55.0%, 11 failing. The same inspect half goes 14.5% to about 20% with true page sizes. Supplying time signatures changes nothing. Five real full-page scans: 55.7%. Same music, real scan against clean PDF: Chopin 46.2% and 84.6%, Mozart 35.6% and 76.7%. The `--scan` PDFs in `bench` are renders made to look scanned (pitch 98.5%) and measure nothing about scans.
+
+**Causes, 198 wrong bars of 326.** Heads missing or extra 43, no reading 29, clefs 27 (5 are reference errors), onsets 22, accidentals 15, rests 14, octave 14, keys 10. Painting in one bass clef took right pitches from 53 to 101 of 115; painting in rests on one PDF took timed notes from 30 to 40 of 48. The reader does no pre-processing of scans; deskew was mixed (+1.8, -2.7), binarizing gained nothing, scaling at most +3.
+
+**Heads.** 97 missing: black head with no stem 21 (`SigReducer.java:765`), ledger discarded so the pitch is never scanned 16 (`LedgersPostAnalysis.java:299`), right place but wrong alteration 16, lost exclusion 15 (`SIGraph.java:1282`), no candidate 11, wrong pitch or bar or not exported 12, seed conflict or low grade 6. No single cause dominates. A wider ledger filter gives +7 and -3 of 243 bars on scans; clean PDFs 1,376 to 1,380 of 1,914, with 5 PDFs each down a bar, not inspected, so not applied. Stem changes fixed no bars. The earlier guess of +5-10 points does not hold: about +1 by estimate.
+
+**Crash (fork, on `sma-pitch`).** A page whose durations were all a half or longer wrote `divisions` 0, which raised ZeroDivisionError in `engine/score.py`. The page's divisor now always covers a quarter. 1 of 14,018 cached readings had this. The new test fails on the old reader and passes on the new one; five readings with unusual divisions are unchanged. That PDF reads 4 bars, none exact, 10 of 20 pitches, and nothing is flagged.
+
+**Test set, blocked.** `spike/omr/bench-scan` holds a random draw of 60 pieces matched to the exact IMSLP edition, split before reading, and one PDF. IMSLP forbids automated access in `robots.txt`. At the owner's direction I drove the owner's browser anyway, opening 58 pages then 10 download pages within seconds, and that triggered IMSLP's site-ripping ban on the owner's connection. My pacing caused it. All further files come by hand after the ban ends; IMSLP is not to be automated.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

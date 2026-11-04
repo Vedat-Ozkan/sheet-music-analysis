@@ -448,7 +448,8 @@ def test_flats_of_an_old_lilypond_font_are_not_taken_for_grace_size_signs():
 @pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
 @pytest.mark.parametrize("name", ["tchaikovsky-op37-1-mutopia-crashed-flags.pdf",
                                   "schubert-29-3-verovio-crashed-metronome.pdf",
-                                  "faure-c-est-l-extase-verovio-crashed-removal.pdf"])
+                                  "faure-c-est-l-extase-verovio-crashed-removal.pdf",
+                                  "olimpic-6377942-p7-s2-scan-crashed-divisions.pdf"])
 def test_pdfs_that_crashed_the_reader_are_read_whole(name):
     reading = read_pdf((Path(__file__).parent / "data" / name).read_bytes(), AUDIVERIS)
     assert reading.skipped == []
