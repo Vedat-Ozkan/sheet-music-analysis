@@ -52,7 +52,7 @@ _BASE = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0",
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_BASE, _BASE + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
 _LELAND = ["-option", "org.audiveris.omr.ui.symbol.MusicFont.defaultMusicFamily=Leland"]
-READER = "5.11.0-sma.6-best2-tuplet-rests-eight-leland-ocr-r7"
+READER = "5.11.0-sma.6-best2-tuplet-rests-eight-leland-ocr-r8"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
@@ -402,6 +402,68 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
     return PdfReading(musicxml, pages, scan, skipped, passes)
 
 
+_TEMPO_NUMBER = re.compile(r"=\s*\d|\bca\.?\s*\d")
+_OCTAVE_TEXT = re.compile(r"(8|15)\s*[v0o]?(a|b|ma|mb)?[\s,.'\"_|—–-]*$", re.IGNORECASE)
+_ROMAN_NUMERAL = re.compile(r"[ivIV]+[o+]?[\d()/ivIVo+]*$")
+_EXPRESSION = re.compile(r"(?:de)?cresc|dim|rit|rall|dolce|espr|legato|sempre|poco", re.IGNORECASE)
+_DYNAMIC = re.compile(r"(?:p{1,4}|f{1,4}|mp|mf|fp|sf|sfz|sfp|fz|rf|rfz)\.?$", re.IGNORECASE)
+
+
+def text_meaning(text: str) -> str:
+    stripped = text.strip()
+    if _TEMPO_NUMBER.search(stripped):
+        return "tempo"
+    letters = sum(char.isalpha() for char in stripped)
+    if letters == 0:
+        return "fingering" if any(char.isdigit() for char in stripped) else "stray"
+    if _DYNAMIC.match(stripped):
+        return "dynamic"
+    if _OCTAVE_TEXT.match(stripped):
+        return "octave"
+    if _ROMAN_NUMERAL.match(stripped):
+        return "numeral"
+    return "words" if letters / len(stripped.replace(" ", "")) >= 0.5 else "stray"
+
+
+def _keep_meaningful_text(root: ET.Element) -> None:
+    for measure in root.iter("measure"):
+        for direction in measure.findall("direction"):
+            for kind in direction.findall("direction-type"):
+                for words in kind.findall("words"):
+                    meaning = text_meaning(words.text or "")
+                    if meaning in {"fingering", "stray"}:
+                        kind.remove(words)
+                    elif meaning == "dynamic":
+                        kind.remove(words)
+                        ET.SubElement(ET.SubElement(kind, "dynamics"), (words.text or "").strip().rstrip(".").lower())
+                if len(kind) == 0:
+                    direction.remove(kind)
+            if direction.find("direction-type") is None:
+                measure.remove(direction)
+
+
+def _lyrics_to_directions(root: ET.Element) -> None:
+    for part in root.iter("part"):
+        lyrics = [(measure, note, lyric) for measure in part.iter("measure") for note in measure.findall("note")
+                  for lyric in note.findall("lyric")]
+        marks = [item for item in lyrics if text_meaning(item[2].findtext("text") or "") == "dynamic"
+                 or _EXPRESSION.match((item[2].findtext("text") or "").strip())]
+        if 2 * len(marks) < len(lyrics):
+            continue
+        for measure, note, lyric in marks:
+            note.remove(lyric)
+            text = (lyric.findtext("text") or "").strip()
+            direction = ET.Element("direction", placement="below")
+            kind = ET.SubElement(direction, "direction-type")
+            if text_meaning(text) == "dynamic":
+                ET.SubElement(ET.SubElement(kind, "dynamics"), text.rstrip(".").lower())
+            else:
+                ET.SubElement(kind, "words").text = text
+            if note.find("staff") is not None:
+                ET.SubElement(direction, "staff").text = note.findtext("staff")
+            measure.insert(list(measure).index(note), direction)
+
+
 def _pitched_notes(musicxml: bytes) -> int:
     return sum(1 for note in ET.fromstring(musicxml).iter("note") if note.find("pitch") is not None)
 
@@ -556,6 +618,8 @@ def clean(mxl: bytes) -> bytes:
                     open_lines[number] = (measure, direction)
         for measure, direction in unclosed + list(open_lines.values()):
             measure.remove(direction)
+    _keep_meaningful_text(root)
+    _lyrics_to_directions(root)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 

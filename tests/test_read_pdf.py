@@ -16,7 +16,7 @@ from PIL import Image
 from engine import tint
 from engine.overlay import Box, PageLayout
 from engine.performance import marked_index
-from engine.read_pdf import PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, audiveris_facts, audiveris_options, audiveris_read, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
+from engine.read_pdf import text_meaning, PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, audiveris_facts, audiveris_options, audiveris_read, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
 from engine.render import MAX_PIXELS, engrave, load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
@@ -473,3 +473,28 @@ def test_octave_lines_read_as_words_or_stopped_by_their_letters_are_kept():
     data = (Path(__file__).parent / "data/chopin-op10-1-mutopia.pdf").read_bytes()
     root = ET.fromstring(read_pdf(data, AUDIVERIS).musicxml)
     assert sum(shift.get("type") in ("up", "down") for shift in root.iter("octave-shift")) >= 30
+
+
+@pytest.mark.parametrize("text", ["5 1", "3 2 1", "1", "1 2 351", "81161 ““““5“ ““““ 5"])
+def test_fingerings_read_as_text_are_recognised(text):
+    assert text_meaning(text) == "fingering"
+
+
+@pytest.mark.parametrize("text", ["cresc.", "a tempo", "risoluto", "L.H.", "D.C.", "Mit Kraft und Feuer", "dimin."])
+def test_musical_words_are_kept(text):
+    assert text_meaning(text) == "words"
+
+
+@pytest.mark.parametrize("text", ["( = 138)", ". = 72", "ca. 48)", "ca 72)"])
+def test_tempo_numbers_are_kept(text):
+    assert text_meaning(text) == "tempo"
+
+
+@pytest.mark.parametrize("text", ["= =", "—", "|_ —|", ".C.I{", 'Sum-"5““““\''])
+def test_stray_marks_are_recognised(text):
+    assert text_meaning(text) == "stray"
+
+
+@pytest.mark.parametrize("text", ["sf", "Sf", "P", "mf", "ff", "sfz."])
+def test_dynamics_read_as_text_are_recognised(text):
+    assert text_meaning(text) == "dynamic"
