@@ -430,3 +430,11 @@ def test_the_skill_reads_the_first_eight_pages_and_says_so(tmp_path, monkeypatch
     assert skill.main() == 0
     assert seen == [8]
     assert "Only pages 1-8 of the 9 were read" in capsys.readouterr().out
+
+
+@pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
+def test_flats_of_an_old_lilypond_font_are_not_taken_for_grace_size_signs():
+    data = (Path(__file__).parent / "data/beethoven-op18-4-iii-mutopia-lilypond2-8.pdf").read_bytes()
+    reading = read_pdf(data, AUDIVERIS)
+    root = ET.fromstring(reading.musicxml)
+    assert sum(accidental.text == "flat" for accidental in root.iter("accidental")) >= 40

@@ -1817,6 +1817,24 @@ Silent wrong-pitch bars 238 â†’ 107; all wrong-pitch bars, flagged or not, 402 â
 - **Staging, reader 5.11.0-sma.5 (2026-11-03, revision 00071):** startup clean (only the usual deprecation warnings). Mutopia Beethoven Op. 18 No. 4/iii (5 pages) sent as ChatGPT does: read in 82 s (OMR 68 s), first setting accepted with no problems, no errors.
 - **Production, reader 5.11.0-sma.5 (2026-11-03, revision 00043):** startup clean, no errors logged. The same Beethoven PDF read in 132 s (OMR 109 s, against 68 s on staging; not investigated). Through the public domain, a test client's first call for a new read errored after about 125 s, on that PDF and on Chopin Op. 10 No. 1. Sending the same file again returned the result (1 s and 16 s). The domain is behind Cloudflare, which is the likely cut-off, not confirmed. Not new in this release: entry on 2026-11-01 saw ChatGPT re-send at 125 s. Plugin 1.7.0 not released yet.
 
+### 102. Printed flats lost on old LilyPond PDFs, a regression in 5.11.0-sma.5 (2026-11-03)
+
+**Problem.** The owner compared the production card of Beethoven Op. 18 No. 4/iii (Mutopia, LilyPond 2.8.5) with the print. Printed flat signs in the reading: previous reader 46, sma.5 2; 51 notes lost their flat. Entry 100's rule lets a sharp, flat or natural under 2.15 spaces link only to a small head. This font's normal flats are 41-44 px at interline 21, so they counted as grace-size, found no head and were removed. None of the benchmark sets had such a font (flat signs 222 before and 224 after on LilyPond PDFs), so nothing showed it.
+
+**New set.** `bench-oldly`: 20 Mutopia PDFs from LilyPond 2.8-2.12 with OpenScore or DCML references, chosen by a rule written before any reading.
+
+**Fix (fork cb7eef15d, reader sma.6).** A sign is grace-size only if it is also under 0.85 of the upper quartile of its shape's heights on that sheet, so size is judged against the score's own font. Lowering the limit to 1.5 spaces was tried first and lost 22 notes net on the main sets; judging within one system lost more than judging across the sheet; also accepting a small head beside the sign changed nothing and was removed.
+
+| | sma.4 | sma.5 | sma.6 |
+|---|---|---|---|
+| `bench-oldly` correct pitches of 29,405 | 26,567 | 26,675 | 26,765 |
+| `bench-oldly` flagged bars | 195 | 196 | 196 |
+| This Beethoven, printed flats | 46 | 2 | 49 |
+| Five sets, silent wrong-pitch bars | | 101 | 106 |
+| Second set, silent wrong-pitch bars | | 120 | 120 |
+
+**Cost, accepted by the owner.** Five main-set PDFs lose 17 notes (K545 LilyPond 8, Cornelius *Auf eine Unbekannte* 4, C.P.E. Bach H186 in two editions 2 each, Polonaise No. 3 LilyPond 1): grace-size signs that do not stand out from the page's larger signs. Flagged bars are unchanged on the main sets. `bench-oldly` has now been read three times for totals, so a fresh unseen part is needed before later fixes.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
