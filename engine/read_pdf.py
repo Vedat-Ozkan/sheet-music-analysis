@@ -448,8 +448,8 @@ def _lyrics_to_directions(root: ET.Element) -> None:
                   for lyric in note.findall("lyric")]
         marks = [item for item in lyrics if text_meaning(item[2].findtext("text") or "") == "dynamic"
                  or _EXPRESSION.match((item[2].findtext("text") or "").strip())]
-        sung = any(item[2].findtext("syllabic") in {"begin", "middle", "end"} for item in lyrics)
-        if sung and 2 * len(marks) < len(lyrics):
+        split = sum(item[2].findtext("syllabic") in {"begin", "middle", "end"} for item in lyrics)
+        if 5 * split >= len(lyrics) and 2 * len(marks) < len(lyrics):
             continue
         for measure, note, lyric in marks:
             note.remove(lyric)
