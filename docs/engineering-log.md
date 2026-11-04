@@ -1835,6 +1835,8 @@ Silent wrong-pitch bars 238 â†’ 107; all wrong-pitch bars, flagged or not, 402 â
 
 **Cost, accepted by the owner.** Five main-set PDFs lose 17 notes (K545 LilyPond 8, Cornelius *Auf eine Unbekannte* 4, C.P.E. Bach H186 in two editions 2 each, Polonaise No. 3 LilyPond 1): grace-size signs that do not stand out from the page's larger signs. Flagged bars are unchanged on the main sets. `bench-oldly` has now been read three times for totals, so a fresh unseen part is needed before later fixes.
 
+**Review (Sonnet, static read of cb7eef15d).** Three points, none changed the release. A sign not yet in a graph compares its height with itself, so it never counts as small; that path is only adding a sign by hand in the desktop editor, which our reading does not use. A sheet with one sign of a shape, or only grace-size signs of it, does the same, so a lone cue flat may link to a normal head when no small head is in reach. Each call scans the sheet's signs of that shape; its cost was not timed separately.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
