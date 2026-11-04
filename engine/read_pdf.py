@@ -361,7 +361,7 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
                    for setting in range(len(SETTINGS))]
         try:
             first = futures[0].result()
-            if first[1] is not None and len(first[1][2]) <= RETRY_ABOVE:
+            if first[1] is not None and not first[1][1] and len(first[1][2]) <= RETRY_ABOVE:
                 stop.set()
             results = [first, *(future.result() for future in futures[1:])]
         finally:
