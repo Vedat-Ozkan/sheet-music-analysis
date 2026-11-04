@@ -1837,6 +1837,31 @@ Silent wrong-pitch bars 238 â†’ 107; all wrong-pitch bars, flagged or not, 402 â
 
 **Review (Sonnet, static read of cb7eef15d).** Three points, none changed the release. A sign not yet in a graph compares its height with itself, so it never counts as small; that path is only adding a sign by hand in the desktop editor, which our reading does not use. A sheet with one sign of a shape, or only grace-size signs of it, does the same, so a lone cue flat may link to a normal head when no small head is in reach. Each call scans the sheet's signs of that shape; its cost was not timed separately.
 
+### 103. Octave lines: the search stopped on "va", and signs read as words (2026-11-03, not released)
+
+**Problem.** On Chopin Op. 10 No. 1 (Mutopia) most printed octave lines came out too short: 43 of 255 notes under them were moved up. The search for the dashed line looked 3 spaces past the "8" and landed on the letters "va". 12 of 42 lines were read as text such as "8va------", so no line existed at all.
+
+**New set.** `spike/omr/bench-octave`: 12 Mutopia piano PDFs that print a sign with a dashed line, chosen by a written rule before any reading, 90 signed lines. Scored against the lines in the PDF's own drawing data, half tuning and half unseen by hash. The older sets cannot test this: octave lines appear on 7 of 83 PDFs and those engravers mostly already worked.
+
+**Fix (fork 95778bd83).** The search now looks 6 spaces past the sign. A word starting with 8, 15 or 22 becomes an octave line only if a real dashed line follows it. Words made only of a line's dashes are removed.
+
+| Signed lines | sma.6 | fix | out of |
+|---|---|---|---|
+| Unseen half: found | 33 | 35 | 38 |
+| Unseen half: end within one space | 0 | 34 | 35 found |
+| Unseen half: notes moved under the line | 87 | 801 | 870 |
+| Tuning half: found | 44 | 44 | 44 |
+| Tuning half: notes moved under the line | 285 | 702 | 708 |
+| Notes moved outside a printed line | 0 | 0 | |
+
+Chopin: lines 31 (longer search only) to 38 of 42, notes 43 to 223 of 255. Six older sets, 103 PDFs: correct pitches and pitch with timing unchanged on every PDF.
+
+**Limits.** 8 of the 90 signed lines landed near no read staff and were not scored; the cause was not checked. The unseen half is partly seen: per-piece counts were read and one piece (Pease, Amaryllis) was opened to debug the line list, which had stopped at the join where one line is drawn in two pieces. 4 Chopin lines stay missing because OCR garbled the sign ("81161"). "Lines read with no printed line" rose by 3 on each half; the tuning half's three are real short lines too short for the list, the unseen half's were not opened.
+
+**Review (Sonnet, of the first commit).** Dashes read as separate words stayed behind as text: fixed, as a class, by the removal above. Left as is, since a dashed line must follow: a lyric or chord name starting "8-" could convert, and "80" passes the word test (it is how "8va" is sometimes misread). The final commit was not reviewed separately.
+
+**Status.** Local fork only. Full test suite, `test_awkward` and `diff_check` NOT RUN on this build.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
