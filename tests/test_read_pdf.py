@@ -443,3 +443,33 @@ def test_flats_of_an_old_lilypond_font_are_not_taken_for_grace_size_signs():
     reading = read_pdf(data, AUDIVERIS)
     root = ET.fromstring(reading.musicxml)
     assert sum(accidental.text == "flat" for accidental in root.iter("accidental")) >= 40
+
+
+@pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
+@pytest.mark.parametrize("name", ["tchaikovsky-op37-1-mutopia-crashed-flags.pdf",
+                                  "schubert-29-3-verovio-crashed-metronome.pdf",
+                                  "faure-c-est-l-extase-verovio-crashed-removal.pdf"])
+def test_pdfs_that_crashed_the_reader_are_read_whole(name):
+    reading = read_pdf((Path(__file__).parent / "data" / name).read_bytes(), AUDIVERIS)
+    assert reading.skipped == []
+
+
+@pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
+def test_a_narrow_last_flat_stays_in_the_key_signature():
+    data = (Path(__file__).parent / "data/beethoven-op18-4-iii-mutopia-lilypond2-8.pdf").read_bytes()
+    root = ET.fromstring(read_pdf(data, AUDIVERIS).musicxml)
+    assert root.find(".//key/fifths").text == "-3"
+
+
+@pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
+def test_parts_named_differently_on_later_systems_stay_one_part():
+    data = (Path(__file__).parent / "data/bach-chorale-269-verovio-part-names.pdf").read_bytes()
+    root = ET.fromstring(read_pdf(data, AUDIVERIS).musicxml)
+    assert len(list(root.iter("part"))) == 4
+
+
+@pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
+def test_octave_lines_read_as_words_or_stopped_by_their_letters_are_kept():
+    data = (Path(__file__).parent / "data/chopin-op10-1-mutopia.pdf").read_bytes()
+    root = ET.fromstring(read_pdf(data, AUDIVERIS).musicxml)
+    assert sum(shift.get("type") in ("up", "down") for shift in root.iter("octave-shift")) >= 30

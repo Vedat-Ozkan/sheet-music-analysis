@@ -1862,6 +1862,48 @@ Chopin: lines 31 (longer search only) to 38 of 42, notes 43 to 223 of 255. Six o
 
 **Status.** Local fork only. Full test suite, `test_awkward` and `diff_check` NOT RUN on this build.
 
+### 104. A review of the reading work, and what it changed (2026-11-04, not released)
+
+**Question.** Should the reader repair bars that do not add up by thinking like a musician? An Opus review (`scratchpad/musician-logic-review.md`, about US$20-22 by its own estimate, over the US$10 limit) tested that first. When exactly one edit made a bar add up, it was right 0 of 47 times, and a right edit existed in only 11% of wrong flagged bars. Adding up is not evidence. Harmony checks barely beat chance (AUC 0.50-0.62). Checks against firm conventions did work. The owner adopted its order.
+
+**Claude on crops (blind, 24 wrong flagged bars).** 9 exact against 0 for the reader, notes right 216 to 367 of 493, 3 bars made worse; between its go and stop lines. About US$0.09-0.30 per bar. Owner decision: only in the user's own chat, only where we doubt a reading, shade kept. Not built.
+
+**Scorer (`spike/omr/speed/whole_bars.py`).** A bar is exact when pitch, onset, printed value, printed rests and ties all match, per part and staff; a failed PDF counts all its bars as wrong. A reference scored against itself gives 100% on 16 scores.
+
+**Crashes (fork).** Two PDFs gave no music. A failed sheet now loses that page, not the book. Competing flags on a stem counted together (25 candidates, 37 flags) until a duration overflowed, because our tuplet code reads durations before reduction: they now count once. A metronome whose letters have no location has no glyph. Removing a symbol survives links removed by its own removal; the octave change exposed this on Faure's C'est l'extase. The benchmark caught a partial first reading stopping the second, so a skipped page now lets the second reading run.
+
+**Lost last flat (fork).** `minFlatTrail` 0.7 to 0.5. Three old LilyPond PDFs gain 396 right pitches; none of 183 lose any. The review suggested judging against the file's own flats; this constant was enough.
+
+**Part joining (fork).** A system with the same part, staff and line layout as the known parts holds those parts, whatever OCR read as names. Wrong part count 33 to 13 of 183.
+
+**New warning (`engine/read_pdf.py`).** Shade a bar when notes in different voices line up at different times, or share a time more than 2.5 spaces apart. On references it fires on 0.03% of bars. Unseen set, measured with the check removed from the baseline: 55 flags on unshaded bars, all right, no false flags, 29% of silent timing errors. An earlier reading of 0.8% was a measuring mistake (the bars were already shaded). The user-facing sentence changed; it needs the owner's look.
+
+**Bar 16 (fork c1a864c06).** A stemless head shares a slot with a nearby head only when they touch. Chopin Op. 10/1 bar 16 is now right. Tightening `maxAdjacencyXGap` to 0.2 was tried first: same-time bars 671 to 675, timing worse on four sets, dropped. The narrow rule moves that count only 671 to 668 and costs 4 notes of 183 PDFs, so it fixes this bar and not a general class; the review's stop rule for that class failed.
+
+**Retiming (not built).** Re-timing chords from a complete voice, through `speed/retime_test.py`: +0.30 point of pitch with timing, 232 bars, one set -0.09. Between go (+0.5, no set down) and stop (+0.2). Owner to decide.
+
+| 183 PDFs, tuning sets | sma.6 | now |
+|---|---|---|
+| Bars exact, parts kept apart | 47.9% | 55.2% |
+| Bars exact, parts pooled | 54.1% | 62.2% |
+| Notes, pitch | 96.1% | 98.0% |
+| Notes, pitch and timing | 89.4% | 91.1% |
+| PDFs failing | 2 | 0 |
+| Wrong part count | 33 | 13 |
+| Wrong bars with no warning | 69.9% | 55.0% |
+
+| Unseen set, 40 PDFs (aggregates only; before bar 16) | sma.6 | now |
+|---|---|---|
+| Bars exact | 54.3% | 68.3% |
+| Wrong part count | 9 | 0 |
+| Wrong bars with no warning | 72.1% | 59.8% |
+| Notes, pitch / with timing | 95.1 / 88.5% | same |
+| PDFs failing | 1 | 1 |
+
+**Real scans (`spike/omr/bench-olimpic`, 40 single systems).** 9.9% of bars exact, notes 70.0% and 51.1%, 6 failing, unchanged by this work. Short and sometimes tiny systems, and 36 of 40 time signatures were inferred, so this overstates the gap on full pages. It is below the review's 40% line where scan work outranks the rest; owner to decide.
+
+**Limits.** The review's bars and sets are now used bar by bar, so the next change needs a fresh unseen set. Runs in this entry were on this PC alone, except part of the octave work. One PDF, p-op26n04--ms, varied between benchmark runs but not when read alone, so a load effect remains in the numbers.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
