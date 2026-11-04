@@ -1910,6 +1910,8 @@ Chopin: lines 31 (longer search only) to 38 of 42, notes 43 to 223 of 255. Six o
 
 **Lost rests (not applied).** In Beethoven Op. 18/4 iii bar 8, removing staff lines clips the rest's thin tail (4 rows of 48), the classifier scores it 0.09-0.35 instead of about 0.95, and the weak-grade filter deletes it. A patch restoring that ink cut lost rests from 94 to 17 and 112 to 28 on two exposed old LilyPond PDFs, but on the rule's 20 test PDFs it found 1 of 119 lost rests, added 7 false ones, raised flagged bars from 123 to 131 and lowered exact bars from 71.15% to 70.5%. So the cause is specific to that font and other PDFs lose rests some other way, not traced. Rejected under its rule. The repeat at bar 8 of that movement stays wrong because the two halves cannot sum without the rest.
 
+**Ties, wider setting (rejected).** Raising `maxTieIntersection` from 0.25 to 1.0, on 83 PDFs: exact bars 67.0 to 66.9, 62.5 to 61.1, 53.4 to 52.4 and 63.6 to 63.0, with one set up 47.9 to 48.6; bars that do not add up rose on three sets. In the current reading 2,563 of 3,625 true ties are found with 907 extra, and 341 of 8,246 paired bars (4.1%) are wrong only by ties.
+
 **Limits.** The review's bars and sets are now used bar by bar, so the next change needs a fresh unseen set. Runs in this entry were on this PC alone, except part of the octave work. One PDF, p-op26n04--ms, varied between benchmark runs but not when read alone, so a load effect remains in the numbers.
 
 ### 105. The first call: Cloudflare's 125 seconds, not ChatGPT's (2026-11-04, not released)
@@ -1920,7 +1922,7 @@ Chopin: lines 31 (longer search only) to 38 of 42, notes 43 to 223 of 255. Six o
 
 **Fix on branch `sse-keepalive` (`json_response=False`, staging test only).** Tool calls answer as an event stream with keep-alive pings. A Worker test showed pings pass Cloudflare at 151 s. ChatGPT on staging, one request each with the card shown: 79-121 s on five PDFs of 4-8 pages. Claude: short calls only, under a second, with the player shown; sound NOT RUN.
 
-**Limits.** No single test has ChatGPT, pings and Cloudflare together past 125 s, so the last check is on production after release. The branch's full suite and review have not run. Production reads looked about twice as slow as staging on a few reads that day (Op. 10/12: 171 s reading against 88 s locally); not explained.
+**Limits.** No single test has ChatGPT, pings and Cloudflare together past 125 s, so the last check is on production after release. The branch's full suite and review have not run. Production reads looked about twice as slow as staging on a few reads that day, though their settings match (Op. 10/12: 171 s of reading against 88 s); not explained.
 
 ## Checking against teachers' prose
 
