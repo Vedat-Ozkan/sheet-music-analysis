@@ -1414,7 +1414,7 @@ def main() -> None:
         start_tracing(service)
     app = mcp.streamable_http_app(
         stateless_http=True,
-        json_response=True,
+        json_response=False,
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
     )
     handler = logging.StreamHandler(sys.stdout)
