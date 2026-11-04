@@ -1922,6 +1922,8 @@ Chopin: lines 31 (longer search only) to 38 of 42, notes 43 to 223 of 255. Six o
 
 **sf.** After the clean-up, across 183 PDFs, 818 `sf`-type dynamics are read against 825 in the references, with none left as words or lyrics (a count, not matched by position).
 
+**Owner decisions, 2026-11-04.** The new warning wording and extra shading stay, false alarms accepted (examples shown were rendered locally, not in the apps; of 40 PDFs each gaining one shaded bar, 34 bars were really wrong and 6 were right). The false-tie fix stays. The old-LilyPond rest patch is skipped. Scanned paper is next; photographed music is out of scope for now. Release later.
+
 **Limits.** The review's bars and sets are now used bar by bar, so the next change needs a fresh unseen set. Runs in this entry were on this PC alone, except part of the octave work. One PDF, p-op26n04--ms, varied between benchmark runs but not when read alone, so a load effect remains in the numbers.
 
 ### 105. The first call: Cloudflare's 125 seconds, not ChatGPT's (2026-11-04, not released)
