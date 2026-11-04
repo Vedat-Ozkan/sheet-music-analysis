@@ -87,8 +87,8 @@ def test_names_the_bars_a_reading_likely_got_wrong():
     assert problem_spots(score) == ([12, 18], False)
     assert b"<slur" not in score
     assert notice(score, False, [], False) == (
-        "This is what I read from your PDF; check it against your copy before I analyse it. Bars 12 and 18 (shaded) don't "
-        "add up to a full bar, so a note or triplet may be misread there. "
+        "This is what I read from your PDF; check it against your copy before I analyse it. Bars 12 and 18 (shaded) look "
+        "misread: the beats don't add up, or notes that should line up don't. "
         "Slurs are left out, because they are often misread from PDFs; ask if you want them kept."
     )
 
@@ -98,7 +98,12 @@ def test_names_bars_with_durations_that_disagree_with_written_notes():
     uneven, meter = problem_spots(score)
     assert {5, 7, 8, 10, 11} <= set(uneven)
     assert meter
-    assert 'The shaded bars (1, 2, 3, 4 and 17 more) don' in notice(score, False, [], False)
+    assert 'The shaded bars (1, 2, 3, 4 and 27 more) look misread' in notice(score, False, [], False)
+
+
+def test_names_a_bar_whose_notes_line_up_at_different_times():
+    score = (Path(__file__).parent / 'data/pdf_warnings/lang_auf_der_reise_audiveris.musicxml').read_bytes()
+    assert 32 in problem_spots(score)[0]
 
 
 def test_accepts_the_correct_schubert_with_dots_and_triplets():
