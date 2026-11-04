@@ -73,7 +73,7 @@ def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool, spots
     text = CHECK + (" " + SCAN_WARNING if scan else "")
     if skipped:
         pages = ", ".join(str(page) for page in skipped)
-        text += f" Page{'s' if len(skipped) > 1 else ''} {pages} could not be read (no staves were found), so that music is missing."
+        text += f" Page{'s' if len(skipped) > 1 else ''} {pages} could not be read, so that music is missing."
     uneven, guessed = spots or problem_spots(score)
     if guessed:
         text += " No time signature was read, so bars were checked against the most common bar length."
