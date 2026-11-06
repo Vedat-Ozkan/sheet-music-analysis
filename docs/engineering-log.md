@@ -1870,6 +1870,12 @@ Chopin: lines 31 (longer search only) to 38 of 42, notes 43 to 223 of 255. Six o
 
 **A gap found on the way.** CI's reader was still sma.4, so sma.5 and the first sma.6 run were never tested with the reader they shipped. CI now uses sma.6: 1234 passed, 14 skipped, 2 expected failures. The workflow's reader must change with `Dockerfile.base` and `skill/scripts/read_pdf.py`.
 
+### 110. Two-page card and event-stream answers released (2026-11-05)
+
+**Released.** The two-page PDF card and the event-stream answers from entry 105, on owner's yes. `text-meaning` is left out; it was not in the release list. Plugin 1.7.2 only drops the unused `tall` card code from its engine copy.
+
+**Checks.** Sonnet review: one bug, `tools/load/drafts.js` could not parse an event stream, fixed; the parser was run on a sample answer, no k6 run against a server. Full suite on a local sma.6 reader: 1 failed, 1247 passed, 4 skipped, 2 expected failures; the failure, `test_draft_analysis_checks_typed_answer`, was a model timeout under parallel load and passes alone (10 of 10 in its file). `test_awkward`: 196 passed, 2 expected failures. Staging, direct to Cloud Run: a 5-page Beethoven PDF read in 119 s, caption "first 2 pages", `content-type: text/event-stream`. Keep-alive past Cloudflare's 125 s limit with ChatGPT is checked after this deploy.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
