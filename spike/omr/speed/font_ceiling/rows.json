@@ -1,0 +1,4376 @@
+[
+{
+"pdf": "bach-chorale-269--ms",
+"engraver": "ms",
+"bar": 3,
+"bucket": "note_missing",
+"verdicts": [
+{
+"sub": "note_missing",
+"found": false,
+"loose": true,
+"nearest": 4.4
+}
+]
+},
+{
+"pdf": "bach-prelude-846--ly",
+"engraver": "ly",
+"bar": 1,
+"bucket": "rest_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_extra",
+"found": null
+},
+{
+"sub": "rest_extra",
+"found": null
+}
+]
+},
+{
+"pdf": "bach-prelude-846--ly",
+"engraver": "ly",
+"bar": 2,
+"bucket": "rest_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_extra",
+"found": null
+},
+{
+"sub": "rest_extra",
+"found": null
+}
+]
+},
+{
+"pdf": "bach-prelude-846--ly",
+"engraver": "ly",
+"bar": 3,
+"bucket": "rest_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_extra",
+"found": null
+},
+{
+"sub": "rest_extra",
+"found": null
+}
+]
+},
+{
+"pdf": "bach-prelude-846--ly",
+"engraver": "ly",
+"bar": 4,
+"bucket": "rest_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_extra",
+"found": null
+},
+{
+"sub": "rest_extra",
+"found": null
+}
+]
+},
+{
+"pdf": "bach-prelude-846--ly",
+"engraver": "ly",
+"bar": 5,
+"bucket": "rest_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_extra",
+"found": null
+},
+{
+"sub": "rest_extra",
+"found": null
+}
+]
+},
+{
+"pdf": "bach-prelude-846--ly",
+"engraver": "ly",
+"bar": 6,
+"bucket": "rest_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_extra",
+"found": null
+},
+{
+"sub": "rest_extra",
+"found": null
+}
+]
+},
+{
+"pdf": "bach-prelude-846--ly",
+"engraver": "ly",
+"bar": 7,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "bach-prelude-846--ly",
+"engraver": "ly",
+"bar": 8,
+"bucket": "rest_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_extra",
+"found": null
+},
+{
+"sub": "rest_extra",
+"found": null
+}
+]
+},
+{
+"pdf": "bach-prelude-846--ly",
+"engraver": "ly",
+"bar": 9,
+"bucket": "rest_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_extra",
+"found": null
+},
+{
+"sub": "rest_extra",
+"found": null
+}
+]
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 1,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 0.1
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 0.1
+}
+]
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 2,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 3,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 4,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 0.1
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 0.0
+}
+]
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 5,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 0.0
+}
+]
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 6,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 7,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 8,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 9,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 10,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_type",
+"found": true,
+"loose": true,
+"nearest": 0.1
+},
+{
+"sub": "rest_type",
+"found": true,
+"loose": true,
+"nearest": 0.1
+}
+]
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 11,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 12,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 13,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 14,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 15,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 16,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 17,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_type",
+"found": true,
+"loose": true,
+"nearest": 0.1
+},
+{
+"sub": "rest_type",
+"found": true,
+"loose": true,
+"nearest": 0.1
+}
+]
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 19,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 20,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 23,
+"bucket": "rest_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_extra",
+"found": null
+},
+{
+"sub": "rest_extra",
+"found": null
+}
+]
+},
+{
+"pdf": "bach-prelude-846--ms",
+"engraver": "ms",
+"bar": 32,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "beethoven-op52-2-feuerfarb--ly",
+"engraver": "ly",
+"bar": 4,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "beethoven-op52-2-feuerfarb--ly",
+"engraver": "ly",
+"bar": 5,
+"bucket": "unresolved:other",
+"verdicts": []
+},
+{
+"pdf": "beethoven-op52-2-feuerfarb--ly",
+"engraver": "ly",
+"bar": 14,
+"bucket": "rest_missing",
+"verdicts": [
+{
+"sub": "rest_missing",
+"found": false,
+"loose": false,
+"nearest": 10.6
+}
+]
+},
+{
+"pdf": "chopin-prelude-4--lilypond-mutopia",
+"engraver": "ly",
+"bar": 19,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "chopin-prelude-4--ms",
+"engraver": "ms",
+"bar": 19,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-1--ms",
+"engraver": "ms",
+"bar": 8,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-1--ms",
+"engraver": "ms",
+"bar": 27,
+"bucket": "note_extra",
+"verdicts": [
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ly",
+"engraver": "ly",
+"bar": 11,
+"bucket": "dot (+voice/offset)",
+"verdicts": [
+{
+"sub": "dot_drop",
+"found": null
+},
+{
+"sub": "dot_add",
+"found": true,
+"loose": true,
+"nearest": 1.6
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ly",
+"engraver": "ly",
+"bar": 12,
+"bucket": "bars_merged_split",
+"verdicts": []
+},
+{
+"pdf": "clara-schumann-polonaise-3--ly",
+"engraver": "ly",
+"bar": 13,
+"bucket": "combo(ts):note_missing+type",
+"verdicts": [
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "rest_type",
+"found": null
+},
+{
+"sub": "note_missing",
+"found": null
+},
+{
+"sub": "note_missing",
+"found": null
+},
+{
+"sub": "note_missing",
+"found": null
+},
+{
+"sub": "note_missing",
+"found": null
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ly",
+"engraver": "ly",
+"bar": 14,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ly",
+"engraver": "ly",
+"bar": 15,
+"bucket": "grace_as_real (+voice/offset)",
+"verdicts": [
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.0
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ly",
+"engraver": "ly",
+"bar": 23,
+"bucket": "dot",
+"verdicts": [
+{
+"sub": "dot_drop",
+"found": null
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ly",
+"engraver": "ly",
+"bar": 27,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": 13.9
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ly",
+"engraver": "ly",
+"bar": 30,
+"bucket": "dot (+voice/offset)",
+"verdicts": [
+{
+"sub": "dot_drop",
+"found": null
+},
+{
+"sub": "dot_add",
+"found": true,
+"loose": true,
+"nearest": 1.8
+},
+{
+"sub": "dot_add",
+"found": true,
+"loose": true,
+"nearest": 1.8
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ly",
+"engraver": "ly",
+"bar": 38,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ly",
+"engraver": "ly",
+"bar": 39,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "clara-schumann-polonaise-3--ly",
+"engraver": "ly",
+"bar": 40,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ly",
+"engraver": "ly",
+"bar": 42,
+"bucket": "type",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 0.1
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 0.1
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ms",
+"engraver": "ms",
+"bar": 4,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "clara-schumann-polonaise-3--ms",
+"engraver": "ms",
+"bar": 7,
+"bucket": "grace_as_real (+voice/offset)",
+"verdicts": [
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.1
+},
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.0
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ms",
+"engraver": "ms",
+"bar": 30,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ms",
+"engraver": "ms",
+"bar": 31,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ms",
+"engraver": "ms",
+"bar": 35,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ms",
+"engraver": "ms",
+"bar": 38,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "clara-schumann-polonaise-3--ms",
+"engraver": "ms",
+"bar": 48,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "rest_type",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "rest_type",
+"found": true,
+"loose": true,
+"nearest": 0.0
+}
+]
+},
+{
+"pdf": "cpe-bach-h186--ly",
+"engraver": "ly",
+"bar": 4,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "cpe-bach-h186--ly",
+"engraver": "ly",
+"bar": 5,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "cpe-bach-h186--ly",
+"engraver": "ly",
+"bar": 13,
+"bucket": "type",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+}
+]
+},
+{
+"pdf": "cpe-bach-h186--ly",
+"engraver": "ly",
+"bar": 18,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "cpe-bach-h186--ly",
+"engraver": "ly",
+"bar": 28,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "cpe-bach-h186--ms",
+"engraver": "ms",
+"bar": 5,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "cpe-bach-h186--ms",
+"engraver": "ms",
+"bar": 12,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": 19.5
+},
+{
+"sub": "beam_down",
+"found": null
+}
+]
+},
+{
+"pdf": "cpe-bach-h186--ms",
+"engraver": "ms",
+"bar": 18,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "cpe-bach-h186--ms",
+"engraver": "ms",
+"bar": 19,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "cpe-bach-h186--ms",
+"engraver": "ms",
+"bar": 28,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "faisst-op18-2-lied-der-nacht--ms",
+"engraver": "ms",
+"bar": 1,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "faisst-op18-2-lied-der-nacht--ms",
+"engraver": "ms",
+"bar": 2,
+"bucket": "combo(ts):rest_extra+type",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 2.9
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 2.6
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": true,
+"nearest": 5.9
+},
+{
+"sub": "rest_extra",
+"found": null
+},
+{
+"sub": "rest_extra",
+"found": null
+}
+]
+},
+{
+"pdf": "faisst-op18-2-lied-der-nacht--ms",
+"engraver": "ms",
+"bar": 3,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "flag_drop",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": true,
+"nearest": 3.2
+}
+]
+},
+{
+"pdf": "faisst-op18-2-lied-der-nacht--ms",
+"engraver": "ms",
+"bar": 4,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "faisst-op18-2-lied-der-nacht--ms",
+"engraver": "ms",
+"bar": 5,
+"bucket": "unresolved:notes_placed_past_barline",
+"verdicts": []
+},
+{
+"pdf": "faisst-op18-2-lied-der-nacht--ms",
+"engraver": "ms",
+"bar": 7,
+"bucket": "type",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+}
+]
+},
+{
+"pdf": "faisst-op18-2-lied-der-nacht--ms",
+"engraver": "ms",
+"bar": 11,
+"bucket": "note_extra",
+"verdicts": [
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+}
+]
+},
+{
+"pdf": "faisst-op18-2-lied-der-nacht--ms",
+"engraver": "ms",
+"bar": 12,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 0.0
+}
+]
+},
+{
+"pdf": "faisst-op18-2-lied-der-nacht--ms",
+"engraver": "ms",
+"bar": 31,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "faisst-op18-2-lied-der-nacht--ms",
+"engraver": "ms",
+"bar": 32,
+"bucket": "unresolved:notes_placed_past_barline",
+"verdicts": []
+},
+{
+"pdf": "haydn-canzonet-she-never-told--ms",
+"engraver": "ms",
+"bar": 12,
+"bucket": "rest_missing (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_missing",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "rest_missing",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "rest_missing",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "rest_missing",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "rest_missing",
+"found": false,
+"loose": false,
+"nearest": null
+}
+]
+},
+{
+"pdf": "haydn-canzonet-she-never-told--ms",
+"engraver": "ms",
+"bar": 13,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "haydn-canzonet-she-never-told--ms",
+"engraver": "ms",
+"bar": 14,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_type",
+"found": true,
+"loose": true,
+"nearest": 0.0
+}
+]
+},
+{
+"pdf": "haydn-canzonet-she-never-told--ms",
+"engraver": "ms",
+"bar": 16,
+"bucket": "rest_missing (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 2.5
+},
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 2.5
+}
+]
+},
+{
+"pdf": "haydn-canzonet-she-never-told--ms",
+"engraver": "ms",
+"bar": 30,
+"bucket": "note_missing (+voice/offset)",
+"verdicts": [
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 0.4
+},
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 0.4
+}
+]
+},
+{
+"pdf": "haydn-canzonet-she-never-told--ms",
+"engraver": "ms",
+"bar": 35,
+"bucket": "note_missing (+voice/offset)",
+"verdicts": [
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 0.0
+}
+]
+},
+{
+"pdf": "haydn-canzonet-she-never-told--ms",
+"engraver": "ms",
+"bar": 39,
+"bucket": "note_missing (+voice/offset)",
+"verdicts": [
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 0.1
+},
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 0.1
+},
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 2.6
+}
+]
+},
+{
+"pdf": "haydn-quartet-op20-6--ms",
+"engraver": "ms",
+"bar": 9,
+"bucket": "combo(ts):dot+type",
+"verdicts": [
+{
+"sub": "dot_add",
+"found": true,
+"loose": true,
+"nearest": 1.6
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": 82.0
+}
+]
+},
+{
+"pdf": "hensel-op7-1-nachtwanderer--ms",
+"engraver": "ms",
+"bar": 9,
+"bucket": "unresolved:voice",
+"verdicts": []
+},
+{
+"pdf": "hensel-op7-1-nachtwanderer--ms",
+"engraver": "ms",
+"bar": 10,
+"bucket": "unresolved:voice",
+"verdicts": []
+},
+{
+"pdf": "hensel-op7-1-nachtwanderer--ms",
+"engraver": "ms",
+"bar": 13,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "hensel-op7-1-nachtwanderer--ms",
+"engraver": "ms",
+"bar": 22,
+"bucket": "combo(ts):rest_extra+tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "rest_extra",
+"found": null
+}
+]
+},
+{
+"pdf": "hensel-op7-1-nachtwanderer--ms",
+"engraver": "ms",
+"bar": 23,
+"bucket": "combo(ts):tuplet+type",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "head_fill+flags",
+"found": true,
+"loose": true,
+"nearest": 0.1
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "hensel-op7-1-nachtwanderer--ms",
+"engraver": "ms",
+"bar": 24,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "hensel-op7-1-nachtwanderer--ms",
+"engraver": "ms",
+"bar": 25,
+"bucket": "combo(ts):tuplet+type",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "head_fill",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "hensel-op7-1-nachtwanderer--ms",
+"engraver": "ms",
+"bar": 26,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "hensel-op7-1-nachtwanderer--ms",
+"engraver": "ms",
+"bar": 27,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "hensel-op7-1-nachtwanderer--ms",
+"engraver": "ms",
+"bar": 28,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "hensel-op7-1-nachtwanderer--ms",
+"engraver": "ms",
+"bar": 29,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "hensel-op7-1-nachtwanderer--ms",
+"engraver": "ms",
+"bar": 30,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "hensel-op7-1-nachtwanderer--ms",
+"engraver": "ms",
+"bar": 31,
+"bucket": "combo(ts):tuplet+type",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "head_fill+flags",
+"found": true,
+"loose": true,
+"nearest": 0.0
+}
+]
+},
+{
+"pdf": "hensel-op7-1-nachtwanderer--ms",
+"engraver": "ms",
+"bar": 32,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "hensel-op7-1-nachtwanderer--ms",
+"engraver": "ms",
+"bar": 33,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "joplin-maple-leaf-rag--ly",
+"engraver": "ly",
+"bar": 8,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "joplin-maple-leaf-rag--ly",
+"engraver": "ly",
+"bar": 42,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "kinkel-op8-5-trennung--ms",
+"engraver": "ms",
+"bar": 4,
+"bucket": "type",
+"verdicts": [
+{
+"sub": "flag_drop",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 0.1
+}
+]
+},
+{
+"pdf": "kinkel-op8-5-trennung--ms",
+"engraver": "ms",
+"bar": 9,
+"bucket": "rest_missing",
+"verdicts": [
+{
+"sub": "rest_missing",
+"found": false,
+"loose": false,
+"nearest": 6.4
+},
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 2.6
+}
+]
+},
+{
+"pdf": "kinkel-op8-5-trennung--ms",
+"engraver": "ms",
+"bar": 11,
+"bucket": "note_missing (+voice/offset)",
+"verdicts": [
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 1.3
+}
+]
+},
+{
+"pdf": "kinkel-op8-5-trennung--ms",
+"engraver": "ms",
+"bar": 13,
+"bucket": "note_missing",
+"verdicts": [
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 0.5
+}
+]
+},
+{
+"pdf": "kinkel-op8-5-trennung--ms",
+"engraver": "ms",
+"bar": 14,
+"bucket": "unresolved:other",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 1,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 2,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 3,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 4,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 5,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 6,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 7,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 8,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 9,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 10,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 11,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 12,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 13,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 14,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 15,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 16,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 17,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "lehmann-golden-bridges--ms",
+"engraver": "ms",
+"bar": 18,
+"bucket": "time_signature",
+"verdicts": []
+},
+{
+"pdf": "mayer-quartet-op14--ly",
+"engraver": "ly",
+"bar": 2,
+"bucket": "rest_missing",
+"verdicts": [
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 2.4
+},
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 0.9
+}
+]
+},
+{
+"pdf": "mayer-quartet-op14--ly",
+"engraver": "ly",
+"bar": 3,
+"bucket": "combo(ts):rest_missing+type",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 1.2
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 0.1
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 1.2
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 0.1
+},
+{
+"sub": "rest_type",
+"found": true,
+"loose": true,
+"nearest": 0.1
+},
+{
+"sub": "rest_missing",
+"found": false,
+"loose": false,
+"nearest": 4.2
+},
+{
+"sub": "rest_missing",
+"found": false,
+"loose": true,
+"nearest": 4.2
+},
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 2.5
+}
+]
+},
+{
+"pdf": "mayer-quartet-op14--ly",
+"engraver": "ly",
+"bar": 4,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": 6.8
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": 5.1
+}
+]
+},
+{
+"pdf": "mayer-quartet-op14--ly",
+"engraver": "ly",
+"bar": 8,
+"bucket": "rest_missing",
+"verdicts": [
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 2.1
+}
+]
+},
+{
+"pdf": "mayer-quartet-op14--ly",
+"engraver": "ly",
+"bar": 16,
+"bucket": "rest_missing",
+"verdicts": [
+{
+"sub": "rest_missing",
+"found": false,
+"loose": false,
+"nearest": 3.9
+},
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 1.3
+}
+]
+},
+{
+"pdf": "mayer-quartet-op14--ly",
+"engraver": "ly",
+"bar": 17,
+"bucket": "rest_missing (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 0.1
+}
+]
+},
+{
+"pdf": "mayer-quartet-op14--ly",
+"engraver": "ly",
+"bar": 18,
+"bucket": "combo(ts):dot+type",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": false,
+"loose": true,
+"nearest": 3.4
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": 6.8
+},
+{
+"sub": "dot_add",
+"found": true,
+"loose": true,
+"nearest": 1.0
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": 8.4
+}
+]
+},
+{
+"pdf": "mayer-quartet-op14--ly",
+"engraver": "ly",
+"bar": 24,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "mayer-quartet-op14--ms",
+"engraver": "ms",
+"bar": 18,
+"bucket": "note_missing",
+"verdicts": [
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 1.6
+}
+]
+},
+{
+"pdf": "mozart-k545-1--lilypond-mutopia",
+"engraver": "ly",
+"bar": 21,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "mozart-k545-1--lilypond-mutopia",
+"engraver": "ly",
+"bar": 32,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "mozart-k545-1--lilypond-mutopia",
+"engraver": "ly",
+"bar": 33,
+"bucket": "dot",
+"verdicts": [
+{
+"sub": "dot_drop",
+"found": null
+}
+]
+},
+{
+"pdf": "mozart-k545-1--ly",
+"engraver": "ly",
+"bar": 70,
+"bucket": "combo(ts):grace_as_real+note_extra",
+"verdicts": [
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.1
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+}
+]
+},
+{
+"pdf": "mozart-k545-1--ms",
+"engraver": "ms",
+"bar": 34,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "mozart-quartet-k155--ly",
+"engraver": "ly",
+"bar": 2,
+"bucket": "rest_missing",
+"verdicts": [
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 1.9
+},
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 1.9
+}
+]
+},
+{
+"pdf": "mozart-quartet-k155--ly",
+"engraver": "ly",
+"bar": 3,
+"bucket": "rest_missing",
+"verdicts": [
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 2.6
+},
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 2.6
+}
+]
+},
+{
+"pdf": "mozart-quartet-k155--ly",
+"engraver": "ly",
+"bar": 12,
+"bucket": "rest_missing",
+"verdicts": [
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 1.9
+}
+]
+},
+{
+"pdf": "mozart-quartet-k155--ly",
+"engraver": "ly",
+"bar": 15,
+"bucket": "dot",
+"verdicts": [
+{
+"sub": "dot_drop",
+"found": null
+}
+]
+},
+{
+"pdf": "mozart-quartet-k155--ly",
+"engraver": "ly",
+"bar": 18,
+"bucket": "grace_as_real",
+"verdicts": [
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.0
+}
+]
+},
+{
+"pdf": "mozart-quartet-k155--ly",
+"engraver": "ly",
+"bar": 19,
+"bucket": "combo(ts):grace_as_real+note_extra+note_missing+tuplet",
+"verdicts": [
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 1.4
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+}
+]
+},
+{
+"pdf": "mozart-quartet-k155--ly",
+"engraver": "ly",
+"bar": 25,
+"bucket": "rest_missing",
+"verdicts": [
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 2.4
+},
+{
+"sub": "rest_missing",
+"found": false,
+"loose": false,
+"nearest": 4.9
+},
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 2.4
+},
+{
+"sub": "rest_missing",
+"found": false,
+"loose": false,
+"nearest": 4.9
+}
+]
+},
+{
+"pdf": "mozart-quartet-k155--ly",
+"engraver": "ly",
+"bar": 26,
+"bucket": "combo(ts):grace_as_real+rest_missing+tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 2.4
+},
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 2.5
+}
+]
+},
+{
+"pdf": "mozart-quartet-k155--ms",
+"engraver": "ms",
+"bar": 18,
+"bucket": "grace_as_real",
+"verdicts": [
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.0
+}
+]
+},
+{
+"pdf": "mozart-quartet-k155--ms",
+"engraver": "ms",
+"bar": 26,
+"bucket": "grace_as_real",
+"verdicts": [
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.1
+}
+]
+},
+{
+"pdf": "mozart-quartet-k80--ms",
+"engraver": "ms",
+"bar": 4,
+"bucket": "combo(ts):grace_as_real+note_missing+type",
+"verdicts": [
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.5
+},
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 1.0
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 0.4
+},
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 0.5
+}
+]
+},
+{
+"pdf": "mozart-quartet-k80--ms",
+"engraver": "ms",
+"bar": 14,
+"bucket": "dot",
+"verdicts": [
+{
+"sub": "dot_add",
+"found": false,
+"loose": false,
+"nearest": 55.3
+}
+]
+},
+{
+"pdf": "mozart-quartet-k80--ms",
+"engraver": "ms",
+"bar": 15,
+"bucket": "dot",
+"verdicts": [
+{
+"sub": "dot_add",
+"found": false,
+"loose": false,
+"nearest": 84.6
+}
+]
+},
+{
+"pdf": "mozart-quartet-k80--ms",
+"engraver": "ms",
+"bar": 20,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "mozart-quartet-k80--ms",
+"engraver": "ms",
+"bar": 28,
+"bucket": "combo(ts):dot+rest_missing",
+"verdicts": [
+{
+"sub": "dot_drop",
+"found": null
+},
+{
+"sub": "rest_missing",
+"found": false,
+"loose": false,
+"nearest": null
+}
+]
+},
+{
+"pdf": "schubert-ave-maria--ms",
+"engraver": "ms",
+"bar": 4,
+"bucket": "grace_as_real",
+"verdicts": [
+{
+"sub": "grace_as_real",
+"found": true,
+"loose": true,
+"nearest": 0.0
+}
+]
+},
+{
+"pdf": "schubert-ave-maria--ms",
+"engraver": "ms",
+"bar": 10,
+"bucket": "combo(ts):note_missing+tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "note_missing",
+"found": false,
+"loose": true,
+"nearest": null
+}
+]
+},
+{
+"pdf": "schubert-ave-maria--ms",
+"engraver": "ms",
+"bar": 13,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 0.0
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 3,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 4,
+"bucket": "note_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 5,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 6,
+"bucket": "combo(ts):rest_missing+type",
+"verdicts": [
+{
+"sub": "rest_type",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "rest_missing",
+"found": false,
+"loose": false,
+"nearest": 9.1
+},
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 0.1
+},
+{
+"sub": "rest_missing",
+"found": true,
+"loose": true,
+"nearest": 0.0
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 16,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 17,
+"bucket": "rest_missing (+voice/offset)",
+"verdicts": [
+{
+"sub": "rest_missing",
+"found": false,
+"loose": true,
+"nearest": 11.9
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 18,
+"bucket": "note_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": true,
+"loose": false
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 19,
+"bucket": "note_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": true,
+"loose": false
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 20,
+"bucket": "note_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": true,
+"loose": false
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 21,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 22,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 23,
+"bucket": "note_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 24,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 25,
+"bucket": "note_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 26,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 27,
+"bucket": "type",
+"verdicts": [
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 1.2
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 37,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 38,
+"bucket": "note_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ly",
+"engraver": "ly",
+"bar": 39,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "schubert-die-stadt--ms",
+"engraver": "ms",
+"bar": 16,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 1.1
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": true,
+"nearest": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": true,
+"nearest": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ms",
+"engraver": "ms",
+"bar": 17,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ms",
+"engraver": "ms",
+"bar": 18,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 1.2
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": true,
+"nearest": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": true,
+"nearest": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ms",
+"engraver": "ms",
+"bar": 19,
+"bucket": "combo(ts):note_extra+note_missing+tuplet+type",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 1.2
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 0.5
+},
+{
+"sub": "note_missing",
+"found": false,
+"loose": false,
+"nearest": 3.3
+},
+{
+"sub": "note_missing",
+"found": false,
+"loose": true,
+"nearest": 3.1
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ms",
+"engraver": "ms",
+"bar": 20,
+"bucket": "combo(ts):tuplet+type",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 1.1
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": true,
+"nearest": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": true,
+"nearest": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ms",
+"engraver": "ms",
+"bar": 21,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": true,
+"loose": true,
+"nearest": 1.2
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": true,
+"nearest": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": true,
+"nearest": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ms",
+"engraver": "ms",
+"bar": 23,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "schubert-die-stadt--ms",
+"engraver": "ms",
+"bar": 28,
+"bucket": "voice/time-offset assignment only",
+"verdicts": []
+},
+{
+"pdf": "schubert-die-stadt--ms",
+"engraver": "ms",
+"bar": 32,
+"bucket": "type (+voice/offset)",
+"verdicts": [
+{
+"sub": "flag_down",
+"found": true,
+"loose": true,
+"nearest": 0.0
+}
+]
+},
+{
+"pdf": "schubert-die-stadt--ms",
+"engraver": "ms",
+"bar": 39,
+"bucket": "combo(ts):note_missing+type",
+"verdicts": [
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "flag_up",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "beam_down",
+"found": null
+},
+{
+"sub": "note_missing",
+"found": false,
+"loose": false,
+"nearest": null
+},
+{
+"sub": "note_missing",
+"found": false,
+"loose": false,
+"nearest": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ly",
+"engraver": "ly",
+"bar": 4,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ly",
+"engraver": "ly",
+"bar": 9,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ly",
+"engraver": "ly",
+"bar": 12,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ly",
+"engraver": "ly",
+"bar": 13,
+"bucket": "note_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ly",
+"engraver": "ly",
+"bar": 14,
+"bucket": "rest_missing",
+"verdicts": [
+{
+"sub": "rest_missing",
+"found": false,
+"loose": false,
+"nearest": 9.4
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ly",
+"engraver": "ly",
+"bar": 15,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ly",
+"engraver": "ly",
+"bar": 18,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ly",
+"engraver": "ly",
+"bar": 20,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ly",
+"engraver": "ly",
+"bar": 25,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ly",
+"engraver": "ly",
+"bar": 28,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ly",
+"engraver": "ly",
+"bar": 29,
+"bucket": "note_extra (+voice/offset)",
+"verdicts": [
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+},
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ly",
+"engraver": "ly",
+"bar": 31,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 3,
+"bucket": "combo(ts):tuplet+type",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "head_fill",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 4,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 7,
+"bucket": "type",
+"verdicts": [
+{
+"sub": "head_fill",
+"found": true,
+"loose": true,
+"nearest": 0.1
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 9,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 12,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 13,
+"bucket": "combo(ts):note_missing+tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 0.1
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 15,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 18,
+"bucket": "combo(ts):tuplet+type",
+"verdicts": [
+{
+"sub": "head_fill",
+"found": true,
+"loose": true,
+"nearest": 0.0
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 19,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 20,
+"bucket": "note_extra",
+"verdicts": [
+{
+"sub": "note_extra",
+"found": false,
+"loose": false
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 23,
+"bucket": "type",
+"verdicts": [
+{
+"sub": "head_fill",
+"found": true,
+"loose": true,
+"nearest": 0.1
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 25,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 26,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 28,
+"bucket": "tuplet (+voice/offset)",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 29,
+"bucket": "combo(ts):note_missing+tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 0.1
+},
+{
+"sub": "note_missing",
+"found": true,
+"loose": true,
+"nearest": 0.1
+}
+]
+},
+{
+"pdf": "schumann-op96-4-gesungen--ms",
+"engraver": "ms",
+"bar": 31,
+"bucket": "tuplet",
+"verdicts": [
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+},
+{
+"sub": "tuplet",
+"found": null
+}
+]
+}
+]

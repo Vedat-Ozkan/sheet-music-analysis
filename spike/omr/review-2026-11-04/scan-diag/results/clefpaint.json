@@ -1,0 +1,54 @@
+{
+"olimpic-6481218-p5-s1": {
+"name": "olimpic-6481218-p5-s1",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 1,
+"notes": 55,
+"pitch_notes": 45,
+"timed_notes": 44,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 4,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+23,
+23
+],
+"images": [
+"2543x901"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6481218-p7-s2": {
+"name": "olimpic-6481218-p7-s2",
+"pdfs": 1,
+"bars": 5,
+"wrong_bar_count": 0,
+"wrong_part_count": 1,
+"notes": 60,
+"pitch_notes": 56,
+"timed_notes": 53,
+"pitch_timing_bars": 3,
+"exact_pooled": 2,
+"exact": 0,
+"wrong": 3,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+23,
+23
+],
+"images": [
+"2529x709"
+],
+"problems": [],
+"outcome": "done"
+}
+}
+}

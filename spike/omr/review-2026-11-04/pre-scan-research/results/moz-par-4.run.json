@@ -1,0 +1,59 @@
+{
+ "facts": {
+  "seconds": 136.6,
+  "pages": 4,
+  "scan": true,
+  "skipped": [],
+  "passes": [
+   {
+    "setting": 0,
+    "outcome": "done",
+    "seconds": 75.4
+   },
+   {
+    "setting": 1,
+    "outcome": "done",
+    "seconds": 135.8
+   }
+  ],
+  "merge": {
+   "reason": "merged",
+   "staves": "36",
+   "decisions": "Counter({('same', True, True): 64, ('same', True, False): 19, ('differ', True, True): 19, ('differ', True, False): 15, ('differ', False, True): 13, ('differ', False, False): 7, ('same', False, False): 5, ('same', False, True): 4})"
+  }
+ },
+ "phases": [
+  [
+   "start",
+   1793854574.52
+  ],
+  [
+   "imported",
+   1793854575.56
+  ],
+  [
+   "homr_start_parallel",
+   1793854575.56
+  ],
+  [
+   "read_pdf",
+   1793854575.56
+  ],
+  [
+   "read_pdf_done",
+   1793854712.21
+  ],
+  [
+   "homr_done",
+   1793854712.21
+  ],
+  [
+   "merge_render",
+   1793854712.22
+  ],
+  [
+   "render_done",
+   1793854716.87
+  ]
+ ]
+}

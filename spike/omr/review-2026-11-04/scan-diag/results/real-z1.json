@@ -1,0 +1,152 @@
+{
+"real-bach-wtc1-22-prelude--scan": {
+"name": "real-bach-wtc1-22-prelude--scan",
+"pdfs": 1,
+"bars": 24,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 807,
+"pitch_notes": 640,
+"timed_notes": 380,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 24,
+"wrong_unwarned": 0,
+"facts": {
+"interlines": [
+11,
+11,
+11,
+11
+],
+"images": [
+"1393x1974",
+"1393x1974"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"real-beethoven-op2no1-iii--scan": {
+"name": "real-beethoven-op2no1-iii--scan",
+"pdfs": 1,
+"bars": 77,
+"wrong_bar_count": 1,
+"wrong_part_count": 0,
+"notes": 633,
+"pitch_notes": 595,
+"timed_notes": 592,
+"pitch_timing_bars": 65,
+"exact_pooled": 62,
+"exact": 62,
+"wrong": 15,
+"wrong_unwarned": 13,
+"right_but_shaded": 1,
+"facts": {
+"interlines": [
+21,
+21,
+21,
+21
+],
+"images": [
+"2766x1246",
+"2766x3613"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"real-grieg-op38no7--scan": {
+"name": "real-grieg-op38no7--scan",
+"pdfs": 1,
+"bars": 53,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 409,
+"pitch_notes": 406,
+"timed_notes": 402,
+"pitch_timing_bars": 47,
+"exact_pooled": 43,
+"exact": 41,
+"wrong": 10,
+"wrong_unwarned": 9,
+"facts": {
+"interlines": [
+21,
+21,
+21,
+21
+],
+"images": [
+"2480x3507",
+"2480x3507"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"mozart-k545-1--real-scan-peters": {
+"name": "mozart-k545-1--real-scan-peters",
+"pdfs": 1,
+"bars": 73,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 1270,
+"pitch_notes": 1098,
+"timed_notes": 1033,
+"pitch_timing_bars": 33,
+"exact_pooled": 28,
+"exact": 26,
+"wrong": 45,
+"wrong_unwarned": 32,
+"facts": {
+"interlines": [
+19,
+19,
+19,
+19,
+19,
+19,
+19,
+19
+],
+"images": [
+"1984x2860",
+"2005x2890",
+"1984x2860",
+"2005x2890"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"chopin-prelude-4--real-scan-schirmer": {
+"name": "chopin-prelude-4--real-scan-schirmer",
+"pdfs": 1,
+"bars": 26,
+"wrong_bar_count": 1,
+"wrong_part_count": 0,
+"notes": 604,
+"pitch_notes": 581,
+"timed_notes": 576,
+"pitch_timing_bars": 16,
+"exact_pooled": 12,
+"exact": 12,
+"wrong": 14,
+"wrong_unwarned": 10,
+"unpaired": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2559x3502"
+],
+"problems": [],
+"outcome": "done"
+}
+}
+}

@@ -1,0 +1,146 @@
+{
+"real-bach-wtc1-22-prelude--scan": {
+"name": "real-bach-wtc1-22-prelude--scan",
+"pdfs": 1,
+"failed": 1,
+"bars": 24,
+"wrong": 24,
+"notes": 807,
+"facts": {
+"error": "ReadError: No music could be read from this PDF",
+"interlines": [],
+"images": [
+"1045x1480",
+"1045x1480"
+],
+"problems": [
+"StepException",
+"page flagged as invalid"
+],
+"outcome": "no music"
+}
+},
+"real-beethoven-op2no1-iii--scan": {
+"name": "real-beethoven-op2no1-iii--scan",
+"pdfs": 1,
+"bars": 77,
+"wrong_bar_count": 1,
+"wrong_part_count": 0,
+"notes": 633,
+"unpaired": 23,
+"wrong": 47,
+"wrong_unwarned": 46,
+"pitch_notes": 420,
+"timed_notes": 408,
+"pitch_timing_bars": 32,
+"exact_pooled": 30,
+"exact": 30,
+"right_but_shaded": 3,
+"facts": {
+"interlines": [
+13,
+16,
+16,
+13,
+16,
+16
+],
+"images": [
+"2074x2710",
+"2074x2710"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"real-grieg-op38no7--scan": {
+"name": "real-grieg-op38no7--scan",
+"pdfs": 1,
+"bars": 53,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 409,
+"pitch_notes": 404,
+"timed_notes": 374,
+"pitch_timing_bars": 43,
+"exact_pooled": 39,
+"exact": 37,
+"wrong": 14,
+"wrong_unwarned": 8,
+"facts": {
+"interlines": [
+16,
+16,
+16,
+16
+],
+"images": [
+"1859x2630",
+"1859x2630"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"mozart-k545-1--real-scan-peters": {
+"name": "mozart-k545-1--real-scan-peters",
+"pdfs": 1,
+"bars": 73,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 1270,
+"pitch_notes": 1054,
+"timed_notes": 690,
+"pitch_timing_bars": 10,
+"exact_pooled": 6,
+"exact": 5,
+"wrong": 67,
+"wrong_unwarned": 21,
+"facts": {
+"interlines": [
+14,
+14,
+14,
+14,
+14,
+14,
+14,
+14
+],
+"images": [
+"1488x2145",
+"1504x2167",
+"1488x2145",
+"1504x2167"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"chopin-prelude-4--real-scan-schirmer": {
+"name": "chopin-prelude-4--real-scan-schirmer",
+"pdfs": 1,
+"bars": 26,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 604,
+"pitch_notes": 581,
+"timed_notes": 576,
+"pitch_timing_bars": 18,
+"exact_pooled": 15,
+"exact": 14,
+"wrong": 11,
+"wrong_unwarned": 9,
+"facts": {
+"interlines": [
+15,
+15
+],
+"images": [
+"1919x2626"
+],
+"problems": [],
+"outcome": "done"
+}
+}
+}

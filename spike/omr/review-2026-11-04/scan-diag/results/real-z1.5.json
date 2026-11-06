@@ -1,0 +1,136 @@
+{
+"real-bach-wtc1-22-prelude--scan": {
+"name": "real-bach-wtc1-22-prelude--scan",
+"pdfs": 1,
+"bars": 24,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 807,
+"pitch_notes": 693,
+"timed_notes": 340,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 24,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+17,
+17,
+17,
+17
+],
+"images": [
+"2091x2961",
+"2091x2961"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"real-beethoven-op2no1-iii--scan": {
+"name": "real-beethoven-op2no1-iii--scan",
+"pdfs": 1,
+"failed": 1,
+"bars": 77,
+"wrong": 77,
+"notes": 633,
+"facts": {
+"error": "ReadError: No music could be read from this PDF",
+"interlines": [],
+"images": [
+"4149x5421",
+"4149x5421"
+],
+"problems": [
+"StepException",
+"page flagged as invalid"
+],
+"outcome": "no music"
+}
+},
+"real-grieg-op38no7--scan": {
+"name": "real-grieg-op38no7--scan",
+"pdfs": 1,
+"bars": 53,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 409,
+"pitch_notes": 406,
+"timed_notes": 389,
+"pitch_timing_bars": 48,
+"exact_pooled": 43,
+"exact": 39,
+"wrong": 10,
+"wrong_unwarned": 7,
+"facts": {
+"interlines": [
+32,
+32,
+32,
+32
+],
+"images": [
+"3719x5261",
+"3719x5261"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"mozart-k545-1--real-scan-peters": {
+"name": "mozart-k545-1--real-scan-peters",
+"pdfs": 1,
+"bars": 73,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 1270,
+"pitch_notes": 1105,
+"timed_notes": 1022,
+"pitch_timing_bars": 32,
+"exact_pooled": 30,
+"exact": 29,
+"wrong": 43,
+"wrong_unwarned": 25,
+"facts": {
+"interlines": [
+28,
+28,
+28,
+28,
+28,
+28,
+28,
+28
+],
+"images": [
+"2976x4290",
+"3008x4335",
+"2976x4290",
+"3008x4335"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"chopin-prelude-4--real-scan-schirmer": {
+"name": "chopin-prelude-4--real-scan-schirmer",
+"pdfs": 1,
+"failed": 1,
+"bars": 26,
+"wrong": 26,
+"notes": 604,
+"facts": {
+"error": "ReadError: No music could be read from this PDF",
+"interlines": [],
+"images": [
+"3839x5253"
+],
+"problems": [
+"StepException",
+"page flagged as invalid"
+],
+"outcome": "no music"
+}
+}
+}

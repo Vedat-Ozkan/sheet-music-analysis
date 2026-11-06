@@ -1,0 +1,10 @@
+#!/bin/bash
+host=$1
+shift
+here=$(dirname "$(readlink -f "$0")")
+user=$(awk -v h="$host" '$1 == h { print $3 }' "$here/hosts")
+script=$(mktemp)
+printf '%s\n' "$@" > "$script"
+scp -q -o BatchMode=yes "$script" "$host:C:/Users/$user/omr/check.sh" 2>/dev/null
+ssh -o BatchMode=yes "$host" "wsl -d Ubuntu -u root -- bash /mnt/c/Users/$user/omr/check.sh" 2>&1 | grep -v gitHubKey
+rm -f "$script"

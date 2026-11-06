@@ -1,0 +1,495 @@
+{
+ "version": 1,
+ "annotations": [
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 1,
+    "beat": 1
+   },
+   "end": {
+    "measure": 4,
+    "beat": 3.75
+   },
+   "label": "intro"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 4,
+    "beat": 3.75
+   },
+   "end": {
+    "measure": 8,
+    "beat": 3.75
+   },
+   "label": "a"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 8,
+    "beat": 3.75
+   },
+   "end": {
+    "measure": 12,
+    "beat": 3
+   },
+   "label": "b"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 12,
+    "beat": 3
+   },
+   "end": {
+    "measure": 14
+   },
+   "label": "b\u2032"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 15,
+    "beat": 3.5
+   },
+   "end": {
+    "measure": 20
+   },
+   "label": "c"
+  },
+  {
+   "type": "region",
+   "start": {
+    "measure": 21,
+    "beat": 1
+   },
+   "end": {
+    "measure": 24
+   },
+   "label": "pedal on B",
+   "staff": 3
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 1,
+    "beat": 1
+   },
+   "label": "i",
+   "key": "g"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 2,
+    "beat": 1,
+    "staff": 3,
+    "pitch": "F#1"
+   },
+   "label": "N",
+   "callout": 1
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 2,
+    "beat": 1
+   },
+   "number": 1
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 6,
+    "beat": 1
+   },
+   "label": "V65"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 7,
+    "beat": 1
+   },
+   "label": "i"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 8,
+    "beat": 1
+   },
+   "label": "V65"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 9,
+    "beat": 1
+   },
+   "label": "i6"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 10,
+    "beat": 1
+   },
+   "label": "ii/o43"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 10,
+    "beat": 3
+   },
+   "label": "i6"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 11,
+    "beat": 1
+   },
+   "label": "ii/o7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 11,
+    "beat": 3
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 12,
+    "beat": 1
+   },
+   "label": "i"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 12,
+    "beat": 1
+   },
+   "label": "IAC"
+  },
+  {
+   "type": "voice_leading",
+   "kind": "arrow",
+   "from_note": {
+    "measure": 11,
+    "beat": 3,
+    "staff": 2,
+    "pitch": "C4"
+   },
+   "to_note": {
+    "measure": 12,
+    "beat": 1,
+    "staff": 2,
+    "pitch": "Bb3"
+   },
+   "label": "7\u20133"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 12,
+    "beat": 3
+   },
+   "label": "ii/o43"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 13,
+    "beat": 1
+   },
+   "label": "ii/o7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 13,
+    "beat": 3
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 14,
+    "beat": 1
+   },
+   "label": "i"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 14,
+    "beat": 1
+   },
+   "label": "IAC"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 17,
+    "beat": 1
+   },
+   "label": "viio7/ii",
+   "callout": 2
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 17,
+    "beat": 1
+   },
+   "number": 2
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 18,
+    "beat": 3
+   },
+   "label": "viio42/V",
+   "key": "b",
+   "callout": 3
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 18,
+    "beat": 3
+   },
+   "number": 3
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 19,
+    "beat": 1
+   },
+   "label": "V 4\u20133"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 19,
+    "beat": 1,
+    "staff": 2,
+    "pitch": "B3"
+   },
+   "label": "S"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 20,
+    "beat": 1
+   },
+   "label": "i"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 20,
+    "beat": 1
+   },
+   "label": "PAC"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 21,
+    "beat": 1
+   },
+   "label": "viio7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 22,
+    "beat": 1
+   },
+   "label": "I",
+   "key": "B",
+   "callout": 4
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 22,
+    "beat": 3,
+    "staff": 3,
+    "pitch": "A#1"
+   },
+   "label": "N",
+   "callout": 4
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 22,
+    "beat": 1
+   },
+   "number": 4
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 49,
+    "beat": 1
+   },
+   "label": "i",
+   "key": "g"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 50,
+    "beat": 1
+   },
+   "label": "Fr43",
+   "callout": 1
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 51,
+    "beat": 1
+   },
+   "label": "i"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 52,
+    "beat": 1
+   },
+   "label": "i"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 53,
+    "beat": 1
+   },
+   "label": "III+64",
+   "callout": 2
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 53,
+    "beat": 2
+   },
+   "label": "i"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 54,
+    "beat": 1
+   },
+   "label": "III+64"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 54,
+    "beat": 2
+   },
+   "label": "i"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 49,
+    "beat": 1
+   },
+   "end": {
+    "measure": 51
+   },
+   "label": "a (opening motif)"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 52,
+    "beat": 1
+   },
+   "end": {
+    "measure": 56
+   },
+   "label": "closing"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 50,
+    "beat": 3,
+    "staff": 1,
+    "pitch": "G5"
+   },
+   "label": "P"
+  },
+  {
+   "type": "voice_leading",
+   "kind": "arrow",
+   "from_note": {
+    "measure": 50,
+    "beat": 2.5,
+    "staff": 3,
+    "pitch": "Ab2"
+   },
+   "to_note": {
+    "measure": 51,
+    "beat": 1,
+    "staff": 3,
+    "pitch": "G1"
+   }
+  },
+  {
+   "type": "voice_leading",
+   "kind": "arrow",
+   "from_note": {
+    "measure": 50,
+    "beat": 3.5,
+    "staff": 1,
+    "pitch": "F#5"
+   },
+   "to_note": {
+    "measure": 51,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "G5"
+   }
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 55,
+    "beat": 3
+   },
+   "number": 3
+  }
+ ],
+ "passages": [
+  [
+   1,
+   24
+  ],
+  [
+   49,
+   56
+  ]
+ ]
+}

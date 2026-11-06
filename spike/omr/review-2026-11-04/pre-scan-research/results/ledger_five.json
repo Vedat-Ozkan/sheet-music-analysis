@@ -1,0 +1,7855 @@
+{
+"real-bach-wtc1-22-prelude--scan": [
+{
+"bar": 0,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra2)",
+"homr_kind": "pitch(miss0,extra2)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss4,extra0)",
+"homr_kind": "pitch(miss2,extra0)",
+"cur_clef_wrong": true,
+"homr_clef_wrong": true
+}
+]
+},
+{
+"bar": 1,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra3)",
+"homr_kind": "pitch(miss0,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss2,extra1)",
+"homr_kind": "pitch(miss1,extra0)",
+"cur_clef_wrong": true,
+"homr_clef_wrong": true
+}
+]
+},
+{
+"bar": 2,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss5,extra2)",
+"homr_kind": "duration",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "onset",
+"homr_kind": "pitch(miss1,extra0)",
+"cur_clef_wrong": true,
+"homr_clef_wrong": true
+}
+]
+},
+{
+"bar": 3,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss5,extra4)",
+"homr_kind": "duration",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss4,extra1)",
+"homr_kind": "pitch(miss3,extra1)",
+"cur_clef_wrong": true,
+"homr_clef_wrong": true
+}
+]
+},
+{
+"bar": 4,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss2,extra11)",
+"homr_kind": "pitch(miss0,extra7)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss9,extra3)",
+"homr_kind": "pitch(miss7,extra1)",
+"cur_clef_wrong": true,
+"homr_clef_wrong": true
+}
+]
+},
+{
+"bar": 5,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss0,extra6)",
+"homr_kind": "pitch(miss1,extra8)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss6,extra0)",
+"homr_kind": "pitch(miss6,extra0)",
+"cur_clef_wrong": true,
+"homr_clef_wrong": true
+}
+]
+},
+{
+"bar": 6,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss3,extra5)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss2,extra0)",
+"homr_kind": "rests",
+"cur_clef_wrong": true,
+"homr_clef_wrong": true
+}
+]
+},
+{
+"bar": 7,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss6,extra2)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss2,extra3)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 8,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss3,extra3)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "onset",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 9,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss2,extra3)",
+"homr_kind": "pitch(miss0,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "pitch(miss1,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 10,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss5,extra3)",
+"homr_kind": "pitch(miss3,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss1,extra3)",
+"homr_kind": "pitch(miss1,extra3)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 11,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss6,extra6)",
+"homr_kind": "pitch(miss1,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss2,extra0)",
+"homr_kind": "pitch(miss0,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 12,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss4,extra1)",
+"homr_kind": "pitch(miss3,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra4)",
+"homr_kind": "pitch(miss0,extra3)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 13,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss1,extra3)",
+"homr_kind": "pitch(miss0,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 14,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra4)",
+"homr_kind": "pitch(miss6,extra9)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss13,extra13)",
+"homr_kind": "pitch(miss0,extra3)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 15,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss3,extra3)",
+"homr_kind": "duration",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss8,extra9)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 16,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss3,extra1)",
+"homr_kind": "duration",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss4,extra3)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 17,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss4,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss2,extra5)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 18,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss3,extra2)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 19,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss17,extra17)",
+"homr_kind": "pitch(miss0,extra1)",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra4)",
+"homr_kind": "pitch(miss1,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 20,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss4,extra6)",
+"homr_kind": "pitch(miss1,extra0)",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "onset",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 21,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss19,extra2)",
+"homr_kind": "duration",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss7,extra6)",
+"homr_kind": "duration",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 22,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss4,extra4)",
+"homr_kind": "pitch(miss1,extra2)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss9,extra1)",
+"homr_kind": "pitch(miss3,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 23,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss3,extra2)",
+"homr_kind": "ties",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "onset",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+}
+],
+"real-beethoven-op2no1-iii--scan": [
+{
+"bar": 0,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 1,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 2,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 3,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 4,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 5,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 6,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 7,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 8,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 9,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 10,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 11,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 12,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 13,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "rests",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 14,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 15,
+"status": "both wrong",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "rests",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 16,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 17,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 18,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 19,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 20,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 21,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 22,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 23,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 24,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 25,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 26,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 27,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 28,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 29,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 30,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 31,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss4,extra0)",
+"homr_kind": "pitch(miss4,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss2,extra2)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 32,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "pitch(miss4,extra0)",
+"homr_kind": "pitch(miss4,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 33,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "pitch(miss4,extra0)",
+"homr_kind": "pitch(miss4,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 34,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss4,extra0)",
+"homr_kind": "pitch(miss4,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 35,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "onset",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss4,extra3)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 36,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 37,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 38,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss4,extra4)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 39,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra6)",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 40,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "pitch(miss5,extra2)",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 41,
+"status": "both wrong",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss0,extra1)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss2,extra1)",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 42,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 43,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 44,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 45,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra1)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 46,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 47,
+"status": "lost",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "same",
+"homr_kind": "pitch(miss1,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 48,
+"status": "lost",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "same",
+"homr_kind": "pitch(miss1,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 49,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 50,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 51,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 52,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 53,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 54,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "ties",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 55,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "ties",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 56,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "ties",
+"homr_kind": "ties",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 57,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": true
+}
+]
+},
+{
+"bar": 58,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 59,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra3)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 60,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 61,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 62,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 63,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 64,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 65,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": true
+}
+]
+},
+{
+"bar": 66,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 67,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 68,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 69,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 70,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 71,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 72,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 73,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 74,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 75,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 76,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+}
+],
+"real-grieg-op38no7--scan": [
+{
+"bar": 0,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 1,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 2,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 3,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 4,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 5,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 6,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 7,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "rests",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 8,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "ties",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 9,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 10,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "ties",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 11,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 12,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 13,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 14,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "pitch(miss3,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "pitch(miss0,extra5)",
+"homr_kind": "ties",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 15,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss2,extra0)",
+"homr_kind": "pitch(miss1,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss0,extra2)",
+"homr_kind": "pitch(miss0,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 16,
+"status": "both wrong",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "rests",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 17,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 18,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 19,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 20,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 21,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 22,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 23,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 24,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "rests",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 25,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "rests",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 26,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 27,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 28,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 29,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 30,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra1)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 31,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "ties",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 32,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "rests",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 33,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "ties",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "rests",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 34,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "rests",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 35,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "rests",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 36,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "rests",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 37,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "onset",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "onset",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 38,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss2,extra1)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 39,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 40,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss0,extra1)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 41,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 42,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 43,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "duration",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 44,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "rests",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 45,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "ties",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 46,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 47,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "ties",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 48,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 49,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "ties",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 50,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 51,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "pitch(miss3,extra0)",
+"homr_kind": "pitch(miss1,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "pitch(miss0,extra4)",
+"homr_kind": "pitch(miss0,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 52,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss2,extra0)",
+"homr_kind": "pitch(miss1,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss0,extra2)",
+"homr_kind": "pitch(miss0,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+}
+],
+"chopin-prelude-4--real-scan-schirmer": [
+{
+"bar": 0,
+"status": "both wrong",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss0,extra1)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 1,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 2,
+"status": "lost",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "duration",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "same",
+"homr_kind": "pitch(miss12,extra12)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 3,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "pitch(miss6,extra6)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 4,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 5,
+"status": "both wrong",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "duration",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 6,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 7,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 8,
+"status": "gained",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "ties",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 9,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 10,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 11,
+"status": "both wrong",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "duration",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 12,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "rests",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 13,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 14,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 15,
+"status": "both wrong",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "duration",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss4,extra5)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 16,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss4,extra1)",
+"homr_kind": "pitch(miss5,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss4,extra4)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 17,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra1)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 18,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "onset",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 19,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 20,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss0,extra1)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 21,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "rests",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 22,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 23,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 24,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra9)",
+"homr_kind": "pitch(miss0,extra6)",
+"cur_clef_wrong": true,
+"homr_clef_wrong": true
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "pitch(miss6,extra0)",
+"homr_kind": "pitch(miss6,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 25,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "pitch(miss0,extra3)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": true
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "pitch(miss5,extra0)",
+"homr_kind": "pitch(miss3,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+}
+],
+"mozart-k545-1--real-scan-peters": [
+{
+"bar": 0,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "onset",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss8,extra9)",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 1,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss8,extra8)",
+"homr_kind": "onset",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 2,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss8,extra8)",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 3,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "rests",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss8,extra8)",
+"homr_kind": "onset",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 4,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 5,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 6,
+"status": "both wrong",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "rests",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 7,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "rests",
+"homr_kind": "duration",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 8,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "pitch(miss0,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 9,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 10,
+"status": "both wrong",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "onset",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 11,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 12,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 13,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss0,extra1)",
+"homr_kind": "pitch(miss3,extra3)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra1)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 14,
+"status": "lost",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "same",
+"homr_kind": "pitch(miss3,extra3)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 15,
+"status": "lost",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "same",
+"homr_kind": "pitch(miss3,extra3)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 16,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "pitch(miss1,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 17,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss1,extra7)",
+"homr_kind": "pitch(miss0,extra7)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss7,extra0)",
+"homr_kind": "pitch(miss7,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 18,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss0,extra5)",
+"homr_kind": "pitch(miss0,extra5)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss5,extra0)",
+"homr_kind": "pitch(miss5,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 19,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "pitch(miss0,extra4)",
+"homr_kind": "pitch(miss0,extra4)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss4,extra0)",
+"homr_kind": "pitch(miss4,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 20,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra5)",
+"homr_kind": "pitch(miss1,extra5)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss4,extra1)",
+"homr_kind": "pitch(miss4,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 21,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss1,extra1)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss16,extra16)",
+"homr_kind": "onset",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 22,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss5,extra5)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 23,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 24,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra1)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 25,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "pitch(miss12,extra12)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 26,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "pitch(miss1,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 27,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "rests",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 28,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss3,extra2)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 29,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss3,extra3)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 30,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "rests",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 31,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 32,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss3,extra2)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 33,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss2,extra2)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 34,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss2,extra0)",
+"homr_kind": "rests",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "onset",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 35,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss2,extra1)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 36,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss7,extra6)",
+"homr_kind": "pitch(miss1,extra0)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 37,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 38,
+"status": "both wrong",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "rests",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 39,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 40,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "rests",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 41,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss8,extra8)",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 42,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss8,extra8)",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 43,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "same",
+"homr_kind": "pitch(miss1,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss8,extra8)",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 44,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "rests",
+"homr_kind": "pitch(miss5,extra5)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 45,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "duration",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 46,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "rests",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 47,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 48,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 49,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 50,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss2,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 51,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 52,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 53,
+"status": "lost",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "same",
+"homr_kind": "pitch(miss0,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 54,
+"status": "kept",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 55,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 56,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss0,extra1)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 57,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss16,extra16)",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": true
+}
+]
+},
+{
+"bar": 58,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss16,extra16)",
+"homr_kind": "onset",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 59,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 60,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 61,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 62,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": true
+}
+]
+},
+{
+"bar": 63,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 64,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss8,extra8)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 65,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss2,extra1)",
+"homr_kind": "pitch(miss1,extra1)",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": true,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 66,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss2,extra2)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 67,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss2,extra2)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 68,
+"status": "both wrong",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss2,extra0)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": false,
+"cur_adds": false,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 69,
+"status": "gained",
+"homr_exact": false,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss0,extra1)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": false,
+"cur_adds": true,
+"homr_adds": false,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "onset",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 70,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss1,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss3,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 71,
+"status": "gained",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": false,
+"homr_right": true,
+"cur_adds": false,
+"homr_adds": true,
+"swapped": true,
+"cur_kind": "pitch(miss3,extra0)",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+},
+{
+"bar": 72,
+"status": "kept",
+"homr_exact": true,
+"staves": [
+{
+"staff": 0,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+},
+{
+"staff": 1,
+"cur_right": true,
+"homr_right": true,
+"cur_adds": true,
+"homr_adds": true,
+"swapped": false,
+"cur_kind": "same",
+"homr_kind": "same",
+"cur_clef_wrong": false,
+"homr_clef_wrong": false
+}
+]
+}
+]
+}

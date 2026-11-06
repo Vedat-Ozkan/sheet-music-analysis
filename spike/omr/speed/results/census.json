@@ -1,0 +1,1498 @@
+[
+ {
+  "pdf": "h-bizet-absence--ly.pdf",
+  "pages": 4,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-18 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "C059-Bold (Type1)",
+   "C059-Italic (Type1)",
+   "C059-Roman (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-18 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.24.4",
+  "Producer": "GPL Ghostscript 9.56.1"
+ },
+ {
+  "pdf": "h-bizet-absence--ms.pdf",
+  "pages": 5,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)",
+   "LelandText (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "FreeSerifItalic (Type0)",
+   "Leland (Type0)",
+   "LelandText (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h-brahms-fruhlingstrost--ms.pdf",
+  "pages": 6,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h-clara-schumann-liebeszauber--ms.pdf",
+  "pages": 5,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-BdIta (Type0)",
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "FreeSerifItalic (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h-haydn-o-tuneful-voice--ms.pdf",
+  "pages": 5,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h-holmes-barque-des-amours--ms.pdf",
+  "pages": 7,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h-lang-traumbild--ms.pdf",
+  "pages": 6,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "FreeSerifItalic (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h-schubert-aufenthalt--ly.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "C059-Bold (Type1)",
+   "C059-Italic (Type1)",
+   "C059-Roman (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.24.4",
+  "Producer": "GPL Ghostscript 9.56.1"
+ },
+ {
+  "pdf": "h-schubert-aufenthalt--ms.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h-schubert-erlkonig--ly.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-16 (Type1)",
+   "Emmentaler-18 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "C059-Bold (Type1)",
+   "C059-Italic (Type1)",
+   "C059-Roman (Type1)",
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-16 (Type1)",
+   "Emmentaler-18 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.24.4",
+  "Producer": "GPL Ghostscript 9.56.1"
+ },
+ {
+  "pdf": "h-schubert-erlkonig--ms.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)",
+   "LelandText (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)",
+   "LelandText (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h2-bantock-ghost-road--ms.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "FreeSerifItalic (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h2-beach-years-at-spring--ms.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "FreeSerifItalic (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h2-berg-nacht--ms.pdf",
+  "pages": 5,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Bravura (Type0)",
+   "Leland (Type0)",
+   "LelandText (Type0)"
+  ],
+  "fonts": [
+   "Bravura (Type0)",
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)",
+   "LelandText (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h2-bizet-adieux--ms.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "FreeSerifItalic (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h2-boulanger-poete--ms.pdf",
+  "pages": 4,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "BravuraText (Type0)",
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "BravuraText (Type0)",
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "FreeSerif (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h2-brahms-liebestreu--ms.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "FreeSerifBoldItalic (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h3-faisst-sehnsucht--ms.pdf",
+  "pages": 7,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Bravura (Type0)",
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Bravura (Type0)",
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h3-franz-lotosblume--ms.pdf",
+  "pages": 4,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h3-hensel-mayenlied--ms.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "FreeSerifItalic (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h3-lang-auf-der-reise--ms.pdf",
+  "pages": 4,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "FreeSerifItalic (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h3-schubert-kraehe--ms.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "h3-schumann-fruehlingsnacht--ms.pdf",
+  "pages": 5,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "real-bach-wtc1-22-prelude--scan.pdf",
+  "pages": 2,
+  "scan": true,
+  "images": 2,
+  "music_fonts": [],
+  "fonts": []
+ },
+ {
+  "pdf": "real-beethoven-op2no1-iii--scan.pdf",
+  "pages": 2,
+  "scan": true,
+  "images": 2,
+  "music_fonts": [],
+  "fonts": []
+ },
+ {
+  "pdf": "real-grieg-op38no7--scan.pdf",
+  "pages": 2,
+  "scan": true,
+  "images": 2,
+  "music_fonts": [],
+  "fonts": []
+ },
+ {
+  "pdf": "bach-chorale-269--ms.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Leland (Type0)",
+   "Tahoma (Type0)",
+   "TimesNewRomanPS-BoldMT (Type0)",
+   "TimesNewRomanPS-ItalicMT (Type0)",
+   "TimesNewRomanPSMT (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "bach-chorale-269--vr.pdf",
+  "pages": 1,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [],
+  "fonts": [
+   "ScoreSerif-Italic (TrueType)",
+   "ScoreSerif-Regular (TrueType)"
+  ]
+ },
+ {
+  "pdf": "bach-prelude-846--ly.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-18 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "C059-Bold (Type1)",
+   "C059-Roman (Type1)",
+   "Emmentaler-18 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.24.4",
+  "Producer": "GPL Ghostscript 9.56.1"
+ },
+ {
+  "pdf": "bach-prelude-846--ms.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "beethoven-op48-5-gottes-macht--ly.pdf",
+  "pages": 1,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "C059-Bold (Type1)",
+   "C059-Roman (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.24.4",
+  "Producer": "GPL Ghostscript 9.56.1"
+ },
+ {
+  "pdf": "beethoven-op48-5-gottes-macht--ms.pdf",
+  "pages": 1,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "beethoven-op48-5-gottes-macht--scan.pdf",
+  "pages": 1,
+  "scan": true,
+  "images": 1,
+  "music_fonts": [],
+  "fonts": []
+ },
+ {
+  "pdf": "beethoven-op52-2-feuerfarb--ly.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "C059-Bold (Type1)",
+   "C059-Italic (Type1)",
+   "C059-Roman (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.24.4",
+  "Producer": "GPL Ghostscript 9.56.1"
+ },
+ {
+  "pdf": "beethoven-op52-2-feuerfarb--ms.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-BdIta (Type0)",
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "FreeSerifItalic (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "chopin-prelude-4--lilypond-mutopia.pdf",
+  "pages": 1,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "CenturySchL-Bold (Type1)",
+   "CenturySchL-Ital (Type1)",
+   "CenturySchL-Roma (Type1)",
+   "DejaVuSans (TrueType)",
+   "DejaVuSans-Bold (TrueType)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.18.2",
+  "Producer": "GPL Ghostscript 8.70"
+ },
+ {
+  "pdf": "chopin-prelude-4--ms.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "chopin-prelude-4--real-scan-schirmer.pdf",
+  "pages": 1,
+  "scan": true,
+  "images": 2,
+  "music_fonts": [],
+  "fonts": [
+   "GlyphLessFont (Type0)"
+  ]
+ },
+ {
+  "pdf": "chopin-prelude-4--scan.pdf",
+  "pages": 2,
+  "scan": true,
+  "images": 2,
+  "music_fonts": [],
+  "fonts": []
+ },
+ {
+  "pdf": "chopin-prelude-4--vr.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [],
+  "fonts": [
+   "ScoreSerif-Bold (TrueType)",
+   "ScoreSerif-Italic (TrueType)",
+   "ScoreSerif-Regular (TrueType)"
+  ]
+ },
+ {
+  "pdf": "clara-schumann-polonaise-1--ms.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "clara-schumann-polonaise-1--vr.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [],
+  "fonts": [
+   "ScoreSerif-Bold (TrueType)",
+   "ScoreSerif-Italic (TrueType)",
+   "ScoreSerif-Regular (TrueType)"
+  ]
+ },
+ {
+  "pdf": "clara-schumann-polonaise-3--ly.pdf",
+  "pages": 6,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-11 (Type1)",
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "C059-Bold (Type1)",
+   "C059-Italic (Type1)",
+   "C059-Roman (Type1)",
+   "Emmentaler-11 (Type1)",
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.24.4",
+  "Producer": "GPL Ghostscript 9.56.1"
+ },
+ {
+  "pdf": "clara-schumann-polonaise-3--ms.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "clara-schumann-polonaise-3--scan.pdf",
+  "pages": 3,
+  "scan": true,
+  "images": 3,
+  "music_fonts": [],
+  "fonts": []
+ },
+ {
+  "pdf": "clara-schumann-polonaise-4--ms.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)",
+   "LelandText (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)",
+   "LelandText (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "clara-schumann-polonaise-4--vr.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [],
+  "fonts": [
+   "Leipzig (Type0)",
+   "ScoreSerif-Bold (TrueType)",
+   "ScoreSerif-Italic (TrueType)",
+   "ScoreSerif-Regular (TrueType)"
+  ]
+ },
+ {
+  "pdf": "cpe-bach-h186--ly.pdf",
+  "pages": 5,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "C059-Bold (Type1)",
+   "C059-Italic (Type1)",
+   "C059-Roman (Type1)",
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.24.4",
+  "Producer": "GPL Ghostscript 9.56.1"
+ },
+ {
+  "pdf": "cpe-bach-h186--ms.pdf",
+  "pages": 5,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Leland (Type0)",
+   "TimesNewRomanPS-BoldMT (Type0)",
+   "TimesNewRomanPS-ItalicMT (Type0)",
+   "TimesNewRomanPSMT (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "cpe-bach-h186--scan.pdf",
+  "pages": 5,
+  "scan": true,
+  "images": 5,
+  "music_fonts": [],
+  "fonts": []
+ },
+ {
+  "pdf": "faisst-op18-2-lied-der-nacht--ms.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "faisst-op18-2-lied-der-nacht--scan.pdf",
+  "pages": 3,
+  "scan": true,
+  "images": 3,
+  "music_fonts": [],
+  "fonts": []
+ },
+ {
+  "pdf": "faisst-op18-2-lied-der-nacht--vr.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [],
+  "fonts": [
+   "ScoreSerif-Bold (TrueType)",
+   "ScoreSerif-Italic (TrueType)",
+   "ScoreSerif-Regular (TrueType)"
+  ]
+ },
+ {
+  "pdf": "haydn-canzonet-she-never-told--ms.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Bravura (Type0)",
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Bravura (Type0)",
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "haydn-canzonet-she-never-told--vr.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [],
+  "fonts": [
+   "Leipzig (Type0)",
+   "ScoreSerif-Bold (TrueType)",
+   "ScoreSerif-Italic (TrueType)",
+   "ScoreSerif-Regular (TrueType)"
+  ]
+ },
+ {
+  "pdf": "haydn-quartet-op20-6--ms.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "haydn-quartet-op20-6--vr.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [],
+  "fonts": [
+   "ScoreSerif-Bold (TrueType)",
+   "ScoreSerif-Italic (TrueType)",
+   "ScoreSerif-Regular (TrueType)"
+  ]
+ },
+ {
+  "pdf": "hensel-op7-1-nachtwanderer--ms.pdf",
+  "pages": 4,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Bravura (Type0)",
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Bravura (Type0)",
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "FreeSerifItalic (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "hensel-op7-1-nachtwanderer--vr.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [],
+  "fonts": [
+   "ScoreSerif-Bold (TrueType)",
+   "ScoreSerif-Italic (TrueType)",
+   "ScoreSerif-Regular (TrueType)"
+  ]
+ },
+ {
+  "pdf": "joplin-maple-leaf-rag--ly.pdf",
+  "pages": 4,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-18 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "C059-Bold (Type1)",
+   "C059-Roman (Type1)",
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-18 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.24.4",
+  "Producer": "GPL Ghostscript 9.56.1"
+ },
+ {
+  "pdf": "joplin-maple-leaf-rag--ms.pdf",
+  "pages": 4,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)",
+   "LelandText (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "FreeSerif (Type0)",
+   "FreeSerifBold (Type0)",
+   "FreeSerifItalic (Type0)",
+   "Leland (Type0)",
+   "LelandText (Type0)",
+   "TimesNewRomanPS-BoldMT (Type0)",
+   "TimesNewRomanPSMT (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "kinkel-op8-5-trennung--ms.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "kinkel-op8-5-trennung--scan.pdf",
+  "pages": 2,
+  "scan": true,
+  "images": 2,
+  "music_fonts": [],
+  "fonts": []
+ },
+ {
+  "pdf": "kinkel-op8-5-trennung--vr.pdf",
+  "pages": 1,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [],
+  "fonts": [
+   "ScoreSerif-Bold (TrueType)",
+   "ScoreSerif-Italic (TrueType)",
+   "ScoreSerif-Regular (TrueType)"
+  ]
+ },
+ {
+  "pdf": "lehmann-golden-bridges--ms.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Bravura (Type0)",
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Bravura (Type0)",
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "mayer-quartet-op14--ly.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-11 (Type1)",
+   "Emmentaler-13 (Type1)"
+  ],
+  "fonts": [
+   "C059-Bold (Type1)",
+   "C059-Italic (Type1)",
+   "C059-Roman (Type1)",
+   "Emmentaler-11 (Type1)",
+   "Emmentaler-13 (Type1)"
+  ],
+  "Creator": "LilyPond 2.24.4",
+  "Producer": "GPL Ghostscript 9.56.1"
+ },
+ {
+  "pdf": "mayer-quartet-op14--ms.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "mozart-k545-1--lilypond-mutopia.pdf",
+  "pages": 5,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-11 (Type1)",
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "CenturySchL-Bold (Type1)",
+   "CenturySchL-Ital (Type1)",
+   "CenturySchL-Roma (Type1)",
+   "Emmentaler-11 (Type1)",
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.16.1",
+  "Producer": "GPL Ghostscript 8.70"
+ },
+ {
+  "pdf": "mozart-k545-1--ly.pdf",
+  "pages": 4,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "C059-Bold (Type1)",
+   "C059-Roman (Type1)",
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.24.4",
+  "Producer": "GPL Ghostscript 9.56.1"
+ },
+ {
+  "pdf": "mozart-k545-1--ms.pdf",
+  "pages": 5,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "FreeSerif (Type0)",
+   "FreeSerifBold (Type0)",
+   "FreeSerifItalic (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "mozart-k545-1--real-scan-peters.pdf",
+  "pages": 4,
+  "scan": true,
+  "images": 8,
+  "music_fonts": [],
+  "fonts": [
+   "GlyphLessFont (Type0)"
+  ]
+ },
+ {
+  "pdf": "mozart-k545-1--scan.pdf",
+  "pages": 5,
+  "scan": true,
+  "images": 5,
+  "music_fonts": [],
+  "fonts": []
+ },
+ {
+  "pdf": "mozart-quartet-k155--ly.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-11 (Type1)"
+  ],
+  "fonts": [
+   "C059-Bold (Type1)",
+   "C059-Roman (Type1)",
+   "DejaVuSerif (TrueType)",
+   "Emmentaler-11 (Type1)"
+  ],
+  "Creator": "LilyPond 2.24.4",
+  "Producer": "GPL Ghostscript 9.56.1"
+ },
+ {
+  "pdf": "mozart-quartet-k155--ms.pdf",
+  "pages": 2,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "mozart-quartet-k80--ms.pdf",
+  "pages": 1,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "mozart-quartet-k80--scan.pdf",
+  "pages": 1,
+  "scan": true,
+  "images": 1,
+  "music_fonts": [],
+  "fonts": []
+ },
+ {
+  "pdf": "mozart-quartet-k80--vr.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [],
+  "fonts": [
+   "ScoreSerif-Bold (TrueType)",
+   "ScoreSerif-Italic (TrueType)",
+   "ScoreSerif-Regular (TrueType)"
+  ]
+ },
+ {
+  "pdf": "schubert-ave-maria--ms.pdf",
+  "pages": 5,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "FreeSerifItalic (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "schubert-ave-maria--vr.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [],
+  "fonts": [
+   "ScoreSerif-Bold (TrueType)",
+   "ScoreSerif-Italic (TrueType)",
+   "ScoreSerif-Regular (TrueType)"
+  ]
+ },
+ {
+  "pdf": "schubert-die-stadt--ly.pdf",
+  "pages": 4,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "C059-Bold (Type1)",
+   "C059-Italic (Type1)",
+   "C059-Roman (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.24.4",
+  "Producer": "GPL Ghostscript 9.56.1"
+ },
+ {
+  "pdf": "schubert-die-stadt--ms.pdf",
+  "pages": 4,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "schumann-op96-4-gesungen--ly.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "C059-Bold (Type1)",
+   "C059-Italic (Type1)",
+   "C059-Roman (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.24.4",
+  "Producer": "GPL Ghostscript 9.56.1"
+ },
+ {
+  "pdf": "schumann-op96-4-gesungen--ms.pdf",
+  "pages": 4,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "FreeSerifBold (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "chopin-28-4-mutopia.pdf",
+  "pages": 1,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "CenturySchL-Bold (Type1)",
+   "CenturySchL-Ital (Type1)",
+   "CenturySchL-Roma (Type1)",
+   "DejaVuSans (TrueType)",
+   "DejaVuSans-Bold (TrueType)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.18.2",
+  "Producer": "GPL Ghostscript 8.70"
+ },
+ {
+  "pdf": "mozart-k545-1-scan.pdf",
+  "pages": 4,
+  "scan": true,
+  "images": 8,
+  "music_fonts": [],
+  "fonts": [
+   "GlyphLessFont (Type0)"
+  ]
+ },
+ {
+  "pdf": "moonlight.pdf",
+  "pages": 25,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "feta-alphabet11 (Type1)",
+   "feta-alphabet13 (Type1)",
+   "feta-alphabet20 (Type1)"
+  ],
+  "fonts": [
+   "Aybabtu-Regular (Type1)",
+   "CenturySchL-Bold (Type1)",
+   "CenturySchL-Ital (Type1)",
+   "CenturySchL-Roma (Type1)",
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "feta-alphabet11 (Type1)",
+   "feta-alphabet13 (Type1)",
+   "feta-alphabet20 (Type1)"
+  ],
+  "Producer": "AFPL Ghostscript 8.54"
+ },
+ {
+  "pdf": "turca.pdf",
+  "pages": 5,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-11 (Type1)",
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "CenturySchL-Bold (Type1)",
+   "CenturySchL-Ital (Type1)",
+   "CenturySchL-Roma (Type1)",
+   "DejaVuSans (TrueType)",
+   "DejaVuSans-Bold (TrueType)",
+   "Emmentaler-11 (Type1)",
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.16.2",
+  "Producer": "GPL Ghostscript 8.70"
+ },
+ {
+  "pdf": "ave_maria.pdf",
+  "pages": 5,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Leland (Type0)"
+  ],
+  "fonts": [
+   "Edwin-Bold (Type0)",
+   "Edwin-Italic (Type0)",
+   "Edwin-Roman (Type0)",
+   "FreeSerifItalic (Type0)",
+   "Leland (Type0)"
+  ],
+  "Creator": "MuseScore Studio Version: 4.7.4",
+  "Producer": "Qt 6.10.2"
+ },
+ {
+  "pdf": "hensel.pdf",
+  "pages": 3,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [],
+  "fonts": [
+   "ScoreSerif-Bold (TrueType)",
+   "ScoreSerif-Italic (TrueType)",
+   "ScoreSerif-Regular (TrueType)"
+  ]
+ },
+ {
+  "pdf": "rondo.pdf",
+  "pages": 5,
+  "scan": false,
+  "images": 0,
+  "music_fonts": [
+   "Emmentaler-11 (Type1)",
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "fonts": [
+   "CenturySchL-Bold (Type1)",
+   "CenturySchL-Ital (Type1)",
+   "CenturySchL-Roma (Type1)",
+   "DejaVuSans (TrueType)",
+   "DejaVuSans-Bold (TrueType)",
+   "Emmentaler-11 (Type1)",
+   "Emmentaler-13 (Type1)",
+   "Emmentaler-14 (Type1)",
+   "Emmentaler-20 (Type1)",
+   "Emmentaler-Brace (Type1)"
+  ],
+  "Creator": "LilyPond 2.16.2",
+  "Producer": "GPL Ghostscript 8.70"
+ }
+]

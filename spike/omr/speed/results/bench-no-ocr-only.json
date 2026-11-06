@@ -1,0 +1,382 @@
+{
+ "variant": "no-ocr",
+ "definition": [
+  [
+   "org.audiveris.omr.text.tesseract.TesseractOCR.useOCR=false"
+  ],
+  ""
+ ],
+ "signature": "3b5cb394ee96a45cspeed-no-ocr81d5e1cf",
+ "wall": 115.4,
+ "totals": {
+  "bench": {
+   "pdfs": 5,
+   "pages": 25,
+   "crashed": 0,
+   "pages_skipped": 0,
+   "score_errors": 0,
+   "seconds_per_page": 22.5,
+   "truth_notes": 5940,
+   "omr_notes": 5883,
+   "pitch": 0.9626,
+   "pitch_onset": 0.9348,
+   "bar_duration_errors": 21,
+   "bar_duration_errors_in_truth": 0,
+   "truth_bars": 311,
+   "tuplet_notes": {
+    "truth": 66,
+    "found": 39,
+    "invented": 40,
+    "missed": 27
+   },
+   "ornaments": {
+    "truth": 50,
+    "found": 25,
+    "invented": 1,
+    "missed": 25
+   },
+   "grace": {
+    "truth": 66,
+    "found": 32,
+    "invented": 4,
+    "missed": 34
+   },
+   "octave_lines": {
+    "truth": 0,
+    "found": 0,
+    "invented": 1,
+    "missed": 0
+   },
+   "clef_changes": {
+    "truth": 50,
+    "found": 31,
+    "invented": 13,
+    "missed": 19
+   }
+  }
+ },
+ "pdfs": {
+  "bench": [
+   {
+    "pdf": "pdfs/mozart-k545-1--ms.pdf",
+    "piece": "mozart-k545-1",
+    "engraver": "ms",
+    "pages": 5,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 98.9,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 1281,
+     "omr_notes": 1263,
+     "truth_bars": 73,
+     "omr_bars": 73,
+     "xml_bars": [
+      73,
+      73
+     ],
+     "bars_paired": 73,
+     "shared_pitch": 1223,
+     "shared_pitch_onset": 1207,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 3,
+       "omr_total": 3
+      },
+      "ornaments": {
+       "truth": 8,
+       "found": 6,
+       "invented": 1,
+       "omr_total": 7
+      },
+      "grace": {
+       "truth": 11,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 15,
+       "found": 10,
+       "invented": 5,
+       "omr_total": 15
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 1281
+   },
+   {
+    "pdf": "pdfs/joplin-maple-leaf-rag--ms.pdf",
+    "piece": "joplin-maple-leaf-rag",
+    "engraver": "ms",
+    "pages": 4,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 102.0,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 1581,
+     "omr_notes": 1581,
+     "truth_bars": 85,
+     "omr_bars": 85,
+     "xml_bars": [
+      85,
+      85
+     ],
+     "bars_paired": 85,
+     "shared_pitch": 1579,
+     "shared_pitch_onset": 1579,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 2,
+       "found": 0,
+       "invented": 2,
+       "omr_total": 2
+      }
+     },
+     "verovio_msgs": 3
+    },
+    "truth_notes": 1581
+   },
+   {
+    "pdf": "pdfs/clara-schumann-polonaise-3--ly.pdf",
+    "piece": "clara-schumann-polonaise-3",
+    "engraver": "ly",
+    "pages": 6,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 107.2,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 966,
+     "omr_notes": 934,
+     "truth_bars": 48,
+     "omr_bars": 52,
+     "xml_bars": [
+      48,
+      52
+     ],
+     "bars_paired": 48,
+     "shared_pitch": 842,
+     "shared_pitch_onset": 761,
+     "uneven_bars_omr": 10,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 27,
+       "found": 27,
+       "invented": 24,
+       "omr_total": 51
+      },
+      "ornaments": {
+       "truth": 7,
+       "found": 5,
+       "invented": 0,
+       "omr_total": 5
+      },
+      "grace": {
+       "truth": 39,
+       "found": 23,
+       "invented": 0,
+       "omr_total": 23
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 1,
+       "omr_total": 1
+      },
+      "clef_changes": {
+       "truth": 18,
+       "found": 11,
+       "invented": 3,
+       "omr_total": 14
+      }
+     },
+     "verovio_msgs": 2
+    },
+    "truth_notes": 966
+   },
+   {
+    "pdf": "pdfs/cpe-bach-h186--scan.pdf",
+    "piece": "cpe-bach-h186",
+    "engraver": "scan",
+    "pages": 5,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 122.0,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 831,
+     "omr_notes": 821,
+     "truth_bars": 32,
+     "omr_bars": 32,
+     "xml_bars": [
+      32,
+      32
+     ],
+     "bars_paired": 32,
+     "shared_pitch": 818,
+     "shared_pitch_onset": 779,
+     "uneven_bars_omr": 5,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 39,
+       "found": 12,
+       "invented": 0,
+       "omr_total": 12
+      },
+      "ornaments": {
+       "truth": 27,
+       "found": 14,
+       "invented": 0,
+       "omr_total": 14
+      },
+      "grace": {
+       "truth": 5,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 831
+   },
+   {
+    "pdf": "pdfs/mozart-k545-1--lilypond-mutopia.pdf",
+    "piece": "mozart-k545-1",
+    "engraver": "lilypond-mutopia",
+    "pages": 5,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 133.6,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 1281,
+     "omr_notes": 1284,
+     "truth_bars": 73,
+     "omr_bars": 73,
+     "xml_bars": [
+      73,
+      73
+     ],
+     "bars_paired": 73,
+     "shared_pitch": 1256,
+     "shared_pitch_onset": 1227,
+     "uneven_bars_omr": 4,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 13,
+       "omr_total": 13
+      },
+      "ornaments": {
+       "truth": 8,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 11,
+       "found": 9,
+       "invented": 4,
+       "omr_total": 13
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 15,
+       "found": 10,
+       "invented": 3,
+       "omr_total": 13
+      }
+     },
+     "verovio_msgs": 2
+    },
+    "truth_notes": 1281
+   }
+  ]
+ }
+}

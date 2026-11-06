@@ -1,0 +1,3 @@
+#!/bin/bash
+export FARM_INSTALL=/tmp/claude-1000/-home-kema-projects/e7eb6523-6727-4e40-ab68-cd8b0116ddd2/scratchpad/aud-pitch43
+exec /home/kema/projects/sheet-music-plugin/spike/omr/speed/farm/audiveris -option org.audiveris.omr.sheet.key.KeyBuilder.minFlatTrail=0.5 "$@"

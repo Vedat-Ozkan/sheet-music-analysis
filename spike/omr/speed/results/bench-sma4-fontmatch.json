@@ -1,0 +1,1337 @@
+{
+ "variant": "sma4-fontmatch",
+ "definition": [
+  [],
+  "",
+  "/tmp/claude-1000/-home-kema-projects/e7eb6523-6727-4e40-ab68-cd8b0116ddd2/scratchpad/aud-rc2/bin/Audiveris"
+ ],
+ "signature": "speed-sma4-fontmatch33e3c4b5",
+ "wall": 205.2,
+ "settings": "production",
+ "totals": {
+  "bench-oldly": {
+   "pdfs": 20,
+   "pages": 111,
+   "crashed": 1,
+   "pages_skipped": 0,
+   "score_errors": 0,
+   "seconds_per_page": 23.9,
+   "truth_notes": 29405,
+   "omr_notes": 27600,
+   "pitch": 0.9035,
+   "pitch_onset": 0.8843,
+   "bar_duration_errors": 195,
+   "bar_duration_errors_in_truth": 105,
+   "truth_bars": 2391,
+   "tuplet_notes": {
+    "truth": 824,
+    "found": 472,
+    "invented": 147,
+    "missed": 352
+   },
+   "ornaments": {
+    "truth": 39,
+    "found": 1,
+    "invented": 5,
+    "missed": 38
+   },
+   "grace": {
+    "truth": 281,
+    "found": 133,
+    "invented": 11,
+    "missed": 148
+   },
+   "octave_lines": {
+    "truth": 7,
+    "found": 1,
+    "invented": 0,
+    "missed": 6
+   },
+   "clef_changes": {
+    "truth": 185,
+    "found": 92,
+    "invented": 88,
+    "missed": 93
+   }
+  }
+ },
+ "pdfs": {
+  "bench-oldly": [
+   {
+    "pdf": "pdfs/ly-quartetopus18-no4-3--ly-old.pdf",
+    "piece": "ly-quartetopus18-no4-3",
+    "engraver": "ly-old",
+    "pages": 5,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 127.1,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 1053,
+     "omr_notes": 1031,
+     "truth_bars": 100,
+     "omr_bars": 101,
+     "xml_bars": [
+      101,
+      101
+     ],
+     "bars_paired": 101,
+     "shared_pitch": 932,
+     "shared_pitch_onset": 901,
+     "uneven_bars_omr": 29,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 270,
+       "found": 270,
+       "invented": 11,
+       "omr_total": 281
+      },
+      "ornaments": {
+       "truth": 1,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 14,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 1,
+       "found": 1,
+       "invented": 0,
+       "omr_total": 1
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 2,
+       "omr_total": 2
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 1053
+   },
+   {
+    "pdf": "pdfs/ly-mazurka-op6-no1--ly-old.pdf",
+    "piece": "ly-mazurka-op6-no1",
+    "engraver": "ly-old",
+    "pages": 3,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 117.8,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 954,
+     "omr_notes": 946,
+     "truth_bars": 73,
+     "omr_bars": 75,
+     "xml_bars": [
+      75,
+      75
+     ],
+     "bars_paired": 75,
+     "shared_pitch": 938,
+     "shared_pitch_onset": 904,
+     "uneven_bars_omr": 8,
+     "uneven_bars_truth": 27,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 100,
+       "found": 79,
+       "invented": 4,
+       "omr_total": 83
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 58,
+       "found": 56,
+       "invented": 1,
+       "omr_total": 57
+      },
+      "octave_lines": {
+       "truth": 2,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 18,
+       "found": 16,
+       "invented": 2,
+       "omr_total": 18
+      }
+     },
+     "verovio_msgs": 3
+    },
+    "truth_notes": 954
+   },
+   {
+    "pdf": "pdfs/ly-tschaikowsky-op37.1--ly-old.pdf",
+    "piece": "ly-tschaikowsky-op37.1",
+    "engraver": "ly-old",
+    "pages": 6,
+    "crashed": true,
+    "error": "No music could be read from this PDF",
+    "pages_skipped": [],
+    "seconds": 174.3,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 1574,
+     "omr_notes": 0,
+     "truth_bars": 103,
+     "omr_bars": 0,
+     "xml_bars": [
+      103,
+      0
+     ],
+     "bars_paired": 0,
+     "shared_pitch": 0,
+     "shared_pitch_onset": 0,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 9,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 308,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 5,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 2,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 5,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 1574
+   },
+   {
+    "pdf": "pdfs/ly-tschaikowsky-op37.8--ly-old.pdf",
+    "piece": "ly-tschaikowsky-op37.8",
+    "engraver": "ly-old",
+    "pages": 6,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 189.6,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 2523,
+     "omr_notes": 2518,
+     "truth_bars": 199,
+     "omr_bars": 199,
+     "xml_bars": [
+      199,
+      199
+     ],
+     "bars_paired": 199,
+     "shared_pitch": 2444,
+     "shared_pitch_onset": 2421,
+     "uneven_bars_omr": 6,
+     "uneven_bars_truth": 8,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 1,
+       "omr_total": 1
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 2,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 26,
+       "found": 20,
+       "invented": 7,
+       "omr_total": 27
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 2523
+   },
+   {
+    "pdf": "pdfs/ly-schubertf-d776-dubistdieruh--ly-old.pdf",
+    "piece": "ly-schubertf-d776-dubistdieruh",
+    "engraver": "ly-old",
+    "pages": 4,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 119.6,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 908,
+     "omr_notes": 899,
+     "truth_bars": 82,
+     "omr_bars": 82,
+     "xml_bars": [
+      82,
+      82
+     ],
+     "bars_paired": 82,
+     "shared_pitch": 862,
+     "shared_pitch_onset": 837,
+     "uneven_bars_omr": 10,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 1,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 8,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 3,
+       "found": 0,
+       "invented": 2,
+       "omr_total": 2
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 908
+   },
+   {
+    "pdf": "pdfs/ly-lvb-sonate-78-2--ly-old.pdf",
+    "piece": "ly-lvb-sonate-78-2",
+    "engraver": "ly-old",
+    "pages": 8,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 178.6,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 1720,
+     "omr_notes": 1735,
+     "truth_bars": 176,
+     "omr_bars": 177,
+     "xml_bars": [
+      176,
+      177
+     ],
+     "bars_paired": 176,
+     "shared_pitch": 1663,
+     "shared_pitch_onset": 1625,
+     "uneven_bars_omr": 9,
+     "uneven_bars_truth": 4,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 25,
+       "omr_total": 25
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 1,
+       "omr_total": 1
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 44,
+       "found": 22,
+       "invented": 24,
+       "omr_total": 46
+      }
+     },
+     "verovio_msgs": 24
+    },
+    "truth_notes": 1720
+   },
+   {
+    "pdf": "pdfs/ly-lvb-sonate-10no1-1--ly-old.pdf",
+    "piece": "ly-lvb-sonate-10no1-1",
+    "engraver": "ly-old",
+    "pages": 7,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 158.0,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 2142,
+     "omr_notes": 2130,
+     "truth_bars": 284,
+     "omr_bars": 284,
+     "xml_bars": [
+      284,
+      284
+     ],
+     "bars_paired": 283,
+     "shared_pitch": 1843,
+     "shared_pitch_onset": 1806,
+     "uneven_bars_omr": 21,
+     "uneven_bars_truth": 15,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 36,
+       "found": 36,
+       "invented": 13,
+       "omr_total": 49
+      },
+      "ornaments": {
+       "truth": 6,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 20,
+       "found": 11,
+       "invented": 6,
+       "omr_total": 17
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 26,
+       "found": 2,
+       "invented": 17,
+       "omr_total": 19
+      }
+     },
+     "verovio_msgs": 4
+    },
+    "truth_notes": 2142
+   },
+   {
+    "pdf": "pdfs/ly-andiemusik--ly-old.pdf",
+    "piece": "ly-andiemusik",
+    "engraver": "ly-old",
+    "pages": 2,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 36.6,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 629,
+     "omr_notes": 627,
+     "truth_bars": 23,
+     "omr_bars": 23,
+     "xml_bars": [
+      23,
+      23
+     ],
+     "bars_paired": 23,
+     "shared_pitch": 622,
+     "shared_pitch_onset": 617,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 2,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 3,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 3,
+       "found": 0,
+       "invented": 2,
+       "omr_total": 2
+      }
+     },
+     "verovio_msgs": 2
+    },
+    "truth_notes": 629
+   },
+   {
+    "pdf": "pdfs/ly-schubertf-d257-heidenroeslein--ly-old.pdf",
+    "piece": "ly-schubertf-d257-heidenroeslein",
+    "engraver": "ly-old",
+    "pages": 2,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 38.1,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 196,
+     "omr_notes": 192,
+     "truth_bars": 16,
+     "omr_bars": 16,
+     "xml_bars": [
+      16,
+      16
+     ],
+     "bars_paired": 16,
+     "shared_pitch": 132,
+     "shared_pitch_onset": 132,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 4,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 196
+   },
+   {
+    "pdf": "pdfs/ly-lvb-sonate-10no2-2--ly-old.pdf",
+    "piece": "ly-lvb-sonate-10no2-2",
+    "engraver": "ly-old",
+    "pages": 5,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 132.2,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 1294,
+     "omr_notes": 1276,
+     "truth_bars": 171,
+     "omr_bars": 171,
+     "xml_bars": [
+      173,
+      173
+     ],
+     "bars_paired": 173,
+     "shared_pitch": 1240,
+     "shared_pitch_onset": 1220,
+     "uneven_bars_omr": 6,
+     "uneven_bars_truth": 5,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 14,
+       "omr_total": 14
+      },
+      "ornaments": {
+       "truth": 5,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 10,
+       "found": 6,
+       "invented": 2,
+       "omr_total": 8
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 15,
+       "found": 8,
+       "invented": 7,
+       "omr_total": 15
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 1294
+   },
+   {
+    "pdf": "pdfs/ly-lvb-sonate-10no2-3--ly-old.pdf",
+    "piece": "ly-lvb-sonate-10no2-3",
+    "engraver": "ly-old",
+    "pages": 6,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 85.5,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 1922,
+     "omr_notes": 1907,
+     "truth_bars": 151,
+     "omr_bars": 151,
+     "xml_bars": [
+      152,
+      152
+     ],
+     "bars_paired": 152,
+     "shared_pitch": 1871,
+     "shared_pitch_onset": 1860,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 3,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 3,
+       "found": 3,
+       "invented": 3,
+       "omr_total": 6
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 6,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 8,
+       "found": 1,
+       "invented": 7,
+       "omr_total": 8
+      }
+     },
+     "verovio_msgs": 12
+    },
+    "truth_notes": 1922
+   },
+   {
+    "pdf": "pdfs/ly-schubertf-d703-quartettsatz--ly-old.pdf",
+    "piece": "ly-schubertf-d703-quartettsatz",
+    "engraver": "ly-old",
+    "pages": 8,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 196.1,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 2075,
+     "omr_notes": 2057,
+     "truth_bars": 154,
+     "omr_bars": 154,
+     "xml_bars": [
+      154,
+      154
+     ],
+     "bars_paired": 153,
+     "shared_pitch": 1992,
+     "shared_pitch_onset": 1916,
+     "uneven_bars_omr": 20,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 44,
+       "omr_total": 44
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 2,
+       "omr_total": 2
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 4,
+       "found": 0,
+       "invented": 6,
+       "omr_total": 6
+      }
+     },
+     "verovio_msgs": 14
+    },
+    "truth_notes": 2075
+   },
+   {
+    "pdf": "pdfs/ly-lvb-sonate-49no1-2--ly-old.pdf",
+    "piece": "ly-lvb-sonate-49no1-2",
+    "engraver": "ly-old",
+    "pages": 6,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 166.2,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 2037,
+     "omr_notes": 2026,
+     "truth_bars": 165,
+     "omr_bars": 165,
+     "xml_bars": [
+      165,
+      165
+     ],
+     "bars_paired": 165,
+     "shared_pitch": 2008,
+     "shared_pitch_onset": 1955,
+     "uneven_bars_omr": 9,
+     "uneven_bars_truth": 18,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 4,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 63,
+       "found": 53,
+       "invented": 1,
+       "omr_total": 54
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 4,
+       "found": 4,
+       "invented": 2,
+       "omr_total": 6
+      }
+     },
+     "verovio_msgs": 5
+    },
+    "truth_notes": 2037
+   },
+   {
+    "pdf": "pdfs/ly-quartetopus18-no4-1--ly-old.pdf",
+    "piece": "ly-quartetopus18-no4-1",
+    "engraver": "ly-old",
+    "pages": 8,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 180.5,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 2474,
+     "omr_notes": 2411,
+     "truth_bars": 118,
+     "omr_bars": 118,
+     "xml_bars": [
+      118,
+      118
+     ],
+     "bars_paired": 118,
+     "shared_pitch": 2196,
+     "shared_pitch_onset": 2106,
+     "uneven_bars_omr": 40,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 7,
+       "omr_total": 7
+      },
+      "ornaments": {
+       "truth": 5,
+       "found": 1,
+       "invented": 2,
+       "omr_total": 3
+      },
+      "grace": {
+       "truth": 52,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 1,
+       "found": 0,
+       "invented": 3,
+       "omr_total": 3
+      }
+     },
+     "verovio_msgs": 4
+    },
+    "truth_notes": 2474
+   },
+   {
+    "pdf": "pdfs/ly-lvb-sonate-02no1-1--ly-old.pdf",
+    "piece": "ly-lvb-sonate-02no1-1",
+    "engraver": "ly-old",
+    "pages": 6,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 164.9,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 1693,
+     "omr_notes": 1667,
+     "truth_bars": 153,
+     "omr_bars": 153,
+     "xml_bars": [
+      154,
+      154
+     ],
+     "bars_paired": 154,
+     "shared_pitch": 1658,
+     "shared_pitch_onset": 1598,
+     "uneven_bars_omr": 8,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 87,
+       "found": 84,
+       "invented": 0,
+       "omr_total": 84
+      },
+      "ornaments": {
+       "truth": 3,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 23,
+       "found": 7,
+       "invented": 0,
+       "omr_total": 7
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 8,
+       "found": 3,
+       "invented": 3,
+       "omr_total": 6
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 1693
+   },
+   {
+    "pdf": "pdfs/ly-schubertf-d881b-fischerweise--ly-old.pdf",
+    "piece": "ly-schubertf-d881b-fischerweise",
+    "engraver": "ly-old",
+    "pages": 8,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 174.5,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 1838,
+     "omr_notes": 1841,
+     "truth_bars": 92,
+     "omr_bars": 92,
+     "xml_bars": [
+      92,
+      92
+     ],
+     "bars_paired": 92,
+     "shared_pitch": 1838,
+     "shared_pitch_onset": 1823,
+     "uneven_bars_omr": 7,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 8,
+       "found": 8,
+       "invented": 0,
+       "omr_total": 8
+      }
+     },
+     "verovio_msgs": 2
+    },
+    "truth_notes": 1838
+   },
+   {
+    "pdf": "pdfs/ly-quartet-opus-59no3-2--ly-old.pdf",
+    "piece": "ly-quartet-opus-59no3-2",
+    "engraver": "ly-old",
+    "pages": 8,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 184.5,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 1559,
+     "omr_notes": 1552,
+     "truth_bars": 100,
+     "omr_bars": 100,
+     "xml_bars": [
+      100,
+      100
+     ],
+     "bars_paired": 100,
+     "shared_pitch": 1547,
+     "shared_pitch_onset": 1515,
+     "uneven_bars_omr": 9,
+     "uneven_bars_truth": 3,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 24,
+       "omr_total": 24
+      },
+      "ornaments": {
+       "truth": 4,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 8,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 17
+    },
+    "truth_notes": 1559
+   },
+   {
+    "pdf": "pdfs/ly-schubertf-d764-dermusensohn--ly-old.pdf",
+    "piece": "ly-schubertf-d764-dermusensohn",
+    "engraver": "ly-old",
+    "pages": 5,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 132.0,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 1201,
+     "omr_notes": 1197,
+     "truth_bars": 73,
+     "omr_bars": 73,
+     "xml_bars": [
+      73,
+      73
+     ],
+     "bars_paired": 73,
+     "shared_pitch": 1196,
+     "shared_pitch_onset": 1188,
+     "uneven_bars_omr": 6,
+     "uneven_bars_truth": 2,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 2
+    },
+    "truth_notes": 1201
+   },
+   {
+    "pdf": "pdfs/ly-schubertf-d777-lachenundweinen--ly-old.pdf",
+    "piece": "ly-schubertf-d777-lachenundweinen",
+    "engraver": "ly-old",
+    "pages": 5,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 58.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 974,
+     "omr_notes": 968,
+     "truth_bars": 84,
+     "omr_bars": 84,
+     "xml_bars": [
+      84,
+      84
+     ],
+     "bars_paired": 84,
+     "shared_pitch": 966,
+     "shared_pitch_onset": 966,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 3,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 6,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 1,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 6,
+       "found": 6,
+       "invented": 0,
+       "omr_total": 6
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 974
+   },
+   {
+    "pdf": "pdfs/ly-lvb-sonate-02no1-3--ly-old.pdf",
+    "piece": "ly-lvb-sonate-02no1-3",
+    "engraver": "ly-old",
+    "pages": 3,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 40.4,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 639,
+     "omr_notes": 620,
+     "truth_bars": 74,
+     "omr_bars": 75,
+     "xml_bars": [
+      77,
+      77
+     ],
+     "bars_paired": 77,
+     "shared_pitch": 619,
+     "shared_pitch_onset": 614,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 2,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 20,
+       "found": 0,
+       "invented": 2,
+       "omr_total": 2
+      },
+      "ornaments": {
+       "truth": 4,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 6,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 6,
+       "found": 2,
+       "invented": 4,
+       "omr_total": 6
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 639
+   }
+  ]
+ }
+}

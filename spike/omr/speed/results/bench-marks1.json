@@ -1,0 +1,5352 @@
+{
+ "variant": "marks1",
+ "definition": [
+  [],
+  "",
+  "/tmp/claude-1000/-home-kema-projects/e7eb6523-6727-4e40-ab68-cd8b0116ddd2/scratchpad/aud-marks1/bin/Audiveris"
+ ],
+ "signature": "speed-marks179d53acf",
+ "wall": 212.3,
+ "settings": "production",
+ "totals": {
+  "bench-olimpic": {
+   "pdfs": 80,
+   "pages": 80,
+   "crashed": 11,
+   "pages_skipped": 0,
+   "score_errors": 0,
+   "seconds_per_page": 10.5,
+   "truth_notes": 4865,
+   "omr_notes": 4073,
+   "pitch": 0.7254,
+   "pitch_onset": 0.5494,
+   "bar_duration_errors": 120,
+   "bar_duration_errors_in_truth": 22,
+   "truth_bars": 333,
+   "tuplet_notes": {
+    "truth": 252,
+    "found": 6,
+    "invented": 25,
+    "missed": 246
+   },
+   "ornaments": {
+    "truth": 4,
+    "found": 1,
+    "invented": 0,
+    "missed": 3
+   },
+   "grace": {
+    "truth": 19,
+    "found": 0,
+    "invented": 0,
+    "missed": 19
+   },
+   "octave_lines": {
+    "truth": 4,
+    "found": 1,
+    "invented": 1,
+    "missed": 3
+   },
+   "clef_changes": {
+    "truth": 23,
+    "found": 11,
+    "invented": 3,
+    "missed": 12
+   }
+  },
+  "bench-real": {
+   "pdfs": 3,
+   "pages": 6,
+   "crashed": 0,
+   "pages_skipped": 0,
+   "score_errors": 0,
+   "seconds_per_page": 26.8,
+   "truth_notes": 1865,
+   "omr_notes": 1804,
+   "pitch": 0.8799,
+   "pitch_onset": 0.7367,
+   "bar_duration_errors": 28,
+   "bar_duration_errors_in_truth": 3,
+   "truth_bars": 151,
+   "tuplet_notes": {
+    "truth": 20,
+    "found": 0,
+    "invented": 9,
+    "missed": 20
+   },
+   "ornaments": {
+    "truth": 4,
+    "found": 3,
+    "invented": 0,
+    "missed": 1
+   },
+   "grace": {
+    "truth": 16,
+    "found": 0,
+    "invented": 0,
+    "missed": 16
+   },
+   "octave_lines": {
+    "truth": 0,
+    "found": 0,
+    "invented": 0,
+    "missed": 0
+   },
+   "clef_changes": {
+    "truth": 7,
+    "found": 1,
+    "invented": 7,
+    "missed": 6
+   }
+  }
+ },
+ "pdfs": {
+  "bench-olimpic": [
+   {
+    "pdf": "pdfs/olimpic-6565727-p7-s3--scan.pdf",
+    "piece": "olimpic-6565727-p7-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": true,
+    "error": "No music could be read from this PDF",
+    "pages_skipped": [],
+    "seconds": 6.7,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 70,
+     "omr_notes": 0,
+     "truth_bars": 4,
+     "omr_bars": 0,
+     "xml_bars": [
+      4,
+      0
+     ],
+     "bars_paired": 0,
+     "shared_pitch": 0,
+     "shared_pitch_onset": 0,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 70
+   },
+   {
+    "pdf": "pdfs/olimpic-5026306-p4-s3--scan.pdf",
+    "piece": "olimpic-5026306-p4-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 7.8,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 61,
+     "omr_notes": 62,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 38,
+     "shared_pitch_onset": 12,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 26,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 2,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 61
+   },
+   {
+    "pdf": "pdfs/olimpic-6209607-p4-s2--scan.pdf",
+    "piece": "olimpic-6209607-p4-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 7.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 25,
+     "omr_notes": 22,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 18,
+     "shared_pitch_onset": 8,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 25
+   },
+   {
+    "pdf": "pdfs/olimpic-6753259-p3-s2--scan.pdf",
+    "piece": "olimpic-6753259-p3-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 11.0,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 40,
+     "omr_notes": 37,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 36,
+     "shared_pitch_onset": 26,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 6,
+       "omr_total": 6
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 40
+   },
+   {
+    "pdf": "pdfs/olimpic-6377942-p7-s2--scan.pdf",
+    "piece": "olimpic-6377942-p7-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": true,
+    "error": "ZeroDivisionError: Fraction(2, 0)",
+    "pages_skipped": [],
+    "seconds": 29.2,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 20,
+     "omr_notes": 0,
+     "truth_bars": 4,
+     "omr_bars": 0,
+     "xml_bars": [
+      4,
+      0
+     ],
+     "bars_paired": 0,
+     "shared_pitch": 0,
+     "shared_pitch_onset": 0,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 20
+   },
+   {
+    "pdf": "pdfs/olimpic-7086632-p3-s1--scan.pdf",
+    "piece": "olimpic-7086632-p3-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 7.0,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 59,
+     "omr_notes": 52,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 52,
+     "shared_pitch_onset": 40,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 59
+   },
+   {
+    "pdf": "pdfs/olimpic-6834630-p1-s4--scan.pdf",
+    "piece": "olimpic-6834630-p1-s4",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 9.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 56,
+     "omr_notes": 56,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 55,
+     "shared_pitch_onset": 47,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 56
+   },
+   {
+    "pdf": "pdfs/olimpic-6351349-p3-s1--scan.pdf",
+    "piece": "olimpic-6351349-p3-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 9.0,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 52,
+     "omr_notes": 48,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 48,
+     "shared_pitch_onset": 44,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 52
+   },
+   {
+    "pdf": "pdfs/olimpic-6570310-p2-s2--scan.pdf",
+    "piece": "olimpic-6570310-p2-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 14.5,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 88,
+     "omr_notes": 84,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 59,
+     "shared_pitch_onset": 52,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 1,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 3,
+       "found": 3,
+       "invented": 1,
+       "omr_total": 4
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 88
+   },
+   {
+    "pdf": "pdfs/olimpic-6984553-p2-s1--scan.pdf",
+    "piece": "olimpic-6984553-p2-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 10.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 57,
+     "omr_notes": 56,
+     "truth_bars": 5,
+     "omr_bars": 5,
+     "xml_bars": [
+      5,
+      5
+     ],
+     "bars_paired": 5,
+     "shared_pitch": 42,
+     "shared_pitch_onset": 42,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 3,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 2,
+       "found": 1,
+       "invented": 0,
+       "omr_total": 1
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 57
+   },
+   {
+    "pdf": "pdfs/olimpic-7163829-p1-s2--scan.pdf",
+    "piece": "olimpic-7163829-p1-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 6.6,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 40,
+     "omr_notes": 39,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 39,
+     "shared_pitch_onset": 31,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 40
+   },
+   {
+    "pdf": "pdfs/olimpic-6377942-p3-s1--scan.pdf",
+    "piece": "olimpic-6377942-p3-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 21.4,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 52,
+     "omr_notes": 46,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 42,
+     "shared_pitch_onset": 28,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 52
+   },
+   {
+    "pdf": "pdfs/olimpic-5062159-p3-s1--scan.pdf",
+    "piece": "olimpic-5062159-p3-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 9.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 95,
+     "omr_notes": 87,
+     "truth_bars": 7,
+     "omr_bars": 7,
+     "xml_bars": [
+      7,
+      7
+     ],
+     "bars_paired": 7,
+     "shared_pitch": 86,
+     "shared_pitch_onset": 64,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 95
+   },
+   {
+    "pdf": "pdfs/olimpic-5659823-p2-s3--scan.pdf",
+    "piece": "olimpic-5659823-p2-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 10.6,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 55,
+     "omr_notes": 54,
+     "truth_bars": 6,
+     "omr_bars": 6,
+     "xml_bars": [
+      6,
+      6
+     ],
+     "bars_paired": 6,
+     "shared_pitch": 51,
+     "shared_pitch_onset": 20,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 55
+   },
+   {
+    "pdf": "pdfs/olimpic-6573515-p2-s1--scan.pdf",
+    "piece": "olimpic-6573515-p2-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 10.6,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 42,
+     "omr_notes": 38,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 38,
+     "shared_pitch_onset": 38,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 42
+   },
+   {
+    "pdf": "pdfs/olimpic-6592539-p2-s2--scan.pdf",
+    "piece": "olimpic-6592539-p2-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": true,
+    "error": "No music could be read from this PDF",
+    "pages_skipped": [],
+    "seconds": 6.7,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 77,
+     "omr_notes": 0,
+     "truth_bars": 11,
+     "omr_bars": 0,
+     "xml_bars": [
+      11,
+      0
+     ],
+     "bars_paired": 0,
+     "shared_pitch": 0,
+     "shared_pitch_onset": 0,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 77
+   },
+   {
+    "pdf": "pdfs/olimpic-6209607-p2-s4--scan.pdf",
+    "piece": "olimpic-6209607-p2-s4",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 6.5,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 38,
+     "omr_notes": 37,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 35,
+     "shared_pitch_onset": 29,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 2,
+       "omr_total": 2
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 2
+    },
+    "truth_notes": 38
+   },
+   {
+    "pdf": "pdfs/olimpic-5000459-p1-s1--scan.pdf",
+    "piece": "olimpic-5000459-p1-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 11.6,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 67,
+     "omr_notes": 65,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 65,
+     "shared_pitch_onset": 65,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 67
+   },
+   {
+    "pdf": "pdfs/olimpic-6573701-p4-s3--scan.pdf",
+    "piece": "olimpic-6573701-p4-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 11.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 37,
+     "omr_notes": 28,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 18,
+     "shared_pitch_onset": 16,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 4,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 1,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 37
+   },
+   {
+    "pdf": "pdfs/olimpic-6725782-p1-s3--scan.pdf",
+    "piece": "olimpic-6725782-p1-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 8.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 55,
+     "omr_notes": 57,
+     "truth_bars": 2,
+     "omr_bars": 2,
+     "xml_bars": [
+      2,
+      2
+     ],
+     "bars_paired": 2,
+     "shared_pitch": 46,
+     "shared_pitch_onset": 8,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 3,
+       "omr_total": 3
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 3,
+       "found": 3,
+       "invented": 0,
+       "omr_total": 3
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 55
+   },
+   {
+    "pdf": "pdfs/olimpic-6569865-p1-s1--scan.pdf",
+    "piece": "olimpic-6569865-p1-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 9.6,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 60,
+     "omr_notes": 60,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 59,
+     "shared_pitch_onset": 59,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 60
+   },
+   {
+    "pdf": "pdfs/olimpic-6687153-p1-s2--scan.pdf",
+    "piece": "olimpic-6687153-p1-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 11.6,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 62,
+     "omr_notes": 64,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 61,
+     "shared_pitch_onset": 61,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 62
+   },
+   {
+    "pdf": "pdfs/olimpic-6243836-p5-s1--scan.pdf",
+    "piece": "olimpic-6243836-p5-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 7.8,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 21,
+     "omr_notes": 21,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 21,
+     "shared_pitch_onset": 21,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 21
+   },
+   {
+    "pdf": "pdfs/olimpic-5069022-p2-s4--scan.pdf",
+    "piece": "olimpic-5069022-p2-s4",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 11.0,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 58,
+     "omr_notes": 57,
+     "truth_bars": 8,
+     "omr_bars": 8,
+     "xml_bars": [
+      8,
+      8
+     ],
+     "bars_paired": 8,
+     "shared_pitch": 57,
+     "shared_pitch_onset": 57,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 1,
+       "found": 1,
+       "invented": 0,
+       "omr_total": 1
+      }
+     },
+     "verovio_msgs": 2
+    },
+    "truth_notes": 58
+   },
+   {
+    "pdf": "pdfs/olimpic-6570192-p2-s1--scan.pdf",
+    "piece": "olimpic-6570192-p2-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 12.1,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 74,
+     "omr_notes": 74,
+     "truth_bars": 5,
+     "omr_bars": 5,
+     "xml_bars": [
+      5,
+      5
+     ],
+     "bars_paired": 5,
+     "shared_pitch": 62,
+     "shared_pitch_onset": 60,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 2,
+       "found": 1,
+       "invented": 0,
+       "omr_total": 1
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 74
+   },
+   {
+    "pdf": "pdfs/olimpic-6631610-p5-s1--scan.pdf",
+    "piece": "olimpic-6631610-p5-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": true,
+    "error": "No music could be read from this PDF",
+    "pages_skipped": [],
+    "seconds": 7.0,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 73,
+     "omr_notes": 0,
+     "truth_bars": 5,
+     "omr_bars": 0,
+     "xml_bars": [
+      5,
+      0
+     ],
+     "bars_paired": 0,
+     "shared_pitch": 0,
+     "shared_pitch_onset": 0,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 6,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 73
+   },
+   {
+    "pdf": "pdfs/olimpic-5701612-p1-s1--scan.pdf",
+    "piece": "olimpic-5701612-p1-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 10.0,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 44,
+     "omr_notes": 44,
+     "truth_bars": 5,
+     "omr_bars": 5,
+     "xml_bars": [
+      5,
+      5
+     ],
+     "bars_paired": 5,
+     "shared_pitch": 44,
+     "shared_pitch_onset": 42,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 44
+   },
+   {
+    "pdf": "pdfs/olimpic-6834630-p1-s3--scan.pdf",
+    "piece": "olimpic-6834630-p1-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 10.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 59,
+     "omr_notes": 59,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 59,
+     "shared_pitch_onset": 56,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 59
+   },
+   {
+    "pdf": "pdfs/olimpic-6209602-p3-s1--scan.pdf",
+    "piece": "olimpic-6209602-p3-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 7.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 54,
+     "omr_notes": 53,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 41,
+     "shared_pitch_onset": 27,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 4,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 1,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 54
+   },
+   {
+    "pdf": "pdfs/olimpic-6716631-p1-s3--scan.pdf",
+    "piece": "olimpic-6716631-p1-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 8.8,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 66,
+     "omr_notes": 72,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 55,
+     "shared_pitch_onset": 31,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 66
+   },
+   {
+    "pdf": "pdfs/olimpic-6320420-p9-s1--scan.pdf",
+    "piece": "olimpic-6320420-p9-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": true,
+    "error": "No music could be read from this PDF",
+    "pages_skipped": [],
+    "seconds": 7.2,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 55,
+     "omr_notes": 0,
+     "truth_bars": 6,
+     "omr_bars": 0,
+     "xml_bars": [
+      6,
+      0
+     ],
+     "bars_paired": 0,
+     "shared_pitch": 0,
+     "shared_pitch_onset": 0,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 55
+   },
+   {
+    "pdf": "pdfs/olimpic-6570255-p3-s3--scan.pdf",
+    "piece": "olimpic-6570255-p3-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 12.2,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 50,
+     "omr_notes": 46,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 46,
+     "shared_pitch_onset": 31,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 2,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 50
+   },
+   {
+    "pdf": "pdfs/olimpic-6351349-p4-s1--scan.pdf",
+    "piece": "olimpic-6351349-p4-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 8.8,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 63,
+     "omr_notes": 61,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 61,
+     "shared_pitch_onset": 61,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 63
+   },
+   {
+    "pdf": "pdfs/olimpic-6379527-p2-s2--scan.pdf",
+    "piece": "olimpic-6379527-p2-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 22.4,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 118,
+     "omr_notes": 98,
+     "truth_bars": 5,
+     "omr_bars": 5,
+     "xml_bars": [
+      5,
+      5
+     ],
+     "bars_paired": 5,
+     "shared_pitch": 87,
+     "shared_pitch_onset": 48,
+     "uneven_bars_omr": 4,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 1,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 118
+   },
+   {
+    "pdf": "pdfs/olimpic-6447372-p2-s5--scan.pdf",
+    "piece": "olimpic-6447372-p2-s5",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 17.7,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 90,
+     "omr_notes": 86,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 73,
+     "shared_pitch_onset": 36,
+     "uneven_bars_omr": 4,
+     "uneven_bars_truth": 2,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 4,
+       "omr_total": 4
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 2,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 90
+   },
+   {
+    "pdf": "pdfs/olimpic-6986302-p1-s2--scan.pdf",
+    "piece": "olimpic-6986302-p1-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 6.5,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 48,
+     "omr_notes": 48,
+     "truth_bars": 6,
+     "omr_bars": 6,
+     "xml_bars": [
+      6,
+      6
+     ],
+     "bars_paired": 6,
+     "shared_pitch": 48,
+     "shared_pitch_onset": 30,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 48
+   },
+   {
+    "pdf": "pdfs/olimpic-5701612-p1-s4--scan.pdf",
+    "piece": "olimpic-5701612-p1-s4",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 12.1,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 50,
+     "omr_notes": 50,
+     "truth_bars": 5,
+     "omr_bars": 5,
+     "xml_bars": [
+      5,
+      5
+     ],
+     "bars_paired": 5,
+     "shared_pitch": 48,
+     "shared_pitch_onset": 45,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 1,
+       "omr_total": 1
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 50
+   },
+   {
+    "pdf": "pdfs/olimpic-6481941-p15-s3--scan.pdf",
+    "piece": "olimpic-6481941-p15-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 7.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 48,
+     "omr_notes": 48,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 46,
+     "shared_pitch_onset": 46,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 48
+   },
+   {
+    "pdf": "pdfs/olimpic-5071644-p1-s4--scan.pdf",
+    "piece": "olimpic-5071644-p1-s4",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 12.1,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 32,
+     "omr_notes": 33,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 29,
+     "shared_pitch_onset": 16,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 1,
+       "found": 1,
+       "invented": 0,
+       "omr_total": 1
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 32
+   },
+   {
+    "pdf": "pdfs/olimpic-6112984-p4-s2--scan.pdf",
+    "piece": "olimpic-6112984-p4-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 11.6,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 49,
+     "omr_notes": 43,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 43,
+     "shared_pitch_onset": 41,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 2,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 49
+   },
+   {
+    "pdf": "pdfs/olimpic-6115317-p2-s1--scan.pdf",
+    "piece": "olimpic-6115317-p2-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 25.8,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 118,
+     "omr_notes": 108,
+     "truth_bars": 5,
+     "omr_bars": 5,
+     "xml_bars": [
+      5,
+      5
+     ],
+     "bars_paired": 5,
+     "shared_pitch": 102,
+     "shared_pitch_onset": 27,
+     "uneven_bars_omr": 5,
+     "uneven_bars_truth": 2,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 118
+   },
+   {
+    "pdf": "pdfs/olimpic-6985082-p2-s4--scan.pdf",
+    "piece": "olimpic-6985082-p2-s4",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 21.9,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 112,
+     "omr_notes": 107,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 107,
+     "shared_pitch_onset": 35,
+     "uneven_bars_omr": 4,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 65,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 112
+   },
+   {
+    "pdf": "pdfs/olimpic-6378337-p1-s2--scan.pdf",
+    "piece": "olimpic-6378337-p1-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 14.1,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 7,
+     "omr_notes": 7,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 7,
+     "shared_pitch_onset": 7,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 7
+   },
+   {
+    "pdf": "pdfs/olimpic-5000467-p3-s2--scan.pdf",
+    "piece": "olimpic-5000467-p3-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 14.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 96,
+     "omr_notes": 87,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 87,
+     "shared_pitch_onset": 87,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 96
+   },
+   {
+    "pdf": "pdfs/olimpic-6686592-p2-s1--scan.pdf",
+    "piece": "olimpic-6686592-p2-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 13.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 96,
+     "omr_notes": 89,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 87,
+     "shared_pitch_onset": 87,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 1,
+       "found": 0,
+       "invented": 1,
+       "omr_total": 1
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 96
+   },
+   {
+    "pdf": "pdfs/olimpic-4919798-p1-s2--scan.pdf",
+    "piece": "olimpic-4919798-p1-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 13.4,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 77,
+     "omr_notes": 73,
+     "truth_bars": 5,
+     "omr_bars": 5,
+     "xml_bars": [
+      5,
+      5
+     ],
+     "bars_paired": 5,
+     "shared_pitch": 47,
+     "shared_pitch_onset": 37,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 77
+   },
+   {
+    "pdf": "pdfs/olimpic-6686592-p6-s1--scan.pdf",
+    "piece": "olimpic-6686592-p6-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 12.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 89,
+     "omr_notes": 84,
+     "truth_bars": 2,
+     "omr_bars": 2,
+     "xml_bars": [
+      2,
+      2
+     ],
+     "bars_paired": 2,
+     "shared_pitch": 83,
+     "shared_pitch_onset": 17,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 54,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 89
+   },
+   {
+    "pdf": "pdfs/olimpic-6115317-p2-s2--scan.pdf",
+    "piece": "olimpic-6115317-p2-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 12.9,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 109,
+     "omr_notes": 95,
+     "truth_bars": 5,
+     "omr_bars": 5,
+     "xml_bars": [
+      5,
+      5
+     ],
+     "bars_paired": 5,
+     "shared_pitch": 83,
+     "shared_pitch_onset": 29,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 109
+   },
+   {
+    "pdf": "pdfs/olimpic-6686592-p4-s1--scan.pdf",
+    "piece": "olimpic-6686592-p4-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 12.7,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 83,
+     "omr_notes": 76,
+     "truth_bars": 5,
+     "omr_bars": 5,
+     "xml_bars": [
+      5,
+      5
+     ],
+     "bars_paired": 5,
+     "shared_pitch": 74,
+     "shared_pitch_onset": 58,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 15,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 1,
+       "found": 1,
+       "invented": 0,
+       "omr_total": 1
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 83
+   },
+   {
+    "pdf": "pdfs/olimpic-5000467-p4-s2--scan.pdf",
+    "piece": "olimpic-5000467-p4-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 11.8,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 89,
+     "omr_notes": 83,
+     "truth_bars": 5,
+     "omr_bars": 5,
+     "xml_bars": [
+      5,
+      5
+     ],
+     "bars_paired": 5,
+     "shared_pitch": 54,
+     "shared_pitch_onset": 50,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 89
+   },
+   {
+    "pdf": "pdfs/olimpic-5000467-p4-s1--scan.pdf",
+    "piece": "olimpic-5000467-p4-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 13.5,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 92,
+     "omr_notes": 88,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 64,
+     "shared_pitch_onset": 54,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 92
+   },
+   {
+    "pdf": "pdfs/olimpic-5098713-p3-s3--scan.pdf",
+    "piece": "olimpic-5098713-p3-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 12.4,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 81,
+     "omr_notes": 82,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 81,
+     "shared_pitch_onset": 20,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 68,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 81
+   },
+   {
+    "pdf": "pdfs/olimpic-6112984-p3-s3--scan.pdf",
+    "piece": "olimpic-6112984-p3-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 11.7,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 57,
+     "omr_notes": 63,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 51,
+     "shared_pitch_onset": 42,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 57
+   },
+   {
+    "pdf": "pdfs/olimpic-6302395-p4-s2--scan.pdf",
+    "piece": "olimpic-6302395-p4-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 11.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 30,
+     "omr_notes": 25,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 21,
+     "shared_pitch_onset": 6,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 30
+   },
+   {
+    "pdf": "pdfs/olimpic-6687153-p2-s2--scan.pdf",
+    "piece": "olimpic-6687153-p2-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 12.1,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 65,
+     "omr_notes": 64,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 64,
+     "shared_pitch_onset": 64,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 65
+   },
+   {
+    "pdf": "pdfs/olimpic-6112984-p3-s1--scan.pdf",
+    "piece": "olimpic-6112984-p3-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 11.8,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 82,
+     "omr_notes": 83,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 81,
+     "shared_pitch_onset": 77,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 4,
+       "omr_total": 4
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 12
+    },
+    "truth_notes": 82
+   },
+   {
+    "pdf": "pdfs/olimpic-5000464-p1-s3--scan.pdf",
+    "piece": "olimpic-5000464-p1-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 11.6,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 53,
+     "omr_notes": 52,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 52,
+     "shared_pitch_onset": 51,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 53
+   },
+   {
+    "pdf": "pdfs/olimpic-6320420-p2-s3--scan.pdf",
+    "piece": "olimpic-6320420-p2-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": true,
+    "error": "No music could be read from this PDF",
+    "pages_skipped": [],
+    "seconds": 7.6,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 38,
+     "omr_notes": 0,
+     "truth_bars": 6,
+     "omr_bars": 0,
+     "xml_bars": [
+      6,
+      0
+     ],
+     "bars_paired": 0,
+     "shared_pitch": 0,
+     "shared_pitch_onset": 0,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 38
+   },
+   {
+    "pdf": "pdfs/olimpic-6302395-p5-s2--scan.pdf",
+    "piece": "olimpic-6302395-p5-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 11.1,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 41,
+     "omr_notes": 38,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 36,
+     "shared_pitch_onset": 31,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 1,
+       "found": 1,
+       "invented": 0,
+       "omr_total": 1
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 41
+   },
+   {
+    "pdf": "pdfs/olimpic-6565727-p3-s2--scan.pdf",
+    "piece": "olimpic-6565727-p3-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": true,
+    "error": "No music could be read from this PDF",
+    "pages_skipped": [],
+    "seconds": 6.4,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 49,
+     "omr_notes": 0,
+     "truth_bars": 4,
+     "omr_bars": 0,
+     "xml_bars": [
+      4,
+      0
+     ],
+     "bars_paired": 0,
+     "shared_pitch": 0,
+     "shared_pitch_onset": 0,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 49
+   },
+   {
+    "pdf": "pdfs/olimpic-6984553-p3-s1--scan.pdf",
+    "piece": "olimpic-6984553-p3-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 9.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 68,
+     "omr_notes": 68,
+     "truth_bars": 5,
+     "omr_bars": 5,
+     "xml_bars": [
+      5,
+      5
+     ],
+     "bars_paired": 5,
+     "shared_pitch": 66,
+     "shared_pitch_onset": 66,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 68
+   },
+   {
+    "pdf": "pdfs/olimpic-6592662-p2-s3--scan.pdf",
+    "piece": "olimpic-6592662-p2-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": true,
+    "error": "No music could be read from this PDF",
+    "pages_skipped": [],
+    "seconds": 6.6,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 52,
+     "omr_notes": 0,
+     "truth_bars": 6,
+     "omr_bars": 0,
+     "xml_bars": [
+      6,
+      0
+     ],
+     "bars_paired": 0,
+     "shared_pitch": 0,
+     "shared_pitch_onset": 0,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 52
+   },
+   {
+    "pdf": "pdfs/olimpic-6565727-p6-s2--scan.pdf",
+    "piece": "olimpic-6565727-p6-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": true,
+    "error": "No music could be read from this PDF",
+    "pages_skipped": [],
+    "seconds": 6.6,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 93,
+     "omr_notes": 0,
+     "truth_bars": 4,
+     "omr_bars": 0,
+     "xml_bars": [
+      4,
+      0
+     ],
+     "bars_paired": 0,
+     "shared_pitch": 0,
+     "shared_pitch_onset": 0,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 93
+   },
+   {
+    "pdf": "pdfs/olimpic-6621051-p5-s4--scan.pdf",
+    "piece": "olimpic-6621051-p5-s4",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 8.5,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 70,
+     "omr_notes": 64,
+     "truth_bars": 3,
+     "omr_bars": 6,
+     "xml_bars": [
+      3,
+      6
+     ],
+     "bars_paired": 1,
+     "shared_pitch": 5,
+     "shared_pitch_onset": 0,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 6,
+       "omr_total": 6
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 70
+   },
+   {
+    "pdf": "pdfs/olimpic-6481218-p5-s1--scan.pdf",
+    "piece": "olimpic-6481218-p5-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 8.8,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 55,
+     "omr_notes": 51,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 32,
+     "shared_pitch_onset": 31,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 1,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 55
+   },
+   {
+    "pdf": "pdfs/olimpic-6567603-p3-s4--scan.pdf",
+    "piece": "olimpic-6567603-p3-s4",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": true,
+    "error": "No music could be read from this PDF",
+    "pages_skipped": [],
+    "seconds": 7.1,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 27,
+     "omr_notes": 0,
+     "truth_bars": 3,
+     "omr_bars": 0,
+     "xml_bars": [
+      3,
+      0
+     ],
+     "bars_paired": 0,
+     "shared_pitch": 0,
+     "shared_pitch_onset": 0,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 27
+   },
+   {
+    "pdf": "pdfs/olimpic-5026316-p3-s1--scan.pdf",
+    "piece": "olimpic-5026316-p3-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 8.8,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 88,
+     "omr_notes": 84,
+     "truth_bars": 5,
+     "omr_bars": 5,
+     "xml_bars": [
+      5,
+      5
+     ],
+     "bars_paired": 5,
+     "shared_pitch": 78,
+     "shared_pitch_onset": 65,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 4,
+       "found": 1,
+       "invented": 0,
+       "omr_total": 1
+      },
+      "grace": {
+       "truth": 2,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 88
+   },
+   {
+    "pdf": "pdfs/olimpic-5026306-p1-s4--scan.pdf",
+    "piece": "olimpic-5026306-p1-s4",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 8.0,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 126,
+     "omr_notes": 124,
+     "truth_bars": 5,
+     "omr_bars": 5,
+     "xml_bars": [
+      5,
+      5
+     ],
+     "bars_paired": 5,
+     "shared_pitch": 116,
+     "shared_pitch_onset": 116,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 126
+   },
+   {
+    "pdf": "pdfs/olimpic-6320420-p9-s3--scan.pdf",
+    "piece": "olimpic-6320420-p9-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": true,
+    "error": "No music could be read from this PDF",
+    "pages_skipped": [],
+    "seconds": 7.1,
+    "cached": false,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 56,
+     "omr_notes": 0,
+     "truth_bars": 7,
+     "omr_bars": 0,
+     "xml_bars": [
+      7,
+      0
+     ],
+     "bars_paired": 0,
+     "shared_pitch": 0,
+     "shared_pitch_onset": 0,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 56
+   },
+   {
+    "pdf": "pdfs/olimpic-6243838-p1-s2--scan.pdf",
+    "piece": "olimpic-6243838-p1-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 7.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 36,
+     "omr_notes": 33,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 33,
+     "shared_pitch_onset": 23,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 36
+   },
+   {
+    "pdf": "pdfs/olimpic-6481941-p19-s1--scan.pdf",
+    "piece": "olimpic-6481941-p19-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 6.6,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 31,
+     "omr_notes": 31,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 28,
+     "shared_pitch_onset": 28,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 1,
+       "omr_total": 1
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 31
+   },
+   {
+    "pdf": "pdfs/olimpic-6715339-p1-s2--scan.pdf",
+    "piece": "olimpic-6715339-p1-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 7.5,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 41,
+     "omr_notes": 42,
+     "truth_bars": 2,
+     "omr_bars": 2,
+     "xml_bars": [
+      2,
+      2
+     ],
+     "bars_paired": 2,
+     "shared_pitch": 37,
+     "shared_pitch_onset": 9,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 24,
+       "found": 6,
+       "invented": 0,
+       "omr_total": 6
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 41
+   },
+   {
+    "pdf": "pdfs/olimpic-6481218-p7-s2--scan.pdf",
+    "piece": "olimpic-6481218-p7-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 7.5,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 60,
+     "omr_notes": 56,
+     "truth_bars": 5,
+     "omr_bars": 5,
+     "xml_bars": [
+      5,
+      5
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 21,
+     "shared_pitch_onset": 20,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 1,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 60
+   },
+   {
+    "pdf": "pdfs/olimpic-6482032-p21-s3--scan.pdf",
+    "piece": "olimpic-6482032-p21-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 7.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 34,
+     "omr_notes": 35,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 31,
+     "shared_pitch_onset": 23,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 34
+   },
+   {
+    "pdf": "pdfs/olimpic-6481218-p4-s3--scan.pdf",
+    "piece": "olimpic-6481218-p4-s3",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 8.1,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 52,
+     "omr_notes": 51,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 38,
+     "shared_pitch_onset": 38,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 52
+   },
+   {
+    "pdf": "pdfs/olimpic-6482032-p37-s2--scan.pdf",
+    "piece": "olimpic-6482032-p37-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 6.6,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 60,
+     "omr_notes": 56,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 20,
+     "shared_pitch_onset": 17,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 60
+   },
+   {
+    "pdf": "pdfs/olimpic-6481941-p19-s2--scan.pdf",
+    "piece": "olimpic-6481941-p19-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 7.1,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 36,
+     "omr_notes": 34,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 14,
+     "shared_pitch_onset": 12,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 1,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 36
+   },
+   {
+    "pdf": "pdfs/olimpic-6586696-p2-s1--scan.pdf",
+    "piece": "olimpic-6586696-p2-s1",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 6.8,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 59,
+     "omr_notes": 57,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 56,
+     "shared_pitch_onset": 54,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 59
+   },
+   {
+    "pdf": "pdfs/olimpic-6987705-p3-s2--scan.pdf",
+    "piece": "olimpic-6987705-p3-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 5.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 46,
+     "omr_notes": 46,
+     "truth_bars": 4,
+     "omr_bars": 4,
+     "xml_bars": [
+      4,
+      4
+     ],
+     "bars_paired": 4,
+     "shared_pitch": 46,
+     "shared_pitch_onset": 39,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 46
+   },
+   {
+    "pdf": "pdfs/olimpic-6482032-p4-s2--scan.pdf",
+    "piece": "olimpic-6482032-p4-s2",
+    "engraver": "scan",
+    "pages": 1,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 5.3,
+    "cached": false,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 51,
+     "omr_notes": 52,
+     "truth_bars": 3,
+     "omr_bars": 3,
+     "xml_bars": [
+      3,
+      3
+     ],
+     "bars_paired": 3,
+     "shared_pitch": 19,
+     "shared_pitch_onset": 15,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 1,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 51
+   }
+  ],
+  "bench-real": [
+   {
+    "pdf": "pdfs/real-bach-wtc1-22-prelude--scan.pdf",
+    "piece": "real-bach-wtc1-22-prelude",
+    "engraver": "scan",
+    "pages": 2,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 71.0,
+    "cached": true,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 807,
+     "omr_notes": 771,
+     "truth_bars": 24,
+     "omr_bars": 24,
+     "xml_bars": [
+      24,
+      24
+     ],
+     "bars_paired": 24,
+     "shared_pitch": 639,
+     "shared_pitch_onset": 380,
+     "uneven_bars_omr": 24,
+     "uneven_bars_truth": 1,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 1,
+       "found": 0,
+       "invented": 2,
+       "omr_total": 2
+      }
+     },
+     "verovio_msgs": 31
+    },
+    "truth_notes": 807
+   },
+   {
+    "pdf": "pdfs/real-grieg-op38no7--scan.pdf",
+    "piece": "real-grieg-op38no7",
+    "engraver": "scan",
+    "pages": 2,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 45.1,
+    "cached": true,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 419,
+     "omr_notes": 412,
+     "truth_bars": 53,
+     "omr_bars": 53,
+     "xml_bars": [
+      53,
+      53
+     ],
+     "bars_paired": 53,
+     "shared_pitch": 406,
+     "shared_pitch_onset": 402,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 5,
+       "omr_total": 5
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 10,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 419
+   },
+   {
+    "pdf": "pdfs/real-beethoven-op2no1-iii--scan.pdf",
+    "piece": "real-beethoven-op2no1-iii",
+    "engraver": "scan",
+    "pages": 2,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 44.8,
+    "cached": true,
+    "settings_read": [
+     0
+    ],
+    "score": {
+     "truth_notes": 639,
+     "omr_notes": 621,
+     "truth_bars": 74,
+     "omr_bars": 76,
+     "xml_bars": [
+      77,
+      78
+     ],
+     "bars_paired": 77,
+     "shared_pitch": 596,
+     "shared_pitch_onset": 592,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 2,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 20,
+       "found": 0,
+       "invented": 4,
+       "omr_total": 4
+      },
+      "ornaments": {
+       "truth": 4,
+       "found": 3,
+       "invented": 0,
+       "omr_total": 3
+      },
+      "grace": {
+       "truth": 6,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 6,
+       "found": 1,
+       "invented": 5,
+       "omr_total": 6
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 639
+   }
+  ]
+ }
+}

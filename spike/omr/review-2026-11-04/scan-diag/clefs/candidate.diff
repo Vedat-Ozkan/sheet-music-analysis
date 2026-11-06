@@ -1,0 +1,35 @@
+diff --git a/app/src/main/java/org/audiveris/omr/sheet/clef/ClefBuilder.java b/app/src/main/java/org/audiveris/omr/sheet/clef/ClefBuilder.java
+index 00f766d10..3bf38ae97 100644
+--- a/app/src/main/java/org/audiveris/omr/sheet/clef/ClefBuilder.java
++++ b/app/src/main/java/org/audiveris/omr/sheet/clef/ClefBuilder.java
+@@ -124,6 +124,8 @@ public class ClefBuilder
+ 
+     //~ Instance fields ----------------------------------------------------------------------------
+ 
++    private double retryGap;
++
+     /** Dedicated staff to analyze. */
+     private final Staff staff;
+ 
+@@ -217,6 +219,12 @@ public class ClefBuilder
+             bestMap = getBestMap(false);
+         }
+ 
++        if (bestMap.isEmpty()) {
++            retryGap = 1.5 * staff.getSpecificInterline();
++            bestMap = getBestMap(true);
++            retryGap = 0;
++        }
++
+         // Register the remaining clef candidates
+         if (!bestMap.isEmpty()) {
+             registerClefs(bestMap.values());
+@@ -237,7 +245,7 @@ public class ClefBuilder
+         List<Glyph> parts = getParts(isFirstPass);
+ 
+         // Formalize parts relationships in a global graph
+-        SimpleGraph<Glyph, GlyphLink> graph = Glyphs.buildLinks(parts, params.maxPartGap);
++        SimpleGraph<Glyph, GlyphLink> graph = Glyphs.buildLinks(parts, retryGap > 0 ? retryGap : params.maxPartGap);
+         List<Set<Glyph>> sets = new ConnectivityInspector<>(graph).connectedSets();
+         logger.debug("Staff#{} sets: {}", staff.getId(), sets.size());
+ 

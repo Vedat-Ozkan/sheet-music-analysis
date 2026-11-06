@@ -1,0 +1,624 @@
+{
+ "version": 1,
+ "annotations": [
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 49,
+    "beat": 1
+   },
+   "label": "Cad64",
+   "key": "e"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 50,
+    "beat": 1
+   },
+   "label": "V"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 51,
+    "beat": 1
+   },
+   "label": "I",
+   "callout": 1
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 52,
+    "beat": 1
+   },
+   "label": "viio7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 53,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 54,
+    "beat": 1
+   },
+   "label": "viio7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 55,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 56,
+    "beat": 1
+   },
+   "label": "viio7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 57,
+    "beat": 1
+   },
+   "label": "I",
+   "callout": 2
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 57,
+    "beat": 2
+   },
+   "label": "viio7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 58,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 58,
+    "beat": 2
+   },
+   "label": "viio7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 59,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 63,
+    "beat": 1
+   },
+   "label": "I",
+   "key": "C",
+   "callout": 3
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 64,
+    "beat": 1
+   },
+   "label": "viio"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 65,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 66,
+    "beat": 3
+   },
+   "label": "V65",
+   "callout": 4
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 67,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 68,
+    "beat": 1
+   },
+   "label": "viio"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 69,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 71,
+    "beat": 3
+   },
+   "label": "V6"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 72,
+    "beat": 1
+   },
+   "label": "viio6/V"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 72,
+    "beat": 3
+   },
+   "label": "V"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 51,
+    "beat": 1
+   },
+   "label": "PAC"
+  },
+  {
+   "type": "region",
+   "start": {
+    "measure": 51,
+    "beat": 1
+   },
+   "end": {
+    "measure": 62
+   },
+   "label": "pedal on E",
+   "staff": 2
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 63,
+    "beat": 1
+   },
+   "end": {
+    "measure": 66
+   },
+   "label": "a"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 67,
+    "beat": 1
+   },
+   "end": {
+    "measure": 70
+   },
+   "label": "a\u2032"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 71,
+    "beat": 1
+   },
+   "end": {
+    "measure": 72
+   },
+   "label": "b"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 49,
+    "beat": 2.5,
+    "staff": 1,
+    "pitch": "A#4"
+   },
+   "label": "N"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 72,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "G5"
+   },
+   "label": "S"
+  },
+  {
+   "type": "voice_leading",
+   "kind": "arrow",
+   "from_note": {
+    "measure": 50,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "D#4"
+   },
+   "to_note": {
+    "measure": 51,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "E4"
+   }
+  },
+  {
+   "type": "voice_leading",
+   "kind": "arrow",
+   "from_note": {
+    "measure": 66,
+    "beat": 3,
+    "staff": 1,
+    "pitch": "F4"
+   },
+   "to_note": {
+    "measure": 67,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "E4"
+   }
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 51,
+    "beat": 1
+   },
+   "number": 1
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 57,
+    "beat": 1
+   },
+   "number": 2
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 63,
+    "beat": 1
+   },
+   "number": 3
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 66,
+    "beat": 2
+   },
+   "number": 4
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 145,
+    "beat": 1
+   },
+   "end": {
+    "measure": 150
+   },
+   "label": "a"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 145,
+    "beat": 1
+   },
+   "label": "iv6",
+   "key": "e"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 145,
+    "beat": 2
+   },
+   "label": "viio43/iv",
+   "callout": 1
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 146,
+    "beat": 1
+   },
+   "label": "iv6"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 146,
+    "beat": 2
+   },
+   "label": "viio43/iv"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 147,
+    "beat": 1
+   },
+   "label": "iv6"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 148,
+    "beat": 3
+   },
+   "label": "iv"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 149,
+    "beat": 1
+   },
+   "label": "Cad64"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 150,
+    "beat": 1
+   },
+   "label": "V"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 148,
+    "beat": 2.5,
+    "staff": 1,
+    "pitch": "D#5"
+   },
+   "label": "N"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 151,
+    "beat": 1
+   },
+   "label": "I",
+   "key": "E"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 151,
+    "beat": 1
+   },
+   "label": "PAC",
+   "callout": 2
+  },
+  {
+   "type": "voice_leading",
+   "kind": "arrow",
+   "from_note": {
+    "measure": 150,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "D#4"
+   },
+   "to_note": {
+    "measure": 151,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "E4"
+   }
+  },
+  {
+   "type": "region",
+   "start": {
+    "measure": 151,
+    "beat": 1
+   },
+   "end": {
+    "measure": 161
+   },
+   "label": "pedal on E"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 152,
+    "beat": 1
+   },
+   "label": "viio7",
+   "callout": 3
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 153,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 154,
+    "beat": 1
+   },
+   "label": "viio7"
+  },
+  {
+   "type": "voice_leading",
+   "kind": "arrow",
+   "from_note": {
+    "measure": 154,
+    "beat": 3.5,
+    "staff": 2,
+    "pitch": "C4"
+   },
+   "to_note": {
+    "measure": 155,
+    "beat": 1,
+    "staff": 2,
+    "pitch": "B3"
+   }
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 155,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 156,
+    "beat": 1
+   },
+   "label": "viio7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 157,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 157,
+    "beat": 2
+   },
+   "label": "viio7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 158,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 158,
+    "beat": 2
+   },
+   "label": "viio7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 159,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 163,
+    "beat": 1
+   },
+   "label": "I",
+   "key": "C",
+   "callout": 4
+  },
+  {
+   "type": "region",
+   "start": {
+    "measure": 163,
+    "beat": 1
+   },
+   "end": {
+    "measure": 168
+   },
+   "label": "pedal on C"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 164,
+    "beat": 1
+   },
+   "label": "viio"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 165,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 167,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 168,
+    "beat": 1
+   },
+   "label": "viio"
+  }
+ ],
+ "passages": [
+  [
+   49,
+   72
+  ],
+  [
+   145,
+   168
+  ]
+ ]
+}

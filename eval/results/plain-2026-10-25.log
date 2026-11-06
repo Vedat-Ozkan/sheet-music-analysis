@@ -1,0 +1,16 @@
+sonnet-1 bach-_johann_sebastian-the_well-tempered_c full 0.00  function 0.00  key 0.00  (92 chords read)
+sonnet-1 beethoven_piano_sonatas-01-3               full 0.42  function 0.64  key 0.73  (76 chords read)
+sonnet-1 grieg_lyric_pieces-op38n07                 full 0.54  function 0.58  key 0.97  (63 chords read)
+sonnet-1 all  key 0.69  root 0.59  chord_and_bass 0.45  function 0.50  full 0.39
+sonnet-2 bach-_johann_sebastian-the_well-tempered_c full 0.16  function 0.20  key 0.69  (83 chords read)
+sonnet-2 beethoven_piano_sonatas-01-3               full 0.41  function 0.62  key 0.79  (84 chords read)
+sonnet-2 grieg_lyric_pieces-op38n07                 full 0.55  function 0.71  key 0.96  (59 chords read)
+sonnet-2 all  key 0.84  root 0.67  chord_and_bass 0.47  function 0.58  full 0.42
+opus-1 bach-_johann_sebastian-the_well-tempered_c full 0.54  function 0.70  key 0.89  (97 chords read)
+opus-1 beethoven_piano_sonatas-01-3               full 0.51  function 0.65  key 0.94  (89 chords read)
+opus-1 grieg_lyric_pieces-op38n07                 full 0.66  function 0.77  key 1.00  (57 chords read)
+opus-1 all  key 0.95  root 0.85  chord_and_bass 0.62  function 0.71  full 0.58
+opus-2 bach-_johann_sebastian-the_well-tempered_c full 0.46  function 0.61  key 0.85  (83 chords read)
+opus-2 beethoven_piano_sonatas-01-3               full 0.63  function 0.74  key 0.96  (84 chords read)
+opus-2 grieg_lyric_pieces-op38n07                 full 0.69  function 0.79  key 1.00  (59 chords read)
+opus-2 all  key 0.96  root 0.84  chord_and_bass 0.65  function 0.73  full 0.62

@@ -1,0 +1,134 @@
+{
+"olimpic-6320420-p2-s3": {
+"name": "olimpic-6320420-p2-s3",
+"pdfs": 1,
+"bars": 6,
+"wrong_bar_count": 1,
+"wrong_part_count": 0,
+"notes": 38,
+"pitch_notes": 17,
+"timed_notes": 5,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 6,
+"wrong_unwarned": 4,
+"unpaired": 2,
+"facts": {
+"interlines": [
+14,
+21,
+21,
+14
+],
+"images": [
+"2719x637"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6320420-p9-s1": {
+"name": "olimpic-6320420-p9-s1",
+"pdfs": 1,
+"bars": 6,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 55,
+"pitch_notes": 36,
+"timed_notes": 21,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 6,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+14,
+21,
+21,
+14
+],
+"images": [
+"2739x679"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6320420-p9-s3": {
+"name": "olimpic-6320420-p9-s3",
+"pdfs": 1,
+"bars": 7,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 56,
+"pitch_notes": 51,
+"timed_notes": 30,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 7,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2706x629"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6586696-p2-s1": {
+"name": "olimpic-6586696-p2-s1",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 59,
+"pitch_notes": 53,
+"timed_notes": 43,
+"pitch_timing_bars": 2,
+"exact_pooled": 2,
+"exact": 2,
+"wrong": 2,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+22,
+22
+],
+"images": [
+"2711x670"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6592662-p2-s3": {
+"name": "olimpic-6592662-p2-s3",
+"pdfs": 1,
+"failed": 1,
+"bars": 6,
+"wrong": 6,
+"notes": 52,
+"facts": {
+"error": "ReadError: No music could be read from this PDF",
+"interlines": [
+23,
+23
+],
+"images": [
+"3089x792"
+],
+"problems": [
+"NullPointerException",
+"page flagged as invalid"
+],
+"outcome": "no music"
+}
+}
+}

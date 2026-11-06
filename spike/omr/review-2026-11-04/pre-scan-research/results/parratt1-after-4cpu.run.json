@@ -1,0 +1,59 @@
+{
+ "facts": {
+  "seconds": 63.4,
+  "pages": 8,
+  "scan": true,
+  "skipped": [],
+  "passes": [
+   {
+    "setting": 0,
+    "outcome": "done",
+    "seconds": 63.4
+   },
+   {
+    "setting": 1,
+    "outcome": "cancelled",
+    "seconds": 63.4
+   }
+  ],
+  "merge": {
+   "reason": "staff count differs",
+   "current": "1",
+   "homr": "6"
+  }
+ },
+ "phases": [
+  [
+   "start",
+   1793853888.46
+  ],
+  [
+   "imported",
+   1793853889.11
+  ],
+  [
+   "read_pdf",
+   1793853889.11
+  ],
+  [
+   "read_pdf_done",
+   1793853952.52
+  ],
+  [
+   "homr",
+   1793853952.52
+  ],
+  [
+   "homr_done",
+   1793854082.07
+  ],
+  [
+   "merge_render",
+   1793854082.08
+  ],
+  [
+   "render_done",
+   1793854082.32
+  ]
+ ]
+}

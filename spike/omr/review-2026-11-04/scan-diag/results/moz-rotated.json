@@ -1,0 +1,37 @@
+{
+"mozart": {
+"name": "mozart",
+"pdfs": 1,
+"bars": 73,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 1270,
+"pitch_notes": 1106,
+"timed_notes": 969,
+"pitch_timing_bars": 32,
+"exact_pooled": 25,
+"exact": 24,
+"wrong": 48,
+"wrong_unwarned": 27,
+"facts": {
+"interlines": [
+19,
+19,
+19,
+19,
+19,
+19,
+19,
+19
+],
+"images": [
+"1984x2860",
+"2005x2889",
+"1984x2860",
+"2005x2889"
+],
+"problems": [],
+"outcome": "done"
+}
+}
+}

@@ -1,0 +1,730 @@
+{
+ "version": 1,
+ "annotations": [
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 1,
+    "beat": 1
+   },
+   "label": "I",
+   "key": "Bb"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 2,
+    "beat": 2
+   },
+   "label": "IV"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 2,
+    "beat": 3
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 3,
+    "beat": 1
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 4,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 4,
+    "beat": 1
+   },
+   "label": "IAC"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 5,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 6,
+    "beat": 2
+   },
+   "label": "IV"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 6,
+    "beat": 3
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 7,
+    "beat": 1
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 8,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 8,
+    "beat": 1
+   },
+   "label": "IAC"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 9,
+    "beat": 1
+   },
+   "label": "V7/V"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 12,
+    "beat": 1
+   },
+   "label": "V"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 12,
+    "beat": 1
+   },
+   "label": "HC"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 13,
+    "beat": 1
+   },
+   "label": "V7/V"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 15,
+    "beat": 1
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 15,
+    "beat": 1.75
+   },
+   "label": "V7/IV"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 15,
+    "beat": 2
+   },
+   "label": "V7/bVII"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 15,
+    "beat": 3
+   },
+   "label": "V7/bIII"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 16,
+    "beat": 1
+   },
+   "label": "ii/o7/ii"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 16,
+    "beat": 1.75
+   },
+   "label": "V7/ii"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 16,
+    "beat": 2
+   },
+   "label": "V7/V"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 16,
+    "beat": 3
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 17,
+    "beat": 1
+   },
+   "label": "V7/IV"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 18,
+    "beat": 2
+   },
+   "label": "iv"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 18,
+    "beat": 3
+   },
+   "label": "I64"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 19,
+    "beat": 1
+   },
+   "label": "ii/o43"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 19,
+    "beat": 3
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 20,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 20,
+    "beat": 1
+   },
+   "label": "IAC"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 21,
+    "beat": 1
+   },
+   "label": "ii/o43/ii"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 22,
+    "beat": 1
+   },
+   "label": "V7/ii"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 23,
+    "beat": 1
+   },
+   "label": "V7/V"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 23,
+    "beat": 2
+   },
+   "label": "V7"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 0,
+    "beat": 1
+   },
+   "end": {
+    "measure": 4
+   },
+   "label": "a"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 5,
+    "beat": 1
+   },
+   "end": {
+    "measure": 8
+   },
+   "label": "a\u2032"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 9,
+    "beat": 1
+   },
+   "end": {
+    "measure": 12
+   },
+   "label": "b"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 13,
+    "beat": 1
+   },
+   "end": {
+    "measure": 16
+   },
+   "label": "b\u2032"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 17,
+    "beat": 1
+   },
+   "end": {
+    "measure": 20
+   },
+   "label": "a\u2033"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 21,
+    "beat": 1
+   },
+   "end": {
+    "measure": 23
+   },
+   "label": "c"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 1,
+    "beat": 2.5,
+    "staff": 1,
+    "pitch": "C#5"
+   },
+   "label": "N"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 7,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "Bb4"
+   },
+   "label": "S"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 10,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "F#5"
+   },
+   "label": "APP"
+  },
+  {
+   "type": "voice_leading",
+   "kind": "arrow",
+   "from_note": {
+    "measure": 7,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "Bb4"
+   },
+   "to_note": {
+    "measure": 7,
+    "beat": 2,
+    "staff": 1,
+    "pitch": "A4"
+   },
+   "label": "4\u20133"
+  },
+  {
+   "type": "voice_leading",
+   "kind": "arrow",
+   "from_note": {
+    "measure": 15,
+    "beat": 2,
+    "staff": 1,
+    "pitch": "Db5"
+   },
+   "to_note": {
+    "measure": 15,
+    "beat": 3,
+    "staff": 1,
+    "pitch": "C5"
+   },
+   "label": "7\u20133"
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 15,
+    "beat": 1
+   },
+   "number": 1
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 16,
+    "beat": 1
+   },
+   "number": 2
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 18,
+    "beat": 2
+   },
+   "number": 3
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 23,
+    "beat": 1
+   },
+   "number": 4
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 48,
+    "beat": 1
+   },
+   "label": "I64",
+   "key": "Eb"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 49,
+    "beat": 1
+   },
+   "label": "I",
+   "callout": 1
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 50,
+    "beat": 1
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 51,
+    "beat": 1
+   },
+   "label": "I",
+   "callout": 2
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 51,
+    "beat": 2
+   },
+   "label": "V42"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 52,
+    "beat": 1
+   },
+   "label": "ct\u00b07",
+   "callout": 3
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 52,
+    "beat": 2
+   },
+   "label": "V42"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 53,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 54,
+    "beat": 1
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 55,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 56,
+    "beat": 1
+   },
+   "label": "I64"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 57,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 58,
+    "beat": 1
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 59,
+    "beat": 1
+   },
+   "label": "I",
+   "callout": 4
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 59,
+    "beat": 2
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 60,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 55,
+    "beat": 1
+   },
+   "label": "IAC"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 60,
+    "beat": 1
+   },
+   "label": "PAC"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 49,
+    "beat": 1
+   },
+   "end": {
+    "measure": 52
+   },
+   "label": "a"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 53,
+    "beat": 1
+   },
+   "end": {
+    "measure": 56
+   },
+   "label": "a\u2032"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 57,
+    "beat": 1
+   },
+   "end": {
+    "measure": 60
+   },
+   "label": "a\u2033"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 50,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "E5"
+   },
+   "label": "N"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 51,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "B5"
+   },
+   "label": "APP",
+   "callout": 2
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 52,
+    "beat": 2,
+    "staff": 1,
+    "pitch": "A5"
+   },
+   "label": "APP"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 60,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "F5"
+   },
+   "label": "APP"
+  },
+  {
+   "type": "voice_leading",
+   "kind": "arrow",
+   "from_note": {
+    "measure": 59,
+    "beat": 3,
+    "staff": 1,
+    "pitch": "Ab5"
+   },
+   "to_note": {
+    "measure": 60,
+    "beat": 1.75,
+    "staff": 1,
+    "pitch": "G5"
+   },
+   "label": "7\u21923"
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 49,
+    "beat": 1
+   },
+   "number": 1
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 51,
+    "beat": 1
+   },
+   "number": 2
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 52,
+    "beat": 1
+   },
+   "number": 3
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 59,
+    "beat": 1
+   },
+   "number": 4
+  }
+ ],
+ "passages": [
+  [
+   0,
+   23
+  ],
+  [
+   48,
+   60
+  ]
+ ]
+}

@@ -1,0 +1,116 @@
+{
+"real-bach-wtc1-22-prelude--scan": {
+"name": "real-bach-wtc1-22-prelude--scan",
+"pdfs": 1,
+"bars": 24,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 807,
+"pitch_notes": 673,
+"timed_notes": 358,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 24,
+"wrong_unwarned": 0,
+"facts": {
+"interlines": [
+23,
+23,
+23,
+23
+],
+"images": [
+"2787x3949",
+"2787x3949"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"real-beethoven-op2no1-iii--scan": {
+"name": "real-beethoven-op2no1-iii--scan",
+"pdfs": 1,
+"failed": 1,
+"bars": 77,
+"wrong": 77,
+"notes": 633,
+"facts": {
+"error": "ReadError: No music could be read from this PDF",
+"interlines": [],
+"images": [
+"5532x7227",
+"5532x7227"
+],
+"problems": [
+"StepException",
+"page flagged as invalid"
+],
+"outcome": "no music"
+}
+},
+"real-grieg-op38no7--scan": {
+"name": "real-grieg-op38no7--scan",
+"pdfs": 1,
+"failed": 1,
+"bars": 53,
+"wrong": 53,
+"notes": 409,
+"facts": {
+"error": "ReadError: No music could be read from this PDF",
+"interlines": [],
+"images": [
+"4960x7014",
+"4960x7014"
+],
+"problems": [
+"StepException",
+"page flagged as invalid"
+],
+"outcome": "no music"
+}
+},
+"mozart-k545-1--real-scan-peters": {
+"name": "mozart-k545-1--real-scan-peters",
+"pdfs": 1,
+"failed": 1,
+"bars": 73,
+"wrong": 73,
+"notes": 1270,
+"facts": {
+"error": "ReadError: No music could be read from this PDF",
+"interlines": [],
+"images": [
+"3968x5721",
+"4011x5780",
+"3968x5721",
+"4011x5780"
+],
+"problems": [
+"StepException",
+"page flagged as invalid"
+],
+"outcome": "no music"
+}
+},
+"chopin-prelude-4--real-scan-schirmer": {
+"name": "chopin-prelude-4--real-scan-schirmer",
+"pdfs": 1,
+"failed": 1,
+"bars": 26,
+"wrong": 26,
+"notes": 604,
+"facts": {
+"error": "ReadError: No music could be read from this PDF",
+"interlines": [],
+"images": [
+"5118x7004"
+],
+"problems": [
+"StepException",
+"page flagged as invalid"
+],
+"outcome": "no music"
+}
+}
+}

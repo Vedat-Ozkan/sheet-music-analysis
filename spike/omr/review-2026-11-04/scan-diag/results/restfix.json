@@ -1,0 +1,28 @@
+{
+"olimpic-6986302-p1-s2": {
+"name": "olimpic-6986302-p1-s2",
+"pdfs": 1,
+"bars": 6,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 48,
+"pitch_notes": 47,
+"timed_notes": 40,
+"pitch_timing_bars": 3,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 6,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+20,
+20
+],
+"images": [
+"2379x692"
+],
+"problems": [],
+"outcome": "done"
+}
+}
+}
