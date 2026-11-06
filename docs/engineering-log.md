@@ -1903,6 +1903,14 @@ Measured with baseline launcher marks1. Quick set, 49 clean PDFs: 0 split; first
 
 **True total since launch:** still unknown. There are 6 permanent codes and 12 daily codes from 31 Oct to 2 Nov, so 6 to 18 people, not counting ChatGPT calls from 28 to 30 Oct, which logged no code.
 
+### 111. ChatGPT listing, version 1.1.0 prepared (2026-11-06)
+
+**Checked on OpenAI's dashboard.** Version 1.0.0 is published and listed publicly, with no review in progress. The cached descriptions of `render_analysis`, `read_pdf`, `draft_analysis` and `correct_bars`, reviewed 2026-11-02, match production word for word, which supersedes the "old 32-bar tool text" note in the entries above. Schemas and `rate_analysis` were not compared.
+
+**What is out of date is the public listing text:** it offers MusicXML only, says each page shows up to 32 bars, and quotes 71% against 78% on 12 pieces. The site says 67% against 71% on 30 unseen pieces.
+
+**Prepared.** `openai-plugin/plugin.json` 1.1.0 adds PDFs to the description and capabilities and a reviewer test case with a public Mutopia PDF, which read on production in 99 s with the right card. Not submitted: that is the owner's step, and the approved listing stays live until OpenAI reviews the update.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
