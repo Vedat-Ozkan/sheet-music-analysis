@@ -1,18 +1,20 @@
 import io
 import re
 from pathlib import Path
+from typing import get_args
 
 import pytest
 from PIL import Image, ImageChops, ImageStat
 
 from engine.annotate import AnnotationError, render
-from engine.annotations import AnnotationList
+from engine.annotations import Annotation, AnnotationList
 from engine.export import export_midi
 from engine.overlay import ARROW, ERROR
 from engine.render import engrave
 from engine.score import PositionError
 
 GOLDEN = Path(__file__).parent / "golden" / "chopin_m1-8_all.png"
+SPEC = Path(__file__).parent.parent / "docs" / "annotation-spec.md"
 
 
 def test_example_renders_on_one_page(chopin, chopin_annotations):
@@ -129,3 +131,13 @@ def test_a_backwards_bar_range_is_refused(chopin, chopin_annotations):
                  lambda: export_midi(chopin, (37, 1))):
         with pytest.raises(PositionError, match="run backwards"):
             make()
+
+
+def test_the_spec_lists_exactly_the_fields_of_every_annotation_type():
+    table = SPEC.read_text().split("## Annotation types", 1)[1].split("|---|---|---|", 1)[1].split("\n## ", 1)[0]
+    listed = {name: set(re.findall(r"`(\w+)`", re.sub(r"\(.*?\)", "", fields)))
+              for name, fields in re.findall(r"^\| `(\w+)` \| (.*?) \|", table, re.M)}
+    shared = set(Annotation.model_fields) | {"type"}
+    schema = {get_args(model.model_fields["type"].annotation)[0]: set(model.model_fields) - shared
+              for model in Annotation.__subclasses__()}
+    assert listed == schema
