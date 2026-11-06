@@ -54,5 +54,6 @@ exclude = ["**/.uuid"]
 default-groups = ["dev", "server"]
 
 [tool.pytest.ini_options]
+addopts = "--dist loadgroup"
 testpaths = ["tests"]
 pythonpath = ["."]

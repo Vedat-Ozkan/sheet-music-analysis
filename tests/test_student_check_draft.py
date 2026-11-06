@@ -45,6 +45,7 @@ def assert_planted_differences(section):
     assert "second reader" in section and "both readings are defensible" in section
 
 
+@pytest.mark.xdist_group("draft_model")
 def test_draft_analysis_checks_typed_answer(local_store):
     result = call(app.draft_analysis, score_id="CHOPIN", measure_range="1-8", student_analysis=STUDENT)
     assert not result.is_error
@@ -53,10 +54,12 @@ def test_draft_analysis_checks_typed_answer(local_store):
     assert "If there is a STUDENT CHECK section" in text.split("HOW TO USE", 1)[1]
 
 
+@pytest.mark.xdist_group("draft_model")
 def test_draft_analysis_without_answer_has_no_section(local_store):
     assert "STUDENT CHECK (" not in call(app.draft_analysis, score_id="CHOPIN", measure_range="1-8").content[0].text
 
 
+@pytest.mark.xdist_group("draft_model")
 def test_numerals_written_in_the_score_are_read_only_when_asked(local_store):
     asked = call(app.draft_analysis, score_id="LABELLED", student_analysis="score").content[0].text
     assert "m2 b1 | G: V6 |" in section_of(asked)
@@ -68,6 +71,7 @@ def test_ambiguous_answer_comes_back_as_the_question(local_store):
     assert result.is_error and result.content[0].text == app.QUESTION_FOR_USER + QUESTION
 
 
+@pytest.mark.xdist_group("draft_model")
 def test_draft_from_notes_checks_typed_answer(local_store):
     index = ScoreIndex(load_toolkit(CHOPIN.read_bytes()).getMEI())
     result = call(app.draft_from_notes, notes=note_list.encode(index, 1, 8), student_analysis=STUDENT)
@@ -93,6 +97,7 @@ def run_script(*arguments):
     )
 
 
+@pytest.mark.xdist_group("draft_model")
 def test_skill_script_hands_the_answer_to_the_tool(local_store):
     ran = run_script(str(CHOPIN), "--measures", "1-8", "--student-analysis", STUDENT)
     assert ran.returncode == 0, ran.stderr

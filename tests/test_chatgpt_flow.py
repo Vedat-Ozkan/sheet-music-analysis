@@ -190,6 +190,7 @@ def test_a_long_pdf_reads_its_first_pages_and_says_which(server, monkeypatch):
     assert charged(server, "pdf_page") == pdf_reader.READ_PAGES
 
 
+@pytest.mark.xdist_group("draft_model")
 def test_a_whole_score_draft_shows_the_drawing_format_before_the_long_tables(server):
     score_id = score_id_of(call("read_pdf", ATTACHED))
     text = text_of(call("draft_analysis", {"score_id": score_id}))
@@ -226,6 +227,7 @@ def test_a_drawing_with_no_marks_says_so_first_and_skips_the_extra_downloads(ser
     assert "worksheet" not in text_of(result).lower()
 
 
+@pytest.mark.xdist_group("draft_model")
 def test_a_whole_score_draft_gives_its_instructions_before_the_chords_and_the_notes_last(server):
     score_id = score_id_of(call("read_pdf", ATTACHED))
     text = text_of(call("draft_analysis", {"score_id": score_id}))

@@ -20,6 +20,8 @@ def chopin_annotations() -> AnnotationList:
 import os  # noqa: E402
 import subprocess  # noqa: E402
 
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+
 
 def main_checkout() -> Path:
     try:
