@@ -1911,6 +1911,16 @@ Measured with baseline launcher marks1. Quick set, 49 clean PDFs: 0 split; first
 
 **Prepared.** `openai-plugin/plugin.json` 1.1.0 adds PDFs to the description and capabilities and a reviewer test case with a public Mutopia PDF, which read on production in 99 s with the right card. Uploaded as a draft, no findings in OpenAI's automatic check; the owner made the declarations and submitted it on 2026-11-06. Status: in review, estimated completion 2026-11-07. Version 1.0.0 stays live until then.
 
+### 112. The Claude directory's credential hold, traced to environment reads (2026-11-06)
+
+**The problem.** The Claude directory holds v1.7.3 for "Uses a credential from the user's machine" (`MCP_FORWARDS_CREDENTIAL_ENV`), pointing at `.claude-plugin/plugin.json`. The plugin has no credential: `.mcp.json` is only the server address, and the connector needs no key.
+
+**How it was traced.** The rule is not documented, so each version's findings were compared with its code. v1.0.0 had no `engine/read_pdf.py` and no finding. v1.2.1 added the file, which reads `os.environ`, and the `plugin.json` finding appeared. v1.4.0 to v1.7.0 also had an SVG namespace URL in that file and a second finding on the file itself. v1.7.3 dropped the URL for another reason and the second finding went. `os.environ.setdefault` in `render.py` raised nothing. This is a correlation across versions, not the rule's definition, and it cannot separate the two reads, which always shipped together.
+
+**The fix.** The shipped code reads no value from the environment; what remains is `os.environ.setdefault("FONTCONFIG_FILE", ...)` in `render.py`, which points the engine at its own fonts. The reader gets a fixed environment rather than a copy of the caller's, so it no longer sees any secret the caller holds. The engine's default reader path is a constant; `tools/robustness.py` and the tests read `AUDIVERIS` themselves, and the skill already passes its path. Two checks were added: the reader is not given the caller's variables, and no skill or engine script reads a value from the environment.
+
+**Not known until the next scan.** Whether the hold clears. A reviewer is still required either way. The warnings on the PDF reader download, the fonts and the listing fields stay.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

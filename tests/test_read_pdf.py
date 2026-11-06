@@ -451,3 +451,14 @@ def test_movements_split_by_an_unreadable_page_are_joined_with_every_bar():
     bars = pianos[0].findall("measure")
     for section in (bars[:109], bars[109:123], bars[123:]):
         assert any(bar.find("note/pitch") is not None for bar in section)
+
+
+def test_the_reader_is_not_given_the_callers_secrets(tmp_path, monkeypatch):
+    monkeypatch.setenv("SOME_API_TOKEN", "do-not-pass")
+    seen = tmp_path / "environment"
+    reader = tmp_path / "reader"
+    reader.write_text(f"#!/bin/sh\nenv > {seen}\n")
+    reader.chmod(0o755)
+    audiveris_read(b"%PDF", str(reader), 0, False, time.monotonic() + 30, threading.Event())
+    assert "PATH=" in seen.read_text()
+    assert "SOME_API_TOKEN" not in seen.read_text()

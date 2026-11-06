@@ -29,7 +29,7 @@ from engine.tuplet_rests import infer_tuplet_rests
 
 log = logging.getLogger(__name__)
 
-AUDIVERIS = os.environ.get("AUDIVERIS", "/opt/audiveris/bin/Audiveris")
+AUDIVERIS = "/opt/audiveris/bin/Audiveris"
 TIMEOUT = 480
 SECOND_PASS_SECONDS = 400
 READ_PAGES = 8
@@ -401,9 +401,8 @@ def audiveris_read(data: bytes, audiveris: str, setting: int, leland: bool, dead
     with tempfile.TemporaryDirectory(prefix="read_pdf_") as work:
         source = Path(work) / "score.pdf"
         source.write_bytes(data)
-        env = {key: value for key, value in os.environ.items() if key != "FONTCONFIG_FILE"}
-        env.setdefault("TESSDATA_PREFIX", str(Path(audiveris).parent.parent / "tessdata"))
-        env.update(HOME=work, _JAVA_OPTIONS="-Xmx1g -Djava.awt.headless=true -Dsun.java2d.uiScale=1")
+        env = {"PATH": os.defpath, "HOME": work, "TESSDATA_PREFIX": str(Path(audiveris).parent.parent / "tessdata"),
+               "_JAVA_OPTIONS": "-Xmx1g -Djava.awt.headless=true -Dsun.java2d.uiScale=1"}
         run_ = run(audiveris, options, setting, source, work, env, deadline, stop)
         facts = audiveris_facts(run_)
         books = sorted(Path(work).glob("*.omr"))
