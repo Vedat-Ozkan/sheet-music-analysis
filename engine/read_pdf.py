@@ -54,7 +54,7 @@ _BASE = ["-option", _SWITCH + "indentations=false",
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_BASE, _BASE + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
 _LELAND = ["-option", "org.audiveris.omr.ui.symbol.MusicFont.defaultMusicFamily=Leland"]
-READER = "5.11.0-sma.6-best2-tuplet-rests-eight-leland-ocr-r9"
+READER = "5.11.0-sma.7-best2-tuplet-rests-eight-leland-ocr-r9"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
