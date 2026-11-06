@@ -2142,6 +2142,33 @@ A fourth run, grouped, with no measuring attached and less other work on the mac
 
 **What it means.** With the note table in the prompt, the draft is not shown to raise accuracy for any reviewer tried, and for the ChatGPT model it probably lowers it. A ChatGPT model at low effort with the draft, which is what the product sends today, scores 0.64 where the site says 67%. The part-writing check and the student check still read the draft's chords, so the model cannot simply be removed.
 
+### 119. Is there a measure where experts agree and we do not? (2026-11-06)
+
+**Question.** The owner finds "we score 0.67 and experts score 0.71" hard to explain, and asked for a measure on which experts agree with each other at 0.85-0.90 and which shows our real shortfall.
+
+**Method.** Saved runs only, no model calls. About 20 measures were computed the same way for expert against expert (151 pairs), our Opus review with and without the draft (30 held-out pieces, 1,182 bars), the draft alone, and plain Sonnet and plain Opus (3 pieces). The scripts reproduce `compare()` on every piece and `ceiling.json` to 0.001. They are not committed; a copy is in `out/scoring-research-2026-11-06/`.
+
+**A correction.** Entries 65 and 66 say our chords account for 0.71 of the notes against the experts' 0.90. That figure was measured over the whole piece, while a review labels only its passages, so its last chord was stretched over every bar after them. Inside the scored bars the figures are: experts 0.900, Opus with the draft 0.881, without 0.901, draft 0.841.
+
+| Measure | Experts | Opus with / without draft | Draft | Plain Opus (3 pieces) | Plain Sonnet (3 pieces) |
+|---|---|---|---|---|---|
+| Key, chord and bass (*full*) | 0.711 | 0.670 / 0.680 | 0.481 | 0.64 | 0.42 |
+| *Function* | 0.830 | 0.768 / 0.792 | 0.666 | 0.73 | 0.53 |
+| Same root | 0.911 | 0.869 / 0.897 | 0.779 | 0.87 | 0.65 |
+| Same family (tonic, predominant, dominant) on each downbeat | 0.921 | 0.865 / 0.898 | 0.804 | 0.89 | 0.70 |
+| Chord fits the notes | 0.909 | 0.881 / 0.901 | 0.841 | 0.88 | 0.76 |
+| Chord changes the other reading also has within a quarter beat | 0.886 | 0.841 / 0.873 | 0.749 | 0.86 | 0.79 |
+
+**Result.** No measure has experts at 0.85 or more and our Opus review 0.10 or more below them. The expert figure of 0.711 is weighted by bars and led by long Beethoven movements; per pair it is 0.79, chorales 0.87, Beethoven 0.65, Chopin 0.59. On our 13 pieces in styles that have expert pairs, with the expert figure matched to the same mix of styles, *full* is 0.677 for experts against 0.689 for us with the draft and 0.726 without.
+
+**Where we differ from experts** (share of the music): inversion or bass 0.072 against 0.049, related chord 0.059 against 0.041; key 0.056 against 0.075 the other way. With the draft we write fewer chord changes than the expert in 90% of pieces. Of the expert's 95 cadences (21 DCML pieces) we mark 0.57 to 0.67 in the same place with the same type, and 0.39 to 0.43 of our cadence marks have no expert cadence; no pair of experts both mark cadences, so their agreement is unknown.
+
+**Plain model against pipeline** (3 pieces): plain Opus matches the pipeline on key (0.96-0.97) and root (0.86-0.88). The pipeline's gain is bass and inversion (missed on 0.113 of the music by plain Opus, 0.06-0.08 by the pipeline).
+
+**From the literature.** Published systems report the same strict measure, at 0.43 to 0.58 on their own test sets (the draft model's paper 0.52-0.53). No published figure was found for agreement between experts on Roman numerals of classical scores, and no multi-reference scoring.
+
+**Limits.** Our passages are chosen ones while expert pairs cover whole movements; our Beethoven, Chopin and Mozart references are DCML while those pairs are mostly DCML against TAOM. Style figures on our side rest on 1 to 6 pieces, the multi-expert comparison on 6. Entry 66's "0.47 of chord misses are the right chord placed elsewhere" was not reproduced (0.08 to 0.16 by two definitions). 147 pieces have two independent experts and a usable score, 131 of them outside our sets; they have not been reviewed.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
