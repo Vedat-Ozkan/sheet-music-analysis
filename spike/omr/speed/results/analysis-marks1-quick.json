@@ -1,0 +1,2040 @@
+{
+ "variant": "marks1",
+ "sets": [
+  "bench",
+  "bench-heldout",
+  "bench-heldout2",
+  "bench-heldout3",
+  "bench-real",
+  "bench-tune2",
+  "bench-oldly"
+ ],
+ "summary": [
+  "all: 49 PDFs, 46 scored",
+  "  full as read     pooled 0.751 (failed as 0: 0.729) | min 0.06 q1 0.68 median 0.83 q3 0.88 max 1.00",
+  "  key as read      pooled 0.918 (failed as 0: 0.892) | min 0.25 q1 0.89 median 0.96 q3 1.00 max 1.00",
+  "  root as read     pooled 0.834 (failed as 0: 0.810) | min 0.13 q1 0.80 median 0.89 q3 0.94 max 1.00",
+  "  full lined up    pooled 0.772 (failed as 0: 0.750) | min 0.23 q1 0.68 median 0.83 q3 0.88 max 1.00",
+  "  key lined up     pooled 0.924 (failed as 0: 0.898) | min 0.38 q1 0.90 median 0.96 q3 1.00 max 1.00",
+  "  root lined up    pooled 0.860 (failed as 0: 0.836) | min 0.43 q1 0.80 median 0.89 q3 0.94 max 1.00",
+  "clean: 39 PDFs, 37 scored",
+  "  full as read     pooled 0.776 (failed as 0: 0.761) | min 0.09 q1 0.71 median 0.83 q3 0.89 max 1.00",
+  "  key as read      pooled 0.909 (failed as 0: 0.892) | min 0.25 q1 0.86 median 0.96 q3 1.00 max 1.00",
+  "  root as read     pooled 0.851 (failed as 0: 0.834) | min 0.21 q1 0.80 median 0.89 q3 0.95 max 1.00",
+  "  full lined up    pooled 0.791 (failed as 0: 0.776) | min 0.23 q1 0.71 median 0.83 q3 0.89 max 1.00",
+  "  key lined up     pooled 0.917 (failed as 0: 0.899) | min 0.38 q1 0.89 median 0.96 q3 1.00 max 1.00",
+  "  root lined up    pooled 0.870 (failed as 0: 0.853) | min 0.43 q1 0.80 median 0.89 q3 0.95 max 1.00",
+  "rendered scan: 6 PDFs, 5 scored",
+  "  full as read     pooled 0.785 (failed as 0: 0.697) | min 0.53 q1 0.67 median 0.82 q3 0.87 max 0.89",
+  "  key as read      pooled 0.945 (failed as 0: 0.840) | min 0.84 q1 0.90 median 0.96 q3 0.99 max 1.00",
+  "  root as read     pooled 0.878 (failed as 0: 0.780) | min 0.80 q1 0.83 median 0.88 q3 0.93 max 0.95",
+  "  full lined up    pooled 0.785 (failed as 0: 0.697) | min 0.53 q1 0.67 median 0.82 q3 0.87 max 0.89",
+  "  key lined up     pooled 0.945 (failed as 0: 0.840) | min 0.84 q1 0.90 median 0.96 q3 0.99 max 1.00",
+  "  root lined up    pooled 0.878 (failed as 0: 0.780) | min 0.80 q1 0.83 median 0.88 q3 0.93 max 0.95",
+  "real scan: 4 PDFs, 4 scored",
+  "  full as read     pooled 0.532 (failed as 0: 0.532) | min 0.06 q1 0.13 median 0.46 q3 0.77 max 0.82",
+  "  key as read      pooled 0.951 (failed as 0: 0.951) | min 0.93 q1 0.93 median 0.96 q3 0.98 max 0.98",
+  "  root as read     pooled 0.665 (failed as 0: 0.665) | min 0.13 q1 0.23 median 0.65 q3 0.86 max 0.89",
+  "  full lined up    pooled 0.620 (failed as 0: 0.620) | min 0.32 q1 0.39 median 0.62 q3 0.78 max 0.82",
+  "  key lined up     pooled 0.954 (failed as 0: 0.954) | min 0.93 q1 0.93 median 0.97 q3 0.99 max 0.99",
+  "  root lined up    pooled 0.770 (failed as 0: 0.770) | min 0.53 q1 0.59 median 0.79 q3 0.87 max 0.89"
+ ],
+ "rows": [
+  {
+   "set": "bench",
+   "pdf": "mozart-k545-1--ms",
+   "piece": "mozart-k545-1",
+   "kind": "clean",
+   "weight": 292.0,
+   "full as read": 0.884,
+   "key as read": 0.962,
+   "root as read": 0.905,
+   "full lined up": 0.884,
+   "key lined up": 0.962,
+   "root lined up": 0.905,
+   "truth_bars": 73,
+   "read_bars": 73,
+   "paired": 73,
+   "exact": 0.958904109589041,
+   "pitch": 0.9984251968503937,
+   "timing": 0.9881889763779528,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    0
+   ],
+   "read_keys": [],
+   "truth_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench",
+   "pdf": "mozart-k545-1--ly",
+   "piece": "mozart-k545-1",
+   "kind": "clean",
+   "weight": 292.0,
+   "full as read": 0.949,
+   "key as read": 0.993,
+   "root as read": 0.978,
+   "full lined up": 0.949,
+   "key lined up": 0.993,
+   "root lined up": 0.978,
+   "truth_bars": 73,
+   "read_bars": 73,
+   "paired": 73,
+   "exact": 0.7808219178082192,
+   "pitch": 0.9921259842519685,
+   "timing": 0.988976377952756,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    0
+   ],
+   "read_keys": [],
+   "truth_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench",
+   "pdf": "mozart-k545-1--scan",
+   "piece": "mozart-k545-1",
+   "kind": "rendered scan",
+   "weight": 292.0,
+   "full as read": 0.839,
+   "key as read": 0.963,
+   "root as read": 0.884,
+   "full lined up": 0.839,
+   "key lined up": 0.963,
+   "root lined up": 0.884,
+   "truth_bars": 73,
+   "read_bars": 73,
+   "paired": 73,
+   "exact": 0.8493150684931506,
+   "pitch": 0.9929133858267717,
+   "timing": 0.9677165354330709,
+   "bar_length_wrong": 1.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [],
+   "truth_keys": [
+    0
+   ],
+   "read_keys": [],
+   "truth_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench",
+   "pdf": "chopin-prelude-4--ms",
+   "piece": "chopin-prelude-4",
+   "kind": "clean",
+   "weight": 101.0,
+   "full as read": 0.99,
+   "key as read": 1.0,
+   "root as read": 0.995,
+   "full lined up": 0.99,
+   "key lined up": 1.0,
+   "root lined up": 0.995,
+   "truth_bars": 26,
+   "read_bars": 26,
+   "paired": 26,
+   "exact": 0.9615384615384616,
+   "pitch": 1.0,
+   "timing": 0.9966887417218543,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    1
+   ],
+   "read_keys": [
+    1
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench",
+   "pdf": "chopin-prelude-4--vr",
+   "piece": "chopin-prelude-4",
+   "kind": "clean",
+   "weight": 101.0,
+   "full as read": 0.797,
+   "key as read": 1.0,
+   "root as read": 0.876,
+   "full lined up": 0.797,
+   "key lined up": 1.0,
+   "root lined up": 0.876,
+   "truth_bars": 26,
+   "read_bars": 25,
+   "paired": 25,
+   "exact": 0.7692307692307693,
+   "pitch": 0.9784768211920529,
+   "timing": 0.9519867549668874,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    1
+   ],
+   "read_keys": [
+    1
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench",
+   "pdf": "clara-schumann-polonaise-1--ms",
+   "piece": "clara-schumann-polonaise-1",
+   "kind": "clean",
+   "weight": 120.0,
+   "full as read": 0.823,
+   "key as read": 0.963,
+   "root as read": 0.944,
+   "full lined up": 0.823,
+   "key lined up": 0.963,
+   "root lined up": 0.944,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 0.7,
+   "pitch": 0.9766355140186916,
+   "timing": 0.9719626168224299,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    -3
+   ],
+   "read_keys": [
+    -3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench",
+   "pdf": "clara-schumann-polonaise-1--vr",
+   "piece": "clara-schumann-polonaise-1",
+   "kind": "clean",
+   "weight": 120.0,
+   "full as read": 0.697,
+   "key as read": 0.889,
+   "root as read": 0.873,
+   "full lined up": 0.697,
+   "key lined up": 0.889,
+   "root lined up": 0.873,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 0.675,
+   "pitch": 0.969626168224299,
+   "timing": 0.9135514018691588,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    -3
+   ],
+   "read_keys": [
+    -3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench",
+   "pdf": "clara-schumann-polonaise-3--ms",
+   "piece": "clara-schumann-polonaise-3",
+   "kind": "clean",
+   "weight": 144.0,
+   "full as read": 0.829,
+   "key as read": 0.922,
+   "root as read": 0.893,
+   "full lined up": 0.829,
+   "key lined up": 0.922,
+   "root lined up": 0.893,
+   "truth_bars": 48,
+   "read_bars": 48,
+   "paired": 48,
+   "exact": 0.7291666666666666,
+   "pitch": 0.9913700107874865,
+   "timing": 0.9385113268608414,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    2
+   ],
+   "read_keys": [
+    2
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench",
+   "pdf": "clara-schumann-polonaise-3--ly",
+   "piece": "clara-schumann-polonaise-3",
+   "kind": "clean",
+   "weight": 144.0,
+   "full as read": 0.177,
+   "key as read": 0.729,
+   "root as read": 0.24,
+   "full lined up": 0.589,
+   "key lined up": 0.897,
+   "root lined up": 0.72,
+   "truth_bars": 48,
+   "read_bars": 52,
+   "paired": 48,
+   "exact": 0.0,
+   "pitch": 0.9223300970873787,
+   "timing": 0.8274002157497303,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    2
+   ],
+   "read_keys": [
+    2
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 4
+  },
+  {
+   "set": "bench",
+   "pdf": "clara-schumann-polonaise-3--scan",
+   "piece": "clara-schumann-polonaise-3",
+   "kind": "rendered scan",
+   "weight": 144.0,
+   "full as read": 0.824,
+   "key as read": 0.958,
+   "root as read": 0.905,
+   "full lined up": 0.824,
+   "key lined up": 0.958,
+   "root lined up": 0.905,
+   "truth_bars": 48,
+   "read_bars": 48,
+   "paired": 48,
+   "exact": 0.6041666666666666,
+   "pitch": 0.9935275080906149,
+   "timing": 0.889967637540453,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    2
+   ],
+   "read_keys": [
+    2
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench",
+   "pdf": "clara-schumann-polonaise-4--ms",
+   "piece": "clara-schumann-polonaise-4",
+   "kind": "clean",
+   "weight": 120.0,
+   "full as read": 0.938,
+   "key as read": 0.975,
+   "root as read": 0.966,
+   "full lined up": 0.938,
+   "key lined up": 0.975,
+   "root lined up": 0.966,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 0.95,
+   "pitch": 0.9948453608247423,
+   "timing": 0.993127147766323,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    0
+   ],
+   "read_keys": [],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench",
+   "pdf": "clara-schumann-polonaise-4--vr",
+   "piece": "clara-schumann-polonaise-4",
+   "kind": "clean",
+   "weight": 120.0,
+   "full as read": 0.849,
+   "key as read": 0.933,
+   "root as read": 0.877,
+   "full lined up": 0.849,
+   "key lined up": 0.933,
+   "root lined up": 0.877,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 0.725,
+   "pitch": 0.9948453608247423,
+   "timing": 0.9553264604810997,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    0
+   ],
+   "read_keys": [],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench",
+   "pdf": "cpe-bach-h186--ly",
+   "piece": "cpe-bach-h186",
+   "kind": "clean",
+   "weight": 128.0,
+   "full as read": 0.864,
+   "key as read": 0.996,
+   "root as read": 0.923,
+   "full lined up": 0.864,
+   "key lined up": 0.996,
+   "root lined up": 0.923,
+   "truth_bars": 32,
+   "read_bars": 32,
+   "paired": 32,
+   "exact": 0.53125,
+   "pitch": 0.9975786924939467,
+   "timing": 0.8813559322033898,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    3
+   ],
+   "read_keys": [
+    3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench",
+   "pdf": "faisst-op18-2-lied-der-nacht--ms",
+   "piece": "faisst-op18-2-lied-der-nacht",
+   "kind": "clean",
+   "weight": 111.0,
+   "full as read": 0.711,
+   "key as read": 0.907,
+   "root as read": 0.773,
+   "full lined up": 0.711,
+   "key lined up": 0.907,
+   "root lined up": 0.773,
+   "truth_bars": 33,
+   "read_bars": 33,
+   "paired": 33,
+   "exact": 0.6060606060606061,
+   "pitch": 0.992,
+   "timing": 0.848,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3",
+    "4"
+   ],
+   "read_meters": [
+    "3",
+    "4"
+   ],
+   "truth_keys": [
+    -3
+   ],
+   "read_keys": [
+    -3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench",
+   "pdf": "faisst-op18-2-lied-der-nacht--vr",
+   "piece": "faisst-op18-2-lied-der-nacht",
+   "kind": "clean",
+   "weight": 111.0,
+   "full as read": 0.646,
+   "key as read": 0.919,
+   "root as read": 0.732,
+   "full lined up": 0.646,
+   "key lined up": 0.919,
+   "root lined up": 0.732,
+   "truth_bars": 33,
+   "read_bars": 33,
+   "paired": 33,
+   "exact": 0.42424242424242425,
+   "pitch": 0.9872,
+   "timing": 0.8016,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3",
+    "4"
+   ],
+   "read_meters": [
+    "3",
+    "4"
+   ],
+   "truth_keys": [
+    -3
+   ],
+   "read_keys": [
+    -3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench",
+   "pdf": "faisst-op18-2-lied-der-nacht--scan",
+   "piece": "faisst-op18-2-lied-der-nacht",
+   "kind": "rendered scan",
+   "weight": 111.0,
+   "full as read": 0.526,
+   "key as read": 0.837,
+   "root as read": 0.801,
+   "full lined up": 0.526,
+   "key lined up": 0.837,
+   "root lined up": 0.801,
+   "truth_bars": 33,
+   "read_bars": 33,
+   "paired": 33,
+   "exact": 0.3333333333333333,
+   "pitch": 0.9536,
+   "timing": 0.8144,
+   "bar_length_wrong": 0.36363636363636365,
+   "truth_meters": [
+    "3",
+    "4"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    -3
+   ],
+   "read_keys": [
+    -3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench",
+   "pdf": "hensel-op7-1-nachtwanderer--ms",
+   "piece": "hensel-op7-1-nachtwanderer",
+   "kind": "clean",
+   "weight": 166.5,
+   "full as read": 0.763,
+   "key as read": 0.831,
+   "root as read": 0.851,
+   "full lined up": 0.763,
+   "key lined up": 0.831,
+   "root lined up": 0.851,
+   "truth_bars": 39,
+   "read_bars": 39,
+   "paired": 39,
+   "exact": 0.4358974358974359,
+   "pitch": 0.997164461247637,
+   "timing": 0.8137996219281664,
+   "bar_length_wrong": 0.20512820512820512,
+   "truth_meters": [
+    "3",
+    "9/2"
+   ],
+   "read_meters": [
+    "3",
+    "9/2"
+   ],
+   "truth_keys": [
+    -1
+   ],
+   "read_keys": [
+    -1
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench",
+   "pdf": "schumann-op96-4-gesungen--ms",
+   "piece": "schumann-op96-4-gesungen",
+   "kind": "clean",
+   "weight": 128.0,
+   "full as read": 0.891,
+   "key as read": 0.971,
+   "root as read": 0.93,
+   "full lined up": 0.891,
+   "key lined up": 0.971,
+   "root lined up": 0.93,
+   "truth_bars": 32,
+   "read_bars": 32,
+   "paired": 32,
+   "exact": 0.28125,
+   "pitch": 0.9941434846266471,
+   "timing": 0.9326500732064422,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    -3
+   ],
+   "read_keys": [
+    -3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench",
+   "pdf": "schumann-op96-4-gesungen--ly",
+   "piece": "schumann-op96-4-gesungen",
+   "kind": "clean",
+   "weight": 128.0,
+   "full as read": 0.727,
+   "key as read": 0.914,
+   "root as read": 0.867,
+   "full lined up": 0.727,
+   "key lined up": 0.914,
+   "root lined up": 0.867,
+   "truth_bars": 32,
+   "read_bars": 32,
+   "paired": 32,
+   "exact": 0.28125,
+   "pitch": 0.95900439238653,
+   "timing": 0.9385065885797951,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    -3
+   ],
+   "read_keys": [
+    -3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench",
+   "pdf": "kinkel-op8-5-trennung--ms",
+   "piece": "kinkel-op8-5-trennung",
+   "kind": "clean",
+   "weight": 52.0,
+   "full as read": 0.859,
+   "key as read": 1.0,
+   "root as read": 0.888,
+   "full lined up": 0.859,
+   "key lined up": 1.0,
+   "root lined up": 0.888,
+   "truth_bars": 14,
+   "read_bars": 14,
+   "paired": 14,
+   "exact": 0.5,
+   "pitch": 0.9882005899705014,
+   "timing": 0.8967551622418879,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    -4
+   ],
+   "read_keys": [
+    -4
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench",
+   "pdf": "kinkel-op8-5-trennung--scan",
+   "piece": "kinkel-op8-5-trennung",
+   "kind": "rendered scan",
+   "weight": 52.0,
+   "full as read": 0.894,
+   "key as read": 1.0,
+   "root as read": 0.952,
+   "full lined up": 0.894,
+   "key lined up": 1.0,
+   "root lined up": 0.952,
+   "truth_bars": 14,
+   "read_bars": 14,
+   "paired": 14,
+   "exact": 0.35714285714285715,
+   "pitch": 0.976401179941003,
+   "timing": 0.9469026548672567,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    -4
+   ],
+   "read_keys": [
+    -4
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench",
+   "pdf": "schubert-ave-maria--vr",
+   "piece": "schubert-ave-maria",
+   "kind": "clean",
+   "weight": 68.0,
+   "full as read": 0.912,
+   "key as read": 1.0,
+   "root as read": 0.956,
+   "full lined up": 0.912,
+   "key lined up": 1.0,
+   "root lined up": 0.956,
+   "truth_bars": 17,
+   "read_bars": 17,
+   "paired": 17,
+   "exact": 0.6470588235294118,
+   "pitch": 0.9965556831228473,
+   "timing": 0.9690011481056258,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    -2
+   ],
+   "read_keys": [
+    -2
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench",
+   "pdf": "haydn-canzonet-she-never-told--ms",
+   "piece": "haydn-canzonet-she-never-told",
+   "kind": "clean",
+   "weight": 156.0,
+   "full as read": 0.899,
+   "key as read": 1.0,
+   "root as read": 0.957,
+   "full lined up": 0.899,
+   "key lined up": 1.0,
+   "root lined up": 0.957,
+   "truth_bars": 39,
+   "read_bars": 39,
+   "paired": 39,
+   "exact": 0.7948717948717948,
+   "pitch": 0.9914738124238733,
+   "timing": 0.953714981729598,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    -4
+   ],
+   "read_keys": [
+    -4
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench",
+   "pdf": "beethoven-op48-5-gottes-macht--ly",
+   "piece": "beethoven-op48-5-gottes-macht",
+   "kind": "clean",
+   "weight": 72.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 18,
+   "read_bars": 18,
+   "paired": 18,
+   "exact": 0.8888888888888888,
+   "pitch": 0.9950980392156863,
+   "timing": 0.9754901960784313,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    0
+   ],
+   "read_keys": [],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench",
+   "pdf": "beethoven-op48-5-gottes-macht--scan",
+   "piece": "beethoven-op48-5-gottes-macht",
+   "kind": "rendered scan",
+   "weight": 72.0,
+   "full as read": 0.806,
+   "key as read": 0.972,
+   "root as read": 0.861,
+   "full lined up": 0.806,
+   "key lined up": 0.972,
+   "root lined up": 0.861,
+   "truth_bars": 18,
+   "read_bars": 18,
+   "paired": 18,
+   "exact": 0.7222222222222222,
+   "pitch": 0.9411764705882353,
+   "timing": 0.9411764705882353,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    0
+   ],
+   "read_keys": [],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench",
+   "pdf": "mozart-quartet-k80--scan",
+   "piece": "mozart-quartet-k80",
+   "kind": "rendered scan",
+   "weight": 84.0,
+   "error": "DraftError: AnalysisGNN failed: ValueError: Failed to process score: Not all notes have a measure."
+  },
+  {
+   "set": "bench",
+   "pdf": "mozart-k545-1--lilypond-mutopia",
+   "piece": "mozart-k545-1",
+   "kind": "clean",
+   "weight": 292.0,
+   "full as read": 0.862,
+   "key as read": 0.977,
+   "root as read": 0.93,
+   "full lined up": 0.862,
+   "key lined up": 0.977,
+   "root lined up": 0.93,
+   "truth_bars": 73,
+   "read_bars": 73,
+   "paired": 73,
+   "exact": 0.7671232876712328,
+   "pitch": 0.988976377952756,
+   "timing": 0.9716535433070866,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    0
+   ],
+   "read_keys": [],
+   "truth_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench",
+   "pdf": "chopin-prelude-4--lilypond-mutopia",
+   "piece": "chopin-prelude-4",
+   "kind": "clean",
+   "weight": 101.0,
+   "full as read": 0.834,
+   "key as read": 1.0,
+   "root as read": 0.889,
+   "full lined up": 0.834,
+   "key lined up": 1.0,
+   "root lined up": 0.889,
+   "truth_bars": 26,
+   "read_bars": 26,
+   "paired": 26,
+   "exact": 0.8461538461538461,
+   "pitch": 0.9900662251655629,
+   "timing": 0.9867549668874173,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    1
+   ],
+   "read_keys": [
+    1
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench",
+   "pdf": "mozart-k545-1--real-scan-peters",
+   "piece": "mozart-k545-1",
+   "kind": "real scan",
+   "weight": 292.0,
+   "full as read": 0.604,
+   "key as read": 0.947,
+   "root as read": 0.775,
+   "full lined up": 0.604,
+   "key lined up": 0.947,
+   "root lined up": 0.775,
+   "truth_bars": 73,
+   "read_bars": 73,
+   "paired": 73,
+   "exact": 0.3561643835616438,
+   "pitch": 0.8645669291338582,
+   "timing": 0.8133858267716535,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    0
+   ],
+   "read_keys": [],
+   "truth_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench",
+   "pdf": "chopin-prelude-4--real-scan-schirmer",
+   "piece": "chopin-prelude-4",
+   "kind": "real scan",
+   "weight": 101.0,
+   "full as read": 0.064,
+   "key as read": 0.975,
+   "root as read": 0.129,
+   "full lined up": 0.629,
+   "key lined up": 0.99,
+   "root lined up": 0.802,
+   "truth_bars": 26,
+   "read_bars": 25,
+   "paired": 25,
+   "exact": 0.46153846153846156,
+   "pitch": 0.9619205298013245,
+   "timing": 0.9536423841059603,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    1
+   ],
+   "read_keys": [
+    1
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench-heldout",
+   "pdf": "h-schubert-aufenthalt--ms",
+   "piece": "h-schubert-aufenthalt",
+   "kind": "clean",
+   "weight": 80.0,
+   "full as read": 0.939,
+   "key as read": 1.0,
+   "root as read": 0.947,
+   "full lined up": 0.939,
+   "key lined up": 1.0,
+   "root lined up": 0.947,
+   "truth_bars": 40,
+   "read_bars": 39,
+   "paired": 39,
+   "exact": 0.975,
+   "pitch": 0.9669156883671292,
+   "timing": 0.9669156883671292,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "2"
+   ],
+   "read_meters": [
+    "2"
+   ],
+   "truth_keys": [
+    1
+   ],
+   "read_keys": [
+    1
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout",
+   "pdf": "h-holmes-barque-des-amours--ms",
+   "piece": "h-holmes-barque-des-amours",
+   "kind": "clean",
+   "weight": 120.0,
+   "full as read": 0.879,
+   "key as read": 1.0,
+   "root as read": 0.968,
+   "full lined up": 0.879,
+   "key lined up": 1.0,
+   "root lined up": 0.968,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 0.325,
+   "pitch": 0.9971936389148737,
+   "timing": 0.8503274087932647,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    -3
+   ],
+   "read_keys": [
+    -3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout",
+   "pdf": "h-brahms-fruhlingstrost--ms",
+   "piece": "h-brahms-fruhlingstrost",
+   "kind": "clean",
+   "weight": 240.0,
+   "full as read": 0.871,
+   "key as read": 0.968,
+   "root as read": 0.929,
+   "full lined up": 0.871,
+   "key lined up": 0.968,
+   "root lined up": 0.929,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 0.725,
+   "pitch": 0.997779422649889,
+   "timing": 0.9666913397483345,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "6"
+   ],
+   "read_meters": [
+    "6"
+   ],
+   "truth_keys": [
+    3
+   ],
+   "read_keys": [
+    3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout",
+   "pdf": "h-lang-traumbild--ms",
+   "piece": "h-lang-traumbild",
+   "kind": "clean",
+   "weight": 120.0,
+   "full as read": 0.835,
+   "key as read": 0.896,
+   "root as read": 0.935,
+   "full lined up": 0.835,
+   "key lined up": 0.896,
+   "root lined up": 0.935,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 0.6,
+   "pitch": 0.9894588896697118,
+   "timing": 0.9620520028109627,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    -1
+   ],
+   "read_keys": [
+    -1
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 4,
+   "read_staves": 4
+  },
+  {
+   "set": "bench-heldout2",
+   "pdf": "h2-bantock-ghost-road--ms",
+   "piece": "h2-bantock-ghost-road",
+   "kind": "clean",
+   "weight": 96.0,
+   "full as read": 0.544,
+   "key as read": 0.805,
+   "root as read": 0.706,
+   "full lined up": 0.544,
+   "key lined up": 0.805,
+   "root lined up": 0.706,
+   "truth_bars": 24,
+   "read_bars": 24,
+   "paired": 24,
+   "exact": 0.4583333333333333,
+   "pitch": 0.977728285077951,
+   "timing": 0.8151447661469933,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    0
+   ],
+   "read_keys": [],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout2",
+   "pdf": "h2-berg-nacht--ms",
+   "piece": "h2-berg-nacht",
+   "kind": "clean",
+   "weight": 96.0,
+   "error": "DraftError: AnalysisGNN failed: ValueError: Failed to process score: Not all notes have a measure."
+  },
+  {
+   "set": "bench-heldout2",
+   "pdf": "h2-boulanger-poete--ms",
+   "piece": "h2-boulanger-poete",
+   "kind": "clean",
+   "weight": 96.0,
+   "full as read": 0.087,
+   "key as read": 0.249,
+   "root as read": 0.209,
+   "full lined up": 0.232,
+   "key lined up": 0.383,
+   "root lined up": 0.434,
+   "truth_bars": 24,
+   "read_bars": 24,
+   "paired": 24,
+   "exact": 0.4166666666666667,
+   "pitch": 0.9885433715220949,
+   "timing": 0.7594108019639935,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    4
+   ],
+   "read_keys": [
+    4
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout3",
+   "pdf": "h3-schumann-fruehlingsnacht--ms",
+   "piece": "h3-schumann-fruehlingsnacht",
+   "kind": "clean",
+   "weight": 62.0,
+   "full as read": 0.938,
+   "key as read": 1.0,
+   "root as read": 0.95,
+   "full lined up": 0.938,
+   "key lined up": 1.0,
+   "root lined up": 0.95,
+   "truth_bars": 31,
+   "read_bars": 31,
+   "paired": 31,
+   "exact": 0.4838709677419355,
+   "pitch": 0.9920687376074026,
+   "timing": 0.8777263714474554,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "2"
+   ],
+   "read_meters": [
+    "2"
+   ],
+   "truth_keys": [
+    6
+   ],
+   "read_keys": [
+    6
+   ],
+   "truth_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout3",
+   "pdf": "h3-franz-lotosblume--ms",
+   "piece": "h3-franz-lotosblume",
+   "kind": "clean",
+   "weight": 60.0,
+   "full as read": 0.861,
+   "key as read": 0.939,
+   "root as read": 0.907,
+   "full lined up": 0.861,
+   "key lined up": 0.939,
+   "root lined up": 0.907,
+   "truth_bars": 30,
+   "read_bars": 30,
+   "paired": 30,
+   "exact": 0.7333333333333333,
+   "pitch": 0.9904129793510325,
+   "timing": 0.9793510324483776,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "2"
+   ],
+   "read_meters": [
+    "2"
+   ],
+   "truth_keys": [
+    -2
+   ],
+   "read_keys": [
+    -2
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout3",
+   "pdf": "h3-faisst-sehnsucht--ms",
+   "piece": "h3-faisst-sehnsucht",
+   "kind": "clean",
+   "weight": 128.0,
+   "full as read": 0.741,
+   "key as read": 0.977,
+   "root as read": 0.801,
+   "full lined up": 0.741,
+   "key lined up": 0.977,
+   "root lined up": 0.801,
+   "truth_bars": 32,
+   "read_bars": 32,
+   "paired": 32,
+   "exact": 0.46875,
+   "pitch": 0.9937888198757764,
+   "timing": 0.6884057971014492,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    3
+   ],
+   "read_keys": [
+    3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout3",
+   "pdf": "h3-schubert-kraehe--ms",
+   "piece": "h3-schubert-kraehe",
+   "kind": "clean",
+   "weight": 64.0,
+   "full as read": 0.886,
+   "key as read": 0.997,
+   "root as read": 0.95,
+   "full lined up": 0.886,
+   "key lined up": 0.997,
+   "root lined up": 0.95,
+   "truth_bars": 32,
+   "read_bars": 32,
+   "paired": 32,
+   "exact": 0.625,
+   "pitch": 0.9963702359346642,
+   "timing": 0.838475499092559,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "2"
+   ],
+   "read_meters": [
+    "2"
+   ],
+   "truth_keys": [
+    -3
+   ],
+   "read_keys": [
+    -3
+   ],
+   "truth_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout3",
+   "pdf": "h3-hensel-mayenlied--ms",
+   "piece": "h3-hensel-mayenlied",
+   "kind": "clean",
+   "weight": 96.0,
+   "full as read": 0.7,
+   "key as read": 0.812,
+   "root as read": 0.799,
+   "full lined up": 0.7,
+   "key lined up": 0.812,
+   "root lined up": 0.799,
+   "truth_bars": 32,
+   "read_bars": 31,
+   "paired": 31,
+   "exact": 0.53125,
+   "pitch": 0.948180815876516,
+   "timing": 0.8456449834619625,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    1
+   ],
+   "read_keys": [
+    1
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-real",
+   "pdf": "real-bach-wtc1-22-prelude--scan",
+   "piece": "real-bach-wtc1-22-prelude",
+   "kind": "real scan",
+   "weight": 96.0,
+   "full as read": 0.32,
+   "key as read": 0.984,
+   "root as read": 0.529,
+   "full lined up": 0.32,
+   "key lined up": 0.984,
+   "root lined up": 0.529,
+   "truth_bars": 24,
+   "read_bars": 24,
+   "paired": 24,
+   "exact": 0.0,
+   "pitch": 0.7930607187112764,
+   "timing": 0.4708798017348203,
+   "bar_length_wrong": 1.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [],
+   "truth_keys": [
+    -5
+   ],
+   "read_keys": [
+    -5
+   ],
+   "truth_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench-real",
+   "pdf": "real-grieg-op38no7--scan",
+   "piece": "real-grieg-op38no7",
+   "kind": "real scan",
+   "weight": 159.0,
+   "full as read": 0.824,
+   "key as read": 0.925,
+   "root as read": 0.887,
+   "full lined up": 0.824,
+   "key lined up": 0.925,
+   "root lined up": 0.887,
+   "truth_bars": 53,
+   "read_bars": 53,
+   "paired": 53,
+   "exact": 0.7735849056603774,
+   "pitch": 0.9926650366748166,
+   "timing": 0.9828850855745721,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    1
+   ],
+   "read_keys": [
+    1
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench-tune2",
+   "pdf": "p-op42n03--ms",
+   "piece": "p-op42n03",
+   "kind": "clean",
+   "weight": 118.5,
+   "full as read": 0.549,
+   "key as read": 0.808,
+   "root as read": 0.697,
+   "full lined up": 0.549,
+   "key lined up": 0.808,
+   "root lined up": 0.697,
+   "truth_bars": 40,
+   "read_bars": 39,
+   "paired": 39,
+   "exact": 0.4,
+   "pitch": 0.9462540716612378,
+   "timing": 0.8013029315960912,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    5
+   ],
+   "read_keys": [
+    5
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench-tune2",
+   "pdf": "p-debussy-claude-3-le-jet-d-eau--ms",
+   "piece": "p-debussy-claude-3-le-jet-d-eau",
+   "kind": "clean",
+   "error": "DraftError: Only 831 of 1007 model notes line up with the engraved score"
+  },
+  {
+   "set": "bench-tune2",
+   "pdf": "p-hardelot-guy-d-in-1822--vr",
+   "piece": "p-hardelot-guy-d-in-1822",
+   "kind": "clean",
+   "weight": 160.0,
+   "full as read": 0.5,
+   "key as read": 0.669,
+   "root as read": 0.681,
+   "full lined up": 0.5,
+   "key lined up": 0.669,
+   "root lined up": 0.681,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 0.675,
+   "pitch": 0.9858823529411764,
+   "timing": 0.9247058823529412,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    0
+   ],
+   "read_keys": [],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-tune2",
+   "pdf": "p-burleigh-harry-thacker-ethiopia-saluting-the-col--ms",
+   "piece": "p-burleigh-harry-thacker-ethiopia-saluting-the-col",
+   "kind": "clean",
+   "weight": 142.0,
+   "full as read": 0.722,
+   "key as read": 0.82,
+   "root as read": 0.808,
+   "full lined up": 0.722,
+   "key lined up": 0.82,
+   "root lined up": 0.808,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 0.825,
+   "pitch": 0.99721059972106,
+   "timing": 0.9567642956764296,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "2",
+    "4"
+   ],
+   "read_meters": [
+    "2",
+    "4"
+   ],
+   "truth_keys": [
+    -3
+   ],
+   "read_keys": [
+    -3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-tune2",
+   "pdf": "p-burleigh-harry-thacker-ethiopia-saluting-the-col--vr",
+   "piece": "p-burleigh-harry-thacker-ethiopia-saluting-the-col",
+   "kind": "clean",
+   "weight": 142.0,
+   "full as read": 0.586,
+   "key as read": 0.752,
+   "root as read": 0.787,
+   "full lined up": 0.586,
+   "key lined up": 0.752,
+   "root lined up": 0.787,
+   "truth_bars": 40,
+   "read_bars": 39,
+   "paired": 39,
+   "exact": 0.775,
+   "pitch": 0.9679218967921897,
+   "timing": 0.9260808926080892,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "2",
+    "4"
+   ],
+   "read_meters": [
+    "2",
+    "4"
+   ],
+   "truth_keys": [
+    -3
+   ],
+   "read_keys": [
+    -3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  }
+ ]
+}

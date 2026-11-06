@@ -49,6 +49,7 @@ speed/installs/
 !speed/results/bench-marks1-183.json
 !speed/results/bench-int1.json
 !speed/results/bench-int3.json
+!speed/results/analysis-*.json
 !speed/results/census.json
 !speed/results/second_setting.json
 !speed/results/read_pdf_timings.jsonl
