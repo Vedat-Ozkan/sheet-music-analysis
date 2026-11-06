@@ -1,0 +1,42 @@
+# Multi-expert set, chosen 2026-11-06 before any review ran.
+# Pool: pieces in out/eval/ceiling.json with a pair of different sources both fitting at least 0.85,
+# minus every piece in the core and held-out sets (eval/any_expert.folder_for) and eval/locked-set.txt.
+# Rule: per style, sort the pool's folder names; with n names take index int((k + 0.5) * n / 9) for k = 0..8.
+# Pool sizes: Bach chorales 74, Beethoven sonatas 13, Chopin mazurkas 18, Mozart sonatas 24.
+# Columns: When in Rome folder, score source.
+Corpus/Early_Choral/Bach,_Johann_Sebastian/Chorales/008	corpus:bach/bwv40.8.mxl
+Corpus/Early_Choral/Bach,_Johann_Sebastian/Chorales/023	corpus:bach/bwv28.6.mxl
+Corpus/Early_Choral/Bach,_Johann_Sebastian/Chorales/032	corpus:bach/bwv386.mxl
+Corpus/Early_Choral/Bach,_Johann_Sebastian/Chorales/042	corpus:bach/bwv67.7.mxl
+Corpus/Early_Choral/Bach,_Johann_Sebastian/Chorales/056	corpus:bach/bwv121.6.mxl
+Corpus/Early_Choral/Bach,_Johann_Sebastian/Chorales/065	corpus:bach/bwv144.3.mxl
+Corpus/Early_Choral/Bach,_Johann_Sebastian/Chorales/078	corpus:bach/bwv244.3.mxl
+Corpus/Early_Choral/Bach,_Johann_Sebastian/Chorales/086	corpus:bach/bwv36.4-2.mxl
+Corpus/Early_Choral/Bach,_Johann_Sebastian/Chorales/097	corpus:bach/bwv169.7.mxl
+Corpus/Piano_Sonatas/Mozart,_Wolfgang_Amadeus/K279/2	https://raw.githubusercontent.com/MarkGotham/When-in-Rome/master/Corpus/Piano_Sonatas/Mozart%2C_Wolfgang_Amadeus/K279/2/score.mxl
+Corpus/Piano_Sonatas/Mozart,_Wolfgang_Amadeus/K281/3	https://raw.githubusercontent.com/MarkGotham/When-in-Rome/master/Corpus/Piano_Sonatas/Mozart%2C_Wolfgang_Amadeus/K281/3/score.mxl
+Corpus/Piano_Sonatas/Mozart,_Wolfgang_Amadeus/K282/2	https://raw.githubusercontent.com/MarkGotham/When-in-Rome/master/Corpus/Piano_Sonatas/Mozart%2C_Wolfgang_Amadeus/K282/2/score.mxl
+Corpus/Piano_Sonatas/Mozart,_Wolfgang_Amadeus/K284/2	https://raw.githubusercontent.com/MarkGotham/When-in-Rome/master/Corpus/Piano_Sonatas/Mozart%2C_Wolfgang_Amadeus/K284/2/score.mxl
+Corpus/Piano_Sonatas/Mozart,_Wolfgang_Amadeus/K310/2	https://raw.githubusercontent.com/MarkGotham/When-in-Rome/master/Corpus/Piano_Sonatas/Mozart%2C_Wolfgang_Amadeus/K310/2/score.mxl
+Corpus/Piano_Sonatas/Mozart,_Wolfgang_Amadeus/K330/3	https://raw.githubusercontent.com/MarkGotham/When-in-Rome/master/Corpus/Piano_Sonatas/Mozart%2C_Wolfgang_Amadeus/K330/3/score.mxl
+Corpus/Piano_Sonatas/Mozart,_Wolfgang_Amadeus/K457/2	https://raw.githubusercontent.com/MarkGotham/When-in-Rome/master/Corpus/Piano_Sonatas/Mozart%2C_Wolfgang_Amadeus/K457/2/score.mxl
+Corpus/Piano_Sonatas/Mozart,_Wolfgang_Amadeus/K545/3	https://raw.githubusercontent.com/MarkGotham/When-in-Rome/master/Corpus/Piano_Sonatas/Mozart%2C_Wolfgang_Amadeus/K545/3/score.mxl
+Corpus/Piano_Sonatas/Mozart,_Wolfgang_Amadeus/K576/2	https://raw.githubusercontent.com/MarkGotham/When-in-Rome/master/Corpus/Piano_Sonatas/Mozart%2C_Wolfgang_Amadeus/K576/2/score.mxl
+Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op002_No3/1	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/beethoven_piano_sonatas/03-1.musicxml
+Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op026/1	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/beethoven_piano_sonatas/12-1.musicxml
+Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op027_No2(Moonlight)/1	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/beethoven_piano_sonatas/14-1.musicxml
+Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op031_No3/1	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/beethoven_piano_sonatas/18-1.musicxml
+Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op049_No1/1	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/beethoven_piano_sonatas/19-1.musicxml
+Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op049_No1/2	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/beethoven_piano_sonatas/19-2.musicxml
+Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op053/1	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/beethoven_piano_sonatas/21-1.musicxml
+Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op053/2	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/beethoven_piano_sonatas/21-2.musicxml
+Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op110/1	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/beethoven_piano_sonatas/31-1.musicxml
+Corpus/Keyboard_Other/Chopin,_Frédéric/Mazurkas/BI105-3	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/chopin_mazurkas/BI105-3op30-3.musicxml
+Corpus/Keyboard_Other/Chopin,_Frédéric/Mazurkas/BI115-3	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/chopin_mazurkas/BI115-3op33-3.musicxml
+Corpus/Keyboard_Other/Chopin,_Frédéric/Mazurkas/BI122	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/chopin_mazurkas/BI122op41-2.musicxml
+Corpus/Keyboard_Other/Chopin,_Frédéric/Mazurkas/BI145-2	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/chopin_mazurkas/BI145-2op50-2.musicxml
+Corpus/Keyboard_Other/Chopin,_Frédéric/Mazurkas/BI60-3	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/chopin_mazurkas/BI60-3op06-3.musicxml
+Corpus/Keyboard_Other/Chopin,_Frédéric/Mazurkas/BI61-1	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/chopin_mazurkas/BI61-1op07-1.musicxml
+Corpus/Keyboard_Other/Chopin,_Frédéric/Mazurkas/BI61-5	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/chopin_mazurkas/BI61-5op07-5.musicxml
+Corpus/Keyboard_Other/Chopin,_Frédéric/Mazurkas/BI89-1	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/chopin_mazurkas/BI89-1op24-1.musicxml
+Corpus/Keyboard_Other/Chopin,_Frédéric/Mazurkas/BI89-3	https://raw.githubusercontent.com/fosfrancesco/piano_corpora_dcml/main/scores/chopin_mazurkas/BI89-3op24-3.musicxml
