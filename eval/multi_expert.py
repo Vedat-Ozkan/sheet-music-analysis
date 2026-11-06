@@ -92,7 +92,7 @@ def mean_of(results: list[dict]) -> dict:
 def both_ways(a: dict, b: dict) -> dict:
     out = {"time": {level: (a["time"][level] + b["time"][level]) / 2 for level in LEVELS}}
     for measure in ("recall", "precision"):
-        out[measure] = {level: (a["recall"][level] + b["recall"][level]) / 2 for level in LEVELS}
+        out[measure] = {level: (a[measure][level] + b[measure][level]) / 2 for level in LEVELS}
     return out
 
 
@@ -100,9 +100,12 @@ def dcml_cadences(folder: str, index: ScoreIndex, shift: int) -> list[tuple[Frac
     remote_path = folder.removeprefix("Corpus/").replace("/", "__") + "__remote.json"
     remote = json.loads(ceiling.fetch(ceiling.ROME + urllib.parse.quote(folder + "/remote.json"), "Corpus__" + remote_path))
     source = str(remote.get("analysis_source", ""))
-    if "DCMLab" not in source:
+    if "DCMLab" in source:
+        repository, stem = source.split("DCMLab/")[1].split("/")[0], Path(source).name.removesuffix(".tsv").removesuffix(".harmonies")
+    elif "Beethoven" in folder and remote.get("sonata_number"):
+        repository, stem = "beethoven_piano_sonatas", f"{remote['sonata_number']:02d}-{remote['movement']}"
+    else:
         return None
-    repository, stem = source.split("DCMLab/")[1].split("/")[0], Path(source).name.removesuffix(".tsv").removesuffix(".harmonies")
     url = f"https://raw.githubusercontent.com/DCMLab/{repository}/main/harmonies/{urllib.parse.quote(stem)}.harmonies.tsv"
     lines = ceiling.fetch(url, f"dcml__{repository}__{stem}.harmonies.tsv").decode("utf-8").splitlines()
     header = lines[0].split("\t")
