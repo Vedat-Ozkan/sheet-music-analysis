@@ -730,9 +730,11 @@ async def rating_is_due(ctx: Context) -> bool:
 
         def count_analysis() -> int:
             key = f"chats/{pseudonym(str(chat))}"
-            analyses = int(store.get(key) or 0) + 1
-            store.put(key, str(analyses).encode())
-            return analyses
+            while True:
+                raw, version = store.get_versioned(key)
+                analyses = int(raw or 0) + 1
+                if store.put_if(key, str(analyses).encode(), version):
+                    return analyses
 
         return await anyio.to_thread.run_sync(count_analysis) == RATING_AFTER_ANALYSES
     except Exception as error:
@@ -882,7 +884,11 @@ async def wait_for_other_machine(card_key: str, since: float, source: str, keep_
                 return pdf_card_result(json.loads(card), keep_slurs)
             failure = json.loads(await anyio.to_thread.run_sync(store.get, failure_of(card_key)) or b"{}")
             if failure.get("at", 0) >= since:
-                log("read_pdf", platform=source, keep_slurs=keep_slurs, other_machine=True, error=failure["error"])
+                if failure["error"] == "limit":
+                    log("limit", tool="read_pdf", platform=source, keep_slurs=keep_slurs, other_machine=True)
+                else:
+                    log("read_pdf", platform=source, keep_slurs=keep_slurs, other_machine=True,
+                        **({"busy": True} if failure["error"] == "busy" else {"error": failure["error"]}))
                 return error_result(failure["text"])
             await anyio.sleep(POLL_SECONDS)
     log("read_pdf", platform=source, reading=True, other_machine=True, keep_slurs=keep_slurs)
@@ -968,18 +974,21 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
     def render():
         spots = pdf_reader.problem_spots(score)
         numbers = [measure.number for measure in ScoreIndex(load_toolkit(score).getMEI()).measures]
-        return (pdf_reader.preview(score, tall=True, spots=spots), pdf_reader.preview(score, spots=spots), engrave(score),
+        return (pdf_reader.preview(score, spots=spots), engrave(score),
                 pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
                 f"{numbers[0]} to {numbers[-1]}")
 
     with stage("render"):
-        tall, shaded, engraving, notice, measures = await in_turn(render)
+        shaded, engraving, notice, measures = await in_turn(render)
+    more_pages = shaded.page_count > CARD_PAGES
+    if more_pages:
+        notice += f" This shows the first {CARD_PAGES} pages; download the PDF to check the rest."
 
     def files():
         with ThreadPoolExecutor(4) as pool:
-            image = pool.submit(tall.png, 1, width=1400, colors=256)
+            image = pool.submit(shaded.png, 1, width=1400, colors=256, pages=CARD_PAGES)
             pdf = pool.submit(engraving.pdf)
-            pages = list(pool.map(shaded.png, range(1, shaded.page_count + 1)))
+            pages = list(pool.map(shaded.png, range(1, min(shaded.page_count, CARD_PAGES) + 1)))
             return image.result(), pdf.result(), pages
 
     with stage("publish"):
@@ -988,14 +997,17 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
     log("read_pdf_work", pages=reading["pages"], scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached),
         passes=passes)
     return {"score_id": score_id, "pages": reading["pages"], "measures": measures, "notice": notice, "image_url": image_url,
-            "pdf_url": pdf_url, "page_images": [base64.b64encode(png).decode() for png in pages]}
+            "pdf_url": pdf_url, "more_pages": more_pages, "page_images": [base64.b64encode(png).decode() for png in pages]}
 
 
 def pdf_card_result(card: dict, keep_slurs: bool) -> CallToolResult:
+    more_pages = card.get("more_pages")
+    shown = (f"the first {CARD_PAGES} pages of the engraved score read from their {card['pages']}-page PDF; the PDF has every bar"
+             if more_pages else f"every bar of the engraved score read from their {card['pages']}-page PDF, in one image")
     text = (
         f"score_id: {card['score_id']}\n"
-        f"The card shows the user every bar of the engraved score read from their {card['pages']}-page PDF, in one "
-        f"image. The card holds no text, so give the user this message in your reply: \"{card['notice']}\"\n"
+        f"The card shows the user {shown}. "
+        f"The card holds no text, so give the user this message in your reply: \"{card['notice']}\"\n"
         f"The score has measures {card['measures']}.\n"
         "Then stop and wait. Analyse only after the user says to go ahead: "
         "then call draft_analysis with this score_id and continue exactly as for an attached MusicXML file."
@@ -1008,7 +1020,8 @@ def pdf_card_result(card: dict, keep_slurs: bool) -> CallToolResult:
             TextContent(type="text", text=f"{text}\nPDF of the engraved score: {card['pdf_url']}"),
         ],
         structured_content={"image_url": card["image_url"], "pdf_url": card["pdf_url"],
-                            "caption": "What I read from your PDF, every bar", "title": "What I read from your PDF"},
+                            "caption": f"What I read from your PDF, first {CARD_PAGES} pages" if more_pages else "What I read from your PDF, every bar",
+                            "title": "What I read from your PDF"},
     )
 
 
@@ -1407,7 +1420,7 @@ def main() -> None:
         start_tracing(service)
     app = mcp.streamable_http_app(
         stateless_http=True,
-        json_response=True,
+        json_response=False,
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
     )
     handler = logging.StreamHandler(sys.stdout)

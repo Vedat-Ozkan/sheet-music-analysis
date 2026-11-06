@@ -241,7 +241,7 @@ def from_musicxml(data: str | bytes, default_key: str = 'C', index: ScoreIndex |
                         unit = beat_length(int(time.findtext('beats')), int(time.findtext('beat-type')))
                     local = element.find('key')
                     if local is not None:
-                        key = _xml_key(local)
+                        pending.append((cursor, 'key', _xml_key(local)))
                 elif element.tag in ('backup', 'forward'):
                     shift = Fraction(int(element.findtext('duration', '0')), divisions)
                     cursor += -shift if element.tag == 'backup' else shift
@@ -269,8 +269,10 @@ def from_musicxml(data: str | bytes, default_key: str = 'C', index: ScoreIndex |
                         previous = cursor
                         if element.find('grace') is None:
                             cursor += Fraction(int(element.findtext('duration', '0')), divisions)
-            for offset, kind, value in sorted(pending, key=lambda item: item[0]):
-                if kind == 'harmony':
+            for offset, kind, value in sorted(pending, key=lambda item: (item[0], item[1] != 'key')):
+                if kind == 'key':
+                    key = value
+                elif kind == 'harmony':
                     key, figure = _numeral(value, key)
                     labels.append(Label(number, beat_at(offset), key, figure))
                 else:

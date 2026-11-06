@@ -31,6 +31,7 @@ from engine.score import ScoreIndex
 ROOT = Path(__file__).parent.parent
 OUT = ROOT / "out" / "robustness"
 CORPUS = Path(os.path.dirname(corpus.__file__))
+AUDIVERIS = os.environ.get("AUDIVERIS", read_pdf.AUDIVERIS)
 
 ASAP = "https://raw.githubusercontent.com/fosfrancesco/asap-dataset/master/"
 MUSETRAINER = "https://raw.githubusercontent.com/musetrainer/library/master/scores/"
@@ -112,13 +113,13 @@ def run(name: str, with_model: bool) -> dict:
     state: dict = {}
 
     if path.endswith(".pdf"):
-        if not shutil.which(read_pdf.AUDIVERIS):
+        if not shutil.which(AUDIVERIS):
             results["read_pdf"] = {"ok": None, "skipped": True,
                                    "reason": "Audiveris is not installed; set AUDIVERIS to its launcher"}
             return results
 
         def pdf():
-            reading = read_pdf.read_pdf((ROOT / path).read_bytes())
+            reading = read_pdf.read_pdf((ROOT / path).read_bytes(), AUDIVERIS)
             state["score"] = read_pdf.without_slurs(reading.musicxml)
             return {"pages": reading.pages, "scan": reading.scan, "skipped_pages": reading.skipped,
                     "notice": read_pdf.notice(state["score"], reading.scan, reading.skipped, False)}

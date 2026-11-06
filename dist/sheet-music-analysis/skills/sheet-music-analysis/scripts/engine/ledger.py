@@ -13,7 +13,7 @@ SIDE_NAMES = {"above": ("high above the {clef} staff", {"bass": "switch to trebl
               "below": ("far below the {clef} staff", {"bass": "write them an octave higher under an 8vb sign", "treble": "switch to bass clef"})}
 
 
-def _clefs(root: ET.Element) -> dict[tuple[str, int], tuple[int, str]]:
+def _clefs(root: ET.Element) -> dict[str, tuple[int, str] | None]:
     shapes = {element.get(XML_ID): element for element in root.iter(f"{MEI}clef")}
     current: dict[int, tuple[int, str] | None] = {}
     found = {}
@@ -32,9 +32,18 @@ def _clefs(root: ET.Element) -> dict[tuple[str, int], tuple[int, str]]:
                 read(ET.Element("clef", shape=element.get("clef.shape"), line=element.get("clef.line", "")), int(element.get("n", "1")))
         elif element.tag == f"{MEI}measure":
             for staff in element.iter(f"{MEI}staff"):
-                for clef in staff.iter(f"{MEI}clef"):
-                    read(clef, int(staff.get("n", "1")))
-                found.update({(element.get(XML_ID), int(staff.get("n", "1"))): current.get(int(staff.get("n", "1")))})
+                number = int(staff.get("n", "1"))
+                opening = closing = current.get(number)
+                for layer in staff.iter(f"{MEI}layer"):
+                    current[number] = opening
+                    for item in layer.iter():
+                        if item.tag == f"{MEI}clef":
+                            read(item, number)
+                        elif item.tag == f"{MEI}note":
+                            found[item.get(XML_ID)] = current.get(number)
+                    if current.get(number) != opening:
+                        closing = current.get(number)
+                current[number] = closing
     return found
 
 
@@ -68,7 +77,7 @@ def passages(mei: str, index: ScoreIndex, first: int | None = None, last: int | 
             for event in measure.events:
                 if event.staff != staff or event.pitch is None or event.grace:
                     continue
-                clef = clefs.get((event.segment, staff))
+                clef = clefs.get(event.id)
                 if clef is None:
                     continue
                 position = _steps(written[event.id]) - clef[0]

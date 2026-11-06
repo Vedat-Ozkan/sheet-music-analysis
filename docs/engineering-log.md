@@ -1968,6 +1968,80 @@ Chopin: lines 31 (longer search only) to 38 of 42, notes 43 to 223 of 255. Six o
 
 **Flagged by the review, not yet corrected above:** the unwarned baseline 69.9 in 104 is the old engine (63.5 on today's), while the unseen 72.1 is today's; "about 20% with true page sizes" in 106 is 16.9 on the review's count; exact bars ignore grace notes; the catch path at `Page.java:206` still returns 0 and `engine/score.py:139` is unguarded; the OLiMPiC PDF in `tests/data` has no credit. The review's "12 fork commits exist only under /tmp" is wrong: they are in the local mirror, not on GitHub. NOT RUN: test suite, `test_awkward`, `diff_check`, real voice-and-piano scans, both readers in the server path. Details: `spike/omr/review-2026-11-04/opus-review.md`, `scan-two-readers/RULE.md`.
 
+### 108. Usage report counted staging and overstated "since launch" (2026-11-05)
+
+**Problem.** `tools/usage_report.py` read logs from every Cloud Run service, so its daily rows included staging and our test runs. Its "ChatGPT users since launch" counted only permanent codes, which began on 2 Nov; users before that have daily codes that can't be linked.
+
+**What we did.** The log query now reads only the production service, and the line says "since permanent codes began on 2026-11-02". The total stays at 6.
+
+**Before and after, ChatGPT users per day:** 1 Nov 6 to 5; 4 Nov 2 to 1. Both now match the production log lines grouped by code. Claude drafts on 24 Oct went from 971 to 1.
+
+**True total since launch:** still unknown. There are 6 permanent codes and 12 daily codes from 31 Oct to 2 Nov, so 6 to 18 people, not counting ChatGPT calls from 28 to 30 Oct, which logged no code.
+
+### 109. Reader sma.6 released, and what CI had not been testing (2026-11-05)
+
+**Released.** Production revision `sheet-music-analysis-00044-v72` runs reader 5.11.0-sma.6 from entry 102, the fix for the lost flats, and plugin 1.7.1 points at it. Production users had the bug from 2026-11-03 until this deploy.
+
+**CI failed first, not because of the reader.** Seven draft tests failed with `.venv-agnn/bin/python` missing. The runner's Python moved from 3.11.17 to 3.11.18, and the model cache key did not include the Python version, so the restored environment was still used. The likely cause is its interpreter link pointing at the old version; the link itself was not inspected. The key now includes the version.
+
+**A gap found on the way.** CI's reader was still sma.4, so sma.5 and the first sma.6 run were never tested with the reader they shipped. CI now uses sma.6: 1234 passed, 14 skipped, 2 expected failures. The workflow's reader must change with `Dockerfile.base` and `skill/scripts/read_pdf.py`.
+
+### 110. Two-page card and event-stream answers released (2026-11-05)
+
+**Released.** The two-page PDF card and the event-stream answers from entry 105, on owner's yes. `text-meaning` is left out; it was not in the release list. Plugin 1.7.2 only drops the unused `tall` card code from its engine copy.
+
+**Checks.** Sonnet review: one bug, `tools/load/drafts.js` could not parse an event stream, fixed; the parser was run on a sample answer, no k6 run against a server. Full suite on a local sma.6 reader: 1 failed, 1247 passed, 4 skipped, 2 expected failures; the failure, `test_draft_analysis_checks_typed_answer`, was a model timeout under parallel load and passes alone (10 of 10 in its file). `test_awkward`: 196 passed, 2 expected failures. Staging, direct to Cloud Run: a 5-page Beethoven PDF read in 119 s, caption "first 2 pages", `content-type: text/event-stream`. 
+**Production, revision `sheet-music-analysis-00045-6px`.** Startup clean, no error lines. An MCP client through the public address read Beethoven Op. 10 No. 1/i from Mutopia in 145 s with no error, past Cloudflare's 125 s limit; two shorter PDFs took 92 s and 89 s. The caption read "first 2 pages". 
+
+**ChatGPT itself, 2026-11-06, revision `sheet-music-analysis-00046-cdp`.** The published app in real ChatGPT read Beethoven Op. 10 No. 1/i, from Mutopia: one `/mcp` call of 149.6 s with status 200 from `openai-mcp/1.0.0`, log line platform chatgpt, the card drawn with the first 2 pages, about 2 min 36 s in all. So the event stream carries a real ChatGPT read past Cloudflare's 125 s limit.
+
+**Section fix, revision `00046`.** Plugin 1.7.3 and production carry the section fix from the entry above. Beethoven Op. 49 No. 1/ii through the public address: 160 s, no error. A PDF that really splits was not sent through the production server.
+
+**First section only: later movements were dropped (branch `first-section`, not released).** `audiveris_read` kept `scores[0]`, so when the reader wrote several `.mxl` files the rest vanished with outcome "done". The reader splits for two separate reasons, both in `Book.createScores`: an indented system starts a movement, and an invalid page breaks the score. Fix: `indentations=false` in both settings, so the reader's own part matching gives one score, and `join_movements` for what is left, which is the invalid-page break the switch cannot remove. `READER` bumped to r9 so truncated cached readings are not served.
+
+Measured with baseline launcher marks1. Quick set, 49 clean PDFs: 0 split; first-only, keep-all and switch gave identical exact, pitch and timing per PDF (exact 60.4, pitch 97.7, timing 89.6). Choir book, 13 pieces: pitch on the four short pieces with keep-all 62.7, 80.6, 73.1, 73.2; with the switch 66.3, 80.6, 73.1, 73.3, which reproduces the earlier switch figures. Exact bars stay at 0.1% and bar counts stay wrong (148 for 71 on piece 1); that is a separate fault. Real multi-movement PDFs, first 8 pages, bars kept by first-only against all files: Chopin Op. 6 75 of 239, Op. 67 59 of 256, Op. 68 72 of 242, Beethoven Op. 49/2 122 of 243; Debussy Suite did not split. With the switch all of that music is in one file. On the book, setting 1 still split on invalid pages with the switch on (5 pieces, part layouts differing on 2), which is why the switch alone is not enough.
+
+**Fork attempt.** Removing the invalid-page break from `Book.createScores` (local fork branch, b5de7b142, on 378e4fd6d) did not stop the split: all five book pieces that split on an invalid page under setting 1 still wrote 2 or 3 files, because `Book.updateScores` has its own page-by-page gathering. Changing that as well is more than a small change, so the join stays. Bars with the fork build and with the join were equal on all five: 94, 144, 37, 113, 172.
+
+**Wider measurement.** bench-oldly and bench-tune2, 100 PDFs, against marks1 with `whole_bars`: exact 39.4 and 60.7, pitch 98.0 and 97.7, timing 95.0 and 88.9, all unchanged, and 0 PDFs changed in exact, pooled, pitch, timing, unwarned or bar count. One clean PDF split under setting 1 (p-webern-anton-2-noch-zwingt-mich-treue--ms, invalid page 2) and its chosen reading was unaffected. Median read seconds were lower than the baseline's (oldly 139.6 to 96.7, tune2 82.9 to 50.9) but the baseline ran under a different load, so this says only that no large slowdown appeared. `tools/reading_coverage.py` lists the four first-only book readings (5 of 71, 27 of 63, 3 of 38, 11 of 95) and none of 113 readings after the fix. bench, heldout and bench-real beyond the quick list were not re-read with the switch.
+
+**Limits.** The join's padding for differing part layouts was checked by rendering 17 saved real readings, not scored. Timing was not compared under equal load.
+
+**Review (Sonnet), one bug.** Parts were matched through a one-way iterator, so an extra voice in a later section walked past the piano and the piano became a second part, silent for 123 bars. A passed-over part now stays available; on the choir fixtures there is one piano with notes in all three sections, and a stray ninth voice remains for the eighth voice the reader found only in section 3. The existing test passed despite the bug, so it now checks this. Full suite before this one-line correction, on reader sma.6 (checksum matches the pin): 1251 passed, 4 skipped, 2 expected failures; after it, `test_read_pdf` and `test_awkward`: 235 passed, 2 expected failures. Chopin Op. 67 in the Joseffy scan read as one score of 56 bars, the second mazurka starting after a double bar with its own key and metre; its pickup shares number 31 with the bar before. NOT RUN: a multi-section PDF through the staging server (no public address; a signed link was refused); the switch on the other benchmark sets.
+
+### 111. ChatGPT listing, version 1.1.0 prepared (2026-11-06)
+
+**Checked on OpenAI's dashboard.** Version 1.0.0 is published and listed publicly, with no review in progress. The cached descriptions of `render_analysis`, `read_pdf`, `draft_analysis` and `correct_bars`, reviewed 2026-11-02, match production word for word, which supersedes the "old 32-bar tool text" note in the entries above. Schemas and `rate_analysis` were not compared.
+
+**What is out of date is the public listing text:** it offers MusicXML only, says each page shows up to 32 bars, and quotes 71% against 78% on 12 pieces. The site says 67% against 71% on 30 unseen pieces.
+
+**Prepared.** `openai-plugin/plugin.json` 1.1.0 adds PDFs to the description and capabilities and a reviewer test case with a public Mutopia PDF, which read on production in 99 s with the right card. Uploaded as a draft, no findings in OpenAI's automatic check; the owner made the declarations and submitted it on 2026-11-06. Status: in review, estimated completion 2026-11-07. Version 1.0.0 stays live until then.
+
+### 112. The Claude directory's credential hold, traced to environment reads (2026-11-06)
+
+**The problem.** The Claude directory holds v1.7.3 for "Uses a credential from the user's machine" (`MCP_FORWARDS_CREDENTIAL_ENV`), pointing at `.claude-plugin/plugin.json`. The plugin has no credential: `.mcp.json` is only the server address, and the connector needs no key.
+
+**How it was traced.** The rule is not documented, so each version's findings were compared with its code. v1.0.0 had no `engine/read_pdf.py` and no finding. v1.2.1 added the file, which reads `os.environ`, and the `plugin.json` finding appeared. v1.4.0 to v1.7.0 also had an SVG namespace URL in that file and a second finding on the file itself. v1.7.3 dropped the URL for another reason and the second finding went. `os.environ.setdefault` in `render.py` raised nothing. This is a correlation across versions, not the rule's definition, and it cannot separate the two reads, which always shipped together.
+
+**The fix.** The shipped code reads no value from the environment; what remains is `os.environ.setdefault("FONTCONFIG_FILE", ...)` in `render.py`, which points the engine at its own fonts. The reader gets a fixed environment rather than a copy of the caller's, so it no longer sees any secret the caller holds. The engine's default reader path is a constant; `tools/robustness.py` and the tests read `AUDIVERIS` themselves, and the skill already passes its path. Two checks were added: the reader is not given the caller's variables, and no skill or engine script reads a value from the environment.
+
+**Not known until the next scan.** Whether the hold clears. A reviewer is still required either way. The warnings on the PDF reader download, the fonts and the listing fields stay.
+### 113. Carried state: seven defects found by audit, fixed on `fix-state-machines` (2026-11-06)
+
+An audit of state that carries across calls, bars and voices found these. Each was reproduced on `main` before its fix; none was reported by a user. Released the same day as plugin 1.7.5 and production revision 00047, which also carries 1.7.4's reader environment. On staging revision 00078, the Chopin Op. 28 No. 4 PDF read in 62 s through that environment, and the rating came on the third of three renders in one chat.
+
+- **Ledger hints judged a bar in the wrong clef.** Each bar and staff kept one clef, the last one read, and Verovio writes a clef that opens the next bar at the end of this one. Over the 61 corpus scores, 666 of 49,749 notes were checked against the wrong clef. Clefs now follow the notes, layer by layer. In all 27 corpus bars with a clef change and several layers, Verovio repeats the clef in every layer that has notes. Six scores change, all false runs: Haydn *She never told* 2-4 becomes 2-3 in three variants and 1-3 becomes 1-2 in the fourth; Schubert *Die Stadt* (raw reading) loses 3-4 and 24-25; Haydn 104 loses 192-194.
+- **A tie broke on the same pitch in another voice when played.** Ballade Op. 23 goes from 5203 to 5200 notes: three written ties that were struck again now hold. No other corpus score changes.
+- **Replacing a bar after a unison left one loose tie.** Only a constructed score shows it; the corpus has no unison ties across voices.
+- **A key change inside a bar applied to the labels before it.** Only a constructed score shows it; the corpus has no mid-bar key.
+- **`continue` on an octave line lost the line's start** in `clean`. Only a constructed score shows it; none of the tracked scores has one. `export.py` treats `continue` as a shift too, but left alone: all candidates for a label sit on one staff at one onset, so the choice cannot change.
+- **A dead model worker was reported as slow, or as `BrokenPipeError`.** Both are now `DraftError` "stopped before answering".
+- **Rating counter and the other machine's outcome.** The per-chat count is now conditional on the object's generation: four renders at once used to count as one and never reach the third. A saved busy or limit result returned by the other machine was logged as `user_error`; it now logs as busy or limit. The message users see was already right, so the audit's first description of this as a wrong answer was too strong.
+
+Reproduced and left as they are by the owner's decision: the rating may return after `chats/` expires, as a chat idle over a day restarts its count, rather than keep those records longer; and a machine that dies during a read blocks that PDF for up to 900 s, as the marker must outlive the longest read (entry 86 quotes 300 s; the code has since become 900 s).
+
+Checks: full suite with Audiveris 5.11.0-sma.6, 1266 passed, 4 skipped (no ring codes), 2 xfailed. `tools/diff_check.py --base main` typed, pdfwarn, export and render: no changes. A second model reviewed the diff.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

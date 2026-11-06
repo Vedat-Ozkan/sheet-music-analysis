@@ -1,10 +1,14 @@
+import io
 import json
 import threading
 import time
+import zipfile
 from pathlib import Path
 
 import anyio
+import pikepdf
 from mcp.client.client import Client
+from PIL import Image
 
 from engine import read_pdf as pdf_reader
 from server import app
@@ -141,3 +145,76 @@ def test_a_marker_left_by_a_machine_that_stopped_is_taken_over(monkeypatch, tmp_
     result = anyio.run(call)
     assert len(reads) == 1 and "score_id:" in text_of(result)
     assert app.store.get(app.marker_of(card_key)) is None
+
+
+def reading_card(monkeypatch, tmp_path, musicxml):
+    async def download(url):
+        return PDF
+
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    monkeypatch.setattr(app, "download", download)
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", lambda data: pdf_reader.PdfReading(musicxml, 6, False, [], []))
+
+    async def call():
+        async with Client(app.mcp) as client:
+            return await client.call_tool("read_pdf", ATTACHED)
+
+    return anyio.run(call)
+
+
+def stored(url):
+    return app.store.get("files/" + url.rsplit("/", 1)[1])
+
+
+def test_the_reading_card_of_a_long_score_shows_two_pages_and_the_pdf_has_them_all(monkeypatch, tmp_path):
+    from music21 import corpus
+    archive = zipfile.ZipFile(corpus.getWork("beethoven/opus59no1/movement1"))
+    musicxml = next(archive.read(name) for name in archive.namelist() if not name.startswith("META-INF"))
+    result = reading_card(monkeypatch, tmp_path, musicxml)
+    data = result.structured_content
+    assert len([part for part in result.content if part.type == "image"]) == app.CARD_PAGES
+    image = Image.open(io.BytesIO(stored(data["image_url"])))
+    assert image.height < 2.5 * image.width
+    assert len(pikepdf.open(io.BytesIO(stored(data["pdf_url"]))).pages) > app.CARD_PAGES
+    assert "first 2 pages" in data["caption"]
+    assert "download the PDF to check the rest" in text_of(result)
+
+
+def test_the_reading_card_of_a_short_score_shows_every_bar(monkeypatch, tmp_path):
+    result = reading_card(monkeypatch, tmp_path, READING)
+    assert result.structured_content["caption"] == "What I read from your PDF, every bar"
+    assert "download the PDF" not in text_of(result)
+
+
+def waiter_outcome(monkeypatch, tmp_path, capsys, failure_error, text):
+    slow_reader(monkeypatch, tmp_path, 0)
+    digest = __import__("hashlib").sha256(PDF).hexdigest()
+    card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}-no-slurs.json"
+    started = time.time() - 5
+    app.store.put(app.marker_of(card_key), json.dumps({"token": "other", "started": started}).encode())
+    app.store.put(app.failure_of(card_key), json.dumps({"at": time.time(), "error": failure_error, "text": text}).encode())
+
+    async def call():
+        async with Client(app.mcp) as client:
+            return await client.call_tool("read_pdf", ATTACHED)
+
+    result = anyio.run(call)
+    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")]
+    return result, next(line for line in lines if line.get("tool") == "read_pdf" and "outcome" in line)
+
+
+def test_a_busy_reading_on_the_other_machine_is_logged_as_busy(monkeypatch, tmp_path, capsys):
+    result, line = waiter_outcome(monkeypatch, tmp_path, capsys, "busy", app.BUSY_MESSAGE)
+    assert text_of(result) == app.BUSY_MESSAGE
+    assert line["outcome"] == "busy"
+
+
+def test_a_limit_on_the_other_machine_is_logged_as_a_limit(monkeypatch, tmp_path, capsys):
+    result, line = waiter_outcome(monkeypatch, tmp_path, capsys, "limit", app.LIMIT_MESSAGE)
+    assert text_of(result) == app.LIMIT_MESSAGE
+    assert line["outcome"] == "limit"
+
+
+def test_a_failed_reading_on_the_other_machine_stays_a_user_error(monkeypatch, tmp_path, capsys):
+    result, line = waiter_outcome(monkeypatch, tmp_path, capsys, "ReadError", "No music could be read from this PDF")
+    assert line["outcome"] == "user_error"

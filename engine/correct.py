@@ -603,20 +603,24 @@ def _join_ties(part: ET.Element, replaced: set[int]) -> None:
         _, stops = _loose_ties(bars[number]) if number < len(bars) else ({}, {})
         rewritten = number + 1 in replaced
         opening = _opening_notes(bars[number]) if rewritten else {}
-        for key, note in starts.items():
-            if key in stops:
-                del stops[key]
-            elif key in opening:
+        for key, loose in starts.items():
+            landing = stops.pop(key, [])
+            for note in landing[len(loose):]:
+                _remove_tie(note, "stop")
+            waiting = loose[len(landing):]
+            if waiting and key in opening:
                 target = opening[key]
                 target.insert(list(target).index(target.find("duration")) + 1, ET.Element("tie", type="stop"))
                 notations = target.find("notations")
                 if notations is None:
                     notations = ET.SubElement(target, "notations")
                 ET.SubElement(notations, "tied", type="stop")
-            else:
+                waiting = waiting[1:]
+            for note in waiting:
                 _remove_tie(note, "start")
-        for note in stops.values():
-            _remove_tie(note, "stop")
+        for notes in stops.values():
+            for note in notes:
+                _remove_tie(note, "stop")
 
 
 def _tie_key(note: ET.Element):
@@ -629,10 +633,13 @@ def _loose_ties(bar: ET.Element):
     for note in bar.findall("note"):
         kinds = {mark.get("type") for mark in note.findall("tie") + note.findall("notations/tied")}
         key = _tie_key(note)
-        if "stop" in kinds and starts.pop(key, None) is None:
-            stops[key] = note
+        if "stop" in kinds:
+            if starts.get(key):
+                starts[key].pop()
+            else:
+                stops.setdefault(key, []).append(note)
         if "start" in kinds:
-            starts[key] = note
+            starts.setdefault(key, []).append(note)
     return starts, stops
 
 

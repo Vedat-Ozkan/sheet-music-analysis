@@ -40,7 +40,8 @@ function call(name, args) {
   latency[name].add(response.timings.duration);
   let ok = response.status === 200;
   try {
-    ok = ok && response.json("result.isError") !== true;
+    const message = response.body.split("\n").find((line) => line.startsWith("data: "));
+    ok = ok && JSON.parse(message.slice("data: ".length)).result.isError !== true;
   } catch (error) {
     ok = false;
   }

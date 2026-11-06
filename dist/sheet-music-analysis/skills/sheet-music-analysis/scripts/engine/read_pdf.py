@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import io
 import logging
 import math
@@ -28,7 +29,7 @@ from engine.tuplet_rests import infer_tuplet_rests
 
 log = logging.getLogger(__name__)
 
-AUDIVERIS = os.environ.get("AUDIVERIS", "/opt/audiveris/bin/Audiveris")
+AUDIVERIS = "/opt/audiveris/bin/Audiveris"
 TIMEOUT = 480
 SECOND_PASS_SECONDS = 400
 READ_PAGES = 8
@@ -46,12 +47,13 @@ SHOWN = 4
 _LENGTH = {"whole": 4, "half": 2, "quarter": 1, "eighth": Fraction(1, 2),
            "16th": Fraction(1, 4), "32nd": Fraction(1, 8), "64th": Fraction(1, 16)}
 _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
-_BASE = ["-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0",
+_BASE = ["-option", _SWITCH + "indentations=false",
+         "-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0",
          "-option", "org.audiveris.omr.sig.inter.AbstractTimeInter.optionalTimes=6/4, 7/8, 8/8"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_BASE, _BASE + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
 _LELAND = ["-option", "org.audiveris.omr.ui.symbol.MusicFont.defaultMusicFamily=Leland"]
-READER = "5.11.0-sma.5-best2-tuplet-rests-eight-leland-ocr-r7"
+READER = "5.11.0-sma.6-best2-tuplet-rests-eight-leland-ocr-r9"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
@@ -173,20 +175,9 @@ BAR_NUMBER_SIZE = 500
 TOP_CLEARANCE = 3 * tint.SPACE
 
 
-def preview(score: bytes, tall: bool = False, spots=None) -> Engraving:
-    tall_page = {"adjustPageHeight": True, "pageHeight": 60000} if tall else {}
+def preview(score: bytes, spots=None) -> Engraving:
     spots = spots or problem_spots(score)
-    engraving = shade(load_toolkit(score, {**PREVIEW_OPTIONS, **tall_page}, labelled_bars=spots[0]), spots)
-    return Engraving([_stacked(engraving.svgs)]) if tall and engraving.page_count > 1 else engraving
-
-
-def _stacked(svgs: list[str]) -> str:
-    pages, top = [], 0.0
-    for svg in svgs:
-        _, _, width, height = map(float, re.search(r'viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"', svg).groups())
-        pages.append(svg[svg.index("<svg"):].replace("<svg ", f'<svg y="{top:g}" width="{width:g}" height="{height:g}" ', 1))
-        top += height
-    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width:g} {top:g}">{"".join(pages)}</svg>'
+    return shade(load_toolkit(score, PREVIEW_OPTIONS, labelled_bars=spots[0]), spots)
 
 
 def _courtesy_x(layout: PageLayout) -> dict[str, float]:
@@ -410,23 +401,110 @@ def audiveris_read(data: bytes, audiveris: str, setting: int, leland: bool, dead
     with tempfile.TemporaryDirectory(prefix="read_pdf_") as work:
         source = Path(work) / "score.pdf"
         source.write_bytes(data)
-        env = {key: value for key, value in os.environ.items() if key != "FONTCONFIG_FILE"}
-        env.setdefault("TESSDATA_PREFIX", str(Path(audiveris).parent.parent / "tessdata"))
-        env.update(HOME=work, _JAVA_OPTIONS="-Xmx1g -Djava.awt.headless=true -Dsun.java2d.uiScale=1")
+        env = {"PATH": os.defpath, "HOME": work, "TESSDATA_PREFIX": str(Path(audiveris).parent.parent / "tessdata"),
+               "_JAVA_OPTIONS": "-Xmx1g -Djava.awt.headless=true -Dsun.java2d.uiScale=1"}
         run_ = run(audiveris, options, setting, source, work, env, deadline, stop)
         facts = audiveris_facts(run_)
         books = sorted(Path(work).glob("*.omr"))
         if run_.ending == "done" and not list(Path(work).glob("*.mxl")) and books:
             export = run(audiveris, options, setting, books[0], work, env, deadline, stop)
             facts["outcome"] = "done" if export.ending == "done" else export.ending
-        scores = sorted(Path(work).glob("*.mxl"))
+        scores = sorted(Path(work).glob("*.mxl"), key=_movement_number)
         if facts["outcome"] != "done":
             return RawReading(None, [], facts)
         if not scores:
             facts["outcome"] = "no music"
             return RawReading(None, [], facts)
         skipped = sorted({int(page) for page in re.findall(r"Sheet \S+#(\d+) flagged as invalid", run_.output)})
-        return RawReading(scores[0].read_bytes(), skipped, facts)
+        facts["movements"] = len(scores)
+        return RawReading(join_movements([score.read_bytes() for score in scores]), skipped, facts)
+
+
+def _movement_number(score: Path) -> int:
+    found = re.search(r"\.mvt(\d+)\.mxl$", score.name)
+    return int(found.group(1)) if found else 0
+
+
+def _archived_score(mxl: bytes) -> ET.Element:
+    with zipfile.ZipFile(io.BytesIO(mxl)) as archive:
+        name = next(n for n in archive.namelist() if n.endswith((".xml", ".musicxml")) and not n.startswith("META-INF"))
+        return ET.fromstring(archive.read(name))
+
+
+def join_movements(movements: list[bytes]) -> bytes:
+    if len(movements) == 1:
+        return movements[0]
+    joined, *following = [_archived_score(movement) for movement in movements]
+    for movement in following:
+        _append_movement(joined, movement)
+    sink = io.BytesIO()
+    with zipfile.ZipFile(sink, "w") as archive:
+        archive.writestr("score.xml", ET.tostring(joined, encoding="utf-8", xml_declaration=True))
+    return sink.getvalue()
+
+
+def _append_movement(joined: ET.Element, movement: ET.Element) -> None:
+    parts = joined.findall("part")
+    bars_before = _longest_part(joined)
+    bars_beside = _longest_part(movement)
+    offset = max(_bar_number(bar) for bar in bars_before) + 1 - min(_bar_number(bar) for bar in bars_beside)
+    for bar in movement.iter("measure"):
+        bar.set("number", re.sub(r"\d+", lambda number: str(int(number.group()) + offset), bar.get("number"), count=1))
+    unmatched = list(parts)
+    silent = list(parts)
+    for part in movement.findall("part"):
+        staves = _staves(part)
+        target = next((candidate for candidate in unmatched if _staves(candidate) == staves), None)
+        if target is None:
+            target = _new_part(joined, movement, part, bars_before)
+        else:
+            unmatched = unmatched[unmatched.index(target) + 1:]
+            silent = [other for other in silent if other is not target]
+        target.extend(part.findall("measure"))
+    for part in silent:
+        part.extend(_silent_bar(bar) for bar in bars_beside)
+
+
+def _longest_part(score: ET.Element) -> list[ET.Element]:
+    return max((part.findall("measure") for part in score.findall("part")), key=len)
+
+
+def _bar_number(bar: ET.Element) -> int:
+    return int(re.match(r"\d*", bar.get("number")).group() or 0)
+
+
+def _staves(part: ET.Element) -> int:
+    return int(part.findtext("measure/attributes/staves", "1"))
+
+
+def _new_part(joined: ET.Element, movement: ET.Element, part: ET.Element, bars_before: list[ET.Element]) -> ET.Element:
+    part_id = f"P{len(joined.findall('part')) + 1}"
+    listed = ET.SubElement(joined.find("part-list"), "score-part", id=part_id)
+    named = next(entry for entry in movement.iter("score-part") if entry.get("id") == part.get("id"))
+    ET.SubElement(listed, "part-name").text = named.findtext("part-name")
+    added = ET.SubElement(joined, "part", id=part_id)
+    added.extend(_silent_bar(bar) for bar in bars_before)
+    added.find("measure/attributes").extend(
+        copy.deepcopy(element) for element in part.findall("measure[1]/attributes/*") if element.tag in ("staves", "clef"))
+    return added
+
+
+def _silent_bar(beside: ET.Element) -> ET.Element:
+    bar = ET.Element("measure", number=beside.get("number"))
+    attributes = ET.SubElement(bar, "attributes")
+    attributes.extend(copy.deepcopy(element) for element in beside.findall("attributes/*") if element.tag in ("divisions", "key", "time"))
+    rest = ET.SubElement(bar, "note")
+    ET.SubElement(rest, "rest", measure="yes")
+    ET.SubElement(rest, "duration").text = str(_bar_length(beside))
+    return bar
+
+
+def _bar_length(bar: ET.Element) -> int:
+    position = longest = 0
+    for element in bar:
+        position += _advance(element)
+        longest = max(longest, position)
+    return longest
 
 
 @dataclass
@@ -505,9 +583,7 @@ def audiveris_facts(run_: AudiverisRun) -> dict:
 
 
 def clean(mxl: bytes) -> bytes:
-    with zipfile.ZipFile(io.BytesIO(mxl)) as archive:
-        name = next(n for n in archive.namelist() if n.endswith((".xml", ".musicxml")) and not n.startswith("META-INF"))
-        root = ET.fromstring(archive.read(name))
+    root = _archived_score(mxl)
     for note in root.iter("note"):
         if note.find("chord") is not None:
             for beam in note.findall("beam"):
@@ -530,7 +606,7 @@ def clean(mxl: bytes) -> bytes:
                 number = shift.get("number", "1")
                 if shift.get("type") == "stop":
                     open_lines.pop(number, None)
-                else:
+                elif shift.get("type") != "continue":
                     if number in open_lines:
                         unclosed.append(open_lines[number])
                     open_lines[number] = (measure, direction)

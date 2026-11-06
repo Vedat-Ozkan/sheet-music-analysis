@@ -107,9 +107,9 @@ class _Worker:
             self._stop()
             raise DraftError("AnalysisGNN failed to load")
 
-    def _reply(self, timeout: float) -> str:
+    def _reply(self, timeout: float) -> str | None:
         ready, _, _ = select.select([self.process.stdout], [], [], timeout)
-        return self.process.stdout.readline().strip() if ready else ""
+        return self.process.stdout.readline().strip() if ready else None
 
     def _stop(self) -> None:
         if self.process:
@@ -124,12 +124,19 @@ class _Worker:
                 starting = time.perf_counter()
                 self._start()
                 add_timing("gnn_start", time.perf_counter() - starting)
-            self.process.stdin.write(f"{source}\t{result}\n")
-            self.process.stdin.flush()
+            try:
+                self.process.stdin.write(f"{source}\t{result}\n")
+                self.process.stdin.flush()
+            except BrokenPipeError:
+                self._stop()
+                raise DraftError("AnalysisGNN stopped before answering") from None
             reply = self._reply(180)
-            if not reply:
+            if reply is None:
                 self._stop()
                 raise DraftError("AnalysisGNN did not answer in time")
+            if not reply:
+                self._stop()
+                raise DraftError("AnalysisGNN stopped before answering")
             status, _, detail = reply.partition(" ")
             if status != "ok":
                 raise DraftError(f"AnalysisGNN failed: {detail}")

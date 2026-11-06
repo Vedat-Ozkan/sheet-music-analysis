@@ -16,8 +16,8 @@ from PIL import Image
 from engine import tint
 from engine.overlay import Box, PageLayout
 from engine.performance import marked_index
-from engine.read_pdf import text_meaning, PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, audiveris_facts, audiveris_options, audiveris_read, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
-from engine.render import MAX_PIXELS, engrave, load_toolkit
+from engine.read_pdf import text_meaning, PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, audiveris_facts, audiveris_options, audiveris_read, clean, is_scan, join_movements, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
+from engine.render import engrave, load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
 from engine.tuplet_rests import infer_tuplet_rests
@@ -323,16 +323,6 @@ def test_skill_pages_keep_a_short_last_page_pulled_in_with_the_top_margin():
     assert skill.pages(score, problem_spots(score)).page_count == 1
 
 
-def test_the_every_bar_preview_of_a_long_score_is_one_bounded_image():
-    from music21 import corpus
-    score = corpus.getWork("beethoven/opus59no1/movement1").read_bytes()
-    tall = preview(score, tall=True, spots=([], False))
-    assert tall.page_count == 1
-    assert tall.svgs[0].count('class="measure"') == len(ScoreIndex(load_toolkit(score).getMEI()).measures) == 400
-    image = Image.open(io.BytesIO(tall.png(1, width=2800, colors=256)))
-    assert image.width * image.height <= MAX_PIXELS
-
-
 def test_a_reading_is_returned_when_the_other_setting_runs_out_of_time():
     folder = Path(__file__).parent / 'data/pdf_warnings'
     variant = (folder / 'kinkel_trennung_variant2.mxl').read_bytes()
@@ -499,3 +489,37 @@ def test_stray_marks_are_recognised(text):
 @pytest.mark.parametrize("text", ["sf", "Sf", "P", "mf", "ff", "sfz."])
 def test_dynamics_read_as_text_are_recognised(text):
     assert text_meaning(text) == "dynamic"
+
+
+@pytest.mark.parametrize("name, bars", [("chopin-op67-joseffy-two-mazurkas-scan.pdf", 50), ("parry-who-can-dwell-false-movement-scan.pdf", 14)])
+@pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
+def test_every_section_of_a_pdf_is_kept(name, bars):
+    root = ET.fromstring(read_pdf((Path(__file__).parent / "data" / name).read_bytes(), AUDIVERIS).musicxml)
+    assert max(len(part.findall("measure")) for part in root.iter("part")) >= bars
+
+
+def test_movements_split_by_an_unreadable_page_are_joined_with_every_bar():
+    folder = Path(__file__).parent / "data/movements"
+    joined = clean(join_movements([(folder / f"choral-songs-02-invalid-page-{i}.mxl").read_bytes() for i in (1, 2, 3)]))
+    root = ET.fromstring(joined)
+    lengths = {len(part.findall("measure")) for part in root.iter("part")}
+    numbers = [measure.get("number") for measure in root.find("part").iter("measure")]
+    assert lengths == {172}
+    assert len(set(numbers)) == 172
+    assert len(ScoreIndex(load_toolkit(joined).getMEI()).measures) == 172
+    pianos = [part for part in root.iter("part") if part.findtext("measure/attributes/staves") == "2"]
+    assert len(pianos) == 1
+    bars = pianos[0].findall("measure")
+    for section in (bars[:109], bars[109:123], bars[123:]):
+        assert any(bar.find("note/pitch") is not None for bar in section)
+
+
+def test_the_reader_is_not_given_the_callers_secrets(tmp_path, monkeypatch):
+    monkeypatch.setenv("SOME_API_TOKEN", "do-not-pass")
+    seen = tmp_path / "environment"
+    reader = tmp_path / "reader"
+    reader.write_text(f"#!/bin/sh\nenv > {seen}\n")
+    reader.chmod(0o755)
+    audiveris_read(b"%PDF", str(reader), 0, False, time.monotonic() + 30, threading.Event())
+    assert "PATH=" in seen.read_text()
+    assert "SOME_API_TOKEN" not in seen.read_text()
