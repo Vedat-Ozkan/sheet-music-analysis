@@ -2072,6 +2072,30 @@ Against sma.6 on the same pages: the Prelude and the Mozart read the same notes 
 
 **What it means.** The flow works from end to end. But a person who asked for an analysis waits one to two and a half minutes and is then given a proofreading job, in words ChatGPT chooses, with the instruction off the screen. That fits the three who stopped; it is not shown to be their reason. Nothing was changed: analysing straight after the read changes an approved tool description and is the owner's decision. The read's log line now records bars read and bars shaded (entry 114), so reading quality can be set beside who stops.
 
+### 116. Reading judged by whether the analysis changes (2026-11-06)
+
+**Question.** "Bars exact" asks for ties, rests and printed values to match. Does a gain there change the analysis?
+
+**Method (`spike/omr/speed/analysis_match.py`).** For each benchmark PDF the draft model runs on the reading and on the true score, and the two drafts are compared the way `eval/run.py` compares a draft with an expert: the share of the piece, by duration, where key, chord and bass all agree. It is reported two ways, as in entry 85: as read (bars paired by number) and lined up (each read bar matched to the true bar with the same notes). No chat model is called. A true score against itself gives 100% on 181 of 183; one reference (2 PDFs) cannot be drafted and is left out.
+
+| 183 tuning PDFs, reader build marks1, 176 scored | As read | Lined up |
+|---|---|---|
+| Key, chord and bass | 0.70 | 0.76 |
+| Key | 0.91 | 0.92 |
+| Root | 0.79 | 0.85 |
+
+Five readings stop the draft model because a voice runs past the barline; a user would get the notes table with no draft. The five real scans in the sets score 0.50 as read and 0.64 lined up.
+
+**Did the reader work move it?** From the sma.6 baseline (`pitch39`) to marks1, on the 174 PDFs scored under both, lined up rose from 0.728 to 0.764. Of that +0.036, +0.030 comes from three old LilyPond PDFs whose last flat came back (entry 104). On the other 171 the gain is +0.006, while bars exact per PDF rose from 0.535 to 0.630. Across PDFs, the change in bars exact and the change in this measure correlate at 0.16.
+
+**Where the analysis is lost.** In the 15 largest losses: bar numbers shifted in 8 (four misread pickups, a lost pickup, a lost bar, a split bar, extra bars), a wrong or missing time signature in 3, triplets read as plain values in 2, wrong pitches in 1, and 1 or 2 where a few wrong notes changed the model's key over long stretches. The causes were judged from bar lengths and not checked against the printed pages.
+
+**Entry 85's three scans** reproduce: Beethoven 0.36 as read and 0.72 lined up, Bach 0.34 both ways, Grieg 0.76 both ways.
+
+**Limits.** The measure is agreement with the model's own draft of the true score, not with experts. One PDF's figure is good to about ±0.05 and can swing more when a few notes change the model's key; the pooled figure is good to about ±0.03. Grace notes count here and not in bars exact, and 617 of 1,439 are read. NOT RUN: the 40-PDF unseen set and the single-system scans.
+
+**What it means.** Since sma.6, the reader work that changed the analysis was the key-signature fix. For the analysis, the reading errors that matter most are bar numbers at pickups, time signatures, key signatures and bars that overflow. Ties, rests and printed values matter little.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
