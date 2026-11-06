@@ -55,9 +55,11 @@ def score_id_of(result):
     return text_of(result).split("score_id: ", 1)[1].split()[0]
 
 
-def test_a_pdf_reading_states_its_bars_so_the_model_can_ask_for_real_ranges(server):
+def test_a_pdf_reading_states_its_bars_so_the_model_can_ask_for_real_ranges(server, capsys):
     result = call("read_pdf", ATTACHED)
     assert "The score has measures 0 to 24" in text_of(result)
+    line = [line for line in logged(capsys, "read_pdf") if line.get("event") == "read_pdf_work"][-1]
+    assert (line["bars"], line["bars_shaded"]) == (25, 1)
 
 
 def test_drawing_with_no_marks_tells_the_model_to_analyse_first(server):

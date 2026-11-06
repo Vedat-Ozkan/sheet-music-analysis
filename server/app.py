@@ -976,10 +976,10 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
         numbers = [measure.number for measure in ScoreIndex(load_toolkit(score).getMEI()).measures]
         return (pdf_reader.preview(score, spots=spots), engrave(score),
                 pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
-                f"{numbers[0]} to {numbers[-1]}")
+                f"{numbers[0]} to {numbers[-1]}", len(numbers), len(spots[0]))
 
     with stage("render"):
-        shaded, engraving, notice, measures = await in_turn(render)
+        shaded, engraving, notice, measures, bars, bars_shaded = await in_turn(render)
     more_pages = shaded.page_count > CARD_PAGES
     if more_pages:
         notice += f" This shows the first {CARD_PAGES} pages; download the PDF to check the rest."
@@ -995,7 +995,7 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
         image, pdf, pages = await in_turn(files)
         image_url, pdf_url = await in_turn(lambda: (publish(image, "png"), publish(pdf, "pdf")))
     log("read_pdf_work", pages=reading["pages"], scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached),
-        passes=passes)
+        passes=passes, bars=bars, bars_shaded=bars_shaded)
     return {"score_id": score_id, "pages": reading["pages"], "measures": measures, "notice": notice, "image_url": image_url,
             "pdf_url": pdf_url, "more_pages": more_pages, "page_images": [base64.b64encode(png).decode() for png in pages]}
 
