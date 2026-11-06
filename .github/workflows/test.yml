@@ -15,6 +15,7 @@ jobs:
         with:
           version: "0.12.15"
       - uses: actions/setup-python@v5
+        id: python
         with:
           python-version: "3.11"
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libcairo2
@@ -26,7 +27,7 @@ jobs:
             .venv-agnn
             vendor/analysisgnn
             artifacts/models/model.ckpt
-          key: analysisgnn-${{ hashFiles('server/requirements-agnn.txt') }}-e115182
+          key: analysisgnn-${{ steps.python.outputs.python-version }}-${{ hashFiles('server/requirements-agnn.txt') }}-e115182
       - if: steps.model.outputs.cache-hit != 'true'
         run: |
           uv venv .venv-agnn --python 3.11
@@ -48,14 +49,14 @@ jobs:
         id: audiveris
         with:
           path: audiveris
-          key: audiveris-5.11.0-sma.4
+          key: audiveris-5.11.0-sma.6
       - if: steps.audiveris.outputs.cache-hit != 'true'
         run: |
           curl -fL -o /tmp/audiveris.deb https://github.com/Audiveris/audiveris/releases/download/5.11.0/Audiveris-5.11.0-ubuntu24.04-x86_64.deb
           echo "f20113aaa33b3149ec8d6a09b2a7963360e65fafd92d69389987a85bbc3ec7a3  /tmp/audiveris.deb" | sha256sum -c
           dpkg-deb -x /tmp/audiveris.deb audiveris
-          curl -fL -o audiveris/opt/audiveris/lib/app/audiveris.jar https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.4/audiveris.jar
-          echo "3fcb58d3c45e227227ed9854566515d454520532f228780a74199a2a0cbd0a3f  audiveris/opt/audiveris/lib/app/audiveris.jar" | sha256sum -c
+          curl -fL -o audiveris/opt/audiveris/lib/app/audiveris.jar https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.6/audiveris.jar
+          echo "f8baad02af72824a9f8d4c65be4ab8e88b1c759086fa6c8a9854e4b35fb81a62  audiveris/opt/audiveris/lib/app/audiveris.jar" | sha256sum -c
           mkdir audiveris/opt/audiveris/tessdata
           curl -fL -o audiveris/opt/audiveris/tessdata/eng.traineddata https://github.com/tesseract-ocr/tessdata/raw/ced78752cc61322fb554c280d13360b35b8684e4/eng.traineddata
           echo "daa0c97d651c19fba3b25e81317cd697e9908c8208090c94c3905381c23fc047  audiveris/opt/audiveris/tessdata/eng.traineddata" | sha256sum -c
