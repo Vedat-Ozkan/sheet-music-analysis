@@ -1,0 +1,585 @@
+{
+ "version": 1,
+ "annotations": [
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 25,
+    "beat": 1
+   },
+   "label": "I",
+   "key": "Eb"
+  },
+  {
+   "type": "region",
+   "start": {
+    "measure": 26,
+    "beat": 1
+   },
+   "end": {
+    "measure": 29
+   },
+   "label": "pedal on E\u266d",
+   "staff": 3
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 26,
+    "beat": 1
+   },
+   "label": "viio7"
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 26,
+    "beat": 2
+   },
+   "number": 1
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 26,
+    "beat": 3
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 27,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 28,
+    "beat": 1
+   },
+   "label": "viio7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 28,
+    "beat": 3
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 29,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 29,
+    "beat": 3.75,
+    "staff": 2,
+    "pitch": "A4"
+   },
+   "label": "N"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 30,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 31,
+    "beat": 1
+   },
+   "end": {
+    "measure": 34
+   },
+   "label": "a"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 32,
+    "beat": 1
+   },
+   "label": "vi6"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 33,
+    "beat": 1
+   },
+   "label": "I6"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 33,
+    "beat": 3
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 34,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 34,
+    "beat": 1
+   },
+   "label": "PAC"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 35,
+    "beat": 1
+   },
+   "end": {
+    "measure": 38
+   },
+   "label": "a"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 36,
+    "beat": 1
+   },
+   "label": "vi6"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 37,
+    "beat": 1
+   },
+   "label": "I6"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 37,
+    "beat": 3
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 38,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 38,
+    "beat": 1
+   },
+   "label": "PAC"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 39,
+    "beat": 1
+   },
+   "end": {
+    "measure": 42
+   },
+   "label": "b"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 39,
+    "beat": 1
+   },
+   "label": "viio43/V"
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 39,
+    "beat": 1
+   },
+   "number": 2
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 40,
+    "beat": 1
+   },
+   "label": "V6 7\u20136"
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 40,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "C5"
+   },
+   "label": "S"
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 40,
+    "beat": 1
+   },
+   "number": 3
+  },
+  {
+   "type": "voice_leading",
+   "kind": "arrow",
+   "from_note": {
+    "measure": 40,
+    "beat": 1,
+    "staff": 1,
+    "pitch": "C5"
+   },
+   "to_note": {
+    "measure": 40,
+    "beat": 3,
+    "staff": 1,
+    "pitch": "Bb4"
+   },
+   "label": "7\u20136"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 41,
+    "beat": 1
+   },
+   "label": "viio65/V"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 41,
+    "beat": 2
+   },
+   "label": "viio7/V"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 41,
+    "beat": 3
+   },
+   "label": "V7/V"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 42,
+    "beat": 1
+   },
+   "label": "V"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 42,
+    "beat": 1
+   },
+   "label": "HC"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 42,
+    "beat": 3
+   },
+   "label": "V6"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 43,
+    "beat": 1
+   },
+   "end": {
+    "measure": 48,
+    "beat": 3
+   },
+   "label": "b\u2032"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 43,
+    "beat": 1
+   },
+   "label": "V42/V"
+  },
+  {
+   "type": "voice_leading",
+   "kind": "arrow",
+   "from_note": {
+    "measure": 43,
+    "beat": 1,
+    "staff": 3,
+    "pitch": "Eb4"
+   },
+   "to_note": {
+    "measure": 44,
+    "beat": 1,
+    "staff": 3,
+    "pitch": "D4"
+   },
+   "label": "7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 44,
+    "beat": 1
+   },
+   "label": "V6 7\u20136"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 45,
+    "beat": 1
+   },
+   "label": "IV6"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 46,
+    "beat": 1
+   },
+   "label": "Cad64"
+  },
+  {
+   "type": "callout",
+   "at": {
+    "measure": 46,
+    "beat": 1
+   },
+   "number": 4
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 47,
+    "beat": 1
+   },
+   "label": "V7"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 48,
+    "beat": 1
+   },
+   "label": "I"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 48,
+    "beat": 1
+   },
+   "label": "PAC"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 73,
+    "beat": 1
+   },
+   "label": "V7/IV",
+   "key": "Eb"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 74,
+    "beat": 1
+   },
+   "label": "IV",
+   "function": "PD",
+   "callout": 1
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 76,
+    "beat": 1
+   },
+   "label": "IV6",
+   "function": "PD",
+   "callout": 2
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 77,
+    "beat": 1
+   },
+   "label": "Cad64",
+   "function": "D"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 78,
+    "beat": 1
+   },
+   "label": "V7",
+   "function": "D"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 79,
+    "beat": 1
+   },
+   "label": "I",
+   "function": "T"
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 80,
+    "beat": 1
+   },
+   "label": "V7",
+   "function": "D",
+   "callout": 4
+  },
+  {
+   "type": "harmony",
+   "at": {
+    "measure": 81,
+    "beat": 1
+   },
+   "label": "I",
+   "function": "T"
+  },
+  {
+   "type": "cadence",
+   "at": {
+    "measure": 79,
+    "beat": 1
+   },
+   "label": "PAC"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 73,
+    "beat": 1
+   },
+   "end": {
+    "measure": 74
+   },
+   "label": "climax"
+  },
+  {
+   "type": "phrase",
+   "start": {
+    "measure": 76,
+    "beat": 1
+   },
+   "end": {
+    "measure": 79
+   },
+   "label": "closing phrase"
+  },
+  {
+   "type": "region",
+   "start": {
+    "measure": 80,
+    "beat": 1
+   },
+   "end": {
+    "measure": 82
+   },
+   "label": "pedal on E\u266d",
+   "staff": 3
+  },
+  {
+   "type": "nct",
+   "note": {
+    "measure": 77,
+    "beat": 3.75,
+    "staff": 2,
+    "pitch": "A5"
+   },
+   "label": "N",
+   "callout": 3
+  },
+  {
+   "type": "voice_leading",
+   "kind": "arrow",
+   "from_note": {
+    "measure": 73,
+    "beat": 1,
+    "staff": 2,
+    "pitch": "Db5"
+   },
+   "to_note": {
+    "measure": 74,
+    "beat": 1,
+    "staff": 2,
+    "pitch": "C5"
+   },
+   "label": "7\u21923"
+  },
+  {
+   "type": "voice_leading",
+   "kind": "arrow",
+   "from_note": {
+    "measure": 78,
+    "beat": 1,
+    "staff": 3,
+    "pitch": "Ab3"
+   },
+   "to_note": {
+    "measure": 79,
+    "beat": 1,
+    "staff": 3,
+    "pitch": "G3"
+   },
+   "label": "7\u21923"
+  }
+ ],
+ "passages": [
+  [
+   25,
+   48
+  ],
+  [
+   73,
+   82
+  ]
+ ]
+}

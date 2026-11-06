@@ -1,0 +1,633 @@
+{
+ "bach-chorale-269": {
+  "folder": "Corpus/Early_Choral/Bach,_Johann_Sebastian/Chorales/001",
+  "fits": {
+   "TAOM": 0.954,
+   "BCMH": 0.954
+  },
+  "bars": 22,
+  "single": {
+   "TAOM": {
+    "key": 1.0,
+    "root": 0.992,
+    "chord": 0.96,
+    "chord_and_bass": 0.927,
+    "function": 0.96,
+    "idea": 0.992,
+    "full": 0.927,
+    "reference_chords": 59,
+    "reading_chords": 48,
+    "reference_unreadable": 0,
+    "reading_unreadable": 0,
+    "reference_outside_score": 0,
+    "reference_fit": 0.954,
+    "reading_fit": 0.952
+   },
+   "BCMH": {
+    "key": 1.0,
+    "root": 0.984,
+    "chord": 0.976,
+    "chord_and_bass": 0.944,
+    "function": 0.944,
+    "idea": 0.984,
+    "full": 0.944,
+    "reference_chords": 57,
+    "reading_chords": 48,
+    "reference_unreadable": 0,
+    "reading_unreadable": 0,
+    "reference_outside_score": 0,
+    "reference_fit": 0.954,
+    "reading_fit": 0.952
+   }
+  },
+  "any": {
+   "key": 1.0,
+   "root": 0.992,
+   "chord_and_bass": 0.96,
+   "function": 0.96,
+   "idea": 0.992,
+   "full": 0.96
+  },
+  "draft_any": {
+   "key": 1.0,
+   "root": 0.992,
+   "chord_and_bass": 0.927,
+   "function": 0.927,
+   "idea": 0.992,
+   "full": 0.927
+  },
+  "experts": {
+   "TAOM": {
+    "key": 1.0,
+    "root": 0.992,
+    "chord_and_bass": 0.952,
+    "function": 0.984,
+    "idea": 0.992,
+    "full": 0.952
+   },
+   "BCMH": {
+    "key": 1.0,
+    "root": 0.992,
+    "chord_and_bass": 0.952,
+    "function": 0.984,
+    "idea": 0.992,
+    "full": 0.952
+   }
+  },
+  "ours_vs_others": {
+   "TAOM": {
+    "key": 1.0,
+    "root": 0.984,
+    "chord_and_bass": 0.944,
+    "function": 0.944,
+    "idea": 0.984,
+    "full": 0.944
+   },
+   "BCMH": {
+    "key": 1.0,
+    "root": 0.992,
+    "chord_and_bass": 0.927,
+    "function": 0.96,
+    "idea": 0.992,
+    "full": 0.927
+   }
+  }
+ },
+ "mozart-k332-1": {
+  "folder": "Corpus/Piano_Sonatas/Mozart,_Wolfgang_Amadeus/K332/1",
+  "fits": {
+   "DCML": 0.939,
+   "TAOM": 0.816
+  },
+  "bars": 229,
+  "skipped": "fewer than two experts at fit 0.85"
+ },
+ "mozart-k545-1": {
+  "folder": "Corpus/Piano_Sonatas/Mozart,_Wolfgang_Amadeus/K545/1",
+  "fits": {
+   "DCML": 0.898,
+   "TAOM": 0.739
+  },
+  "bars": 73,
+  "skipped": "fewer than two experts at fit 0.85"
+ },
+ "beethoven-pathetique-2": {
+  "folder": "Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op013(Pathetique)/2",
+  "fits": {
+   "DCML": 0.963
+  },
+  "bars": 73,
+  "skipped": "fewer than two experts at fit 0.85"
+ },
+ "heldout-beethoven_piano_sonatas-01-3": {
+  "folder": "Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op002_No1/3",
+  "fits": {
+   "DCML": 0.915,
+   "TAOM": 0.908
+  },
+  "bars": 50,
+  "single": {
+   "DCML": {
+    "key": 0.939,
+    "root": 0.854,
+    "chord": 0.84,
+    "chord_and_bass": 0.786,
+    "function": 0.799,
+    "idea": 0.874,
+    "full": 0.724,
+    "reference_chords": 129,
+    "reading_chords": 73,
+    "reference_unreadable": 0,
+    "reading_unreadable": 0,
+    "reference_outside_score": 0,
+    "reference_fit": 0.915,
+    "reading_fit": 0.737
+   },
+   "TAOM": {
+    "key": 0.932,
+    "root": 0.866,
+    "chord": 0.839,
+    "chord_and_bass": 0.716,
+    "function": 0.723,
+    "idea": 0.887,
+    "full": 0.654,
+    "reference_chords": 118,
+    "reading_chords": 73,
+    "reference_unreadable": 0,
+    "reading_unreadable": 0,
+    "reference_outside_score": 0,
+    "reference_fit": 0.908,
+    "reading_fit": 0.737
+   }
+  },
+  "any": {
+   "key": 0.939,
+   "root": 0.874,
+   "chord_and_bass": 0.84,
+   "function": 0.84,
+   "idea": 0.895,
+   "full": 0.779
+  },
+  "draft_any": {
+   "key": 0.714,
+   "root": 0.731,
+   "chord_and_bass": 0.612,
+   "function": 0.65,
+   "idea": 0.741,
+   "full": 0.524
+  },
+  "experts": {
+   "DCML": {
+    "key": 0.993,
+    "root": 0.966,
+    "chord_and_bass": 0.757,
+    "function": 0.784,
+    "idea": 0.959,
+    "full": 0.757
+   },
+   "TAOM": {
+    "key": 0.986,
+    "root": 0.959,
+    "chord_and_bass": 0.752,
+    "function": 0.779,
+    "idea": 0.952,
+    "full": 0.752
+   }
+  },
+  "ours_vs_others": {
+   "DCML": {
+    "key": 0.932,
+    "root": 0.866,
+    "chord_and_bass": 0.716,
+    "function": 0.723,
+    "idea": 0.887,
+    "full": 0.654
+   },
+   "TAOM": {
+    "key": 0.939,
+    "root": 0.854,
+    "chord_and_bass": 0.786,
+    "function": 0.799,
+    "idea": 0.874,
+    "full": 0.724
+   }
+  }
+ },
+ "heldout-beethoven_piano_sonatas-06-2": {
+  "folder": "Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op010_No2/2",
+  "fits": {
+   "DCML": 0.914
+  },
+  "bars": 48,
+  "skipped": "fewer than two experts at fit 0.85"
+ },
+ "heldout-beethoven_piano_sonatas-09-2": {
+  "folder": "Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op014_No1/2",
+  "fits": {
+   "DCML": 0.911
+  },
+  "bars": 48,
+  "skipped": "fewer than two experts at fit 0.85"
+ },
+ "heldout-beethoven_piano_sonatas-09-3": {
+  "folder": "Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op014_No1/3",
+  "fits": {
+   "DCML": 0.916
+  },
+  "bars": 48,
+  "skipped": "fewer than two experts at fit 0.85"
+ },
+ "heldout-beethoven_piano_sonatas-21-3": {
+  "folder": "Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op053/3",
+  "fits": {
+   "DCML": 0.901,
+   "TAOM": 0.854
+  },
+  "bars": 48,
+  "single": {
+   "DCML": {
+    "key": 1.0,
+    "root": 0.778,
+    "chord": 0.733,
+    "chord_and_bass": 0.566,
+    "function": 0.566,
+    "idea": 0.75,
+    "full": 0.566,
+    "reference_chords": 735,
+    "reading_chords": 44,
+    "reference_unreadable": 0,
+    "reading_unreadable": 0,
+    "reference_outside_score": 0,
+    "reference_fit": 0.901,
+    "reading_fit": 0.437
+   },
+   "TAOM": {
+    "key": 0.389,
+    "root": 0.528,
+    "chord": 0.514,
+    "chord_and_bass": 0.486,
+    "function": 0.5,
+    "idea": 0.528,
+    "full": 0.361,
+    "reference_chords": 600,
+    "reading_chords": 44,
+    "reference_unreadable": 0,
+    "reading_unreadable": 0,
+    "reference_outside_score": 0,
+    "reference_fit": 0.854,
+    "reading_fit": 0.437
+   }
+  },
+  "any": {
+   "key": 1.0,
+   "root": 0.875,
+   "chord_and_bass": 0.792,
+   "function": 0.792,
+   "idea": 0.889,
+   "full": 0.722
+  },
+  "draft_any": {
+   "key": 0.898,
+   "root": 0.845,
+   "chord_and_bass": 0.66,
+   "function": 0.792,
+   "idea": 0.887,
+   "full": 0.604
+  },
+  "experts": {
+   "DCML": {
+    "key": 0.389,
+    "root": 0.431,
+    "chord_and_bass": 0.274,
+    "function": 0.288,
+    "idea": 0.389,
+    "full": 0.219
+   },
+   "TAOM": {
+    "key": 0.389,
+    "root": 0.431,
+    "chord_and_bass": 0.274,
+    "function": 0.288,
+    "idea": 0.389,
+    "full": 0.219
+   }
+  },
+  "ours_vs_others": {
+   "DCML": {
+    "key": 0.389,
+    "root": 0.528,
+    "chord_and_bass": 0.486,
+    "function": 0.5,
+    "idea": 0.528,
+    "full": 0.361
+   },
+   "TAOM": {
+    "key": 1.0,
+    "root": 0.778,
+    "chord_and_bass": 0.566,
+    "function": 0.566,
+    "idea": 0.75,
+    "full": 0.566
+   }
+  }
+ },
+ "heldout-beethoven_piano_sonatas-30-2": {
+  "folder": "Corpus/Piano_Sonatas/Beethoven,_Ludwig_van/Op109/2",
+  "fits": {
+   "DCML": 0.873
+  },
+  "bars": 48,
+  "skipped": "fewer than two experts at fit 0.85"
+ },
+ "heldout-chopin_mazurkas-BI60-2op06-2": {
+  "folder": "Corpus/Keyboard_Other/Chopin,_Fr\u00e9d\u00e9ric/Mazurkas/BI60-2",
+  "fits": {
+   "DCML": 0.949,
+   "TAOM": 0.863
+  },
+  "bars": 48,
+  "single": {
+   "DCML": {
+    "key": 0.993,
+    "root": 0.979,
+    "chord": 0.979,
+    "chord_and_bass": 0.979,
+    "function": 0.979,
+    "idea": 0.993,
+    "full": 0.979,
+    "reference_chords": 96,
+    "reading_chords": 33,
+    "reference_unreadable": 0,
+    "reading_unreadable": 0,
+    "reference_outside_score": 0,
+    "reference_fit": 0.949,
+    "reading_fit": 0.77
+   },
+   "TAOM": {
+    "key": 0.667,
+    "root": 0.833,
+    "chord": 0.833,
+    "chord_and_bass": 0.833,
+    "function": 0.833,
+    "idea": 0.833,
+    "full": 0.667,
+    "reference_chords": 65,
+    "reading_chords": 33,
+    "reference_unreadable": 0,
+    "reading_unreadable": 0,
+    "reference_outside_score": 0,
+    "reference_fit": 0.863,
+    "reading_fit": 0.77
+   }
+  },
+  "any": {
+   "key": 1.0,
+   "root": 1.0,
+   "chord_and_bass": 1.0,
+   "function": 1.0,
+   "idea": 1.0,
+   "full": 1.0
+  },
+  "draft_any": {
+   "key": 0.646,
+   "root": 0.989,
+   "chord_and_bass": 0.576,
+   "function": 0.938,
+   "idea": 0.979,
+   "full": 0.458
+  },
+  "experts": {
+   "DCML": {
+    "key": 0.66,
+    "root": 0.812,
+    "chord_and_bass": 0.812,
+    "function": 0.812,
+    "idea": 0.826,
+    "full": 0.646
+   },
+   "TAOM": {
+    "key": 0.66,
+    "root": 0.812,
+    "chord_and_bass": 0.812,
+    "function": 0.812,
+    "idea": 0.826,
+    "full": 0.646
+   }
+  },
+  "ours_vs_others": {
+   "DCML": {
+    "key": 0.667,
+    "root": 0.833,
+    "chord_and_bass": 0.833,
+    "function": 0.833,
+    "idea": 0.833,
+    "full": 0.667
+   },
+   "TAOM": {
+    "key": 0.993,
+    "root": 0.979,
+    "chord_and_bass": 0.979,
+    "function": 0.979,
+    "idea": 0.993,
+    "full": 0.979
+   }
+  }
+ },
+ "heldout-chopin_mazurkas-BI77-1op17-1": {
+  "folder": "Corpus/Keyboard_Other/Chopin,_Fr\u00e9d\u00e9ric/Mazurkas/BI77-1",
+  "fits": {
+   "DCML": 0.902,
+   "TAOM": 0.829
+  },
+  "bars": 37,
+  "skipped": "fewer than two experts at fit 0.85"
+ },
+ "heldout-mozart_sonatas-K310-1": {
+  "folder": "Corpus/Piano_Sonatas/Mozart,_Wolfgang_Amadeus/K310/1",
+  "fits": {
+   "DCML": 0.869,
+   "TAOM": 0.876
+  },
+  "bars": 48,
+  "single": {
+   "DCML": {
+    "key": 1.0,
+    "root": 0.935,
+    "chord": 0.883,
+    "chord_and_bass": 0.805,
+    "function": 0.852,
+    "idea": 0.917,
+    "full": 0.805,
+    "reference_chords": 290,
+    "reading_chords": 97,
+    "reference_unreadable": 0,
+    "reading_unreadable": 0,
+    "reference_outside_score": 0,
+    "reference_fit": 0.869,
+    "reading_fit": 0.507
+   },
+   "TAOM": {
+    "key": 1.0,
+    "root": 0.885,
+    "chord": 0.854,
+    "chord_and_bass": 0.823,
+    "function": 0.844,
+    "idea": 0.896,
+    "full": 0.823,
+    "reference_chords": 303,
+    "reading_chords": 97,
+    "reference_unreadable": 0,
+    "reading_unreadable": 0,
+    "reference_outside_score": 0,
+    "reference_fit": 0.876,
+    "reading_fit": 0.507
+   }
+  },
+  "any": {
+   "key": 1.0,
+   "root": 0.958,
+   "chord_and_bass": 0.896,
+   "function": 0.917,
+   "idea": 0.958,
+   "full": 0.896
+  },
+  "draft_any": {
+   "key": 1.0,
+   "root": 0.852,
+   "chord_and_bass": 0.708,
+   "function": 0.802,
+   "idea": 0.911,
+   "full": 0.708
+  },
+  "experts": {
+   "DCML": {
+    "key": 1.0,
+    "root": 0.904,
+    "chord_and_bass": 0.81,
+    "function": 0.852,
+    "idea": 0.896,
+    "full": 0.81
+   },
+   "TAOM": {
+    "key": 1.0,
+    "root": 0.904,
+    "chord_and_bass": 0.81,
+    "function": 0.852,
+    "idea": 0.896,
+    "full": 0.81
+   }
+  },
+  "ours_vs_others": {
+   "DCML": {
+    "key": 1.0,
+    "root": 0.885,
+    "chord_and_bass": 0.823,
+    "function": 0.844,
+    "idea": 0.896,
+    "full": 0.823
+   },
+   "TAOM": {
+    "key": 1.0,
+    "root": 0.935,
+    "chord_and_bass": 0.805,
+    "function": 0.852,
+    "idea": 0.917,
+    "full": 0.805
+   }
+  }
+ },
+ "heldout-bach-chorale-bwv38.6": {
+  "folder": "Corpus/Early_Choral/Bach,_Johann_Sebastian/Chorales/010",
+  "fits": {
+   "TAOM": 0.969,
+   "BCMH": 0.969
+  },
+  "bars": 13,
+  "single": {
+   "TAOM": {
+    "key": 0.692,
+    "root": 0.99,
+    "chord": 0.971,
+    "chord_and_bass": 0.962,
+    "function": 0.981,
+    "idea": 0.99,
+    "full": 0.683,
+    "reference_chords": 51,
+    "reading_chords": 40,
+    "reference_unreadable": 0,
+    "reading_unreadable": 0,
+    "reference_outside_score": 0,
+    "reference_fit": 0.969,
+    "reading_fit": 0.964
+   },
+   "BCMH": {
+    "key": 0.808,
+    "root": 0.99,
+    "chord": 0.971,
+    "chord_and_bass": 0.923,
+    "function": 0.942,
+    "idea": 0.99,
+    "full": 0.76,
+    "reference_chords": 44,
+    "reading_chords": 40,
+    "reference_unreadable": 0,
+    "reading_unreadable": 0,
+    "reference_outside_score": 0,
+    "reference_fit": 0.969,
+    "reading_fit": 0.964
+   }
+  },
+  "any": {
+   "key": 0.827,
+   "root": 0.99,
+   "chord_and_bass": 0.971,
+   "function": 0.981,
+   "idea": 0.99,
+   "full": 0.817
+  },
+  "draft_any": {
+   "key": 0.75,
+   "root": 0.952,
+   "chord_and_bass": 0.904,
+   "function": 0.942,
+   "idea": 0.952,
+   "full": 0.683
+  },
+  "experts": {
+   "TAOM": {
+    "key": 0.769,
+    "root": 1.0,
+    "chord_and_bass": 0.942,
+    "function": 0.962,
+    "idea": 1.0,
+    "full": 0.721
+   },
+   "BCMH": {
+    "key": 0.769,
+    "root": 1.0,
+    "chord_and_bass": 0.942,
+    "function": 0.962,
+    "idea": 1.0,
+    "full": 0.721
+   }
+  },
+  "ours_vs_others": {
+   "TAOM": {
+    "key": 0.808,
+    "root": 0.99,
+    "chord_and_bass": 0.923,
+    "function": 0.942,
+    "idea": 0.99,
+    "full": 0.76
+   },
+   "BCMH": {
+    "key": 0.692,
+    "root": 0.99,
+    "chord_and_bass": 0.962,
+    "function": 0.981,
+    "idea": 0.99,
+    "full": 0.683
+   }
+  }
+ }
+}
