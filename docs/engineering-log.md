@@ -1909,7 +1909,7 @@ Measured with baseline launcher marks1. Quick set, 49 clean PDFs: 0 split; first
 
 **What is out of date is the public listing text:** it offers MusicXML only, says each page shows up to 32 bars, and quotes 71% against 78% on 12 pieces. The site says 67% against 71% on 30 unseen pieces.
 
-**Prepared.** `openai-plugin/plugin.json` 1.1.0 adds PDFs to the description and capabilities and a reviewer test case with a public Mutopia PDF, which read on production in 99 s with the right card. Not submitted: that is the owner's step, and the approved listing stays live until OpenAI reviews the update.
+**Prepared.** `openai-plugin/plugin.json` 1.1.0 adds PDFs to the description and capabilities and a reviewer test case with a public Mutopia PDF, which read on production in 99 s with the right card. Uploaded as a draft, no findings in OpenAI's automatic check; the owner made the declarations and submitted it on 2026-11-06. Status: in review, estimated completion 2026-11-07. Version 1.0.0 stays live until then.
 
 ## Checking against teachers' prose
 
