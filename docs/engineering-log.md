@@ -2116,6 +2116,32 @@ A fourth run, grouped, with no measuring attached and less other work on the mac
 
 **Limits.** Wall times were taken while other jobs ran on the machine, so only the CPU and model figures compare cleanly. A new test that uses the model without the mark still passes but loads a second copy; nothing checks for that.
 
+### 118. A ChatGPT model as reviewer, and whether the draft model earns its place (2026-11-06)
+
+**Question.** The public 67% was measured with Opus as reviewer, and every real user is on ChatGPT. What does a ChatGPT model score, and does the draft model help once the reviewer has the note table (entry 60 said no, on 3 pieces)?
+
+**Method.** `eval/review.py` now sends the same review prompt to a `gpt-` model through `codex exec` (branch `eval-chatgpt-reviewer`). Each arm reviews the passages of the 30 held-out pieces (54 passages, 1,182 bars) with the draft in the prompt or with the note table alone. Every arm is one run. Cost is estimated subscription usage.
+
+| Reviewer | Draft | Pieces | Key, chord and bass (30 / same 20 pieces) | First replies rejected | Cost | Seconds per passage |
+|---|---|---|---|---|---|---|
+| Draft alone | – | 30 | 0.481 / 0.484 | – | – | – |
+| Opus, medium (2026-10-24) | with | 30 | 0.670 / 0.671 | 6 of 54 | $25.59 | 148 |
+| Opus, medium | without | 30 | 0.680 / 0.684 | 13 of 54 | $30.95 | 192 |
+| gpt-6.1-sol, Codex default effort | with | 30 | 0.638 / 0.627 | 34 of 54 | $0 | 97 |
+| gpt-6.1-sol, Codex default effort | without | 20 | – / 0.672 | 19 of 39 | $0 | 88 |
+| Sonnet (3 pieces) | with | 3 | 0.544 | 0 of 5 | $1.64 | 177 |
+| Sonnet (3 pieces) | without | 3 | 0.601 | 0 of 5 | $2.04 | 120 |
+
+**Without the draft minus with it, piece by piece.** Opus, 30 pieces: +0.010 (95% interval −0.032 to +0.054). gpt-6.1-sol, 20 pieces: +0.045 (+0.009 to +0.084), or +0.034 (+0.001 to +0.069) leaving out one piece whose with-draft passage never produced a valid answer.
+
+**What the saved runs show about the draft.** The review fixes 0.24 of the music and breaks 0.05. The draft's confidence is calibrated, but labels at confidence 1.00 are right 0.62 of the time against 0.75 after review. The GPT reviewer follows the draft's wrong keys. The draft is about 17% of the prompt. In production, a draft call that runs the model takes a median 12.9 s, of which 10.4 s is starting the model and 0.5 s is the model; 5 of 41 ChatGPT draft calls failed or fell back.
+
+**Why first replies are rejected.** In 43 of the 46 GPT cases with a saved error, and 8 of Opus's 13, the model put `staff` inside a region's `start` or `end`. The method text (`skill/SKILL.md`) says to give a region its `staff`, the annotation spec lists a region's fields as `start`, `end`, `label`, and the schema has `staff` on the region itself. Not fixed here. ChatGPT also receives the tool's schema, so the rate in the product may be lower; not checked.
+
+**Limits.** One run per arm, so the 0.04 run-to-run spread is the earlier Opus figure, not measured for gpt-6.1-sol. The OpenAI no-draft arm stopped at 20 pieces when the ChatGPT plan's limit was reached: no Dvořák, Mozart, Schumann or Tchaikovsky and 1 of 4 Bach pieces. The Opus with-draft run used the method text of 2026-10-24 (1,129 words) and the no-draft run today's (1,391 words), so that pair also mixes prompt versions; the OpenAI pair does not. Codex's default effort is listed as low and ChatGPT's own default is Medium, which was not run. NOT RUN: second runs for spread, a smaller OpenAI model, the last 10 OpenAI no-draft pieces.
+
+**What it means.** With the note table in the prompt, the draft is not shown to raise accuracy for any reviewer tried, and for the ChatGPT model it probably lowers it. A ChatGPT model at low effort with the draft, which is what the product sends today, scores 0.64 where the site says 67%. The part-writing check and the student check still read the draft's chords, so the model cannot simply be removed.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
