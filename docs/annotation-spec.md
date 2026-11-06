@@ -37,8 +37,8 @@ In ABRSM style, the seventh is always raised, including before an inversion lett
 |---|---|
 | `measure` | The printed measure number. A pickup measure is 0. |
 | `beat` | 1-based, in the meter's beat unit: a quarter in 4/4, a dotted quarter in 6/8 or 12/8. Fractions are allowed (`2.67`). Defaults to 1. In a pickup measure, beat 1 is its first note. |
-| `staff` | 1 is the top staff. Only needed to tell simultaneous notes apart. |
-| `pitch` | `"Eb4"`, `"F#5"`, `"D2"` (middle C is C4), at sounding pitch: a note under an 8va line is named an octave above where it is written. music21 spelling (`"E-4"`) is accepted. |
+| `staff` | Notes only. 1 is the top staff. Only needed to tell simultaneous notes apart. |
+| `pitch` | Notes only. `"Eb4"`, `"F#5"`, `"D2"` (middle C is C4), at sounding pitch: a note under an 8va line is named an octave above where it is written. music21 spelling (`"E-4"`) is accepted. |
 
 `staff` and `pitch` belong only to a note (`note`, `from_note`, `to_note`). An `at`, `start` or `end` takes `measure` and `beat` and nothing else.
 
