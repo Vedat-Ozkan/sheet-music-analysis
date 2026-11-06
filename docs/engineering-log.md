@@ -2096,6 +2096,26 @@ Five readings stop the draft model because a voice runs past the barline; a user
 
 **What it means.** Since sma.6, the reader work that changed the analysis was the key-signature fix. For the analysis, the reading errors that matter most are bar numbers at pickups, time signatures, key signatures and bars that overflow. Ties, rests and printed values matter little.
 
+### 117. The test suite ran the draft model in every worker, each with 48 threads (2026-11-06)
+
+**Challenge.** The full suite kept all 20 cores busy for 12 minutes and, when other work ran beside it, three draft tests failed with "AnalysisGNN did not answer in time".
+
+**Cause.** Each test worker that reached a draft test started its own copy of the draft model, and each copy started 48 threads. With 11 to 13 copies the threads fought each other: the model's own work, 45 seconds when run once, took 2,611 seconds.
+
+**Fix.** `tests/conftest.py` sets the model to one thread, and the 16 tests that use the model carry one `xdist_group` mark, so `--dist loadgroup` (now in `pyproject.toml`) sends them to a single worker. On one score, one thread gave the same labels as 48 (confidences differ in the fourth decimal) and was no slower.
+
+| Full suite, 20 workers | Wall time | CPU seconds | Model copies | Model seconds | Failures |
+|---|---|---|---|---|---|
+| Before | 12:16 | 12,050 | 13 | 2,611 | 3 |
+| One thread | 8:23 | 6,035 | 11 | 216 | 0 |
+| One thread, grouped | 8:11 | 6,116 | 1 | 45 | 0 |
+
+A fourth run, grouped, with no measuring attached and less other work on the machine, took 5:48: 1303 passed, 4 skipped, 2 xfailed.
+
+**Memory did not change.** Peak use stayed near 22 GB in every run. At the peak of the fourth run the PDF reader's Java processes held 10.2 GB (12 running, up to 19 at once) and about 8 GB sat in 23 Python processes that are almost certainly the 20 test workers (not checked by process id). The draft model held 0.8 GB. Using less memory would mean fewer workers or fewer PDF readings at once; neither was tried.
+
+**Limits.** Wall times were taken while other jobs ran on the machine, so only the CPU and model figures compare cleanly. A new test that uses the model without the mark still passes but loads a second copy; nothing checks for that.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
