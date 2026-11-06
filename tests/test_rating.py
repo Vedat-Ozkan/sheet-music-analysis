@@ -1,6 +1,8 @@
 import asyncio
 import json
+import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from mcp.client.client import Client
@@ -43,3 +45,25 @@ def test_a_rating_is_logged_and_the_tool_is_only_for_the_card(capsys):
     assert tool.meta["ui"]["visibility"] == ["app"]
     lines = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")]
     assert any(line.get("event") == "rate_analysis" and line.get("helpful") is False for line in lines)
+
+
+def test_renders_at_the_same_moment_in_one_chat_are_all_counted(tmp_path, monkeypatch):
+    class SlowStore(app.LocalStore):
+        def get_versioned(self, key):
+            found = super().get_versioned(key)
+            time.sleep(0.1)
+            return found
+
+        def get(self, key):
+            found = super().get(key)
+            time.sleep(0.1)
+            return found
+
+    monkeypatch.setattr(app, "store", SlowStore(tmp_path))
+    monkeypatch.setattr(app, "pseudonym_key", None)
+    context = SimpleNamespace(request_context=SimpleNamespace(meta={"openai/session": "chat-1"}))
+
+    async def together():
+        return await asyncio.gather(*(app.rating_is_due(context) for _ in range(4)))
+
+    assert sum(asyncio.run(together())) == 1

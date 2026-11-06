@@ -269,8 +269,9 @@ def _notes(index: ScoreIndex, starts: dict[int, Fraction], clock: _Clock) -> tup
                 continue
             begin, finish = starts[id(measure)] + event.onset, starts[id(measure)] + event.onset + event.duration
             pitch, tie = _midi(event.pitch), (event.staff, _midi(event.pitch))
-            held = open_ties.pop(tie, None)
-            if held and held[1] == begin:
+            held = next((entry for entry in open_ties.get(tie, []) if entry[1] == begin), None)
+            if held:
+                open_ties[tie].remove(held)
                 note = held[0]
                 note.end = clock.ms(float(finish))
             else:
@@ -279,7 +280,7 @@ def _notes(index: ScoreIndex, starts: dict[int, Fraction], clock: _Clock) -> tup
                 mains.setdefault((id(measure), event.staff, event.onset), []).append(note)
             heads[event.id] = note
             if event.tied:
-                open_ties[tie] = (note, finish)
+                open_ties.setdefault(tie, []).append((note, finish))
     for (measure_id, staff, onset, slashed), group in graces.items():
         measure = next(measure for measure in index.measures if id(measure) == measure_id)
         arrival = clock.ms(float(starts[measure_id] + onset))

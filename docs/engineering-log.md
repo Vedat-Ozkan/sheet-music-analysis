@@ -1920,6 +1920,21 @@ Measured with baseline launcher marks1. Quick set, 49 clean PDFs: 0 split; first
 **The fix.** The shipped code reads no value from the environment; what remains is `os.environ.setdefault("FONTCONFIG_FILE", ...)` in `render.py`, which points the engine at its own fonts. The reader gets a fixed environment rather than a copy of the caller's, so it no longer sees any secret the caller holds. The engine's default reader path is a constant; `tools/robustness.py` and the tests read `AUDIVERIS` themselves, and the skill already passes its path. Two checks were added: the reader is not given the caller's variables, and no skill or engine script reads a value from the environment.
 
 **Not known until the next scan.** Whether the hold clears. A reviewer is still required either way. The warnings on the PDF reader download, the fonts and the listing fields stay.
+### 113. Carried state: seven defects found by audit, fixed on `fix-state-machines` (2026-11-06)
+
+An audit of state that carries across calls, bars and voices found these. Each was reproduced on `main` before its fix; none was reported by a user. Not deployed.
+
+- **Ledger hints judged a bar in the wrong clef.** Each bar and staff kept one clef, the last one read, and Verovio writes a clef that opens the next bar at the end of this one. Over the 61 corpus scores, 666 of 49,749 notes were checked against the wrong clef. Clefs now follow the notes, layer by layer. In all 27 corpus bars with a clef change and several layers, Verovio repeats the clef in every layer that has notes. Six scores change, all false runs: Haydn *She never told* 2-4 becomes 2-3 in three variants and 1-3 becomes 1-2 in the fourth; Schubert *Die Stadt* (raw reading) loses 3-4 and 24-25; Haydn 104 loses 192-194.
+- **A tie broke on the same pitch in another voice when played.** Ballade Op. 23 goes from 5203 to 5200 notes: three written ties that were struck again now hold. No other corpus score changes.
+- **Replacing a bar after a unison left one loose tie.** Only a constructed score shows it; the corpus has no unison ties across voices.
+- **A key change inside a bar applied to the labels before it.** Only a constructed score shows it; the corpus has no mid-bar key.
+- **`continue` on an octave line lost the line's start** in `clean`. Only a constructed score shows it; none of the tracked scores has one. `export.py` treats `continue` as a shift too, but left alone: all candidates for a label sit on one staff at one onset, so the choice cannot change.
+- **A dead model worker was reported as slow, or as `BrokenPipeError`.** Both are now `DraftError` "stopped before answering".
+- **Rating counter and the other machine's outcome.** The per-chat count is now conditional on the object's generation: four renders at once used to count as one and never reach the third. A saved busy or limit result returned by the other machine was logged as `user_error`; it now logs as busy or limit. The message users see was already right, so the audit's first description of this as a wrong answer was too strong.
+
+Reproduced and left as they are by the owner's decision: the rating may return after `chats/` expires, as a chat idle over a day restarts its count, rather than keep those records longer; and a machine that dies during a read blocks that PDF for up to 900 s, as the marker must outlive the longest read (entry 86 quotes 300 s; the code has since become 900 s).
+
+Checks: full suite with Audiveris 5.11.0-sma.6, 1266 passed, 4 skipped (no ring codes), 2 xfailed. `tools/diff_check.py --base main` typed, pdfwarn, export and render: no changes. A second model reviewed the diff.
 
 ## Checking against teachers' prose
 

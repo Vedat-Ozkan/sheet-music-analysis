@@ -606,7 +606,7 @@ def clean(mxl: bytes) -> bytes:
                 number = shift.get("number", "1")
                 if shift.get("type") == "stop":
                     open_lines.pop(number, None)
-                else:
+                elif shift.get("type") != "continue":
                     if number in open_lines:
                         unclosed.append(open_lines[number])
                     open_lines[number] = (measure, direction)

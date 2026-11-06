@@ -184,3 +184,37 @@ def test_the_reading_card_of_a_short_score_shows_every_bar(monkeypatch, tmp_path
     result = reading_card(monkeypatch, tmp_path, READING)
     assert result.structured_content["caption"] == "What I read from your PDF, every bar"
     assert "download the PDF" not in text_of(result)
+
+
+def waiter_outcome(monkeypatch, tmp_path, capsys, failure_error, text):
+    slow_reader(monkeypatch, tmp_path, 0)
+    digest = __import__("hashlib").sha256(PDF).hexdigest()
+    card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}-no-slurs.json"
+    started = time.time() - 5
+    app.store.put(app.marker_of(card_key), json.dumps({"token": "other", "started": started}).encode())
+    app.store.put(app.failure_of(card_key), json.dumps({"at": time.time(), "error": failure_error, "text": text}).encode())
+
+    async def call():
+        async with Client(app.mcp) as client:
+            return await client.call_tool("read_pdf", ATTACHED)
+
+    result = anyio.run(call)
+    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")]
+    return result, next(line for line in lines if line.get("tool") == "read_pdf" and "outcome" in line)
+
+
+def test_a_busy_reading_on_the_other_machine_is_logged_as_busy(monkeypatch, tmp_path, capsys):
+    result, line = waiter_outcome(monkeypatch, tmp_path, capsys, "busy", app.BUSY_MESSAGE)
+    assert text_of(result) == app.BUSY_MESSAGE
+    assert line["outcome"] == "busy"
+
+
+def test_a_limit_on_the_other_machine_is_logged_as_a_limit(monkeypatch, tmp_path, capsys):
+    result, line = waiter_outcome(monkeypatch, tmp_path, capsys, "limit", app.LIMIT_MESSAGE)
+    assert text_of(result) == app.LIMIT_MESSAGE
+    assert line["outcome"] == "limit"
+
+
+def test_a_failed_reading_on_the_other_machine_stays_a_user_error(monkeypatch, tmp_path, capsys):
+    result, line = waiter_outcome(monkeypatch, tmp_path, capsys, "ReadError", "No music could be read from this PDF")
+    assert line["outcome"] == "user_error"

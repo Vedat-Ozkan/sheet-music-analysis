@@ -730,9 +730,11 @@ async def rating_is_due(ctx: Context) -> bool:
 
         def count_analysis() -> int:
             key = f"chats/{pseudonym(str(chat))}"
-            analyses = int(store.get(key) or 0) + 1
-            store.put(key, str(analyses).encode())
-            return analyses
+            while True:
+                raw, version = store.get_versioned(key)
+                analyses = int(raw or 0) + 1
+                if store.put_if(key, str(analyses).encode(), version):
+                    return analyses
 
         return await anyio.to_thread.run_sync(count_analysis) == RATING_AFTER_ANALYSES
     except Exception as error:
@@ -882,7 +884,11 @@ async def wait_for_other_machine(card_key: str, since: float, source: str, keep_
                 return pdf_card_result(json.loads(card), keep_slurs)
             failure = json.loads(await anyio.to_thread.run_sync(store.get, failure_of(card_key)) or b"{}")
             if failure.get("at", 0) >= since:
-                log("read_pdf", platform=source, keep_slurs=keep_slurs, other_machine=True, error=failure["error"])
+                if failure["error"] == "limit":
+                    log("limit", tool="read_pdf", platform=source, keep_slurs=keep_slurs, other_machine=True)
+                else:
+                    log("read_pdf", platform=source, keep_slurs=keep_slurs, other_machine=True,
+                        **({"busy": True} if failure["error"] == "busy" else {"error": failure["error"]}))
                 return error_result(failure["text"])
             await anyio.sleep(POLL_SECONDS)
     log("read_pdf", platform=source, reading=True, other_machine=True, keep_slurs=keep_slurs)
