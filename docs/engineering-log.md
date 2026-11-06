@@ -2165,6 +2165,15 @@ A fourth run, grouped, with no measuring attached and less other work on the mac
 
 **Plain model against pipeline** (3 pieces): plain Opus matches the pipeline on key (0.96-0.97) and root (0.86-0.88). The pipeline's gain is bass and inversion (missed on 0.113 of the music by plain Opus, 0.06-0.08 by the pipeline).
 
+**Counted by chord instead of by time** (owner's question: each chord counts once, and counts as agreed when the other reading agrees over more than half of it). Recall is the share of the expert's chords we agree with; precision is the share of ours the expert agrees with.
+
+| Recall / precision | Experts | Opus with draft | Opus without draft | Draft |
+|---|---|---|---|---|
+| Same root | 0.91 / 0.91 | 0.81 / 0.87 | 0.85 / 0.87 | 0.74 / 0.67 |
+| Key, chord and bass | 0.70 / 0.70 | 0.60 / 0.65 | 0.61 / 0.64 | 0.44 / 0.40 |
+
+On 3 pieces, recall at the root: plain Opus 0.78, plain Sonnet 0.50. This is the widest gap to the experts of any measure tried (0.09 at the root with the draft), though still under the 0.10 line set beforehand. It comes from chord changes we do not write: per 100 of the expert's changes we share 73, miss 27 and add 5 with the draft (81, 19 and 7 without; two experts 89, 11 and 11). The median piece has 17% fewer changes than its expert. Half of the chords we skip are shorter than a beat, and 30% are unrelated to the chord we hold over them (15% between experts). Of the expert's chords shorter than a beat we agree on 0.47 at chord and bass, against 0.71 between experts; on chords longer than a beat the review without the draft matches the experts. By time, the stretches after a missed change cost 0.113 of the music at *full*, a third of all we lose, against 0.053 between experts.
+
 **From the literature.** Published systems report the same strict measure, at 0.43 to 0.58 on their own test sets (the draft model's paper 0.52-0.53). No published figure was found for agreement between experts on Roman numerals of classical scores, and no multi-reference scoring.
 
 **Limits.** Our passages are chosen ones while expert pairs cover whole movements; our Beethoven, Chopin and Mozart references are DCML while those pairs are mostly DCML against TAOM. Style figures on our side rest on 1 to 6 pieces, the multi-expert comparison on 6. Entry 66's "0.47 of chord misses are the right chord placed elsewhere" was not reproduced (0.08 to 0.16 by two definitions). 147 pieces have two independent experts and a usable score, 131 of them outside our sets; they have not been reviewed.
