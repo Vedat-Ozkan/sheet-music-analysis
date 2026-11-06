@@ -2042,6 +2042,36 @@ Reproduced and left as they are by the owner's decision: the rating may return a
 
 Checks: full suite with Audiveris 5.11.0-sma.6, 1266 passed, 4 skipped (no ring codes), 2 xfailed. `tools/diff_check.py --base main` typed, pdfwarn, export and render: no changes. A second model reviewed the diff.
 
+### 114. Reader 5.11.0-sma.7 and the reading work of entries 103-107, prepared for release (2026-11-06, not released)
+
+**What it carries.** Branch `release-reader-next` is `reader-next` merged with `main`, with both sides kept: from `main` the section fix, the fixed reader environment and entry 113; from `reader-next` the warning for notes that do not line up, text read by meaning, the skipped-page rule and the new wording. The reader is built from fork commit 378e4fd6d, 12 commits over sma.6, all on GitHub branch `sma-pitch`. The `read_pdf_work` log line gains two numbers, `bars` and `bars_shaded`. `READER` is `5.11.0-sma.7-best2-tuplet-rests-eight-leland-ocr-r9`, so readings saved under sma.6 are not served again.
+
+**Checks.** Full suite with the sma.7 jar: 1300 passed, 3 failed, 4 skipped (no ring codes), 2 expected failures. The 3 failures were the draft model not answering within 180 s while another job loaded the machine; all 3 passed when run alone. `tools/diff_check.py --base main`: typed 191, export 6, render 28 and part writing 80 inputs unchanged; pdfwarn 41 of 80 inputs changed, 127 bars gained a warning and none lost one. That area runs the engine over saved readings, not the new reader. `tests/test_awkward.py` alone: 196 passed, 2 expected failures. A different model from the one that wrote them read the engine and server changes and the pin change and found no defect. One note from that reading: in a part where fewer than a fifth of the lyric syllables are split, a lyric word that begins like an expression mark ("dimly", "dolce") becomes a direction. The test bodies were not read.
+
+**Three pages against the originals, full size, sma.7.** Every shaded bar had a real misreading. Each page also had wrong bars with no shading, none of them new in sma.7:
+- Chopin Op. 28 No. 4: bar 11 loses a dotted half note, and in bar 16 the sharp of a turn is read as a double sharp on the note.
+- Chopin Op. 10 No. 1: in bar 30 an octave line is cut short, so the second group is an octave low.
+- Mozart K. 545, scan: in bars 1-4, 22, 29-30 and 33 the left hand's change to treble clef is missed and every note there is a thirteenth low (bar 1 reads E2 B2 G2 B2 for C4 G4 E4 G4).
+
+Against sma.6 on the same pages: the Prelude and the Mozart read the same notes with the same shading. Op. 10 No. 1 gains its octave lines in about 45 bars that sma.6 read an octave low, and numbers 79 bars, as printed, instead of 81.
+
+**Not done.** Publishing the jar on GitHub, the plugin build (`dist/` still names sma.6), CI, staging and production all wait for the owner. Until the jar is published, the download addresses in `Dockerfile.base`, the CI workflow and the skill do not exist.
+
+### 115. What a ChatGPT user gets after a PDF read (2026-11-06)
+
+**Question.** In the production logs of 3 to 6 November, four people outside our own testing uploaded a PDF. Three got a successful read in 44 to 110 s and made no further call; one of them came back the next day, read the same PDF again and again went no further. The fourth reached a marked page. All four people who uploaded MusicXML since 31 October reached a marked page. Why do PDF users stop? A fifth PDF "user" who stopped was our own test: the owner's ChatGPT account is one permanent code, now left out of counts.
+
+**Method.** Two new chats in ChatGPT with the published app on production, each with the PDF attached and "Can you analyse the harmony of this piece?". Staging cannot be used for this: it refuses ChatGPT with 403.
+
+| | Chopin Op. 28 No. 4, one page read | Mozart K. 545, scan, 4 pages |
+|---|---|---|
+| Wait for the read | 46 s | 97 s |
+| After "Go ahead" | 63 s, 42 marks drawn | about 80 s, 79 marks drawn |
+
+**What the user sees.** The card with the reading fills the screen, and the sentence asking the user to check it and say "Go ahead" is below the card. Neither reply passed on the notice, which names the shaded bars and says why they are shaded. For the scan ChatGPT wrote "The score-reading step has been initiated, but I haven't received a verified transcription to analyse yet", with the finished reading shown above it. In an earlier test the same day (Beethoven Op. 10 No. 1, 7 pages, 284 bars, 149 s) it asked the user to "compare the app's recognized notation against the original, particularly the notes, rhythms, accidentals, and rests". After "Go ahead", both chats called `read_pdf` again, which showed the same card a second time from the saved copy, and called `draft_analysis` twice. The cause of the repeats was not found.
+
+**What it means.** The flow works from end to end. But a person who asked for an analysis waits one to two and a half minutes and is then given a proofreading job, in words ChatGPT chooses, with the instruction off the screen. That fits the three who stopped; it is not shown to be their reason. Nothing was changed: analysing straight after the read changes an approved tool description and is the owner's decision. The read's log line now records bars read and bars shaded (entry 114), so reading quality can be set beside who stops.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
@@ -2099,7 +2129,7 @@ Modal and colouristic music is now the largest group, and Ravel is the one piece
 .venv/bin/python -m eval.review --tag NAME [--image] [--overview] [--alternatives]     # a variant run in its own folder
 .venv/bin/python -m eval.run --set heldout                         # draft on pieces the draft model never saw (challenge 58)
 .venv/bin/python -m eval.review --set heldout --only ID --passages 2 --tag NAME   # review two passages per held-out piece
-.venv/bin/python -m eval.ceiling                                   # expert against expert, 146 pairs by style (challenges 14, 59, 62, 63)
+.venv/bin/python -m eval.ceiling                                   # expert against expert, 151 pairs by style (challenges 14, 59, 62, 63)
 .venv/bin/python -m eval.review --set heldout --only ID --passages 2 --no-draft --source musicxml --tag NAME   # Claude alone (challenge 60)
 .venv/bin/python -m eval.plain --only ID [--only ID]                 # plain Sonnet and Opus chats, two runs each (challenge 61)
 .venv/bin/python -m eval.survey                                    # draft over 300 When in Rome pieces (challenge 15)
