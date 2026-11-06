@@ -7,13 +7,15 @@ from collections import Counter, defaultdict
 
 GCLOUD = "gcloud"
 PROJECT = "sheet-music-analysis"
+SERVICE = "sheet-music-analysis"
+PERMANENT_CODES_SINCE = "2026-11-02"
 BUCKET = "sheet-music-analysis-data"
 EVENTS = ("draft_analysis", "draft_from_notes", "render_analysis", "read_pdf", "read_pdf_work", "limit")
 
 
 def read_logs(days: int) -> list[dict]:
     events = " OR ".join(f'"{e}"' for e in EVENTS)
-    query = f'resource.type="cloud_run_revision" AND jsonPayload.event=({events})'
+    query = f'resource.type="cloud_run_revision" AND resource.labels.service_name="{SERVICE}" AND jsonPayload.event=({events})'
     out = subprocess.run(
         [GCLOUD, "logging", "read", query, f"--project={PROJECT}", f"--freshness={days}d", "--format=json"],
         capture_output=True, text=True, check=True,
@@ -36,7 +38,7 @@ def read_active_months(bucket: str) -> dict[str, list[str]]:
 def print_monthly_users(bucket: str) -> None:
     months = read_active_months(bucket)
     first_month = {code: min(active) for code, active in months.items()}
-    print(f"ChatGPT users since launch: {len(months)}")
+    print(f"ChatGPT users since permanent codes began on {PERMANENT_CODES_SINCE}: {len(months)}")
     for month in sorted({m for active in months.values() for m in active}):
         active = [code for code, seen in months.items() if month in seen]
         new = sum(first_month[code] == month for code in active)

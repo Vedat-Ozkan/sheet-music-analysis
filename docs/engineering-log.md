@@ -1889,6 +1889,16 @@ Measured with baseline launcher marks1. Quick set, 49 clean PDFs: 0 split; first
 
 **Review (Sonnet), one bug.** Parts were matched through a one-way iterator, so an extra voice in a later section walked past the piano and the piano became a second part, silent for 123 bars. A passed-over part now stays available; on the choir fixtures there is one piano with notes in all three sections, and a stray ninth voice remains for the eighth voice the reader found only in section 3. The existing test passed despite the bug, so it now checks this. Full suite before this one-line correction, on reader sma.6 (checksum matches the pin): 1251 passed, 4 skipped, 2 expected failures; after it, `test_read_pdf` and `test_awkward`: 235 passed, 2 expected failures. Chopin Op. 67 in the Joseffy scan read as one score of 56 bars, the second mazurka starting after a double bar with its own key and metre; its pickup shares number 31 with the bar before. NOT RUN: a multi-section PDF through the staging server (no public address; a signed link was refused); the switch on the other benchmark sets.
 
+### 108. Usage report counted staging and overstated "since launch" (2026-11-05)
+
+**Problem.** `tools/usage_report.py` read logs from every Cloud Run service, so its daily rows included staging and our test runs. Its "ChatGPT users since launch" counted only permanent codes, which began on 2 Nov; users before that have daily codes that can't be linked.
+
+**What we did.** The log query now reads only the production service, and the line says "since permanent codes began on 2026-11-02". The total stays at 6.
+
+**Before and after, ChatGPT users per day:** 1 Nov 6 to 5; 4 Nov 2 to 1. Both now match the production log lines grouped by code. Claude drafts on 24 Oct went from 971 to 1.
+
+**True total since launch:** still unknown. There are 6 permanent codes and 12 daily codes from 31 Oct to 2 Nov, so 6 to 18 people, not counting ChatGPT calls from 28 to 30 Oct, which logged no code.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
