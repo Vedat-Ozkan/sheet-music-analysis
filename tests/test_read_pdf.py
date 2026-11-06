@@ -16,7 +16,7 @@ from PIL import Image
 from engine import tint
 from engine.overlay import Box, PageLayout
 from engine.performance import marked_index
-from engine.read_pdf import text_meaning, PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, audiveris_facts, audiveris_options, audiveris_read, clean, is_scan, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
+from engine.read_pdf import text_meaning, PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, audiveris_facts, audiveris_options, audiveris_read, clean, is_scan, join_movements, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
 from engine.render import MAX_PIXELS, engrave, load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
@@ -499,3 +499,21 @@ def test_stray_marks_are_recognised(text):
 @pytest.mark.parametrize("text", ["sf", "Sf", "P", "mf", "ff", "sfz."])
 def test_dynamics_read_as_text_are_recognised(text):
     assert text_meaning(text) == "dynamic"
+
+
+@pytest.mark.parametrize("name, bars", [("chopin-op67-joseffy-two-mazurkas-scan.pdf", 50), ("parry-who-can-dwell-false-movement-scan.pdf", 14)])
+@pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
+def test_every_section_of_a_pdf_is_kept(name, bars):
+    root = ET.fromstring(read_pdf((Path(__file__).parent / "data" / name).read_bytes(), AUDIVERIS).musicxml)
+    assert max(len(part.findall("measure")) for part in root.iter("part")) >= bars
+
+
+def test_movements_split_by_an_unreadable_page_are_joined_with_every_bar():
+    folder = Path(__file__).parent / "data/movements"
+    joined = clean(join_movements([(folder / f"choral-songs-02-invalid-page-{i}.mxl").read_bytes() for i in (1, 2, 3)]))
+    root = ET.fromstring(joined)
+    lengths = {len(part.findall("measure")) for part in root.iter("part")}
+    numbers = [measure.get("number") for measure in root.find("part").iter("measure")]
+    assert lengths == {172}
+    assert len(set(numbers)) == 172
+    assert len(ScoreIndex(load_toolkit(joined).getMEI()).measures) == 172
