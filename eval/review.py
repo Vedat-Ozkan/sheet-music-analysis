@@ -138,7 +138,35 @@ def tokens(answer: dict) -> int:
     return sum(usage.get(kind) or 0 for kind in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens"))
 
 
+CODEX_TOOLS = ("shell_tool", "apps", "plugins", "image_generation", "multi_agent", "goals", "skill_search", "view_image")
+
+
+def ask_codex(prompt: str, model: str, effort: str | None = None) -> dict:
+    with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as folder:
+        (Path(home) / "auth.json").symlink_to(Path.home() / ".codex" / "auth.json")
+        environment = {name: value for name, value in os.environ.items() if not name.startswith(("CODEX", "OPENAI"))} | {"HOME": home, "CODEX_HOME": home}
+        process = subprocess.run(
+            ["codex", "exec", "--json", "--ephemeral", "--skip-git-repo-check", "--ignore-rules", "-s", "read-only", "-C", folder, "-m", model, *(["-c", f'model_reasoning_effort="{effort}"'] if effort else []), "-c", 'web_search="disabled"', *(f"--disable={feature}" for feature in CODEX_TOOLS), "-"],
+            input=prompt,
+            capture_output=True,
+            text=True,
+            cwd=folder,
+            env=environment,
+            timeout=2400,
+        )
+    events = [json.loads(line) for line in process.stdout.splitlines() if line.startswith("{")]
+    items = [event["item"] for event in events if event["type"] == "item.completed"]
+    replies = [item["text"] for item in items if item["type"] == "agent_message"]
+    usage = next((event["usage"] for event in events if event["type"] == "turn.completed"), None)
+    if process.returncode != 0 or not replies or usage is None:
+        failures = [event for event in events if event["type"] in ("error", "turn.failed")]
+        raise RuntimeError(f"codex exited {process.returncode}: {failures or process.stderr[-300:]}")
+    return {"result": replies[-1], "usage": {"input_tokens": usage["input_tokens"], "output_tokens": usage["output_tokens"]}, "modelUsage": {model: usage}, "num_turns": len(items), "total_cost_usd": 0}
+
+
 def ask(prompt: str, model: str, effort: str | None = None, files: dict[str, bytes] | None = None) -> dict:
+    if model.startswith("gpt-"):
+        return ask_codex(prompt, model, effort)
     with fresh_claude() as environment, tempfile.TemporaryDirectory() as folder:
         for name, data in (files or {}).items():
             (Path(folder) / name).write_bytes(data)
@@ -306,7 +334,7 @@ def main() -> None:
     parser.add_argument("--set", default="core", choices=sorted(pieces.SETS), help="which pieces: core or heldout (labelled pieces the draft model was not trained on)")
     parser.add_argument("--only", action="append", help="review only this piece (repeatable)")
     parser.add_argument("--passages", type=int, help="review at most this many passages per piece, evenly spaced; eval.run then scores only those bars")
-    parser.add_argument("--model", default="opus", help="the chat model that reviews: opus (chosen 2026-10-02), sonnet, or a full model id")
+    parser.add_argument("--model", default="opus", help="the chat model that reviews: opus (chosen 2026-10-02), sonnet, or a full model id; a gpt- model runs through codex exec on the ChatGPT login")
     parser.add_argument("--effort", default="medium", choices=("low", "medium", "high", "xhigh", "max", "none"), help="reasoning effort; 'none' leaves the model's own")
     parser.add_argument("--bars", type=int, default=24, help="bars per passage")
     parser.add_argument("--jobs", type=int, default=4, help="passages reviewed at once")
