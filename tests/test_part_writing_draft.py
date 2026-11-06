@@ -10,6 +10,8 @@ from server import app
 
 from pathlib import Path
 
+pytestmark = pytest.mark.xdist_group("draft_model")
+
 DATA = Path(__file__).parent / "data"
 
 

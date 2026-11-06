@@ -82,6 +82,7 @@ def test_grace_notes_after_a_rest_keep_their_place():
     assert notes.encode(index).splitlines()[2] == "1.1: 2 r gA5+B5 1 C6"
 
 
+@pytest.mark.xdist_group("draft_model")
 def test_a_tie_into_another_voice_keeps_every_note_for_the_model():
     text = ("N1 div=1 ts=4/4 ks=0\nm1 len=4\n1.1: 4 C5\n1.2: 4 E4~\nm2 len=4\n1.1: 4 E4\n"
             "m3 len=4\n1.1: 4 D5\n1.2: 4 G4\nm4 len=4\n1.1: 4 C5\n1.2: 4 E4")

@@ -106,6 +106,7 @@ def test_correct_roundtrip(request, name):
     assert not failures, failures
 
 
+@pytest.mark.xdist_group("draft_model")
 @score_ids
 def test_model_hears_every_note_once(request, name):
     known(request, "model_notes", name)
@@ -128,6 +129,7 @@ def test_model_hears_every_note_once(request, name):
 
 
 
+@pytest.mark.xdist_group("draft_model")
 @score_ids
 def test_draft_positions_land_on_notes(request, name):
     known(request, "model_notes", name)

@@ -29,6 +29,7 @@ def local_store(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
 
 
+@pytest.mark.xdist_group("draft_model")
 def test_a_draft_hands_back_a_play_id_for_the_same_passage(local_store):
     sent = note_list.encode(marked_index(CHOPIN.read_bytes()), 1, 8)
     drafted = call(app.draft_from_notes, notes=sent).content[0].text
