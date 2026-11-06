@@ -1862,6 +1862,14 @@ Chopin: lines 31 (longer search only) to 38 of 42, notes 43 to 223 of 255. Six o
 
 **Status.** Local fork only. Full test suite, `test_awkward` and `diff_check` NOT RUN on this build.
 
+### 109. Reader sma.6 released, and what CI had not been testing (2026-11-05)
+
+**Released.** Production revision `sheet-music-analysis-00044-v72` runs reader 5.11.0-sma.6 from entry 102, the fix for the lost flats, and plugin 1.7.1 points at it. Production users had the bug from 2026-11-03 until this deploy.
+
+**CI failed first, not because of the reader.** Seven draft tests failed with `.venv-agnn/bin/python` missing. The runner's Python moved from 3.11.17 to 3.11.18, and the model cache key did not include the Python version, so the restored environment was still used. The likely cause is its interpreter link pointing at the old version; the link itself was not inspected. The key now includes the version.
+
+**A gap found on the way.** CI's reader was still sma.4, so sma.5 and the first sma.6 run were never tested with the reader they shipped. CI now uses sma.6: 1234 passed, 14 skipped, 2 expected failures. The workflow's reader must change with `Dockerfile.base` and `skill/scripts/read_pdf.py`.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
