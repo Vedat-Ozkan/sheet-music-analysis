@@ -451,14 +451,15 @@ def _append_movement(joined: ET.Element, movement: ET.Element) -> None:
     offset = max(_bar_number(bar) for bar in bars_before) + 1 - min(_bar_number(bar) for bar in bars_beside)
     for bar in movement.iter("measure"):
         bar.set("number", re.sub(r"\d+", lambda number: str(int(number.group()) + offset), bar.get("number"), count=1))
-    earlier = iter(parts)
+    unmatched = list(parts)
     silent = list(parts)
     for part in movement.findall("part"):
         staves = _staves(part)
-        target = next((candidate for candidate in earlier if _staves(candidate) == staves), None)
+        target = next((candidate for candidate in unmatched if _staves(candidate) == staves), None)
         if target is None:
             target = _new_part(joined, movement, part, bars_before)
         else:
+            unmatched = unmatched[unmatched.index(target) + 1:]
             silent = [other for other in silent if other is not target]
         target.extend(part.findall("measure"))
     for part in silent:

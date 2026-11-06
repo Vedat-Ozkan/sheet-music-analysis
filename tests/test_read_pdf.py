@@ -446,3 +446,8 @@ def test_movements_split_by_an_unreadable_page_are_joined_with_every_bar():
     assert lengths == {172}
     assert len(set(numbers)) == 172
     assert len(ScoreIndex(load_toolkit(joined).getMEI()).measures) == 172
+    pianos = [part for part in root.iter("part") if part.findtext("measure/attributes/staves") == "2"]
+    assert len(pianos) == 1
+    bars = pianos[0].findall("measure")
+    for section in (bars[:109], bars[109:123], bars[123:]):
+        assert any(bar.find("note/pitch") is not None for bar in section)
