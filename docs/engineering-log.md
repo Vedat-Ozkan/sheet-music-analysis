@@ -2178,6 +2178,32 @@ On 3 pieces, recall at the root: plain Opus 0.78, plain Sonnet 0.50. This is the
 
 **Limits.** Our passages are chosen ones while expert pairs cover whole movements; our Beethoven, Chopin and Mozart references are DCML while those pairs are mostly DCML against TAOM. Style figures on our side rest on 1 to 6 pieces, the multi-expert comparison on 6. Entry 66's "0.47 of chord misses are the right chord placed elsewhere" was not reproduced (0.08 to 0.16 by two definitions). 147 pieces have two independent experts and a usable score, 131 of them outside our sets; they have not been reviewed.
 
+### 120. Cadences and the Bach preludes, read against the notes (2026-11-06)
+
+**Question.** Entry 119 left two weak spots: we mark 0.57 to 0.67 of the expert's cadences, and the three Well-Tempered Clavier preludes score 0.49 *full*. Are these our errors?
+
+**Method.** Saved runs only. The 95 expert cadences inside the scored bars of the 21 DCML pieces, and the three preludes (94 bars), with 24 cadence cases and 15 prelude places read against the notes by an Opus agent. Copies of the scripts and the side-by-side listings are in `out/scoring-research-2026-11-06/`.
+
+**Cadences.**
+
+| Of the expert's 95 cadences | Same place and type | Same place, other type | Within the bar | Missed |
+|---|---|---|---|---|
+| Opus with the draft | 54 | 12 | 6 | 23 |
+| Opus without the draft | 64 | 9 | 4 | 18 |
+| Draft alone | 28 | 16 | 3 | 48 |
+
+- In all 41 cases the review with the draft missed or mistyped, its chord at the arrival has the expert's root and bass. The difference is in what is called a cadence.
+- Of 12 misses read: 7 defensible (an arrival on an inverted dominant or a leading-tone chord, the expert's cadence in the key of V against our half cadence in the home key, an evaded cadence, which we cannot write), 1 debatable, 4 ours wrong (a cadence the draft had and the review dropped, an IAC written as PAC with the third on top, two missed closes).
+- Of our 42 marks with no expert cadence, 33 sit on a V-I or an arrival on V that the expert left unmarked. Of 12 read: 8 right with the expert's mark missing, 2 defensible, 2 wrong (both a cadence on a tonicized ii in Chopin).
+- Five files (four Chopin mazurkas, Dvořák Op. 8 No. 10) carry a cadence label on fewer than half of their marked phrase endings. On the other 16 pieces the share of our marks with no expert cadence is 0.30, not 0.39.
+- DCML also writes evaded and plagal cadences (9 of 241 in these files, 3 of the 95), which our four types cannot express.
+
+**Bach preludes.** The reference is not DCML but When in Rome's own analysis, which names a new key at each step of a sequence (seven keys in 48 bars of Prelude 3) where we keep the home key and write applied chords. Share of the music lost, three preludes against the other 27 pieces: related chord 0.125 against 0.054, cadential 6/4 or seventh 0.102 against 0.031, other key 0.100 against 0.053, inversion 0.094 against 0.071, different chord 0.039 against 0.071. Our root agrees on 0.78 to 0.90. Of 15 places read: 8 naming or inversion differences, 3 where the expert's figure is read by the scorer as a chord the expert did not mean (`ib3`, `i43`, `iv6b5`), 4 ours wrong (chords skipped in a sequence, a bass ignored). Preludes 12 and 22 change harmony about every beat (3.8 expert labels per bar). No second human analysis of any of these preludes exists in the data, so how far experts agree here is unknown.
+
+**Limits.** 21 pieces for cadences, 3 for the preludes; one reader's judgement of 39 places. No pair of experts both mark cadences.
+
+**What it means.** A cadence score should count the expert's cadences we find, on pieces whose marking is complete, and should not count our extra marks as errors. The preludes' low *full* is mostly a naming habit of one reference; the real errors there are the same skipped chords as entry 119.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
