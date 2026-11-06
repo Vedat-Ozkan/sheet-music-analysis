@@ -1,0 +1,148 @@
+{
+ "variant": "entry85",
+ "sets": [
+  "bench-real"
+ ],
+ "summary": [
+  "all: 3 PDFs, 3 scored",
+  "  full as read     pooled 0.515 (failed as 0: 0.515) | min 0.34 q1 0.34 median 0.36 q3 0.76 max 0.76",
+  "  key as read      pooled 0.940 (failed as 0: 0.940) | min 0.93 q1 0.93 median 0.93 q3 0.98 max 0.98",
+  "  root as read     pooled 0.650 (failed as 0: 0.650) | min 0.49 q1 0.49 median 0.53 q3 0.87 max 0.87",
+  "  full lined up    pooled 0.644 (failed as 0: 0.644) | min 0.34 q1 0.34 median 0.72 q3 0.76 max 0.76",
+  "  key lined up     pooled 0.940 (failed as 0: 0.940) | min 0.93 q1 0.93 median 0.93 q3 0.98 max 0.98",
+  "  root lined up    pooled 0.771 (failed as 0: 0.771) | min 0.53 q1 0.53 median 0.82 q3 0.87 max 0.87",
+  "real scan: 3 PDFs, 3 scored",
+  "  full as read     pooled 0.515 (failed as 0: 0.515) | min 0.34 q1 0.34 median 0.36 q3 0.76 max 0.76",
+  "  key as read      pooled 0.940 (failed as 0: 0.940) | min 0.93 q1 0.93 median 0.93 q3 0.98 max 0.98",
+  "  root as read     pooled 0.650 (failed as 0: 0.650) | min 0.49 q1 0.49 median 0.53 q3 0.87 max 0.87",
+  "  full lined up    pooled 0.644 (failed as 0: 0.644) | min 0.34 q1 0.34 median 0.72 q3 0.76 max 0.76",
+  "  key lined up     pooled 0.940 (failed as 0: 0.940) | min 0.93 q1 0.93 median 0.93 q3 0.98 max 0.98",
+  "  root lined up    pooled 0.771 (failed as 0: 0.771) | min 0.53 q1 0.53 median 0.82 q3 0.87 max 0.87"
+ ],
+ "rows": [
+  {
+   "set": "bench-real",
+   "pdf": "real-bach-wtc1-22-prelude--scan",
+   "piece": "real-bach-wtc1-22-prelude",
+   "kind": "real scan",
+   "weight": 96.0,
+   "full as read": 0.339,
+   "key as read": 0.984,
+   "root as read": 0.531,
+   "full lined up": 0.339,
+   "key lined up": 0.984,
+   "root lined up": 0.531,
+   "truth_bars": 24,
+   "read_bars": 24,
+   "paired": 24,
+   "exact": 0.0,
+   "pitch": 0.7868649318463445,
+   "timing": 0.46964064436183395,
+   "bar_length_wrong": 1.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [],
+   "truth_keys": [
+    -5
+   ],
+   "read_keys": [
+    -5
+   ],
+   "truth_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench-real",
+   "pdf": "real-beethoven-op2no1-iii--scan",
+   "piece": "real-beethoven-op2no1-iii",
+   "kind": "real scan",
+   "weight": 147.0,
+   "full as read": 0.364,
+   "key as read": 0.925,
+   "root as read": 0.486,
+   "full lined up": 0.718,
+   "key lined up": 0.925,
+   "root lined up": 0.816,
+   "truth_bars": 77,
+   "read_bars": 78,
+   "paired": 77,
+   "exact": 0.8311688311688312,
+   "pitch": 0.9605055292259084,
+   "timing": 0.9557661927330173,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    -4
+   ],
+   "read_keys": [
+    -4
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench-real",
+   "pdf": "real-grieg-op38no7--scan",
+   "piece": "real-grieg-op38no7",
+   "kind": "real scan",
+   "weight": 159.0,
+   "full as read": 0.761,
+   "key as read": 0.928,
+   "root as read": 0.874,
+   "full lined up": 0.761,
+   "key lined up": 0.928,
+   "root lined up": 0.874,
+   "truth_bars": 53,
+   "read_bars": 53,
+   "paired": 53,
+   "exact": 0.6792452830188679,
+   "pitch": 0.9926650366748166,
+   "timing": 0.9364303178484108,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    1
+   ],
+   "read_keys": [
+    1
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  }
+ ]
+}

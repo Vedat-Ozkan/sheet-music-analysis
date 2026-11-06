@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /home/kema/projects/sheet-music-plugin/spike/omr/speed/installs/sma7/bin/Audiveris  "$@"

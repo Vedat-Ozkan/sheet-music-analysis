@@ -1,0 +1,1267 @@
+{
+ "variant": "truth",
+ "sets": [
+  "bench",
+  "bench-heldout",
+  "bench-heldout2",
+  "bench-heldout3",
+  "bench-real",
+  "bench-tune2",
+  "bench-oldly"
+ ],
+ "summary": [
+  "all: 49 PDFs, 48 scored",
+  "  full as read     pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  key as read      pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  root as read     pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  full lined up    pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  key lined up     pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  root lined up    pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "clean: 39 PDFs, 38 scored",
+  "  full as read     pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  key as read      pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  root as read     pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  full lined up    pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  key lined up     pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  root lined up    pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "rendered scan: 6 PDFs, 6 scored",
+  "  full as read     pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  key as read      pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  root as read     pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  full lined up    pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  key lined up     pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  root lined up    pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "real scan: 4 PDFs, 4 scored",
+  "  full as read     pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  key as read      pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  root as read     pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  full lined up    pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  key lined up     pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00",
+  "  root lined up    pooled 1.000 (failed as 0: 1.000) | min 1.00 q1 1.00 median 1.00 q3 1.00 max 1.00"
+ ],
+ "rows": [
+  {
+   "set": "bench",
+   "pdf": "mozart-k545-1--ms",
+   "piece": "mozart-k545-1",
+   "kind": "clean",
+   "weight": 292.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "mozart-k545-1--ly",
+   "piece": "mozart-k545-1",
+   "kind": "clean",
+   "weight": 292.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "mozart-k545-1--scan",
+   "piece": "mozart-k545-1",
+   "kind": "rendered scan",
+   "weight": 292.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "chopin-prelude-4--ms",
+   "piece": "chopin-prelude-4",
+   "kind": "clean",
+   "weight": 101.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "chopin-prelude-4--vr",
+   "piece": "chopin-prelude-4",
+   "kind": "clean",
+   "weight": 101.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "clara-schumann-polonaise-1--ms",
+   "piece": "clara-schumann-polonaise-1",
+   "kind": "clean",
+   "weight": 120.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "clara-schumann-polonaise-1--vr",
+   "piece": "clara-schumann-polonaise-1",
+   "kind": "clean",
+   "weight": 120.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "clara-schumann-polonaise-3--ms",
+   "piece": "clara-schumann-polonaise-3",
+   "kind": "clean",
+   "weight": 144.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "clara-schumann-polonaise-3--ly",
+   "piece": "clara-schumann-polonaise-3",
+   "kind": "clean",
+   "weight": 144.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "clara-schumann-polonaise-3--scan",
+   "piece": "clara-schumann-polonaise-3",
+   "kind": "rendered scan",
+   "weight": 144.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "clara-schumann-polonaise-4--ms",
+   "piece": "clara-schumann-polonaise-4",
+   "kind": "clean",
+   "weight": 120.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "clara-schumann-polonaise-4--vr",
+   "piece": "clara-schumann-polonaise-4",
+   "kind": "clean",
+   "weight": 120.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "cpe-bach-h186--ly",
+   "piece": "cpe-bach-h186",
+   "kind": "clean",
+   "weight": 128.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "faisst-op18-2-lied-der-nacht--ms",
+   "piece": "faisst-op18-2-lied-der-nacht",
+   "kind": "clean",
+   "weight": 111.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "faisst-op18-2-lied-der-nacht--vr",
+   "piece": "faisst-op18-2-lied-der-nacht",
+   "kind": "clean",
+   "weight": 111.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "faisst-op18-2-lied-der-nacht--scan",
+   "piece": "faisst-op18-2-lied-der-nacht",
+   "kind": "rendered scan",
+   "weight": 111.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "hensel-op7-1-nachtwanderer--ms",
+   "piece": "hensel-op7-1-nachtwanderer",
+   "kind": "clean",
+   "weight": 166.5,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "schumann-op96-4-gesungen--ms",
+   "piece": "schumann-op96-4-gesungen",
+   "kind": "clean",
+   "weight": 128.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "schumann-op96-4-gesungen--ly",
+   "piece": "schumann-op96-4-gesungen",
+   "kind": "clean",
+   "weight": 128.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "kinkel-op8-5-trennung--ms",
+   "piece": "kinkel-op8-5-trennung",
+   "kind": "clean",
+   "weight": 52.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "kinkel-op8-5-trennung--scan",
+   "piece": "kinkel-op8-5-trennung",
+   "kind": "rendered scan",
+   "weight": 52.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "schubert-ave-maria--vr",
+   "piece": "schubert-ave-maria",
+   "kind": "clean",
+   "weight": 68.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "haydn-canzonet-she-never-told--ms",
+   "piece": "haydn-canzonet-she-never-told",
+   "kind": "clean",
+   "weight": 156.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "beethoven-op48-5-gottes-macht--ly",
+   "piece": "beethoven-op48-5-gottes-macht",
+   "kind": "clean",
+   "weight": 72.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "beethoven-op48-5-gottes-macht--scan",
+   "piece": "beethoven-op48-5-gottes-macht",
+   "kind": "rendered scan",
+   "weight": 72.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "mozart-quartet-k80--scan",
+   "piece": "mozart-quartet-k80",
+   "kind": "rendered scan",
+   "weight": 84.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 28,
+   "read_bars": 28,
+   "paired": 28,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    1
+   ],
+   "read_keys": [
+    1
+   ],
+   "truth_clefs": [
+    "('C', '3', None)",
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('C', '3', None)",
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 4,
+   "read_staves": 4
+  },
+  {
+   "set": "bench",
+   "pdf": "mozart-k545-1--lilypond-mutopia",
+   "piece": "mozart-k545-1",
+   "kind": "clean",
+   "weight": 292.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "chopin-prelude-4--lilypond-mutopia",
+   "piece": "chopin-prelude-4",
+   "kind": "clean",
+   "weight": 101.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "mozart-k545-1--real-scan-peters",
+   "piece": "mozart-k545-1",
+   "kind": "real scan",
+   "weight": 292.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench",
+   "pdf": "chopin-prelude-4--real-scan-schirmer",
+   "piece": "chopin-prelude-4",
+   "kind": "real scan",
+   "weight": 101.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench-heldout",
+   "pdf": "h-schubert-aufenthalt--ms",
+   "piece": "h-schubert-aufenthalt",
+   "kind": "clean",
+   "weight": 80.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "2"
+   ],
+   "read_meters": [
+    "2"
+   ],
+   "truth_keys": [
+    1
+   ],
+   "read_keys": [
+    1
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout",
+   "pdf": "h-holmes-barque-des-amours--ms",
+   "piece": "h-holmes-barque-des-amours",
+   "kind": "clean",
+   "weight": 120.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    -3
+   ],
+   "read_keys": [
+    -3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout",
+   "pdf": "h-brahms-fruhlingstrost--ms",
+   "piece": "h-brahms-fruhlingstrost",
+   "kind": "clean",
+   "weight": 240.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "6"
+   ],
+   "read_meters": [
+    "6"
+   ],
+   "truth_keys": [
+    3
+   ],
+   "read_keys": [
+    3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout",
+   "pdf": "h-lang-traumbild--ms",
+   "piece": "h-lang-traumbild",
+   "kind": "clean",
+   "weight": 120.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    -1
+   ],
+   "read_keys": [
+    -1
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 4,
+   "read_staves": 4
+  },
+  {
+   "set": "bench-heldout2",
+   "pdf": "h2-bantock-ghost-road--ms",
+   "piece": "h2-bantock-ghost-road",
+   "kind": "clean",
+   "weight": 96.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 24,
+   "read_bars": 24,
+   "paired": 24,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    0
+   ],
+   "read_keys": [
+    0
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout2",
+   "pdf": "h2-berg-nacht--ms",
+   "piece": "h2-berg-nacht",
+   "kind": "clean",
+   "weight": 96.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 24,
+   "read_bars": 24,
+   "paired": 24,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    3
+   ],
+   "read_keys": [
+    3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout2",
+   "pdf": "h2-boulanger-poete--ms",
+   "piece": "h2-boulanger-poete",
+   "kind": "clean",
+   "weight": 96.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 24,
+   "read_bars": 24,
+   "paired": 24,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    4
+   ],
+   "read_keys": [
+    4
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout3",
+   "pdf": "h3-schumann-fruehlingsnacht--ms",
+   "piece": "h3-schumann-fruehlingsnacht",
+   "kind": "clean",
+   "weight": 62.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 31,
+   "read_bars": 31,
+   "paired": 31,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "2"
+   ],
+   "read_meters": [
+    "2"
+   ],
+   "truth_keys": [
+    6
+   ],
+   "read_keys": [
+    6
+   ],
+   "truth_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout3",
+   "pdf": "h3-franz-lotosblume--ms",
+   "piece": "h3-franz-lotosblume",
+   "kind": "clean",
+   "weight": 60.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 30,
+   "read_bars": 30,
+   "paired": 30,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "2"
+   ],
+   "read_meters": [
+    "2"
+   ],
+   "truth_keys": [
+    -2
+   ],
+   "read_keys": [
+    -2
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout3",
+   "pdf": "h3-faisst-sehnsucht--ms",
+   "piece": "h3-faisst-sehnsucht",
+   "kind": "clean",
+   "weight": 128.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 32,
+   "read_bars": 32,
+   "paired": 32,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    3
+   ],
+   "read_keys": [
+    3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout3",
+   "pdf": "h3-schubert-kraehe--ms",
+   "piece": "h3-schubert-kraehe",
+   "kind": "clean",
+   "weight": 64.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 32,
+   "read_bars": 32,
+   "paired": 32,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "2"
+   ],
+   "read_meters": [
+    "2"
+   ],
+   "truth_keys": [
+    -3
+   ],
+   "read_keys": [
+    -3
+   ],
+   "truth_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('G', '2', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-heldout3",
+   "pdf": "h3-hensel-mayenlied--ms",
+   "piece": "h3-hensel-mayenlied",
+   "kind": "clean",
+   "weight": 96.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 32,
+   "read_bars": 32,
+   "paired": 32,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    1
+   ],
+   "read_keys": [
+    1
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-real",
+   "pdf": "real-bach-wtc1-22-prelude--scan",
+   "piece": "real-bach-wtc1-22-prelude",
+   "kind": "real scan",
+   "weight": 96.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "diagnose_error": "ParseError: not well-formed (invalid token): line 1, column 2"
+  },
+  {
+   "set": "bench-real",
+   "pdf": "real-grieg-op38no7--scan",
+   "piece": "real-grieg-op38no7",
+   "kind": "real scan",
+   "weight": 159.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 53,
+   "read_bars": 53,
+   "paired": 53,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    1
+   ],
+   "read_keys": [
+    1
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench-tune2",
+   "pdf": "p-op42n03--ms",
+   "piece": "p-op42n03",
+   "kind": "clean",
+   "weight": 118.5,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "3"
+   ],
+   "read_meters": [
+    "3"
+   ],
+   "truth_keys": [
+    5
+   ],
+   "read_keys": [
+    5
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 2,
+   "read_staves": 2
+  },
+  {
+   "set": "bench-tune2",
+   "pdf": "p-debussy-claude-3-le-jet-d-eau--ms",
+   "piece": "p-debussy-claude-3-le-jet-d-eau",
+   "kind": "clean",
+   "error": "DraftError: Only 831 of 1007 model notes line up with the engraved score"
+  },
+  {
+   "set": "bench-tune2",
+   "pdf": "p-hardelot-guy-d-in-1822--vr",
+   "piece": "p-hardelot-guy-d-in-1822",
+   "kind": "clean",
+   "weight": 160.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "4"
+   ],
+   "read_meters": [
+    "4"
+   ],
+   "truth_keys": [
+    0
+   ],
+   "read_keys": [
+    0
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-tune2",
+   "pdf": "p-burleigh-harry-thacker-ethiopia-saluting-the-col--ms",
+   "piece": "p-burleigh-harry-thacker-ethiopia-saluting-the-col",
+   "kind": "clean",
+   "weight": 142.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "2",
+    "4"
+   ],
+   "read_meters": [
+    "2",
+    "4"
+   ],
+   "truth_keys": [
+    -3
+   ],
+   "read_keys": [
+    -3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  },
+  {
+   "set": "bench-tune2",
+   "pdf": "p-burleigh-harry-thacker-ethiopia-saluting-the-col--vr",
+   "piece": "p-burleigh-harry-thacker-ethiopia-saluting-the-col",
+   "kind": "clean",
+   "weight": 142.0,
+   "full as read": 1.0,
+   "key as read": 1.0,
+   "root as read": 1.0,
+   "full lined up": 1.0,
+   "key lined up": 1.0,
+   "root lined up": 1.0,
+   "truth_bars": 40,
+   "read_bars": 40,
+   "paired": 40,
+   "exact": 1.0,
+   "pitch": 1.0,
+   "timing": 1.0,
+   "bar_length_wrong": 0.0,
+   "truth_meters": [
+    "2",
+    "4"
+   ],
+   "read_meters": [
+    "2",
+    "4"
+   ],
+   "truth_keys": [
+    -3
+   ],
+   "read_keys": [
+    -3
+   ],
+   "truth_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "read_clefs": [
+    "('F', '4', None)",
+    "('G', '2', None)",
+    "('G', '2', None)"
+   ],
+   "truth_staves": 3,
+   "read_staves": 3
+  }
+ ]
+}
