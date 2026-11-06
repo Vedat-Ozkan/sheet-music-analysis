@@ -111,3 +111,10 @@ def test_skill_script_asks_the_question():
     ran = run_script(str(CHOPIN), "--student-analysis", "I IV V I")
     assert ran.returncode == 1 and f"Ask the user: {QUESTION}" in ran.stderr
     assert ran.stdout == ""
+
+
+def test_with_the_draft_parked_a_student_check_still_gets_its_section(local_store, monkeypatch):
+    monkeypatch.setattr(app, "SEND_DRAFT", False)
+    text = call(app.draft_analysis, score_id="CHOPIN", measure_range="1-8", student_analysis=STUDENT).content[0].text
+    assert_planted_differences(text.split("STUDENT CHECK (", 1)[1].split("## Method", 1)[0])
+    assert "Draft analysis from" not in text and "DRAFT UNAVAILABLE" not in text

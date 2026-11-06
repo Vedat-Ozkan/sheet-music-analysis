@@ -1,3 +1,4 @@
+import asyncio
 import re
 
 import pytest
@@ -52,3 +53,20 @@ def test_section_keeps_only_findings_inside_the_requested_bars(local_store):
     section = text.split("PART-WRITING CHECK (", 1)[1].split("Draft analysis from", 1)[0]
     assert "voice crossing soprano+alto m13 b1" in section
     assert "m1 b1 to m2 b1" not in section
+
+
+def test_with_the_draft_parked_a_chorale_still_gets_its_check(local_store, monkeypatch):
+    started = []
+
+    def model(*args):
+        started.append(args)
+        return original(*args)
+
+    original = draft.MODELS["analysisgnn"]
+    monkeypatch.setattr(app, "SEND_DRAFT", False)
+    monkeypatch.setitem(draft.MODELS, "analysisgnn", model)
+    app.store.put("scores/PW", (DATA / "part_writing_motion.musicxml").read_bytes())
+    text = asyncio.run(app.draft_analysis(None, score_id="PW")).content[0].text
+    assert started
+    assert "parallel fifths soprano+tenor m1 b1 to m2 b1" in text.split("PART-WRITING CHECK (", 1)[1]
+    assert "Draft analysis from" not in text and "DRAFT UNAVAILABLE" not in text
