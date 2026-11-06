@@ -161,7 +161,7 @@ def ask_codex(prompt: str, model: str, effort: str | None = None) -> dict:
     if process.returncode != 0 or not replies or usage is None:
         failures = [event for event in events if event["type"] in ("error", "turn.failed")]
         raise RuntimeError(f"codex exited {process.returncode}: {failures or process.stderr[-300:]}")
-    return {"result": replies[-1], "usage": {"input_tokens": usage["input_tokens"], "output_tokens": usage["output_tokens"]}, "modelUsage": {model: usage}, "num_turns": len(items), "total_cost_usd": 0}
+    return {"result": replies[-1], "usage": usage, "modelUsage": {model: usage}, "num_turns": len(items), "total_cost_usd": 0}
 
 
 def ask(prompt: str, model: str, effort: str | None = None, files: dict[str, bytes] | None = None) -> dict:
@@ -283,6 +283,7 @@ def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: 
     else:
         answers.append(ask(prompt, model, effort, files))
     data, problems = problems_in(answers[-1]["result"], index)
+    first_problems = problems
     if data is None:
         answers.append(ask(prompt + RETRY.format(reply=answers[-1]["result"], problems=problems), model, effort, files))
         data, problems = problems_in(answers[-1]["result"], index)
@@ -318,6 +319,8 @@ def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: 
         "seconds": round(time.time() - started),
         "cost_usd": round(sum(answer.get("total_cost_usd") or 0 for answer in answers), 3),
         "tokens": sum(tokens(answer) for answer in answers),
+        "usage": [answer.get("usage") for answer in answers],
+        "first_problems": first_problems,
         "models": sorted({name for answer in answers for name in answer.get("modelUsage", {})}),
         "effort": effort,
         "pages_shown": len(files),
