@@ -1,0 +1,39 @@
+diff --git a/app/src/main/java/org/audiveris/omr/score/PartwiseBuilder.java b/app/src/main/java/org/audiveris/omr/score/PartwiseBuilder.java
+index 9c6466b28..cea9d8bfe 100644
+--- a/app/src/main/java/org/audiveris/omr/score/PartwiseBuilder.java
++++ b/app/src/main/java/org/audiveris/omr/score/PartwiseBuilder.java
+@@ -1132,6 +1132,15 @@ public class PartwiseBuilder
+     //---------------------//
+     // processArticulation //
+     //---------------------//
++    private void markDiag (Inter inter)
++    {
++        java.awt.Rectangle b = inter.getBounds();
++        org.audiveris.omr.glyph.Glyph g = inter.getGlyph();
++        logger.info("MARKDIAG {} {} {} {} {} {} {} {} {} {}", current.page.getSheet().getStub().getNumber(), inter.getId(),
++                inter.getShape(), b.x, b.y, b.width, b.height, inter.getGrade(), inter.getBestGrade(),
++                g == null ? "noglyph" : g.getId());
++    }
++
+     private void processArticulation (ArticulationInter articulation)
+     {
+         try {
+@@ -2297,14 +2306,18 @@ public class PartwiseBuilder
+                         } else if (rel instanceof ChordDynamicsRelation) {
+                             processDynamics((DynamicsInter) other);
+                         } else if (rel instanceof ChordArticulationRelation) {
++                            markDiag(other);
+                             processArticulation((ArticulationInter) other);
+                         } else if (rel instanceof ChordPauseRelation) {
+                             processPause((AbstractPauseInter) other);
+                         } else if (rel instanceof ChordOrnamentRelation) {
++                            markDiag(other);
+                             processOrnament((OrnamentInter) other);
+                         } else if (rel instanceof ChordArpeggiatoRelation) {
++                            markDiag(other);
+                             processArpeggiato((ArpeggiatoInter) other);
+                         } else if (rel instanceof FermataChordRelation) {
++                            markDiag(other);
+                             processFermata((FermataInter) other, null);
+                         } else if (rel instanceof ChordNameRelation) {
+                             processChordName((ChordNameInter) other);

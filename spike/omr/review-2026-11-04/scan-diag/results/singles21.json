@@ -1,0 +1,2240 @@
+{
+"olimpic-6243836-p1-s1": {
+"name": "olimpic-6243836-p1-s1",
+"pdfs": 1,
+"bars": 6,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 16,
+"pitch_notes": 15,
+"timed_notes": 13,
+"pitch_timing_bars": 5,
+"exact_pooled": 3,
+"exact": 3,
+"wrong": 3,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2413x671"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6243836-p1-s2": {
+"name": "olimpic-6243836-p1-s2",
+"pdfs": 1,
+"bars": 6,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 17,
+"pitch_notes": 15,
+"timed_notes": 12,
+"pitch_timing_bars": 4,
+"exact_pooled": 4,
+"exact": 4,
+"wrong": 2,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2610x676"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6243836-p1-s3": {
+"name": "olimpic-6243836-p1-s3",
+"pdfs": 1,
+"bars": 5,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 34,
+"pitch_notes": 34,
+"timed_notes": 29,
+"pitch_timing_bars": 4,
+"exact_pooled": 1,
+"exact": 1,
+"wrong": 4,
+"wrong_unwarned": 4,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2649x746"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6243836-p2-s1": {
+"name": "olimpic-6243836-p2-s1",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 24,
+"pitch_notes": 23,
+"timed_notes": 20,
+"pitch_timing_bars": 2,
+"exact_pooled": 1,
+"exact": 0,
+"wrong": 3,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2600x643"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6243836-p2-s2": {
+"name": "olimpic-6243836-p2-s2",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 26,
+"pitch_notes": 26,
+"timed_notes": 21,
+"pitch_timing_bars": 2,
+"exact_pooled": 1,
+"exact": 0,
+"wrong": 3,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2512x635"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6243836-p2-s3": {
+"name": "olimpic-6243836-p2-s3",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 26,
+"pitch_notes": 26,
+"timed_notes": 22,
+"pitch_timing_bars": 3,
+"exact_pooled": 2,
+"exact": 0,
+"wrong": 2,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+20,
+20
+],
+"images": [
+"2491x608"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6243836-p2-s4": {
+"name": "olimpic-6243836-p2-s4",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 24,
+"pitch_notes": 24,
+"timed_notes": 19,
+"pitch_timing_bars": 3,
+"exact_pooled": 2,
+"exact": 0,
+"wrong": 2,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2593x652"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-5071644-p1-s1": {
+"name": "olimpic-5071644-p1-s1",
+"pdfs": 1,
+"bars": 5,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 38,
+"pitch_notes": 37,
+"timed_notes": 22,
+"pitch_timing_bars": 1,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 5,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2321x617"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-5071644-p1-s2": {
+"name": "olimpic-5071644-p1-s2",
+"pdfs": 1,
+"bars": 5,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 60,
+"pitch_notes": 60,
+"timed_notes": 25,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 5,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2539x610"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-5071644-p1-s3": {
+"name": "olimpic-5071644-p1-s3",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 48,
+"pitch_notes": 45,
+"timed_notes": 17,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 4,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2603x583"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-5071644-p1-s4": {
+"name": "olimpic-5071644-p1-s4",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 32,
+"pitch_notes": 32,
+"timed_notes": 17,
+"pitch_timing_bars": 1,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 4,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2603x616"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-5071644-p2-s1": {
+"name": "olimpic-5071644-p2-s1",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 46,
+"pitch_notes": 46,
+"timed_notes": 33,
+"pitch_timing_bars": 1,
+"exact_pooled": 1,
+"exact": 1,
+"wrong": 3,
+"wrong_unwarned": 0,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2603x616"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-5071644-p2-s2": {
+"name": "olimpic-5071644-p2-s2",
+"pdfs": 1,
+"bars": 5,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 60,
+"pitch_notes": 59,
+"timed_notes": 42,
+"pitch_timing_bars": 2,
+"exact_pooled": 2,
+"exact": 2,
+"wrong": 3,
+"wrong_unwarned": 0,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2603x655"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-5071644-p2-s3": {
+"name": "olimpic-5071644-p2-s3",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 41,
+"pitch_notes": 38,
+"timed_notes": 28,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 4,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2603x624"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-5071644-p2-s4": {
+"name": "olimpic-5071644-p2-s4",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 52,
+"pitch_notes": 52,
+"timed_notes": 52,
+"pitch_timing_bars": 3,
+"exact_pooled": 3,
+"exact": 3,
+"wrong": 1,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2603x623"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6715339-p1-s1": {
+"name": "olimpic-6715339-p1-s1",
+"pdfs": 1,
+"bars": 1,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 15,
+"pitch_notes": 10,
+"timed_notes": 6,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 1,
+"wrong_unwarned": 0,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2328x581"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6715339-p1-s2": {
+"name": "olimpic-6715339-p1-s2",
+"pdfs": 1,
+"bars": 2,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 41,
+"pitch_notes": 33,
+"timed_notes": 3,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 2,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2463x665"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6715339-p1-s3": {
+"name": "olimpic-6715339-p1-s3",
+"pdfs": 1,
+"bars": 2,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 30,
+"pitch_notes": 21,
+"timed_notes": 17,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 2,
+"wrong_unwarned": 0,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2463x586"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6715339-p2-s1": {
+"name": "olimpic-6715339-p2-s1",
+"pdfs": 1,
+"bars": 2,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 41,
+"pitch_notes": 23,
+"timed_notes": 11,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 2,
+"wrong_unwarned": 0,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2463x653"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6715339-p2-s2": {
+"name": "olimpic-6715339-p2-s2",
+"pdfs": 1,
+"bars": 1,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 25,
+"pitch_notes": 13,
+"timed_notes": 2,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 1,
+"wrong_unwarned": 0,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2608x654"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6715339-p2-s3": {
+"name": "olimpic-6715339-p2-s3",
+"pdfs": 1,
+"bars": 2,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 50,
+"pitch_notes": 45,
+"timed_notes": 6,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 2,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2463x732"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6112984-p1-s1": {
+"name": "olimpic-6112984-p1-s1",
+"pdfs": 1,
+"bars": 5,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 78,
+"pitch_notes": 67,
+"timed_notes": 45,
+"pitch_timing_bars": 1,
+"exact_pooled": 1,
+"exact": 1,
+"wrong": 4,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+22,
+22
+],
+"images": [
+"2785x734"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6112984-p1-s2": {
+"name": "olimpic-6112984-p1-s2",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 61,
+"pitch_notes": 60,
+"timed_notes": 60,
+"pitch_timing_bars": 2,
+"exact_pooled": 2,
+"exact": 1,
+"wrong": 2,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2868x709"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6112984-p1-s3": {
+"name": "olimpic-6112984-p1-s3",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 56,
+"pitch_notes": 54,
+"timed_notes": 44,
+"pitch_timing_bars": 1,
+"exact_pooled": 1,
+"exact": 0,
+"wrong": 3,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2870x760"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6112984-p2-s1": {
+"name": "olimpic-6112984-p2-s1",
+"pdfs": 1,
+"bars": 5,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 83,
+"pitch_notes": 70,
+"timed_notes": 31,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 5,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2764x681"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6112984-p2-s2": {
+"name": "olimpic-6112984-p2-s2",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 74,
+"pitch_notes": 70,
+"timed_notes": 60,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 4,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2839x669"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6112984-p2-s3": {
+"name": "olimpic-6112984-p2-s3",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 77,
+"pitch_notes": 51,
+"timed_notes": 48,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 4,
+"wrong_unwarned": 3,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2848x673"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6112984-p2-s4": {
+"name": "olimpic-6112984-p2-s4",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 73,
+"pitch_notes": 71,
+"timed_notes": 58,
+"pitch_timing_bars": 2,
+"exact_pooled": 2,
+"exact": 1,
+"wrong": 2,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2861x717"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-5701612-p1-s1": {
+"name": "olimpic-5701612-p1-s1",
+"pdfs": 1,
+"bars": 5,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 44,
+"pitch_notes": 44,
+"timed_notes": 42,
+"pitch_timing_bars": 4,
+"exact_pooled": 2,
+"exact": 2,
+"wrong": 3,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2191x584"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-5701612-p1-s2": {
+"name": "olimpic-5701612-p1-s2",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 44,
+"pitch_notes": 44,
+"timed_notes": 44,
+"pitch_timing_bars": 4,
+"exact_pooled": 3,
+"exact": 3,
+"wrong": 1,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2479x590"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-5701612-p1-s3": {
+"name": "olimpic-5701612-p1-s3",
+"pdfs": 1,
+"bars": 5,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 61,
+"pitch_notes": 61,
+"timed_notes": 61,
+"pitch_timing_bars": 5,
+"exact_pooled": 5,
+"exact": 5,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2479x590"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-5701612-p1-s4": {
+"name": "olimpic-5701612-p1-s4",
+"pdfs": 1,
+"bars": 5,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 50,
+"pitch_notes": 49,
+"timed_notes": 46,
+"pitch_timing_bars": 3,
+"exact_pooled": 2,
+"exact": 2,
+"wrong": 3,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2479x590"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6986302-p1-s1": {
+"name": "olimpic-6986302-p1-s1",
+"pdfs": 1,
+"bars": 5,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 31,
+"pitch_notes": 31,
+"timed_notes": 27,
+"pitch_timing_bars": 3,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 5,
+"wrong_unwarned": 4,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2276x745"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6986302-p1-s2": {
+"name": "olimpic-6986302-p1-s2",
+"pdfs": 1,
+"bars": 6,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 48,
+"pitch_notes": 33,
+"timed_notes": 23,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 6,
+"wrong_unwarned": 3,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2629x764"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6986302-p1-s3": {
+"name": "olimpic-6986302-p1-s3",
+"pdfs": 1,
+"bars": 6,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 48,
+"pitch_notes": 45,
+"timed_notes": 41,
+"pitch_timing_bars": 3,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 6,
+"wrong_unwarned": 4,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2629x764"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6986302-p2-s1": {
+"name": "olimpic-6986302-p2-s1",
+"pdfs": 1,
+"bars": 6,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 48,
+"pitch_notes": 48,
+"timed_notes": 32,
+"pitch_timing_bars": 1,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 6,
+"wrong_unwarned": 5,
+"facts": {
+"interlines": [
+20,
+20
+],
+"images": [
+"2432x602"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6986302-p2-s2": {
+"name": "olimpic-6986302-p2-s2",
+"pdfs": 1,
+"bars": 6,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 48,
+"pitch_notes": 46,
+"timed_notes": 34,
+"pitch_timing_bars": 2,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 6,
+"wrong_unwarned": 3,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2441x621"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6986302-p2-s3": {
+"name": "olimpic-6986302-p2-s3",
+"pdfs": 1,
+"bars": 6,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 69,
+"pitch_notes": 66,
+"timed_notes": 58,
+"pitch_timing_bars": 1,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 6,
+"wrong_unwarned": 4,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2441x621"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6986302-p2-s4": {
+"name": "olimpic-6986302-p2-s4",
+"pdfs": 1,
+"bars": 6,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 56,
+"pitch_notes": 53,
+"timed_notes": 41,
+"pitch_timing_bars": 2,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 6,
+"wrong_unwarned": 4,
+"facts": {
+"interlines": [
+20,
+20
+],
+"images": [
+"2441x621"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6986302-p2-s5": {
+"name": "olimpic-6986302-p2-s5",
+"pdfs": 1,
+"bars": 5,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 44,
+"pitch_notes": 40,
+"timed_notes": 24,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 5,
+"wrong_unwarned": 3,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2519x559"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6378337-p1-s1": {
+"name": "olimpic-6378337-p1-s1",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 24,
+"pitch_notes": 21,
+"timed_notes": 21,
+"pitch_timing_bars": 3,
+"exact_pooled": 1,
+"exact": 1,
+"wrong": 3,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2385x671"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6378337-p1-s2": {
+"name": "olimpic-6378337-p1-s2",
+"pdfs": 1,
+"bars": 3,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 7,
+"pitch_notes": 7,
+"timed_notes": 7,
+"pitch_timing_bars": 3,
+"exact_pooled": 1,
+"exact": 1,
+"wrong": 2,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2643x690"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6378337-p1-s3": {
+"name": "olimpic-6378337-p1-s3",
+"pdfs": 1,
+"bars": 3,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 20,
+"pitch_notes": 16,
+"timed_notes": 16,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 3,
+"wrong_unwarned": 3,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2667x732"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6378337-p2-s1": {
+"name": "olimpic-6378337-p2-s1",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 42,
+"pitch_notes": 42,
+"timed_notes": 42,
+"pitch_timing_bars": 4,
+"exact_pooled": 4,
+"exact": 4,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2690x674"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6378337-p2-s2": {
+"name": "olimpic-6378337-p2-s2",
+"pdfs": 1,
+"bars": 3,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 33,
+"pitch_notes": 33,
+"timed_notes": 33,
+"pitch_timing_bars": 3,
+"exact_pooled": 3,
+"exact": 3,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2665x626"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6378337-p2-s3": {
+"name": "olimpic-6378337-p2-s3",
+"pdfs": 1,
+"bars": 5,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 33,
+"pitch_notes": 25,
+"timed_notes": 21,
+"pitch_timing_bars": 2,
+"exact_pooled": 2,
+"exact": 2,
+"wrong": 3,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2601x612"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6378337-p2-s4": {
+"name": "olimpic-6378337-p2-s4",
+"pdfs": 1,
+"bars": 3,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 22,
+"pitch_notes": 17,
+"timed_notes": 17,
+"pitch_timing_bars": 1,
+"exact_pooled": 1,
+"exact": 1,
+"wrong": 2,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2613x631"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6586696-p1-s1": {
+"name": "olimpic-6586696-p1-s1",
+"pdfs": 1,
+"bars": 3,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 47,
+"pitch_notes": 46,
+"timed_notes": 45,
+"pitch_timing_bars": 1,
+"exact_pooled": 1,
+"exact": 1,
+"wrong": 2,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2393x668"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6586696-p1-s2": {
+"name": "olimpic-6586696-p1-s2",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 56,
+"pitch_notes": 53,
+"timed_notes": 53,
+"pitch_timing_bars": 3,
+"exact_pooled": 3,
+"exact": 3,
+"wrong": 1,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+22,
+22
+],
+"images": [
+"2752x745"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6586696-p1-s3": {
+"name": "olimpic-6586696-p1-s3",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 60,
+"pitch_notes": 58,
+"timed_notes": 53,
+"pitch_timing_bars": 2,
+"exact_pooled": 2,
+"exact": 2,
+"wrong": 2,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2638x743"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6586696-p2-s1": {
+"name": "olimpic-6586696-p2-s1",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 59,
+"pitch_notes": 54,
+"timed_notes": 51,
+"pitch_timing_bars": 2,
+"exact_pooled": 2,
+"exact": 2,
+"wrong": 2,
+"wrong_unwarned": 0,
+"facts": {
+"interlines": [
+22,
+22
+],
+"images": [
+"2711x669"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6586696-p2-s2": {
+"name": "olimpic-6586696-p2-s2",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 60,
+"pitch_notes": 58,
+"timed_notes": 40,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 4,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2566x620"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6586696-p2-s3": {
+"name": "olimpic-6586696-p2-s3",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 73,
+"pitch_notes": 59,
+"timed_notes": 48,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 4,
+"wrong_unwarned": 3,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2585x628"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6586696-p2-s4": {
+"name": "olimpic-6586696-p2-s4",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 56,
+"pitch_notes": 55,
+"timed_notes": 55,
+"pitch_timing_bars": 3,
+"exact_pooled": 2,
+"exact": 2,
+"wrong": 2,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+22,
+22
+],
+"images": [
+"2694x625"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6987705-p1-s1": {
+"name": "olimpic-6987705-p1-s1",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 42,
+"pitch_notes": 42,
+"timed_notes": 42,
+"pitch_timing_bars": 4,
+"exact_pooled": 3,
+"exact": 3,
+"wrong": 1,
+"wrong_unwarned": 0,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2410x652"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6987705-p1-s2": {
+"name": "olimpic-6987705-p1-s2",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 56,
+"pitch_notes": 54,
+"timed_notes": 50,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 4,
+"wrong_unwarned": 0,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2616x723"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6987705-p1-s3": {
+"name": "olimpic-6987705-p1-s3",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 50,
+"pitch_notes": 50,
+"timed_notes": 50,
+"pitch_timing_bars": 4,
+"exact_pooled": 1,
+"exact": 1,
+"wrong": 3,
+"wrong_unwarned": 3,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2592x676"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6987705-p1-s4": {
+"name": "olimpic-6987705-p1-s4",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 54,
+"pitch_notes": 54,
+"timed_notes": 47,
+"pitch_timing_bars": 3,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 4,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2571x649"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6987705-p2-s1": {
+"name": "olimpic-6987705-p2-s1",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 48,
+"pitch_notes": 46,
+"timed_notes": 45,
+"pitch_timing_bars": 2,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 4,
+"wrong_unwarned": 3,
+"facts": {
+"interlines": [
+20,
+20
+],
+"images": [
+"2485x649"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6987705-p2-s2": {
+"name": "olimpic-6987705-p2-s2",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 57,
+"pitch_notes": 55,
+"timed_notes": 53,
+"pitch_timing_bars": 2,
+"exact_pooled": 1,
+"exact": 1,
+"wrong": 3,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2481x634"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6987705-p2-s3": {
+"name": "olimpic-6987705-p2-s3",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 65,
+"pitch_notes": 64,
+"timed_notes": 60,
+"pitch_timing_bars": 2,
+"exact_pooled": 1,
+"exact": 1,
+"wrong": 3,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2508x706"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6987705-p2-s4": {
+"name": "olimpic-6987705-p2-s4",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 48,
+"pitch_notes": 41,
+"timed_notes": 29,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 4,
+"wrong_unwarned": 3,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2601x640"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6592662-p1-s1": {
+"name": "olimpic-6592662-p1-s1",
+"pdfs": 1,
+"bars": 5,
+"wrong_bar_count": 1,
+"wrong_part_count": 0,
+"notes": 53,
+"pitch_notes": 4,
+"timed_notes": 1,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 5,
+"wrong_unwarned": 3,
+"unpaired": 3,
+"facts": {
+"interlines": [
+19,
+19
+],
+"images": [
+"2483x656"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6592662-p1-s2": {
+"name": "olimpic-6592662-p1-s2",
+"pdfs": 1,
+"bars": 7,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 51,
+"pitch_notes": 30,
+"timed_notes": 16,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 7,
+"wrong_unwarned": 4,
+"facts": {
+"interlines": [
+22,
+27,
+27,
+22
+],
+"images": [
+"3113x750"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6592662-p1-s3": {
+"name": "olimpic-6592662-p1-s3",
+"pdfs": 1,
+"bars": 6,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 57,
+"pitch_notes": 31,
+"timed_notes": 26,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 6,
+"wrong_unwarned": 3,
+"facts": {
+"interlines": [
+22,
+27,
+27,
+22
+],
+"images": [
+"3095x731"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6592662-p1-s4": {
+"name": "olimpic-6592662-p1-s4",
+"pdfs": 1,
+"bars": 6,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 42,
+"unpaired": 4,
+"wrong": 6,
+"wrong_unwarned": 6,
+"pitch_notes": 4,
+"timed_notes": 3,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"facts": {
+"interlines": [
+22,
+27,
+27,
+22
+],
+"images": [
+"3101x743"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6592662-p2-s1": {
+"name": "olimpic-6592662-p2-s1",
+"pdfs": 1,
+"bars": 6,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 50,
+"pitch_notes": 8,
+"timed_notes": 4,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 6,
+"wrong_unwarned": 3,
+"facts": {
+"interlines": [
+22,
+27,
+27,
+22
+],
+"images": [
+"3105x779"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6592662-p2-s2": {
+"name": "olimpic-6592662-p2-s2",
+"pdfs": 1,
+"failed": 1,
+"bars": 6,
+"wrong": 6,
+"notes": 52,
+"facts": {
+"error": "ReadError: No music could be read from this PDF",
+"interlines": [
+22,
+27,
+27,
+22
+],
+"images": [
+"3089x792"
+],
+"problems": [
+"NullPointerException",
+"page flagged as invalid"
+],
+"outcome": "no music"
+}
+},
+"olimpic-6592662-p2-s3": {
+"name": "olimpic-6592662-p2-s3",
+"pdfs": 1,
+"failed": 1,
+"bars": 6,
+"wrong": 6,
+"notes": 52,
+"facts": {
+"error": "ReadError: No music could be read from this PDF",
+"interlines": [
+22,
+27,
+27,
+22
+],
+"images": [
+"3089x792"
+],
+"problems": [
+"NullPointerException",
+"page flagged as invalid"
+],
+"outcome": "no music"
+}
+},
+"olimpic-6592662-p2-s4": {
+"name": "olimpic-6592662-p2-s4",
+"pdfs": 1,
+"bars": 6,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 48,
+"pitch_notes": 20,
+"timed_notes": 5,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 6,
+"wrong_unwarned": 5,
+"facts": {
+"interlines": [
+22,
+27,
+27,
+22
+],
+"images": [
+"3089x809"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6377942-p1-s1": {
+"name": "olimpic-6377942-p1-s1",
+"pdfs": 1,
+"bars": 5,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 44,
+"pitch_notes": 38,
+"timed_notes": 31,
+"pitch_timing_bars": 1,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 5,
+"wrong_unwarned": 3,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2424x663"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6377942-p1-s2": {
+"name": "olimpic-6377942-p1-s2",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 59,
+"pitch_notes": 58,
+"timed_notes": 58,
+"pitch_timing_bars": 3,
+"exact_pooled": 2,
+"exact": 2,
+"wrong": 2,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2647x701"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6377942-p1-s3": {
+"name": "olimpic-6377942-p1-s3",
+"pdfs": 1,
+"bars": 3,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 56,
+"pitch_notes": 56,
+"timed_notes": 56,
+"pitch_timing_bars": 3,
+"exact_pooled": 3,
+"exact": 3,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2679x762"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6377942-p2-s1": {
+"name": "olimpic-6377942-p2-s1",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 62,
+"pitch_notes": 61,
+"timed_notes": 61,
+"pitch_timing_bars": 2,
+"exact_pooled": 2,
+"exact": 2,
+"wrong": 2,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2629x659"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6377942-p2-s2": {
+"name": "olimpic-6377942-p2-s2",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 58,
+"pitch_notes": 55,
+"timed_notes": 42,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 4,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2708x723"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6377942-p2-s3": {
+"name": "olimpic-6377942-p2-s3",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 61,
+"pitch_notes": 60,
+"timed_notes": 60,
+"pitch_timing_bars": 2,
+"exact_pooled": 1,
+"exact": 1,
+"wrong": 3,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2697x696"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6377942-p2-s4": {
+"name": "olimpic-6377942-p2-s4",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 63,
+"pitch_notes": 61,
+"timed_notes": 55,
+"pitch_timing_bars": 3,
+"exact_pooled": 3,
+"exact": 3,
+"wrong": 1,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2711x730"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6985082-p1-s1": {
+"name": "olimpic-6985082-p1-s1",
+"pdfs": 1,
+"bars": 3,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 161,
+"pitch_notes": 160,
+"timed_notes": 123,
+"pitch_timing_bars": 2,
+"exact_pooled": 2,
+"exact": 1,
+"wrong": 1,
+"wrong_unwarned": 0,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2860x676"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6985082-p1-s2": {
+"name": "olimpic-6985082-p1-s2",
+"pdfs": 1,
+"bars": 3,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 147,
+"pitch_notes": 116,
+"timed_notes": 34,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 3,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2967x670"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6985082-p1-s3": {
+"name": "olimpic-6985082-p1-s3",
+"pdfs": 1,
+"bars": 3,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 143,
+"pitch_notes": 90,
+"timed_notes": 28,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 3,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2876x673"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6985082-p1-s4": {
+"name": "olimpic-6985082-p1-s4",
+"pdfs": 1,
+"bars": 3,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 112,
+"pitch_notes": 109,
+"timed_notes": 21,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 3,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2984x723"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6985082-p2-s1": {
+"name": "olimpic-6985082-p2-s1",
+"pdfs": 1,
+"bars": 3,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 93,
+"pitch_notes": 83,
+"timed_notes": 18,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 3,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2961x599"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6985082-p2-s2": {
+"name": "olimpic-6985082-p2-s2",
+"pdfs": 1,
+"bars": 3,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 149,
+"pitch_notes": 43,
+"timed_notes": 11,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 3,
+"wrong_unwarned": 2,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2966x624"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6985082-p2-s3": {
+"name": "olimpic-6985082-p2-s3",
+"pdfs": 1,
+"bars": 3,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 163,
+"pitch_notes": 161,
+"timed_notes": 63,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 3,
+"wrong_unwarned": 0,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2968x624"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6985082-p2-s4": {
+"name": "olimpic-6985082-p2-s4",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 112,
+"pitch_notes": 106,
+"timed_notes": 28,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 4,
+"wrong_unwarned": 0,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2966x624"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6985082-p2-s5": {
+"name": "olimpic-6985082-p2-s5",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 122,
+"pitch_notes": 116,
+"timed_notes": 40,
+"pitch_timing_bars": 0,
+"exact_pooled": 0,
+"exact": 0,
+"wrong": 4,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2964x624"
+],
+"problems": [],
+"outcome": "done"
+}
+}
+}

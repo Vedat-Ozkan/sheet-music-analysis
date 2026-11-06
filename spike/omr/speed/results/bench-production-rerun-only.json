@@ -1,0 +1,829 @@
+{
+ "variant": "production-rerun",
+ "definition": [
+  [],
+  "",
+  "/tmp/audiveris-5.11.0-sma.2/opt/audiveris/bin/Audiveris"
+ ],
+ "signature": "speed-production-rerunf20c9036",
+ "wall": 7.9,
+ "totals": {
+  "bench": {
+   "pdfs": 12,
+   "pages": 47,
+   "crashed": 0,
+   "pages_skipped": 0,
+   "score_errors": 0,
+   "seconds_per_page": 23.8,
+   "truth_notes": 11149,
+   "omr_notes": 10969,
+   "pitch": 0.9125,
+   "pitch_onset": 0.8195,
+   "bar_duration_errors": 120,
+   "bar_duration_errors_in_truth": 18,
+   "truth_bars": 561,
+   "tuplet_notes": {
+    "truth": 454,
+    "found": 189,
+    "invented": 62,
+    "missed": 265
+   },
+   "ornaments": {
+    "truth": 52,
+    "found": 25,
+    "invented": 17,
+    "missed": 27
+   },
+   "grace": {
+    "truth": 76,
+    "found": 33,
+    "invented": 4,
+    "missed": 43
+   },
+   "octave_lines": {
+    "truth": 24,
+    "found": 7,
+    "invented": 0,
+    "missed": 17
+   },
+   "clef_changes": {
+    "truth": 131,
+    "found": 56,
+    "invented": 25,
+    "missed": 75
+   }
+  }
+ },
+ "pdfs": {
+  "bench": [
+   {
+    "pdf": "pdfs/mozart-k545-1--ms.pdf",
+    "piece": "mozart-k545-1",
+    "engraver": "ms",
+    "pages": 5,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 91.4,
+    "cached": true,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 1281,
+     "omr_notes": 1263,
+     "truth_bars": 73,
+     "omr_bars": 73,
+     "xml_bars": [
+      73,
+      73
+     ],
+     "bars_paired": 73,
+     "shared_pitch": 1223,
+     "shared_pitch_onset": 1210,
+     "uneven_bars_omr": 1,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 8,
+       "found": 6,
+       "invented": 0,
+       "omr_total": 6
+      },
+      "grace": {
+       "truth": 11,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 15,
+       "found": 10,
+       "invented": 5,
+       "omr_total": 15
+      }
+     },
+     "verovio_msgs": 0
+    },
+    "truth_notes": 1281
+   },
+   {
+    "pdf": "pdfs/joplin-maple-leaf-rag--ms.pdf",
+    "piece": "joplin-maple-leaf-rag",
+    "engraver": "ms",
+    "pages": 4,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 112.5,
+    "cached": true,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 1581,
+     "omr_notes": 1581,
+     "truth_bars": 85,
+     "omr_bars": 85,
+     "xml_bars": [
+      85,
+      85
+     ],
+     "bars_paired": 85,
+     "shared_pitch": 1579,
+     "shared_pitch_onset": 1579,
+     "uneven_bars_omr": 0,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 2,
+       "found": 0,
+       "invented": 2,
+       "omr_total": 2
+      }
+     },
+     "verovio_msgs": 3
+    },
+    "truth_notes": 1581
+   },
+   {
+    "pdf": "pdfs/clara-schumann-polonaise-3--ly.pdf",
+    "piece": "clara-schumann-polonaise-3",
+    "engraver": "ly",
+    "pages": 6,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 106.5,
+    "cached": true,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 966,
+     "omr_notes": 934,
+     "truth_bars": 48,
+     "omr_bars": 52,
+     "xml_bars": [
+      48,
+      52
+     ],
+     "bars_paired": 48,
+     "shared_pitch": 844,
+     "shared_pitch_onset": 763,
+     "uneven_bars_omr": 10,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 27,
+       "found": 27,
+       "invented": 24,
+       "omr_total": 51
+      },
+      "ornaments": {
+       "truth": 7,
+       "found": 5,
+       "invented": 0,
+       "omr_total": 5
+      },
+      "grace": {
+       "truth": 39,
+       "found": 23,
+       "invented": 0,
+       "omr_total": 23
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 18,
+       "found": 11,
+       "invented": 3,
+       "omr_total": 14
+      }
+     },
+     "verovio_msgs": 2
+    },
+    "truth_notes": 966
+   },
+   {
+    "pdf": "pdfs/cpe-bach-h186--scan.pdf",
+    "piece": "cpe-bach-h186",
+    "engraver": "scan",
+    "pages": 5,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 120.6,
+    "cached": true,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 831,
+     "omr_notes": 821,
+     "truth_bars": 32,
+     "omr_bars": 32,
+     "xml_bars": [
+      32,
+      32
+     ],
+     "bars_paired": 32,
+     "shared_pitch": 818,
+     "shared_pitch_onset": 779,
+     "uneven_bars_omr": 5,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 39,
+       "found": 12,
+       "invented": 0,
+       "omr_total": 12
+      },
+      "ornaments": {
+       "truth": 27,
+       "found": 13,
+       "invented": 0,
+       "omr_total": 13
+      },
+      "grace": {
+       "truth": 5,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 831
+   },
+   {
+    "pdf": "pdfs/faisst-op18-2-lied-der-nacht--ms.pdf",
+    "piece": "faisst-op18-2-lied-der-nacht",
+    "engraver": "ms",
+    "pages": 3,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 59.1,
+    "cached": true,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 627,
+     "omr_notes": 593,
+     "truth_bars": 33,
+     "omr_bars": 33,
+     "xml_bars": [
+      33,
+      33
+     ],
+     "bars_paired": 33,
+     "shared_pitch": 471,
+     "shared_pitch_onset": 373,
+     "uneven_bars_omr": 26,
+     "uneven_bars_truth": 5,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 1,
+       "omr_total": 1
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 8,
+       "found": 3,
+       "invented": 0,
+       "omr_total": 3
+      },
+      "clef_changes": {
+       "truth": 2,
+       "found": 1,
+       "invented": 1,
+       "omr_total": 2
+      }
+     },
+     "verovio_msgs": 2
+    },
+    "truth_notes": 627
+   },
+   {
+    "pdf": "pdfs/faisst-op18-2-lied-der-nacht--vr.pdf",
+    "piece": "faisst-op18-2-lied-der-nacht",
+    "engraver": "vr",
+    "pages": 2,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 71.7,
+    "cached": true,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 627,
+     "omr_notes": 604,
+     "truth_bars": 33,
+     "omr_bars": 34,
+     "xml_bars": [
+      33,
+      34
+     ],
+     "bars_paired": 33,
+     "shared_pitch": 479,
+     "shared_pitch_onset": 359,
+     "uneven_bars_omr": 3,
+     "uneven_bars_truth": 5,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 8,
+       "found": 2,
+       "invented": 0,
+       "omr_total": 2
+      },
+      "clef_changes": {
+       "truth": 2,
+       "found": 1,
+       "invented": 1,
+       "omr_total": 2
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 627
+   },
+   {
+    "pdf": "pdfs/faisst-op18-2-lied-der-nacht--scan.pdf",
+    "piece": "faisst-op18-2-lied-der-nacht",
+    "engraver": "scan",
+    "pages": 3,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 87.3,
+    "cached": true,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 627,
+     "omr_notes": 621,
+     "truth_bars": 33,
+     "omr_bars": 33,
+     "xml_bars": [
+      33,
+      33
+     ],
+     "bars_paired": 33,
+     "shared_pitch": 486,
+     "shared_pitch_onset": 383,
+     "uneven_bars_omr": 21,
+     "uneven_bars_truth": 5,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 8,
+       "found": 2,
+       "invented": 0,
+       "omr_total": 2
+      },
+      "clef_changes": {
+       "truth": 2,
+       "found": 1,
+       "invented": 1,
+       "omr_total": 2
+      }
+     },
+     "verovio_msgs": 2
+    },
+    "truth_notes": 627
+   },
+   {
+    "pdf": "pdfs/schumann-op96-4-gesungen--ly.pdf",
+    "piece": "schumann-op96-4-gesungen",
+    "engraver": "ly",
+    "pages": 3,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 86.8,
+    "cached": true,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 683,
+     "omr_notes": 668,
+     "truth_bars": 32,
+     "omr_bars": 32,
+     "xml_bars": [
+      32,
+      32
+     ],
+     "bars_paired": 32,
+     "shared_pitch": 649,
+     "shared_pitch_onset": 635,
+     "uneven_bars_omr": 12,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 70,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 16,
+       "omr_total": 16
+      },
+      "grace": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 683
+   },
+   {
+    "pdf": "pdfs/schubert-die-stadt--ms.pdf",
+    "piece": "schubert-die-stadt",
+    "engraver": "ms",
+    "pages": 4,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 94.2,
+    "cached": true,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 908,
+     "omr_notes": 897,
+     "truth_bars": 40,
+     "omr_bars": 40,
+     "xml_bars": [
+      40,
+      40
+     ],
+     "bars_paired": 40,
+     "shared_pitch": 842,
+     "shared_pitch_onset": 552,
+     "uneven_bars_omr": 13,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 159,
+       "found": 51,
+       "invented": 0,
+       "omr_total": 51
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 1,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 34,
+       "found": 17,
+       "invented": 3,
+       "omr_total": 20
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 908
+   },
+   {
+    "pdf": "pdfs/schubert-die-stadt--ly.pdf",
+    "piece": "schubert-die-stadt",
+    "engraver": "ly",
+    "pages": 4,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 103.4,
+    "cached": true,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 908,
+     "omr_notes": 908,
+     "truth_bars": 40,
+     "omr_bars": 40,
+     "xml_bars": [
+      40,
+      40
+     ],
+     "bars_paired": 40,
+     "shared_pitch": 808,
+     "shared_pitch_onset": 570,
+     "uneven_bars_omr": 20,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 159,
+       "found": 99,
+       "invented": 35,
+       "omr_total": 134
+      },
+      "ornaments": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 1,
+       "found": 1,
+       "invented": 0,
+       "omr_total": 1
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 34,
+       "found": 3,
+       "invented": 3,
+       "omr_total": 6
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 908
+   },
+   {
+    "pdf": "pdfs/haydn-canzonet-she-never-told--ms.pdf",
+    "piece": "haydn-canzonet-she-never-told",
+    "engraver": "ms",
+    "pages": 3,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 79.4,
+    "cached": true,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 829,
+     "omr_notes": 795,
+     "truth_bars": 39,
+     "omr_bars": 39,
+     "xml_bars": [
+      39,
+      39
+     ],
+     "bars_paired": 39,
+     "shared_pitch": 718,
+     "shared_pitch_onset": 690,
+     "uneven_bars_omr": 7,
+     "uneven_bars_truth": 3,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "ornaments": {
+       "truth": 2,
+       "found": 1,
+       "invented": 0,
+       "omr_total": 1
+      },
+      "grace": {
+       "truth": 8,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 7,
+       "found": 2,
+       "invented": 3,
+       "omr_total": 5
+      }
+     },
+     "verovio_msgs": 1
+    },
+    "truth_notes": 829
+   },
+   {
+    "pdf": "pdfs/mozart-k545-1--lilypond-mutopia.pdf",
+    "piece": "mozart-k545-1",
+    "engraver": "lilypond-mutopia",
+    "pages": 5,
+    "crashed": false,
+    "error": null,
+    "pages_skipped": [],
+    "seconds": 107.6,
+    "cached": true,
+    "settings_read": [
+     0,
+     1
+    ],
+    "score": {
+     "truth_notes": 1281,
+     "omr_notes": 1284,
+     "truth_bars": 73,
+     "omr_bars": 73,
+     "xml_bars": [
+      73,
+      73
+     ],
+     "bars_paired": 73,
+     "shared_pitch": 1256,
+     "shared_pitch_onset": 1244,
+     "uneven_bars_omr": 2,
+     "uneven_bars_truth": 0,
+     "kinds": {
+      "tuplet_notes": {
+       "truth": 0,
+       "found": 0,
+       "invented": 3,
+       "omr_total": 3
+      },
+      "ornaments": {
+       "truth": 8,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "grace": {
+       "truth": 11,
+       "found": 9,
+       "invented": 4,
+       "omr_total": 13
+      },
+      "octave_lines": {
+       "truth": 0,
+       "found": 0,
+       "invented": 0,
+       "omr_total": 0
+      },
+      "clef_changes": {
+       "truth": 15,
+       "found": 10,
+       "invented": 3,
+       "omr_total": 13
+      }
+     },
+     "verovio_msgs": 2
+    },
+    "truth_notes": 1281
+   }
+  ]
+ }
+}

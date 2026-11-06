@@ -1,0 +1,90 @@
+#!/bin/bash
+args=("$@")
+count=${#args[@]}
+source=${args[count-1]}
+work=${args[count-2]}
+install=${FARM_INSTALL:?}
+name=$(basename "$install")
+here=$(dirname "$(readlink -f "$0")")
+locks=/tmp/claude-1000/farm-locks
+hosts=${FARM_HOSTS:-$here/hosts}
+mkdir -p "$locks"
+
+pages=0
+case "$source" in
+    *.pdf) pages=$(/home/kema/projects/sheet-music-plugin/.venv/bin/python -c "import sys, pikepdf; print(len(pikepdf.open(sys.argv[1]).pages))" "$source" 2>/dev/null || echo 0) ;;
+esac
+
+while :; do
+    while read -r host slots _ cap; do
+        [ -z "$host" ] && continue
+        [ -n "$cap" ] && [ "$pages" -gt "$cap" ] && continue
+        for ((i = 0; i < slots; i++)); do
+            exec {fd}>"$locks/$host.$i"
+            if flock -n "$fd"; then
+                chosen=$host
+                break 3
+            fi
+            exec {fd}>&-
+        done
+    done < "$hosts"
+    sleep 1
+done
+
+if [ "$chosen" = local ]; then
+    exec "$install/bin/Audiveris" "$@"
+fi
+
+user=$(awk -v h="$chosen" '$1 == h { print $3 }' "$hosts")
+job=$(basename "$work")-$$
+win="C:/Users/$user/omr/jobs/$job"
+mnt="/mnt/c/Users/$user/omr/jobs/$job"
+remote=/tmp/omrjobs/$job
+staging=$(mktemp -d)
+trap 'rm -rf "$staging"' EXIT
+
+remote_args=()
+for ((i = 0; i < count - 2; i++)); do
+    remote_args+=("${args[i]}")
+done
+remote_args+=("$remote" "$remote/$(basename "$source")")
+
+{
+    echo "mkdir -p $remote && cp $mnt/$(basename "$source") $remote/ && cd $remote"
+    echo "export HOME=$remote TESSDATA_PREFIX=/opt/omr/$name/tessdata _JAVA_OPTIONS=$(printf %q "$_JAVA_OPTIONS")"
+    printf 'timeout 600 /opt/omr/%s/bin/Audiveris' "$name"
+    printf ' %q' "${remote_args[@]}"
+    echo
+    echo 'code=$?'
+    echo "tar cf $mnt/out.tar -C $remote \$(cd $remote && ls *.omr *.mxl 2>/dev/null)"
+    echo "rm -rf $remote"
+    echo 'exit $code'
+} > "$staging/job.sh"
+cp "$source" "$staging/"
+
+log=/tmp/claude-1000/farm-log
+mkdir -p "$log"
+run_here () {
+    echo "$(date +%T) host=$chosen job=$job source=$(basename "$source") FALLBACK to local: $1" >> "$log/jobs.txt"
+    shift
+    exec {fd}>&-
+    exec "$install/bin/Audiveris" "$@"
+}
+ssh -o BatchMode=yes -o ConnectTimeout=8 "$chosen" "mkdir C:\\Users\\$user\\omr\\jobs\\$job" 2>/dev/null
+scp -q -o BatchMode=yes -o ConnectTimeout=8 "$staging/job.sh" "$source" "$chosen:$win/" 2>/dev/null || run_here "copy to host failed" "$@"
+ssh -o BatchMode=yes -o ConnectTimeout=8 "$chosen" "wsl -d Ubuntu -u root -- bash $mnt/job.sh" 2>&1 | grep -v gitHubKey > "$staging/output.txt"
+code=${PIPESTATUS[0]}
+[ "$code" = 255 ] && run_here "ssh connection failed" "$@"
+grep -q "Picked up _JAVA_OPTIONS" "$staging/output.txt" || run_here "reader did not start (code $code)" "$@"
+fetched=no
+if scp -q -o BatchMode=yes -o ConnectTimeout=8 "$chosen:$win/out.tar" "$staging/" 2>/dev/null; then
+    tar xf "$staging/out.tar" -C "$work" && fetched=$(tar tf "$staging/out.tar" | tr '\n' ' ')
+fi
+[ "$code" = 0 ] && [ "$fetched" = no ] && run_here "result copy failed" "$@"
+cat "$staging/output.txt"
+{
+    echo "$(date +%T) host=$chosen job=$job source=$(basename "$source") code=$code fetched=$fetched"
+    tail -5 "$staging/output.txt"
+} >> "$log/jobs.txt"
+ssh -o BatchMode=yes "$chosen" "rmdir /s /q C:\\Users\\$user\\omr\\jobs\\$job" 2>/dev/null
+exit "$code"

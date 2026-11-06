@@ -1,0 +1,108 @@
+{
+"olimpic-6320420-p2-s3": {
+"name": "olimpic-6320420-p2-s3",
+"pdfs": 1,
+"failed": 1,
+"bars": 6,
+"wrong": 6,
+"notes": 38,
+"facts": {
+"error": "ReadError: No music could be read from this PDF",
+"interlines": [],
+"images": [
+"776x182"
+],
+"problems": [
+"StepException",
+"page flagged as invalid"
+],
+"outcome": "no music"
+}
+},
+"olimpic-6320420-p9-s1": {
+"name": "olimpic-6320420-p9-s1",
+"pdfs": 1,
+"failed": 1,
+"bars": 6,
+"wrong": 6,
+"notes": 55,
+"facts": {
+"error": "ReadError: No music could be read from this PDF",
+"interlines": [],
+"images": [
+"782x194"
+],
+"problems": [
+"StepException",
+"page flagged as invalid"
+],
+"outcome": "no music"
+}
+},
+"olimpic-6320420-p9-s3": {
+"name": "olimpic-6320420-p9-s3",
+"pdfs": 1,
+"failed": 1,
+"bars": 7,
+"wrong": 7,
+"notes": 56,
+"facts": {
+"error": "ReadError: No music could be read from this PDF",
+"interlines": [],
+"images": [
+"773x180"
+],
+"problems": [
+"StepException",
+"page flagged as invalid"
+],
+"outcome": "no music"
+}
+},
+"olimpic-6586696-p2-s1": {
+"name": "olimpic-6586696-p2-s1",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 59,
+"pitch_notes": 53,
+"timed_notes": 53,
+"pitch_timing_bars": 3,
+"exact_pooled": 3,
+"exact": 3,
+"wrong": 1,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+21,
+21
+],
+"images": [
+"2581x637"
+],
+"problems": [],
+"outcome": "done"
+}
+},
+"olimpic-6592662-p2-s3": {
+"name": "olimpic-6592662-p2-s3",
+"pdfs": 1,
+"failed": 1,
+"bars": 6,
+"wrong": 6,
+"notes": 52,
+"facts": {
+"error": "ReadError: No music could be read from this PDF",
+"interlines": [],
+"images": [
+"1030x264"
+],
+"problems": [
+"StepException",
+"page flagged as invalid"
+],
+"outcome": "no music"
+}
+}
+}

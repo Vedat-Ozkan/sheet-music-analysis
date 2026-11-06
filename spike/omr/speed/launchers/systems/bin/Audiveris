@@ -1,0 +1,2 @@
+#!/bin/bash
+exec /tmp/audiveris-5.11.0-sma.2/opt/audiveris/bin/Audiveris -option org.audiveris.omr.ui.action.AdvancedTopics.processSystemsInParallel=true "$@"

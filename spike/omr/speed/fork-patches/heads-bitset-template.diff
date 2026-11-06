@@ -1,0 +1,321 @@
+--- a/app/src/main/java/org/audiveris/omr/image/Template.java	2026-11-01 01:08:24.846014889 -0500
++++ b/app/src/main/java/org/audiveris/omr/image/Template.java	2026-11-01 01:09:18.315435692 -0500
+@@ -112,6 +112,26 @@
+     /** Collection of key points lazily computed for this template. */
+     private List<PixelDistance> keyPoints;
+ 
++    private volatile boolean masksBuilt;
++
++    private boolean masksUsable;
++
++    private int maskX;
++
++    private int maskY;
++
++    private int maskHeight;
++
++    private int maskWords;
++
++    private long[] maskFore;
++
++    private long[] maskBack;
++
++    private long[] maskHole;
++
++    private static final ThreadLocal<Object[]> PLANES = ThreadLocal.withInitial( () -> new Object[2]);
++
+     //~ Constructors -------------------------------------------------------------------------------
+ 
+     /**
+@@ -199,7 +219,7 @@
+      * @param distances the distance table to use
+      * @return the weighted average distance computed on all template key positions
+      */
+-    public double evaluate (int x,
++    private double evaluateSlow (int x,
+                             int y,
+                             Anchor anchor,
+                             DistanceTable distances)
+@@ -251,6 +271,273 @@
+     //--------------//
+     // evaluateHole //
+     //--------------//
++    public double evaluate (int x,
++                            int y,
++                            Anchor anchor,
++                            DistanceTable distances)
++    {
++        if (!masksBuilt) {
++            buildMasks();
++        }
++
++        if (!masksUsable) {
++            return evaluateSlow(x, y, anchor, distances);
++        }
++
++        final Point ul = upperLeft(x, y, anchor);
++        final Planes planes = planes(distances);
++        final int left = ul.x + maskX;
++        int foreCount = 0;
++        int foreMiss = 0;
++        int backCount = 0;
++        int backMiss = 0;
++        int holeCount = 0;
++        int holeMiss = 0;
++
++        for (int ty = 0; ty < maskHeight; ty++) {
++            final int iy = ul.y + maskY + ty;
++
++            if ((iy < 0) || (iy >= planes.height)) {
++                continue;
++            }
++
++            final int row = iy * planes.words;
++            final int maskRow = ty * maskWords;
++
++            for (int w = 0; w < maskWords; w++) {
++                final long fore = maskFore[maskRow + w];
++                final long back = maskBack[maskRow + w];
++                final long hole = maskHole[maskRow + w];
++
++                if ((fore | back | hole) == 0) {
++                    continue;
++                }
++
++                final int column = left + (w << 6);
++                final long valid = planes.inside(column) & ~planes.window(planes.unknown, row, column);
++                final long ink = planes.window(planes.fore, row, column);
++                foreCount += Long.bitCount(fore & valid);
++                foreMiss += Long.bitCount(fore & valid & ~ink);
++                backCount += Long.bitCount(back & valid);
++                backMiss += Long.bitCount(back & valid & ink);
++                holeCount += Long.bitCount(hole & valid);
++                holeMiss += Long.bitCount(hole & valid & ink);
++            }
++        }
++
++        final double foreWeight = constants.foreWeight.getValue();
++        final double backWeight = constants.backWeight.getValue();
++        final double holeWeight = constants.holeWeight.getValue();
++        final double weights = (foreWeight * foreCount) + (backWeight * backCount) + (holeWeight * holeCount);
++
++        if (weights == 0) {
++            return Double.MAX_VALUE;
++        }
++
++        return ((foreWeight * foreMiss) + (backWeight * backMiss) + (holeWeight * holeMiss)) / weights;
++    }
++
++    public double evaluateHole (int x,
++                                int y,
++                                Anchor anchor,
++                                DistanceTable distances)
++    {
++        if (!masksBuilt) {
++            buildMasks();
++        }
++
++        if (!masksUsable) {
++            return evaluateHoleSlow(x, y, anchor, distances);
++        }
++
++        final Point ul = upperLeft(x, y, anchor);
++        final Planes planes = planes(distances);
++        final int left = ul.x + maskX;
++        int expectedHoles = 0;
++        int actualHoles = 0;
++
++        for (int ty = 0; ty < maskHeight; ty++) {
++            final int iy = ul.y + maskY + ty;
++
++            if ((iy < 0) || (iy >= planes.height)) {
++                continue;
++            }
++
++            final int row = iy * planes.words;
++            final int maskRow = ty * maskWords;
++
++            for (int w = 0; w < maskWords; w++) {
++                final long hole = maskHole[maskRow + w];
++
++                if (hole == 0) {
++                    continue;
++                }
++
++                final int column = left + (w << 6);
++                final long valid = planes.inside(column) & ~planes.window(planes.unknown, row, column);
++                final long ink = planes.window(planes.fore, row, column);
++                expectedHoles += Long.bitCount(hole & valid);
++                actualHoles += Long.bitCount(hole & valid & ~ink);
++            }
++        }
++
++        if (expectedHoles == 0) {
++            return 0;
++        } else {
++            return (double) actualHoles / expectedHoles;
++        }
++    }
++
++    private synchronized void buildMasks ()
++    {
++        if (masksBuilt) {
++            return;
++        }
++
++        final List<PixelDistance> points = getKeyPoints();
++        int minX = Integer.MAX_VALUE;
++        int minY = Integer.MAX_VALUE;
++        int maxX = Integer.MIN_VALUE;
++        int maxY = Integer.MIN_VALUE;
++
++        for (PixelDistance pix : points) {
++            minX = Math.min(minX, pix.x);
++            minY = Math.min(minY, pix.y);
++            maxX = Math.max(maxX, pix.x);
++            maxY = Math.max(maxY, pix.y);
++        }
++
++        boolean usable = !points.isEmpty();
++
++        if (usable) {
++            final int words = ((maxX - minX) + 64) >>> 6;
++            final int rows = (maxY - minY) + 1;
++            final long[] fore = new long[rows * words];
++            final long[] back = new long[rows * words];
++            final long[] hole = new long[rows * words];
++
++            for (PixelDistance pix : points) {
++                final int dx = pix.x - minX;
++                final int index = ((pix.y - minY) * words) + (dx >>> 6);
++                final long bit = 1L << (dx & 63);
++
++                if (((fore[index] | back[index] | hole[index]) & bit) != 0) {
++                    usable = false;
++                    break;
++                }
++
++                if (pix.d == 0) {
++                    fore[index] |= bit;
++                } else if (pix.d > 0) {
++                    back[index] |= bit;
++                } else if (pix.d < 0) {
++                    hole[index] |= bit;
++                } else {
++                    usable = false;
++                    break;
++                }
++            }
++
++            maskX = minX;
++            maskY = minY;
++            maskHeight = rows;
++            maskWords = words;
++            maskFore = fore;
++            maskBack = back;
++            maskHole = hole;
++        }
++
++        masksUsable = usable;
++        masksBuilt = true;
++    }
++
++    private static Planes planes (DistanceTable distances)
++    {
++        final Object[] slot = PLANES.get();
++
++        if (slot[0] != distances) {
++            slot[1] = new Planes(distances);
++            slot[0] = distances;
++        }
++
++        return (Planes) slot[1];
++    }
++
++    private static final class Planes
++    {
++        final int width;
++
++        final int height;
++
++        final int words;
++
++        final long[] fore;
++
++        final long[] unknown;
++
++        Planes (DistanceTable distances)
++        {
++            width = distances.getWidth();
++            height = distances.getHeight();
++            words = (width + 63) >>> 6;
++            fore = new long[height * words];
++            unknown = new long[height * words];
++
++            for (int y = 0; y < height; y++) {
++                final int row = y * words;
++
++                for (int x = 0; x < width; x++) {
++                    final int value = distances.getValue(x, y);
++
++                    if (value == 0) {
++                        fore[row + (x >>> 6)] |= 1L << (x & 63);
++                    } else if (value == ChamferDistance.VALUE_UNKNOWN) {
++                        unknown[row + (x >>> 6)] |= 1L << (x & 63);
++                    }
++                }
++            }
++        }
++
++        long inside (int column)
++        {
++            long mask = -1L;
++
++            if (column < 0) {
++                mask = (-column >= 64) ? 0L : (mask << -column);
++            }
++
++            final int room = width - column;
++
++            if (room <= 0) {
++                return 0L;
++            }
++
++            if (room < 64) {
++                mask &= (1L << room) - 1;
++            }
++
++            return mask;
++        }
++
++        long window (long[] plane,
++                     int row,
++                     int column)
++        {
++            final int word = Math.floorDiv(column, 64);
++            final int shift = Math.floorMod(column, 64);
++            final long low = ((word >= 0) && (word < words)) ? plane[row + word] : 0L;
++
++            if (shift == 0) {
++                return low;
++            }
++
++            final long high = ((word + 1 >= 0) && (word + 1 < words)) ? plane[row + word + 1] : 0L;
++
++            return (low >>> shift) | (high << (64 - shift));
++        }
++    }
++
++
+     /**
+      * Evaluate only the <b>hole</b> part of template, by measuring ratio of actual white
+      * over expected white in template hole.
+@@ -261,7 +548,7 @@
+      * @param distances the distance table to use
+      * @return ratio of actual white pixels over expected hole pixels
+      */
+-    public double evaluateHole (int x,
++    private double evaluateHoleSlow (int x,
+                                 int y,
+                                 Anchor anchor,
+                                 DistanceTable distances)

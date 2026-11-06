@@ -1,0 +1,2 @@
+#!/bin/bash
+exec /tmp/claude-1000/-home-kema-projects/e7eb6523-6727-4e40-ab68-cd8b0116ddd2/scratchpad/aud-fast/bin/Audiveris  "$@"

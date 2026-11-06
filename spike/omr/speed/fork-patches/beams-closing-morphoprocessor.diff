@@ -1,0 +1,138 @@
+--- a/app/src/main/java/org/audiveris/omr/image/MorphoProcessor.java	2026-11-01 01:15:58.485470294 -0500
++++ b/app/src/main/java/org/audiveris/omr/image/MorphoProcessor.java	2026-11-01 01:15:58.527192156 -0500
+@@ -97,13 +97,134 @@
+     //-------//
+     // close //
+     //-------//
++    public void close (ByteProcessor ip)
++    {
++        final int[][] rows = flatRows();
++
++        if (rows == null) {
++            closeSlow(ip);
++            return;
++        }
++
++        final int imageWidth = ip.getWidth();
++        final int imageHeight = ip.getHeight();
++        final byte[] pixels = (byte[]) ip.getPixels();
++        final byte[] dilated = sweep(pixels, imageWidth, imageHeight, rows, true);
++        final byte[] closed = sweep(dilated, imageWidth, imageHeight, rows, false);
++        System.arraycopy(closed, 0, pixels, 0, pixels.length);
++    }
++
++    private int[][] flatRows ()
++    {
++        final java.util.TreeMap<Integer, java.util.TreeSet<Integer>> byRow = new java.util.TreeMap<>();
++
++        for (int[] point : pg) {
++            if (point[2] != 255) {
++                return null;
++            }
++
++            byRow.computeIfAbsent(point[0], k -> new java.util.TreeSet<>()).add(point[1]);
++        }
++
++        final int[][] rows = new int[byRow.size()][];
++        int i = 0;
++
++        for (java.util.Map.Entry<Integer, java.util.TreeSet<Integer>> entry : byRow.entrySet()) {
++            final int lo = entry.getValue().first();
++            final int hi = entry.getValue().last();
++
++            if (entry.getValue().size() != (hi - lo + 1)) {
++                return null;
++            }
++
++            rows[i++] = new int[] { entry.getKey(), lo, hi };
++        }
++
++        return rows;
++    }
++
++    private static byte[] sweep (byte[] source,
++                                 int imageWidth,
++                                 int imageHeight,
++                                 int[][] rows,
++                                 boolean dilate)
++    {
++        final int neutral = dilate ? 0 : 255;
++        final java.util.Map<Long, byte[]> horizontals = new java.util.HashMap<>();
++        final byte[][] perRow = new byte[rows.length][];
++
++        for (int r = 0; r < rows.length; r++) {
++            final int lo = rows[r][1];
++            final int hi = rows[r][2];
++            final long key = (((long) lo) << 32) ^ (hi & 0xFFFFFFFFL);
++            byte[] horizontal = horizontals.get(key);
++
++            if (horizontal == null) {
++                horizontal = new byte[source.length];
++
++                for (int y = 0; y < imageHeight; y++) {
++                    final int base = y * imageWidth;
++
++                    for (int x = 0; x < imageWidth; x++) {
++                        int best = neutral;
++                        final int from = Math.max(0, x + lo);
++                        final int to = Math.min(imageWidth - 1, x + hi);
++
++                        for (int xx = from; xx <= to; xx++) {
++                            final int v = source[base + xx] & 0xFF;
++
++                            if (dilate ? (v > best) : (v < best)) {
++                                best = v;
++                            }
++                        }
++
++                        horizontal[base + x] = (byte) best;
++                    }
++                }
++
++                horizontals.put(key, horizontal);
++            }
++
++            perRow[r] = horizontal;
++        }
++
++        final byte[] out = new byte[source.length];
++
++        for (int y = 0; y < imageHeight; y++) {
++            final int base = y * imageWidth;
++
++            for (int x = 0; x < imageWidth; x++) {
++                int best = neutral;
++
++                for (int r = 0; r < rows.length; r++) {
++                    final int yy = y + rows[r][0];
++
++                    if ((yy >= 0) && (yy < imageHeight)) {
++                        final int v = perRow[r][(yy * imageWidth) + x] & 0xFF;
++
++                        if (dilate ? (v > best) : (v < best)) {
++                            best = v;
++                        }
++                    }
++                }
++
++                out[base + x] = (byte) best;
++            }
++        }
++
++        return out;
++    }
++
++    //-----------//
++    // closeSlow //
++    //-----------//
+     /**
+      * Performs graylevel dilation followed by graylevel erosion
+      * with arbitrary structural element
+      *
+      * @param ip the ImageProcessor
+      */
+-    public void close (ByteProcessor ip)
++    private void closeSlow (ByteProcessor ip)
+     {
+         int width = ip.getWidth();
+         int height = ip.getHeight();

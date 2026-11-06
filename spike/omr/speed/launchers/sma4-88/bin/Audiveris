@@ -1,0 +1,2 @@
+#!/bin/bash
+exec /tmp/claude-1000/-home-kema-projects/e7eb6523-6727-4e40-ab68-cd8b0116ddd2/scratchpad/aud-sixnine/bin/Audiveris -option 'org.audiveris.omr.sig.inter.AbstractTimeInter.optionalTimes=6/4, 7/8, 8/8' "$@"

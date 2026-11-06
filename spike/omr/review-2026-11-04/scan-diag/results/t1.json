@@ -1,0 +1,28 @@
+{
+"olimpic-5000464-p1-s3": {
+"name": "olimpic-5000464-p1-s3",
+"pdfs": 1,
+"bars": 4,
+"wrong_bar_count": 0,
+"wrong_part_count": 0,
+"notes": 53,
+"pitch_notes": 52,
+"timed_notes": 51,
+"pitch_timing_bars": 3,
+"exact_pooled": 1,
+"exact": 1,
+"wrong": 3,
+"wrong_unwarned": 1,
+"facts": {
+"interlines": [
+40,
+40
+],
+"images": [
+"4959x1463"
+],
+"problems": [],
+"outcome": "done"
+}
+}
+}

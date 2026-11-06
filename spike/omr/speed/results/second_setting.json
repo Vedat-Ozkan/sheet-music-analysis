@@ -1,0 +1,915 @@
+[
+ {
+  "set": "bench",
+  "pdf": "pdfs/bach-chorale-269--ms.pdf",
+  "pages": 2,
+  "setting0_uneven": 1,
+  "waits_for_second": false,
+  "cached_seconds": [
+   20.2,
+   21.2
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/bach-chorale-269--vr.pdf",
+  "pages": 1,
+  "setting0_uneven": 1,
+  "waits_for_second": false,
+  "cached_seconds": [
+   19.0,
+   20.3
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/bach-prelude-846--ms.pdf",
+  "pages": 2,
+  "setting0_uneven": 20,
+  "waits_for_second": true,
+  "cached_seconds": [
+   28.1,
+   35.5
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/bach-prelude-846--ly.pdf",
+  "pages": 2,
+  "setting0_uneven": 9,
+  "waits_for_second": true,
+  "cached_seconds": [
+   29.8,
+   31.0
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/mozart-k545-1--ms.pdf",
+  "pages": 5,
+  "setting0_uneven": 1,
+  "waits_for_second": false,
+  "cached_seconds": [
+   58.5,
+   68.6
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/mozart-k545-1--ly.pdf",
+  "pages": 4,
+  "setting0_uneven": 1,
+  "waits_for_second": false,
+  "cached_seconds": [
+   54.7,
+   64.0
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/mozart-k545-1--scan.pdf",
+  "pages": 5,
+  "setting0_uneven": 6,
+  "waits_for_second": true,
+  "cached_seconds": [
+   67.3,
+   78.4
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/chopin-prelude-4--ms.pdf",
+  "pages": 2,
+  "setting0_uneven": 1,
+  "waits_for_second": false,
+  "cached_seconds": [
+   33.7,
+   36.3
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/chopin-prelude-4--vr.pdf",
+  "pages": 2,
+  "setting0_uneven": 1,
+  "waits_for_second": false,
+  "cached_seconds": [
+   27.9,
+   34.2
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/chopin-prelude-4--scan.pdf",
+  "pages": 2,
+  "setting0_uneven": 0,
+  "waits_for_second": false,
+  "cached_seconds": [
+   37.0,
+   44.5
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/joplin-maple-leaf-rag--ms.pdf",
+  "pages": 4,
+  "setting0_uneven": 0,
+  "waits_for_second": false,
+  "cached_seconds": [
+   52.1,
+   66.0
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/joplin-maple-leaf-rag--ly.pdf",
+  "pages": 4,
+  "setting0_uneven": 2,
+  "waits_for_second": false,
+  "cached_seconds": [
+   56.3,
+   69.8
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/clara-schumann-polonaise-1--ms.pdf",
+  "pages": 3,
+  "setting0_uneven": 3,
+  "waits_for_second": false,
+  "cached_seconds": [
+   40.0,
+   46.2
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/clara-schumann-polonaise-1--vr.pdf",
+  "pages": 2,
+  "setting0_uneven": 5,
+  "waits_for_second": true,
+  "cached_seconds": [
+   36.7,
+   39.5
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/clara-schumann-polonaise-3--ms.pdf",
+  "pages": 3,
+  "setting0_uneven": 10,
+  "waits_for_second": true,
+  "cached_seconds": [
+   45.3,
+   50.4
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/clara-schumann-polonaise-3--ly.pdf",
+  "pages": 6,
+  "setting0_uneven": 16,
+  "waits_for_second": true,
+  "cached_seconds": [
+   62.5,
+   61.3
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/clara-schumann-polonaise-3--scan.pdf",
+  "pages": 3,
+  "setting0_uneven": 10,
+  "waits_for_second": true,
+  "cached_seconds": [
+   54.4,
+   59.3
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/clara-schumann-polonaise-4--ms.pdf",
+  "pages": 2,
+  "setting0_uneven": 0,
+  "waits_for_second": false,
+  "cached_seconds": [
+   33.3,
+   32.6
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/clara-schumann-polonaise-4--vr.pdf",
+  "pages": 2,
+  "setting0_uneven": 6,
+  "waits_for_second": true,
+  "cached_seconds": [
+   28.6,
+   33.4
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/cpe-bach-h186--ms.pdf",
+  "pages": 5,
+  "setting0_uneven": 6,
+  "waits_for_second": true,
+  "cached_seconds": [
+   51.2,
+   59.2
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/cpe-bach-h186--ly.pdf",
+  "pages": 5,
+  "setting0_uneven": 2,
+  "waits_for_second": false,
+  "cached_seconds": [
+   53.9,
+   61.2
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/cpe-bach-h186--scan.pdf",
+  "pages": 5,
+  "setting0_uneven": 5,
+  "waits_for_second": true,
+  "cached_seconds": [
+   61.9,
+   68.3
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/faisst-op18-2-lied-der-nacht--ms.pdf",
+  "pages": 3,
+  "setting0_uneven": 26,
+  "waits_for_second": true,
+  "cached_seconds": [
+   36.9,
+   46.9
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/faisst-op18-2-lied-der-nacht--vr.pdf",
+  "pages": 2,
+  "setting0_uneven": 3,
+  "waits_for_second": false,
+  "cached_seconds": [
+   37.8,
+   44.7
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/faisst-op18-2-lied-der-nacht--scan.pdf",
+  "pages": 3,
+  "setting0_uneven": 21,
+  "waits_for_second": true,
+  "cached_seconds": [
+   43.2,
+   56.0
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/lehmann-golden-bridges--ms.pdf",
+  "pages": 2,
+  "setting0_uneven": 17,
+  "waits_for_second": true,
+  "cached_seconds": [
+   28.8,
+   31.9
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/hensel-op7-1-nachtwanderer--ms.pdf",
+  "pages": 4,
+  "setting0_uneven": 12,
+  "waits_for_second": true,
+  "cached_seconds": [
+   43.9,
+   57.6
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/hensel-op7-1-nachtwanderer--vr.pdf",
+  "pages": 3,
+  "setting0_uneven": 11,
+  "waits_for_second": true,
+  "cached_seconds": [
+   39.8,
+   53.6
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/schumann-op96-4-gesungen--ms.pdf",
+  "pages": 4,
+  "setting0_uneven": 10,
+  "waits_for_second": true,
+  "cached_seconds": [
+   37.6,
+   43.5
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/schumann-op96-4-gesungen--ly.pdf",
+  "pages": 3,
+  "setting0_uneven": 12,
+  "waits_for_second": true,
+  "cached_seconds": [
+   44.6,
+   53.9
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/kinkel-op8-5-trennung--ms.pdf",
+  "pages": 2,
+  "setting0_uneven": 5,
+  "waits_for_second": true,
+  "cached_seconds": [
+   27.9,
+   29.1
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/kinkel-op8-5-trennung--vr.pdf",
+  "pages": 1,
+  "setting0_uneven": 8,
+  "waits_for_second": true,
+  "cached_seconds": [
+   23.8,
+   25.5
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/kinkel-op8-5-trennung--scan.pdf",
+  "pages": 2,
+  "setting0_uneven": 5,
+  "waits_for_second": true,
+  "cached_seconds": [
+   27.6,
+   34.8
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/schubert-die-stadt--ms.pdf",
+  "pages": 4,
+  "setting0_uneven": 13,
+  "waits_for_second": true,
+  "cached_seconds": [
+   49.8,
+   62.2
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/schubert-die-stadt--ly.pdf",
+  "pages": 4,
+  "setting0_uneven": 19,
+  "waits_for_second": true,
+  "cached_seconds": [
+   51.1,
+   63.6
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/schubert-ave-maria--ms.pdf",
+  "pages": 5,
+  "setting0_uneven": 7,
+  "waits_for_second": true,
+  "cached_seconds": [
+   53.3,
+   59.0
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/schubert-ave-maria--vr.pdf",
+  "pages": 3,
+  "setting0_uneven": 16,
+  "waits_for_second": true,
+  "cached_seconds": [
+   43.6,
+   55.4
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/beethoven-op52-2-feuerfarb--ms.pdf",
+  "pages": 3,
+  "setting0_uneven": 0,
+  "waits_for_second": false,
+  "cached_seconds": [
+   39.9,
+   46.1
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/beethoven-op52-2-feuerfarb--ly.pdf",
+  "pages": 2,
+  "setting0_uneven": 4,
+  "waits_for_second": true,
+  "cached_seconds": [
+   37.1,
+   48.5
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/haydn-canzonet-she-never-told--ms.pdf",
+  "pages": 3,
+  "setting0_uneven": 7,
+  "waits_for_second": true,
+  "cached_seconds": [
+   39.4,
+   50.7
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/haydn-canzonet-she-never-told--vr.pdf",
+  "pages": 2,
+  "setting0_uneven": 4,
+  "waits_for_second": true,
+  "cached_seconds": [
+   39.1,
+   49.4
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/beethoven-op48-5-gottes-macht--ms.pdf",
+  "pages": 1,
+  "setting0_uneven": 0,
+  "waits_for_second": false,
+  "cached_seconds": [
+   17.8,
+   20.1
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/beethoven-op48-5-gottes-macht--ly.pdf",
+  "pages": 1,
+  "setting0_uneven": 0,
+  "waits_for_second": false,
+  "cached_seconds": [
+   18.1,
+   20.2
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/beethoven-op48-5-gottes-macht--scan.pdf",
+  "pages": 1,
+  "setting0_uneven": 0,
+  "waits_for_second": false,
+  "cached_seconds": [
+   18.9,
+   23.2
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/haydn-quartet-op20-6--ms.pdf",
+  "pages": 2,
+  "setting0_uneven": 1,
+  "waits_for_second": false,
+  "cached_seconds": [
+   26.2,
+   29.5
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/haydn-quartet-op20-6--vr.pdf",
+  "pages": 2,
+  "setting0_uneven": 3,
+  "waits_for_second": false,
+  "cached_seconds": [
+   34.6,
+   38.9
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/mozart-quartet-k155--ms.pdf",
+  "pages": 2,
+  "setting0_uneven": 7,
+  "waits_for_second": true,
+  "cached_seconds": [
+   23.2,
+   27.2
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/mozart-quartet-k155--ly.pdf",
+  "pages": 2,
+  "setting0_uneven": 13,
+  "waits_for_second": true,
+  "cached_seconds": [
+   25.7,
+   32.8
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/mozart-quartet-k80--ms.pdf",
+  "pages": 1,
+  "setting0_uneven": 15,
+  "waits_for_second": true,
+  "cached_seconds": [
+   18.5,
+   23.0
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/mozart-quartet-k80--vr.pdf",
+  "pages": 3,
+  "setting0_uneven": 1,
+  "waits_for_second": false,
+  "cached_seconds": [
+   34.5,
+   40.5
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/mozart-quartet-k80--scan.pdf",
+  "pages": 1,
+  "setting0_uneven": 15,
+  "waits_for_second": true,
+  "cached_seconds": [
+   23.2,
+   29.4
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/mayer-quartet-op14--ms.pdf",
+  "pages": 3,
+  "setting0_uneven": 6,
+  "waits_for_second": true,
+  "cached_seconds": [
+   30.0,
+   33.9
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/mayer-quartet-op14--ly.pdf",
+  "pages": 2,
+  "setting0_uneven": 16,
+  "waits_for_second": true,
+  "cached_seconds": [
+   30.9,
+   38.0
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/mozart-k545-1--lilypond-mutopia.pdf",
+  "pages": 5,
+  "setting0_uneven": 4,
+  "waits_for_second": true,
+  "cached_seconds": [
+   74.7,
+   77.7
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/chopin-prelude-4--lilypond-mutopia.pdf",
+  "pages": 1,
+  "setting0_uneven": 1,
+  "waits_for_second": false,
+  "cached_seconds": [
+   24.6,
+   28.9
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/mozart-k545-1--real-scan-peters.pdf",
+  "pages": 4,
+  "setting0_uneven": 11,
+  "waits_for_second": true,
+  "cached_seconds": [
+   66.1,
+   68.7
+  ]
+ },
+ {
+  "set": "bench",
+  "pdf": "pdfs/chopin-prelude-4--real-scan-schirmer.pdf",
+  "pages": 1,
+  "setting0_uneven": 4,
+  "waits_for_second": true,
+  "cached_seconds": [
+   35.7,
+   40.4
+  ]
+ },
+ {
+  "set": "bench-heldout",
+  "pdf": "pdfs/h-schubert-aufenthalt--ms.pdf",
+  "pages": 3,
+  "setting0_uneven": 24,
+  "waits_for_second": true,
+  "cached_seconds": [
+   38.2,
+   42.8
+  ]
+ },
+ {
+  "set": "bench-heldout",
+  "pdf": "pdfs/h-schubert-aufenthalt--ly.pdf",
+  "pages": 2,
+  "setting0_uneven": 29,
+  "waits_for_second": true,
+  "cached_seconds": [
+   37.8,
+   44.7
+  ]
+ },
+ {
+  "set": "bench-heldout",
+  "pdf": "pdfs/h-holmes-barque-des-amours--ms.pdf",
+  "pages": 7,
+  "setting0_uneven": 24,
+  "waits_for_second": true,
+  "cached_seconds": [
+   70.4,
+   78.0
+  ]
+ },
+ {
+  "set": "bench-heldout",
+  "pdf": "pdfs/h-schubert-erlkonig--ms.pdf",
+  "pages": 3,
+  "setting0_uneven": 25,
+  "waits_for_second": true,
+  "cached_seconds": [
+   34.3,
+   35.5
+  ]
+ },
+ {
+  "set": "bench-heldout",
+  "pdf": "pdfs/h-schubert-erlkonig--ly.pdf",
+  "pages": 3,
+  "setting0_uneven": 33,
+  "waits_for_second": true,
+  "cached_seconds": [
+   40.4,
+   46.4
+  ]
+ },
+ {
+  "set": "bench-heldout",
+  "pdf": "pdfs/h-bizet-absence--ms.pdf",
+  "pages": 5,
+  "setting0_uneven": 10,
+  "waits_for_second": true,
+  "cached_seconds": [
+   55.8,
+   68.4
+  ]
+ },
+ {
+  "set": "bench-heldout",
+  "pdf": "pdfs/h-bizet-absence--ly.pdf",
+  "pages": 4,
+  "setting0_uneven": 28,
+  "waits_for_second": true,
+  "cached_seconds": [
+   57.7,
+   70.0
+  ]
+ },
+ {
+  "set": "bench-heldout",
+  "pdf": "pdfs/h-clara-schumann-liebeszauber--ms.pdf",
+  "pages": 5,
+  "setting0_uneven": 16,
+  "waits_for_second": true,
+  "cached_seconds": [
+   62.4,
+   68.9
+  ]
+ },
+ {
+  "set": "bench-heldout",
+  "pdf": "pdfs/h-haydn-o-tuneful-voice--ms.pdf",
+  "pages": 5,
+  "setting0_uneven": 40,
+  "waits_for_second": true,
+  "cached_seconds": [
+   57.6,
+   60.1
+  ]
+ },
+ {
+  "set": "bench-heldout",
+  "pdf": "pdfs/h-brahms-fruhlingstrost--ms.pdf",
+  "pages": 6,
+  "setting0_uneven": 21,
+  "waits_for_second": true,
+  "cached_seconds": [
+   63.6,
+   72.9
+  ]
+ },
+ {
+  "set": "bench-heldout",
+  "pdf": "pdfs/h-lang-traumbild--ms.pdf",
+  "pages": 6,
+  "setting0_uneven": 14,
+  "waits_for_second": true,
+  "cached_seconds": [
+   59.9,
+   71.3
+  ]
+ },
+ {
+  "set": "bench-heldout2",
+  "pdf": "pdfs/h2-bantock-ghost-road--ms.pdf",
+  "pages": 3,
+  "setting0_uneven": 3,
+  "waits_for_second": false,
+  "cached_seconds": [
+   36.1,
+   38.5
+  ]
+ },
+ {
+  "set": "bench-heldout2",
+  "pdf": "pdfs/h2-beach-years-at-spring--ms.pdf",
+  "pages": 3,
+  "setting0_uneven": 21,
+  "waits_for_second": true,
+  "cached_seconds": [
+   37.1,
+   46.3
+  ]
+ },
+ {
+  "set": "bench-heldout2",
+  "pdf": "pdfs/h2-berg-nacht--ms.pdf",
+  "pages": 5,
+  "setting0_uneven": 8,
+  "waits_for_second": true,
+  "cached_seconds": [
+   52.2,
+   62.0
+  ]
+ },
+ {
+  "set": "bench-heldout2",
+  "pdf": "pdfs/h2-bizet-adieux--ms.pdf",
+  "pages": 2,
+  "setting0_uneven": 24,
+  "waits_for_second": true,
+  "cached_seconds": [
+   25.6,
+   25.8
+  ]
+ },
+ {
+  "set": "bench-heldout2",
+  "pdf": "pdfs/h2-boulanger-poete--ms.pdf",
+  "pages": 4,
+  "setting0_uneven": 22,
+  "waits_for_second": true,
+  "cached_seconds": [
+   36.5,
+   48.3
+  ]
+ },
+ {
+  "set": "bench-heldout2",
+  "pdf": "pdfs/h2-brahms-liebestreu--ms.pdf",
+  "pages": 3,
+  "setting0_uneven": 24,
+  "waits_for_second": true,
+  "cached_seconds": [
+   38.7,
+   50.6
+  ]
+ },
+ {
+  "set": "bench-heldout3",
+  "pdf": "pdfs/h3-schumann-fruehlingsnacht--ms.pdf",
+  "pages": 5,
+  "setting0_uneven": 26,
+  "waits_for_second": true,
+  "cached_seconds": [
+   56.6,
+   68.5
+  ]
+ },
+ {
+  "set": "bench-heldout3",
+  "pdf": "pdfs/h3-franz-lotosblume--ms.pdf",
+  "pages": 4,
+  "setting0_uneven": 26,
+  "waits_for_second": true,
+  "cached_seconds": [
+   52.0,
+   65.8
+  ]
+ },
+ {
+  "set": "bench-heldout3",
+  "pdf": "pdfs/h3-faisst-sehnsucht--ms.pdf",
+  "pages": 7,
+  "setting0_uneven": 24,
+  "waits_for_second": true,
+  "cached_seconds": [
+   63.7,
+   77.7
+  ]
+ },
+ {
+  "set": "bench-heldout3",
+  "pdf": "pdfs/h3-schubert-kraehe--ms.pdf",
+  "pages": 3,
+  "setting0_uneven": 29,
+  "waits_for_second": true,
+  "cached_seconds": [
+   38.5,
+   46.5
+  ]
+ },
+ {
+  "set": "bench-heldout3",
+  "pdf": "pdfs/h3-lang-auf-der-reise--ms.pdf",
+  "pages": 4,
+  "setting0_uneven": 32,
+  "waits_for_second": true,
+  "cached_seconds": [
+   39.2,
+   45.0
+  ]
+ },
+ {
+  "set": "bench-heldout3",
+  "pdf": "pdfs/h3-hensel-mayenlied--ms.pdf",
+  "pages": 3,
+  "setting0_uneven": 18,
+  "waits_for_second": true,
+  "cached_seconds": [
+   39.8,
+   44.0
+  ]
+ },
+ {
+  "set": "bench-real",
+  "pdf": "pdfs/real-bach-wtc1-22-prelude--scan.pdf",
+  "pages": 2,
+  "setting0_uneven": 22,
+  "waits_for_second": true,
+  "cached_seconds": [
+   19.8,
+   18.9
+  ]
+ },
+ {
+  "set": "bench-real",
+  "pdf": "pdfs/real-beethoven-op2no1-iii--scan.pdf",
+  "pages": 2,
+  "setting0_uneven": 2,
+  "waits_for_second": false,
+  "cached_seconds": [
+   35.5,
+   35.3
+  ]
+ },
+ {
+  "set": "bench-real",
+  "pdf": "pdfs/real-grieg-op38no7--scan.pdf",
+  "pages": 2,
+  "setting0_uneven": 3,
+  "waits_for_second": false,
+  "cached_seconds": [
+   37.2,
+   34.4
+  ]
+ }
+]
