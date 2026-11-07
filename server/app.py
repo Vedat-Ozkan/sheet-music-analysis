@@ -491,12 +491,12 @@ def drawing_plan(mei: str, index: ScoreIndex) -> str:
 
 
 SKILL_RULES = re.sub(r"<!--.*?-->\n+", "", (HERE.parent / "skill" / "SKILL.md").read_text().split("## Method", 1)[1])
-REVIEW_GUIDE = (
-    "HOW TO USE THIS DRAFT\n"
-    "The draft below is a neural model's starting point, right about half the time on full chord labels. Check "
-    "each line against the NOTES table, analyse following the method below, then call render_analysis with the "
-    "score_id and your annotation list (its `view` argument draws one layer: harmony, voice_leading or form), "
-    "show the page and write the commentary.\n"
+SEND_DRAFT = os.environ.get("SEND_DRAFT", "on") != "off"
+DRAW_STEP = (
+    "call render_analysis with the score_id and your annotation list (its `view` argument draws one layer: "
+    "harmony, voice_leading or form), show the page and write the commentary.\n"
+)
+GUIDE_RULES = (
     "Positions: `measure` is the printed number (a pickup is 0); `beat` is 1-based in the unit given above; "
     "`pitch` is like \"Eb4\" at sounding pitch; `staff` 1 is the top staff.\n\n"
     "If there is a PART-WRITING CHECK section (chorale-style scores only), your first reply must include one "
@@ -510,6 +510,19 @@ REVIEW_GUIDE = (
     "reader would, not as an answer key, following that section's guidance. This is for learning; if they say it is "
     "coursework, remind them to check their course's rules on AI help.\n"
 )
+REVIEW_GUIDE = (
+    "HOW TO USE THIS DRAFT\n"
+    "The draft below is a neural model's starting point, right about half the time on full chord labels. Check "
+    "each line against the NOTES table, analyse following the method below, then " + DRAW_STEP + GUIDE_RULES
+)
+NOTES_GUIDE = (
+    "HOW TO ANALYSE THIS SCORE\n"
+    "No automatic draft analysis is given with this reply, by design: nothing failed, so do not mention a draft to "
+    "the user. Analyse from the NOTES table below, following the method "
+    "below; where the method mentions the draft, work from the notes instead. If the user asked for their own "
+    "numerals to be checked and there is no STUDENT CHECK section, compare them with your reading of the NOTES "
+    "table. Then " + DRAW_STEP + GUIDE_RULES
+)
 METHOD = "## Method" + SKILL_RULES
 
 
@@ -520,24 +533,31 @@ DRAFT_UNAVAILABLE = (
 )
 
 
+def model_output(code: str, index: ScoreIndex):
+    with stage("fetch"):
+        cached = store.get(f"scores/{code}.draft.json")
+    if cached:
+        return json.loads(cached)
+    try:
+        with tracer.start_as_current_span("model"):
+            raw = draft.MODELS["analysisgnn"](note_list.encode(index).encode(), "notes")
+    except draft.DraftError as error:
+        log("draft_analysis", outcome="degraded", draft_error=str(error)[:300], stack_trace=traceback.format_exc())
+        return None
+    with stage("publish"):
+        store.put(f"scores/{code}.draft.json", json.dumps(raw).encode())
+    return raw
+
+
 def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, student_analysis: str | None = None) -> str:
     with stage("parse"):
         mei = load_toolkit(score).getMEI()
         index = ScoreIndex(mei)
-    with stage("fetch"):
-        cached = store.get(f"scores/{code}.draft.json")
-    if cached:
-        raw = json.loads(cached)
-    else:
-        try:
-            with tracer.start_as_current_span("model"):
-                raw = draft.MODELS["analysisgnn"](note_list.encode(index).encode(), "notes")
-        except draft.DraftError as error:
-            raw = None
-            log("draft_analysis", outcome="degraded", draft_error=str(error)[:300], stack_trace=traceback.format_exc())
-        else:
-            with stage("publish"):
-                store.put(f"scores/{code}.draft.json", json.dumps(raw).encode())
+    needs_chords = SEND_DRAFT or student_analysis or optional("part_writing", lambda: part_writing.applies(index))
+    raw = model_output(code, index) if needs_chords else None
+    if not needs_chords:
+        store.put(f"scores/{code}.seen", b"")
+    log("draft_analysis", draft_sent=SEND_DRAFT and raw is not None)
     with stage("build"):
         result = draft.build(raw, index) if raw is not None else None
         first, last = measures or (None, None)
@@ -550,12 +570,18 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, studen
                 check_analysis.student_labels(student_analysis, score, index), result, index)
                 if student_analysis and result else ""),
         ]
+        if not SEND_DRAFT:
+            draft_section = ""
+        elif result:
+            draft_section = "\n" + draft.as_text(result, first, last)
+        else:
+            draft_section = "\n" + DRAFT_UNAVAILABLE
         return (
             f"score_id: {code}\nThe score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n"
             + ANNOTATION_FORMAT + drawing_plan(mei, index) + "\n"
-            + REVIEW_GUIDE
+            + (REVIEW_GUIDE if SEND_DRAFT else NOTES_GUIDE)
             + "".join("\n" + text + "\n" for text in (optional(name, make) for name, make in sections) if text)
-            + "\n" + (draft.as_text(result, first, last) if result else DRAFT_UNAVAILABLE)
+            + draft_section
             + "\n\n" + METHOD
             + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
             + reduce.as_text(index, first, last)
@@ -1177,7 +1203,8 @@ async def draft_analysis(
             await in_turn(check_analysis.from_text, student_analysis)
         if given == "score_id":
             code = clean_id(score_id)
-            fresh = await anyio.to_thread.run_sync(store.get, f"scores/{code}.draft.json") is None
+            kept = [await anyio.to_thread.run_sync(store.get, f"scores/{code}.{name}") for name in ("draft.json", "seen")]
+            fresh = all(item is None for item in kept)
         else:
             code = secrets.token_hex(8).upper()
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)

@@ -282,3 +282,34 @@ def test_the_draft_says_whether_the_whole_score_can_be_drawn_in_one_call(server,
     monkeypatch.setitem(app.draft.MODELS, "analysisgnn", unavailable)
     text = app.make_draft((DATA / name).read_bytes(), "PLAN", None)
     assert plan in text[:1000]
+
+
+def test_with_the_draft_parked_an_ordinary_score_gets_the_notes_without_starting_the_model(server, monkeypatch, capsys):
+    def must_not_run(*args):
+        raise AssertionError("the draft model was started")
+
+    monkeypatch.setattr(app, "SEND_DRAFT", False)
+    monkeypatch.setitem(app.draft.MODELS, "analysisgnn", must_not_run)
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    capsys.readouterr()
+    result = call("draft_analysis", {"score_id": score_id, "measure_range": "1-4"})
+    text = text_of(result)
+    assert not result.is_error
+    assert "No automatic draft analysis" in text and "NOTES (one row per beat" in text
+    assert "Draft analysis from" not in text and "DRAFT UNAVAILABLE" not in text and "HOW TO USE THIS DRAFT" not in text
+    assert logged(capsys, "draft_analysis")[-1]["draft_sent"] is False
+
+
+def test_with_the_draft_parked_a_score_is_charged_once_however_many_calls_ask_about_it(server, monkeypatch):
+    monkeypatch.setattr(app, "SEND_DRAFT", False)
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    for bars in ("1-4", "5-8", "1-8"):
+        assert not call("draft_analysis", {"score_id": score_id, "measure_range": bars}).is_error
+    assert charged(server, "draft") == 1
+
+
+def test_the_sent_draft_is_logged(server, capsys):
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    capsys.readouterr()
+    assert "Draft analysis from" in text_of(call("draft_analysis", {"score_id": score_id, "measure_range": "1-4"}))
+    assert logged(capsys, "draft_analysis")[-1]["draft_sent"] is True
