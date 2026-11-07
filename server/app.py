@@ -64,8 +64,10 @@ DOWNLOAD_SECONDS = 30
 MAX_REDIRECTS = 5
 RATING_AFTER_ANALYSES = 3
 DAILY_LIMITS = {"draft": 100, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
-CARD_URI = "ui://sheet-music-analysis/card-v2.html"
-PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v2.html"
+CARD_URI = "ui://sheet-music-analysis/card-v3.html"
+PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v3.html"
+HELD_CARD_URIS = {"ui://sheet-music-analysis/card-v2.html": "Analysis card",
+                  "ui://sheet-music-analysis/pdf-card-v2.html": "PDF reading card"}
 PLAYER_URI = "ui://sheet-music-analysis/player-v3.html"
 CONNECTOR_URL = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
 HERE = Path(__file__).parent
@@ -336,7 +338,7 @@ def observed(fn):
                         "message": f"{tool} {outcome}", "timings_ms": timings})
             with anyio.move_on_after(5):
                 await anyio.to_thread.run_sync(flush_traces, abandon_on_cancel=True)
-        return error_result(OUR_ERROR_MESSAGE.format(reference=call["reference"])) if outcome == "server_error" else result
+        return our_error(call["reference"]) if outcome == "server_error" else result
 
     return wrapper
 
@@ -362,6 +364,11 @@ OUR_ERROR_MESSAGE = (
     "Apologise to the user for us, and tell them that if they would like to tell us what happened or get help, "
     "they can email support@sheetmusicanalysis.com and mention reference {reference}; we read every message "
     "and their feedback helps us fix it."
+)
+OUR_ERROR_FOR_CARD = "Something went wrong on our side, not with your score."
+UNREAD_PDF_FOR_CARD = (
+    "The music in this PDF could not be read. A PDF exported from notation software reads best; a scan should be "
+    "straight and sharp. A MusicXML file needs no reading at all."
 )
 
 LIMIT_MESSAGE = (
@@ -467,8 +474,14 @@ def outcome_of(error: Exception) -> str:
     return "server_error" if isinstance(error, draft.DraftError) else "user_error"
 
 
-def error_result(message: str) -> CallToolResult:
-    return CallToolResult(content=[TextContent(type="text", text=message)], is_error=True)
+def error_result(message: str, report: dict | None = None) -> CallToolResult:
+    return CallToolResult(content=[TextContent(type="text", text=message)], is_error=True,
+                          meta={"report": report} if report else None)
+
+
+def our_error(reference: str) -> CallToolResult:
+    return error_result(OUR_ERROR_MESSAGE.format(reference=reference),
+                        {"text": OUR_ERROR_FOR_CARD, "reference": reference})
 
 
 ANNOTATION_FORMAT = (
@@ -773,14 +786,32 @@ async def rate_analysis(ctx: Context, helpful: bool) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text="Thanks; the rating is recorded.")])
 
 
-apps.add_html_resource(
-    CARD_URI,
-    (HERE / "card.html").read_text(),
-    name="Analysis card",
-    csp=ResourceCsp(resource_domains=[PUBLIC_BASE_URL]),
-    domain="https://sheetmusicanalysis.com",
-    prefers_border=True,
+@apps.tool(
+    resource_uri=CARD_URI,
+    visibility=["app"],
+    title="Report a problem",
+    description="Records that the user sent us the problem shown in the card, by its reference.",
+    annotations=ToolAnnotations(title="Report a problem", read_only_hint=False, destructive_hint=False,
+                                idempotent_hint=False, open_world_hint=False),
 )
+@observed
+async def report_problem(ctx: Context, reference: str) -> CallToolResult:
+    if not re.fullmatch(r"[0-9a-f]{8}", reference):
+        return error_result("Not a reference.")
+    log("report_problem", about=reference)
+    return CallToolResult(content=[TextContent(type="text", text="Thanks; the report is recorded.")])
+
+
+for uri, name, card in [(CARD_URI, "Analysis card", "card.html"), (PDF_CARD_URI, "PDF reading card", "card.html"),
+                        *((uri, name, "card-v2.html") for uri, name in HELD_CARD_URIS.items())]:
+    apps.add_html_resource(
+        uri,
+        (HERE / card).read_text(),
+        name=name,
+        csp=ResourceCsp(resource_domains=[PUBLIC_BASE_URL]),
+        domain="https://sheetmusicanalysis.com",
+        prefers_border=True,
+    )
 
 BUSY_MESSAGE = (
     "Another PDF is being read right now, and a PDF can take several minutes to read. Tell the user plainly that the "
@@ -857,6 +888,8 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
         current_call.get().update(event="read_pdf", platform=source, outcome="server_error",
                                   reference=details["reference"], stack_trace=details["stack_trace"])
         return result
+    if "reference" in details:
+        current_call.get()["reference"] = details["reference"]
     if details.get("limit"):
         log("limit", tool="read_pdf", platform=source, pages=details.get("pages"))
     else:
@@ -906,7 +939,7 @@ async def wait_for_other_machine(card_key: str, since: float, source: str, keep_
                 else:
                     log("read_pdf", platform=source, keep_slurs=keep_slurs, other_machine=True,
                         **({"busy": True} if failure["error"] == "busy" else {"error": failure["error"]}))
-                return error_result(failure["text"])
+                return error_result(failure["text"], failure.get("report"))
             await anyio.sleep(POLL_SECONDS)
     log("read_pdf", platform=source, reading=True, other_machine=True, keep_slurs=keep_slurs)
     return CallToolResult(content=[TextContent(type="text", text=STILL_READING.format(
@@ -935,21 +968,26 @@ async def pdf_outcome(data: bytes, digest: str, keep_slurs: bool, source: str, c
         outcome = "ok" if isinstance(result, dict) else "limit" if details.get("limit") else "busy" if details.get("busy") else "user_error"
     except (ScoreError, pdf_reader.ReadError) as error:
         details.update(error=type(error).__name__, passes=getattr(error, "passes", None) or None)
-        result = error_result(str(error) + (pdf_reader.NEXT_STEP if isinstance(error, pdf_reader.ReadError) else ""))
         if isinstance(error, pdf_reader.ReadError):
+            details.update(reference=secrets.token_hex(4), digest=digest)
+            result = error_result(str(error) + pdf_reader.NEXT_STEP,
+                                  {"text": UNREAD_PDF_FOR_CARD, "reference": details["reference"]})
             try:
                 await anyio.to_thread.run_sync(store.put, f"failed/{digest}.pdf", data)
             except Exception:
                 details["failed_copy_lost"] = True
+        else:
+            result = error_result(str(error))
         outcome = "user_error"
     except Exception:
         details["stack_trace"] = traceback.format_exc()
         reference = secrets.token_hex(4)
         details["reference"] = reference
-        result = error_result(OUR_ERROR_MESSAGE.format(reference=reference))
+        result = our_error(reference)
         outcome = "server_error"
     if not isinstance(result, dict):
-        failure = {"at": time.time(), "error": details.get("error", outcome), "text": result.content[0].text}
+        failure = {"at": time.time(), "error": details.get("error", outcome), "text": result.content[0].text,
+                   "report": (result.meta or {}).get("report")}
         await anyio.to_thread.run_sync(store.put, failure_of(card_key), json.dumps(failure).encode())
     timings["total"] = round((time.perf_counter() - started) * 1000)
     details["outcome"] = outcome
@@ -1048,14 +1086,6 @@ def pdf_card_result(card: dict, keep_slurs: bool) -> CallToolResult:
     )
 
 
-apps.add_html_resource(
-    PDF_CARD_URI,
-    (HERE / "card.html").read_text(),
-    name="PDF reading card",
-    csp=ResourceCsp(resource_domains=[PUBLIC_BASE_URL]),
-    domain="https://sheetmusicanalysis.com",
-    prefers_border=True,
-)
 
 
 

@@ -2325,6 +2325,27 @@ Looked at the last page of each reading against the scan; the owner then read th
 
 **Known limits.** A page whose own drawing commands are unbalanced can scale wrongly. A PDF where only some pages are too small gets no retry; those pages are reported as skipped. Whether the reader honours `UserUnit` was not checked.
 
+### 128. A card that lets the user send us a failed call with one tap (2026-11-07, branch `error-card`, not released)
+
+**Why.** When a call fails, the only way to tell us has been the support email address in the model's apology, and the owner judged email too much effort. Also, a real ChatGPT test today showed ChatGPT leaving out the whole notice a PDF reading asked it to relay ("This scan is too small to read well..."), so text meant for the user is safer in the card than in the model's reply.
+
+**What the user sees.** When `read_pdf` or `render_analysis` fails on our side, or a PDF cannot be read, the card shows the problem in plain words, a button **Send this problem to us**, and under it "Sends us reference 3f9a1c07 so we can look into it. Nothing from your chat is sent." After the tap: "Sent. Thank you; we look at every report." The card remembers the tap (widget state), so it does not ask again. Card text: "Something went wrong on our side, not with your score." or "The music in this PDF could not be read. A PDF exported from notation software reads best; a scan should be straight and sharp. A MusicXML file needs no reading at all." Wording is the owner's call; the alternatives are "Report this problem" / "Reported. Thank you." or a plain link-style button under the text.
+
+**Which failures get the button.** Server errors and unreadable PDFs only. Not the daily limit or the busy message (nothing for us to fix; a report would only repeat what the logs already count), not a too-long PDF, a non-PDF file or a bad score id (the user can act on them), and not "fix these annotations" messages (aimed at the model, which retries). The rating prompt never shows on a failure, so prompts do not stack.
+
+**What we keep.** One log line `report_problem` with the reference and the usage identifier, 30 days like every log line. The reference already leads to the failed call's log line, and an unread PDF's line now also records the file's digest, which names the copy already kept for 7 days under `failed/`. Nothing new is stored and no chat text is sent. Privacy page: one new row, "A problem report, if you press "Send this problem to us" (ChatGPT): the problem's reference number, with the usage identifier. Nothing from your chat is sent. — 30 days, in the server logs."
+
+**Tools and addresses.** New app-only tool `report_problem(reference)` (`visibility=["app"]`, eight hex characters or refused). The card moves to `card-v3.html` and `pdf-card-v3.html`, so `render_analysis`, `read_pdf` and `rate_analysis` change metadata. The v2 addresses keep serving the card as it was on main (`server/card-v2.html`, a frozen copy without the button) until OpenAI approves; delete it and `HELD_CARD_URIS` after approval. Error results keep `isError` and carry `_meta.report` (seen by the card only, not the model). OpenAI must review: the new tool, the three tools' new template addresses, and the privacy page.
+
+**Alternatives considered.**
+- *Ask ChatGPT for a summary.* The card could also ask ChatGPT (`sendFollowUpMessage`) to describe what the user asked. That posts a message in the user's chat, and since `report_problem` is card-only the summary only reaches us if the tool becomes model-visible: a bigger review, a tool the model may call unprompted, and chat text as new personal data. Not built.
+- *A normal result instead of an error.* One unconfirmed forum report says ChatGPT's mobile app draws no card when `isError` is true. Returning the failure as a normal result with the text plus card would avoid that, but changes what the model is told and how the logs classify outcomes. Kept `isError`; switch only if the real-ChatGPT check shows no card on mobile.
+- *Failures in tools with no card* (`draft_analysis`, `correct_bars`) still give only the email address; giving them a card would put an empty frame under every successful call.
+
+**Option for the owner, not built: the reading's notice in the card.** The card now has a text slot. Showing a PDF reading's notice and warning there is one more field in `pdf_card_result` and a line in the card.
+
+**Checks.** `tests/test_chatgpt_flow.py`, `tests/test_rating.py`, `tests/test_pdf_same_file.py`: 45 passed; the six new tests passed again after the last card change. The tests do not run the card's script; it was rendered locally in a headless browser before and after the tap, and with a score to check the normal state still draws. Full suite NOT RUN. Not yet seen in real ChatGPT.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

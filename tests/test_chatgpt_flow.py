@@ -332,3 +332,74 @@ def test_the_sent_draft_is_logged(server, capsys):
     capsys.readouterr()
     assert "Draft analysis from" in text_of(call("draft_analysis", {"score_id": score_id, "measure_range": "1-4"}))
     assert logged(capsys, "draft_analysis")[-1]["draft_sent"] is True
+
+
+def report_of(result):
+    return (result.meta or {}).get("report")
+
+
+def test_an_unread_pdf_offers_the_user_a_report_that_finds_the_kept_file(server, monkeypatch, capsys):
+    def unreadable(data):
+        raise pdf_reader.ReadError("No music could be read from this PDF", [{"setting": 0, "outcome": "no music"}])
+
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable)
+    report = report_of(call("read_pdf", ATTACHED))
+    assert report["text"] == app.UNREAD_PDF_FOR_CARD
+    lines = logged(capsys, "read_pdf")
+    work = [line for line in lines if line.get("event") == "read_pdf_work"][-1]
+    assert work["reference"] == report["reference"]
+    assert server.get(f"failed/{work['digest']}.pdf") == PDF
+    assert [line for line in lines if line.get("tool") == "read_pdf"][-1]["reference"] == report["reference"]
+    assert not call("report_problem", {"reference": report["reference"]}).is_error
+    reports = [line for line in logged(capsys, "report_problem") if line.get("event") == "report_problem"]
+    assert reports[-1]["about"] == report["reference"]
+
+
+def test_a_server_error_offers_a_report_with_the_reference_in_the_message(server, monkeypatch):
+    def crash(data):
+        raise RuntimeError("injected")
+
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", crash)
+    result = call("read_pdf", ATTACHED)
+    assert f"reference {report_of(result)['reference']}" in text_of(result)
+    assert report_of(result)["text"] == app.OUR_ERROR_FOR_CARD
+
+
+def test_a_crash_while_drawing_offers_a_report(server, monkeypatch):
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+
+    def crash(*args, **kwargs):
+        raise RuntimeError("injected")
+
+    monkeypatch.setattr(app, "draw", crash)
+    result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": []}})
+    assert result.is_error and f"reference {report_of(result)['reference']}" in text_of(result)
+
+
+def test_limits_and_mistakes_the_model_can_fix_offer_no_report(server, monkeypatch):
+    assert report_of(call("render_analysis", {"score_id": "NOSUCHSCORE", "annotations": {"annotations": []}})) is None
+    monkeypatch.setitem(app.DAILY_LIMITS, "pdf_page", 0)
+    limited = call("read_pdf", ATTACHED)
+    assert app.LIMIT_MESSAGE in text_of(limited) and report_of(limited) is None
+
+
+def test_only_the_card_can_send_a_report_and_only_a_reference(server):
+    async def go():
+        async with Client(app.mcp) as client:
+            tools = {tool.name: tool for tool in (await client.list_tools()).tools}
+            return tools["report_problem"], await client.call_tool("report_problem", {"reference": "see my chat"})
+
+    tool, refused = anyio.run(go)
+    assert tool.meta["ui"]["visibility"] == ["app"]
+    assert refused.is_error
+
+
+def test_cards_held_for_review_keep_their_old_page():
+    async def go():
+        async with Client(app.mcp) as client:
+            return {uri: (await client.read_resource(uri)).contents[0].text
+                    for uri in [app.CARD_URI, *app.HELD_CARD_URIS]}
+
+    pages = anyio.run(go)
+    assert "report_problem" in pages[app.CARD_URI]
+    assert all("report_problem" not in pages[uri] for uri in app.HELD_CARD_URIS)
