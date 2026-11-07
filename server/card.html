@@ -50,6 +50,7 @@
   <button id="send">Send this problem to us</button>
   <small id="sending">Sends us reference <span id="reference"></span> so we can look into it. Nothing from your chat is sent.</small>
   <small id="sent" hidden>Sent. Thank you; we look at every report.</small>
+  <small id="unsent" hidden>It could not be sent from here. You can email support@sheetmusicanalysis.com and mention reference <span id="unsent-reference"></span>.</small>
 </div>
 <script>
   let nextId = 1;
@@ -80,6 +81,7 @@
     document.getElementById("send").hidden = sent;
     document.getElementById("sending").hidden = sent;
     document.getElementById("sent").hidden = !sent;
+    document.getElementById("unsent").hidden = true;
     document.getElementById("report").hidden = false;
   }
   function show(data, metadata) {
@@ -145,7 +147,13 @@
     button.disabled = true;
     request("tools/call", { name: "report_problem", arguments: { reference: report.reference } }).then((result) => {
       button.disabled = false;
-      if (!result || result.isError) return;
+      if (!result || result.isError) {
+        button.hidden = true;
+        document.getElementById("sending").hidden = true;
+        document.getElementById("unsent-reference").textContent = report.reference;
+        document.getElementById("unsent").hidden = false;
+        return;
+      }
       if (window.openai && window.openai.setWidgetState) window.openai.setWidgetState({ reported: true });
       showReport(true);
     });

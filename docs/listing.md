@@ -1,6 +1,6 @@
 # Directory listings (draft for the owner's approval)
 
-Text for the Claude and ChatGPT directory forms. Keep it consistent with the website, readable by someone with very basic music knowledge, and honest about the weak spots (borrowed chords sometimes read as a key change; Debussy-style music gets looser descriptions).
+Text for the Claude directory forms and the ChatGPT plugin ZIP. Keep it consistent with the website, readable by someone with very basic music knowledge, and honest about the weak spots (borrowed chords sometimes read as a key change; Debussy-style music gets looser descriptions).
 
 ## Shared
 
@@ -21,7 +21,7 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 
 **Description** (Claude up to 2,000 characters, ChatGPT up to 4,000; about 1,300):
 
-> Sheet Music Analysis marks up a piece of music the way a theory teacher would pencil it in. Attach a score as a MusicXML file (.mxl or .musicxml, which MuseScore, Sibelius, Finale and Dorico can all export) or a PDF of printed music, and ask what is happening in the music. A PDF is read first and shown to you to check before anything is analysed.
+> Sheet Music Analysis marks up a piece of music the way a theory teacher would pencil it in. Attach a score as a MusicXML file (.mxl or .musicxml, which MuseScore, Sibelius, Finale and Dorico can all export) or a PDF of printed music, and ask what is happening in the music. A PDF is read first, and bars that may be misread are shaded so you can check them.
 >
 > You get the engraved score back, as an image and a PDF, with:
 > - every chord labelled with a Roman numeral, and coloured bands showing its job: home (tonic), moving away (predominant) or pulling back home (dominant);
@@ -85,7 +85,7 @@ Requirement to state wherever the form allows: Claude's **Code execution and fil
 - **Retention:** note lists are deleted after one day.
 - **Age-appropriateness:** suitable for general audiences, including students under 18.
 
-## ChatGPT: submission form
+## ChatGPT: plugin ZIP
 
 OpenAI now takes a plugin ZIP rather than a form: the text below lives in `openai-plugin/plugin.json` (see the README), and is uploaded at platform.openai.com/plugins.
 
