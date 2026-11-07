@@ -48,7 +48,7 @@ from engine import correct, draft, read_ahead
 from engine import notes as note_list
 from engine import read_pdf as pdf_reader
 from engine import check_analysis, ledger, part_writing, reduce
-from engine.annotate import AnnotationError, render
+from engine.annotate import AnnotationError, leave_out_rejected, render
 from engine.performance import marked_index, performance_text, unclear_tempos
 from engine.annotations import AnnotationList, view_named
 from engine.export import export_midi, export_musicxml, export_romantext
@@ -607,21 +607,11 @@ NOTHING_DRAWN = (
 
 
 async def draw(score: bytes, annotations: AnnotationList, measures: tuple[int, int] | None, view: str, piano: bool):
-    left_out, numbers = [], list(range(len(annotations.annotations)))
-    while True:
-        try:
-            engraving = await in_turn(lambda: render(score, annotations, measures=measures, view=view, piano=piano))
-            return engraving, annotations, left_out
-        except AnnotationError as error:
-            if not error.rejected or len(left_out) > 1:
-                raise
-            problems = [re.sub(r"^annotations\[(\d+)\]", lambda match: f"annotations[{numbers[int(match[1])]}]", problem)
-                        for problem in error.problems]
-            kept = [position for position in range(len(numbers)) if position not in error.rejected]
-            annotations = annotations.model_copy(update={"annotations": [annotations.annotations[i] for i in kept]})
-            numbers = [numbers[i] for i in kept]
-            left_out.append("Left out because their positions do not fit the score (fix them and call again to add "
-                            "them; numbers refer to your list):\n" + "\n".join(problems))
+    engraving, annotations, problems = await in_turn(
+        lambda: leave_out_rejected(lambda kept: render(score, kept, measures=measures, view=view, piano=piano), annotations))
+    left_out = ["Left out, for the reason on each line (fix them and call again to add them; numbers refer to your "
+                "list):\n" + "\n".join(problems)] if problems else []
+    return engraving, annotations, left_out
 
 
 @apps.tool(
@@ -706,7 +696,7 @@ async def render_analysis(
     more_pages = (f"\nThe card shows the first {CARD_PAGES} of the {engraving.page_count} pages; the PDF has them all. "
                   "Tell the user to open the PDF for the rest." if engraving.page_count > CARD_PAGES else "")
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
-        view=view, measure_range=measure_range, left_out=len(left_out) or None)
+        view=view, measure_range=measure_range, left_out=asked - len(annotations.annotations) or None)
     structured_content = {**links, "caption": caption}
     if not asked:
         left_out.append(NOTHING_DRAWN.format(score_id=score_id))

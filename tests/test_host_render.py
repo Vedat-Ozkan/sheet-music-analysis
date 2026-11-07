@@ -120,6 +120,23 @@ def test_skill_render_style_and_musicxml(chopin, chopin_annotations, tmp_path, s
     check_export(exported.read_bytes(), annotations)
 
 
+def test_skill_draws_without_an_alternative_with_the_wrong_number_of_chords_and_warns(chopin, chopin_annotations, tmp_path):
+    marks = chopin_annotations.model_dump(exclude_none=True)['annotations']
+    alternative = {'type': 'alternative', 'start': {'measure': 6, 'beat': 1}, 'end': {'measure': 6}, 'label': 'c: V7 i iv'}
+    source = tmp_path / 'annotations.json'
+    source.write_text(AnnotationList.model_validate({'annotations': marks + [alternative]}).model_dump_json())
+    result = subprocess.run(
+        [sys.executable, str(ROOT / 'skill/scripts/render_analysis.py'), str(ROOT / 'tests/data/chopin_nocturne_op9_no2.mxl'),
+         str(source), '--measures', '1-8', '--out-dir', str(tmp_path)],
+        capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(ROOT)},
+    )
+    assert result.returncode == 0, result.stderr
+    assert 'Warning' in result.stderr
+    assert f'annotations[{len(marks)}] (alternative): its label has 3 chords' in result.stderr
+    assert (tmp_path / 'analysis.png').read_bytes() == render(chopin, chopin_annotations, measures=(1, 8)).png(1, width=1600)
+    check_export((tmp_path / 'analysis.musicxml').read_bytes(), chopin_annotations)
+
+
 @pytest.mark.parametrize('host', ['server', 'skill'])
 def test_legacy_latin1_render_and_export(tmp_path, monkeypatch, host):
     score = (ROOT / 'tests/data/export_placement.musicxml').read_bytes()

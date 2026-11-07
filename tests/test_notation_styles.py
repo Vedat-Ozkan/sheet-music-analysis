@@ -159,9 +159,9 @@ def test_skill_script_reports_invalid_figured_bass_key(tmp_path):
          str(annotations), '--measures', '1', '--out-dir', str(tmp_path / 'output')],
         capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(Path.cwd())},
     )
-    assert result.returncode == 1
-    assert 'Invalid active key' in result.stderr and 'Traceback' not in result.stderr
-    assert not (tmp_path / 'output').exists()
+    assert result.returncode == 0, result.stderr
+    assert 'Warning' in result.stderr and 'Invalid active key' in result.stderr and 'Traceback' not in result.stderr
+    assert (tmp_path / 'output' / 'analysis.png').exists()
 
 
 def test_abrsm_drops_an_explicit_root_position_figure():

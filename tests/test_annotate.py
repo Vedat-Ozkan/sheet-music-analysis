@@ -1,4 +1,5 @@
 import io
+import json
 import re
 from pathlib import Path
 
@@ -9,8 +10,9 @@ from engine.annotate import AnnotationError, render
 from engine.annotations import AnnotationList
 from engine.export import export_midi
 from engine.overlay import ARROW, ERROR
-from engine.render import engrave
-from engine.score import PositionError
+from engine.render import engrave, load_toolkit
+from engine.score import PositionError, ScoreIndex
+from eval.review import problems_in
 
 GOLDEN = Path(__file__).parent / "golden" / "chopin_m1-8_all.png"
 
@@ -121,6 +123,20 @@ def test_alternative_with_the_wrong_number_of_chords_is_sent_back(chopin, chopin
         {"annotations": chopin_annotations.model_dump(exclude_none=True)["annotations"] + [alternative]})
     with pytest.raises(AnnotationError, match="has 3 chords but those bars have 2"):
         render(chopin, annotations, measures=(1, 8))
+
+
+def test_the_evaluation_leaves_out_marks_the_score_cannot_take_and_keeps_the_rest(chopin, chopin_annotations):
+    marks = [{"type": "phrase", "start": {"measure": 1}, "end": {"measure": 4}, "label": "a"},
+             *chopin_annotations.model_dump(exclude_none=True)["annotations"]]
+    alternative = {"type": "alternative", "start": {"measure": 6, "beat": 1}, "end": {"measure": 6}, "label": "c: V7 i iv"}
+    reply = "```json\n" + json.dumps({"annotations": marks + [alternative]}) + "\n```\nCommentary."
+    data, problems, left_out = problems_in(reply, ScoreIndex(load_toolkit(chopin).getMEI()))
+    assert data["annotations"] == marks
+    assert problems.splitlines() == [
+        f"annotations[{len(marks)}] (alternative): its label has 3 chords but those bars have 2 harmony labels; "
+        "give one chord per harmony label, '-' where unchanged"]
+    assert left_out == 1
+    assert problems_in("No list this time.", ScoreIndex(load_toolkit(chopin).getMEI()))[0] is None
 
 
 def test_a_backwards_bar_range_is_refused(chopin, chopin_annotations):

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import math
 import re
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, TypeVar
 from xml.sax.saxutils import escape
 
 from engine import notation, slurs
@@ -14,6 +15,7 @@ from engine.score import PositionError, ScoreIndex
 if TYPE_CHECKING:
     from engine.comparison import Label
 
+Drawn = TypeVar("Drawn")
 ONE_PAGE_HEIGHT = 60000
 ONE_PAGE_BARS = 32
 
@@ -77,6 +79,22 @@ def check(annotations: AnnotationList, index: ScoreIndex) -> None:
                 rejected.add(number)
     if problems:
         raise AnnotationError(problems, rejected)
+
+
+def leave_out_rejected(draw: Callable[[AnnotationList], Drawn], annotations: AnnotationList) -> tuple[Drawn, AnnotationList, list[str]]:
+    numbers, left_out, rounds = list(range(len(annotations.annotations))), [], 2
+    while True:
+        try:
+            return draw(annotations), annotations, left_out
+        except AnnotationError as error:
+            if not error.rejected or not rounds:
+                raise
+            rounds -= 1
+            left_out += [re.sub(r"^annotations\[(\d+)\]", lambda match: f"annotations[{numbers[int(match[1])]}]", problem)
+                         for problem in error.problems]
+            kept = [position for position in range(len(numbers)) if position not in error.rejected]
+            annotations = annotations.model_copy(update={"annotations": [annotations.annotations[i] for i in kept]})
+            numbers = [numbers[i] for i in kept]
 
 
 def render(
