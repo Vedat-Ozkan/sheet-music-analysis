@@ -692,6 +692,17 @@ def _slurs_to_chords(mei: str) -> str:
     return re.sub(r"<slur\b[^>]*/>", retarget, mei)
 
 
+_INNERMOST_BEAM = re.compile(r"<beam\b[^>]*(?<!/)>((?:(?!<beam\b|</beam>).)*)</beam>", flags=re.S)
+
+
+def noteless_beams(mei: str) -> list[str]:
+    return [beam.group(0) for beam in _INNERMOST_BEAM.finditer(mei) if not _holds_notes(beam)]
+
+
+def _holds_notes(beam: re.Match) -> bool:
+    return bool(re.search(r"<(?:note|chord)\b", beam.group(1)))
+
+
 def _space(start_tag: str) -> str:
     length = " ".join(re.findall(r'\b(?:dur|dots)="[^"]+"', start_tag))
     return f"<space {length} />"
