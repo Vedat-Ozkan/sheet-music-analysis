@@ -2256,6 +2256,45 @@ By chord (recall / precision), all 36: experts 0.91 / 0.81 / 0.70 at each level 
 
 **Effect on the saved corpus (first-reply problems).** `opus-medium-multi-alone-table`: 15 of 15 retries removed. `opus-medium-alone-table-30`: 5 of 13 removed; the other 8 are `region.start.staff` schema errors, which the server also refuses whole, so their retries stay. 20 of 28 retries removed in all. Tests: full suite 1266 passed, 9 skipped, 2 xfailed before the last evaluation edit; the touched files (295) rerun after it, and 90 again after the merge here; `diff_check --base main` unchanged on render, export and typed. A page with a bad alternative and a measure-99 harmony added was looked at full size: everything else drawn, both left out.
 
+### 124. Reader sma.7 released, the draft parked, plugin 1.8.0 (2026-11-07)
+
+**Released.** GitHub release `5.11.0-sma.7` of the reader fork (jar built from `378e4fd6d`, the head of `sma-pitch`, 63 commits over Audiveris 5.11.0). `main` moved from `517a891` to `3596be6`: entries 114 to 123 (reader sma.7 and the warning for notes that do not line up, the `staff` and callout fixes to the annotation spec and format, marks the score cannot take left out everywhere, the test-suite grouping), plus the `draft-switch` branch and the deploy change below. CI green on `3596be6`. Staging revision `sheet-music-analysis-staging-00079-h4f`, production revision `sheet-music-analysis-00048-9ss`, plugin 1.8.0 on `main` (the Claude skill now draws with a warning instead of refusing a page with one bad mark; `dist/` names reader sma.7).
+
+**The draft is parked.** Entries 118, 119 and 122 found the draft model adds no accuracy for any reviewer, makes the ChatGPT model worse, and misses more chord changes (27 against 19 per 100). `server/deploy.sh` now deploys with `SEND_DRAFT=off` unless `SEND_DRAFT=on` is given; the server then sends the method, the guides and the note table without a draft section and tells the model not to mention a draft. A `scores/{code}.seen` marker keeps the daily draft count at one per score, as before, however many calls ask about it (models call `draft_analysis` two or three times per analysis, entry 121). No instance setting changed; the model is still in the image, and whether its worker still starts at boot was not checked. Owner decision 2026-11-06.
+
+**Checks.** Full suite on the merged branch with the sma.7 reader set: 1314 passed, 4 skipped (no ring codes), 2 expected failures, 6 minutes. Three tools called directly on staging and then on production (MCP client, bearer token on staging): `draft_analysis` on Chopin Op. 28 No. 20, 1 s, 12,287 characters, no draft section; `render_analysis` with an `alternative` whose label has three chords over two harmonies drew the page and listed the mark under the new note; `read_pdf` on the Chopin Op. 28 No. 4 test PDF, 62 s on staging and 42 s on production, 26 bars, bar 18 shaded. Startup lines of both revisions clean apart from the known library deprecation warnings. NOT RUN: ChatGPT itself, and the plugin in the Claude app.
+
+### 125. Sub-beat table rows and the reworded method text, on 12 more pieces (2026-11-06)
+
+**Question.** Entry 122's reworded method text looked like a small gain on 6 pieces. Two further ideas for the missed chord changes cost no model change: a table row at each point within a beat where the lowest note changes pitch class (branch `table-changes`, `477ec66`), and a header line saying how often the bass changes per bar. Tested in three arms on 12 held-out pieces chosen by rule (every second held-out piece by name, the 6 already used left out; 21 passages, 449 bars), Opus medium, no draft, one run per arm, against the saved no-draft run on the same passages. US$31.61.
+
+| Arm | Missed / extra changes per 100 | Recall / precision, full, by chord | Full by time | Function by time |
+|---|---|---|---|---|
+| Baseline `opus-medium-alone-table-30` | 19.7 / 4.0 | 0.604 / 0.643 | 0.703 | 0.825 |
+| A, table rows only | 19.6 / 3.4 | 0.634 / 0.679 | 0.727 | 0.826 |
+| B, reworded text only | 17.6 / 5.2 | 0.586 / 0.624 | 0.678 | 0.815 |
+| C, both | 15.2 / 6.0 | 0.662 / 0.665 | 0.748 | 0.845 |
+
+Mean per-piece change against the baseline (noise reference from entry 122: about ±6 missed per 100 and ±0.03 at full between two runs of one setup): A missed −0.4, full by time +0.013; B missed −1.8, full −0.020; C missed −3.6, full +0.032, recall at full +0.037. Extra changes rise in C (+3.0 per 100), nearly all from one song, *Der Atlas* (22.6 to 61.3). The Grieg Op. 12 No. 3 gain in A and C (0.68 to 0.91) is a key reading, not added chords: the baseline hears bars 9 to 12 as a modulation to B, C stays in E. Two pages drawn both ways (Bach chorale BWV 38.6, Grieg Op. 12 No. 3) in `out/eval/table-test-2026-11-06/`: not crowded; C adds one short chord to the chorale.
+
+**What it means.** The rewording's first result was noise: +0.04 on 6 pieces, −0.02 on these 12. The table rows alone change nothing. Together they are the one effect at the edge of noise, from one run. Neither is adopted; C would need one more run on other pieces. The sub-beat rule adds about two rows a beat on figuration pieces and made Beethoven Op. 2 No. 1 iii miss more changes in A (37.7 to 54.1 per 100).
+
+### 126. A second and third human analysis of the F minor prelude (2026-11-07)
+
+**Question.** Entry 120 could not say how far experts agree on the Bach preludes, since the data holds one analysis (Gotham) of each. Two older analyses were found: Riemann, *Analysis of J. S. Bach's Wohltemperirtes Clavier* (1890, English translation), and Keller, *The Well-Tempered Clavier by Johann Sebastian Bach* (1965, translation 1976), both public-domain scans the owner downloaded by hand to `out/riemann/`. The Read tool could not open the scans (JBIG2 images, no PDF renderer on the machine); the reader's own bundled PDF library rendered the pages.
+
+**Riemann** gives a one-staff reduction of the whole prelude with a chord symbol under every beat, 73 chords over all 22 bars, in his Klang notation (°c is F minor, c7 is C major with seventh, fVII is the half-diminished seventh on G). He names no keys or inversions chord by chord; inversions were taken from the score's bass and keys placed by us (they match Gotham's at 0.99). Transcription with page numbers and every symbol's reading in `out/riemann/prelude12-riemann.md`; RomanText beside it. **Keller** names one chord in the prelude (A♭ major at bar 9) and nothing else; recorded, not used.
+
+| Bars 1 to 22, by time: root / function / full | |
+|---|---|
+| Gotham against Riemann (two humans) | 0.65 / 0.48 / 0.32 |
+| Gotham against ours (`opus-medium-alone-table-30`) | 0.81 / 0.66 / 0.46 |
+| Riemann against ours | 0.67 / 0.57 / 0.39 |
+
+By chord, Gotham against Riemann at full: recall 0.31, precision 0.27. The disagreement is systematic: where the bass omits the root, Riemann writes a rooted dominant (V7, V7/V) and Gotham a leading-tone chord (viio6/5 and the like); subdominant chords (iiø7 against iv6 and ii6); the order of i6/4 and V over the pedal at bar 16; and Riemann ends on minor where the score ends on F major. Our reading sides mostly with Gotham, and with Riemann at bars 4, 5, 6 and 8 (V6/5 against viio7).
+
+**What it means.** On this prelude we agree with the reference more than the second human does. One piece and an 1890 analyst from another tradition, so it is a data point, not a ceiling for the preludes; but it says the prelude's low score is not a shortfall against a consensus, because there is none on this music.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
