@@ -2295,6 +2295,36 @@ By chord, Gotham against Riemann at full: recall 0.31, precision 0.27. The disag
 
 **What it means.** On this prelude we agree with the reference more than the second human does. One piece and an 1890 analyst from another tradition, so it is a data point, not a ceiling for the preludes; but it says the prelude's low score is not a shortfall against a consensus, because there is none on this music.
 
+### 127. Two real PDFs refused for their page size, and what we keep to find out why (2026-11-07, not released)
+
+**What users hit.** Since reader sma.7 went live, three ChatGPT users sent PDFs. One read (72 bars) and reached three marked pages. Two got "No music could be read" and did not retry: 2 pages at 1600×2133 at 12:01 UTC and 4 pages at about 7000×10000 at 14:59 UTC. The PDFs were not stored, so nobody can inspect them, and the log did not record why the reader refused them.
+
+**Causes.** The reader draws each page at 300 dpi of its page box. It refuses anything over 20 million pixels at its load step, and anything with staff lines under 11 pixels apart at its scale step. Enlarging our own Chopin Op. 28 No. 4 PDF to 7192×10172 gave the second user's log pattern; reducing a page of a real Joseffy scan to about 1000 pixels wide on a 3.3-inch page gave the first user's. The same image on an A4 page read in both cases. The first user's file is matched only by its log pattern, not proven.
+
+**The first design was wrong, and the corpus check found it.** Scaling by rule any page over 18 million pixels or under A5 would have resized 50 of 648 PDFs, including `mozart-41` (a long, thin page that reads today, which would have got tiny staves) and real small-page scans that already read. The change now touches only what would fail anyway:
+- a page over the reader's limit is shrunk to about the area of A4 before reading (26 of the 648 PDFs have such a page; the size test below chose A4);
+- when no setting gives a reading and the reader reports staff lines too close, the PDF is enlarged to about 20 pixels between lines and read once more, within the same overall time limit.
+
+| Input | Before | After |
+|---|---|---|
+| Chopin Op. 28 No. 4 on an oversize page | refused | 26 bars, 599 notes, 1 shaded: same as the normal PDF |
+| Joseffy scan, about 1000 pixels wide | refused | 32 bars, 436 notes, 22 shaded |
+| The same scan at full size (5244×6888) | refused | 32 bars, 416 notes, 13 shaded |
+
+Looked at the last page of each reading against the scan; the owner then read them against the print. The low-resolution reading is unreliable: bar 28 has half notes that are not in the print and a lost rest, bar 30 has a C for a D, and bar 27 is wrong with no shading. A reading made this way now says that many mistakes are likely, including in bars with no shading (owner's choice over refusing the file).
+
+**Page size against accuracy.** Five real scans, 253 bars, each page scaled to a target size; the as-is run reproduced the known 141. Exact bars: 4 million pixels 105, 6 million 134, 8.7 million (A4) 139, 12 million 140, 15 million 140, 17.5 million 138, 19.4 million 140, as is 141. Single pieces move by several bars with no trend, so above 6 million pixels the differences are noise, and size is not a route to accuracy on these scans. One Joseffy page looked much better at 19.4 million than at A4, but that one page has no reference and the five-piece result does not support it. Wrong bars with no shading stay at 50-62% at every size.
+
+**Why triplets and unshaded bars were missed on that page (Opus review; not fixed).** The reader finds the printed 3 in bar 27 and links it, then deletes it at a score of 0.168 against a floor of 0.5; keeping it does not repair the bar and costs right bars elsewhere. A full left hand hides a short right hand from the short-bar check, which also turns off when no time signature is read (68 of 291 readings). Neither justified a patch.
+
+**Other readers on the same five scans.** After that page the owner asked whether the reader should be replaced, so two others were run locally through the same scorer, which reproduced our 141 piece by piece. Exact bars of 253: ours 141 (55.7%, pitch 89.2, timing 80.1); Sheet Music Transformer `smt-fp-grandstaff` 34 (13.4%, pitch 82.0, timing 54.0, 74 s a page on 4 CPU threads, 1.8 GB); oemer 11 (4.3%, pitch 60.9, timing 33.4, about 5 minutes a page, 7.8 GB). The 34 needed a lenient hand-written converter with up to 296 repairs a page; with the standard converter it scores 0. No reader tested beats ours, so nothing changes. NOT RUN: LEGATO and `smt-fp-polish-scores`, whose weights need the owner's Hugging Face login and acceptance of terms. Evidence is in `~/omr-reader-test-2026-11-07`, outside the repo.
+
+**Logging and keeping files.** `read_pdf_work` now records page sizes in points, embedded image sizes, whether the file is a scan, and the reader's reason (page too large, staff lines too close or too far apart, with the spacing it measured). A PDF that fails to read is kept under `failed/` for 7 days; the privacy page says so (owner approved 2026-11-07). The policy must be live before or with the deploy that starts keeping files.
+
+**Checks.** Full suite with the sma.7 reader set: 1335 passed, 4 skipped (no ring codes), 2 expected failures. A second-model review found the retry's separate time budget, server errors on malformed page boxes and a storage failure replacing the user's message; all three fixed and tested. `tools/diff_check.py` has no area covering reading, so the check across PDFs is the page-size test and the count above. NOT RUN: the change in ChatGPT itself, staging, a real phone photo.
+
+**Known limits.** A page whose own drawing commands are unbalanced can scale wrongly. A PDF where only some pages are too small gets no retry; those pages are reported as skipped. Whether the reader honours `UserUnit` was not checked.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

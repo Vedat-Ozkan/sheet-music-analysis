@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import io
 import json
 from datetime import datetime, timezone
@@ -62,6 +63,7 @@ def test_a_pdf_reading_states_its_bars_so_the_model_can_ask_for_real_ranges(serv
     assert "The score has measures 0 to 24" in text_of(result)
     line = [line for line in logged(capsys, "read_pdf") if line.get("event") == "read_pdf_work"][-1]
     assert (line["bars"], line["bars_shaded"]) == (25, 1)
+    assert line["page_points"] and line["image_pixels"] and "scan" in line
 
 
 def test_drawing_with_no_marks_tells_the_model_to_analyse_first(server):
@@ -112,6 +114,23 @@ def test_a_pdf_that_cannot_be_read_says_what_to_try_next(server, monkeypatch):
     monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable)
     result = call("read_pdf", ATTACHED)
     assert result.is_error and "a MusicXML file" in text_of(result)
+    assert server.get(f"failed/{hashlib.sha256(PDF).hexdigest()}.pdf") == PDF
+
+
+def test_losing_the_copy_of_an_unread_pdf_does_not_change_what_the_user_is_told(server, monkeypatch, capsys):
+    def unreadable(data):
+        raise pdf_reader.ReadError("No music could be read from this PDF", [{"setting": 0, "outcome": "no music"}])
+
+    def no_failed_copies(key, data, keep=server.put):
+        if key.startswith("failed/"):
+            raise OSError("bucket down")
+        keep(key, data)
+
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable)
+    monkeypatch.setattr(server, "put", no_failed_copies)
+    result = call("read_pdf", ATTACHED)
+    assert result.is_error and "a MusicXML file" in text_of(result)
+    assert [line for line in logged(capsys, "read_pdf") if line.get("event") == "read_pdf_work"][-1]["failed_copy_lost"]
 
 
 def test_a_whole_piece_comes_back_as_one_pdf_with_every_mark(server):
