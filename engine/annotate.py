@@ -66,12 +66,13 @@ def check(annotations: AnnotationList, index: ScoreIndex) -> None:
         except PositionError as error:
             problems.append(f"annotations[{number}] ({annotation.type}): {error}")
             rejected.add(number)
-            continue
-        if isinstance(annotation, Alternative):
+    harmonies = [h for number, h in enumerate(annotations.annotations) if isinstance(h, Harmony) and number not in rejected]
+    for number, annotation in enumerate(annotations.annotations):
+        if isinstance(annotation, Alternative) and number not in rejected:
             where = lambda measure, beat: (index.measure(measure).index, beat)
             last = where(annotation.end.measure, annotation.end.beat if annotation.end.beat is not None else math.inf)
             count = sum(where(annotation.start.measure, annotation.start.beat) <= where(h.at.measure, h.at.beat) <= last
-                        for h in annotations.annotations if isinstance(h, Harmony))
+                        for h in harmonies)
             tokens = len(re.sub(r"^\S+: ", "", annotation.label).split())
             if tokens != count:
                 problems.append(f"annotations[{number}] (alternative): its label has {tokens} chords but those bars have {count} "

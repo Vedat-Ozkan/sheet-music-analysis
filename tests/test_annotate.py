@@ -129,13 +129,15 @@ def test_the_evaluation_leaves_out_marks_the_score_cannot_take_and_keeps_the_res
     marks = [{"type": "phrase", "start": {"measure": 1}, "end": {"measure": 4}, "label": "a"},
              *chopin_annotations.model_dump(exclude_none=True)["annotations"]]
     alternative = {"type": "alternative", "start": {"measure": 6, "beat": 1}, "end": {"measure": 6}, "label": "c: V7 i iv"}
-    reply = "```json\n" + json.dumps({"annotations": marks + [alternative]}) + "\n```\nCommentary."
+    missing = {"type": "harmony", "at": {"measure": 99, "beat": 1}, "label": "V"}
+    reply = "```json\n" + json.dumps({"annotations": marks + [alternative, missing]}) + "\n```\nCommentary."
     data, problems, left_out = problems_in(reply, ScoreIndex(load_toolkit(chopin).getMEI()))
     assert data["annotations"] == marks
     assert problems.splitlines() == [
+        f"annotations[{len(marks) + 1}] (harmony): Measure 99 does not exist; the score has measures 0 to 37",
         f"annotations[{len(marks)}] (alternative): its label has 3 chords but those bars have 2 harmony labels; "
         "give one chord per harmony label, '-' where unchanged"]
-    assert left_out == 1
+    assert left_out == 2
     assert problems_in("No list this time.", ScoreIndex(load_toolkit(chopin).getMEI()))[0] is None
 
 
