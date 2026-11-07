@@ -9,7 +9,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from engine.annotate import AnnotationError, render
+from engine.annotate import AnnotationError, leave_out_rejected, render
 from engine.annotations import VIEWS, AnnotationList
 from engine.export import export_midi, export_musicxml, export_romantext
 from engine.render import parse_measures
@@ -41,15 +41,21 @@ def main() -> int:
     try:
         measures = parse_measures(args.measures)
         score = args.score.read_bytes()
-        engraving = render(score, annotations, measures=measures, view=args.view, piano=args.piano)
+        engraving, annotations, left_out = leave_out_rejected(
+            lambda kept: render(score, kept, measures=measures, view=args.view, piano=args.piano), annotations)
     except AnnotationError as error:
-        print("Some annotations point at places that are not in the score. Fix these and run again:", file=sys.stderr)
+        print("Fix these annotations and run again:", file=sys.stderr)
         for problem in error.problems:
             print(f"  {problem}", file=sys.stderr)
         return 1
     except (ValueError, OSError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
+    if left_out:
+        print("Warning: drawn without these annotations, for the reason on each line. Fix them and run again to add "
+              "them (numbers refer to your list):", file=sys.stderr)
+        for problem in left_out:
+            print(f"  {problem}", file=sys.stderr)
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     xml = args.out_dir / f"{args.name}.musicxml"

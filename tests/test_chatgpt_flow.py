@@ -1,3 +1,4 @@
+import base64
 import io
 import json
 from datetime import datetime, timezone
@@ -9,6 +10,7 @@ import pytest
 from mcp.client.client import Client
 
 from engine import draft
+from engine.annotate import render
 from engine import read_pdf as pdf_reader
 from server import app
 
@@ -131,6 +133,18 @@ def test_numbers_of_marks_left_out_refer_to_the_list_the_model_sent(server):
     result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1-4"})
     assert "annotations[0] (harmony): Measure 99" in text_of(result)
     assert "annotations[2] (harmony): Measure 98" in text_of(result)
+
+
+def test_an_alternative_with_the_wrong_number_of_chords_is_left_out_and_the_rest_drawn(server, chopin, chopin_annotations, capsys):
+    server.put("scores/NOCTURNE", NOCTURNE)
+    marks = chopin_annotations.model_dump(exclude_none=True)["annotations"]
+    alternative = {"type": "alternative", "start": {"measure": 6, "beat": 1}, "end": {"measure": 6}, "label": "c: V7 i iv"}
+    result = call("render_analysis", {"score_id": "NOCTURNE", "annotations": {"annotations": marks + [alternative]}, "measure_range": "1-8"})
+    assert not result.is_error
+    assert f"annotations[{len(marks)}] (alternative): its label has 3 chords" in text_of(result)
+    assert "Left out" in text_of(result) and "position" not in text_of(result)
+    assert base64.b64decode(result.content[0].data) == render(chopin, chopin_annotations, measures=(1, 8)).png(1)
+    assert logged(capsys, "render_analysis")[-1]["left_out"] == 1
 
 
 def logged(capsys, tool):

@@ -4,8 +4,9 @@
 
 For each passage the model is given what the skill gives it (the method from skill/SKILL.md, the
 annotation format, the note table and the model's draft) and nothing else: no tools, no reference
-analyses. Its annotation list is checked against the score the way the renderer would, with one
-chance to correct what does not resolve. Passages are merged into out/eval/reviewed/<model>[-<effort>]/<id>.json,
+analyses. Its annotation list is checked against the score the way the renderer would: marks that do
+not fit are left out, as the renderer leaves them out, and a reply with no annotation list or one that
+does not match the format gets one chance to correct it. Passages are merged into out/eval/reviewed/<model>[-<effort>]/<id>.json,
 with the commentary beside it in <id>.md. Finished passages are kept, so a stopped run resumes.
 """
 
@@ -25,7 +26,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from engine import draft, harmony, reduce, render
-from engine.annotate import check
+from engine.annotate import check, leave_out_rejected
 from engine.annotations import AnnotationList
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
@@ -191,16 +192,20 @@ def ask(prompt: str, model: str, effort: str | None = None, files: dict[str, byt
     return answer
 
 
-def problems_in(reply: str, index: ScoreIndex) -> tuple[dict | None, str]:
+def problems_in(reply: str, index: ScoreIndex) -> tuple[dict | None, str, int]:
     block = re.search(r"```json\s*(.*?)```", reply, re.DOTALL)
     if not block:
-        return None, "No ```json block found."
+        return None, "No ```json block found.", 0
     try:
         data = json.loads(block.group(1))
-        check(AnnotationList.model_validate(data), index)
+        annotations = AnnotationList.model_validate(data)
+        _, kept, left_out = leave_out_rejected(lambda kept: check(kept, index), annotations)
     except Exception as error:
-        return None, str(error)[:3000]
-    return data, ""
+        return None, str(error)[:3000], 0
+    if left_out:
+        kept_ids = {id(annotation) for annotation in kept.annotations}
+        data = {**data, "annotations": [raw for raw, annotation in zip(data["annotations"], annotations.annotations) if id(annotation) in kept_ids]}
+    return data, "\n".join(left_out)[:3000], len(annotations.annotations) - len(kept.annotations)
 
 
 def run_name(model: str, effort: str | None, tag: str | None = None) -> str:
@@ -282,26 +287,26 @@ def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: 
         answers.append({"result": "```json\n" + json.dumps({"annotations": before["annotations"]}) + "\n```\n\n" + before["commentary"], "total_cost_usd": 0})
     else:
         answers.append(ask(prompt, model, effort, files))
-    data, problems = problems_in(answers[-1]["result"], index)
+    data, problems, left_out = problems_in(answers[-1]["result"], index)
     first_problems = problems
     if data is None:
         answers.append(ask(prompt + RETRY.format(reply=answers[-1]["result"], problems=problems), model, effort, files))
-        data, problems = problems_in(answers[-1]["result"], index)
+        data, problems, left_out = problems_in(answers[-1]["result"], index)
     flagged = []
     if selfcheck and data is not None:
         flagged = harmony.mismatches(data["annotations"], index)
         if flagged:
             answers.append(ask(prompt + SELFCHECK.format(reply=answers[-1]["result"], problems="\n".join(flagged[:25])), model, effort, files))
-            checked, still = problems_in(answers[-1]["result"], index)
+            checked, still, dropped = problems_in(answers[-1]["result"], index)
             if checked is not None:
-                data, problems = checked, still
+                data, problems, left_out = checked, still, dropped
             else:
                 answers.pop()
     if second_readings and data is not None:
         unsure = sorted((chord for chord in drafted.chords if first <= chord.measure <= last), key=lambda chord: chord.confidence)[:4]
         doubtful = "\n".join(f"m{chord.measure} b{chord.beat:g} {chord.key}: {chord.label} ({chord.confidence:.2f})" + (f", or {chord.alternative} ({chord.alternative_confidence:.2f})" if chord.alternative else "") for chord in unsure)
         answers.append(ask(prompt + SECOND_READINGS.format(reply=answers[-1]["result"], doubtful=doubtful or "none"), model, effort, files))
-        added, _ = problems_in(answers[-1]["result"], index)
+        added, _, _ = problems_in(answers[-1]["result"], index)
         if added is not None:
             numbers = {item["number"] for item in data["annotations"] if item["type"] == "callout"}
             new = [item for item in added["annotations"] if item["type"] == "alternative" or item["type"] == "callout" and item["number"] not in numbers]
@@ -316,6 +321,7 @@ def review(piece: pieces.Piece, index: ScoreIndex, drafted: draft.Draft, first: 
         "commentary": re.sub(r"```json.*?```", "", reply, flags=re.DOTALL).strip(),
         "problems": problems,
         "attempts": len(answers),
+        "left_out": left_out,
         "seconds": round(time.time() - started),
         "cost_usd": round(sum(answer.get("total_cost_usd") or 0 for answer in answers), 3),
         "tokens": sum(tokens(answer) for answer in answers),
