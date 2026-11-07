@@ -2325,6 +2325,43 @@ Looked at the last page of each reading against the scan; the owner then read th
 
 **Known limits.** A page whose own drawing commands are unbalanced can scale wrongly. A PDF where only some pages are too small gets no retry; those pages are reported as skipped. Whether the reader honours `UserUnit` was not checked.
 
+### 128. Can a learned check make the unshaded bars trustworthy? (2026-11-07, study, not released)
+
+**Problem.** Users are shown unshaded bars as fine when many are wrong. Question: from signals the reader already gives us, can a small learned "is this bar wrong?" check make the unshaded bars almost always right, if we accept shading more?
+
+**Method.** Scripts `spike/omr/speed/wrong_bar_features.py` and `wrong_bar_model.py`. Readings: the cached `marks1` readings (fork `dbe09b8a6`, one commit behind sma.7's `378e4fd6d`, and without the later `indentations=false` setting, which changed none of 49 clean PDFs in entry 110), shaded with today's `main` engine. 291 PDFs, 10,042 read bars, 174 pieces, in four groups: 5 real old scans (253 bars, the five-scan set), 69 OLiMPiC scanned systems (276 bars), 8 made-up scans (271) and 209 engraved PDFs (9,242). A read bar is wrong when its notes (pitch and start) differ from the bar it lines up with in the true score, or when it lines up with none; exact match (rests, ties, lengths too) is a second label. 38 true bars have no read bar at all and cannot be shaded; they are left out. Per bar, 32 numbers taken from the reading only: today's shading and its neighbours, share shaded in the piece, scan or not, whether the two reader settings disagree on that bar (both readings exist for 144 of 291 PDFs, the ones where the first reading had problems, as in production), counts of notes, rests, voices, staves, grace notes, tuplets, ties, how full each staff is, clef, key and octave-line changes, notes out of key, very low or high notes, a staff far from its usual register, jumps from the bar before, shortest note, marks and text, new system, first or last bar. Models: logistic regression and boosted trees (scikit-learn, already installed). Five-fold cross-validation with every version of a piece in the same fold (OLiMPiC grouped by work). The headline operating points pick their threshold inside the training folds only.
+
+**Baseline: today's shading** (wrong = notes differ).
+
+| Data | Bars | Wrong | Shaded | Unshaded that are right | Wrong bars shaded |
+|---|---|---|---|---|---|
+| Real old scans | 253 | 92 | 17.8% | 76.4% | 46.7% |
+| OLiMPiC scans | 276 | 204 | 43.5% | 42.9% | 56.4% |
+| Made-up scans | 271 | 85 | 24.4% | 87.3% | 69.4% |
+| Engraved | 9,242 | 2,113 | 16.7% | 90.2% | 64.4% |
+| All | 10,042 | 2,494 | 17.7% | 88.9% | 63.2% |
+
+One real scan, the Bach WTC I No. 22 prelude, is wrong and shaded in all 24 bars; without it, today's shading catches 21 of 68 wrong real-scan bars (31%). With exact match as the label, unshaded right is 69.2% on real scans and 76.8% overall.
+
+**Result.** The check ranks wrong bars better than today's shading (area under the curve, all bars: 0.80 for today's shading, 0.885 logistic, 0.88 trees; real scans 0.73 to 0.83 and 0.87), but it does not make the unshaded bars almost always right. Share of unshaded bars that are right, against share shaded (cross-validated scores, one threshold for all data):
+
+| Shaded | 20% | 30% | 40% | 50% | 60% | 80% |
+|---|---|---|---|---|---|---|
+| All, today's shading (17.7% shaded) | 88.9 | | | | | |
+| All, trees | 90.0 | 92.3 | 93.7 | 94.2 | 94.2 | 94.1 |
+| Engraved, trees | 90.6 | 92.6 | 93.7 | 94.2 | 94.2 | 94.1 |
+| Real scans, trees (shaded there) | 79.0 (23%) | 85.5 (37%) | | 89.9 (61%) | | 88.9 (86%) |
+
+It flattens at about 94-95% even when most bars are shaded: half the music shaded still leaves 290 wrong bars unshaded, and on real scans 90% needs about 60% of the bars shaded (72 right bars shaded to save 31). The table is the check alone; the held-out rows shade the check's bars and today's together. With the threshold chosen in training for 90% right, the held-out result is 90.2% right at 20% shaded overall and 81.9% at 26% on real scans. Asked for 95%, the threshold shades 91% of all bars and still gives only 92.3%. OLiMPiC systems are wrong in 74% of bars, so nothing short of shading all of them helps there.
+
+**What matters.** By shuffling one feature at a time: today's shading is far the largest (0.11 of area), then the two settings disagreeing (0.017), number of voices (0.015-0.03), how full the emptiest staff is (0.009-0.013), staves, piece shaded share and scan. The pitch features (register, out of key, jumps, very low notes) add almost nothing.
+
+**Why it stops at 94%.** Of the wrong bars still unshaded at 50% shaded, 89 of 290 are one note off and 91 two notes off, with 74 six or more; nearly all are in engraved PDFs. A wrong pitch, a lost accidental or a missed note leaves a bar that adds up and looks like any other bar in the reading. Nothing in the reading itself separates them; the evidence is on the page (the reader's own confidence in each symbol, or noteheads counted from the image), which our cached readings do not keep.
+
+**Limits.** Readings are `marks1`, not a sma.7 re-read (NOT RUN; this PC was busy and the study needed none). The reader's symbol grades, staff spacing and page contrast are not in the cached readings, so those features were NOT RUN. Five real-scan pieces is too few to trust their figures beyond the first digit. Thresholds from one global ranking are slightly optimistic; the held-out rows are the honest ones. Production shading is unchanged.
+
+**Next.** Add per-bar reader confidence (the lowest grade of the notes, heads and accidentals in each bar, from the reader's saved book) to a re-read of 2-3 pieces, and see whether it separates the one- and two-note errors before any full run.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
