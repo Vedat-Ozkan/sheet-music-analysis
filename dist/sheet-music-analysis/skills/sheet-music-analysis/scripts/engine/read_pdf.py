@@ -12,10 +12,11 @@ import threading
 import time
 import xml.etree.ElementTree as ET
 import zipfile
-from collections import Counter
+from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from fractions import Fraction
+from itertools import combinations
 from pathlib import Path
 
 import pikepdf
@@ -53,7 +54,7 @@ _BASE = ["-option", _SWITCH + "indentations=false",
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_BASE, _BASE + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
 _LELAND = ["-option", "org.audiveris.omr.ui.symbol.MusicFont.defaultMusicFamily=Leland"]
-READER = "5.11.0-sma.6-best2-tuplet-rests-eight-leland-ocr-r9"
+READER = "5.11.0-sma.7-best2-tuplet-rests-eight-leland-ocr-r9"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
@@ -75,14 +76,14 @@ def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool, spots
     text = CHECK + (" " + SCAN_WARNING if scan else "")
     if skipped:
         pages = ", ".join(str(page) for page in skipped)
-        text += f" Page{'s' if len(skipped) > 1 else ''} {pages} could not be read (no staves were found), so that music is missing."
+        text += f" Page{'s' if len(skipped) > 1 else ''} {pages} could not be read, so that music is missing."
     uneven, guessed = spots or problem_spots(score)
     if guessed:
         text += " No time signature was read, so bars were checked against the most common bar length."
     if uneven:
-        verb = "doesn't" if len(uneven) == 1 else "don't"
+        verb = "looks" if len(uneven) == 1 else "look"
         who = f"The shaded bars ({_numbers(uneven)[5:]})" if len(uneven) > SHOWN else f"{_numbers(uneven)} (shaded)"
-        text += f" {who} {verb} add up to a full bar, so a note or triplet may be misread there."
+        text += f" {who} {verb} misread: the beats don't add up, or notes that should line up don't."
     return text + ("" if slurs_kept else " " + SLURS_LEFT_OUT)
 
 
@@ -105,7 +106,8 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
     bars = []
     timing_errors = set()
     inferred = False
-    for part in ET.fromstring(score).iter("part"):
+    columns = defaultdict(list)
+    for part_index, part in enumerate(ET.fromstring(score).iter("part")):
         divisions, full = 1, None
         part_bars, guessed = [], False
         for position, measure in enumerate(part.iter("measure"), start=1):
@@ -116,7 +118,7 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
             if beats and all(count.strip().isdigit() for count in beats.split("+")):
                 full = Fraction(sum(int(count) for count in beats.split("+")) * 4, int(time.findtext("beat-type")))
             voices, staff_of, gap = {}, {}, {}
-            cursor = Fraction(0)
+            cursor = onset = Fraction(0)
             for element in measure:
                 if element.tag == "backup" and element.findtext("duration"):
                     cursor -= Fraction(element.findtext("duration")) / divisions
@@ -131,6 +133,11 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
                         if abs(Fraction(element.findtext("duration")) / divisions - expected) > TOLERANCE:
                             if (number := number_at.get(position)) is not None:
                                 timing_errors.add(number)
+                if element.tag == "note" and element.find("grace") is None:
+                    if element.find("chord") is None:
+                        onset = cursor
+                    if element.find("pitch") is not None and element.get("default-x"):
+                        columns[position].append((part_index, element.findtext("voice", "1"), onset, float(element.get("default-x"))))
                 timed = element.tag == "forward" or (element.tag == "note" and element.find("chord") is None)
                 if timed and element.find("grace") is None and element.findtext("duration"):
                     voice = element.findtext("voice", "1")
@@ -167,9 +174,22 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
         if longest > full + TOLERANCE or overlapping or (short and not (first or completes or halves)):
             if number is not None and number not in uneven:
                 uneven.append(number)
+    timing_errors.update(number_at[position] for position, notes in columns.items()
+                         if position in number_at and _columns_disagree(notes))
     return sorted(set(uneven) | (timing_errors if timing else set())), inferred
 
 
+def _columns_disagree(notes: list[tuple[int, str, Fraction, float]]) -> bool:
+    for (part, voice, onset, x), (other_part, other_voice, other_onset, other_x) in combinations(notes, 2):
+        if (part, voice) == (other_part, other_voice):
+            continue
+        apart = abs(x - other_x)
+        if (onset != other_onset and apart <= SAME_COLUMN) or (onset == other_onset and apart > SAME_TIME_APART):
+            return True
+    return False
+
+
+SAME_COLUMN, SAME_TIME_APART = 3, 25
 PREVIEW_OPTIONS = {**tint.BOXES, "spacingSystem": 7}
 BAR_NUMBER_SIZE = 500
 TOP_CLEARANCE = 3 * tint.SPACE
@@ -352,7 +372,7 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
                    for setting in range(len(SETTINGS))]
         try:
             first = futures[0].result()
-            if first[1] is not None and len(first[1][2]) <= RETRY_ABOVE:
+            if first[1] is not None and not first[1][1] and len(first[1][2]) <= RETRY_ABOVE:
                 stop.set()
             results = [first, *(future.result() for future in futures[1:])]
         finally:
@@ -371,6 +391,69 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
         except Exception:
             log.exception("PDF reading repair %s failed", repair.__name__)
     return PdfReading(musicxml, pages, scan, skipped, passes)
+
+
+_TEMPO_NUMBER = re.compile(r"=\s*\d|\bca\.?\s*\d")
+_OCTAVE_TEXT = re.compile(r"(8|15)\s*[v0o]?(a|b|ma|mb)?[\s,.'\"_|—–-]*$", re.IGNORECASE)
+_ROMAN_NUMERAL = re.compile(r"[ivIV]+[o+]?[\d()/ivIVo+]*$")
+_EXPRESSION = re.compile(r"(?:de)?cresc|dim|rit|rall|dolce|espr|legato|sempre|poco", re.IGNORECASE)
+_DYNAMIC = re.compile(r"(?:p{1,4}|f{1,4}|mp|mf|fp|sf|sfz|sfp|fz|rf|rfz)\.?$", re.IGNORECASE)
+
+
+def text_meaning(text: str) -> str:
+    stripped = text.strip()
+    if _TEMPO_NUMBER.search(stripped):
+        return "tempo"
+    letters = sum(char.isalpha() for char in stripped)
+    if letters == 0:
+        return "fingering" if any(char.isdigit() for char in stripped) else "stray"
+    if _DYNAMIC.match(stripped):
+        return "dynamic"
+    if _OCTAVE_TEXT.match(stripped):
+        return "octave"
+    if _ROMAN_NUMERAL.match(stripped):
+        return "numeral"
+    return "words" if letters / len(stripped.replace(" ", "")) >= 0.5 else "stray"
+
+
+def _keep_meaningful_text(root: ET.Element) -> None:
+    for measure in root.iter("measure"):
+        for direction in measure.findall("direction"):
+            for kind in direction.findall("direction-type"):
+                for words in kind.findall("words"):
+                    meaning = text_meaning(words.text or "")
+                    if meaning in {"fingering", "stray"}:
+                        kind.remove(words)
+                    elif meaning == "dynamic":
+                        kind.remove(words)
+                        ET.SubElement(ET.SubElement(kind, "dynamics"), (words.text or "").strip().rstrip(".").lower())
+                if len(kind) == 0:
+                    direction.remove(kind)
+            if direction.find("direction-type") is None:
+                measure.remove(direction)
+
+
+def _lyrics_to_directions(root: ET.Element) -> None:
+    for part in root.iter("part"):
+        lyrics = [(measure, note, lyric) for measure in part.iter("measure") for note in measure.findall("note")
+                  for lyric in note.findall("lyric")]
+        marks = [item for item in lyrics if text_meaning(item[2].findtext("text") or "") == "dynamic"
+                 or _EXPRESSION.match((item[2].findtext("text") or "").strip())]
+        split = sum(item[2].findtext("syllabic") in {"begin", "middle", "end"} for item in lyrics)
+        if 5 * split >= len(lyrics) and 2 * len(marks) < len(lyrics):
+            continue
+        for measure, note, lyric in marks:
+            note.remove(lyric)
+            text = (lyric.findtext("text") or "").strip()
+            direction = ET.Element("direction", placement="below")
+            kind = ET.SubElement(direction, "direction-type")
+            if text_meaning(text) == "dynamic":
+                ET.SubElement(ET.SubElement(kind, "dynamics"), text.rstrip(".").lower())
+            else:
+                ET.SubElement(kind, "words").text = text
+            if note.find("staff") is not None:
+                ET.SubElement(direction, "staff").text = note.findtext("staff")
+            measure.insert(list(measure).index(note), direction)
 
 
 def _pitched_notes(musicxml: bytes) -> int:
@@ -612,6 +695,8 @@ def clean(mxl: bytes) -> bytes:
                     open_lines[number] = (measure, direction)
         for measure, direction in unclosed + list(open_lines.values()):
             measure.remove(direction)
+    _keep_meaningful_text(root)
+    _lyrics_to_directions(root)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
