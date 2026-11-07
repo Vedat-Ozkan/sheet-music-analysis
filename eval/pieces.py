@@ -295,9 +295,21 @@ def _heldout() -> list[Piece]:
     return found
 
 
+def _multi_expert() -> list[Piece]:
+    found = []
+    for line in (Path(__file__).parent / "multi-expert-set.txt").read_text().splitlines():
+        if not line or line.startswith("#"):
+            continue
+        folder, source = line.split("\t")
+        name = folder.removeprefix("Corpus/").split("/", 1)[1]
+        found.append(Piece("multi-" + re.sub(r"\W+", "-", name).strip("-").lower(), name.replace("_", " "), source, ROME + urllib.parse.quote(folder.removeprefix("Corpus/")) + "/analysis.txt", fix="harmony"))
+    return found
+
+
 HELDOUT = _heldout()
-SETS = {"core": PIECES, "heldout": HELDOUT}
-BY_ID = {piece.id: piece for piece in PIECES + HELDOUT}
+MULTI = _multi_expert()
+SETS = {"core": PIECES, "heldout": HELDOUT, "multi": MULTI}
+BY_ID = {piece.id: piece for piece in PIECES + HELDOUT + MULTI}
 
 
 def _download(source: str, cached: Path) -> bytes:
