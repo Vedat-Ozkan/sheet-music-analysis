@@ -34,6 +34,10 @@ AUDIVERIS = "/opt/audiveris/bin/Audiveris"
 TIMEOUT = 480
 SECOND_PASS_SECONDS = 400
 READ_PAGES = 8
+READER_DPI = 300
+MOST_DRAWN_PIXELS = 19_900_000
+A4_DRAWN_PIXELS = 8_700_000
+READABLE_INTERLINE = 20
 MAX_PAGES = 12
 NEXT_STEP = (
     ". Tell the user plainly, and suggest what may work: a PDF exported from notation software reads best; a scan "
@@ -54,7 +58,7 @@ _BASE = ["-option", _SWITCH + "indentations=false",
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_BASE, _BASE + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
 _LELAND = ["-option", "org.audiveris.omr.ui.symbol.MusicFont.defaultMusicFamily=Leland"]
-READER = "5.11.0-sma.7-best2-tuplet-rests-eight-leland-ocr-r9"
+READER = "5.11.0-sma.7-best2-tuplet-rests-eight-leland-ocr-r9-page-size"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
@@ -71,9 +75,14 @@ class PdfReading:
     scan: bool
     skipped: list[int] = field(default_factory=list)
     passes: list[dict] = field(default_factory=list)
+    low_resolution: bool = False
 
-def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool, spots=None) -> str:
-    text = CHECK + (" " + SCAN_WARNING if scan else "")
+LOW_RESOLUTION_WARNING = ("This scan is too small to read well, so expect many mistakes, including in bars that are "
+                          "not shaded. A sharper scan will read much better.")
+
+
+def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool, spots=None, low_resolution: bool = False) -> str:
+    text = CHECK + (" " + SCAN_WARNING if scan else "") + (" " + LOW_RESOLUTION_WARNING if low_resolution else "")
     if skipped:
         pages = ", ".join(str(page) for page in skipped)
         text += f" Page{'s' if len(skipped) > 1 else ''} {pages} could not be read, so that music is missing."
@@ -328,6 +337,71 @@ def first_pages(data: bytes, count: int) -> bytes:
     return out.getvalue()
 
 
+def drawn_pixels(width: float, height: float) -> float:
+    return width * height * (READER_DPI / 72) ** 2
+
+
+def scale_page(page: pikepdf.Page, factor: float) -> None:
+    media, crop = page.mediabox, page.cropbox
+    page.contents_add(f"q {factor:.6f} 0 0 {factor:.6f} 0 0 cm\n".encode(), prepend=True)
+    page.contents_add(b"\nQ")
+    page.MediaBox = pikepdf.Array([float(edge) * factor for edge in media])
+    page.CropBox = pikepdf.Array([float(edge) * factor for edge in crop])
+
+
+def page_width_height(page: pikepdf.Page) -> tuple[float, float]:
+    left, bottom, right, top = (float(edge) for edge in page.cropbox)
+    return abs(right - left), abs(top - bottom)
+
+
+UNUSUAL_PDF = (TypeError, ValueError, AttributeError, ArithmeticError, pikepdf.PdfError)
+
+
+def scaled_pages(data: bytes, factor_of) -> bytes:
+    try:
+        pdf = open_pdf(data)
+        factors = [factor_of(*page_width_height(page)) for page in pdf.pages]
+        if all(factor == 1 for factor in factors):
+            return data
+        for page, factor in zip(pdf.pages, factors):
+            if factor != 1:
+                scale_page(page, factor)
+        out = io.BytesIO()
+        pdf.save(out)
+        return out.getvalue()
+    except UNUSUAL_PDF:
+        log.exception("Pages left at their own size")
+        return data
+
+
+def without_oversize_pages(data: bytes) -> bytes:
+    def factor(width: float, height: float) -> float:
+        drawn = drawn_pixels(width, height)
+        return (A4_DRAWN_PIXELS / drawn) ** 0.5 if drawn > MOST_DRAWN_PIXELS else 1
+
+    return scaled_pages(data, factor)
+
+
+def enlarged_for_interline(data: bytes, interline: int) -> bytes:
+    def factor(width: float, height: float) -> float:
+        room = (MOST_DRAWN_PIXELS / drawn_pixels(width, height)) ** 0.5
+        return max(1, min(READABLE_INTERLINE / interline, room))
+
+    return scaled_pages(data, factor)
+
+
+def file_facts(data: bytes) -> dict:
+    try:
+        pdf = open_pdf(data)
+        return {"scan": is_scan(pdf),
+                "page_points": [[round(side) for side in page_width_height(page)] for page in pdf.pages],
+                "image_pixels": [[[int(image.Width), int(image.Height)] for image in page.get_images().values()]
+                                 for page in pdf.pages]}
+    except UNUSUAL_PDF:
+        log.exception("File details not read")
+        return {}
+
+
 def is_scan(pdf: pikepdf.Pdf) -> bool:
 
     def inherited_resources(node):
@@ -363,7 +437,28 @@ def uses_leland(pdf: pikepdf.Pdf) -> bool:
 def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
     pdf = open_pdf(data)
     pages, scan, leland = len(pdf.pages), is_scan(pdf), uses_leland(pdf)
+    data = without_oversize_pages(data)
     deadline = time.monotonic() + TIMEOUT
+    try:
+        return _read_with_every_setting(data, audiveris, raw, pages, scan, leland, deadline)
+    except ReadError as error:
+        interlines = [value for record in error.passes for value in record.get("too_close_interlines", []) if value]
+        if not interlines:
+            raise
+        first_passes = error.passes
+    enlarged = enlarged_for_interline(data, min(interlines))
+    try:
+        reading = _read_with_every_setting(enlarged, audiveris, raw, pages, scan, leland, deadline)
+    except ReadError as error:
+        error.passes = [*first_passes, *error.passes]
+        raise
+    reading.passes = [*first_passes, *reading.passes]
+    reading.low_resolution = True
+    return reading
+
+
+def _read_with_every_setting(data: bytes, audiveris: str, raw, pages: int, scan: bool, leland: bool,
+                             deadline: float) -> PdfReading:
     raw = raw or audiveris_read
     stop = threading.Event()
     with ThreadPoolExecutor(len(SETTINGS)) as pool:
@@ -608,6 +703,9 @@ class AudiverisRun:
 KNOWN_PROBLEMS = {
     "No regularly spaced lines found": "no staff lines found",
     "flagged as invalid": "page flagged as invalid",
+    "Too large image": "page too large",
+    "too low interline value": "staff lines too close",
+    "too high interline value": "staff lines too far apart",
     "OutOfMemoryError": "out of memory",
 }
 STEP = re.compile(r"StepMonitoring\s+\d+\s+\|\s+([A-Z_]+)\s*$")
@@ -660,6 +758,7 @@ def audiveris_facts(run_: AudiverisRun) -> dict:
     return {"outcome": run_.ending, "exit_code": run_.exit_code,
             "images": re.findall(r"Loaded image #\d+ (\d+x\d+)", output),
             "interlines": [int(value) for value in re.findall(r"interline\(\d+,(\d+),\d+\)", output)],
+            "too_close_interlines": [int(value) for value in re.findall(r"too low interline value of (\d+)", output)],
             "pages_done": len(re.findall(r"\|\s+PAGE\s*$", output, re.M)),
             "invalid_pages": output.count("flagged as invalid"),
             "problems": sorted(problems), "step_seconds": run_.step_seconds}

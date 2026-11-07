@@ -936,6 +936,11 @@ async def pdf_outcome(data: bytes, digest: str, keep_slurs: bool, source: str, c
     except (ScoreError, pdf_reader.ReadError) as error:
         details.update(error=type(error).__name__, passes=getattr(error, "passes", None) or None)
         result = error_result(str(error) + (pdf_reader.NEXT_STEP if isinstance(error, pdf_reader.ReadError) else ""))
+        if isinstance(error, pdf_reader.ReadError):
+            try:
+                await anyio.to_thread.run_sync(store.put, f"failed/{digest}.pdf", data)
+            except Exception:
+                details["failed_copy_lost"] = True
         outcome = "user_error"
     except Exception:
         details["stack_trace"] = traceback.format_exc()
@@ -975,11 +980,12 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
             if not await take("pdf_page", source, read):
                 log("read_pdf_work", limit=True, pages=read)
                 return error_result(LIMIT_MESSAGE)
+            log("read_pdf_work", **await anyio.to_thread.run_sync(pdf_reader.file_facts, data))
             with stage("omr"):
                 result = await anyio.to_thread.run_sync(pdf_reader.read_pdf, data)
         passes = result.passes
         reading = {"score_id": secrets.token_hex(8).upper(), "pages": result.pages, "scan": result.scan,
-                   "skipped": result.skipped, "of_pages": pages}
+                   "skipped": result.skipped, "of_pages": pages, "low_resolution": result.low_resolution}
         await anyio.to_thread.run_sync(store.put, f"scores/{reading['score_id']}", result.musicxml)
         await anyio.to_thread.run_sync(store.put, cache_key, json.dumps(reading).encode())
     score, _ = await resolve_score(None, reading["score_id"])
@@ -992,7 +998,7 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
         spots = pdf_reader.problem_spots(score)
         numbers = [measure.number for measure in ScoreIndex(load_toolkit(score).getMEI()).measures]
         return (pdf_reader.preview(score, spots=spots), engrave(score),
-                pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
+                pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots, reading.get("low_resolution", False)) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
                 f"{numbers[0]} to {numbers[-1]}", len(numbers), len(spots[0]))
 
     with stage("render"):

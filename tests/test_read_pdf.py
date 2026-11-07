@@ -16,7 +16,7 @@ from PIL import Image
 from engine import tint
 from engine.overlay import Box, PageLayout
 from engine.performance import marked_index
-from engine.read_pdf import text_meaning, PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, audiveris_facts, audiveris_options, audiveris_read, clean, is_scan, join_movements, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
+from engine.read_pdf import MOST_DRAWN_PIXELS, drawn_pixels, enlarged_for_interline, file_facts, is_scan, page_width_height, without_oversize_pages, text_meaning, PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, audiveris_facts, audiveris_options, audiveris_read, clean, join_movements, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
 from engine.render import engrave, load_toolkit
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
@@ -523,3 +523,62 @@ def test_the_reader_is_not_given_the_callers_secrets(tmp_path, monkeypatch):
     audiveris_read(b"%PDF", str(reader), 0, False, time.monotonic() + 30, threading.Event())
     assert "PATH=" in seen.read_text()
     assert "SOME_API_TOKEN" not in seen.read_text()
+
+
+@pytest.mark.parametrize("path", sorted((Path(__file__).parent / "data").glob("*.pdf")), ids=lambda path: path.name)
+def test_only_a_page_the_reader_would_refuse_changes_size(path):
+    data = path.read_bytes()
+    before = [page_width_height(page) for page in pikepdf.open(io.BytesIO(data)).pages]
+    after = [page_width_height(page) for page in pikepdf.open(io.BytesIO(without_oversize_pages(data))).pages]
+    for old, new in zip(before, after):
+        assert drawn_pixels(*new) <= MOST_DRAWN_PIXELS
+        assert new == old or drawn_pixels(*old) > MOST_DRAWN_PIXELS
+
+
+@pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
+@pytest.mark.parametrize("name, bars", [("chopin-28-4-oversize-page.pdf", 25), ("chopin-op67-small-page-scan.pdf", 1)])
+def test_a_page_of_an_unusual_size_is_read(name, bars):
+    reading = read_pdf((Path(__file__).parent / "data" / name).read_bytes(), audiveris=AUDIVERIS)
+    assert len(ScoreIndex(load_toolkit(reading.musicxml).getMEI()).measures) >= bars
+
+
+def test_the_reader_names_why_it_rejected_a_page():
+    output = "Sheet#1\n\n With a too low interline value of 8 pixels,\n either this sheet\nSheet#1 flagged as invalid\n"
+    facts = audiveris_facts(AudiverisRun("no music", 1, output, {}))
+    assert "staff lines too close" in facts["problems"] and facts["too_close_interlines"] == [8]
+
+
+@pytest.mark.parametrize("box", [[0, 0, 0, 0], ["a", 0, 100, 100]], ids=["empty", "not numbers"])
+def test_a_page_box_that_makes_no_sense_leaves_the_pdf_as_it_came(box):
+    pdf = pikepdf.open(Path(__file__).parent / "data" / "chopin-28-4-mutopia.pdf")
+    pdf.pages[0].CropBox = pikepdf.Array(box)
+    out = io.BytesIO()
+    pdf.save(out)
+    data = out.getvalue()
+    assert without_oversize_pages(data) is data
+    assert enlarged_for_interline(data, 7) is data
+    assert isinstance(file_facts(data), dict)
+
+
+def test_a_failed_retry_keeps_why_the_first_reading_was_refused():
+    data = (Path(__file__).parent / "data" / "chopin-op67-small-page-scan.pdf").read_bytes()
+    too_close = {"outcome": "no music", "too_close_interlines": [7]}
+    readings = iter([too_close, too_close, {"outcome": "no music"}, {"outcome": "no music"}])
+    def raw(*args):
+        return RawReading(None, [], next(readings))
+
+    with pytest.raises(ReadError) as caught:
+        read_pdf(data, audiveris="unused", raw=raw)
+    assert len(caught.value.passes) == 4 and caught.value.passes[0]["too_close_interlines"] == [7]
+
+
+def test_a_reading_made_by_enlarging_a_small_scan_warns_of_many_mistakes():
+    data = (Path(__file__).parent / "data" / "chopin-op67-small-page-scan.pdf").read_bytes()
+    score = (Path(__file__).parent / "data" / "chopin_prelude_op28_no4_audiveris.mxl").read_bytes()
+    readings = iter([RawReading(None, [], {"outcome": "no music", "too_close_interlines": [7]})] * 2
+                    + [RawReading(score, [], {"outcome": "done"})] * 2)
+
+    reading = read_pdf(data, audiveris="unused", raw=lambda *args: next(readings))
+    assert reading.low_resolution
+    assert "expect many mistakes" in notice(reading.musicxml, True, [], False, low_resolution=reading.low_resolution)
+    assert "expect many mistakes" not in notice(reading.musicxml, True, [], False)

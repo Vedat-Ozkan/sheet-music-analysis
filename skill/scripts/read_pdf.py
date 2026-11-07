@@ -100,16 +100,18 @@ def main() -> int:
             return 1
         if cache.exists():
             saved = json.loads(cache.read_text())
-            reading = PdfReading(saved["musicxml"].encode(), saved["pages"], saved["scan"], saved["skipped"])
+            reading = PdfReading(saved["musicxml"].encode(), saved["pages"], saved["scan"], saved["skipped"],
+                                 low_resolution=saved.get("low_resolution", False))
         else:
             read = min(total, READ_PAGES)
             reading = read_pdf(first_pages(data, read) if read < total else data, audiveris=str(audiveris()))
-            saved = {"musicxml": reading.musicxml.decode(), "pages": reading.pages, "scan": reading.scan, "skipped": reading.skipped}
+            saved = {"musicxml": reading.musicxml.decode(), "pages": reading.pages, "scan": reading.scan, "skipped": reading.skipped,
+                     "low_resolution": reading.low_resolution}
             cache.write_text(json.dumps(saved))
         shown = reading.musicxml if args.keep_slurs else without_slurs(reading.musicxml)
         spots = problem_spots(shown)
         engraving = pages(shown, spots)
-        message = notice(shown, reading.scan, reading.skipped, args.keep_slurs, spots) + unread_pages(reading.pages, total)
+        message = notice(shown, reading.scan, reading.skipped, args.keep_slurs, spots, reading.low_resolution) + unread_pages(reading.pages, total)
     except ReadError as error:
         print(f"Error: {error}{NEXT_STEP}", file=sys.stderr)
         return 1
