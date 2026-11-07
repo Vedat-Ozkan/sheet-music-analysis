@@ -229,7 +229,7 @@ def overview(drafted: draft.Draft) -> str:
     return "\n".join((keys, cadences, phrases))
 
 
-TABLE = """Note table for these bars. Each row is one beat: the lowest note, the pitch classes sounding, and every note as pitch@beat.
+TABLE = """Note table for these bars. Each row is one beat, or the part of a beat from where its lowest note changes: the lowest note, the pitch classes sounding, and every note as pitch@beat.
 
 {table}"""
 

@@ -9,11 +9,17 @@ from engine.render import load_toolkit
 from engine.score import ScoreIndex
 
 RAW = Path(__file__).parent / "data" / "chopin_analysisgnn_raw.json"
+CHORALE = Path(__file__).parent / "data" / "part_writing_bwv245.14.musicxml"
 
 
 @pytest.fixture(scope="module")
 def index(chopin) -> ScoreIndex:
     return ScoreIndex(load_toolkit(chopin).getMEI())
+
+
+@pytest.fixture(scope="module")
+def chorale() -> ScoreIndex:
+    return ScoreIndex(load_toolkit(CHORALE.read_bytes()).getMEI())
 
 
 def summary(index: ScoreIndex) -> list:
@@ -139,3 +145,30 @@ def test_notes_table_marks_a_key_change_on_its_bar(haydn):
     lines = reduce.as_text(haydn, 16, 17).splitlines()
     assert lines[0].startswith("Key signature: 1 flat.")
     assert "m17 (key signature: 2 sharps)" in lines
+
+
+def row_labels(table: str) -> dict[str, list[str]]:
+    bars: dict[str, list[str]] = {}
+    for line in table.splitlines():
+        if line.startswith("m"):
+            bars[line] = []
+        elif line.startswith("  b"):
+            bars[list(bars)[-1]].append(line.split(" | ")[0].strip())
+    return bars
+
+
+def test_notes_table_gives_a_row_where_the_bass_changes_inside_a_beat(chorale):
+    table = reduce.as_text(chorale, 3, 3)
+    assert row_labels(table) == {"m3": ["b1", "b2", "b3", "b3.5", "b4"]}
+    assert "  b3 | bass F#3 | F# C# A D | staff 1: D5@3 | staff 2: A4@3 | staff 3: C#4@3 | staff 4: F#3@3" in table.splitlines()
+    assert "  b3.5 | bass G#3 | G# B D | staff 2: B4@3.5 | staff 3: B3@3.5 | staff 4: G#3@3.5 | held: D5" in table.splitlines()
+
+
+def test_notes_table_keeps_one_row_a_beat_while_the_bass_stays(chorale):
+    assert row_labels(reduce.as_text(chorale, 1, 2)) == {"m1": ["b1", "b2", "b3", "b4"], "m2": ["b1", "b2", "b3", "b4"]}
+    assert row_labels(reduce.as_text(chorale, 4, 4)) == {"m4": ["b1", "b2", "b3", "b4"]}
+
+
+def test_notes_table_says_how_often_the_lowest_note_changes(chorale):
+    assert "The lowest note changes about 3 times a bar in these bars" in reduce.as_text(chorale, 1, 2)
+    assert "The lowest note changes about 4 times a bar in these bars" in reduce.as_text(chorale, 3, 3)

@@ -39,7 +39,7 @@ The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_
    python3 scripts/notes_table.py SCORE --measures 1-8
    ```
 
-   Each row is one beat: the lowest note, the pitch classes sounding, and every note as `pitch@beat`. Use these exact measure numbers, beats and pitches in your annotations. Analyse a long piece passage by passage, about 16 to 32 bars at a time, then render the whole stretch the user asked for once, with all your annotations, so they get one PDF.
+   Each row is one beat, or the part of a beat from where its lowest note changes: the lowest note, the pitch classes sounding, and every note as `pitch@beat`. Use these exact measure numbers, beats and pitches in your annotations. Analyse a long piece passage by passage, about 16 to 32 bars at a time, then render the whole stretch the user asked for once, with all your annotations, so they get one PDF.
 
 3. **Get the model's draft.** Call the connector's `draft_from_notes` tool. It comes from the same connector as `play`, whatever the user named that connector, and its full name may start with the connector's name. Connector tools are often loaded only when searched for, so if it is not in your tool list, search your tools for `draft_from_notes` first. Run
 
