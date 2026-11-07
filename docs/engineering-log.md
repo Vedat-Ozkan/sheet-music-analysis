@@ -2204,6 +2204,24 @@ On 3 pieces, recall at the root: plain Opus 0.78, plain Sonnet 0.50. This is the
 
 **What it means.** A cadence score should count the expert's cadences we find, on pieces whose marking is complete, and should not count our extra marks as errors. The preludes' low *full* is mostly a naming habit of one reference; the real errors there are the same skipped chords as entry 119.
 
+### 121. End-to-end runs through the ChatGPT-side tools, and two rejected-answer fixes (2026-11-06)
+
+**Why.** The evaluation hands the model the annotation spec as text; ChatGPT gets the method text plus the tools' own schemas. A defect seen in one may not exist in the other. A small runner (session scratch, not committed) starts the server from a checkout, stores a score, and lets a real model drive `draft_analysis` and `render_analysis` over MCP, with the User-Agent of a ChatGPT call, recording every call and rejection. Claude models run through `claude -p`, the ChatGPT model through `codex exec`.
+
+**Eight passages whose evaluation answer had been rejected for `region.start.staff`:**
+
+| Model, old text | First drawing call rejected | Cause | `staff` inside start or end |
+|---|---|---|---|
+| Sonnet | 0 of 8 | | 0 of 4 regions with staff |
+| Opus, medium | 0 of 8 | | 0 of 7 |
+| gpt-6.1-sol (Codex default effort) | 7 of 8 | callout written with `label: "1"` instead of `number` | 0 of 9 |
+
+So the `staff` rejections of entry 118 belong to the text-prompt path (the evaluation and the Claude skill), not to ChatGPT. The ChatGPT model's rejections had another cause: `ANNOTATION_FORMAT` showed `label` on every example and no callout. With a callout example added (`4227d54`), the same eight passages: 0 of 8 rejected. Each rejection had cost one wasted drawing call of roughly 10 to 20 s and a second full list of marks. These rejections never reach the server log, because the schema rejects the call before the tool runs.
+
+**Also seen.** Opus called `draft_analysis` two or three times in 6 of 8 passages, on purpose: after the passage it asked for the 6 to 10 bars before and after it. Each extra call returned about 13,000 characters, mostly the same instructions again. With the draft parked (branch `draft-switch`), each such call also counts against the daily draft limit, since no draft file marks the score as seen. Sonnet drew pages from the no-draft reply with no rejection; on its first run it told the user the draft "returned no draft", fixed by the guide wording.
+
+**Limits.** One run per model and passage; `codex exec`, not ChatGPT itself, whose system prompt and app differ. Costs: Sonnet about US$1.55 per eight passages, Opus US$4.14; the ChatGPT model ran on the ChatGPT plan.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
