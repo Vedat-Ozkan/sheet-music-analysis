@@ -281,6 +281,7 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool, la
     patched = _slurs_to_chords(patched)
     patched = _clefs_before_barlines(patched)
     patched = _number_unmarked_pickup(patched)
+    patched = _unbeam_noteless(patched)
     if patched != mei:
         toolkit.loadData(patched)
 
@@ -697,6 +698,12 @@ _INNERMOST_BEAM = re.compile(r"<beam\b[^>]*(?<!/)>((?:(?!<beam\b|</beam>).)*)</b
 
 def noteless_beams(mei: str) -> list[str]:
     return [beam.group(0) for beam in _INNERMOST_BEAM.finditer(mei) if not _holds_notes(beam)]
+
+
+def _unbeam_noteless(mei: str) -> str:
+    while noteless_beams(mei):
+        mei = _INNERMOST_BEAM.sub(lambda beam: beam.group(0) if _holds_notes(beam) else beam.group(1), mei)
+    return mei
 
 
 def _holds_notes(beam: re.Match) -> bool:

@@ -17,7 +17,7 @@ from engine import tint
 from engine.overlay import Box, PageLayout
 from engine.performance import marked_index
 from engine.read_pdf import MOST_DRAWN_PIXELS, drawn_pixels, enlarged_for_interline, file_facts, is_scan, page_width_height, without_oversize_pages, text_meaning, PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, audiveris_facts, audiveris_options, audiveris_read, clean, join_movements, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
-from engine.render import engrave, load_toolkit
+from engine.render import engrave, load_toolkit, noteless_beams
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
 from engine.tuplet_rests import infer_tuplet_rests
@@ -143,6 +143,19 @@ def test_a_reading_that_dropped_notes_is_not_chosen_for_having_fewer_problem_bar
     counts = [pitched(clean(variant)) for variant in variants]
     reading = read_pdf((folder / 'hensel_vr.pdf').read_bytes(), raw=raw)
     assert pitched(reading.musicxml) >= 0.95 * max(counts)
+
+
+def test_a_scan_whose_doubled_notes_emptied_a_beam_is_read_and_drawn():
+    name = "data/ravel-oiseaux-tristes-scan-verovio-crashed-beam"
+    setting0 = (Path(__file__).parent / f"{name}-setting0.mxl").read_bytes()
+
+    def raw(data, audiveris, setting, leland, deadline, stop):
+        return RawReading(setting0 if setting == 0 else None, [], {"outcome": "done" if setting == 0 else "stopped"})
+
+    reading = read_pdf((Path(__file__).parent / f"{name}.pdf").read_bytes(), raw=raw)
+    score = without_slurs(reading.musicxml)
+    assert noteless_beams(load_toolkit(score).getMEI()) == []
+    assert preview(score).page_count >= 1
 
 
 def test_fractional_durations_do_not_backup_before_the_bar():
@@ -439,7 +452,8 @@ def test_flats_of_an_old_lilypond_font_are_not_taken_for_grace_size_signs():
 @pytest.mark.parametrize("name", ["tchaikovsky-op37-1-mutopia-crashed-flags.pdf",
                                   "schubert-29-3-verovio-crashed-metronome.pdf",
                                   "faure-c-est-l-extase-verovio-crashed-removal.pdf",
-                                  "olimpic-6377942-p7-s2-scan-crashed-divisions.pdf"])
+                                  "olimpic-6377942-p7-s2-scan-crashed-divisions.pdf",
+                                  "ravel-oiseaux-tristes-scan-verovio-crashed-beam.pdf"])
 def test_pdfs_that_crashed_the_reader_are_read_whole(name):
     reading = read_pdf((Path(__file__).parent / "data" / name).read_bytes(), AUDIVERIS)
     assert reading.skipped == []
