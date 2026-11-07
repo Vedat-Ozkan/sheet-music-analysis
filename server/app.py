@@ -554,6 +554,8 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, studen
         index = ScoreIndex(mei)
     needs_chords = SEND_DRAFT or student_analysis or optional("part_writing", lambda: part_writing.applies(index))
     raw = model_output(code, index) if needs_chords else None
+    if not needs_chords:
+        store.put(f"scores/{code}.seen", b"")
     log("draft_analysis", draft_sent=SEND_DRAFT and raw is not None)
     with stage("build"):
         result = draft.build(raw, index) if raw is not None else None
@@ -1210,7 +1212,8 @@ async def draft_analysis(
             await in_turn(check_analysis.from_text, student_analysis)
         if given == "score_id":
             code = clean_id(score_id)
-            fresh = await anyio.to_thread.run_sync(store.get, f"scores/{code}.draft.json") is None
+            kept = [await anyio.to_thread.run_sync(store.get, f"scores/{code}.{name}") for name in ("draft.json", "seen")]
+            fresh = all(item is None for item in kept)
         else:
             code = secrets.token_hex(8).upper()
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)
