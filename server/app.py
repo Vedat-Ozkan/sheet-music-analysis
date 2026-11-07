@@ -475,7 +475,8 @@ ANNOTATION_FORMAT = (
     "render_analysis annotations are nested objects, e.g. "
     "{\"type\": \"harmony\", \"at\": {\"measure\": 1, \"beat\": 1}, \"label\": \"I\", \"key\": \"F\"}, "
     "{\"type\": \"cadence\", \"at\": {\"measure\": 8, \"beat\": 1}, \"label\": \"PAC\"}, "
-    "{\"type\": \"phrase\", \"start\": {\"measure\": 1, \"beat\": 1}, \"end\": {\"measure\": 8}}.\n"
+    "{\"type\": \"phrase\", \"start\": {\"measure\": 1, \"beat\": 1}, \"end\": {\"measure\": 8}}, "
+    "{\"type\": \"callout\", \"at\": {\"measure\": 3, \"beat\": 2}, \"number\": 1}.\n"
 )
 DRAW_BUDGET = 2000
 
