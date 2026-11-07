@@ -2222,6 +2222,32 @@ So the `staff` rejections of entry 118 belong to the text-prompt path (the evalu
 
 **Limits.** One run per model and passage; `codex exec`, not ChatGPT itself, whose system prompt and app differ. Costs: Sonnet about US$1.55 per eight passages, Opus US$4.14; the ChatGPT model ran on the ChatGPT plan.
 
+### 122. Scored as one more analyst on 36 pieces that two experts analysed (2026-11-06)
+
+**Question.** Entry 119 compared our 0.67 on held-out pieces with the experts' 0.71 on other pieces. How do we score when we and the experts are measured on the same pieces and bars?
+
+**Method (`eval/ladder.py`, set `multi`).** 36 pieces with two independent expert analyses, outside every earlier set, 9 each of Bach chorales (TAOM against BCMH), Mozart sonata movements and Chopin mazurkas (DCML against TAOM) and Beethoven sonata movements (BPS-FH, DCML, TAOM), chosen by a rule on the sorted names written down before any review (`eval/multi-expert-set.txt`). Passages as on 2026-10-24 (61 passages, 1,327 bars; chorales whole). Opus at medium effort, without the draft, note table, the method text with the fixes of entry 121. Each expert is scored against the other and our reading against each expert on the same bars. Cost about US$36 of subscription usage; one run per piece.
+
+| Bar-weighted | Experts against each other: root / function / full | Ours against an expert | Ours minus experts, full (95% interval over pieces) |
+|---|---|---|---|
+| Bach chorales (9, 127 bars) | 0.99 / 0.96 / 0.87 | 0.98 / 0.94 / 0.81 | −0.064 (−0.112 to −0.013) |
+| Mozart (9, 405) | 0.94 / 0.86 / 0.81 | 0.90 / 0.82 / 0.76 | −0.054 (−0.122 to +0.005) |
+| Beethoven (9, 409) | 0.83 / 0.74 / 0.61 | 0.86 / 0.79 / 0.69 | +0.076 (+0.010 to +0.137) |
+| Chopin mazurkas (9, 386) | 0.95 / 0.83 / 0.63 | 0.95 / 0.87 / 0.74 | +0.108 (+0.070 to +0.142) |
+| All 36 (1,327) | 0.91 / 0.82 / 0.70 | 0.91 / 0.83 / 0.74 | +0.032 (−0.010 to +0.072) |
+
+By chord (recall / precision), all 36: experts 0.91 / 0.81 / 0.70 at each level (symmetric); ours root 0.885 / 0.886, function 0.794 / 0.816, full 0.694 / 0.720. Chord changes per 100 of the expert's, shared / missed / extra: experts 86 / 14 / 14, ours 83 / 17 / 7, draft 78 / 22 / 20. Fit to the notes: experts 0.898, ours 0.900. Cadences, on the 18 pieces whose DCML file marks them fully: 124 expert cadences, 63% marked by us in the same place with the same type, 73% same place any type; 36% of our 141 marks have no expert cadence nearby (counted, not treated as errors). The draft alone: 0.84 / 0.74 / 0.59 by time.
+
+**Caveats.** Where the two experts disagree, matching either earns us half credit while the pair earns none, so "above the experts" on Beethoven and the mazurkas is partly built into the measure. The chorale pair may not be independent (entry 66). These analyses are public, so the chat model may have seen them. Passages, not whole movements. 15 of 61 first replies were rejected, all for an `alternative` label with the wrong number of chords; none for `staff`.
+
+**The ladder, by run** (`eval.ladder --set heldout`): `opus-medium-2026-10-24` root recall 0.814, full 0.597 by chord, changes 73 / 27 / 5, fit 0.881; `opus-medium-alone-table-30` 0.854, 0.612, 81 / 19 / 7, 0.901. Expert reference from the 151 pairs, cached in `out/eval/ladder-experts.json`.
+
+**Run-to-run spread of the new measures.** From the 14 later pieces of the two with-draft runs of entry 64 (same passages, four extra rules in the second): per-piece standard deviation of the change about 0.04 for recall and precision at root and full, 8 missed changes per 100, 3 extra per 100. The mean change over 6 pieces moves by about ±0.03 at full between two runs of the same setup.
+
+**The reworded method text** (branch `method-chord-changes`, commit `9cf0224`: "label every change" and "a short sonority is a chord of its own when the bass moves too") on 6 held-out pieces chosen by rule (the three-piece set plus every tenth piece by name), Opus medium, no draft, against the saved no-draft run on the same 11 passages: full by time 0.597 → 0.637, function 0.694 → 0.731, recall at full 0.580 → 0.628, precision at full 0.597 → 0.626; changes 82.6 / 17.4 / 14.2 → 84.2 / 15.8 / 16.6; fit 0.871 → 0.878. The mean per-piece changes exceed the 14-piece spread and sit just past the 24-piece one; missed and extra changes are within noise. Of the 24 chords added, about 4 in 10 line up with a change the expert also wrote. Cost US$6.32.
+
+**What it means.** Measured on the same pieces, our analysis agrees with an expert about as often as a second expert does: 0.74 against 0.70 by time, 0.69 against 0.70 by chord. We are below the experts on the music where they agree most (chorales, Mozart) and above them where they disagree most. The reworded method text is a probable small gain and needs one more test on other pieces, and real pages drawn both ways, before it is adopted.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
