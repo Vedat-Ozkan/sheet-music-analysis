@@ -37,7 +37,7 @@
     <li><a href="https://github.com/DCMLab">DCML</a>: analyses by the Digital and Cognitive Musicology Lab at EPFL in Lausanne, of Mozart and Beethoven sonatas and Chopin mazurkas, among others.</li>
     <li><a href="https://github.com/Tsung-Ping/functional-harmony">BPS-FH</a>: Tsung-Ping Chen and Li Su's analyses of Beethoven's piano sonata first movements (2018).</li>
     <li><a href="https://github.com/PeARL-laboratory/BCMH">BCMH</a>: the Bach Chorales Melody-Harmony collection.</li>
-    <li>TAOM: analyses collected by Dmitri Tymoczko, written by him and other music theorists. His mazurka analyses are credited to "Dmitri Tymoczko and his computer", so they were made with computer help.</li>
+    <li>TAOM: a collection of analyses being prepared by Dmitri Tymoczko, written by him and other music theorists. His mazurka analyses are credited to "Dmitri Tymoczko and his computer", so they were made with computer help.</li>
   </ul>
   <div class="table-scroll"><table>
     <tr><th>Style</th><th>Pieces</th><th>Bars scored</th><th>Experts compared</th></tr>
@@ -48,12 +48,12 @@
   </table></div>
   <p>The two chorale analyses may not be fully independent of each other, which would make the experts' agreement on the chorales look higher than it is.</p>
 
-  <h2>3. Our analysis, made the way the service makes it</h2>
-  <p>Claude Opus wrote every analysis from the same written method and the same table of the score's notes that our service gives the chat model, with the computer-drafted first guess switched off. It was run from a test script rather than inside the Claude app. Each piece was run once, and that run is the one scored.</p>
+  <h2>3. Our analysis, made as the service makes it</h2>
+  <p>Claude Opus, at medium effort, wrote every analysis from the same written method and the same table of the score's notes that our service gives the chat model, with the computer-drafted first guess switched off. It was run from a test script rather than inside the Claude or ChatGPT app. Each piece was run once, and that run is the one scored. In 15 of the 61 passages the first reply contained a mark in a form the drawing step rejects; the model was asked once more, and its second reply was scored.</p>
   <p>Long pieces were not analysed whole. From each sonata movement and mazurka we took up to two stretches of about 24 bars, spread evenly through the piece by a fixed rule; each chorale was taken whole. That gave 61 passages, 1,327 bars in all. The tests start from digital scores, so mistakes in reading a PDF are not part of these figures.</p>
 
   <h2>4. Scored chord by chord, at several levels</h2>
-  <p>Each chord counts once, however long it lasts. A chord the expert wrote counts as agreed when our analysis says the same thing for more than half of its length. We counted it at six levels:</p>
+  <p>Each chord counts once, however long it lasts. A chord the expert wrote counts as agreed when our analysis says the same thing for more than half of its length. We report six levels:</p>
   <div class="table-scroll"><table>
     <tr><th>Level</th><th>What has to match</th><th>Ours against an expert</th><th>Expert against expert</th></tr>
     <tr><td>Key</td><td>The key the music is in at that point</td><td>90%</td><td>88%</td></tr>
@@ -72,7 +72,8 @@
 
   <h2>6. How sure we can be</h2>
   <p>A result on 36 pieces depends partly on which pieces they were. To see how much, we drew 2,000 new sets of 36 from the same pieces at random, with repeats allowed, and recomputed the difference each time (a bootstrap). At the full level, by chord, ours minus the experts' is +1.2 percentage points, and 95% of the redrawn sets fall between −2.7 and +5.2. So the test cannot tell us apart from a second expert either way.</p>
-  <p>Separate runs of the same setup also vary a little: in an earlier test, the average over 6 pieces moved by about 3 points at the full level between two runs.</p>
+  <p>This difference is worked out piece by piece and weighted by each piece's bars. Pooling all the chords first, as in the 69% and 70% above, gives −0.4 points instead.</p>
+  <p>The range covers only the choice of pieces, not the model's own variation from run to run. In an earlier comparison of two runs of nearly the same setup, single pieces differed by about 4 points (standard deviation) at the full level, which would move an average over 6 pieces by about 3.</p>
 
   <h2>7. Results by style</h2>
   <div class="table-scroll"><table>
@@ -83,11 +84,11 @@
     <tr><td>Chopin mazurkas</td><td>58%</td><td>66%</td><td>+8.3 (+2.9 to +12.4)</td></tr>
     <tr><td>All 36 pieces</td><td>70%</td><td>69%</td><td>+1.2 (−2.7 to +5.2)</td></tr>
   </table></div>
-  <p class="caption">Full level, by chord. The difference is worked out piece by piece and weighted by each piece's bars, so it can differ slightly from subtracting the two columns.</p>
+  <p class="caption">Full level, by chord. The difference is worked out piece by piece and weighted by each piece's bars, so it can differ from subtracting the two columns (step 6).</p>
   <p>We are below the experts on the chorales and Mozart, where experts agree most, and above them on Beethoven and Chopin, where they disagree most. Part of that lead comes from the half credit described in step 5.</p>
 
   <h2>8. Cadences</h2>
-  <p>On the 18 pieces whose DCML analysis marks cadences throughout, the expert marked 124 cadences. We marked 63% of them in the same place with the same type, and 73% in the same place with any type. Of our own 141 cadence marks, 36% have no expert cadence nearby; we counted these but did not treat them as errors. We have no expert-against-expert figure for cadences.</p>
+  <p>Only the DCML analyses mark cadences. We used the 18 pieces (all 9 Mozart, 6 Beethoven, 3 Chopin) where the DCML expert marks a cadence within a bar of at least half of its own phrase endings; 6 others were left out. There the expert marked 124 cadences. We marked 63% of them within a beat with the same type, and 73% within a beat with any type. Of our own 141 cadence marks, 36% have no expert cadence nearby; we counted these but did not treat them as errors. We have no expert-against-expert figure for cadences, and the expert also writes a few kinds of cadence (evaded, plagal) that our marks cannot express.</p>
 
   <h2>What we don't claim</h2>
   <ul>
@@ -98,7 +99,7 @@
     <li><strong>Passages, not whole movements,</strong> and four styles of music from Bach to Chopin. Other music, such as Debussy's, was not part of this test.</li>
     <li><strong>Agreeing with an expert is not the same as being right.</strong> Even two experts disagree on about 30% of chords at the full level.</li>
   </ul>
-  <p>Every experiment behind these figures, including the ones that failed, is written up in our <a href="https://github.com/Vedat-Ozkan/sheet-music-analysis/blob/main/docs/engineering-log.md">engineering log</a>; this test is entry 122.</p>
+  <p>Every experiment behind these figures, including the ones that failed, is written up in our <a href="https://github.com/Vedat-Ozkan/sheet-music-analysis/blob/main/docs/engineering-log.md">engineering log</a>; this test is entry 122, and the chord-by-chord figures on this page are in entry 131.</p>
 </main>
 
 <footer class="site"><div class="wrap">
