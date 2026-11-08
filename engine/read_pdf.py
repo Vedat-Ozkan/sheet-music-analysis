@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 import copy
 import io
 import logging
@@ -39,6 +40,7 @@ MOST_DRAWN_PIXELS = 19_900_000
 A4_DRAWN_PIXELS = 8_700_000
 READABLE_INTERLINE = 20
 MAX_PAGES = 12
+NOTHING_READ = "No music could be read from this PDF"
 NEXT_STEP = (
     ". Tell the user plainly, and suggest what may work: a PDF exported from notation software reads best; a scan "
     "should be straight, sharp and about 300 dpi; a long PDF can be sent a few pages at a time; a MusicXML file "
@@ -463,7 +465,8 @@ def _read_with_every_setting(data: bytes, audiveris: str, raw, pages: int, scan:
     stop = threading.Event()
     with ThreadPoolExecutor(len(SETTINGS)) as pool:
         second = min(deadline, time.monotonic() + SECOND_PASS_SECONDS)
-        futures = [pool.submit(_read, data, audiveris, setting, leland, deadline if setting == 0 else second, raw, stop)
+        futures = [pool.submit(contextvars.copy_context().run, _read, data, audiveris, setting, leland,
+                               deadline if setting == 0 else second, raw, stop)
                    for setting in range(len(SETTINGS))]
         try:
             first = futures[0].result()
@@ -476,7 +479,7 @@ def _read_with_every_setting(data: bytes, audiveris: str, raw, pages: int, scan:
     readings = [reading for _, reading in results if reading is not None]
     if not readings:
         timed_out = any(record["outcome"] == "timeout" for record in passes)
-        raise ReadError("Reading this PDF took too long" if timed_out else "No music could be read from this PDF", passes)
+        raise ReadError("Reading this PDF took too long" if timed_out else NOTHING_READ, passes)
     counts = [_pitched_notes(reading[0]) for reading in readings]
     complete = [reading for reading, count in zip(readings, counts) if count >= MIN_NOTES * max(counts)]
     musicxml, skipped, _ = min(complete, key=lambda reading: (len(reading[1]), len(reading[2])))
