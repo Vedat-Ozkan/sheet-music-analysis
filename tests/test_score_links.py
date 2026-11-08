@@ -99,6 +99,19 @@ def test_a_pdf_link_is_read_and_its_pages_counted_like_an_attached_pdf(server, s
     assert charged(server, "pdf_page") == 1
 
 
+def test_a_pdf_chosen_in_the_card_is_read_and_its_pages_counted_like_an_attached_pdf(server):
+    async def send():
+        transport = httpx.ASGITransport(app=app.mcp.streamable_http_app(stateless_http=True))
+        async with httpx.AsyncClient(transport=transport, base_url="http://card") as browser:
+            return await browser.post("/upload", content=FILES["/public/prelude.pdf"],
+                                      headers={"Origin": "https://abc.claudemcpcontent.com"})
+
+    sent = anyio.run(send).json()
+    read = call("read_fetched_pdf", {"pdf_id": sent["next"].split("pdf_id: ", 1)[1].split()[0]})
+    assert not read.is_error and "The score has measures 0 to 24" in text_of(read)
+    assert charged(server, "pdf_page") == 1
+
+
 def test_a_web_page_instead_of_a_score_says_how_to_share_the_file(server, site):
     result = call("fetch_score", {"url": f"{site}/public/sign-in"})
     assert result.is_error and "anyone with the link can view it" in text_of(result)

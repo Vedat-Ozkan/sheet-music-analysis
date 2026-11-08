@@ -79,10 +79,10 @@ def as_client(server, agent, method, params):
     return next(line[5:] for line in body.splitlines() if line.startswith("data:"))
 
 
-def test_claude_is_offered_score_links_and_cards_on_its_own_domain(server):
+def test_claude_is_offered_the_upload_card_score_links_and_cards_on_its_own_domain(server):
     listed = {tool["name"]: tool for tool in json.loads(as_client(server, "Claude-User", "tools/list", {}))["result"]["tools"]}
     card = json.loads(as_client(server, "Claude-User", "resources/read", {"uri": "ui://sheet-music-analysis/card-v2.html"}))
-    assert set(listed) == {"fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis",
+    assert set(listed) == {"choose_score", "fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis",
                            "play", "draft_from_notes"}
     assert "score_file" not in listed["draft_analysis"]["inputSchema"]["properties"]
     assert "fetch_score" in listed["draft_analysis"]["description"] and "read_fetched_pdf" in listed["correct_bars"]["description"]
@@ -116,6 +116,66 @@ def test_a_whole_piece_drawn_for_claude_fits_its_result_limit(server, store):
     content = json.loads(claude)["result"]["content"]
     assert [part["type"] for part in content] == ["text", "text"] and "left out" in content[1]["text"]
     assert json.loads(claude)["result"]["structuredContent"]["image_url"]
+
+
+def as_claude(server, method, params):
+    return json.loads(as_client(server, "Claude-User", method, params))["result"]
+
+
+def upload(server, data, origin="https://abc.claudemcpcontent.com"):
+    request = urllib.request.Request(f"{server}/upload", data=data, method="POST", headers={"Origin": origin})
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return response.status, response.headers, json.loads(response.read())
+    except urllib.error.HTTPError as refused:
+        return refused.code, refused.headers, json.loads(refused.read())
+
+
+def test_the_upload_card_tool_shows_the_card_that_sends_to_this_server(server):
+    listed = {tool["name"]: tool for tool in as_claude(server, "tools/list", {})["tools"]}
+    uri = listed["choose_score"]["_meta"]["ui"]["resourceUri"]
+    shown = as_claude(server, "tools/call", {"name": "choose_score", "arguments": {}})
+    card = as_claude(server, "resources/read", {"uri": uri})["contents"][0]
+    port = server.rsplit(":", 1)[1]
+    assert "choose the same file again in the card below" in listed["choose_score"]["description"]
+    assert not shown.get("isError") and "End your reply here" in shown["content"][0]["text"]
+    assert card["_meta"]["ui"]["domain"].endswith(".claudemcpcontent.com")
+    assert card["_meta"]["ui"]["csp"]["connectDomains"] == [f"http://localhost:{port}"]
+    assert f'"http://localhost:{port}/upload"' in card["text"]
+
+
+def test_a_score_chosen_in_the_card_is_kept_drafted_and_drawn_for_claude(server, store):
+    status, headers, body = upload(server, NOCTURNE.read_bytes())
+    score_id = body["next"].split("score_id: ", 1)[1].split()[0]
+    assert status == 200 and headers["Access-Control-Allow-Origin"] == "*" and body["kind"] == "musicxml"
+    assert "Call draft_analysis with this score_id now" in body["next"]
+    assert (store / "scores" / score_id).is_file()
+    drafted = as_claude(server, "tools/call", {"name": "draft_analysis", "arguments": {"score_id": score_id, "measure_range": "1-2"}})
+    marks = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "Eb"}]
+    drawn = as_claude(server, "tools/call", {"name": "render_analysis", "arguments": {
+        "score_id": score_id, "measure_range": "1-2", "annotations": {"annotations": marks}}})
+    assert not drafted.get("isError") and drafted["content"][0]["text"].startswith(f"score_id: {score_id}")
+    assert not drawn.get("isError") and drawn["structuredContent"]["image_url"]
+
+
+def test_a_pdf_chosen_in_the_card_is_kept_for_the_pdf_reader(server, store):
+    pdf = (NOCTURNE.parent / "chopin-28-4-mutopia.pdf").read_bytes()
+    status, _, body = upload(server, pdf)
+    pdf_id = body["next"].split("pdf_id: ", 1)[1].split()[0]
+    assert status == 200 and body["kind"] == "pdf" and "Call read_fetched_pdf with this pdf_id now" in body["next"]
+    assert (store / "scores" / f"{pdf_id}.pdf").is_file()
+
+
+def test_the_upload_refuses_what_is_not_a_score_and_answers_the_browser_s_preflight(server):
+    preflight = urllib.request.Request(f"{server}/upload", method="OPTIONS")
+    with urllib.request.urlopen(preflight, timeout=10) as response:
+        assert response.status == 204 and "POST" in response.headers["Access-Control-Allow-Methods"]
+    page = upload(server, b"<!DOCTYPE html><html><body>Sign in</body></html>")
+    large = upload(server, b"%PDF" + bytes(10 * 1024 * 1024))
+    empty = upload(server, b"")
+    assert page[0] == 415 and page[1]["Access-Control-Allow-Origin"] == "*" and "not a MusicXML file or a PDF" in page[2]["error"]
+    assert large[0] == 413 and "larger than 10 MB" in large[2]["error"]
+    assert empty[0] == 415
 
 
 def test_health_still_answers(server):
