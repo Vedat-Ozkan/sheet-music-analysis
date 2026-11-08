@@ -2363,7 +2363,11 @@ Looked at the last page of each reading against the scan; the owner then read th
 
 **Checks.** The scan and its first-setting reading are in `tests/data`; a test replays the reading through `read_pdf` and draws the preview (it segfaults on main), and the scan joins the PDFs read whole with the real reader (2 passed locally, 6 min 43 s; the full read gives 4 pages, none skipped, both settings). `diff_check` pdfwarn 80, render 28, export 6: 0 changed, after each fix. `test_awkward`, `test_read_pdf` and `test_untrusted_input`: 284 passed, 15 skipped (need the reader), 2 expected failures. Looked at bar 21 of the preview: it draws and is shaded. Sonnet reviews: the beam fix, nothing above low; the chord fix, one medium finding (it also changed chords after a skip forward, which did not crash; narrowed). Bar 52 of the Grieg reading now draws its three notes as one chord at the start of the bar. Full suite with the reader, on the beam fix, under load: 1,329 passed, 2 failed, then it hung after a worker died in a reader test that passes alone; one failure was a missing expectation for the new reading (added, passes), so the run is incomplete. Full suite with the reader on the combined release branch (`release-a`, with entry 128 and the site figures): 1,342 passed, 4 skipped (no ring codes), 2 expected failures. NOT RUN: Cloud Run (the crash behaviour above is from log 34 and the code, not reproduced on staging).
 
-### 130. Claude reads a score from a link the user pastes (2026-11-07, not released)
+### 132. Plugin 1.9.0: Claude reads a score from a link, one plugin for Claude's directory and our marketplace (2026-11-07 to 2026-11-08, not released)
+
+This entry joins two branches and the plugin rewrite that follows from them. Each part's checks were run on that part's branch, before the merge.
+
+**Part 1: reading a score from a link (branch `claude-links`).**
 
 **Problem.** Anthropic's plugin directory refuses the Claude plugin because it bundles scripts, Claude cannot hand a chat attachment to a remote server (log 128), and the owner rejected a file-picker card. Without the plugin the connector in Claude only offered `draft_from_notes` and `play`, which need the plugin's note list.
 
@@ -2379,7 +2383,19 @@ Looked at the last page of each reading against the scan; the owner then read th
 
 **Review (Sonnet).** No security holes; ChatGPT's listing confirmed unchanged by running both trees. Fixed: malformed links (`https://a..b/`, an unclosed IPv6 bracket) were reported as our error with a stack trace; `render_analysis` and `correct_bars` told Claude to attach a file when the score id was missing. Not fixed, noted: the address check and the connection resolve the name separately (DNS rebinding); the reach is limited because the reply must look like a score to be kept, and the metadata server needs a header we never send. Claude-only tools stay callable by name from other clients, as `play` already was.
 
-**Not done.** Not tried in claude.ai: staging needs a login, so a claude.ai custom connector cannot reach it until the owner opens it. `skill/`, `plugin/` and `dist/` are untouched; site, listing and privacy text are drafted, not published.
+**Not done.** Not tried in claude.ai: staging needs a login, so a claude.ai custom connector cannot reach it until the owner opens it. `skill/`, `plugin/` and `dist/` were untouched on this branch (the plugin part below changes them); site, listing and privacy text are drafted, not published.
+
+**Part 2: the plugin from our own marketplace (branch `plugin-source`).**
+
+**Problem.** Claude's directory accepted plugin 1.7.4 and refuses every later version: the plugin carries Python scripts, fonts and a font config, and "files outside the allowed types" are accepted only from Verified organisations. Directory users stay on 1.7.4.
+
+**What the docs say (read 2026-11-07).** claude.ai users on paid plans (Pro, Max, Team, Enterprise; Free is not listed) can add a plugin from any public GitHub repository that holds `.claude-plugin/marketplace.json` (Customize → Plugins → Add → Add marketplace) or upload a zip; Anthropic's review does not cover either. A plugin added on the account works in chat on the web, desktop and phone, and syncs to Claude Code; the docs give install steps only for the web and the desktop app. The bundled connector must be added on the plugin's Connectors tab. A marketplace serves the version in `plugin.json`: users get a new copy only when it changes. No policy forbids offering a plugin outside the directory; the Software Directory Policy covers listings. Code execution is on by default on every plan; network access for individuals is on by default, and Team and Enterprise owners choose it. raw.githubusercontent.com was shown reachable from a Claude chat in log 89.
+
+**Change.** `.claude-plugin/marketplace.json` at the repository root, marketplace `sheetmusicanalysis`, one entry pointing at `./dist/sheet-music-analysis` with no version of its own, so `plugin.json` stays the only version and pushing a changed `dist/` stays the one release step, now for the directory and the marketplace together. Install steps per surface in `site/docs.html` and the README. A test checks that the entry names the built plugin and sets no version.
+
+**Checks.** `claude plugin validate` (Claude Code 2.1.319) passes on the plugin and on the marketplace. In a separate Claude Code config: marketplace added from the working folder and from a fresh git clone of the committed branch, plugin installed, listed as 1.8.0 with its skill and connector, then removed; no session was started, so the connector was not called. `tests/test_skill_build.py`: 7 passed. NOT RUN: adding it as `owner/repo` from GitHub, where Claude Code clones it into its cache instead of reading the folder in place (Claude Code takes only `owner/repo`, `https:` or a path); adding the marketplace or uploading the zip on claude.ai (nothing pushed, and the owner's account is not used for tests), the phone app, a Team or Enterprise account.
+
+**Found on the way.** `dist/` on main is older than its sources: rebuilding changes `read_pdf.py` (both copies) and `render.py` (the fixes of logs 127 and 129). Marketplace users would get the committed 1.8.0 as it stands; shipping those fixes needs a rebuild and a version bump, which is a release.
 
 ## Checking against teachers' prose
 
