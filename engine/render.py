@@ -443,7 +443,7 @@ def _start_orphan_chords_in(segment: ET.Element) -> bool:
     previous = None
     started = False
     for element in segment:
-        if element.tag in ("backup", "forward"):
+        if element.tag == "backup":
             previous = None
         elif element.tag == "note":
             chord = element.find("chord")
