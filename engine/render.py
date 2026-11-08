@@ -9,21 +9,24 @@ import zipfile
 import zlib
 import xml.etree.ElementTree as ET
 from bisect import bisect_right
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from itertools import accumulate
 from pathlib import Path
 from dataclasses import dataclass
 from fractions import Fraction
 from importlib.resources import files
+from typing import TYPE_CHECKING
 from xml.sax.saxutils import escape, unescape
 
 import resvg_py
-import verovio
 from PIL import Image, ImageChops
 
 from engine.reduce import midi
 from engine.score import TOLERANCE, PositionError, ScoreIndex
 from engine.text import FONT_DIR, FONT_FILES, MAIN as TEXT_FONT
+
+if TYPE_CHECKING:
+    import verovio
 
 
 
@@ -37,7 +40,6 @@ def _font_config() -> str:
 
 os.environ.setdefault("FONTCONFIG_FILE", _font_config())
 
-RESOURCE_PATH = str(files("verovio") / "data")
 VEROVIO_OPTIONS = {
     "xmlIdChecksum": True,
     "svgViewBox": True,
@@ -106,6 +108,9 @@ SHORT_NAMES = {name: abbr for abbr, names in _SHORT_NAME_SOURCE.items() for name
 
 class ScoreError(ValueError):
     pass
+
+
+UNREADABLE = "Verovio could not read this file as MusicXML"
 
 
 def parse_measures(measure_range: str | None) -> tuple[int, int] | None:
@@ -202,9 +207,18 @@ class Engraving:
         return max(ink[1] - pad, 0), min(ink[3] + pad, image.height)
 
 
-def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False, labelled_bars: Collection[int] = ()) -> verovio.toolkit:
+def local_toolkit() -> verovio.toolkit:
+    import verovio
     toolkit = verovio.toolkit(False)
-    toolkit.setResourcePath(RESOURCE_PATH)
+    toolkit.setResourcePath(str(files("verovio") / "data"))
+    return toolkit
+
+
+new_toolkit: Callable[[], verovio.toolkit] = local_toolkit
+
+
+def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False, labelled_bars: Collection[int] = ()) -> verovio.toolkit:
+    toolkit = new_toolkit()
     toolkit.setOptions({**VEROVIO_OPTIONS, **(options or {})})
     data = _musicxml(score)
     try:
@@ -215,7 +229,7 @@ def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool
         raise ScoreError("This file is not MusicXML" + (" but a PDF" if score[:5] == b"%PDF-" else ""))
     loaded = toolkit.loadData(_importable(text))
     if not loaded:
-        raise ScoreError("Verovio could not read this file as MusicXML")
+        raise ScoreError(UNREADABLE)
     _tidy(toolkit, _readable_names(score), keep_pedals, labelled_bars)
     if len(set(re.findall(r'<staffDef\b[^>]*\bn="(\d+)"', toolkit.getMEI()))) <= LARGE_SCORE_STAVES:
         toolkit.setOptions({"systemDivider": "none"})
