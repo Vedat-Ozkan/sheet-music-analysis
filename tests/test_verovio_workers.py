@@ -18,7 +18,7 @@ from engine import render, verovio_workers
 from server import app
 
 DATA = Path(__file__).parent / "data"
-CRASH = (DATA / "mozart-k545-1-homr-reading-verovio-crashed-staff.musicxml").read_bytes()
+CRASH = (DATA / "verovio-crashes" / "mozart-k545-1-homr-reading-clef-change.musicxml").read_bytes()
 BALLADE = (DATA / "chopin_ballade_op23_pdmx.mxl").read_bytes()
 CHORALE = (DATA / "part_writing_bwv64.4.musicxml").read_bytes()
 PDF = (DATA / "chopin-28-4-mutopia.pdf").read_bytes()
@@ -181,6 +181,7 @@ def test_the_server_survives_a_score_that_crashes_the_drawing_library(server_pro
 
 
 def test_a_call_over_the_time_limit_is_stopped_and_the_next_request_gets_a_fresh_worker(pool, monkeypatch):
+    before = pids(pool)
     monkeypatch.setattr(verovio_workers, "CALL_SECONDS", 0.05)
     token = verovio_workers.current.set(verovio_workers.Request())
     with pytest.raises(verovio_workers.VerovioFailed) as stopped:
@@ -193,3 +194,5 @@ def test_a_call_over_the_time_limit_is_stopped_and_the_next_request_gets_a_fresh
     assert render.engrave(CHORALE).page_count
     verovio_workers.current.get().release()
     verovio_workers.current.reset(token)
+    assert len(set(before) & set(pids(pool))) == 1
+    assert [worker.bound for worker in pool.workers] == [0, 0]

@@ -80,8 +80,9 @@ class Request:
             self.worker.call(None, "drop", tuple(self.handles))
         except VerovioFailed:
             pass
-        self.pool.unbind(self.worker)
-        self.worker = None
+        finally:
+            self.pool.unbind(self.worker)
+            self.worker = None
 
 
 current: ContextVar[Request | None] = ContextVar("verovio_request", default=None)
