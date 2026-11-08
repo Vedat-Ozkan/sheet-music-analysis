@@ -2404,7 +2404,7 @@ All 36, recall by level, ours against experts: key 0.902 / 0.882, root 0.885 / 0
 
 **Change.** The terms now say the chat model writes the analysis from a beat-by-beat table of the notes and our software adds part-writing checks. The code default of `SEND_DRAFT` is off; the six tests that need the draft set it themselves, and the four that switched it off no longer need to. Deleted: `docs/gate1-checklist.md`, `docs/gate1-results.md`, `tools/evaluate_problem_spots.py`, and the README's "Platform test" and "Shipping the chat player" paragraphs. The README Thanks and Draft model text, this log's introduction and "At a glance", and the "Reproducing" commands were checked against the code (every module and flag exists). Historical plans, research and spike review notes got a one-line header saying so and pointing to the current record. `reports/` stays: `README.md` and `eval/pieces.py` still refer to it.
 
-**Not changed.** Entries above are untouched. `tools/load/` (k6 load test of `draft_from_notes`) goes with the tool's removal. The privacy page still says "draft" because the chord draft is still made and stored for part-writing checks.
+**Not changed.** Entries above are untouched. `tools/load/` (k6 load test of `draft_from_notes`) stays until that tool is removed in the link-only plugin change. The privacy page still says "draft" because the chord draft is still made and stored for part-writing checks.
 
 ## Checking against teachers' prose
 
