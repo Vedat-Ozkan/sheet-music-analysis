@@ -89,10 +89,6 @@ open('out/example.pdf', 'wb').write(page.pdf())
 "
 ```
 
-## Platform test
-
-The first test server, which checked how a score gets in and how a page shows up in each chat app (plan step 1), was replaced by `server/` and removed. Its results are in `docs/gate1-results.md`.
-
 ## Robustness
 
 ```bash
