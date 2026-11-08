@@ -51,7 +51,7 @@ def test_an_unknown_play_id_explains_what_to_pass(local_store):
 
 
 def test_only_claude_is_offered_the_player():
-    assert listed_for("Claude-User") == {"draft_from_notes", "play"}
+    assert {"draft_from_notes", "play"} <= listed_for("Claude-User")
     assert "play" not in listed_for("openai-mcp/1.0.0")
 
 
