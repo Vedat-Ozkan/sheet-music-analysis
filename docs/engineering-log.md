@@ -2317,13 +2317,35 @@ Looked at the last page of each reading against the scan; the owner then read th
 
 **Why triplets and unshaded bars were missed on that page (Opus review; not fixed).** The reader finds the printed 3 in bar 27 and links it, then deletes it at a score of 0.168 against a floor of 0.5; keeping it does not repair the bar and costs right bars elsewhere. A full left hand hides a short right hand from the short-bar check, which also turns off when no time signature is read (68 of 291 readings). Neither justified a patch.
 
-**Other readers on the same five scans.** After that page the owner asked whether the reader should be replaced, so two others were run locally through the same scorer, which reproduced our 141 piece by piece. Exact bars of 253: ours 141 (55.7%, pitch 89.2, timing 80.1); Sheet Music Transformer `smt-fp-grandstaff` 34 (13.4%, pitch 82.0, timing 54.0, 74 s a page on 4 CPU threads, 1.8 GB); oemer 11 (4.3%, pitch 60.9, timing 33.4, about 5 minutes a page, 7.8 GB). The 34 needed a lenient hand-written converter with up to 296 repairs a page; with the standard converter it scores 0. No reader tested beats ours, so nothing changes. NOT RUN: LEGATO and `smt-fp-polish-scores`, whose weights need the owner's Hugging Face login and acceptance of terms. Evidence is in `~/omr-reader-test-2026-11-07`, outside the repo.
+**Other readers on the same five scans.** After that page the owner asked whether the reader should be replaced, so two others were run locally through the same scorer, which reproduced our 141 piece by piece. Exact bars of 253: ours 141 (55.7%, pitch 89.2, timing 80.1); Sheet Music Transformer `smt-fp-grandstaff` 34 (13.4%, pitch 82.0, timing 54.0, 74 s a page on 4 CPU threads, 1.8 GB); oemer 11 (4.3%, pitch 60.9, timing 33.4, about 5 minutes a page, 7.8 GB). The 34 needed a lenient hand-written converter with up to 296 repairs a page; with the standard converter it scores 0. No reader tested beats ours, so nothing changes. LEGATO was run later the same day (entry 129); `smt-fp-polish-scores` stays NOT RUN, its weights needing the owner's Hugging Face login and acceptance of terms. Evidence is in `~/omr-reader-test-2026-11-07`, outside the repo.
 
 **Logging and keeping files.** `read_pdf_work` now records page sizes in points, embedded image sizes, whether the file is a scan, and the reader's reason (page too large, staff lines too close or too far apart, with the spacing it measured). A PDF that fails to read is kept under `failed/` for 7 days; the privacy page says so (owner approved 2026-11-07). The policy must be live before or with the deploy that starts keeping files.
 
 **Checks.** Full suite with the sma.7 reader set: 1335 passed, 4 skipped (no ring codes), 2 expected failures. A second-model review found the retry's separate time budget, server errors on malformed page boxes and a storage failure replacing the user's message; all three fixed and tested. `tools/diff_check.py` has no area covering reading, so the check across PDFs is the page-size test and the count above. NOT RUN: the change in ChatGPT itself, staging, a real phone photo.
 
 **Known limits.** A page whose own drawing commands are unbalanced can scale wrongly. A PDF where only some pages are too small gets no retry; those pages are reported as skipped. Whether the reader honours `UserUnit` was not checked.
+
+### 129. Reader study and the owner's direction, 2026-11-07 (study and decisions, not released)
+
+**Problem.** After entry 127 the owner asked whether a different reader, or a check for wrong bars, should come before more work on the reader. We also had little idea what users actually upload.
+
+**Readers on five real scans (253 bars).** Exact bars: ours 141 (89.2% of notes right in pitch, 80.1% in timing), Sheet Music Transformer 34, oemer 11. LEGATO-small, used as shipped, got 0 exact bars (27.5% pitch, 17.2% timing), took 125 to 165 s a page and about 7.3 GB, and 11 of its 12 pages looped until the 2048-token output cap. Tuned (each system drawn on a blank page-sized canvas, 3 beams, float32, 1024 tokens) it was run on the Grieg piece and Chopin Prelude 4 only (79 bars): 5 exact bars against 53 for ours. It read 646 of the 1013 notes at the right pitch and 507 at the right time. It was right where ours was wrong in 2 bars (Grieg bars 7 and 10). It took about 74 s a system and 7.5 GB, and 4 of 16 systems still hit the cap. The other three pieces were not run once the answer was clear, so those three are NOT RUN. Our own per-note counts on the same two pieces were not recomputed here. Files: `~/omr-reader-test-2026-11-07/scored/` (`legato-small-page.json`, `legato-small-tuned-grieg-chopin.json`, `legato-status.json`).
+
+**Why bars are wrong (same five scans).** 112 of 253 bars differ from the true score. The Bach prelude fails as a whole and all 24 of its bars are shaded. Of the other 88, 67 wrong bars carry no shade, and 33 of those change the analysis; 17 of the 33 are a clef change in the middle of a line that was not read. 70 of the 112 change the analysis. Table: `taxonomy/summary.md` in the same folder.
+
+**Could a learned check find the unshaded wrong bars?** Branch `wrong-bar-detector`, commit 0f12b46, with its own log entry. On 10,042 bars from 291 PDFs, a trained check ranks wrong bars better than today's shading, but the share of unshaded bars that are right flattens at about 94% even with half the music shaded. The errors left over are mostly one or two notes off; they add up and look like any other bar, so nothing in the reading separates them. The evidence would have to come from the image or the reader's confidence, which the cached readings do not hold.
+
+**What users send.** From 1 to 7 November, of about 11 ChatGPT PDF reads outside our own testing, 3 or 4 were scans (one may be ours) and the rest digital, going by the `scan` field of `read_pdf_work`. Too few to say more.
+
+**Direction review.** An independent second-model review and the owner decided on 2026-11-07:
+- After a PDF read, go straight to the analysis. This replaces the check-then-"Go ahead" stop of entry 115.
+- Failures come back as normal results, not errors, so ChatGPT on the web draws the error card. The staging test showed it draws no widget for results marked as errors.
+- Both changes go to OpenAI in one submission; the work is on branch `error-card`.
+- Reader work is frozen until a check on 1 December 2026: do returning users exist, and what is the analysis-change score? It resumes only if a real user's failure traces to the reading. The exception is the narrow clef-change fix (branch `clef-changes`).
+- LEGATO and the general wrong-bar detector are dropped.
+- Piece identification is parked: there is no evidence about what users upload.
+
+**Limits.** Five scans, three of them barely tested by LEGATO; the detector used older cached readings; the upload count is about 11 reads.
 
 ## Checking against teachers' prose
 
