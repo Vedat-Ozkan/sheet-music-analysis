@@ -21,7 +21,7 @@ import traceback
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -46,7 +46,7 @@ from pydantic import BaseModel, ConfigDict
 from starlette.requests import Request
 from starlette.responses import Response
 
-from engine import correct, draft, read_ahead
+from engine import correct, draft, read_ahead, verovio_workers
 from engine import notes as note_list
 from engine import read_pdf as pdf_reader
 from engine import check_analysis, ledger, part_writing, reduce
@@ -169,6 +169,18 @@ score_work = anyio.CapacityLimiter(1)
 
 async def in_turn(function, *args):
     return await anyio.to_thread.run_sync(function, *args, limiter=score_work)
+
+
+@asynccontextmanager
+async def verovio_request():
+    request = verovio_workers.Request()
+    token = verovio_workers.current.set(request)
+    try:
+        yield
+    finally:
+        verovio_workers.current.reset(token)
+        with anyio.CancelScope(shield=True):
+            await anyio.to_thread.run_sync(request.release)
 
 
 def platform(ctx: Context | None) -> str:
@@ -316,7 +328,8 @@ def observed(fn):
         result = None
         try:
             with trace.use_span(span, end_on_exit=False):
-                result = await fn(ctx, *args, **kwargs)
+                async with verovio_request():
+                    result = await fn(ctx, *args, **kwargs)
         except Exception:
             call["outcome"] = "server_error"
             call["stack_trace"] = traceback.format_exc()
@@ -973,7 +986,8 @@ async def pdf_work(data: bytes, digest: str, keep_slurs: bool, source: str, card
     draft.timings.set(timings)
     started = time.perf_counter()
     try:
-        return await pdf_outcome(data, digest, keep_slurs, source, card_key, details, timings, started)
+        async with verovio_request():
+            return await pdf_outcome(data, digest, keep_slurs, source, card_key, details, timings, started)
     finally:
         await release_read(card_key, token)
 
@@ -987,8 +1001,13 @@ async def pdf_outcome(data: bytes, digest: str, keep_slurs: bool, source: str, c
         outcome = "ok" if isinstance(result, dict) else "limit" if details.get("limit") else "busy" if details.get("busy") else "user_error"
     except (ScoreError, pdf_reader.ReadError) as error:
         details.update(error=type(error).__name__, passes=getattr(error, "passes", None) or None)
-        result = error_result(str(error) + (pdf_reader.NEXT_STEP if isinstance(error, pdf_reader.ReadError) else ""))
-        if isinstance(error, pdf_reader.ReadError):
+        message = str(error)
+        if isinstance(error, verovio_workers.VerovioFailed):
+            details["verovio"] = error.reason
+            message = pdf_reader.NOTHING_READ
+        unread = isinstance(error, (pdf_reader.ReadError, verovio_workers.VerovioFailed))
+        result = error_result(message + (pdf_reader.NEXT_STEP if unread else ""))
+        if unread:
             try:
                 await anyio.to_thread.run_sync(store.put, f"failed/{digest}.pdf", data)
             except Exception:
@@ -1626,7 +1645,8 @@ async def files(request: Request) -> Response:
                 data = await anyio.to_thread.run_sync(store.get, f"files/{name}")
                 if data is None:
                     try:
-                        data = await in_turn(make_worksheet, name)
+                        async with verovio_request():
+                            data = await in_turn(make_worksheet, name)
                     except Exception as error:
                         log("worksheet", error=type(error).__name__, stack_trace=traceback.format_exc())
                         return Response("This worksheet could not be made; the analysis PDF is unaffected.",
@@ -1668,8 +1688,9 @@ def start_tracing(service: str) -> None:
 
 def main() -> None:
     if sys.argv[1:2] == ["--list-files"]:
-        read_ahead.save(SERVER_FILES)
+        read_ahead.save(SERVER_FILES, verovio_workers.library_files())
         return
+    verovio_workers.start()
     write_line({"severity": "INFO", "message": "server imported", "imports_s": round(STARTED - IMPORTS_BEGUN, 1),
                 "read_ahead": read_ahead.report})
     if service := os.environ.get("K_SERVICE"):
