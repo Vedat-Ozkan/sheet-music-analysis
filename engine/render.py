@@ -213,7 +213,7 @@ def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool
         text = data.decode("latin-1")
     if not re.search(r"<score-(?:partwise|timewise)\b", text[:5000]):
         raise ScoreError("This file is not MusicXML" + (" but a PDF" if score[:5] == b"%PDF-" else ""))
-    loaded = toolkit.loadData(_separate_reused_voices(text))
+    loaded = toolkit.loadData(_importable(text))
     if not loaded:
         raise ScoreError("Verovio could not read this file as MusicXML")
     _tidy(toolkit, _readable_names(score), keep_pedals, labelled_bars)
@@ -429,13 +429,29 @@ def _musicxml(score: bytes) -> bytes:
         raise ScoreError("This file is not MusicXML: its .mxl archive could not be read") from error
 
 
-def _separate_reused_voices(text: str) -> str:
+def _importable(text: str) -> str:
     try:
         root = ET.fromstring(text)
     except ET.ParseError:
         return text
-    renumbered = [_separate_voices_in(segment) for segment in root.iter() if segment.find("note") is not None]
-    return ET.tostring(root, encoding="unicode") if any(renumbered) else text
+    segments = [segment for segment in root.iter() if segment.find("note") is not None]
+    changed = [_start_orphan_chords_in(segment) | _separate_voices_in(segment) for segment in segments]
+    return ET.tostring(root, encoding="unicode") if any(changed) else text
+
+
+def _start_orphan_chords_in(segment: ET.Element) -> bool:
+    previous = None
+    started = False
+    for element in segment:
+        if element.tag in ("backup", "forward"):
+            previous = None
+        elif element.tag == "note":
+            chord = element.find("chord")
+            if chord is not None and (previous is None or previous.find("rest") is not None):
+                element.remove(chord)
+                started = True
+            previous = element
+    return started
 
 
 def _separate_voices_in(segment: ET.Element) -> bool:

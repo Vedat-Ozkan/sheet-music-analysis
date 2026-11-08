@@ -158,6 +158,12 @@ def test_a_scan_whose_doubled_notes_emptied_a_beam_is_read_and_drawn():
     assert preview(score).page_count >= 1
 
 
+def test_a_reading_with_a_chord_note_that_starts_its_voice_is_drawn():
+    score = (Path(__file__).parent / "data/grieg-op38-7-scan-reading-verovio-crashed-chord.musicxml").read_bytes()
+    assert len(ScoreIndex(load_toolkit(score).getMEI()).measures) == 53
+    assert problem_spots(score)[0] == []
+
+
 def test_fractional_durations_do_not_backup_before_the_bar():
     score = (Path(__file__).parent / 'data/pdf_warnings/fractional_durations.musicxml').read_bytes()
     assert problem_spots(score) == ([], False)

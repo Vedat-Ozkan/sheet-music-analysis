@@ -29,8 +29,7 @@ SECONDS = 300
 def worker(path: Path, reader_output: bool) -> str:
     sys.path.insert(0, str(HERE))
     from engine.read_pdf import clean, _problem_spots
-    from engine.render import ScoreError, load_toolkit
-    from engine.render import noteless_beams
+    from engine.render import ScoreError, load_toolkit, noteless_beams
 
     data = path.read_bytes()
     try:
