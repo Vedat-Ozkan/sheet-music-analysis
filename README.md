@@ -8,12 +8,14 @@ Attach a score (MusicXML or PDF) in Claude or ChatGPT and get back the engraved 
 
 ## Results
 
-Scored by duration on 36 pieces that two independent experts each analysed chord by chord (Bach chorales, Mozart and Beethoven sonatas, Chopin mazurkas), passages of 1,327 bars, no neural draft:
+Scored on 36 pieces that two independent experts each analysed chord by chord (Bach chorales, Mozart and Beethoven sonatas, Chopin mazurkas), passages of 1,327 bars, no neural draft. By chord: each of the expert's chords counts once and is agreed when the other reading matches it over more than half of its length; the figure is the share of the expert's chords agreed (recall):
 
-| | Key, chord and bass all match | Root of the chord matches |
+| By chord (recall) | Key, chord and bass all match | Root of the chord matches |
 |---|---|---|
-| Ours against an expert | **0.74** | 0.91 |
-| One expert against the other | 0.70 | 0.91 |
+| Ours against an expert | **0.694** | 0.885 |
+| One expert against the other | 0.697 | 0.907 |
+
+Ours is 99% of the experts' figure at the strict level (0.6939 / 0.6974), with ours minus experts +0.012 (95% bootstrap interval over pieces −0.027 to +0.052). Precision, the share of our chords an expert agrees with, is 0.720. Scored by duration instead, the strict level is 0.74 for us against 0.70. How the test was run, in plain words: [`site/method.html`](site/method.html).
 
 Where the two experts disagree, matching either one earns us half credit and earns the pair nothing, so the comparison favours us a little on Beethoven and the mazurkas. Measured with Claude Opus; ChatGPT has not been measured this way.
 
