@@ -2707,6 +2707,58 @@ The built plugin still described the draft model removed in entry 143: the skill
 
 **Checks.** A corpus check in `tests/test_awkward.py`, written first and failing on 9 of 10 scores: in every bar of every awkward score, one `I` per beat is placed on beats 1 to n; one too many, one too few (bars of three beats or more) and a run starting on beat 2 are each a question. The staging chat's own typing as a test, and an end-to-end run through `draft_analysis`: the question with a `score_id`, the answer with beats gets the check, one score charged. `tools/diff_check.py --base origin/main typed render`: 191 and 28 inputs unchanged. ChatGPT shows the new description after OpenAI approves it.
 
+### 148. Clef changes printed small: read them, not shaded (2026-11-07, branch `clef-changes`, fork `sma-clef-changes`)
+
+Written on 2026-11-07 as 129 on its own branch; renumbered when it reached `main`, which had its own 129.
+
+**Problem.** On the five real scans, a missed clef change caused 18 wrong bars, 17 of them unshaded. Those 17 are about half of the 33 bars that are unshaded and still change the analysis. In Mozart K 545 (Peters), every small treble clef was lost; in Beethoven Op. 2 No. 1, a small bass clef just before a barline was lost. The bars that follow are read in the wrong clef, a 12-step shift, and nothing says so.
+
+**Root cause (reader).** The fork already gives extra weight to a clef whose size and place match a printed clef (entries 100-101). It knew one full size and one fixed small size per clef, and it took the centre of the small clef to be the same as the full-size one. A clef change is the full clef drawn smaller around its own line, the G line or the F line. So a smaller clef sits lower (treble) or nearer the F line (bass), and editions draw it at different sizes. The Peters cue clefs are 0.71 of full size, with their centre 0.7-0.97 of a step below the middle line; the old rule allowed 0.5. They failed on both size and place. On the Mozart pages the classifier ranks a treble clef first at only 0.04-0.16 for all six of them, so the size-and-place check is what decides. The bass clef in the Beethoven scan (Henle) failed by about 0.04 of a step. All small bass clefs in Mozart were already found, which is why every error was a shift of -12 and never +12.
+
+**Fix (fork `f85c9e680`, on sma.7 `378e4fd6d`).** One model replaces the two fixed sizes. A clef may be drawn at any scale from 0.65 to 1.12 of full height. Its width is checked against the scaled width, and its centre against the full-size centre scaled about the clef's own line. No new special case and no change in the engine. Traced with temporary logging in the head-rescue and symbol steps, which was removed before the commit.
+
+**Five real scans (253 bars, same engine, production settings, both readers read here).**
+
+| | sma.7 | fix |
+|---|---|---|
+| Exact bars | 141 | 153 |
+| Wrong bars caused by a clef | 18 (17 unshaded) | 4 (3 unshaded) |
+| Unshaded bars that change the analysis | 33 | 17 |
+| Shaded bars that are right | 1 | 1 |
+
+Of the 17 unshaded clef bars, 14 no longer have a clef error: 9 are now exact, and 5 have a smaller remaining error. Three bars that were shaded are now exact (Mozart 1 and 57, Beethoven 40). No right bar became wrong, and no bar gained shading. The notes of Mozart bars 1-15, drawn from the new reading, match the print. Still missed: a small treble clef touching a chord (Mozart bar 29-30) and Mozart bar 37. Beethoven bar 32 is a small bass clef at a line end that the fix does not find.
+
+**New real-scan benchmark (8 rows, 469 bars).** Seven rows read the same. Row 23 went from 44 to 61 exact, but that is not the fix: the benchmark's baseline took setting 1, while both readers take setting 0 when re-read under the same conditions (61 of 88 each, same clefs). The remaining clef bars there (9 unshaded) are a misread header bass clef (row 20, the class `ClefBuilder.java:719` in entry 106) and a small treble clef inside a beam (row 28). Neither is covered.
+
+**Corpora (183 tuning PDFs, 40 unseen).** Run on the farm under heavy load from another job. Every PDF that differed was then read again by both readers under the same conditions. Eight differences were load noise (timeouts and run-to-run variation): two PDFs timed out, one in each run, and Faisst *Sehnsucht*, Kinkel *Trennung* and the others read identically on re-reading.
+
+| Reproduced change | sma.7 | fix |
+|---|---|---|
+| Schubert *Die Stadt*: clef changes found (of 34) | 14 | 34 |
+| Schubert *Die Stadt*: right pitches | 843 | 873 |
+| Mozart K 545 (real scan) | 1102 | 1218 |
+| Op. 26 No. 1 (Verovio): exact bars | 16 | 19 |
+| Op. 26 No. 1 (Verovio): right pitches | 831 | 864 |
+| Debussy *Mandoline*: exact bars | 23 | 24 |
+| Debussy *Mandoline*: right pitches | 728 | 737 |
+| Beethoven Op. 78/2 (old LilyPond): right pitches | 1673 | 1676 |
+| Unseen `p-sq7362818--vr`: right pitches | 902 | 915 |
+| Unseen `p-sq7362818--vr`: invented clef changes | 2 | 0 |
+
+The unseen set as a whole moves 0.9457 to 0.9462 pitch, with the same bar-length errors. Over the 181 tuning PDFs read by both, the fix added no clef change that the truth lacks. Four changes moved by one bar: in Faisst, which read identically on re-reading; in *Mandoline*, which still gains pitches; in Op. 78/2, where it now matches the truth; and in the Op. 18 No. 4 quartet, on a clef the truth does not have. That last one was not re-read.
+
+**The engine check, tried on paper first.** Shading bars where a staff jumps by an octave and a half against both neighbours, or where the lower staff sits above the upper one, would catch 1 of the 17 bars at an 18-semitone jump. At 12 semitones it catches 3 and shades one right bar. Not built.
+
+**Review.** Sonnet reviewed the fork diff and found the geometry and line endings right, with no leftovers. Its concern: a treble clef rescued from a void-head candidate is now accepted on size and place alone, because the classifier needs only to rank a treble clef first. A classifier floor of 0.2 would undo the fix, since the Peters clefs score 0.04-0.16. The corpus runs found no false clef from it (above). The stale constant description it flagged is fixed in `e1cdbcd52`.
+
+**Checks.** `tests/test_read_pdf.py` and `tests/test_awkward.py` with the fixed reader: 291 passed, 2 expected failures. `tools/diff_check.py` was not run: it compares engine code over cached readings, and the engine is unchanged.
+
+**NOT RUN:** the full test suite with this reader; the engine's marked pages looked at full size (only a Verovio drawing of the Mozart reading was checked against the print); staging; and a fresh run of the 183 PDFs on a quiet machine (only the PDFs that differed were re-read).
+
+**Evidence.** In `~/omr-reader-test-2026-11-07/clef-changes`: readings, per-bar tables, corpus results, re-reads and scripts. The reader is installed at `spike/omr/speed/installs/clef1` here and at `/opt/omr/clef1` on pc1 and pc2.
+
+**To release.** This needs a reader build. It means a fork release from `sma-clef-changes`, the jar hash in `Dockerfile.base`, a new `READER` label, and a base image rebuild.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
