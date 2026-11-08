@@ -3,6 +3,9 @@ from pathlib import Path
 
 import pytest
 
+from engine import notes as note_list
+from engine.render import load_toolkit
+from engine.score import ScoreIndex
 from server import app
 
 ROOT = Path(__file__).parent.parent
@@ -70,3 +73,23 @@ def test_with_the_draft_parked_a_student_check_still_gets_its_section(local_stor
     text = call(app.draft_analysis, score_id="CHOPIN", measure_range="1-8", student_analysis=STUDENT).content[0].text
     assert_planted_differences(text.split("STUDENT CHECK (", 1)[1].split("## Method", 1)[0])
     assert "Draft analysis from" not in text and "DRAFT UNAVAILABLE" not in text
+
+
+@pytest.mark.xdist_group("draft_model")
+def test_draft_from_notes_checks_typed_answer(local_store):
+    index = ScoreIndex(load_toolkit(CHOPIN.read_bytes()).getMEI())
+    result = call(app.draft_from_notes, notes=note_list.encode(index, 1, 8), student_analysis=STUDENT)
+    assert not result.is_error
+    assert_planted_differences(section_of(result.content[0].text))
+
+
+def test_draft_from_notes_ambiguous_answer(local_store):
+    index = ScoreIndex(load_toolkit(CHOPIN.read_bytes()).getMEI())
+    result = call(app.draft_from_notes, notes=note_list.encode(index, 1, 8), student_analysis="I IV V I")
+    assert result.is_error and result.content[0].text == app.QUESTION_FOR_USER + QUESTION
+
+
+def test_draft_from_notes_without_note_list(local_store):
+    result = call(app.draft_from_notes, notes="Please analyse my attached score.")
+    assert result.is_error and result.content[0].text == app.NO_NOTE_LIST
+

@@ -1133,13 +1133,19 @@ async def read_fetched_pdf(ctx: Context, pdf_id: str, keep_slurs: bool = False) 
     return await read_pdf_data(data, source, keep_slurs, "read_fetched_pdf")
 
 
-CLAUDE_TOOLS = {"fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis", "play"}
-CLAUDE_ONLY_TOOLS = {"fetch_score", "read_fetched_pdf", "play"}
+CLAUDE_TOOLS = {"fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis", "play",
+                "draft_from_notes"}
+CLAUDE_ONLY_TOOLS = {"fetch_score", "read_fetched_pdf", "play", "draft_from_notes"}
 CLAUDE_HIDDEN_ARGUMENTS = {"draft_analysis": {"score_file"}}
 CLAUDE_RESULT_CHARS = 100_000
 IMAGES_LEFT_OUT = (
     "{count} image(s) were left out of this reply to keep it within Claude's size limit. The card shows the page to "
     "the user; where no card is shown, give the user the links above."
+)
+NO_NOTE_LIST = (
+    "No note list: draft_from_notes needs the compact note list (starting 'N1 div=') that the Sheet Music Analysis "
+    "plugin's skill makes from the user's score file. Without the plugin, ask the user for a link to their score "
+    "(MusicXML or PDF) and call fetch_score with it."
 )
 QUESTION_FOR_USER = "Question for the user about their Roman numerals: "
 
@@ -1226,6 +1232,12 @@ class Server(MCPServer):
 SITE = "https://sheetmusicanalysis.com"
 
 
+NO_PLAY_NOTES = (
+    "Nothing to play: pass the score_id that fetch_score, read_fetched_pdf or correct_bars returned. Older plugin "
+    "versions pass the play_id that draft_from_notes returned, or the compact note list (starting 'N1 div=') as notes."
+)
+
+
 @apps.tool(
     resource_uri=PLAYER_URI,
     title="Play the score",
@@ -1234,30 +1246,43 @@ SITE = "https://sheetmusicanalysis.com"
         "wants to hear the passage or score. Pass the score_id that fetch_score, read_fetched_pdf or correct_bars "
         "returned and the bars to play as measure_range, e.g. \"1-8\" (\"all\" plays the whole score). It plays the "
         "score's tempo, dynamics, pedal marks and ornaments. tempo, in quarter notes per minute, is only for a tempo "
-        "word whose speed play says is unclear: ask the user, then pass their answer."
+        "word whose speed play says is unclear: ask the user, then pass their answer. play_id and notes are only for "
+        "older versions of the Sheet Music Analysis plugin (1.8.0 and earlier); in a new chat use score_id."
     ),
     annotations=read_only("Play the score"),
 )
 @observed
-async def play(ctx: Context, score_id: str, measure_range: str = "all", tempo: float | None = None) -> CallToolResult:
+async def play(ctx: Context, score_id: str | None = None, measure_range: str = "all", tempo: float | None = None,
+               play_id: str | None = None, notes: str | None = None) -> CallToolResult:
     source = platform(ctx)
     try:
-        score, _ = await resolve_score(None, score_id, source)
-        measures = parse_measures(measure_range)
-        index = await in_turn(marked_index, score)
+        if score_id:
+            score, _ = await resolve_score(None, score_id, source)
+            measures = parse_measures(measure_range)
+            index = await in_turn(marked_index, score)
+        else:
+            measures = None
+            if play_id and (stored := await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(play_id)}.notes")):
+                notes = stored.decode()
+            elif play_id and not notes:
+                return error_result(f"No draft has the play_id {play_id!r}; drafts are kept for one day. Call "
+                                    "draft_from_notes again, or pass the note list as notes.")
+            if not notes or not notes.lstrip().startswith("N1"):
+                return error_result(NO_PLAY_NOTES)
+            index = await in_turn(note_list.decode, notes)
         unclear = unclear_tempos(index, measures)
         if unclear and not tempo:
             bar, word = unclear[0]
-            log("play", platform=source, measure_range=measure_range, asked_tempo=word)
+            log("play", platform=source, measure_range=measure_range, legacy=not score_id, asked_tempo=word)
             return CallToolResult(content=[TextContent(type="text", text=(
                 f"Bar {bar} is marked '{word}' with a half-note beat, so how fast to play it is unclear. Ask the user how "
                 "fast they want it, then call play again with the same arguments and tempo in quarter notes per minute."
             ))])
         performance = await in_turn(lambda: performance_text(index, measures, tempo=tempo))
     except (ScoreError, PositionError, ValueError) as error:
-        log("play", platform=source, error=type(error).__name__, outcome=outcome_of(error))
+        log("play", platform=source, legacy=not score_id, error=type(error).__name__, outcome=outcome_of(error))
         return error_result(str(error))
-    log("play", platform=source, measure_range=measure_range)
+    log("play", platform=source, measure_range=measure_range, legacy=not score_id)
     return CallToolResult(
         content=[TextContent(type="text", text="The user now has a player for this passage in the chat.")],
         structured_content={"performance": performance},
@@ -1442,6 +1467,66 @@ async def correct_bars(
         structured_content={"score_id": code, "changed_bars": review.changed_bars,
                             "image_urls": urls, "notes": {str(n): note for n, note in review.notes.items()}},
     )
+
+
+@mcp.tool(
+    title="Draft a harmonic analysis from a note list",
+    description=(
+        "Only for older versions of the Sheet Music Analysis plugin (1.8.0 and earlier), whose skill passes a compact "
+        "note list starting 'N1 div=' that it made in Claude's code sandbox. In a new chat do not use this: ask the "
+        "user for a link to the score and call fetch_score. Drafts a harmonic analysis from that note list, passed "
+        "unchanged as `notes`, and returns the draft with a play_id for play."
+    ),
+    annotations=read_only("Draft a harmonic analysis from a note list"),
+)
+@observed
+async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | None = None) -> CallToolResult:
+    source = platform(ctx)
+    if not notes.lstrip().startswith("N1"):
+        return error_result(NO_NOTE_LIST)
+    try:
+        if student_analysis:
+            await in_turn(check_analysis.student_labels, student_analysis, None, None)
+    except check_analysis.ClarificationNeeded as error:
+        return error_result(QUESTION_FOR_USER + error.question)
+    except ValueError as error:
+        return error_result(str(error))
+    if not await take("draft", source):
+        log("limit", tool="draft_from_notes", platform=source)
+        return error_result(LIMIT_MESSAGE)
+    started = time.time()
+    try:
+        with tracer.start_as_current_span("model"):
+            result = await in_turn(draft.draft_from_notes, notes)
+        with stage("parse"):
+            index = await in_turn(note_list.decode, notes)
+        if student_analysis:
+            student = await in_turn(check_analysis.student_labels, student_analysis, None, index)
+    except check_analysis.ClarificationNeeded as error:
+        return error_result(QUESTION_FOR_USER + error.question)
+    except draft.DraftError as error:
+        log("draft_from_notes", platform=source, outcome="degraded", draft_error=str(error)[:300],
+            stack_trace=traceback.format_exc(), chars=len(notes))
+        return CallToolResult(content=[TextContent(type="text", text=DRAFT_UNAVAILABLE.replace(
+            "the NOTES table below", "the note list").replace("your reading of the NOTES table", "your reading of the note list"))])
+    except (note_list.NotesError, PositionError, ValueError) as error:
+        log("draft_from_notes", platform=source, error=type(error).__name__, chars=len(notes), outcome=outcome_of(error))
+        return error_result(str(error))
+    def build() -> str:
+        text = draft.as_text(result)
+        if section := part_writing.as_text(index, result.chords):
+            text += "\n\n" + section
+        if student_analysis:
+            text += "\n\n" + check_analysis.as_text(student, result, index)
+        return text
+
+    with stage("build"):
+        text = await in_turn(build)
+    play_id = secrets.token_hex(8).upper()
+    await anyio.to_thread.run_sync(store.put, f"scores/{play_id}.notes", notes.encode())
+    text += f"\n\nPLAY: play_id {play_id} plays this passage. Call play with it when the user wants to hear it."
+    log("draft_from_notes", platform=source, chars_in=len(notes), seconds=round(time.time() - started, 1))
+    return CallToolResult(content=[TextContent(type="text", text=text)])
 
 
 LINK_NOT_A_SCORE = (

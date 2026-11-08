@@ -83,7 +83,7 @@ def test_claude_is_offered_score_links_and_cards_on_its_own_domain(server):
     listed = {tool["name"]: tool for tool in json.loads(as_client(server, "Claude-User", "tools/list", {}))["result"]["tools"]}
     card = json.loads(as_client(server, "Claude-User", "resources/read", {"uri": "ui://sheet-music-analysis/card-v2.html"}))
     assert set(listed) == {"fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis",
-                           "play"}
+                           "play", "draft_from_notes"}
     assert "score_file" not in listed["draft_analysis"]["inputSchema"]["properties"]
     assert "fetch_score" in listed["draft_analysis"]["description"] and "read_fetched_pdf" in listed["correct_bars"]["description"]
     assert card["result"]["contents"][0]["_meta"]["ui"]["domain"].endswith(".claudemcpcontent.com")

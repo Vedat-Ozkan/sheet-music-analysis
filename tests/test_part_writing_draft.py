@@ -3,7 +3,10 @@ import re
 
 import pytest
 
-from engine import draft
+from engine import draft, part_writing
+from engine import notes as note_list
+from engine.render import load_toolkit
+from engine.score import ScoreIndex
 from server import app
 
 from pathlib import Path
@@ -61,3 +64,12 @@ def test_with_the_draft_parked_a_chorale_still_gets_its_check(local_store, monke
     assert started
     assert "parallel fifths soprano+tenor m1 b1 to m2 b1" in text.split("PART-WRITING CHECK (", 1)[1]
     assert "Draft analysis from" not in text and "DRAFT UNAVAILABLE" not in text
+
+
+def test_note_list_path_gets_the_same_section():
+    index = ScoreIndex(load_toolkit((DATA / "part_writing_motion.musicxml").read_bytes()).getMEI())
+    text = note_list.encode(index)
+    result = draft.draft_from_notes(text)
+    section = part_writing.as_text(note_list.decode(text), result.chords)
+    assert "parallel fifths soprano+tenor m1 b1 to m2 b1" in section
+
