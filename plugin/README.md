@@ -4,6 +4,8 @@ Harmonic analysis of sheet music, drawn on the engraved score, for music student
 
 ## Use it
 
+In Claude Code: `/plugin install sheet-music-analysis --marketplace Vedat-Ozkan/sheet-music-analysis`. On the web and in the desktop app, see https://sheetmusicanalysis.com/docs.html#install.
+
 Add the plugin and the connector it lists on its Connectors tab. Then paste a link to your score in the chat and ask Claude to analyse a passage, for example "Analyse bars 1–8 of https://… and show me the annotated score". The link can go straight to a MusicXML file (`.mxl` or `.musicxml`; MuseScore, Dorico, Sibelius and Finale can export one) or a PDF of printed music, or be a Google Drive or Dropbox share link set so that anyone with the link can view it. Files attached to the chat cannot reach the connector, so share the file as a link. For a score on IMSLP, download the PDF in your browser and share it from Google Drive or Dropbox.
 
 Claude returns the page with Roman numerals, chord functions, cadences, phrase brackets, non-chord tones and voice-leading arrows, with PNG and PDF downloads, plus a short commentary numbered to match the page. Ask for a whole piece and Claude analyses it passage by passage, then returns it as one PDF. A PDF is read first (up to the first 8 pages of a PDF of at most 12, about a minute or two); Claude shows you what was read and waits for you to check it. Ask to hear the music and a small piano player appears in the chat.
