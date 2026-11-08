@@ -24,6 +24,21 @@
     <p class="lede">Attach a score, say which bars you want, and ask your question. The rest happens in the chat.</p>
   </section>
 
+  <h2 id="install">Install in Claude</h2>
+  <p>You can add Sheet Music Analysis straight from our GitHub page, which always has the newest version. You need a paid Claude plan (Pro, Max, Team or Enterprise).</p>
+  <p><strong>On the web or in the Claude desktop app:</strong></p>
+  <ol>
+    <li>Go to <em>Customize → Plugins</em>, select <em>Add</em>, then <em>Add marketplace</em>.</li>
+    <li>Enter <code>Vedat-Ozkan/sheet-music-analysis</code> and add it.</li>
+    <li>Find <em>Sheet Music Analysis</em> in the list of plugins and select <em>Add</em>.</li>
+    <li>Open the plugin, go to its <em>Connectors</em> tab and add the <em>Sheet Music Analysis</em> connector. The plugin needs it to make the analysis and to play the music.</li>
+    <li>Turn on <em>Code execution and file creation</em> in <em>Settings → Capabilities</em>.</li>
+  </ol>
+  <p>New versions arrive on their own. To get one as soon as it comes out, open the marketplace under <em>Customize → Plugins</em> and turn on <em>Sync automatically</em>, or select <em>Check for updates</em>.</p>
+  <p><strong>On a phone:</strong> add the plugin on the web or in the desktop app first. It then works in the Claude app on your phone with the same account.</p>
+  <p><strong>On a Team or Enterprise plan:</strong> your organisation's owner may need to let members add their own plugins, and to allow network access for code execution, because the PDF reader is downloaded from GitHub the first time you attach a PDF.</p>
+  <p><strong>In Claude Code:</strong> plugins you add on the web appear in Claude Code when you sign in with the same account. To add it in Claude Code alone, run <code>/plugin marketplace add Vedat-Ozkan/sheet-music-analysis</code>, then <code>/plugin install sheet-music-analysis@sheetmusicanalysis</code>. If adding it fails because your computer has no GitHub SSH key, set <code>CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1</code> and try again.</p>
+
   <h2>1. Get a score file</h2>
   <p>The tool reads <strong>MusicXML</strong>, a file format that stores the notes and other details of a score: <code>.mxl</code> (compressed) or <code>.musicxml</code> / <code>.xml</code>, up to 10 MB.</p>
   <ul>

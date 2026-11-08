@@ -6,6 +6,15 @@ Attach a score (MusicXML or PDF) in Claude or ChatGPT and get back the engraved 
 
 ![Chopin, Nocturne Op. 9 No. 2, bars 1-8, analysed](site/gallery/chopin-nocturne-op9-no2-all.png)
 
+## Install in Claude
+
+This repository is a plugin marketplace, so you can add the newest version of the plugin straight from it (paid Claude plans).
+
+- **Web or desktop app:** Customize → Plugins → Add → Add marketplace, enter `Vedat-Ozkan/sheet-music-analysis`, add *Sheet Music Analysis*, then add its connector on the plugin's Connectors tab and turn on *Code execution and file creation* in Settings → Capabilities. It then also works in the phone app on the same account.
+- **Claude Code:** `/plugin marketplace add Vedat-Ozkan/sheet-music-analysis`, then `/plugin install sheet-music-analysis@sheetmusicanalysis`.
+
+More detail, including Team and Enterprise settings, is on the [How to use](https://sheetmusicanalysis.com/docs.html#install) page.
+
 ## Results
 
 Scored by duration on 36 pieces that two independent experts each analysed chord by chord (Bach chorales, Mozart and Beethoven sonatas, Chopin mazurkas), passages of 1,327 bars, no neural draft:
@@ -49,7 +58,7 @@ This project would not exist without [AnalysisGNN](https://github.com/manoskary/
 | `docs/annotation-spec.md` | The annotation list format the chat model writes. |
 | `examples/` | Hand-written annotation lists: Chopin, Nocturne Op. 9 No. 2, measures 1–8, and in `examples/engraving/` nine passages used by the engraving check. |
 | `skill/`, `tools/build_skill.py` | The skill that runs the engine inside Claude's sandbox on the attached file; the build script bundles the engine with it into `out/sheet-music-analysis.zip`. |
-| `plugin/`, `dist/sheet-music-analysis/` | The plugin: its manifest in `plugin/`, and the built plugin (skill plus a pointer to the connector at mcp.sheetmusicanalysis.com) in `dist/`, written by `tools/build_skill.py` and committed because the Claude plugin directory reads it from GitHub. Rebuild after changing `skill/`, `engine/` or `plugin/`. |
+| `plugin/`, `dist/sheet-music-analysis/` | The plugin: its manifest in `plugin/`, and the built plugin (skill plus a pointer to the connector at mcp.sheetmusicanalysis.com) in `dist/`, written by `tools/build_skill.py` and committed because the Claude plugin directory and our own marketplace (`.claude-plugin/marketplace.json`, which lists it by path and leaves the version to `plugin.json`) read it from GitHub. Rebuild after changing `skill/`, `engine/` or `plugin/`. |
 | `engine/notes.py` | Compact text form of a score's notes, which the skill passes to the server so the draft model can run without the file being uploaded. |
 | `spike/` | Experiments kept for their tests and benchmarks: `spike/omr/` (PDF reading) and `spike/export/` (numerals written into MusicXML). The PDF-reading harness in `spike/omr/speed/` (scorer `whole_bars.py`, reader variants `variants.py`, farm and launcher scripts, fork patches) and the notes in `spike/omr/review-2026-11-04/` are committed as scripts, notes and small result summaries only; PDFs, scores, readings, caches and installs are not. |
 | `server/`, `Dockerfile`, `Dockerfile.base` | The production MCP server (`server/app.py`): the six tools the plugin and ChatGPT use (`draft_analysis`, `render_analysis`, `correct_bars` and `read_pdf` for ChatGPT; `draft_from_notes` and `play` for Claude), plus `rate_analysis`, which only the ChatGPT card calls (reads a PDF with Audiveris through `engine/read_pdf.py` and shows the engraved result to check before the analysis; `tests/test_read_pdf.py` runs when `AUDIVERIS` points at an Audiveris launcher), daily limits, storage in a Cloud Storage bucket that deletes scores and pages after a day. `server/deploy.sh PROJECT_ID` builds the image on Cloud Build and deploys it to Cloud Run (two instances at most, two calls at once each, 900 s request timeout). Run locally with `.venv/bin/python -m server.app` (port 8080, files under `out/server/`). |

@@ -1,3 +1,4 @@
+import json
 import re
 import shutil
 import subprocess
@@ -31,3 +32,11 @@ def test_the_plugin_reads_no_value_from_the_users_environment(skill):
              for number, line in enumerate(path.read_text().splitlines(), 1)
              if re.search(r"\benvironb?\b|getenv", line) and "os.environ.setdefault" not in line]
     assert not reads
+
+
+def test_the_marketplace_lists_the_built_plugin_under_its_own_name_and_version():
+    marketplace = json.loads((ROOT / ".claude-plugin" / "marketplace.json").read_text())
+    [entry] = marketplace["plugins"]
+    manifest = json.loads((ROOT / entry["source"] / ".claude-plugin" / "plugin.json").read_text())
+    assert entry["name"] == manifest["name"]
+    assert "version" not in entry
