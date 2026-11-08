@@ -2317,7 +2317,7 @@ Looked at the last page of each reading against the scan; the owner then read th
 
 **Why triplets and unshaded bars were missed on that page (Opus review; not fixed).** The reader finds the printed 3 in bar 27 and links it, then deletes it at a score of 0.168 against a floor of 0.5; keeping it does not repair the bar and costs right bars elsewhere. A full left hand hides a short right hand from the short-bar check, which also turns off when no time signature is read (68 of 291 readings). Neither justified a patch.
 
-**Other readers on the same five scans.** After that page the owner asked whether the reader should be replaced, so two others were run locally through the same scorer, which reproduced our 141 piece by piece. Exact bars of 253: ours 141 (55.7%, pitch 89.2, timing 80.1); Sheet Music Transformer `smt-fp-grandstaff` 34 (13.4%, pitch 82.0, timing 54.0, 74 s a page on 4 CPU threads, 1.8 GB); oemer 11 (4.3%, pitch 60.9, timing 33.4, about 5 minutes a page, 7.8 GB). The 34 needed a lenient hand-written converter with up to 296 repairs a page; with the standard converter it scores 0. No reader tested beats ours, so nothing changes. LEGATO was run later the same day (entry 129); `smt-fp-polish-scores` stays NOT RUN, its weights needing the owner's Hugging Face login and acceptance of terms. Evidence is in `~/omr-reader-test-2026-11-07`, outside the repo.
+**Other readers on the same five scans.** After that page the owner asked whether the reader should be replaced, so two others were run locally through the same scorer, which reproduced our 141 piece by piece. Exact bars of 253: ours 141 (55.7%, pitch 89.2, timing 80.1); Sheet Music Transformer `smt-fp-grandstaff` 34 (13.4%, pitch 82.0, timing 54.0, 74 s a page on 4 CPU threads, 1.8 GB); oemer 11 (4.3%, pitch 60.9, timing 33.4, about 5 minutes a page, 7.8 GB). The 34 needed a lenient hand-written converter with up to 296 repairs a page; with the standard converter it scores 0. No reader tested beats ours, so nothing changes. LEGATO was run later the same day (entry 128); `smt-fp-polish-scores` stays NOT RUN, its weights needing the owner's Hugging Face login and acceptance of terms. Evidence is in `~/omr-reader-test-2026-11-07`, outside the repo.
 
 **Logging and keeping files.** `read_pdf_work` now records page sizes in points, embedded image sizes, whether the file is a scan, and the reader's reason (page too large, staff lines too close or too far apart, with the spacing it measured). A PDF that fails to read is kept under `failed/` for 7 days; the privacy page says so (owner approved 2026-11-07). The policy must be live before or with the deploy that starts keeping files.
 
@@ -2325,7 +2325,7 @@ Looked at the last page of each reading against the scan; the owner then read th
 
 **Known limits.** A page whose own drawing commands are unbalanced can scale wrongly. A PDF where only some pages are too small gets no retry; those pages are reported as skipped. Whether the reader honours `UserUnit` was not checked.
 
-### 129. Reader study and the owner's direction, 2026-11-07 (study and decisions, not released)
+### 128. Reader study and the owner's direction, 2026-11-07 (study and decisions, not released)
 
 **Problem.** After entry 127 the owner asked whether a different reader, or a check for wrong bars, should come before more work on the reader. We also had little idea what users actually upload.
 
@@ -2347,7 +2347,7 @@ Looked at the last page of each reading against the scan; the owner then read th
 
 **Limits.** Five scans, three of them barely tested by LEGATO; the detector used older cached readings; the upload count is about 11 reads.
 
-### 130. A real scan crashed the server while its reading was checked (2026-11-07)
+### 129. A real scan crashed the server while its reading was checked (2026-11-07)
 
 **Problem.** Ravel's *Oiseaux tristes* (an IMSLP scan, 4 pages) crashed production's PDF reading every time: a segfault inside the drawing library (Verovio 6.3.0) while the first setting's reading was checked for problem bars. A segfault cannot be caught in Python, so in production it ends the whole server process (log 34): Cloud Run answers 503 to that call and to every other call running on that instance, nothing is logged for the read, no copy goes to `failed/`, and the page count is already charged. The "reading" marker is never released, so the same file sent again within 15 minutes gets "still being read"; after that it is read again and crashes again.
 
