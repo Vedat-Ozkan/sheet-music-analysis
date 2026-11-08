@@ -1413,7 +1413,8 @@ async def files(request: Request) -> Response:
                 data = await anyio.to_thread.run_sync(store.get, f"files/{name}")
                 if data is None:
                     try:
-                        data = await in_turn(make_worksheet, name)
+                        async with verovio_request():
+                            data = await in_turn(make_worksheet, name)
                     except Exception as error:
                         log("worksheet", error=type(error).__name__, stack_trace=traceback.format_exc())
                         return Response("This worksheet could not be made; the analysis PDF is unaffected.",

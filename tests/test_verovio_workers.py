@@ -21,6 +21,8 @@ DATA = Path(__file__).parent / "data"
 CRASH = (DATA / "verovio-crashes" / "mozart-k545-1-homr-reading-clef-change.musicxml").read_bytes()
 BALLADE = (DATA / "chopin_ballade_op23_pdmx.mxl").read_bytes()
 CHORALE = (DATA / "part_writing_bwv64.4.musicxml").read_bytes()
+NOCTURNE = (DATA / "chopin_nocturne_op9_no2.mxl").read_bytes()
+NOCTURNE_MARKS = json.loads((Path(__file__).parent.parent / "examples/chopin_op9_no2_m1-8.json").read_text())
 PDF = (DATA / "chopin-28-4-mutopia.pdf").read_bytes()
 AUDIVERIS = os.environ.get("AUDIVERIS", "/opt/audiveris/bin/Audiveris")
 ATTACHED = {"pdf_file": {"download_url": "https://example.com/score.pdf", "file_id": "file-1"}}
@@ -135,6 +137,7 @@ def server_process(tmp_path_factory):
     (folder / "scores").mkdir()
     (folder / "scores" / "CRASH").write_bytes(CRASH)
     (folder / "scores" / "CHORALE").write_bytes(CHORALE)
+    (folder / "scores" / "NOCTURNE").write_bytes(NOCTURNE)
     env = {**os.environ, "PORT": str(port), "DATA_DIR": str(folder)}
     env.pop("BUCKET", None)
     env.pop("K_SERVICE", None)
@@ -196,3 +199,17 @@ def test_a_call_over_the_time_limit_is_stopped_and_the_next_request_gets_a_fresh
     verovio_workers.current.reset(token)
     assert len(set(before) & set(pids(pool))) == 1
     assert [worker.bound for worker in pool.workers] == [0, 0]
+
+
+def test_a_worksheet_is_drawn_through_the_workers_when_it_is_first_downloaded(server_process):
+    url, process = server_process
+
+    async def draw():
+        async with Client(f"{url}/mcp") as client:
+            return await client.call_tool("render_analysis", {"score_id": "NOCTURNE", "annotations": NOCTURNE_MARKS,
+                                                              "measure_range": "1-8"})
+
+    drawn = asyncio.run(draw())
+    assert not drawn.is_error
+    with urllib.request.urlopen(drawn.structured_content["worksheet_url"], timeout=120) as response:
+        assert response.status == 200 and response.read().startswith(b"%PDF")
