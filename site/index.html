@@ -61,13 +61,13 @@
   <p class="caption">Mozart, Symphony No. 41 "Jupiter", first movement, bars 1–4.</p>
 
   <h2>How good is it?</h2>
-  <p>We tested it on 30 pieces, from Bach to Grieg and Medtner, that music experts had already analysed chord by chord and that the draft model had never seen. Then we went through each piece and checked whether our analysis said the same thing as the expert: the same chord, in the same key, with the same note in the bass.</p>
+  <p>We tested it on 36 pieces: Bach chorales, Mozart and Beethoven piano sonatas, and Chopin mazurkas. Two music experts had each analysed every piece chord by chord, working separately. We compared our analysis with each expert's, bar by bar, and counted how much of the music's time we said the same thing: the same chord, in the same key, with the same note in the bass. Then we did the same for the two experts against each other.</p>
   <ul>
-    <li><strong>About 67% of the music matched the expert</strong> once the chat model had reviewed the analysis: nearly as often as two experts match each other (71%).</li>
-    <li><strong>About 48% matched</strong> for the first draft on its own, before the review. The review step makes a real difference.</li>
-    <li><strong>Experts don't fully agree with each other either.</strong> Across 151 pairs of expert analyses of the same pieces, they matched each other on about 71% of the music: more often on Bach chorales and Mozart sonatas, less often on Beethoven sonatas and Chopin mazurkas.</li>
+    <li><strong>About 74% of the music matched an expert</strong>, against 70% when one expert is compared with the other. The difference is within the noise: it agrees with an expert about as often as a second expert does.</li>
+    <li><strong>Counting only the main note of each chord</strong> (for example C in a C major chord, whichever way it is turned), both we and the experts matched about 91% of the time.</li>
+    <li><strong>Experts don't fully agree with each other either.</strong> They matched each other on about 87% of the music in Bach chorales and 81% in Mozart sonatas, but only about 61% in Beethoven sonatas and 63% in Chopin mazurkas. We matched an expert slightly less often than that on the chorales and Mozart (81% and 76%), and more often on Beethoven and Chopin (69% and 74%). Where the experts disagree, matching either one counts for us, which flatters the comparison a little.</li>
   </ul>
-  <p>These results were measured with Claude Opus doing the review. Other chat models may do less well.</p>
+  <p>These results were measured on short passages, with Claude Opus writing the analysis. We have not measured other chat models, including ChatGPT, the same way, and they may do less well.</p>
   <p>So treat it like a well-read study partner, not an answer key. It is least reliable in the places where experts often disagree too: when a piece in a major key briefly borrows chords from the minor key, it sometimes says the music has moved into the minor; and music that doesn't follow the usual chord patterns, such as Debussy's, gets looser descriptions.</p>
 
   <h2>Get it</h2>

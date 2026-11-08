@@ -151,6 +151,7 @@ def test_real_bars_round_trip(path):
         'chopin_nocturne_op9_no2_pdmx.mxl': (35, 0, ''),
         'chopin_prelude_op28_no4_audiveris.mxl': (26, 0, ''),
         'chopin_ballade_op23_pdmx.mxl': (27, 0, ''),
+        'ravel-oiseaux-tristes-scan-verovio-crashed-beam-setting0.mxl': (40, 0, ''),
     }
     passed, failed, reason = expected[path.name]
     assert (accepted, sum(rejected.values())) == (passed, failed)
