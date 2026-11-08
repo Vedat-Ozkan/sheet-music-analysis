@@ -23,6 +23,7 @@ from PIL import Image, ImageChops
 
 from engine.reduce import midi
 from engine.score import TOLERANCE, PositionError, ScoreIndex
+from engine.verovio_host import new_toolkit
 from engine.text import FONT_DIR, FONT_FILES, MAIN as TEXT_FONT
 
 
@@ -203,7 +204,7 @@ class Engraving:
 
 
 def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False, labelled_bars: Collection[int] = ()) -> verovio.toolkit:
-    toolkit = verovio.toolkit(False)
+    toolkit = new_toolkit()
     toolkit.setResourcePath(RESOURCE_PATH)
     toolkit.setOptions({**VEROVIO_OPTIONS, **(options or {})})
     data = _musicxml(score)
