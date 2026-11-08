@@ -43,7 +43,8 @@ def assert_planted_differences(section):
 
 
 @pytest.mark.xdist_group("draft_model")
-def test_draft_analysis_checks_typed_answer(local_store):
+def test_draft_analysis_checks_typed_answer(local_store, monkeypatch):
+    monkeypatch.setattr(app, "SEND_DRAFT", True)
     result = call(app.draft_analysis, score_id="CHOPIN", measure_range="1-8", student_analysis=STUDENT)
     assert not result.is_error
     text = result.content[0].text
@@ -93,3 +94,8 @@ def test_draft_from_notes_without_note_list(local_store):
     result = call(app.draft_from_notes, notes="Please analyse my attached score.")
     assert result.is_error and result.content[0].text == app.NO_NOTE_LIST
 
+
+def test_with_the_draft_parked_a_student_check_still_gets_its_section(local_store, monkeypatch):
+    text = call(app.draft_analysis, score_id="CHOPIN", measure_range="1-8", student_analysis=STUDENT).content[0].text
+    assert_planted_differences(text.split("STUDENT CHECK (", 1)[1].split("## Method", 1)[0])
+    assert "Draft analysis from" not in text and "DRAFT UNAVAILABLE" not in text

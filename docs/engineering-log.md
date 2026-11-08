@@ -2,9 +2,11 @@
 
 A record of the problems met while building this tool, what was done about each, and how the results were measured. Numbers come from runs kept in `out/` (not committed) and can be reproduced with the commands at the end.
 
-**The tool:** a plugin for Claude and ChatGPT that reads a MusicXML score and returns the score engraved with a harmonic analysis drawn on it (Roman numerals, cadences, phrases, non-chord tones, voice leading) and a written commentary. A graph neural network (AnalysisGNN) drafts the analysis; the chat model reviews and corrects it; our engine places every label on the engraved page.
+**The tool:** a plugin for Claude and ChatGPT that reads a MusicXML score and returns the score engraved with a harmonic analysis drawn on it (Roman numerals, cadences, phrases, non-chord tones, voice leading) and a written commentary. The chat model analyses from a beat-by-beat table of the notes, our code flags part-writing slips, and our engine places every label on the engraved page. Until the draft was switched off (entry 124), a graph neural network (AnalysisGNN) drafted the analysis and the chat model reviewed it; most numbers below measure that draft-then-review pipeline.
 
 ## At a glance
+
+The bullets below are the October results of the draft-then-review pipeline. The neural draft has been off in production since entry 124, and the current accuracy figure is the by-chord one in entries 122 and 131.
 
 - **A two-stage analysis pipeline, measured against human experts.** A neural draft followed by a chat-model review, scored by duration against chord-by-chord readings by human analysts on 12 pieces from Bach to Grieg, and against published teacher and textbook analyses for the rest of a 23-piece set.
 - **The review stage raises agreement with experts on 11 of 12 scored pieces.** Weighted by length across 12 pieces (1,158 bars), the share of the music where key, chord and bass all match the human analyst rose from 0.54 to 0.71, and the share with the right key from 0.81 to 0.89. The largest gains were Schumann (0.61 to 0.92), Haydn (0.42 to 0.72) and Beethoven Op. 2 No. 1 (0.47 to 0.73).
@@ -2443,6 +2445,14 @@ This entry joins two branches and the plugin rewrite that follows from them. Eac
 **Part 4: the old Claude tools kept, as legacy (owner's decision, 2026-11-08).** Plugin 1.7.4 (the directory's copy) and 1.8.0 call `draft_from_notes` and `play` with a `play_id` or a note list. Those stay on the server alongside the new `play(score_id, measure_range, tempo)`; their descriptions say they are for plugin 1.8.0 and earlier and that a new chat uses `fetch_score` and `play` with a `score_id`, and the new skill does not mention them. Each `play` log line carries `legacy` (true for a `play_id` or note list). Their server tests are back (play by `play_id` and by note list, the student check and part-writing check on a note list, the missing-note-list message). **Removal rule:** remove them once 1.9.0 is live in Claude's directory and production logs show two weeks with no `draft_from_notes` call and no `play` with `legacy: true`.
 
 **Part 5: the skill's PDF step.** Following the owner's 2026-11-07 decision (and the `error-card` branch's ChatGPT wording), the skill now goes straight on to the analysis after a PDF is read, passing on the reading's note in the same reply, instead of waiting for the user's go-ahead. The server's `read_fetched_pdf` description and result on this branch still say to wait for a go-ahead; `error-card` changes that text for both tools.
+
+### 133. Leftovers from superseded designs removed or marked (2026-11-08)
+
+**Problem.** Text, code and files kept from designs since replaced: the terms said analyses are "drafted by a computer model"; `SEND_DRAFT` defaulted to on in `server/app.py` while `server/deploy.sh` set it off; the gate 1 checklist and results described a test server removed long ago; `tools/evaluate_problem_spots.py` was a one-off nothing used; the README pointed at the removed test server; its Thanks and Draft model sections and this log's introduction still said the neural model drafts every analysis; old plans and spike notes read as current.
+
+**Change.** The terms now say the chat model writes the analysis from a beat-by-beat table of the notes and our software adds part-writing checks. The code default of `SEND_DRAFT` is off; the six tests that need the draft set it themselves, and the four that switched it off no longer need to. Deleted: `docs/gate1-checklist.md`, `docs/gate1-results.md`, `tools/evaluate_problem_spots.py`, and the README's "Platform test" and "Shipping the chat player" paragraphs. The README Thanks and Draft model text, this log's introduction and "At a glance", and the "Reproducing" commands were checked against the code (every module and flag exists). Historical plans, research and spike review notes got a one-line header saying so and pointing to the current record. `reports/` stays: `README.md` and `eval/pieces.py` still refer to it.
+
+**Not changed.** Entries above are untouched. `tools/load/` (k6 load test of `draft_from_notes`) stays until that tool is removed in the link-only plugin change. The privacy page still says "draft" because the chord draft is still made and stored for part-writing checks.
 
 ## Checking against teachers' prose
 
