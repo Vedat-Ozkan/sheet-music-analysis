@@ -1,5 +1,7 @@
 # Review of the "think like a musician" plan for the PDF reader
 
+> Historical record of a 2026-11-04 review. Scan merging is parked and the reader is frozen until 1 December except a clef fix (`docs/engineering-log.md` entry 128).
+
 Written 2026-11-04. Reader sma.6 (benchmark variant `pitch39`). Read-only: nothing in the repo or the fork was changed. Scripts and raw outputs are in the scratchpad folder `mlr/` (full path in the appendix).
 
 How to read the evidence labels:

@@ -1,5 +1,7 @@
 # Revised plan: sheet-music harmonic analysis for Claude and ChatGPT
 
+> Historical record of the 2026-10-01 plan. For what was built and decided since, see `README.md` and `docs/engineering-log.md`.
+
 ## Context
 
 The 2026-10-01 handoff planned a Claude Code plugin that runs everything on the user's machine, with AugmentedNet as the draft model and OpenAI covered in two lines. Research on 2026-10-01 and the owner's answers change the shape of the project:

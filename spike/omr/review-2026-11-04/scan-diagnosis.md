@@ -1,5 +1,7 @@
 # Scanned paper music: why the reader does badly, and whether the test is fair
 
+> Historical record of a 2026-11-04 diagnosis. Scan merging is parked and the reader is frozen until 1 December except a clef fix (`docs/engineering-log.md` entry 128).
+
 Date 2026-11-04. Reader: marks1 (fork dbe09b8a6). Scope: flat scans of printed music. Diagnosis only: no reader or engine code changed, nothing committed, released or deployed. No home PCs, no downloads. The `scan-diag` worktree was not needed, because no fork logging was added.
 
 "Exact" is `whole_bars.py` strict: every pitch, onset, duration, rest and tie right in the bar. "Pitch" and "timing" are note percentages.

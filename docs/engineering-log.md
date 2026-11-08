@@ -2,9 +2,11 @@
 
 A record of the problems met while building this tool, what was done about each, and how the results were measured. Numbers come from runs kept in `out/` (not committed) and can be reproduced with the commands at the end.
 
-**The tool:** a plugin for Claude and ChatGPT that reads a MusicXML score and returns the score engraved with a harmonic analysis drawn on it (Roman numerals, cadences, phrases, non-chord tones, voice leading) and a written commentary. A graph neural network (AnalysisGNN) drafts the analysis; the chat model reviews and corrects it; our engine places every label on the engraved page.
+**The tool:** a plugin for Claude and ChatGPT that reads a MusicXML score and returns the score engraved with a harmonic analysis drawn on it (Roman numerals, cadences, phrases, non-chord tones, voice leading) and a written commentary. The chat model analyses from a beat-by-beat table of the notes, our code flags part-writing slips, and our engine places every label on the engraved page. Until the draft was switched off (entry 124), a graph neural network (AnalysisGNN) drafted the analysis and the chat model reviewed it; most numbers below measure that draft-then-review pipeline.
 
 ## At a glance
+
+The bullets below are the October results of the draft-then-review pipeline. The neural draft has been off in production since entry 124, and the current accuracy figure is the by-chord one in entry 122.
 
 - **A two-stage analysis pipeline, measured against human experts.** A neural draft followed by a chat-model review, scored by duration against chord-by-chord readings by human analysts on 12 pieces from Bach to Grieg, and against published teacher and textbook analyses for the rest of a 23-piece set.
 - **The review stage raises agreement with experts on 11 of 12 scored pieces.** Weighted by length across 12 pieces (1,158 bars), the share of the music where key, chord and bass all match the human analyst rose from 0.54 to 0.71, and the share with the right key from 0.81 to 0.89. The largest gains were Schumann (0.61 to 0.92), Haydn (0.42 to 0.72) and Beethoven Op. 2 No. 1 (0.47 to 0.73).
@@ -2395,6 +2397,14 @@ All 36, recall by level, ours against experts: key 0.902 / 0.882, root 0.885 / 0
 **Expert sources, from the files' Analyst lines.** The mazurka TAOM files are credited "Dmitri Tymoczko and his computer"; the Mozart TAOM files are by nine named theorists; the Beethoven TAOM files have no Analyst line (identified by the file name); the BCMH chorale files were converted to RomanText automatically. The page states the computer help for the mazurkas and the possible dependence of the chorale pair (entry 66).
 
 **Not changed.** The home page's "How it works" still describes the draft step, parked since entry 124, and `docs/listing.md` still quotes 0.67 and 0.71. Both are left for the owner.
+
+### 133. Leftovers from superseded designs removed or marked (2026-11-08)
+
+**Problem.** Text, code and files kept from designs since replaced: the terms said analyses are "drafted by a computer model"; `SEND_DRAFT` defaulted to on in `server/app.py` while `server/deploy.sh` set it off; the gate 1 checklist and results described a test server removed long ago; `tools/evaluate_problem_spots.py` was a one-off nothing used; the README pointed at the removed test server; its Thanks and Draft model sections and this log's introduction still said the neural model drafts every analysis; old plans and spike notes read as current.
+
+**Change.** The terms now say the chat model writes the analysis from a beat-by-beat table of the notes and our software adds part-writing checks. The code default of `SEND_DRAFT` is off; the six tests that need the draft set it themselves, and the four that switched it off no longer need to. Deleted: `docs/gate1-checklist.md`, `docs/gate1-results.md`, `tools/evaluate_problem_spots.py`, and the README's "Platform test" and "Shipping the chat player" paragraphs. The README Thanks and Draft model text, this log's introduction and "At a glance", and the "Reproducing" commands were checked against the code (every module and flag exists). Historical plans, research and spike review notes got a one-line header saying so and pointing to the current record. `reports/` stays: `README.md` and `eval/pieces.py` still refer to it.
+
+**Not changed.** Entries above are untouched. `tools/load/` (k6 load test of `draft_from_notes`) goes with the tool's removal. The privacy page still says "draft" because the chord draft is still made and stored for part-writing checks.
 
 ## Checking against teachers' prose
 
