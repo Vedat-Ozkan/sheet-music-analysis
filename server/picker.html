@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<style>
+  :root { --text: var(--color-text-primary, #111); --muted: var(--color-text-secondary, #555); --line: var(--color-border-primary, #888);
+          --danger: var(--color-text-danger, #b3261e); --font: var(--font-sans, system-ui, sans-serif); }
+  body { margin: 0; padding: 14px 16px; font: 14px var(--font); background: transparent; color: var(--text); }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  label.button { padding: 10px 16px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-weight: 600; }
+  input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  #status { color: var(--muted); }
+  #status.error { color: var(--danger); }
+</style>
+</head>
+<body>
+<div class="row">
+  <label class="button" id="pick">Choose your score<input id="file" type="file" accept=".mxl,.musicxml,.xml,.pdf,application/pdf"></label>
+  <span id="status">MusicXML (.mxl, .musicxml) or a PDF of printed music, up to 10 MB</span>
+</div>
+<script>
+  const UPLOAD_URL = "__UPLOAD_URL__";
+  let nextId = 1;
+  const pending = {};
+
+  function send(message) { window.parent.postMessage(message, "*"); }
+  function request(method, params) {
+    const id = nextId++;
+    send({ jsonrpc: "2.0", id, method, params });
+    return new Promise((resolve, reject) => { pending[id] = { resolve, reject }; });
+  }
+  function reportSize() {
+    send({ jsonrpc: "2.0", method: "ui/notifications/size-changed",
+           params: { width: document.documentElement.scrollWidth, height: Math.ceil(document.body.getBoundingClientRect().height) } });
+  }
+  function setStatus(text, isError) {
+    const status = document.getElementById("status");
+    status.textContent = text;
+    status.className = isError ? "error" : "";
+    reportSize();
+  }
+  function applyStyles(context) {
+    const variables = context && context.styles && context.styles.variables;
+    if (variables) for (const [name, value] of Object.entries(variables)) document.documentElement.style.setProperty(name, value);
+  }
+
+  window.addEventListener("message", (event) => {
+    const message = event.data;
+    if (!message || message.jsonrpc !== "2.0") return;
+    if (message.method === "ui/notifications/host-context-changed") applyStyles(message.params);
+    if (message.id === undefined || !pending[message.id]) return;
+    const { resolve, reject } = pending[message.id];
+    delete pending[message.id];
+    if (message.error) reject(message.error); else resolve(message.result);
+  });
+
+  document.getElementById("file").addEventListener("change", async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    setStatus("Sending " + file.name + "…");
+    try {
+      const response = await fetch(UPLOAD_URL, { method: "POST", body: file });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "upload failed");
+      const next = body.pdf_id
+        ? "Its pdf_id is " + body.pdf_id + ": call read_picked_pdf with it."
+        : "Its score_id is " + body.score_id + ": call draft_analysis with it.";
+      await request("ui/update-model-context", { content: [{ type: "text", text: 'The user picked the score file "' + file.name + '". ' + next }] });
+      document.getElementById("pick").remove();
+      setStatus("Received " + file.name + ".");
+      await request("ui/message", { role: "user", content: [{ type: "text", text: "I've picked my score, " + file.name + "." }] }).catch(() => null);
+    } catch (error) {
+      setStatus("Could not send the file: " + (error.message || error), true);
+    }
+  });
+
+  reportSize();
+  window.addEventListener("load", reportSize);
+  new ResizeObserver(reportSize).observe(document.body);
+
+  const identity = { name: "score-picker", version: "0.1.0" };
+  request("ui/initialize", { protocolVersion: "2026-01-26", appInfo: identity, clientInfo: identity, appCapabilities: {} })
+    .catch(() => null)
+    .then((result) => {
+      applyStyles(result && result.hostContext);
+      send({ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {} });
+      reportSize();
+    });
+</script>
+</body>
+</html>

@@ -42,7 +42,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import NonRecordingSpan, SpanContext, StatusCode, TraceFlags
 from pydantic import BaseModel, ConfigDict
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 from engine import correct, draft, read_ahead
 from engine import notes as note_list
@@ -67,7 +67,9 @@ DAILY_LIMITS = {"draft": 100, "render": 200, "pdf_page": 150} | json.loads(os.en
 CARD_URI = "ui://sheet-music-analysis/card-v2.html"
 PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v2.html"
 PLAYER_URI = "ui://sheet-music-analysis/player-v3.html"
+PICKER_URI = "ui://sheet-music-analysis/picker-v4.html"
 CONNECTOR_URL = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
+CLAUDE_UI_DOMAIN = hashlib.sha256(CONNECTOR_URL.encode()).hexdigest()[:32] + ".claudemcpcontent.com"
 HERE = Path(__file__).parent
 
 def read_only(title: str) -> ToolAnnotations:
@@ -424,6 +426,13 @@ async def download(url: str) -> bytes:
 
 def clean_id(score_id: str) -> str:
     return re.sub(r"[^A-Za-z0-9]", "", score_id).upper()
+
+
+async def uploaded_pdf(pdf_id: str | None) -> bytes:
+    data = await anyio.to_thread.run_sync(store.get, f"scores/upload-{clean_id(pdf_id)}.pdf") if pdf_id else None
+    if data is None:
+        raise ScoreError("No PDF was provided. Call choose_score so the user can pick their PDF; PDFs are kept for one day.")
+    return data
 
 
 async def resolve_score(score_file: AttachedFile | None, score_id: str | None) -> tuple[bytes, str]:
@@ -824,6 +833,33 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
     except (ScoreError, httpx.HTTPError) as error:
         log("read_pdf", platform=source, error=type(error).__name__)
         return error_result(str(error))
+    return await read_pdf_data(data, source, keep_slurs)
+
+
+@apps.tool(
+    resource_uri=PDF_CARD_URI,
+    title="Read a picked PDF of sheet music",
+    description=(
+        "Use this after choose_score when the user picked a PDF of printed sheet music (born-digital or scanned), "
+        "with the pdf_id it gave. Reads the music from the PDF and shows the user the engraved result in a card, so "
+        "they can check it against their copy. Returns a score_id. Do not analyse yet: wait until the user says to go "
+        f"ahead, then call draft_analysis with that score_id. PDFs of more than {pdf_reader.MAX_PAGES} pages are refused. "
+        "Slurs are left out unless keep_slurs is true; set it only when the user asks for them."
+    ),
+    annotations=read_only("Read a picked PDF of sheet music"),
+)
+@observed
+async def read_picked_pdf(ctx: Context, pdf_id: str, keep_slurs: bool = False) -> CallToolResult:
+    source = platform(ctx)
+    try:
+        data = await uploaded_pdf(pdf_id)
+    except ScoreError as error:
+        log("read_picked_pdf", platform=source, error=type(error).__name__)
+        return error_result(str(error))
+    return await read_pdf_data(data, source, keep_slurs)
+
+
+async def read_pdf_data(data: bytes, source: str, keep_slurs: bool) -> CallToolResult:
     digest = hashlib.sha256(data).hexdigest()
     card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}-{'slurs' if keep_slurs else 'no-slurs'}.json"
     if card := await anyio.to_thread.run_sync(store.get, card_key):
@@ -844,7 +880,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
     if started_here and token is None:
         return await wait_for_other_machine(card_key, elsewhere, source, keep_slurs)
     task, since = pdfs_reading[card_key]
-    with anyio.move_on_after(STARTER_WAIT if started_here else SAME_FILE_WAIT):
+    with anyio.move_on_after(STARTER_WAIT if started_here and source != "claude" else SAME_FILE_WAIT):
         await asyncio.shield(task)
     if not task.done():
         log("read_pdf", platform=source, reading=True, keep_slurs=keep_slurs)
@@ -1059,8 +1095,22 @@ apps.add_html_resource(
 
 
 
-CLAUDE_TOOLS = {"draft_from_notes", "play"}
-CLAUDE_ONLY_TOOLS = {"play", "draft_from_notes"}
+CLAUDE_TOOLS = {"choose_score", "read_picked_pdf", "draft_analysis", "correct_bars", "render_analysis", "play",
+                "draft_from_notes"}
+CLAUDE_ONLY_TOOLS = {"choose_score", "read_picked_pdf", "play", "draft_from_notes"}
+CLAUDE_HIDDEN_ARGUMENTS = {"draft_analysis": {"score_file"}}
+CLAUDE_DESCRIPTIONS = {
+    "draft_analysis": (
+        "Use this when the user wants a harmonic analysis of their score: Roman numerals, cadences, phrases, "
+        "non-chord tones. Returns a neural model's draft as a table for you to review and correct. Follow it with "
+        "render_analysis. If the user wants their own analysis checked, pass their Roman numerals as "
+        "student_analysis, as they typed them (\"m1 I, m2 V6, m3 beat 3 ii65 ...\"), or the word \"score\" when the "
+        "numerals are written into their score file; the draft then lists, beat by beat, where they agree with it. "
+        "If the result is a question, ask the user that question and call again with their answer. score_id comes "
+        "from choose_score (a MusicXML file the user picked), read_picked_pdf or correct_bars. Never encode, paste or retype "
+        "a file's contents."
+    ),
+}
 NO_NOTE_LIST = (
     "No note list: draft_from_notes needs the compact note list (starting 'N1 div=') that the Sheet Music Analysis "
     "plugin's skill makes from the user's score file; this server cannot read the score in Claude. The plugin is "
@@ -1085,15 +1135,49 @@ def inline_definitions(schema: dict) -> dict:
     return expand(schema)
 
 
+def is_claude(ctx) -> bool:
+    return client_of(getattr(ctx.request, "headers", None)) == "claude"
+
+
+def without_arguments(schema: dict, hidden: set[str]) -> dict:
+    return {**schema, "properties": {name: value for name, value in schema["properties"].items() if name not in hidden},
+            "required": [name for name in schema.get("required", []) if name not in hidden]}
+
+
+def for_claude(meta: dict | None) -> dict | None:
+    if not meta or "domain" not in meta.get("ui", {}):
+        return meta
+    return {**meta, "ui": {**meta["ui"], "domain": CLAUDE_UI_DOMAIN}}
+
+
 class Server(MCPServer):
     async def _handle_list_tools(self, ctx, params):
         result = await super()._handle_list_tools(ctx, params)
-        if client_of(getattr(ctx.request, "headers", None)) == "claude":
+        claude = is_claude(ctx)
+        if claude:
             result.tools = [tool for tool in result.tools if tool.name in CLAUDE_TOOLS]
         else:
             result.tools = [tool for tool in result.tools if tool.name not in CLAUDE_ONLY_TOOLS]
         for tool in result.tools:
             tool.input_schema = inline_definitions(tool.input_schema)
+            if claude and tool.name in CLAUDE_HIDDEN_ARGUMENTS:
+                tool.input_schema = without_arguments(tool.input_schema, CLAUDE_HIDDEN_ARGUMENTS[tool.name])
+            if claude and tool.name in CLAUDE_DESCRIPTIONS:
+                tool.description = CLAUDE_DESCRIPTIONS[tool.name]
+        return result
+
+    async def _handle_list_resources(self, ctx, params):
+        result = await super()._handle_list_resources(ctx, params)
+        if is_claude(ctx):
+            for resource in result.resources:
+                resource.meta = for_claude(resource.meta)
+        return result
+
+    async def _handle_read_resource(self, ctx, params):
+        result = await super()._handle_read_resource(ctx, params)
+        if is_claude(ctx) and hasattr(result, "contents"):
+            for content in result.contents:
+                content.meta = for_claude(content.meta)
         return result
 
 
@@ -1153,7 +1237,37 @@ apps.add_html_resource(
     (HERE / "player.html").read_text().replace("__SAMPLES__", f"{SITE}/piano/"),
     name="Score player",
     csp=ResourceCsp(connect_domains=[SITE]),
-    domain=hashlib.sha256(CONNECTOR_URL.encode()).hexdigest()[:32] + ".claudemcpcontent.com",
+    domain=CLAUDE_UI_DOMAIN,
+    prefers_border=True,
+)
+
+
+@apps.tool(
+    resource_uri=PICKER_URI,
+    title="Choose a score",
+    description=(
+        "Use this first whenever the user wants a score analysed, played or read: it shows a button in the chat for "
+        "the user to pick their MusicXML file (.mxl or .musicxml) or PDF of printed music, which this server cannot "
+        "otherwise receive in Claude. Then wait: once the file is picked, its score_id (MusicXML) or pdf_id (PDF) "
+        "arrives in the app's context with the user's next message. Call draft_analysis with a score_id, or "
+        "read_pdf with a pdf_id."
+    ),
+    annotations=read_only("Choose a score"),
+)
+@observed
+async def choose_score(ctx: Context) -> CallToolResult:
+    log("choose_score", platform=platform(ctx))
+    return CallToolResult(content=[TextContent(type="text", text=(
+        "The user now sees a button to pick their score file. Wait for their next message; the picked file's id "
+        "will be in the app's context."))])
+
+
+apps.add_html_resource(
+    PICKER_URI,
+    (HERE / "picker.html").read_text().replace("__UPLOAD_URL__", f"{PUBLIC_BASE_URL}/upload"),
+    name="Score picker",
+    csp=ResourceCsp(connect_domains=[PUBLIC_BASE_URL]),
+    domain=CLAUDE_UI_DOMAIN,
     prefers_border=True,
 )
 
@@ -1413,6 +1527,24 @@ async def files(request: Request) -> Response:
         "Content-Security-Policy": "sandbox",
         "X-Content-Type-Options": "nosniff",
     })
+
+
+UPLOAD_HEADERS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS",
+                  "Access-Control-Allow-Headers": "content-type"}
+
+
+@mcp.custom_route("/upload", methods=["POST", "OPTIONS"])
+async def upload(request: Request) -> Response:
+    if request.method == "OPTIONS":
+        return Response(status_code=204, headers=UPLOAD_HEADERS)
+    data = await request.body()
+    if not data or len(data) > MAX_SCORE_BYTES:
+        return JSONResponse({"error": "Send one score file of at most 10 MB"}, status_code=400, headers=UPLOAD_HEADERS)
+    code = secrets.token_hex(8).upper()
+    pdf = data.startswith(b"%PDF")
+    await anyio.to_thread.run_sync(store.put, f"scores/upload-{code}.pdf" if pdf else f"scores/{code}", data)
+    log("upload", score_bytes=len(data), pdf=pdf, origin=request.headers.get("origin"))
+    return JSONResponse({"pdf_id": code} if pdf else {"score_id": code}, headers=UPLOAD_HEADERS)
 
 
 @mcp.custom_route("/health", methods=["GET"])

@@ -61,5 +61,32 @@ def test_tool_inputs_spell_out_every_field(server):
         assert "$ref" not in json.dumps(schema), name
 
 
+def test_a_picked_score_reaches_the_tools_as_claude_sees_them(server):
+    score = open("tests/data/chopin_nocturne_op9_no2.mxl", "rb").read()
+    picked = urllib.request.Request(f"{server}/upload", data=score, method="POST",
+                                    headers={"Origin": "https://example.claudemcpcontent.com"})
+    with urllib.request.urlopen(picked, timeout=10) as response:
+        assert response.headers["Access-Control-Allow-Origin"] == "*"
+        score_id = json.loads(response.read())["score_id"]
+    pdf = urllib.request.Request(f"{server}/upload", data=open("tests/data/chopin-28-4-mutopia.pdf", "rb").read(), method="POST")
+    assert "pdf_id" in json.loads(urllib.request.urlopen(pdf, timeout=10).read())
+
+    def as_claude(method, params):
+        request = urllib.request.Request(
+            f"{server}/mcp", method="POST",
+            data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode(),
+            headers={"User-Agent": "Claude-User", "Content-Type": "application/json",
+                     "Accept": "application/json, text/event-stream"})
+        body = urllib.request.urlopen(request, timeout=10).read().decode()
+        return json.loads(next(line[5:] for line in body.splitlines() if line.startswith("data:")))["result"]
+
+    listed = {tool["name"]: tool for tool in as_claude("tools/list", {})["tools"]}
+    card = as_claude("resources/read", {"uri": "ui://sheet-music-analysis/card-v2.html"})["contents"][0]
+    drafted = as_claude("tools/call", {"name": "draft_analysis", "arguments": {"score_id": score_id, "measure_range": "1-2"}})
+    assert "score_file" not in listed["draft_analysis"]["inputSchema"]["properties"]
+    assert card["_meta"]["ui"]["domain"].endswith(".claudemcpcontent.com")
+    assert not drafted.get("isError") and drafted["content"][0]["text"].startswith(f"score_id: {score_id}")
+
+
 def test_health_still_answers(server):
     assert urllib.request.urlopen(f"{server}/health", timeout=5).read() == b"ok"

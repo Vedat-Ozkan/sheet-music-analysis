@@ -50,9 +50,10 @@ def test_an_unknown_play_id_explains_what_to_pass(local_store):
     assert result.is_error and "drafts are kept for one day. Call draft_from_notes again, or pass the note list as notes" in result.content[0].text
 
 
-def test_only_claude_is_offered_the_player():
-    assert listed_for("Claude-User") == {"draft_from_notes", "play"}
-    assert "play" not in listed_for("openai-mcp/1.0.0")
+def test_only_claude_is_offered_the_player_and_the_picker():
+    assert listed_for("Claude-User") == {"choose_score", "read_picked_pdf", "draft_analysis", "correct_bars",
+                                         "render_analysis", "play", "draft_from_notes"}
+    assert listed_for("openai-mcp/1.0.0").isdisjoint({"play", "choose_score", "read_picked_pdf", "draft_from_notes"})
 
 
 def a_bar_marked(word: str, time: str) -> bytes:
