@@ -26,18 +26,18 @@ Every experiment behind these numbers, including the ones that failed, is writte
 ```mermaid
 flowchart LR
     A[MusicXML or PDF] --> B[Note list<br/>skill in Claude's sandbox,<br/>or the server for ChatGPT]
-    B --> C[Neural draft<br/>AnalysisGNN + rule-based fixes]
-    C --> D[Chat model review<br/>against the notes]
+    B --> C[Beat-by-beat note table]
+    C --> D[Chat model analysis<br/>from the table]
     D --> E[Deterministic checks<br/>positions, part-writing,<br/>labels against notes]
     E --> F[Verovio engraving<br/>+ analysis overlay]
     F --> G[PNG, PDF, MusicXML,<br/>MIDI, RomanText]
 ```
 
-The neural model drafts, the chat model judges, and anything with a clear rule is done in code. The plans are in `docs/plan.md` (v1, with research in `docs/research-2026-10-01.md`) and `docs/plan-2026-10-11.md` (after v1).
+The chat model analyses from a note table, and anything with a clear rule is done in code. The plans are in `docs/plan.md` (v1, with research in `docs/research-2026-10-01.md`) and `docs/plan-2026-10-11.md` (after v1).
 
 ## Thanks
 
-This project would not exist without [AnalysisGNN](https://github.com/manoskary/analysisgnn), which drafts every analysis it draws. Our sincere thanks to its authors, **Emmanouil Karystinaios, Johannes Hentschel, Markus Neuwirth and Gerhard Widmer**, for releasing the model, its code and its trained weights openly ([code](https://github.com/manoskary/analysisgnn), [weights](https://huggingface.co/spaces/manoskary/analysisgnn/tree/main/checkpoint)). If you use this project in research, please cite their paper:
+This project would not exist without [AnalysisGNN](https://github.com/manoskary/analysisgnn), whose chords feed the part-writing checks, the student check and the evaluation. Our sincere thanks to its authors, **Emmanouil Karystinaios, Johannes Hentschel, Markus Neuwirth and Gerhard Widmer**, for releasing the model, its code and its trained weights openly ([code](https://github.com/manoskary/analysisgnn), [weights](https://huggingface.co/spaces/manoskary/analysisgnn/tree/main/checkpoint)). If you use this project in research, please cite their paper:
 
 > Karystinaios, E., Hentschel, J., Neuwirth, M. and Widmer, G. AnalysisGNN: A Unified Music Analysis Model with Graph Neural Networks. *International Symposium on Computer Music Multidisciplinary Research (CMMR)*, 2025.
 
@@ -66,8 +66,6 @@ This project would not exist without [AnalysisGNN](https://github.com/manoskary/
 | `engine/verovio_workers.py`, `engine/verovio_runner.py` | The server's Verovio runs in two long-lived worker processes, one per call in progress, so a crash or hang inside it ends that call with the normal unreadable-score answer instead of the server; a dead worker is replaced on the next call (log 130). The skill, tests and tools run Verovio in their own process unless they start the pool. |
 | `vendor/analysisgnn/` | Clone of the draft model (not committed; see `.gitignore`). |
 
-**Shipping the chat player, in this order.** The skill's note list now carries an `x:` line per bar (tempo, dynamics, pedal, ornaments), which servers from before the player reject, failing the whole analysis. So: (1) deploy the server (`server/deploy.sh`), which reads both old and new note lists; (2) make the samples and publish the site (`tools/piano_samples.py`, then `npx wrangler@4 deploy`), which also publishes the privacy page that says note lists are kept for a day; (3) only then publish the skill and plugin.
-
 ## Setup
 
 ```bash
@@ -88,10 +86,6 @@ open('out/example.png', 'wb').write(page.png(1, width=1600))
 open('out/example.pdf', 'wb').write(page.pdf())
 "
 ```
-
-## Platform test
-
-The first test server, which checked how a score gets in and how a page shows up in each chat app (plan step 1), was replaced by `server/` and removed. Its results are in `docs/gate1-results.md`.
 
 ## Robustness
 
@@ -129,7 +123,7 @@ The score for a reading is the share of the piece, by duration, where it agrees 
 
 ## Draft model
 
-AnalysisGNN drafts the analysis; the chat model reviews it. It runs in its own environment (`.venv-agnn`, Python 3.11, PyTorch 2.5 CPU) and `engine/draft.py` calls it as a subprocess, so the engine itself needs no ML packages.
+AnalysisGNN drafts chords for the part-writing checks, the student check and the evaluation; in production the draft is not sent to the chat model (`SEND_DRAFT=off` in `server/deploy.sh`). It runs in its own environment (`.venv-agnn`, Python 3.11, PyTorch 2.5 CPU) and `engine/draft.py` calls it as a subprocess, so the engine itself needs no ML packages.
 
 ```bash
 uv venv .venv-agnn --python 3.11 && export VIRTUAL_ENV=$PWD/.venv-agnn

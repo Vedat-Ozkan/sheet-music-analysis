@@ -89,6 +89,7 @@ def test_a_request_turned_away_before_any_work_is_not_charged(server):
 
 
 def test_when_the_draft_model_fails_the_notes_table_still_comes_back(server, monkeypatch):
+    monkeypatch.setattr(app, "SEND_DRAFT", True)
     def broken(*args):
         raise draft.DraftError("AnalysisGNN failed: injected")
 
@@ -184,6 +185,7 @@ def test_a_crash_while_reading_a_pdf_is_a_server_error_with_the_reference_the_us
 
 
 def test_a_failed_draft_model_is_logged_as_degraded(server, monkeypatch, capsys):
+    monkeypatch.setattr(app, "SEND_DRAFT", True)
     def broken(*args):
         raise draft.DraftError("AnalysisGNN failed: injected")
 
@@ -261,7 +263,8 @@ def test_a_drawing_with_no_marks_says_so_first_and_skips_the_extra_downloads(ser
 
 
 @pytest.mark.xdist_group("draft_model")
-def test_a_whole_score_draft_gives_its_instructions_before_the_chords_and_the_notes_last(server):
+def test_a_whole_score_draft_gives_its_instructions_before_the_chords_and_the_notes_last(server, monkeypatch):
+    monkeypatch.setattr(app, "SEND_DRAFT", True)
     score_id = score_id_of(call("read_pdf", ATTACHED))
     text = text_of(call("draft_analysis", {"score_id": score_id}))
     assert text.index("HOW TO USE THIS DRAFT") < 1000
@@ -307,7 +310,6 @@ def test_with_the_draft_parked_an_ordinary_score_gets_the_notes_without_starting
     def must_not_run(*args):
         raise AssertionError("the draft model was started")
 
-    monkeypatch.setattr(app, "SEND_DRAFT", False)
     monkeypatch.setitem(app.draft.MODELS, "analysisgnn", must_not_run)
     score_id = score_id_of(call("read_pdf", ATTACHED))
     capsys.readouterr()
@@ -320,14 +322,14 @@ def test_with_the_draft_parked_an_ordinary_score_gets_the_notes_without_starting
 
 
 def test_with_the_draft_parked_a_score_is_charged_once_however_many_calls_ask_about_it(server, monkeypatch):
-    monkeypatch.setattr(app, "SEND_DRAFT", False)
     score_id = score_id_of(call("read_pdf", ATTACHED))
     for bars in ("1-4", "5-8", "1-8"):
         assert not call("draft_analysis", {"score_id": score_id, "measure_range": bars}).is_error
     assert charged(server, "draft") == 1
 
 
-def test_the_sent_draft_is_logged(server, capsys):
+def test_the_sent_draft_is_logged(server, capsys, monkeypatch):
+    monkeypatch.setattr(app, "SEND_DRAFT", True)
     score_id = score_id_of(call("read_pdf", ATTACHED))
     capsys.readouterr()
     assert "Draft analysis from" in text_of(call("draft_analysis", {"score_id": score_id, "measure_range": "1-4"}))

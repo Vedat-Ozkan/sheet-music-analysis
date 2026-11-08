@@ -1,5 +1,7 @@
 # Two readers on scans: acceptance rule, written 2026-11-04 before any combined result was seen
 
+> Historical record of a rule written 2026-11-04. Scan merging is parked (`docs/engineering-log.md` entry 128).
+
 Goal: 65% of the way from 55.7% to the owner's 75%, so at least 173 of 253 bars (68.2%).
 Measure: strict exact bars (`whole_bars.py`, per part and staff).
 Set: the five real full-page scans (tuning data): bench-real (3) and the two real scans in bench.

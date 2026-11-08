@@ -504,7 +504,7 @@ def drawing_plan(mei: str, index: ScoreIndex) -> str:
 
 
 SKILL_RULES = re.sub(r"<!--.*?-->\n+", "", (HERE.parent / "skill" / "SKILL.md").read_text().split("## Method", 1)[1])
-SEND_DRAFT = os.environ.get("SEND_DRAFT", "on") != "off"
+SEND_DRAFT = os.environ.get("SEND_DRAFT", "off") == "on"
 DRAW_STEP = (
     "call render_analysis with the score_id and your annotation list (its `view` argument draws one layer: "
     "harmony, voice_leading or form), show the page and write the commentary.\n"
