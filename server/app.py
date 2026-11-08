@@ -833,7 +833,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
     except (ScoreError, httpx.HTTPError) as error:
         log("read_pdf", platform=source, error=type(error).__name__)
         return error_result(str(error))
-    return await read_pdf_data(data, source, keep_slurs)
+    return await read_pdf_data(data, source, keep_slurs, "read_pdf")
 
 
 @apps.tool(
@@ -856,15 +856,15 @@ async def read_picked_pdf(ctx: Context, pdf_id: str, keep_slurs: bool = False) -
     except ScoreError as error:
         log("read_picked_pdf", platform=source, error=type(error).__name__)
         return error_result(str(error))
-    return await read_pdf_data(data, source, keep_slurs)
+    return await read_pdf_data(data, source, keep_slurs, "read_picked_pdf")
 
 
-async def read_pdf_data(data: bytes, source: str, keep_slurs: bool) -> CallToolResult:
+async def read_pdf_data(data: bytes, source: str, keep_slurs: bool, tool: str) -> CallToolResult:
     digest = hashlib.sha256(data).hexdigest()
     card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}-{'slurs' if keep_slurs else 'no-slurs'}.json"
     if card := await anyio.to_thread.run_sync(store.get, card_key):
         card = json.loads(card)
-        log("read_pdf", platform=source, pages=card["pages"], cached="card", keep_slurs=keep_slurs)
+        log(tool, platform=source, pages=card["pages"], cached="card", keep_slurs=keep_slurs)
         return pdf_card_result(card, keep_slurs)
     async with claiming:
         started_here = card_key not in pdfs_reading
@@ -883,20 +883,20 @@ async def read_pdf_data(data: bytes, source: str, keep_slurs: bool) -> CallToolR
     with anyio.move_on_after(STARTER_WAIT if started_here and source != "claude" else SAME_FILE_WAIT):
         await asyncio.shield(task)
     if not task.done():
-        log("read_pdf", platform=source, reading=True, keep_slurs=keep_slurs)
+        log(tool, platform=source, reading=True, keep_slurs=keep_slurs)
         return CallToolResult(content=[TextContent(type="text", text=STILL_READING.format(
             seconds=round(time.time() - since), wait=SAME_FILE_WAIT, minutes=READ_MINUTES))])
     result, details = task.result()
     if started_here and (timings := draft.timings.get()) is not None:
         timings.update({name: value for name, value in details.get("timings_ms", {}).items() if name != "total"})
     if details["outcome"] == "server_error":
-        current_call.get().update(event="read_pdf", platform=source, outcome="server_error",
+        current_call.get().update(event=tool, platform=source, outcome="server_error",
                                   reference=details["reference"], stack_trace=details["stack_trace"])
         return result
     if details.get("limit"):
-        log("limit", tool="read_pdf", platform=source, pages=details.get("pages"))
+        log("limit", tool=tool, platform=source, pages=details.get("pages"))
     else:
-        log("read_pdf", platform=source, keep_slurs=keep_slurs,
+        log(tool, platform=source, keep_slurs=keep_slurs,
             **{key: details[key] for key in ("busy", "error") if key in details})
     return pdf_card_result(result, keep_slurs) if isinstance(result, dict) else result
 

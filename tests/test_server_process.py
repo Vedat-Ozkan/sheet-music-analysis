@@ -7,9 +7,12 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 import pytest
 from mcp.client.client import Client
+
+DATA = Path(__file__).parent / "data"
 
 
 @pytest.fixture(scope="module")
@@ -62,13 +65,13 @@ def test_tool_inputs_spell_out_every_field(server):
 
 
 def test_a_picked_score_reaches_the_tools_as_claude_sees_them(server):
-    score = open("tests/data/chopin_nocturne_op9_no2.mxl", "rb").read()
+    score = (DATA / "chopin_nocturne_op9_no2.mxl").read_bytes()
     picked = urllib.request.Request(f"{server}/upload", data=score, method="POST",
                                     headers={"Origin": "https://example.claudemcpcontent.com"})
     with urllib.request.urlopen(picked, timeout=10) as response:
         assert response.headers["Access-Control-Allow-Origin"] == "*"
         score_id = json.loads(response.read())["score_id"]
-    pdf = urllib.request.Request(f"{server}/upload", data=open("tests/data/chopin-28-4-mutopia.pdf", "rb").read(), method="POST")
+    pdf = urllib.request.Request(f"{server}/upload", data=(DATA / "chopin-28-4-mutopia.pdf").read_bytes(), method="POST")
     assert "pdf_id" in json.loads(urllib.request.urlopen(pdf, timeout=10).read())
 
     def as_claude(method, params):
