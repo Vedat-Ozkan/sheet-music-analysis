@@ -139,9 +139,17 @@ def _playing_order(index: ScoreIndex, root: ET.Element) -> list[Measure] | None:
     return played or None
 
 
-def unclear_tempos(index: ScoreIndex) -> list[tuple[int, str]]:
-    return [(measure.number, mark.value) for measure in index.measures for mark in measure.marks
-            if mark.kind == "tempo" and mark.value in TEMPO_WORDS]
+def unclear_tempos(index: ScoreIndex, measures: tuple[int, int] | None = None) -> list[tuple[int, str]]:
+    tempos = [(measure, mark) for measure in index.measures for mark in measure.marks if mark.kind == "tempo"]
+    if measures:
+        chosen = _chosen(index, measures)
+        position = {id(measure): number for number, measure in enumerate(index.measures)}
+        first, last = position[id(chosen[0])], position[id(chosen[-1])]
+        inside = [(measure, mark) for measure, mark in tempos if first <= position[id(measure)] <= last]
+        before = [(measure, mark) for measure, mark in tempos if position[id(measure)] < first][-1:]
+        replaced = any(measure is chosen[0] and mark.offset == 0 for measure, mark in inside)
+        tempos = ([] if replaced else before) + inside
+    return [(measure.number, mark.value) for measure, mark in tempos if mark.value in TEMPO_WORDS]
 
 
 def perform(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: float | None = None) -> tuple[list[Note], list[tuple[float, int]], float]:

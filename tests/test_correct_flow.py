@@ -1,12 +1,7 @@
 import asyncio
 import base64
 import json
-import os
 from pathlib import Path
-import site
-import subprocess
-import sys
-import venv
 
 import pytest
 
@@ -134,51 +129,6 @@ def test_server_correct_missing_score_and_render_limit(tmp_path, monkeypatch):
     assert limited.content[0].text == app.LIMIT_MESSAGE
     assert [p.name for p in (tmp_path / 'scores').iterdir()] == ['READ18']
     assert not (tmp_path / 'files').exists()
-
-
-def run_script(text, tmp_path):
-    corrections = tmp_path / 'bars.txt'
-    corrections.write_text(text)
-    return subprocess.run([
-        sys.executable, str(ROOT / 'skill/scripts/correct_score.py'), str(READING),
-        str(corrections), '--out-dir', str(tmp_path / 'result')],
-        cwd=ROOT, env={**os.environ, 'PYTHONPATH': str(ROOT)}, capture_output=True, text=True)
-
-
-def test_skill_correct_real_triplet_subprocess(tmp_path):
-    result = run_script(replacement(), tmp_path)
-    assert result.returncode == 0, result.stderr
-    check_correction((tmp_path / 'result/corrected.musicxml').read_bytes())
-    assert (tmp_path / 'result/corrected.png').read_bytes().startswith(b'\x89PNG')
-    assert 'Bar 18: three eighth notes are now a triplet' in result.stdout
-    assert 'confirm against their copy' in result.stdout
-
-
-def test_skill_missing_music21_reports_setup_command(tmp_path):
-    isolated = tmp_path / 'env'
-    venv.EnvBuilder(with_pip=False).create(isolated)
-    packages = next((isolated / 'lib').glob('python*/site-packages'))
-    for source in map(Path, site.getsitepackages()):
-        for package in source.iterdir():
-            if not package.name.startswith('music21') and not (packages / package.name).exists():
-                (packages / package.name).symlink_to(package)
-    bars = tmp_path / 'bars.txt'
-    bars.write_text(replacement())
-    result = subprocess.run([
-        str(isolated / 'bin/python'), str(ROOT / 'skill/scripts/correct_score.py'),
-        str(READING), str(bars), '--out-dir', str(tmp_path / 'result')],
-        cwd=ROOT, env={**os.environ, 'PYTHONPATH': str(ROOT)}, capture_output=True, text=True)
-    assert result.returncode == 1
-    assert 'python3 -m pip install music21' in result.stderr
-    assert 'Traceback' not in result.stderr
-    assert not (tmp_path / 'result').exists()
-
-
-def test_skill_invalid_voice_writes_no_outputs(tmp_path):
-    result = run_script(replacement().replace('36 F#4', '24 F#4'), tmp_path)
-    assert result.returncode == 1
-    assert 'voice 1.1 adds up to 7/2; expected 4 quarter notes' in result.stderr
-    assert not (tmp_path / 'result').exists()
 
 
 @pytest.mark.parametrize('text, message', [

@@ -3,10 +3,7 @@ import re
 
 import pytest
 
-from engine import draft, part_writing
-from engine import notes as note_list
-from engine.render import load_toolkit
-from engine.score import ScoreIndex
+from engine import draft
 from server import app
 
 from pathlib import Path
@@ -36,14 +33,6 @@ def test_draft_analysis_lists_planted_motion_errors(local_store):
 def test_draft_analysis_lists_planted_tendency_errors(local_store):
     text = app.make_draft((DATA / "part_writing_tendency.musicxml").read_bytes(), "pw2", None)
     assert "unresolved seventh" in text.split("PART-WRITING CHECK", 1)[1]
-
-
-def test_note_list_path_gets_the_same_section():
-    index = ScoreIndex(load_toolkit((DATA / "part_writing_motion.musicxml").read_bytes()).getMEI())
-    text = note_list.encode(index)
-    result = draft.draft_from_notes(text)
-    section = part_writing.as_text(note_list.decode(text), result.chords)
-    assert "parallel fifths soprano+tenor m1 b1 to m2 b1" in section
 
 
 def test_piano_piece_gets_no_section(local_store, chopin):

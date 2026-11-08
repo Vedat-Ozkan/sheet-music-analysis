@@ -40,7 +40,7 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 
 ## Claude
 
-The connector is the product in Claude. Claude cannot pass a file attached to the chat to a remote server, and Anthropic's plugin directory refuses the plugin because it bundles scripts, so in Claude the user pastes a link to their score: a direct link to a MusicXML file or PDF, or a Google Drive or Dropbox share link. The server downloads it and runs the same steps as in ChatGPT (`fetch_score`, then `read_fetched_pdf` for a PDF, `draft_analysis`, `render_analysis`, `correct_bars`). IMSLP links are not downloaded: Claude asks the user to download the PDF from IMSLP and share it from Drive or Dropbox. Installed copies of the plugin keep working through `draft_from_notes` and `play`. No Code execution setting is needed.
+The connector is the product in Claude. Claude cannot pass a file attached to the chat to a remote server, so in Claude the user pastes a link to their score: a direct link to a MusicXML file or PDF, or a Google Drive or Dropbox share link. The server downloads it and runs the same steps as in ChatGPT (`fetch_score`, then `read_fetched_pdf` for a PDF, `draft_analysis`, `render_analysis`, `correct_bars`). IMSLP links are not downloaded: Claude asks the user to download the PDF from IMSLP and share it from Drive or Dropbox. `play` gives a small piano player in the chat. The plugin (1.9.0) adds only a skill, one Markdown file, that tells Claude to ask for a link and use these tools; it runs nothing in Claude's sandbox. No Code execution setting is needed.
 
 **Carousel screenshots**, if a form asks (3–5 PNGs at least 1000 px wide, the response only, each with its prompt):
 1. "Analyse the harmony of bars 1–8 of this nocturne": the full page.
@@ -71,12 +71,13 @@ The connector is the product in Claude. Claude cannot pass a file attached to th
 - **Data handling:** our own service; no health data; no sponsored content.
 - **Test & launch:** no test account needed. Add this URL as a custom connector and ask "Analyse the harmony of bars 1–8 of https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl". Claude calls `fetch_score`, `draft_analysis` and `render_analysis`, and the page is shown in a card.
 
-## Claude: plugin form (refused by the directory; kept for installed copies)
+## Claude: plugin form
 
 - **Repository:** `Vedat-Ozkan/sheet-music-analysis`, path `dist/sheet-music-analysis`, branch `main`.
-- **Personal data:** none collected. The plugin sends our server a list of the notes in the passage (pitches, timings, staves, and the score's tempo, dynamics, pedal and ornament marks), not the file; the list is kept for one day so the passage can be played in the chat, then deleted.
+- **Files:** Markdown, text and JSON only (the skill, the manifest, the connector address, a readme and the licence), plus the icon. No scripts.
+- **Personal data:** none collected. Our server downloads the score from the link the user gives and keeps it, and the pages it draws, for one day, then deletes them. It does not keep the link.
 - **Third-party services:** our own server at mcp.sheetmusicanalysis.com, hosted on Google Cloud, behind Cloudflare.
-- **Retention:** note lists are deleted after one day.
+- **Retention:** scores and drawn pages are deleted after one day; a PDF that could not be read is kept seven days to find out why.
 - **Age-appropriateness:** suitable for general audiences, including students under 18.
 
 ## ChatGPT: submission form

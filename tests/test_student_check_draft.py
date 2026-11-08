@@ -1,14 +1,8 @@
 import asyncio
-import os
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
-from engine import notes as note_list
-from engine.render import load_toolkit
-from engine.score import ScoreIndex
 from server import app
 
 ROOT = Path(__file__).parent.parent
@@ -69,53 +63,6 @@ def test_numerals_written_in_the_score_are_read_only_when_asked(local_store):
 def test_ambiguous_answer_comes_back_as_the_question(local_store):
     result = call(app.draft_analysis, score_id="CHOPIN", student_analysis="I IV V I")
     assert result.is_error and result.content[0].text == app.QUESTION_FOR_USER + QUESTION
-
-
-@pytest.mark.xdist_group("draft_model")
-def test_draft_from_notes_checks_typed_answer(local_store):
-    index = ScoreIndex(load_toolkit(CHOPIN.read_bytes()).getMEI())
-    result = call(app.draft_from_notes, notes=note_list.encode(index, 1, 8), student_analysis=STUDENT)
-    assert not result.is_error
-    assert_planted_differences(section_of(result.content[0].text))
-
-
-def test_draft_from_notes_ambiguous_answer(local_store):
-    index = ScoreIndex(load_toolkit(CHOPIN.read_bytes()).getMEI())
-    result = call(app.draft_from_notes, notes=note_list.encode(index, 1, 8), student_analysis="I IV V I")
-    assert result.is_error and result.content[0].text == app.QUESTION_FOR_USER + QUESTION
-
-
-def test_draft_from_notes_without_note_list(local_store):
-    result = call(app.draft_from_notes, notes="Please analyse my attached score.")
-    assert result.is_error and result.content[0].text == app.NO_NOTE_LIST
-
-
-def run_script(*arguments):
-    return subprocess.run(
-        [sys.executable, str(ROOT / "skill/scripts/model_notes.py"), *arguments],
-        capture_output=True, text=True, env={**os.environ, "PYTHONPATH": str(ROOT)},
-    )
-
-
-@pytest.mark.xdist_group("draft_model")
-def test_skill_script_hands_the_answer_to_the_tool(local_store):
-    ran = run_script(str(CHOPIN), "--measures", "1-8", "--student-analysis", STUDENT)
-    assert ran.returncode == 0, ran.stderr
-    typed = ran.stderr.split("student_analysis: ", 1)[1].strip()
-    result = call(app.draft_from_notes, notes=ran.stdout, student_analysis=typed)
-    assert_planted_differences(section_of(result.content[0].text))
-
-
-def test_skill_script_reads_numerals_written_in_the_file():
-    ran = run_script(str(LABELLED), "--student-analysis", "score")
-    assert ran.returncode == 0, ran.stderr
-    assert "m2 b1 G: V6" in ran.stderr
-
-
-def test_skill_script_asks_the_question():
-    ran = run_script(str(CHOPIN), "--student-analysis", "I IV V I")
-    assert ran.returncode == 1 and f"Ask the user: {QUESTION}" in ran.stderr
-    assert ran.stdout == ""
 
 
 def test_with_the_draft_parked_a_student_check_still_gets_its_section(local_store, monkeypatch):

@@ -1,73 +1,33 @@
 ---
 name: sheet-music-analysis
-description: Analyse the harmony of sheet music and draw the analysis on the engraved score. Use when the user attaches or mentions a score, as MusicXML (.mxl, .musicxml) or a PDF of printed music, and asks for a harmonic analysis, Roman numerals, chord functions, cadences, phrase structure, non-chord tones, voice leading, key areas or modulations, or asks what is happening in a passage of a piece, or asks to hear it played. Produces an annotated score as PNG and PDF plus a short written commentary, and with the connector a small piano player in the chat. For music students and composers; classical repertoire from Bach to the early twentieth century, including modal and impressionist music.
+description: Analyse the harmony of sheet music and draw the analysis on the engraved score. Use when the user gives a link to a score, as MusicXML (.mxl, .musicxml) or a PDF of printed music, or mentions one, and asks for a harmonic analysis, Roman numerals, chord functions, cadences, phrase structure, non-chord tones, voice leading, key areas or modulations, or asks what is happening in a passage of a piece, or asks to hear it played. The Sheet Music Analysis connector reads the score, drafts the analysis and draws it on the page as PNG and PDF; Claude reviews it and writes a short commentary, and a small piano player in the chat plays the passage. For music students and composers; classical repertoire from Bach to the early twentieth century, including modal and impressionist music.
 ---
 
 # Sheet music analysis
 
-You analyse a score the way a composer or theory teacher would, then have it drawn on the engraved page. You never draw: you write an annotation list that says what to mark and where in the music, and a script engraves it.
+You analyse a score the way a composer or theory teacher would, then have it drawn on the engraved page. You never draw: you write an annotation list that says what to mark and where in the music, and the connector's `render_analysis` tool engraves it.
 
-The user's attached score is a file in your sandbox; the scripts read it from there. Do not ask the user to upload it again, and do not use the connector's `draft_analysis` or `render_analysis` tools: those exist for hosts that cannot run this skill.
-
-The scripts are in this skill's `scripts/` folder, next to this file (`${CLAUDE_SKILL_DIR}/scripts/`); run them from the skill's folder or by their full path.
+Everything that touches the score file happens on the connector's server. Never download, open or search for the score yourself: no web search, no code sandbox, no scripts. The connector's tools may need to be found first: if `fetch_score` is not in your tool list, search your tools for it. Their full names may start with the connector's name, whatever the user called it.
 
 ## Steps
 
-1. **Set up once per conversation.**
+1. **Get a link to the score.** Ask the user for a link to their score if they have not given one: a MusicXML file (`.mxl`, `.musicxml`) or a PDF of printed music. A direct link to the file works, and so does a Google Drive or Dropbox share link set so that anyone with the link can view it. A file attached to the chat cannot reach the connector, so if the user attaches one, ask them to share it as a link instead. For a score on IMSLP, ask the user to download the PDF in their own browser and share it from Google Drive or Dropbox; the connector does not download from IMSLP.
 
-   ```bash
-   pip install verovio==6.3.0 resvg-py==0.5.0 cairosvg==2.9.1 pikepdf==10.16.0 pillow==12.3.0 fonttools==4.66.1 pydantic==2.13.5 music21==10.5.0
-   ```
+2. **Fetch it.** Call `fetch_score` with the link. A MusicXML file gives a `score_id`. A PDF gives a `pdf_id`: call `read_fetched_pdf` with it. Reading a PDF takes a minute or more; if the result says the reading is still going on, call it again. It shows the user what it read, in a card. Then wait: the reading can contain mistakes. Only after the user says to go ahead, use the `score_id` it returned. If the user says a bar was misread, or you can see one is and are confident what it should be, call `correct_bars`, show the redrawn bars and ask the user to confirm against their copy; if you proposed the fix, say so. After they confirm, use the new `score_id`. If a tool answers that the link could not be read, pass its explanation on to the user in plain words.
 
-   **A PDF of printed music** is read first:
-
-   ```bash
-   python3 scripts/read_pdf.py SCORE.pdf --out-dir OUTPUT_FOLDER --name score
-   ```
-
-   It reads the notes from the pages (about half a minute a page; the first run also downloads the reader), engraves what it read, and prints what to show the user. Show those pages and its message, then wait: the reading can contain mistakes. Only after the user says to go ahead, use the `score.musicxml` it wrote as SCORE in every step below. If the user says a bar was misread, or you can see one is and are confident what it should be, run `model_notes.py` on `score.musicxml` for those bars, correct its output (keep every voice of each bar and every staff), save it as BARS.txt and run
-
-   ```bash
-   python3 scripts/correct_score.py OUTPUT_FOLDER/score.musicxml BARS.txt --out-dir OUTPUT_FOLDER --name corrected
-   ```
-
-   Show the redrawn bars it prints and ask the user to confirm against their copy; if you proposed the fix, say so. After they confirm, use `corrected.musicxml` as SCORE.
-
-2. **Read the notes.** Run the table script on the user's file, for the passage chosen as the method below says.
-
-   ```bash
-   python3 scripts/notes_table.py SCORE --measures 1-8
-   ```
-
-   Each row is one beat: the lowest note, the pitch classes sounding, and every note as `pitch@beat`. Use these exact measure numbers, beats and pitches in your annotations. Analyse a long piece passage by passage, about 16 to 32 bars at a time, then render the whole stretch the user asked for once, with all your annotations, so they get one PDF.
-
-3. **Get the model's draft.** Call the connector's `draft_from_notes` tool. It comes from the same connector as `play`, whatever the user named that connector, and its full name may start with the connector's name. Connector tools are often loaded only when searched for, so if it is not in your tool list, search your tools for `draft_from_notes` first. Run
-
-   ```bash
-   python3 scripts/model_notes.py SCORE --measures 1-8
-   ```
-
-   and pass its output, exactly as printed, as the tool's `notes` argument. The tool returns a neural model's draft: chords with confidences, cadences, phrase ends and possible non-chord tones, and the `play_id` that `play` needs. The draft is a starting point, right about half the time on full chord labels; check each line against the table from step 2. Skip this step only if the search finds no such tool, and then analyse from the table alone.
+3. **Get the draft and the notes.** Call `draft_analysis` with the `score_id` and, as `measure_range`, the passage chosen as the method below says (`"1-8"`, or `"all"`). It returns the notes beat by beat (each row: the lowest note, the pitch classes sounding, and every note as `pitch@beat`), the annotation format, and, when the server sends one, a neural model's draft. The draft is a starting point, right about half the time on full chord labels: check each line against the notes table. Use the table's exact measure numbers, beats and pitches in your annotations. Analyse a long piece passage by passage, about 16 to 32 bars at a time, then draw the whole stretch the user asked for once, with all your annotations, so they get one PDF.
 
 4. **Analyse**, following the method below.
 
-5. **Write the annotation list** as a JSON file. The format is in `references/annotation-spec.md`; a complete example is `references/example-annotations.json`.
+5. **Draw.** Call `render_analysis` with the `score_id`, your annotation list and the `measure_range`. For one layer of the analysis, pass `view` as `harmony`, `voice_leading` or `form`. If it lists annotations that do not match the score, fix exactly those and call again. Look at the page yourself before replying: labels should sit where you meant them.
 
-6. **Render.** Write the files to the folder you use to deliver files to the user.
+6. **Reply.** If you are Claude Sonnet or Claude Haiku and this is your first analysis in the conversation, the reply ends with this one sentence: "For the most accurate analysis, use Claude Opus." Do not repeat it later; if you are Opus or do not know which model you are, leave it out. The card shows the annotated page and its downloads; give the commentary.
 
-   ```bash
-   python3 scripts/render_analysis.py SCORE annotations.json --measures 1-8 --out-dir OUTPUT_FOLDER --name analysis
-   ```
-
-   For one layer of the analysis, add `--view harmony`, `--view voice_leading` or `--view form`. Add `--piano` to draw the same annotation list on a two-staff piano reduction of the passage, with instrument cues where the tune changes hands; write the list for the original score as usual. If it lists annotations that do not match the score, fix exactly those and run again. Look at the PNG yourself before showing it: labels should sit where you meant them.
-
-7. **Reply.** If you are Claude Sonnet or Claude Haiku and this is your first analysis in the conversation, the reply ends with this one sentence: "For the most accurate analysis, use Claude Opus." Do not repeat it later; if you are Opus or do not know which model you are, leave it out. The reply shows the annotated page (the PNG), offers the PDF as a download, and gives the commentary.
-
-   For a score with more than four staves (orchestra, band, a large ensemble), draw the original score first. Then, once per conversation, offer the same passage as a piano reduction, which is easier to read. If the user says yes, run the render again with `--piano`.
+   For a score with more than four staves (orchestra, band, a large ensemble), draw the original score first. Then, once per conversation, offer the same passage as a piano reduction, which is easier to read. If the user says yes, call `render_analysis` again with `piano` set to true.
 
 ## Playing the music
 
-When the user wants to hear the music, call the connector's `play` tool; a small piano player appears in the chat. It plays any score you have, including the reading of a PDF, with the tempo, dynamics, pedal and ornaments marked in it; a PDF reading may miss some of these, so it can play without pedal or ornaments. If play answers that a tempo word's speed is unclear, ask the user how fast they want it and call play again with `tempo` in quarter notes per minute. Play the analysed passage: pass the `play_id` printed at the end of the draft from step 3. Only when the user asks for other bars or the whole piece, or there is no draft, run `model_notes.py` for those bars and pass its output, exactly as printed, as `notes`; this takes longer, because the whole note list goes through the chat. Without the connector, offer the MIDI file from step 6 instead.
+When the user wants to hear the music, call the connector's `play` tool with the `score_id` and the analysed passage as `measure_range`, or the bars they asked for; a small piano player appears in the chat. It plays the tempo, dynamics, pedal and ornaments marked in the score; a PDF reading may miss some of these, so it can play without pedal or ornaments. If play answers that a tempo word's speed is unclear, ask the user how fast they want it and call play again with `tempo` in quarter notes per minute.
 
 ## Method
 

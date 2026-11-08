@@ -32,13 +32,12 @@
     <li>Enter <code>Vedat-Ozkan/sheet-music-analysis</code> and add it.</li>
     <li>Find <em>Sheet Music Analysis</em> in the list of plugins and select <em>Add</em>.</li>
     <li>Open the plugin, go to its <em>Connectors</em> tab and add the connector it lists. The plugin needs it to make the analysis and to play the music.</li>
-    <li>Turn on <em>Code execution and file creation</em> in <em>Settings → Capabilities</em>.</li>
   </ol>
   <p>To get new versions, open the marketplace under <em>Customize → Plugins</em> and turn on <em>Sync automatically</em>, or select <em>Check for updates</em> now and then.</p>
   <p>If you already added it from Claude's directory, remove that copy first, so you have only one.</p>
   <p><strong>On a phone:</strong> add the plugin on the web or in the desktop app first. It then works in the Claude app on your phone with the same account.</p>
-  <p><strong>On a Team or Enterprise plan:</strong> your organisation's owner may need to let members add their own plugins, and to allow network access for code execution, because the PDF reader is downloaded from GitHub the first time you attach a PDF.</p>
-  <p><strong>In Claude Code:</strong> plugins you add on the web appear in Claude Code when you sign in with the same account. To add it in Claude Code alone, run <code>/plugin marketplace add Vedat-Ozkan/sheet-music-analysis</code>, then <code>/plugin install sheet-music-analysis@sheetmusicanalysis</code>. If adding it fails because your computer has no GitHub SSH key, set <code>CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1</code> and try again. In Claude Code, reading a PDF works only on Linux computers; MusicXML files work everywhere.</p>
+  <p><strong>On a Team or Enterprise plan:</strong> your organisation's owner may need to let members add their own plugins.</p>
+  <p><strong>In Claude Code:</strong> plugins you add on the web appear in Claude Code when you sign in with the same account. To add it in Claude Code alone, run <code>/plugin marketplace add Vedat-Ozkan/sheet-music-analysis</code>, then <code>/plugin install sheet-music-analysis@sheetmusicanalysis</code>. If adding it fails because your computer has no GitHub SSH key, set <code>CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1</code> and try again.</p>
 
   <h2>1. Get a score file</h2>
   <p>The tool reads <strong>MusicXML</strong>, a file format that stores the notes and other details of a score: <code>.mxl</code> (compressed) or <code>.musicxml</code> / <code>.xml</code>, up to 10 MB.</p>
@@ -100,7 +99,7 @@
   <p>For a score with more than four lines of music, such as an orchestra, a band or a large ensemble, the full score is drawn first, and you'll be offered a piano version of the same bars. It condenses every instrument onto two lines, with the tune on top. Small labels such as <em>Fl.</em> (flute), <em>Vl.</em> (violins), <em>Str.</em> (strings) or <em>Tutti</em> (everyone) show who is playing the tune. The analysis is made on the full score and drawn the same way on the piano version. You can also ask for it yourself at any time.</p>
 
   <h2>6. Listen to it (Claude)</h2>
-  <p>In Claude, ask to hear the music ("play bars 1–8") and a small piano player appears in the chat, with play, pause and a bar to jump through the passage. It plays what the score marks: the tempo, loud and soft, the pedal and ornaments such as trills. It plays the bars you analysed; ask for other bars or the whole piece and it plays those instead, which takes a little longer to appear. A score read from a PDF often lacks some of these markings, so it may play without pedal or at an ordinary speed. The piano sound is the Salamander Grand Piano by Alexander Holm (CC BY 3.0).</p>
+  <p>In Claude, ask to hear the music ("play bars 1–8") and a small piano player appears in the chat, with play, pause and a bar to jump through the passage. It plays what the score marks: the tempo, loud and soft, the pedal and ornaments such as trills. It plays the bars you analysed; ask for other bars or the whole piece and it plays those instead. A score read from a PDF often lacks some of these markings, so it may play without pedal or at an ordinary speed. The piano sound is the Salamander Grand Piano by Alexander Holm (CC BY 3.0).</p>
 
   <h2>What it covers, and what it doesn't</h2>
   <ul>
