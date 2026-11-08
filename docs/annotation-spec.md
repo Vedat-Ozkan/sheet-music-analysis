@@ -27,7 +27,7 @@ For `figured_bass`, set `key` on the first harmony and at every key change. Keys
 
 Double accidentals in figures use paired signs (`♭♭`, `♯♯`) supported by the bundled fonts.
 
-The skill script accepts `--style current|abrsm|figured_bass` to override this field. Without the argument it uses the list's style. The ABRSM spellings follow the conversions in `engine/notation.py`; exam-board approval of these conventions is still pending.
+The ABRSM spellings follow the conversions in `engine/notation.py`; exam-board approval of these conventions is still pending.
 
 In ABRSM style, the seventh is always raised, including before an inversion letter or secondary target (`V⁷b/vi`); inversion letters and slashes stay on the baseline.
 

@@ -1,8 +1,8 @@
 {
   "name": "sheet-music-analysis",
   "displayName": "Sheet Music Analysis",
-  "version": "1.8.0",
-  "description": "Harmonic analysis of sheet music, drawn on the engraved score: Roman numerals, chord functions, cadences, phrases, non-chord tones and voice leading, with a short commentary, and a small piano player in the chat to hear the passage. Attach a MusicXML file or a PDF of printed music and ask. Needs Claude's Code execution and file creation setting (Settings → Capabilities).",
+  "version": "1.9.0",
+  "description": "Harmonic analysis of sheet music, drawn on the engraved score: Roman numerals, chord functions, cadences, phrases, non-chord tones and voice leading, with a short commentary, and a small piano player in the chat to hear the passage. Paste a link to a MusicXML file or a PDF of printed music (a direct link, or a Google Drive or Dropbox share link) and ask.",
   "author": {
     "name": "Vedat Ozkan"
   },

@@ -19,7 +19,7 @@ def local_store(tmp_path, monkeypatch):
 def logged_call(capsys, meta: dict | None) -> dict:
     async def call():
         async with Client(app.mcp) as client:
-            await client.call_tool("play", {"play_id": "NOPE00"}, meta=meta)
+            await client.call_tool("play", {"score_id": "NOPE00"}, meta=meta)
 
     asyncio.run(call())
     lines = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")]
@@ -69,7 +69,7 @@ def test_a_failure_on_our_side_apologises_and_gives_the_support_email(monkeypatc
 
     async def call():
         async with Client(app.mcp) as client:
-            return await client.call_tool("play", {"play_id": "ABC123"})
+            return await client.call_tool("play", {"score_id": "ABC123"})
 
     result = asyncio.run(call())
     line = json.loads([line for line in capsys.readouterr().out.splitlines() if '"tool": "play"' in line][-1])

@@ -17,7 +17,7 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 
 **One-liner** (Claude, up to 200 characters; 165):
 
-> Harmonic analysis drawn on the score. Attach a MusicXML file or a PDF and get the chords, cadences and phrases marked on the engraved page, with a short explanation.
+> Harmonic analysis drawn on the score. Attach or link a MusicXML file or a PDF and get the chords, cadences and phrases marked on the engraved page, with a short explanation.
 
 **Description** (Claude up to 2,000 characters, ChatGPT up to 4,000; about 1,300):
 
@@ -32,8 +32,6 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 >
 > A computer model trained on hundreds of expert analyses drafts the analysis; the chat model then checks it against the actual notes and corrects it. On 30 pieces the draft model had never seen, checked against experts' analyses, about 67% of the music matched after the review, nearly as often as experts analysing the same pieces match each other (about 71%). Treat it as a well-read study partner, not an answer key: it is least reliable where experts also disagree, such as music in a major key that briefly borrows chords from the minor, and music like Debussy's that doesn't follow the usual chord patterns.
 >
-> In Claude you can also listen: a small piano player in the chat plays the passage with the score's tempo, dynamics, pedalling and ornaments.
->
 > Ask for one layer at a time (harmony, voice leading or form) when a page gets busy. Ask for a whole piece and you get it back as one PDF. No account or sign-in needed.
 
 **Categories** (Claude, one to five; pick from the portal's list): Education; whichever of Music / Arts / Creative the portal offers.
@@ -42,9 +40,7 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 
 ## Claude
 
-The plugin is the product in Claude. Its server is also submitted as an MCP connector, as Anthropic asks: registering removes the "unregistered server" warning users would otherwise see when installing the plugin, and gives the server's health and usage dashboard. The connector is paired with the plugin and its listing points people to the plugin; on its own in Claude it offers only `draft_from_notes` and `play`, which, called without the plugin's note list, return an error naming the plugin.
-
-Requirement to state wherever the form allows: Claude's **Code execution and file creation** setting must be on (Settings → Capabilities), because the skill reads the score in Claude's sandbox.
+The connector is the product in Claude. Claude cannot pass a file attached to the chat to a remote server, so in Claude the user pastes a link to their score: a direct link to a MusicXML file or PDF, or a Google Drive or Dropbox share link. The server downloads it and runs the same steps as in ChatGPT (`fetch_score`, then `read_fetched_pdf` for a PDF, `draft_analysis`, `render_analysis`, `correct_bars`). IMSLP links are not downloaded: Claude asks the user to download the PDF from IMSLP and share it from Drive or Dropbox. `play` gives a small piano player in the chat. The plugin (1.9.0) adds only a skill, one Markdown file, that tells Claude to ask for a link and use these tools; it runs nothing in Claude's sandbox. No Code execution setting is needed.
 
 **Carousel screenshots**, if a form asks (3–5 PNGs at least 1000 px wide, the response only, each with its prompt):
 1. "Analyse the harmony of bars 1–8 of this nocturne": the full page.
@@ -56,33 +52,32 @@ Requirement to state wherever the form allows: Claude's **Code execution and fil
 
 - **Connection:** `https://mcp.sheetmusicanalysis.com/mcp`
 - **Name:** Sheet Music Analysis
-- **One-liner:** Drafts a harmonic analysis of a score: Roman numerals, cadences, phrases and non-chord tones. It works with the Sheet Music Analysis plugin, which reads the score.
+- **One-liner:** Harmonic analysis drawn on the score. Paste a link to a MusicXML file or a PDF and get the chords, cadences and phrases marked on the engraved page.
 - **Description:**
 
   > Sheet Music Analysis drafts a harmonic analysis of a piece of music: a Roman numeral for every chord, the cadences and phrase ends, and melody notes that don't belong to the chord. A computer model trained on hundreds of expert analyses makes the draft, and Claude checks it against the notes and explains it. It can also check a student's own Roman numerals beat by beat.
   >
-  > The connector works with the Sheet Music Analysis plugin, which reads your attached MusicXML file or PDF in Claude's sandbox (Code execution and file creation, Settings → Capabilities) and draws the analysis on the engraved score. It also shows a small piano player in the chat that plays the passage.
+  > Paste a link to your score in the chat: a link to a MusicXML file (.mxl or .musicxml) or a PDF of printed music, or a Google Drive or Dropbox link shared so anyone with it can view. Our server downloads the file, reads the music from a PDF and shows it to you to check, then draws the analysis on the engraved score. Files from IMSLP need one extra step: download the PDF there, then share it from Google Drive or Dropbox.
 
 - **Categories, docs, privacy, support, icon:** as in Shared above. Slug: `sheet-music-analysis` (permanent).
-- **Use cases** (use case → example prompt, with a .mxl attached):
-  - Analyse the harmony of a passage → "Analyse the harmony of bars 1–8 of this nocturne."
+- **Use cases** (use case → example prompt, with a link to a score):
+  - Analyse the harmony of a passage → "Analyse the harmony of bars 1–8 of this nocturne: https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl"
   - Show only one layer of the analysis → "Now show just the harmony, without the voice leading."
   - Explain the phrases and cadences → "Where are the phrases and cadences in bars 1–16?"
-  - Hear the passage → "Play bars 1–8."
-- **Prerequisites:** the Sheet Music Analysis plugin installed from Claude's directory, and Claude's "Code execution and file creation" setting turned on (Settings → Capabilities). No account or sign-in. The user attaches a MusicXML score (.mxl or .musicxml) or a PDF of printed music; a public-domain sample is at https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl
+- **Prerequisites:** none. No account or sign-in. The user pastes a link to a MusicXML score (.mxl or .musicxml) or a PDF of printed music; a public-domain sample is at https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl
 - **Reads or writes:** reads only.
 - **Company:** Sheet Music Analysis, https://sheetmusicanalysis.com.
 - **Authentication:** none.
 - **Data handling:** our own service; no health data; no sponsored content.
-- **Test & launch:** no test account needed. Install the plugin (or add this URL as a custom connector together with the plugin's skill), attach https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl and ask "Analyse the harmony of bars 1–8". Claude sees two tools, `draft_from_notes` and `play`; `draft_from_notes` has been run from Claude.
-- **Pairing:** after both are submitted, pair the connector with the plugin in the portal.
+- **Test & launch:** no test account needed. Add this URL as a custom connector and ask "Analyse the harmony of bars 1–8 of https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl". Claude calls `fetch_score`, `draft_analysis` and `render_analysis`, and the page is shown in a card.
 
 ## Claude: plugin form
 
 - **Repository:** `Vedat-Ozkan/sheet-music-analysis`, path `dist/sheet-music-analysis`, branch `main`.
-- **Personal data:** none collected. The plugin sends our server a list of the notes in the passage (pitches, timings, staves, and the score's tempo, dynamics, pedal and ornament marks), not the file; the list is kept for one day so the passage can be played in the chat, then deleted.
+- **Files:** Markdown, text and JSON only (the skill, the manifest, the connector address, a readme and the licence), plus the icon. No scripts.
+- **Personal data:** none collected. Our server downloads the score from the link the user gives and keeps it, and the pages it draws, for one day, then deletes them. It does not keep the link.
 - **Third-party services:** our own server at mcp.sheetmusicanalysis.com, hosted on Google Cloud, behind Cloudflare.
-- **Retention:** note lists are deleted after one day.
+- **Retention:** scores and drawn pages are deleted after one day; a PDF that could not be read is kept seven days to find out why.
 - **Age-appropriateness:** suitable for general audiences, including students under 18.
 
 ## ChatGPT: submission form

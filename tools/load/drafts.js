@@ -4,11 +4,11 @@ import { Trend, Rate } from "k6/metrics";
 
 const URL = __ENV.URL;
 const TOKEN = __ENV.TOKEN;
-const SCORE_ID = __ENV.SCORE_ID;
-const INPUTS = JSON.parse(open(__ENV.INPUTS));
+const SCORE_IDS = __ENV.SCORE_IDS.split(",");
+const ANNOTATIONS = JSON.parse(open(__ENV.ANNOTATIONS));
 const RENDER_SHARE = Number(__ENV.RENDER_SHARE || 0.3);
 
-const latency = { draft_from_notes: new Trend("draft_ms", true), render_analysis: new Trend("render_ms", true) };
+const latency = { draft_analysis: new Trend("draft_ms", true), render_analysis: new Trend("render_ms", true) };
 const failed = new Rate("tool_failed");
 
 const STEPS = (__ENV.STEPS || "1,2,4,8").split(",").map(Number);
@@ -50,10 +50,9 @@ function call(name, args) {
 }
 
 export default function () {
-  if (SCORE_ID && Math.random() < RENDER_SHARE) {
-    call("render_analysis", { score_id: SCORE_ID, annotations: INPUTS.render.annotations, measure_range: INPUTS.render.measure_range });
+  if (Math.random() < RENDER_SHARE) {
+    call("render_analysis", { score_id: SCORE_IDS[0], annotations: ANNOTATIONS, measure_range: "1-8" });
   } else {
-    const item = INPUTS.note_lists[Math.floor(Math.random() * INPUTS.note_lists.length)];
-    call("draft_from_notes", { notes: item.notes });
+    call("draft_analysis", { score_id: SCORE_IDS[Math.floor(Math.random() * SCORE_IDS.length)] });
   }
 }

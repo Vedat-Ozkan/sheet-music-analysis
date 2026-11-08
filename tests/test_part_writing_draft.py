@@ -39,14 +39,6 @@ def test_draft_analysis_lists_planted_tendency_errors(local_store):
     assert "unresolved seventh" in text.split("PART-WRITING CHECK", 1)[1]
 
 
-def test_note_list_path_gets_the_same_section():
-    index = ScoreIndex(load_toolkit((DATA / "part_writing_motion.musicxml").read_bytes()).getMEI())
-    text = note_list.encode(index)
-    result = draft.draft_from_notes(text)
-    section = part_writing.as_text(note_list.decode(text), result.chords)
-    assert "parallel fifths soprano+tenor m1 b1 to m2 b1" in section
-
-
 def test_piano_piece_gets_no_section(local_store, chopin):
     assert "PART-WRITING CHECK (" not in app.make_draft(chopin, "pw3", (1, 8))
 
@@ -72,3 +64,12 @@ def test_with_the_draft_parked_a_chorale_still_gets_its_check(local_store, monke
     assert started
     assert "parallel fifths soprano+tenor m1 b1 to m2 b1" in text.split("PART-WRITING CHECK (", 1)[1]
     assert "Draft analysis from" not in text and "DRAFT UNAVAILABLE" not in text
+
+
+def test_note_list_path_gets_the_same_section():
+    index = ScoreIndex(load_toolkit((DATA / "part_writing_motion.musicxml").read_bytes()).getMEI())
+    text = note_list.encode(index)
+    result = draft.draft_from_notes(text)
+    section = part_writing.as_text(note_list.decode(text), result.chords)
+    assert "parallel fifths soprano+tenor m1 b1 to m2 b1" in section
+

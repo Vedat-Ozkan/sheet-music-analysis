@@ -6,42 +6,33 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 NAME = "sheet-music-analysis"
-ENGINE_SKIP = {"draft.py", "models", "read_ahead.py", "verovio_runner.py", "verovio_workers.py", "__pycache__"}
+ALLOWED = {".md", ".txt", ".json", ".yaml", ".png", ".jpeg", ".gif", ".webp", ".ico"}
+
+
+def disallowed(folder: Path) -> list[str]:
+    return sorted(str(path.relative_to(folder)) for path in folder.rglob("*")
+                  if path.is_file() and path.suffix.lower() not in ALLOWED)
 
 
 def main() -> None:
-    target = ROOT / "out" / "skill" / NAME
-    shutil.rmtree(target, ignore_errors=True)
-    shutil.copytree(ROOT / "skill", target, ignore=shutil.ignore_patterns("__pycache__"))
-    shutil.copytree(ROOT / "engine", target / "scripts" / "engine", ignore=lambda _, names: ENGINE_SKIP & set(names))
-    references = target / "references"
-    references.mkdir(exist_ok=True)
-    shutil.copy(ROOT / "docs" / "annotation-spec.md", references / "annotation-spec.md")
-    shutil.copy(ROOT / "examples" / "chopin_op9_no2_m1-8.json", references / "example-annotations.json")
-
-    archive = ROOT / "out" / f"{NAME}.zip"
-    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
-        for path in sorted(target.rglob("*")):
-            if path.is_file():
-                bundle.write(path, Path(NAME) / path.relative_to(target))
-    files = [path for path in target.rglob("*") if path.is_file()]
-    print(f"{archive}: {archive.stat().st_size // 1024} KB, {len(files)} files")
-    build_plugin(target)
-
-
-def build_plugin(skill: Path) -> None:
     server = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
+    staging = ROOT / "out" / "plugin" / NAME
+    shutil.rmtree(staging, ignore_errors=True)
+    shutil.copytree(ROOT / "plugin", staging)
+    shutil.copytree(ROOT / "skill", staging / "skills" / NAME)
+    (staging / ".mcp.json").write_text(json.dumps({"mcpServers": {NAME: {"type": "http", "url": server}}}, indent=2) + "\n")
+    if refused := disallowed(staging):
+        raise SystemExit(f"Claude's plugin directory accepts only {', '.join(sorted(ALLOWED))} files: {', '.join(refused)}")
     target = ROOT / "dist" / NAME
     shutil.rmtree(target, ignore_errors=True)
-    shutil.copytree(ROOT / "plugin", target)
-    shutil.copytree(skill, target / "skills" / NAME)
-    (target / ".mcp.json").write_text(json.dumps({"mcpServers": {NAME: {"type": "http", "url": server}}}, indent=2) + "\n")
+    shutil.copytree(staging, target)
     archive = ROOT / "out" / f"{NAME}-plugin.zip"
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
         for path in sorted(target.rglob("*")):
             if path.is_file():
                 bundle.write(path, Path(NAME) / path.relative_to(target))
-    print(f"{target}: connector {server}; {archive}: {archive.stat().st_size // 1024} KB")
+    files = [path for path in target.rglob("*") if path.is_file()]
+    print(f"{target}: {len(files)} files, connector {server}; {archive}: {archive.stat().st_size // 1024} KB")
 
 
 if __name__ == "__main__":
