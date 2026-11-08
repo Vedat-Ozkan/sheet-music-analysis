@@ -60,6 +60,10 @@ h2 { font-size: 26px; margin: 56px 0 12px; }
 h3 { font-size: 19px; margin: 28px 0 8px; }
 p, li { color: var(--text); }
 .lede { font-size: 19px; color: var(--muted); max-width: 640px; }
+.get-buttons { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0 28px; }
+.button { display: inline-block; padding: 10px 18px; border-radius: 8px; background: var(--accent); color: var(--bg); text-decoration: none; font-weight: 600; font-size: 15px; }
+.button.secondary { background: transparent; color: var(--text); border: 1px solid var(--line); }
+.button:hover { opacity: .9; }
 .muted { color: var(--muted); }
 .small { font-size: 14px; }
 
