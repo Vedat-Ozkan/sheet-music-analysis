@@ -39,8 +39,8 @@
 
   <h2>How it works</h2>
   <ol class="steps">
-    <li><strong>A model drafts</strong>A computer model that learned from hundreds of pieces analysed by experts reads every note and suggests the keys, chords, cadences and phrases.</li>
-    <li><strong>The chat model reviews</strong>Claude or ChatGPT checks that draft against the actual notes, fixes mistakes, and picks out what is worth pointing out to you.</li>
+    <li><strong>The score is read</strong>A MusicXML file is read as it is; a PDF is read by music-recognition software that turns the printed page back into notes.</li>
+    <li><strong>The chat model analyses</strong>Claude or ChatGPT works through a beat-by-beat table of every note, labels the keys, chords, cadences and phrases, and picks out what is worth pointing out to you. In writing for two to four parts, code also flags part-writing slips such as parallel fifths.</li>
     <li><strong>The score is drawn</strong>The analysis is printed onto a properly engraved copy of the score, as an image and a PDF. Nothing is drawn by an image-generating AI.</li>
   </ol>
 
@@ -62,7 +62,7 @@
 
   <h2>How good is it?</h2>
   <p class="claim">Agrees with an expert 99% as often as experts agree with each other.</p>
-  <p class="muted">Tested on 36 pieces, chord by chord, against two experts who each analysed every piece separately.</p>
+  <p class="muted">Tested chord by chord on 36 pieces, against two published expert analyses of every piece.</p>
   <p>The pieces are Bach chorales, movements from Mozart and Beethoven piano sonatas, and Chopin mazurkas. For each chord an expert wrote, we checked whether our analysis said the same thing for more than half of that chord: the same chord, in the same key, with the same note in the bass. We did the same for the two experts against each other.</p>
   <ul>
     <li><strong>We agreed with 69% of an expert's chords;</strong> one expert agreed with 70% of the other's. The 99% is the first figure divided by the second, before rounding. The difference is within the noise.</li>
