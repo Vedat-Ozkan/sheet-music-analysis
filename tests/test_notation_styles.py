@@ -1,5 +1,3 @@
-import os
-import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -60,22 +58,6 @@ def test_figured_bass_reports_missing_key(chopin):
     ]})
     with pytest.raises(AnnotationError, match='active key'):
         render(chopin, annotations, measures=(1, 1))
-
-
-@pytest.mark.parametrize('style', ['current', 'abrsm', 'figured_bass'])
-def test_skill_script_style_override(chopin_annotations, tmp_path, style):
-    import sys
-
-    annotations = tmp_path / 'annotations.json'
-    annotations.write_text(chopin_annotations.model_dump_json())
-    command = [sys.executable, 'skill/scripts/render_analysis.py', 'tests/data/chopin_nocturne_op9_no2.mxl',
-               str(annotations), '--measures', '1-8', '--out-dir', str(tmp_path), '--style', style]
-    result = subprocess.run(command, capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(Path.cwd())})
-    assert result.returncode == 0, result.stderr
-    assert (tmp_path / 'analysis.png').read_bytes() == render(
-        Path(command[2]).read_bytes(), chopin_annotations.model_copy(update={'style': style}), measures=(1, 8)
-    ).png(1, width=1600)
-    assert (tmp_path / 'analysis.pdf').read_bytes().startswith(b'%PDF')
 
 
 def test_hidden_key_change_carries_into_figures(chopin):
@@ -146,22 +128,6 @@ def test_figured_bass_reports_invalid_key(chopin, key):
     ]})
     with pytest.raises(AnnotationError, match='Invalid active key'):
         render(chopin, annotations, measures=(1, 1))
-
-
-def test_skill_script_reports_invalid_figured_bass_key(tmp_path):
-    import sys
-
-    annotations = tmp_path / 'annotations.json'
-    annotations.write_text('{"style":"figured_bass","annotations":['
-                           '{"type":"harmony","at":{"measure":1},"label":"V7","key":"Cb#"}]}')
-    result = subprocess.run(
-        [sys.executable, 'skill/scripts/render_analysis.py', 'tests/data/chopin_nocturne_op9_no2.mxl',
-         str(annotations), '--measures', '1', '--out-dir', str(tmp_path / 'output')],
-        capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(Path.cwd())},
-    )
-    assert result.returncode == 0, result.stderr
-    assert 'Warning' in result.stderr and 'Invalid active key' in result.stderr and 'Traceback' not in result.stderr
-    assert (tmp_path / 'output' / 'analysis.png').exists()
 
 
 def test_abrsm_drops_an_explicit_root_position_figure():

@@ -1,5 +1,7 @@
 # Stop rules written before running (2026-11-03)
 
+> Historical record of stop rules written 2026-11-03; the review they belong to is in `spike/omr/review-2026-11-04/musician-logic-review.md`.
+
 t4, one-edit repair ranked by clues, on cached sma.6 readings, flagged-in-reading-only bars:
 - Coverage = share of flagged-only wrong bars where some one-edit-per-bad-voice candidate gives right note onsets.
 - Top-1 precision = on bars where a candidate is applied, share whose onsets then match truth. Two-fold by piece.

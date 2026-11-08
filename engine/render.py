@@ -9,21 +9,24 @@ import zipfile
 import zlib
 import xml.etree.ElementTree as ET
 from bisect import bisect_right
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from itertools import accumulate
 from pathlib import Path
 from dataclasses import dataclass
 from fractions import Fraction
 from importlib.resources import files
+from typing import TYPE_CHECKING
 from xml.sax.saxutils import escape, unescape
 
 import resvg_py
-import verovio
 from PIL import Image, ImageChops
 
 from engine.reduce import midi
 from engine.score import TOLERANCE, PositionError, ScoreIndex
 from engine.text import FONT_DIR, FONT_FILES, MAIN as TEXT_FONT
+
+if TYPE_CHECKING:
+    import verovio
 
 
 
@@ -37,7 +40,6 @@ def _font_config() -> str:
 
 os.environ.setdefault("FONTCONFIG_FILE", _font_config())
 
-RESOURCE_PATH = str(files("verovio") / "data")
 VEROVIO_OPTIONS = {
     "xmlIdChecksum": True,
     "svgViewBox": True,
@@ -106,6 +108,9 @@ SHORT_NAMES = {name: abbr for abbr, names in _SHORT_NAME_SOURCE.items() for name
 
 class ScoreError(ValueError):
     pass
+
+
+UNREADABLE = "Verovio could not read this file as MusicXML"
 
 
 def parse_measures(measure_range: str | None) -> tuple[int, int] | None:
@@ -202,9 +207,18 @@ class Engraving:
         return max(ink[1] - pad, 0), min(ink[3] + pad, image.height)
 
 
-def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False, labelled_bars: Collection[int] = ()) -> verovio.toolkit:
+def local_toolkit() -> verovio.toolkit:
+    import verovio
     toolkit = verovio.toolkit(False)
-    toolkit.setResourcePath(RESOURCE_PATH)
+    toolkit.setResourcePath(str(files("verovio") / "data"))
+    return toolkit
+
+
+new_toolkit: Callable[[], verovio.toolkit] = local_toolkit
+
+
+def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False, labelled_bars: Collection[int] = ()) -> verovio.toolkit:
+    toolkit = new_toolkit()
     toolkit.setOptions({**VEROVIO_OPTIONS, **(options or {})})
     data = _musicxml(score)
     try:
@@ -213,9 +227,9 @@ def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool
         text = data.decode("latin-1")
     if not re.search(r"<score-(?:partwise|timewise)\b", text[:5000]):
         raise ScoreError("This file is not MusicXML" + (" but a PDF" if score[:5] == b"%PDF-" else ""))
-    loaded = toolkit.loadData(_separate_reused_voices(text))
+    loaded = toolkit.loadData(_importable(text))
     if not loaded:
-        raise ScoreError("Verovio could not read this file as MusicXML")
+        raise ScoreError(UNREADABLE)
     _tidy(toolkit, _readable_names(score), keep_pedals, labelled_bars)
     if len(set(re.findall(r'<staffDef\b[^>]*\bn="(\d+)"', toolkit.getMEI()))) <= LARGE_SCORE_STAVES:
         toolkit.setOptions({"systemDivider": "none"})
@@ -281,6 +295,7 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool, la
     patched = _slurs_to_chords(patched)
     patched = _clefs_before_barlines(patched)
     patched = _number_unmarked_pickup(patched)
+    patched = _unbeam_noteless(patched)
     if patched != mei:
         toolkit.loadData(patched)
 
@@ -428,13 +443,29 @@ def _musicxml(score: bytes) -> bytes:
         raise ScoreError("This file is not MusicXML: its .mxl archive could not be read") from error
 
 
-def _separate_reused_voices(text: str) -> str:
+def _importable(text: str) -> str:
     try:
         root = ET.fromstring(text)
     except ET.ParseError:
         return text
-    renumbered = [_separate_voices_in(segment) for segment in root.iter() if segment.find("note") is not None]
-    return ET.tostring(root, encoding="unicode") if any(renumbered) else text
+    segments = [segment for segment in root.iter() if segment.find("note") is not None]
+    changed = [_start_orphan_chords_in(segment) | _separate_voices_in(segment) for segment in segments]
+    return ET.tostring(root, encoding="unicode") if any(changed) else text
+
+
+def _start_orphan_chords_in(segment: ET.Element) -> bool:
+    previous = None
+    started = False
+    for element in segment:
+        if element.tag == "backup":
+            previous = None
+        elif element.tag == "note":
+            chord = element.find("chord")
+            if chord is not None and (previous is None or previous.find("rest") is not None):
+                element.remove(chord)
+                started = True
+            previous = element
+    return started
 
 
 def _separate_voices_in(segment: ET.Element) -> bool:
@@ -690,6 +721,23 @@ def _slurs_to_chords(mei: str) -> str:
         return re.sub(r'\b(startid|endid)="#([^"]+)"', lambda m: f'{m.group(1)}="#{chord_of.get(m.group(2), m.group(2))}"', tag.group(0))
 
     return re.sub(r"<slur\b[^>]*/>", retarget, mei)
+
+
+_INNERMOST_BEAM = re.compile(r"<beam\b[^>]*(?<!/)>((?:(?!<beam\b|</beam>).)*)</beam>", flags=re.S)
+
+
+def noteless_beams(mei: str) -> list[str]:
+    return [beam.group(0) for beam in _INNERMOST_BEAM.finditer(mei) if not _holds_notes(beam)]
+
+
+def _unbeam_noteless(mei: str) -> str:
+    while noteless_beams(mei):
+        mei = _INNERMOST_BEAM.sub(lambda beam: beam.group(0) if _holds_notes(beam) else beam.group(1), mei)
+    return mei
+
+
+def _holds_notes(beam: re.Match) -> bool:
+    return bool(re.search(r"<(?:note|chord)\b", beam.group(1)))
 
 
 def _space(start_tag: str) -> str:

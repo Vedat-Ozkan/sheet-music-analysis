@@ -1,9 +1,6 @@
 import asyncio
 import base64
-import os
 from pathlib import Path
-import subprocess
-import sys
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -96,49 +93,7 @@ def test_server_musicxml_download_is_sandboxed_and_text_is_accurate(tmp_path, mo
     assert 'harmony labels' not in result.content[1].text
 
 
-@pytest.mark.parametrize('style, override', [
-    ('current', False), ('abrsm', False), ('figured_bass', False),
-    ('abrsm', True), ('figured_bass', True),
-])
-def test_skill_render_style_and_musicxml(chopin, chopin_annotations, tmp_path, style, override):
-    annotations = chopin_annotations.model_copy(update={'style': style})
-    source = tmp_path / 'annotations.json'
-    source.write_text((chopin_annotations if override else annotations).model_dump_json())
-    result = subprocess.run(
-        [sys.executable, str(ROOT / 'skill/scripts/render_analysis.py'), str(ROOT / 'tests/data/chopin_nocturne_op9_no2.mxl'),
-         str(source), '--measures', '1-8', '--out-dir', str(tmp_path), '--name', style,
-         *(['--style', style] if override else [])],
-        capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(ROOT)},
-    )
-    assert result.returncode == 0, result.stderr
-    assert (tmp_path / f'{style}.png').read_bytes() == render(
-        chopin, annotations, measures=(1, 8)
-    ).png(1, width=1600)
-    assert (tmp_path / f'{style}.pdf').read_bytes().startswith(b'%PDF')
-    exported = tmp_path / f'{style}.musicxml'
-    assert str(exported) in result.stdout
-    check_export(exported.read_bytes(), annotations)
-
-
-def test_skill_draws_without_an_alternative_with_the_wrong_number_of_chords_and_warns(chopin, chopin_annotations, tmp_path):
-    marks = chopin_annotations.model_dump(exclude_none=True)['annotations']
-    alternative = {'type': 'alternative', 'start': {'measure': 6, 'beat': 1}, 'end': {'measure': 6}, 'label': 'c: V7 i iv'}
-    source = tmp_path / 'annotations.json'
-    source.write_text(AnnotationList.model_validate({'annotations': marks + [alternative]}).model_dump_json())
-    result = subprocess.run(
-        [sys.executable, str(ROOT / 'skill/scripts/render_analysis.py'), str(ROOT / 'tests/data/chopin_nocturne_op9_no2.mxl'),
-         str(source), '--measures', '1-8', '--out-dir', str(tmp_path)],
-        capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(ROOT)},
-    )
-    assert result.returncode == 0, result.stderr
-    assert 'Warning' in result.stderr
-    assert f'annotations[{len(marks)}] (alternative): its label has 3 chords' in result.stderr
-    assert (tmp_path / 'analysis.png').read_bytes() == render(chopin, chopin_annotations, measures=(1, 8)).png(1, width=1600)
-    check_export((tmp_path / 'analysis.musicxml').read_bytes(), chopin_annotations)
-
-
-@pytest.mark.parametrize('host', ['server', 'skill'])
-def test_legacy_latin1_render_and_export(tmp_path, monkeypatch, host):
+def test_legacy_latin1_render_and_export(tmp_path, monkeypatch):
     score = (ROOT / 'tests/data/export_placement.musicxml').read_bytes()
     score = score.replace(b' encoding="utf-8"', b'', 1).replace(
         b'<part-list>', b'<work><work-title>Caf\xe9</work-title></work><part-list>', 1
@@ -146,49 +101,32 @@ def test_legacy_latin1_render_and_export(tmp_path, monkeypatch, host):
     annotations = AnnotationList.model_validate({'annotations': [
         {'type': 'harmony', 'at': {'measure': 1}, 'key': 'G', 'label': 'I'},
     ]})
-    engraving = render(score, annotations)
-    expected_png = engraving.png(1, width=1600) if host == 'skill' else engraving.png(1)
-    if host == 'server':
-        monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
-        app.store.put('scores/LEGACY', score)
+    expected_png = render(score, annotations).png(1)
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/LEGACY', score)
 
-        async def run():
-            result = await app.render_analysis(None, 'LEGACY', annotations)
-            assert not result.is_error
-            assert base64.b64decode(result.content[0].data) == expected_png
-            name = result.structured_content['musicxml_url'].rsplit('/', 1)[1]
-            response = await app.files(Request({'type': 'http', 'path_params': {'name': name}}))
-            assert response.status_code == 200
-            return response.body
+    async def run():
+        result = await app.render_analysis(None, 'LEGACY', annotations)
+        assert not result.is_error
+        assert base64.b64decode(result.content[0].data) == expected_png
+        name = result.structured_content['musicxml_url'].rsplit('/', 1)[1]
+        response = await app.files(Request({'type': 'http', 'path_params': {'name': name}}))
+        assert response.status_code == 200
+        return response.body
 
-        exported = asyncio.run(run())
-    else:
-        source = tmp_path / 'legacy.musicxml'
-        source.write_bytes(score)
-        analysis = tmp_path / 'annotations.json'
-        analysis.write_text(annotations.model_dump_json())
-        result = subprocess.run(
-            [sys.executable, str(ROOT / 'skill/scripts/render_analysis.py'), str(source), str(analysis),
-             '--out-dir', str(tmp_path), '--name', 'legacy'],
-            capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(ROOT)},
-        )
-        assert result.returncode == 0, result.stderr
-        assert (tmp_path / 'legacy.png').read_bytes() == expected_png
-        assert (tmp_path / 'legacy.pdf').read_bytes().startswith(b'%PDF')
-        exported = (tmp_path / 'legacy-annotated.musicxml').read_bytes()
+    exported = asyncio.run(run())
     assert ET.fromstring(exported).findtext('work/work-title') == 'Café'
     labels = from_musicxml(exported)
     assert [(label.measure, label.beat, label.figure) for label in labels] == [(1, 1, 'I')]
     assert ScoreIndex(load_toolkit(exported).getMEI()).measure(1)
 
 
-@pytest.mark.parametrize('host', ['server', 'skill'])
 @pytest.mark.parametrize('original, replacement', [
     pytest.param(b'Treble', b'Treble & Solo', id='unescaped-ampersand'),
     pytest.param(b'<octave>4</octave>', b'', id='missing-octave'),
     pytest.param(b'<step>G</step>', b'', id='missing-step'),
 ])
-def test_malformed_xml_keeps_render_when_export_fails(tmp_path, monkeypatch, host, original, replacement):
+def test_malformed_xml_keeps_render_when_export_fails(tmp_path, monkeypatch, original, replacement):
     score = (ROOT / 'tests/data/export_placement.musicxml').read_bytes().replace(
         original, replacement
     )
@@ -196,104 +134,24 @@ def test_malformed_xml_keeps_render_when_export_fails(tmp_path, monkeypatch, hos
         {'type': 'harmony', 'at': {'measure': 1}, 'label': 'I'},
     ]})
     engraving = render(score, annotations)
-    if host == 'server':
-        monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
-        app.store.put('scores/MALFORMED', score)
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/MALFORMED', score)
 
-        async def run():
-            result = await app.render_analysis(None, 'MALFORMED', annotations)
-            assert not result.is_error
-            assert base64.b64decode(result.content[0].data) == engraving.png(1)
-            assert 'MusicXML export unavailable' in result.content[1].text
-            assert 'MuseScore' not in result.content[1].text
-            assert 'Python' not in result.content[1].text and 'KeyError' not in result.content[1].text
-            assert 'musicxml_url' not in result.structured_content
-            for field, signature in [('image_url', b'\x89PNG'), ('pdf_url', b'%PDF')]:
-                name = result.structured_content[field].rsplit('/', 1)[1]
-                response = await app.files(Request({'type': 'http', 'path_params': {'name': name}}))
-                assert response.status_code == 200
-                assert response.body.startswith(signature)
+    async def run():
+        result = await app.render_analysis(None, 'MALFORMED', annotations)
+        assert not result.is_error
+        assert base64.b64decode(result.content[0].data) == engraving.png(1)
+        assert 'MusicXML export unavailable' in result.content[1].text
+        assert 'MuseScore' not in result.content[1].text
+        assert 'Python' not in result.content[1].text and 'KeyError' not in result.content[1].text
+        assert 'musicxml_url' not in result.structured_content
+        for field, signature in [('image_url', b'\x89PNG'), ('pdf_url', b'%PDF')]:
+            name = result.structured_content[field].rsplit('/', 1)[1]
+            response = await app.files(Request({'type': 'http', 'path_params': {'name': name}}))
+            assert response.status_code == 200
+            assert response.body.startswith(signature)
 
-        asyncio.run(run())
-    else:
-        source = tmp_path / 'source.musicxml'
-        source.write_bytes(score)
-        analysis = tmp_path / 'annotations.json'
-        analysis.write_text(annotations.model_dump_json())
-        result = subprocess.run(
-            [sys.executable, str(ROOT / 'skill/scripts/render_analysis.py'), str(source), str(analysis),
-             '--out-dir', str(tmp_path), '--name', 'malformed'],
-            capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(ROOT)},
-        )
-        assert result.returncode == 0, result.stderr
-        assert 'MusicXML export unavailable' in result.stderr
-        assert 'Traceback' not in result.stderr
-        assert (tmp_path / 'malformed.png').read_bytes() == engraving.png(1, width=1600)
-        assert (tmp_path / 'malformed.pdf').read_bytes().startswith(b'%PDF')
-        assert not (tmp_path / 'malformed.musicxml').exists()
-
-
-@pytest.mark.parametrize('name', [None, 'reused'])
-@pytest.mark.parametrize('original, replacement', [
-    pytest.param(b'Treble', b'Treble & Solo', id='unescaped-ampersand'),
-    pytest.param(b'<octave>4</octave>', b'', id='missing-octave'),
-    pytest.param(b'<step>G</step>', b'', id='missing-step'),
-])
-def test_skill_reused_output_invalidates_failed_export(tmp_path, name, original, replacement):
-    score = (ROOT / 'tests/data/export_placement.musicxml').read_bytes()
-    source = tmp_path / 'source.musicxml'
-    analysis = tmp_path / 'annotations.json'
-    output_name = name or 'analysis'
-    exported = tmp_path / f'{output_name}.musicxml'
-
-    def run(data, label):
-        source.write_bytes(data)
-        annotations = AnnotationList.model_validate({'annotations': [
-            {'type': 'harmony', 'at': {'measure': 1}, 'label': label},
-        ]})
-        analysis.write_text(annotations.model_dump_json())
-        result = subprocess.run(
-            [sys.executable, str(ROOT / 'skill/scripts/render_analysis.py'), str(source), str(analysis),
-             '--out-dir', str(tmp_path), *(['--name', name] if name else [])],
-            capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(ROOT)},
-        )
-        assert result.returncode == 0, result.stderr
-        assert (tmp_path / f'{output_name}.png').read_bytes() == render(
-            data, annotations
-        ).png(1, width=1600)
-        assert (tmp_path / f'{output_name}.pdf').read_bytes().startswith(b'%PDF')
-        return result
-
-    run(score, 'I')
-    assert [label.figure for label in from_musicxml(exported.read_bytes())] == ['I']
-    result = run(score.replace(original, replacement), 'V')
-    assert 'MusicXML export unavailable' in result.stderr
-    assert str(exported) not in result.stdout
-    assert not exported.exists()
-    result = run(score, 'IV')
-    assert str(exported) in result.stdout
-    assert [label.figure for label in from_musicxml(exported.read_bytes())] == ['IV']
-    assert ScoreIndex(load_toolkit(exported.read_bytes()).getMEI()).measure(1)
-
-
-@pytest.mark.parametrize('broken', [False, True])
-def test_skill_never_deletes_or_overwrites_its_input_score(tmp_path, broken):
-    score = (ROOT / 'tests/data/export_placement.musicxml').read_bytes()
-    if broken:
-        score = score.replace(b'<octave>4</octave>', b'')
-    source = tmp_path / 'analysis.musicxml'
-    source.write_bytes(score)
-    analysis = tmp_path / 'annotations.json'
-    analysis.write_text(AnnotationList.model_validate({'annotations': [
-        {'type': 'harmony', 'at': {'measure': 1}, 'label': 'V'},
-    ]}).model_dump_json())
-    result = subprocess.run(
-        [sys.executable, str(ROOT / 'skill/scripts/render_analysis.py'), str(source), str(analysis), '--out-dir', str(tmp_path)],
-        capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(ROOT)},
-    )
-    assert result.returncode == 0, result.stderr
-    assert source.read_bytes() == score
-    assert (tmp_path / 'analysis-annotated.musicxml').exists() != broken
+    asyncio.run(run())
 
 
 def pdf_text(data):
@@ -345,20 +203,6 @@ def test_server_extra_downloads(chopin, chopin_annotations, tmp_path, monkeypatc
         check_extras(files, chopin_annotations, (1, 8))
 
     asyncio.run(run())
-
-
-def test_skill_extra_downloads(chopin, chopin_annotations, tmp_path):
-    source = tmp_path / 'annotations.json'
-    source.write_text(chopin_annotations.model_dump_json())
-    result = subprocess.run(
-        [sys.executable, str(ROOT / 'skill/scripts/render_analysis.py'), str(ROOT / 'tests/data/chopin_nocturne_op9_no2.mxl'),
-         str(source), '--measures', '1-8', '--out-dir', str(tmp_path), '--name', 'x'],
-        capture_output=True, text=True, env={**os.environ, 'PYTHONPATH': str(ROOT)},
-    )
-    assert result.returncode == 0, result.stderr
-    check_extras({'pdf': (tmp_path / 'x.pdf').read_bytes(), 'worksheet': (tmp_path / 'x-worksheet.pdf').read_bytes(),
-                  'midi': (tmp_path / 'x.mid').read_bytes(), 'romantext': (tmp_path / 'x.rntxt').read_bytes()},
-                 chopin_annotations, (1, 8))
 
 
 def test_romantext_of_a_pickup_piece_with_a_key_change(tmp_path):

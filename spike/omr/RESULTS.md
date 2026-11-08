@@ -1,5 +1,7 @@
 # OMR spike results (Phase 2, step 1), 2026-10-11
 
+> Historical record of the 2026-10-11 spike. The reader in use today is described in `README.md` and `docs/engineering-log.md`.
+
 Local only (WSL2, 16 cores, CPU, 19 GB RAM). No cloud, no commits. Tools: homr 0.6.2 (pip), Audiveris 5.11.0 (Linux .deb unpacked with `dpkg-deb -x`, no sudo, bundled JRE).
 
 ## Inputs

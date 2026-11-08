@@ -1,5 +1,7 @@
 # OMR step 2: where PDF reading runs (2026-10-11)
 
+> Historical record of the 2026-10-11 spike. The reader in use today is described in `README.md` and `docs/engineering-log.md`.
+
 Local only. Nothing deployed, committed or changed in the Cloud. The production Dockerfile and the skill are untouched. Tool: Audiveris 5.11.0 (same `.deb` as the spike).
 
 ## A. Server (Cloud Run gen2, 2 vCPU, 4 GiB, concurrency 4, max 1 instance)

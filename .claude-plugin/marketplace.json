@@ -1,0 +1,14 @@
+{
+  "name": "sheetmusicanalysis",
+  "description": "The Sheet Music Analysis plugin, from sheetmusicanalysis.com",
+  "owner": {
+    "name": "Vedat Ozkan",
+    "url": "https://sheetmusicanalysis.com"
+  },
+  "plugins": [
+    {
+      "name": "sheet-music-analysis",
+      "source": "./dist/sheet-music-analysis"
+    }
+  ]
+}

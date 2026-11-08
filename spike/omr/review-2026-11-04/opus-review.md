@@ -1,5 +1,7 @@
 # Review of 2026-11-04 work
 
+> Historical record of a 2026-11-04 review. Scan merging is parked and the reader is frozen until 1 December except a clef fix (`docs/engineering-log.md` entry 128).
+
 ## Confirmed, ranked
 
 1. **"Exact" credits bars drawn wrong; 68.4% overstates the merge.** `homr300` has no accidental, tie, beam or direction elements. Drawn signs: five pieces 268 to 169 (reference 288), inspect 314 to 133 (376). Exact plus signs matching the sound (estimate; fires 2 times on references): five pieces 135 to 146, inspect 25 to 54, unseen 18 to 37. Engine timing disagrees with scorer on 12 merged exact bars. Directions move to bar start (`mergexml.py:107-109`). Decision: don't present 68.4; write signs first.

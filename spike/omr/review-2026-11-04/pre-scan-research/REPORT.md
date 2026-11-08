@@ -1,5 +1,7 @@
 # Pre-scan research report (2026-11-04)
 
+> Historical record of 2026-11-04 research. Scan merging is parked and the reader is frozen until 1 December except a clef fix (`docs/engineering-log.md` entry 128).
+
 Written by an Opus max-effort research agent. Saved here by the main session because the agent was not allowed to write this file. Scripts and data are in this folder. Readings are in `/tmp/claude-1000/-home-kema-projects/e7eb6523-6727-4e40-ab68-cd8b0116ddd2/scratchpad/prescan/runs` (temporary).
 
 Checked by the main session against source: `engine/read_pdf.py` keeps `scores[0]`; the log records 8 GB, 2 CPUs and 784 MB in the sandbox; `du` of the homr venv is 728M; Parratt 6679725 is in the tuning half. Everything else is the agent's report, not independently reproduced. `merge3.py` is an unreviewed prototype.

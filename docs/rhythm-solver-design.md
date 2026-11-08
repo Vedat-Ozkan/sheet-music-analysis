@@ -1,5 +1,7 @@
 # Rhythm solver for the PDF reader: design (2026-11-02)
 
+> Historical design. Phases 0 and 1 are in engineering log entry 90 and the follow-up ceiling checks in entries 93-95; the reader is frozen until 1 December except a clef fix (entry 128).
+
 Goal: fewer bars that don't add up (`engine.read_pdf.problem_spots`) by choosing, per measure, the best-supported reading that fills the bar, using evidence the reader currently throws away. Context and numbers: `docs/engineering-log.md` entry 90. Audiveris fork base: branch `sma-integration`.
 
 ## Where alternatives are lost today (Audiveris 5.11 fork)

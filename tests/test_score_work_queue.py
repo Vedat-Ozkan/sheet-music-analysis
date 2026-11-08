@@ -1,15 +1,18 @@
 import threading
 import time
+from pathlib import Path
 
 import anyio
 from mcp.client.client import Client
 
 from server import app
 
-NOTES = "N1 div=1 ts=4/4 ks=0\nm1 len=4\n1.1: 4 C5\n"
+SCORE = Path(__file__).parent / "data/chopin_nocturne_op9_no2.mxl"
 
 
-def test_two_requests_take_turns_with_the_score_work(monkeypatch):
+def test_two_requests_take_turns_with_the_score_work(monkeypatch, tmp_path):
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    app.store.put("scores/CHOPIN", SCORE.read_bytes())
     running, most = [0], [0]
     lock = threading.Lock()
     performance_text = app.performance_text
@@ -29,7 +32,7 @@ def test_two_requests_take_turns_with_the_score_work(monkeypatch):
         async with Client(app.mcp) as first, Client(app.mcp) as second:
             async with anyio.create_task_group() as group:
                 for client in (first, second):
-                    group.start_soon(client.call_tool, "play", {"notes": NOTES})
+                    group.start_soon(client.call_tool, "play", {"score_id": "CHOPIN", "measure_range": "1-2"})
 
     anyio.run(both)
     assert most[0] == 1

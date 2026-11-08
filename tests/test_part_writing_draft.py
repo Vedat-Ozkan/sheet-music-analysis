@@ -21,7 +21,8 @@ def local_store(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
 
 
-def test_draft_analysis_lists_planted_motion_errors(local_store):
+def test_draft_analysis_lists_planted_motion_errors(local_store, monkeypatch):
+    monkeypatch.setattr(app, "SEND_DRAFT", True)
     text = app.make_draft((DATA / "part_writing_motion.musicxml").read_bytes(), "pw1", None)
     section = text.split("PART-WRITING CHECK (", 1)[1].split("Draft analysis from", 1)[0]
     assert "parallel fifths soprano+tenor m1 b1 to m2 b1" in section
@@ -36,14 +37,6 @@ def test_draft_analysis_lists_planted_motion_errors(local_store):
 def test_draft_analysis_lists_planted_tendency_errors(local_store):
     text = app.make_draft((DATA / "part_writing_tendency.musicxml").read_bytes(), "pw2", None)
     assert "unresolved seventh" in text.split("PART-WRITING CHECK", 1)[1]
-
-
-def test_note_list_path_gets_the_same_section():
-    index = ScoreIndex(load_toolkit((DATA / "part_writing_motion.musicxml").read_bytes()).getMEI())
-    text = note_list.encode(index)
-    result = draft.draft_from_notes(text)
-    section = part_writing.as_text(note_list.decode(text), result.chords)
-    assert "parallel fifths soprano+tenor m1 b1 to m2 b1" in section
 
 
 def test_piano_piece_gets_no_section(local_store, chopin):
@@ -65,10 +58,18 @@ def test_with_the_draft_parked_a_chorale_still_gets_its_check(local_store, monke
         return original(*args)
 
     original = draft.MODELS["analysisgnn"]
-    monkeypatch.setattr(app, "SEND_DRAFT", False)
     monkeypatch.setitem(draft.MODELS, "analysisgnn", model)
     app.store.put("scores/PW", (DATA / "part_writing_motion.musicxml").read_bytes())
     text = asyncio.run(app.draft_analysis(None, score_id="PW")).content[0].text
     assert started
     assert "parallel fifths soprano+tenor m1 b1 to m2 b1" in text.split("PART-WRITING CHECK (", 1)[1]
     assert "Draft analysis from" not in text and "DRAFT UNAVAILABLE" not in text
+
+
+def test_note_list_path_gets_the_same_section():
+    index = ScoreIndex(load_toolkit((DATA / "part_writing_motion.musicxml").read_bytes()).getMEI())
+    text = note_list.encode(index)
+    result = draft.draft_from_notes(text)
+    section = part_writing.as_text(note_list.decode(text), result.chords)
+    assert "parallel fifths soprano+tenor m1 b1 to m2 b1" in section
+
