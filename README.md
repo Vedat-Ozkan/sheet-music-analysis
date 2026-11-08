@@ -8,13 +8,14 @@ Attach a score (MusicXML or PDF) in Claude or ChatGPT and get back the engraved 
 
 ## Results
 
-Scored by duration against chord-by-chord analyses by human experts, on 30 held-out pieces the draft model never saw in training:
+Scored by duration on 36 pieces that two independent experts each analysed chord by chord (Bach chorales, Mozart and Beethoven sonatas, Chopin mazurkas), passages of 1,327 bars, no neural draft:
 
-| | Key, chord and bass all match the expert |
-|---|---|
-| Neural draft alone | 0.48 |
-| Draft reviewed by the chat model | **0.67** |
-| Two independent experts, compared with each other (151 pairs) | 0.71 |
+| | Key, chord and bass all match | Root of the chord matches |
+|---|---|---|
+| Ours against an expert | **0.74** | 0.91 |
+| One expert against the other | 0.70 | 0.91 |
+
+Where the two experts disagree, matching either one earns us half credit and earns the pair nothing, so the comparison favours us a little on Beethoven and the mazurkas. Measured with Claude Opus; ChatGPT has not been measured this way.
 
 Every experiment behind these numbers, including the ones that failed, is written up in [`docs/engineering-log.md`](docs/engineering-log.md).
 
