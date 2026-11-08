@@ -6,9 +6,10 @@ Score summaries behind the figures in the top-level README and `docs/engineering
 
 | Published figure | File | How to read it | Regenerate |
 |---|---|---|---|
-| Neural draft alone, 0.48 (30 held-out pieces) | `report-heldout.json` | `draft.full`, weighted by `scored_bars`, over the 30 pieces that have a `reviewed` entry. The command prints the draft over all 94 held-out pieces (0.453), not this figure. | `.venv/bin/python -m eval.run --set heldout --reviewed out/eval/reviewed/opus-medium-2026-10-24` |
-| Draft reviewed by the chat model, 0.67 (30 held-out pieces) | `report-heldout.json` | `reviewed.full`, weighted by `scored_bars`, over the same 30 pieces (0.670); the command prints it. | same command |
-| Two experts against each other, 0.71 (151 pairs) | `ceiling.json` | `summary.all`: 151 pairs, 10,684 bars, `full` 0.711. `pairs` lists each pair's scores. | `.venv/bin/python -m eval.ceiling` |
+| Ours against an expert 0.74, one expert against the other 0.70, root 0.91 for both (36 pieces, two experts each; README and site) | `out/eval/ladder-multi-opus-medium-multi-alone-table.json`, not copied here | `summary.all`, `ours` and `experts`, `time.full` (0.736, 0.704) and `time.root` (0.907, 0.911); log 122 | `.venv/bin/python -m eval.ladder --set multi --reviewed out/eval/reviewed/opus-medium-multi-alone-table` |
+| Earlier figure, still in `docs/listing.md`: neural draft alone, 0.48 (30 held-out pieces) | `report-heldout.json` | `draft.full`, weighted by `scored_bars`, over the 30 pieces that have a `reviewed` entry. The command prints the draft over all 94 held-out pieces (0.453), not this figure. | `.venv/bin/python -m eval.run --set heldout --reviewed out/eval/reviewed/opus-medium-2026-10-24` |
+| Earlier figure, still in `docs/listing.md`: draft reviewed by the chat model, 0.67 (30 held-out pieces) | `report-heldout.json` | `reviewed.full`, weighted by `scored_bars`, over the same 30 pieces (0.670); the command prints it. | same command |
+| Earlier figure, still in `docs/listing.md`: two experts against each other, 0.71 (151 pairs) | `ceiling.json` | `summary.all`: 151 pairs, 10,684 bars, `full` 0.711. `pairs` lists each pair's scores. | `.venv/bin/python -m eval.ceiling` |
 
 `report-heldout.json` was regenerated on 2026-11-06 with the command above, because the copy in `out/eval/` had been rewritten that day with three pieces scored from a later review (`opus-medium-after-fixes-2026-10-31`). Its totals match those of the earlier file: draft 0.481 and review 0.670 on the 30 pieces. The draft over all 94 pieces is 0.4528 here, against 0.4526 in the earlier file.
 
