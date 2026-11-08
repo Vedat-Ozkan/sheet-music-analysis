@@ -6,7 +6,7 @@ A record of the problems met while building this tool, what was done about each,
 
 ## At a glance
 
-The bullets below are the October results of the draft-then-review pipeline. The neural draft has been off in production since entry 124, and the current accuracy figure is the by-chord one in entry 122.
+The bullets below are the October results of the draft-then-review pipeline. The neural draft has been off in production since entry 124, and the current accuracy figure is the by-chord one in entries 122 and 131.
 
 - **A two-stage analysis pipeline, measured against human experts.** A neural draft followed by a chat-model review, scored by duration against chord-by-chord readings by human analysts on 12 pieces from Bach to Grieg, and against published teacher and textbook analyses for the rest of a 23-piece set.
 - **The review stage raises agreement with experts on 11 of 12 scored pieces.** Weighted by length across 12 pieces (1,158 bars), the share of the music where key, chord and bass all match the human analyst rose from 0.54 to 0.71, and the share with the right key from 0.81 to 0.89. The largest gains were Schumann (0.61 to 0.92), Haydn (0.42 to 0.72) and Beethoven Op. 2 No. 1 (0.47 to 0.73).
