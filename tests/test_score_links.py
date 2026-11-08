@@ -112,6 +112,37 @@ def test_a_pdf_chosen_in_the_card_is_read_and_its_pages_counted_like_an_attached
     assert charged(server, "pdf_page") == 1
 
 
+def test_an_upload_sent_without_its_length_is_stopped_at_10_mb(server):
+    async def flood():
+        for _ in range(11):
+            yield bytes(1024 * 1024)
+
+    async def send():
+        transport = httpx.ASGITransport(app=app.mcp.streamable_http_app(stateless_http=True))
+        async with httpx.AsyncClient(transport=transport, base_url="http://card") as browser:
+            return await browser.post("/upload", content=flood())
+
+    answer = anyio.run(send)
+    assert answer.status_code == 413 and "larger than 10 MB" in answer.json()["error"]
+
+
+def test_an_upload_that_arrives_too_slowly_is_given_up(server, monkeypatch):
+    monkeypatch.setattr(app, "DOWNLOAD_SECONDS", 0.5)
+
+    async def trickle():
+        yield b"%PDF"
+        await anyio.sleep(2)
+        yield b"-1.4"
+
+    async def send():
+        transport = httpx.ASGITransport(app=app.mcp.streamable_http_app(stateless_http=True))
+        async with httpx.AsyncClient(transport=transport, base_url="http://card") as browser:
+            return await browser.post("/upload", content=trickle())
+
+    answer = anyio.run(send)
+    assert answer.status_code == 408 and "took longer than 0.5 seconds" in answer.json()["error"]
+
+
 def test_a_web_page_instead_of_a_score_says_how_to_share_the_file(server, site):
     result = call("fetch_score", {"url": f"{site}/public/sign-in"})
     assert result.is_error and "anyone with the link can view it" in text_of(result)

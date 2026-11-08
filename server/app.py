@@ -1723,12 +1723,21 @@ async def upload(request: Request) -> Response:
     if request.method == "OPTIONS":
         return Response(status_code=204, headers=UPLOAD_HEADERS)
     source = "claude" if (request.headers.get("origin") or "").endswith(".claudemcpcontent.com") else "other"
+    too_large = upload_refused("This file is larger than 10 MB. Choose a smaller one.", 413)
+    if int(request.headers.get("content-length") or 0) > MAX_SCORE_BYTES:
+        log("upload", platform=source, error="too large")
+        return too_large
     data = bytearray()
-    async for chunk in request.stream():
-        data += chunk
-        if len(data) > MAX_SCORE_BYTES:
-            log("upload", platform=source, error="too large")
-            return upload_refused("This file is larger than 10 MB. Choose a smaller one.", 413)
+    try:
+        with anyio.fail_after(DOWNLOAD_SECONDS):
+            async for chunk in request.stream():
+                data += chunk
+                if len(data) > MAX_SCORE_BYTES:
+                    log("upload", platform=source, error="too large")
+                    return too_large
+    except TimeoutError:
+        log("upload", platform=source, error="too slow", score_bytes=len(data))
+        return upload_refused(f"The file took longer than {DOWNLOAD_SECONDS} seconds to arrive. Choose it again.", 408)
     kind = score_kind(bytes(data))
     if kind is None:
         log("upload", platform=source, error="not a score", score_bytes=len(data))

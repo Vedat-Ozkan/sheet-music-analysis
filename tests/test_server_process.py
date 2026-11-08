@@ -171,11 +171,20 @@ def test_the_upload_refuses_what_is_not_a_score_and_answers_the_browser_s_prefli
     with urllib.request.urlopen(preflight, timeout=10) as response:
         assert response.status == 204 and "POST" in response.headers["Access-Control-Allow-Methods"]
     page = upload(server, b"<!DOCTYPE html><html><body>Sign in</body></html>")
-    large = upload(server, b"%PDF" + bytes(10 * 1024 * 1024))
     empty = upload(server, b"")
     assert page[0] == 415 and page[1]["Access-Control-Allow-Origin"] == "*" and "not a MusicXML file or a PDF" in page[2]["error"]
-    assert large[0] == 413 and "larger than 10 MB" in large[2]["error"]
     assert empty[0] == 415
+
+
+def test_an_upload_announced_over_10_mb_is_refused_before_its_body_is_read(server):
+    host, port = server.removeprefix("http://").split(":")
+    with socket.create_connection((host, int(port)), timeout=10) as connection:
+        connection.sendall(b"POST /upload HTTP/1.1\r\nHost: x\r\nContent-Length: 20000000\r\n\r\n")
+        answer = b""
+        while b"larger than" not in answer and (part := connection.recv(4096)):
+            answer += part
+    answer = answer.decode()
+    assert answer.startswith("HTTP/1.1 413") and "larger than 10 MB" in answer
 
 
 def test_health_still_answers(server):

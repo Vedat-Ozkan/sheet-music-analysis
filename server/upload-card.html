@@ -45,6 +45,7 @@
   }
 
   window.addEventListener("message", (event) => {
+    if (event.source !== window.parent) return;
     const message = event.data;
     if (!message || message.jsonrpc !== "2.0") return;
     if (message.method === "ui/notifications/host-context-changed") applyTheme(message.params);
@@ -56,6 +57,7 @@
 
   document.getElementById("file").addEventListener("change", async (event) => {
     const file = event.target.files[0];
+    event.target.value = "";
     if (!file) return;
     choose.hidden = true;
     show("Sending " + file.name + "…");
@@ -72,7 +74,8 @@
       return;
     }
     show(body.kind === "pdf" ? "Got " + file.name + ". Reading the music from a PDF takes a minute or two." : "Got " + file.name + ". The analysis is on its way.");
-    await request("ui/update-model-context", { content: [{ type: "text", text: 'The user chose their score file "' + file.name + '" in the card.\n' + body.next }] });
+    const settled = new Promise((resolve) => setTimeout(resolve, 3000));
+    await Promise.race([settled, request("ui/update-model-context", { content: [{ type: "text", text: 'The user chose their score file "' + file.name + '" in the card.\n' + body.next }] })]);
     const sent = await request("ui/message", { role: "user", content: [{ type: "text", text: "I've chosen my score: " + file.name }] });
     if (sent.error) show("Got " + file.name + ". Now tell Claude in the chat that you have chosen it.");
   });
