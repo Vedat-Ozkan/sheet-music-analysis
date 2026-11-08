@@ -10,8 +10,8 @@ Attach a score (MusicXML or PDF) in Claude or ChatGPT and get back the engraved 
 
 This repository is a plugin marketplace, so you can add the newest version of the plugin straight from it (paid Claude plans).
 
-- **Web or desktop app:** Customize → Plugins → Add → Add marketplace, enter `Vedat-Ozkan/sheet-music-analysis`, add *Sheet Music Analysis*, then add its connector on the plugin's Connectors tab and turn on *Code execution and file creation* in Settings → Capabilities. It then also works in the phone app on the same account.
-- **Claude Code:** `/plugin marketplace add Vedat-Ozkan/sheet-music-analysis`, then `/plugin install sheet-music-analysis@sheetmusicanalysis`.
+- **Web or desktop app:** Customize → Plugins → Add → Add marketplace, enter `Vedat-Ozkan/sheet-music-analysis`, add *Sheet Music Analysis* (remove any copy from Claude's directory first), then add the connector listed on the plugin's Connectors tab and turn on *Code execution and file creation* in Settings → Capabilities. It then also works in the phone app on the same account.
+- **Claude Code:** `/plugin marketplace add Vedat-Ozkan/sheet-music-analysis`, then `/plugin install sheet-music-analysis@sheetmusicanalysis`. Reading a PDF there works only on Linux.
 
 More detail, including Team and Enterprise settings, is on the [How to use](https://sheetmusicanalysis.com/docs.html#install) page.
 
