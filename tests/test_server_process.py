@@ -111,7 +111,8 @@ def test_a_whole_piece_drawn_for_claude_fits_its_result_limit(server, store):
              for bar in range(1, 34) for beat in (1, 3)]
     arguments = {"name": "render_analysis", "arguments": {"score_id": "NOCTURNE", "annotations": {"annotations": marks}}}
     claude, chatgpt = (as_client(server, agent, "tools/call", arguments) for agent in ("Claude-User", "openai-mcp/1.0.0"))
-    assert len(claude) < 150_000 < len(chatgpt)
+    assert len(claude) < 150_000
+    assert "image" in [part["type"] for part in json.loads(chatgpt)["result"]["content"]]
     content = json.loads(claude)["result"]["content"]
     assert [part["type"] for part in content] == ["text", "text"] and "left out" in content[1]["text"]
     assert json.loads(claude)["result"]["structuredContent"]["image_url"]
