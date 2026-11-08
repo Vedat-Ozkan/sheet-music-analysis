@@ -52,30 +52,30 @@ The connector is the product in Claude. Claude cannot pass a file attached to th
 
 - **Connection:** `https://mcp.sheetmusicanalysis.com/mcp`
 - **Name:** Sheet Music Analysis
-- **One-liner:** Harmonic analysis drawn on the score. Paste a link to a MusicXML file or a PDF and get the chords, cadences and phrases marked on the engraved page.
+- **One-liner:** Harmonic analysis drawn on the score. Choose a MusicXML file or a PDF and get the chords, cadences and phrases marked on the engraved page.
 - **Description:**
 
   > Sheet Music Analysis drafts a harmonic analysis of a piece of music: a Roman numeral for every chord, the cadences and phrase ends, and melody notes that don't belong to the chord. A computer model trained on hundreds of expert analyses makes the draft, and Claude checks it against the notes and explains it. It can also check a student's own Roman numerals beat by beat.
   >
-  > Paste a link to your score in the chat: a link to a MusicXML file (.mxl or .musicxml) or a PDF of printed music, or a Google Drive or Dropbox link shared so anyone with it can view. Our server downloads the file, reads the music from a PDF and shows it to you to check, then draws the analysis on the engraved score. Files from IMSLP need one extra step: download the PDF there, then share it from Google Drive or Dropbox.
+  > Ask for an analysis in the chat and choose your score in the card that appears: a MusicXML file (.mxl or .musicxml) or a PDF of printed music. Choosing it sends the file to our server, which reads the music from a PDF and shows you what it read, then draws the analysis on the engraved score. A link to the file also works: a direct link, or a Google Drive or Dropbox link shared so anyone with it can view.
 
 - **Categories, docs, privacy, support, icon:** as in Shared above. Slug: `sheet-music-analysis` (permanent).
-- **Use cases** (use case → example prompt, with a link to a score):
-  - Analyse the harmony of a passage → "Analyse the harmony of bars 1–8 of this nocturne: https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl"
+- **Use cases** (use case → example prompt; the score is chosen in the card):
+  - Analyse the harmony of a passage → "Analyse the harmony of bars 1–8 of my Chopin nocturne."
   - Show only one layer of the analysis → "Now show just the harmony, without the voice leading."
   - Explain the phrases and cadences → "Where are the phrases and cadences in bars 1–16?"
-- **Prerequisites:** none. No account or sign-in. The user pastes a link to a MusicXML score (.mxl or .musicxml) or a PDF of printed music; a public-domain sample is at https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl
+- **Prerequisites:** none. No account or sign-in. The user chooses a MusicXML score (.mxl or .musicxml) or a PDF of printed music in the card, or pastes a link to one; a public-domain sample is at https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl
 - **Reads or writes:** reads only.
 - **Company:** Sheet Music Analysis, https://sheetmusicanalysis.com.
 - **Authentication:** none.
 - **Data handling:** our own service; no health data; no sponsored content.
-- **Test & launch:** no test account needed. Add this URL as a custom connector and ask "Analyse the harmony of bars 1–8 of https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl". Claude calls `fetch_score`, `draft_analysis` and `render_analysis`, and the page is shown in a card.
+- **Test & launch:** no test account needed. Add this URL as a custom connector and ask "Analyse the harmony of bars 1–8 of my score", then choose the sample (download it from https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl) in the card. Claude calls `choose_score`, `draft_analysis` and `render_analysis`, and the page is shown in a card. Pasting the sample's link instead runs `fetch_score` in place of the card.
 
 ## Claude: plugin form
 
 - **Repository:** `Vedat-Ozkan/sheet-music-analysis`, path `dist/sheet-music-analysis`, branch `main`.
 - **Files:** Markdown, text and JSON only (the skill, the manifest, the connector address, a readme and the licence), plus the icon. No scripts.
-- **Personal data:** none collected. Our server downloads the score from the link the user gives and keeps it, and the pages it draws, for one day, then deletes them. It does not keep the link.
+- **Personal data:** none collected. Our server receives the score the user chooses in the card, or downloads it from the link they give, and keeps it, and the pages it draws, for one day, then deletes them. It does not keep the link.
 - **Third-party services:** our own server at mcp.sheetmusicanalysis.com, hosted on Google Cloud, behind Cloudflare.
 - **Retention:** scores and drawn pages are deleted after one day; a PDF that could not be read is kept seven days to find out why.
 - **Age-appropriateness:** suitable for general audiences, including students under 18.
