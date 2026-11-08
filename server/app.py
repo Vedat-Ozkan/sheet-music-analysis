@@ -1115,9 +1115,9 @@ apps.add_html_resource(
     title="Read a PDF of sheet music from a link",
     description=(
         "Use this after fetch_score returned a pdf_id, with that pdf_id. Reads the music from the PDF and shows the "
-        "user the engraved result in a card, so they can check it against their copy. Returns a score_id. Do not "
-        "analyse yet: wait until the user says to go ahead, then call draft_analysis with that score_id. PDFs of more "
-        f"than {pdf_reader.MAX_PAGES} pages are refused. Slurs are left out unless keep_slurs is true; set it only when "
+        "user the engraved result in a card. Returns a score_id. Then go straight on to the analysis without waiting "
+        "for the user: call draft_analysis with that score_id, and pass on the result's note about the reading in your "
+        f"reply with the analysis. PDFs of more than {pdf_reader.MAX_PAGES} pages are refused. Slurs are left out unless keep_slurs is true; set it only when "
         "the user asks for them."
     ),
     annotations=read_only("Read a PDF of sheet music from a link"),

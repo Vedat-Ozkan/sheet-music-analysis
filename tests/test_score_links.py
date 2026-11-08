@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import anyio
+import httpx
 import pytest
 from mcp.client.client import Client
 
@@ -154,3 +155,38 @@ def test_folder_links_are_refused(url):
 def test_a_malformed_link_is_the_user_s_mistake_not_ours(server, url):
     result = call("fetch_score", {"url": url})
     assert result.is_error and "on our side" not in text_of(result)
+
+
+PUBLIC = "https://93.184.215.14"
+
+
+@pytest.fixture
+def remote(monkeypatch, tmp_path):
+    asked = []
+
+    def answer(request):
+        asked.append(str(request.url))
+        if request.url.path == "/to-private":
+            return httpx.Response(302, headers={"Location": "https://10.0.0.5/score.mxl"})
+        if request.url.path == "/large.mxl":
+            return httpx.Response(200, content=b"PK" + bytes(app.MAX_SCORE_BYTES))
+        return httpx.Response(200, content=FILES["/public/nocturne.mxl"])
+
+    class Mocked(httpx.AsyncClient):
+        def __init__(self, **kwargs):
+            super().__init__(transport=httpx.MockTransport(answer), **kwargs)
+
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    monkeypatch.setattr(app.httpx, "AsyncClient", Mocked)
+    return asked
+
+
+def test_a_public_link_that_redirects_to_a_private_address_is_refused(remote):
+    result = call("fetch_score", {"url": f"{PUBLIC}/to-private"})
+    assert result.is_error and "not a public https URL" in text_of(result)
+    assert remote == [f"{PUBLIC}/to-private"]
+
+
+def test_a_download_over_10_mb_is_refused(remote):
+    result = call("fetch_score", {"url": f"{PUBLIC}/large.mxl"})
+    assert result.is_error and "larger than 10 MB" in text_of(result)

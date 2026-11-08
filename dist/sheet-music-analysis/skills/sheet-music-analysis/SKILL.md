@@ -31,8 +31,6 @@ When the user wants to hear the music, call the connector's `play` tool with the
 
 ## Method
 
-<!-- From here to the end is also sent to ChatGPT with each draft (server/app.py); keep it free of sandbox steps. -->
-
 Work in this order. Each step narrows the next.
 
 0. **The passage.** If the user named bars, use them. If not, ask which bars they want, suggesting the first 8 or 16, before analysing anything. If they asked for the whole piece, analyse all of it: review the draft passage by passage, then draw everything in one render, so the user gets the whole piece in one PDF, not one file per passage.
