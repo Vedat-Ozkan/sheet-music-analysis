@@ -1567,7 +1567,9 @@ def link_host(url: str) -> str:
         "The server downloads the file (https only, at most 10 MB). For MusicXML it returns a score_id: call "
         "draft_analysis with it. For a PDF it returns a pdf_id: call read_fetched_pdf with it. IMSLP links are not "
         "downloaded; the result says what to tell the user. Files attached to the chat cannot reach this server, so if "
-        "the user attaches a score, ask them for a link to it instead."
+        "the user attaches a score, ask them for a link to it instead. Never download, open or search for the score "
+        "yourself (no web search, no code sandbox): only this server fetches it, from a link the user gave. If the "
+        "user has not given a link, ask for one."
     ),
     annotations=ToolAnnotations(title="Open a score from a link", read_only_hint=True, destructive_hint=False,
                                 idempotent_hint=True, open_world_hint=True),
