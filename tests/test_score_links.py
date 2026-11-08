@@ -148,3 +148,9 @@ def test_share_links_become_direct_downloads(url, direct):
 def test_folder_links_are_refused(url):
     with pytest.raises(app.ScoreError, match="link to a folder"):
         app.direct_link(url)
+
+
+@pytest.mark.parametrize("url", ["https://a..b/score.pdf", "https://[::1/score.pdf", "not a link"])
+def test_a_malformed_link_is_the_user_s_mistake_not_ours(server, url):
+    result = call("fetch_score", {"url": url})
+    assert result.is_error and "on our side" not in text_of(result)

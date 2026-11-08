@@ -397,7 +397,7 @@ def is_public_https(url: str) -> bool:
         return False
     try:
         addresses = {info[4][0] for info in socket.getaddrinfo(parsed.hostname, 443)}
-    except socket.gaierror:
+    except (socket.gaierror, UnicodeError, ValueError):
         return False
     return all(ipaddress.ip_address(address).is_global for address in addresses)
 
@@ -720,7 +720,7 @@ async def render_analysis(
     source = platform(ctx)
     asked = len(annotations.annotations)
     try:
-        score, _ = await resolve_score(None, score_id)
+        score, _ = await resolve_score(None, score_id, source)
         measures = parse_measures(measure_range)
         view = view_named(view)
         if not await take("render", source):
@@ -1140,7 +1140,7 @@ CLAUDE_HIDDEN_ARGUMENTS = {"draft_analysis": {"score_file"}}
 CLAUDE_RESULT_CHARS = 100_000
 IMAGES_LEFT_OUT = (
     "{count} image(s) were left out of this reply to keep it within Claude's size limit. The card shows the page to "
-    "the user; where no card is shown, give the user the PNG links above."
+    "the user; where no card is shown, give the user the links above."
 )
 NO_NOTE_LIST = (
     "No note list: draft_from_notes needs the compact note list (starting 'N1 div=') that the Sheet Music Analysis "
@@ -1408,7 +1408,7 @@ async def correct_bars(
 ) -> CallToolResult:
     source = platform(ctx)
     try:
-        before, _ = await resolve_score(None, score_id)
+        before, _ = await resolve_score(None, score_id, source)
     except ScoreError as error:
         log("correct_bars", platform=source, error=type(error).__name__)
         return error_result(str(error))
@@ -1549,7 +1549,10 @@ def score_kind(data: bytes) -> str | None:
 
 
 def link_host(url: str) -> str:
-    host = (urlparse(url.strip()).hostname or "").lower()
+    try:
+        host = (urlparse(url.strip()).hostname or "").lower()
+    except ValueError:
+        return "other"
     if is_imslp(host):
         return "imslp"
     return {"drive.google.com": "google_drive", "docs.google.com": "google_drive", "dropbox.com": "dropbox",
@@ -1578,12 +1581,12 @@ async def fetch_score(ctx: Context, url: str) -> CallToolResult:
     except httpx.HTTPStatusError as error:
         log("fetch_score", platform=source, host=host, error="HTTPStatusError", status=error.response.status_code)
         return error_result(LINK_ANSWERED.format(status=error.response.status_code))
-    except httpx.HTTPError as error:
-        log("fetch_score", platform=source, host=host, error=type(error).__name__)
-        return error_result("The link could not be reached. Ask the user to check it opens in their browser.")
     except ScoreError as error:
         log("fetch_score", platform=source, host=host, error="ScoreError")
         return error_result(str(error))
+    except (httpx.HTTPError, httpx.InvalidURL, ValueError) as error:
+        log("fetch_score", platform=source, host=host, error=type(error).__name__)
+        return error_result("The link could not be reached. Ask the user to check it opens in their browser.")
     kind = score_kind(data)
     if kind is None:
         log("fetch_score", platform=source, host=host, error="not a score", score_bytes=len(data))
