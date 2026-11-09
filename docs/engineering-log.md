@@ -2573,6 +2573,31 @@ Pitch accuracy, leaving out Bach: at 10.5 and above, 0.89-0.99, within 7 points 
 
 **Checks.** `tests/test_chatgpt_flow.py`: a suggestion is logged trimmed; empty and over-long ones are refused; only the card can call it; the held v2 cards do not have it. The real `server/card.html` was drawn in a headless browser as ChatGPT (light, dark) and Claude (light, dark) before a tap, typed, sent and could-not-send, and looked at full size. Staging, 2026-11-09, driven in the owner's browser: in ChatGPT (app "sheet-music-staging") the first send showed "could not be sent" and no call reached the server, because ChatGPT keeps the tool list from when the app was last refreshed; after "Refresh tools" in the app's settings the send arrived (log line with the text, `platform` chatgpt and a user code). In Claude (a custom connector to the staging address) the send arrived with `platform` claude and no user code. After sending, the card left a tall empty space in Claude: it reported `documentElement.scrollHeight`, which never drops below the frame's current height, so the card could grow but never shrink. It now reports `body.offsetHeight`, as the player card already did.
 
+### 142. Limits on new scores, per day and per person; PDFs always read without slurs; Claude Desktop card wording (2026-11-09, branch `upload-limits`)
+
+**Problem.** The Claude upload card (log 134) and Claude's link fetching store a file before any analysis, and nothing counted them; with 30-day storage (138) nothing bounded what could pile up. In ChatGPT, `draft_analysis` stored an attached score before checking its limit. The daily `draft` limit (100) dated from 2026-10-06, when the draft model was the costly step; it is parked since 2026-11-07. Nothing limited one person from using up everyone's daily allowance.
+
+**Owner's decisions (2026-11-09).**
+- One shared limit, **100 new scores a day**, replacing `draft`. It is charged once per file that arrives from outside, when it first arrives: Claude's card and links (`fetch_score`, `/upload`), a ChatGPT attachment in `draft_analysis`, a ChatGPT PDF on its first (uncached) reading, and `draft_from_notes`. Anything derived from it is not charged: drafts by score_id, corrections, re-reads of a cached PDF.
+- **5 new scores a day per person**: per ChatGPT usage identifier, and per device in Claude's upload card (a random code the card keeps in the browser's storage). Claude sends no user identity, and links come from Anthropic's servers, so a link is bounded only by the shared 100.
+- **30 uploads a day per internet connection** in the Cloudflare Worker on `POST /upload`. It is a backstop for someone clearing the device code. The server's own run.app address bypasses the Worker, so the shared 100 is the bound that always holds.
+- PDFs are **always read without slurs**. The `keep_slurs` option, its second reading and its card key are gone. If the user asks for slurs, the model is told to say that slurs are not read. This also removes the Nov 8 "busy" case, where the same PDF was read with and without slurs at once, and the double page charge.
+- Saved PDF readings from before the low-resolution warning (139) were deleted from production (17 objects under `scores/pdf-*`), so repeats are read fresh.
+- The upload card adds "If your reply box is empty, type "I've chosen it" and send that." The owner's test in Claude Desktop showed that its host accepts `ui/message` but leaves the reply box empty; claude.ai fills it.
+
+**How the counts are kept.** The shared total is in `usage/{day}.json`, as before, under the key `score` (staging override renamed). Per-person counts are in `limits/{day}.json`, deleted after 2 days by a second lifecycle rule. Per-connection counts are in a Workers KV namespace (`sheet-music-analysis-uploads`), keyed by a SHA-256 of the day and the address, cut to 12 bytes, and expiring after 2 days. Privacy page: one new row.
+
+**Measured.** On 2026-11-08 the new rule would have counted about 12 scores (7 PDF reads, 5 MusicXML analyses), against the 100. Worst-case storage at 100 files of 10 MB a day for 30 days is 30 GB, about US$0.60 a month at the list price of $0.020/GB-month.
+
+**Checks.** End-to-end tests, all through the tools:
+- a card upload and a link past the shared limit are refused (429, with the card's message) and nothing is kept;
+- one device's second upload is refused while another device's goes through;
+- one ChatGPT account's second new score is refused;
+- a ChatGPT PDF is charged once, including when it is sent again;
+- a Claude PDF is charged once at arrival and not again when read.
+
+The Worker was run locally with `wrangler dev`: OPTIONS passes, an upload over the limit gets the 429 JSON with the card's CORS header, and other paths pass through. NOT RUN: the device code inside Claude's card iframe (whether its storage is kept between chats).
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
