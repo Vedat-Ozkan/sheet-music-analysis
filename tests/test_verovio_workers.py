@@ -79,8 +79,8 @@ def test_a_reading_that_crashes_the_drawing_gets_the_normal_unread_pdf_answer(po
     monkeypatch.setattr(app.pdf_reader, "read_pdf", lambda data: pdf_reader.PdfReading(CRASH, 1, True))
     before = pids(pool)
     result = call("read_pdf", ATTACHED)
-    assert result.is_error
-    assert text_of(result) == pdf_reader.NOTHING_READ + pdf_reader.NEXT_STEP
+    assert not result.is_error and result.meta["report"]["text"] == app.UNREAD_PDF_FOR_CARD
+    assert text_of(result) == app.UNREAD_PDF + pdf_reader.NOTHING_READ + pdf_reader.NEXT_STEP + app.CARD_SHOWS_PROBLEM
     digest = hashlib.sha256(PDF).hexdigest()
     assert store.get(f"failed/{digest}.pdf") == PDF
     assert not list(Path(store.folder, "scores").glob("pdf-reading-*"))
@@ -113,7 +113,7 @@ def test_a_crash_in_one_reading_leaves_a_drawing_on_the_other_worker_running(poo
 
     anyio.run(both)
     (drawn, drawn_at), (read, read_at) = finished["drawing"], finished["reading"]
-    assert read.is_error and text_of(read).startswith(pdf_reader.NOTHING_READ)
+    assert not read.is_error and text_of(read).startswith(app.UNREAD_PDF + pdf_reader.NOTHING_READ)
     assert read_at < drawn_at
     assert not drawn.is_error and "shown in a card" in text_of(drawn)
     again = call("render_analysis", {"score_id": "CHORALE", "annotations": NO_MARKS})
