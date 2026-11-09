@@ -891,6 +891,26 @@ async def report_problem(ctx: Context, reference: str) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text="Thanks; the report is recorded.")])
 
 
+SUGGESTION_LENGTH = 1000
+
+
+@apps.tool(
+    resource_uri=CARD_URI,
+    visibility=["app"],
+    title="Send a suggestion",
+    description="Records a suggestion the user typed into the card.",
+    annotations=ToolAnnotations(title="Send a suggestion", read_only_hint=False, destructive_hint=False,
+                                idempotent_hint=False, open_world_hint=False),
+)
+@observed
+async def send_suggestion(ctx: Context, text: str) -> CallToolResult:
+    text = text.strip()
+    if not 0 < len(text) <= SUGGESTION_LENGTH:
+        return error_result(f"A suggestion is 1 to {SUGGESTION_LENGTH} characters.")
+    log("send_suggestion", text=text)
+    return CallToolResult(content=[TextContent(type="text", text="Thanks; the suggestion is recorded.")])
+
+
 for uri, name, card in [(CARD_URI, "Analysis card", "card.html"), (PDF_CARD_URI, "PDF reading card", "card.html"),
                         *((uri, name, "card-v2.html") for uri, name in HELD_CARD_URIS.items())]:
     apps.add_html_resource(
