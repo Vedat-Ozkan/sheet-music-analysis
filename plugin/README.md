@@ -18,7 +18,7 @@ The connector downloads the file from your link, reads it, and returns the notes
 
 ## Data
 
-The connector downloads the file only from the link you give, and keeps the score and the pages it draws for one day, then deletes them. Privacy policy: https://sheetmusicanalysis.com/privacy.html
+The connector downloads the file only from the link you give, and keeps the score and the pages it draws for 30 days, then deletes them. Privacy policy: https://sheetmusicanalysis.com/privacy.html
 
 ## More
 
