@@ -75,9 +75,9 @@ The connector is the product in Claude. Claude cannot pass a file attached to th
 
 - **Repository:** `Vedat-Ozkan/sheet-music-analysis`, path `dist/sheet-music-analysis`, branch `main`.
 - **Files:** Markdown, text and JSON only (the skill, the manifest, the connector address, a readme and the licence), plus the icon. No scripts.
-- **Personal data:** none collected. Our server downloads the score from the link the user gives and keeps it, and the pages it draws, for one day, then deletes them. It does not keep the link.
+- **Personal data:** none collected. Our server downloads the score from the link the user gives and keeps it, and the pages it draws, for 30 days, then deletes them. It does not keep the link.
 - **Third-party services:** our own server at mcp.sheetmusicanalysis.com, hosted on Google Cloud, behind Cloudflare.
-- **Retention:** scores and drawn pages are deleted after one day; a PDF that could not be read is kept seven days to find out why.
+- **Retention:** scores, drawn pages and PDFs that could not be read are deleted after 30 days.
 - **Age-appropriateness:** suitable for general audiences, including students under 18.
 
 ## ChatGPT: plugin ZIP

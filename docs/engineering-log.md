@@ -2495,6 +2495,16 @@ This entry joins two branches and the plugin rewrite that follows from them. Eac
 
 **Reviewer test PDF (2026-11-08).** The PDF reviewer test case pointed at a Mutopia address that now answers 404 (the site serves unrelated pages). It now points at `site/samples/chopin-prelude-op28-no4.pdf`, the Mutopia Chopin Op. 28 No. 4 already in `tests/data` (placed in the public domain by its typesetter), served beside the nocturne sample once the site is published.
 
+### 138. Stored files kept 30 days instead of 1 (2026-11-08)
+
+**Problem.** Scores, readings of PDFs, drafts and drawn pages were deleted one day after they were stored, and PDFs that could not be read after seven. On 2026-11-08 a new ChatGPT user's poor scan could still be looked at the same evening, but would have been gone by the next day, before anyone could study why it read badly.
+
+**Change.** The owner chose 30 days for everything the bucket deletes by age: `scores/`, `files/`, `keys/`, `chats/` and `failed/`, one rule in `server/deploy.sh`, applied to the bucket on the next deploy. The privacy page, the help page, the plugin readme, the listing text and the server's "no longer kept" messages now say 30 days. Storage cost: the production bucket held about 9 MB at one day, so about 300 MB at 30, under a cent a month.
+
+**Side effects.** A PDF's reading is reused for 30 days instead of one, so sending the same PDF again within a month is answered from the stored reading and its pages are not counted again. "Was this analysis helpful?" is asked once per conversation over 30 days instead of one. The owner approved both on 2026-11-08: the first changes usage counting, and the second replaces the 2026-11-06 decision to keep conversation records one day.
+
+**Not changed.** The original of a PDF that reads successfully is still not stored. Usage identifiers, server logs (30 days) and daily totals are unchanged. The plugin's built copy of the readme in `dist/` changes at the next plugin build; the listing text changes when the owner next submits it.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

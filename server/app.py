@@ -508,7 +508,7 @@ async def resolve_score(score_file: AttachedFile | None, score_id: str | None, s
         if score_id:
             data = await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(score_id)}")
             if data is None:
-                raise ScoreError(f"No score has the id {score_id!r}; scores are kept for one day")
+                raise ScoreError(f"No score has the id {score_id!r}; scores are kept for 30 days")
             return data, "score_id"
     raise ScoreError(NO_SCORE_GIVEN["claude" if source == "claude" else "other"])
 
@@ -1208,7 +1208,7 @@ async def read_fetched_pdf(ctx: Context, pdf_id: str, keep_slurs: bool = False) 
     data = await anyio.to_thread.run_sync(store.get, f"scores/link-{clean_id(pdf_id)}.pdf")
     if data is None:
         log("read_fetched_pdf", platform=source, error="ScoreError")
-        return error_result(f"No PDF has the pdf_id {pdf_id!r}; PDFs are kept for one day. Call fetch_score with "
+        return error_result(f"No PDF has the pdf_id {pdf_id!r}; PDFs are kept for 30 days. Call fetch_score with "
                             "the user's link again.")
     return await read_pdf_data(data, source, keep_slurs, "read_fetched_pdf")
 
@@ -1345,7 +1345,7 @@ async def play(ctx: Context, score_id: str | None = None, measure_range: str = "
             if play_id and (stored := await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(play_id)}.notes")):
                 notes = stored.decode()
             elif play_id and not notes:
-                return error_result(f"No draft has the play_id {play_id!r}; drafts are kept for one day. Call "
+                return error_result(f"No draft has the play_id {play_id!r}; drafts are kept for 30 days. Call "
                                     "draft_from_notes again, or pass the note list as notes.")
             if not notes or not notes.lstrip().startswith("N1"):
                 return error_result(NO_PLAY_NOTES)
@@ -1718,7 +1718,7 @@ async def files(request: Request) -> Response:
                     if data:
                         await anyio.to_thread.run_sync(store.put, f"files/{name}", data)
     if not data:
-        return Response("This file has expired; pages are kept for one day.", status_code=404)
+        return Response("This file has expired; pages are kept for 30 days.", status_code=404)
     media_types = {"png": "image/png", "pdf": "application/pdf", "musicxml": "application/vnd.recordare.musicxml+xml",
                    "mid": "audio/midi", "rntxt": "text/plain; charset=utf-8"}
     extension = name.rsplit(".", 1)[1]
