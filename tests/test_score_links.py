@@ -124,12 +124,13 @@ def test_a_file_past_the_daily_score_limit_is_refused_and_not_kept(server, site,
     async def send():
         transport = httpx.ASGITransport(app=app.mcp.streamable_http_app(stateless_http=True))
         async with httpx.AsyncClient(transport=transport, base_url="http://card") as browser:
-            return await browser.post("/upload?id=CARD", content=FILES["/public/prelude.pdf"],
+            return await browser.post(f"/upload?id=CARD&device={'a' * 32}", content=FILES["/public/prelude.pdf"],
                                       headers={"Origin": "https://abc.claudemcpcontent.com"})
 
     refused = anyio.run(send)
     assert refused.status_code == 429 and refused.json() == {"error": app.UPLOAD_LIMIT_MESSAGE}
     assert server.get("scores/CARD.pdf") is None
+    assert json.loads(server.get(f"limits/{app.today()}.json")) == {f"device:{'a' * 32}": 0}
     linked = call("fetch_score", {"url": f"{site}/public/moved"})
     assert linked.is_error and app.LIMIT_MESSAGE in text_of(linked)
 

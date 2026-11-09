@@ -16,7 +16,7 @@ if [ "$STAGE" = staging ]; then
   IMAGE=$IMAGE:staging
   RUN_SERVICE=$SERVICE-staging
   ACCESS=--no-allow-unauthenticated
-  LIMITS='@DAILY_LIMITS={"score": 100000, "render": 100000, "pdf_page": 100000}'
+  LIMITS='@DAILY_LIMITS={"score": 100000, "render": 100000, "pdf_page": 100000}@PERSON_SCORE_LIMIT=100000'
 elif [ "$STAGE" != production ]; then
   echo "unknown stage: $STAGE" >&2
   exit 1

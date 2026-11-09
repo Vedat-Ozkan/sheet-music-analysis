@@ -65,7 +65,7 @@ MAX_SCORE_BYTES = 10 * 1024 * 1024
 DOWNLOAD_SECONDS = 30
 MAX_REDIRECTS = 5
 RATING_AFTER_ANALYSES = 3
-PERSON_SCORE_LIMIT = 5
+PERSON_SCORE_LIMIT = int(os.environ.get("PERSON_SCORE_LIMIT", "5"))
 DAILY_LIMITS = {"score": 100, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
 CARD_URI = "ui://sheet-music-analysis/card-v3.html"
 PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v3.html"
@@ -365,8 +365,17 @@ async def take(kind: str, source: str, amount: int = 1) -> bool:
     return await count(f"usage/{today()}.json", kind, amount, DAILY_LIMITS[kind], f"{kind}:{source}")
 
 
-async def take_for(person: str | None) -> bool:
-    return person is None or await count(f"limits/{today()}.json", person, 1, PERSON_SCORE_LIMIT)
+async def take_for(person: str | None, amount: int = 1) -> bool:
+    return person is None or await count(f"limits/{today()}.json", person, amount, PERSON_SCORE_LIMIT)
+
+
+async def take_score(person: str | None, source: str) -> str | None:
+    if not await take_for(person):
+        return "person"
+    if not await take("score", source):
+        await take_for(person, -1)
+        return "shared"
+    return None
 
 
 def caller() -> str | None:
@@ -1158,12 +1167,15 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
             log("read_pdf_work", busy=True)
             return error_result(BUSY_MESSAGE)
         async with pdf_lock:
-            if arrived and not await take_for(person):
-                log("read_pdf_work", limit="person", pages=read)
-                return error_result(PERSON_LIMIT_MESSAGE)
-            if arrived and not await take("score", source) or not await take("pdf_page", source, read):
-                log("read_pdf_work", limit=True, pages=read)
-                return error_result(LIMIT_MESSAGE)
+            refused = await take_score(person, source) if arrived else None
+            if not refused and not await take("pdf_page", source, read):
+                if arrived:
+                    await take_for(person, -1)
+                    await take("score", source, -1)
+                refused = "shared"
+            if refused:
+                log("read_pdf_work", limit=refused, pages=read)
+                return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
             log("read_pdf_work", **await anyio.to_thread.run_sync(pdf_reader.file_facts, data))
             with stage("omr"):
                 result = await anyio.to_thread.run_sync(pdf_reader.read_pdf, data)
@@ -1530,12 +1542,9 @@ async def draft_analysis(
         if given == "score_id":
             code = clean_id(score_id)
         else:
-            if not await take_for(caller()):
-                log("limit", tool="draft_analysis", platform=source, per="person")
-                return error_result(PERSON_LIMIT_MESSAGE)
-            if not await take("score", source):
-                log("limit", tool="draft_analysis", platform=source)
-                return error_result(LIMIT_MESSAGE)
+            if refused := await take_score(caller(), source):
+                log("limit", tool="draft_analysis", platform=source, per=refused)
+                return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
             code = secrets.token_hex(8).upper()
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)
         text = await in_turn(make_draft, score, code, measures, student_analysis)
@@ -1668,12 +1677,9 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         return error_result(QUESTION_FOR_USER + error.question)
     except ValueError as error:
         return error_result(str(error))
-    if not await take_for(caller()):
-        log("limit", tool="draft_from_notes", platform=source, per="person")
-        return error_result(PERSON_LIMIT_MESSAGE)
-    if not await take("score", source):
-        log("limit", tool="draft_from_notes", platform=source)
-        return error_result(LIMIT_MESSAGE)
+    if refused := await take_score(caller(), source):
+        log("limit", tool="draft_from_notes", platform=source, per=refused)
+        return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
     started = time.time()
     try:
         with tracer.start_as_current_span("model"):
@@ -1878,12 +1884,9 @@ async def upload(request: Request) -> Response:
         log("upload", platform=source, error="not a score", score_bytes=len(data))
         return upload_refused("This is not a MusicXML file or a PDF. Choose a .mxl, .musicxml or .pdf file.", 415)
     device = request.query_params.get("device", "")
-    if not await take_for(f"device:{device}" if re.fullmatch(r"[0-9a-f]{32}", device) else None):
-        log("upload", platform=source, error="person limit")
-        return upload_refused(UPLOAD_PERSON_MESSAGE, 429)
-    if not await take("score", source):
-        log("upload", platform=source, error="limit")
-        return upload_refused(UPLOAD_LIMIT_MESSAGE, 429)
+    if refused := await take_score(f"device:{device}" if re.fullmatch(r"[0-9a-f]{32}", device) else None, source):
+        log("upload", platform=source, error=f"{refused} limit")
+        return upload_refused(UPLOAD_PERSON_MESSAGE if refused == "person" else UPLOAD_LIMIT_MESSAGE, 429)
     await keep_score(bytes(data), kind, code)
     log("upload", platform=source, kind=kind, score_bytes=len(data))
     return JSONResponse({"kind": kind}, headers=UPLOAD_HEADERS)
