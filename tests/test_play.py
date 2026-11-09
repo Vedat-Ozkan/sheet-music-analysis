@@ -36,7 +36,7 @@ def test_a_score_id_plays_the_bars_asked_for(local_store):
     assert result.structured_content == {"performance": performance_text(marked_index(CHOPIN.read_bytes()), (1, 8))}
 
 
-def test_an_unknown_score_id_says_scores_are_kept_for_a_day(local_store):
+def test_an_unknown_score_id_says_scores_are_kept_for_30_days(local_store):
     result = call(app.play, score_id="NOPE00")
     assert result.is_error and "scores are kept for 30 days" in result.content[0].text
 
