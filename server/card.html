@@ -86,7 +86,7 @@
   function reportSize() {
     const root = document.documentElement;
     send({ jsonrpc: "2.0", method: "ui/notifications/size-changed",
-           params: { width: root.scrollWidth, height: root.scrollHeight } });
+           params: { width: root.scrollWidth, height: document.body.offsetHeight } });
   }
   function applyTheme(hostContext) {
     if (hostContext && (hostContext.theme === "light" || hostContext.theme === "dark")) document.documentElement.dataset.theme = hostContext.theme;
