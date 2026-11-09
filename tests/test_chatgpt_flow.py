@@ -9,8 +9,9 @@ import anyio
 import pikepdf
 import pytest
 from mcp.client.client import Client
+from PIL import Image
 
-from engine import draft
+from engine import draft, tint
 from engine.annotate import render
 from engine import read_pdf as pdf_reader
 from server import app
@@ -114,7 +115,8 @@ def test_a_pdf_that_cannot_be_read_says_what_to_try_next(server, monkeypatch):
 
     monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable)
     result = call("read_pdf", ATTACHED)
-    assert result.is_error and "a MusicXML file" in text_of(result)
+    assert "a MusicXML file" in text_of(result)
+    assert text_of(result).startswith("This call failed: no music was read, so there is no score_id")
     assert server.get(f"failed/{hashlib.sha256(PDF).hexdigest()}.pdf") == PDF
 
 
@@ -130,7 +132,7 @@ def test_losing_the_copy_of_an_unread_pdf_does_not_change_what_the_user_is_told(
     monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable)
     monkeypatch.setattr(server, "put", no_failed_copies)
     result = call("read_pdf", ATTACHED)
-    assert result.is_error and "a MusicXML file" in text_of(result)
+    assert "a MusicXML file" in text_of(result) and report_of(result)
     assert [line for line in logged(capsys, "read_pdf") if line.get("event") == "read_pdf_work"][-1]["failed_copy_lost"]
 
 
@@ -180,7 +182,7 @@ def test_a_crash_while_reading_a_pdf_is_a_server_error_with_the_reference_the_us
     result = call("read_pdf", ATTACHED)
     lines = logged(capsys, "read_pdf")
     calls = [line for line in lines if line.get("tool") == "read_pdf"]
-    assert result.is_error and calls[-1]["outcome"] == "server_error" and calls[-1]["severity"] == "ERROR"
+    assert calls[-1]["outcome"] == "server_error" and calls[-1]["severity"] == "ERROR"
     assert f"reference {calls[-1]['reference']}" in text_of(result)
 
 
@@ -334,3 +336,141 @@ def test_the_sent_draft_is_logged(server, capsys, monkeypatch):
     capsys.readouterr()
     assert "Draft analysis from" in text_of(call("draft_analysis", {"score_id": score_id, "measure_range": "1-4"}))
     assert logged(capsys, "draft_analysis")[-1]["draft_sent"] is True
+
+
+def report_of(result):
+    return (result.meta or {}).get("report")
+
+
+def test_an_unread_pdf_offers_the_user_a_report_that_finds_the_kept_file(server, monkeypatch, capsys):
+    def unreadable(data):
+        raise pdf_reader.ReadError("No music could be read from this PDF", [{"setting": 0, "outcome": "no music"}])
+
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable)
+    result = call("read_pdf", ATTACHED)
+    report = report_of(result)
+    assert not result.is_error and report["text"] == app.UNREAD_PDF_FOR_CARD
+    lines = logged(capsys, "read_pdf")
+    assert [line for line in lines if line.get("tool") == "read_pdf"][-1]["outcome"] == "user_error"
+    work = [line for line in lines if line.get("event") == "read_pdf_work"][-1]
+    assert work["reference"] == report["reference"]
+    assert server.get(f"failed/{work['digest']}.pdf") == PDF
+    assert [line for line in lines if line.get("tool") == "read_pdf"][-1]["reference"] == report["reference"]
+    assert not call("report_problem", {"reference": report["reference"]}).is_error
+    reports = [line for line in logged(capsys, "report_problem") if line.get("event") == "report_problem"]
+    assert reports[-1]["about"] == report["reference"]
+
+
+def test_a_server_error_offers_a_report_with_the_reference_in_the_message(server, monkeypatch):
+    def crash(data):
+        raise RuntimeError("injected")
+
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", crash)
+    result = call("read_pdf", ATTACHED)
+    assert not result.is_error and f"reference {report_of(result)['reference']}" in text_of(result)
+    assert text_of(result).startswith(app.FAILED_CALL)
+    assert report_of(result)["text"] == app.OUR_ERROR_FOR_CARD
+
+
+def test_a_crash_while_drawing_offers_a_report_and_is_logged_as_ours(server, monkeypatch, capsys):
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+
+    def crash(*args, **kwargs):
+        raise RuntimeError("injected")
+
+    monkeypatch.setattr(app, "draw", crash)
+    capsys.readouterr()
+    result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": []}})
+    assert not result.is_error and f"reference {report_of(result)['reference']}" in text_of(result)
+    assert text_of(result).startswith(app.FAILED_CALL)
+    line = logged(capsys, "render_analysis")[-1]
+    assert (line["outcome"], line["severity"]) == ("server_error", "ERROR")
+
+
+def test_a_crash_in_a_tool_with_no_card_stays_an_error(server, monkeypatch, capsys):
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+
+    def crash(*args, **kwargs):
+        raise RuntimeError("injected")
+
+    monkeypatch.setattr(app, "make_draft", crash)
+    capsys.readouterr()
+    result = call("draft_analysis", {"score_id": score_id})
+    assert result.is_error and report_of(result) is None and "support@sheetmusicanalysis.com" in text_of(result)
+    assert logged(capsys, "draft_analysis")[-1]["outcome"] == "server_error"
+
+
+def test_limits_and_mistakes_the_model_can_fix_offer_no_report(server, monkeypatch):
+    assert report_of(call("render_analysis", {"score_id": "NOSUCHSCORE", "annotations": {"annotations": []}})) is None
+    monkeypatch.setitem(app.DAILY_LIMITS, "pdf_page", 0)
+    limited = call("read_pdf", ATTACHED)
+    assert limited.is_error and app.LIMIT_MESSAGE in text_of(limited) and report_of(limited) is None
+
+
+def test_only_the_card_can_send_a_report_and_only_a_reference(server):
+    async def go():
+        async with Client(app.mcp) as client:
+            tools = {tool.name: tool for tool in (await client.list_tools()).tools}
+            return tools["report_problem"], await client.call_tool("report_problem", {"reference": "see my chat"})
+
+    tool, refused = anyio.run(go)
+    assert tool.meta["ui"]["visibility"] == ["app"]
+    assert refused.is_error
+
+
+def test_cards_held_for_review_keep_their_old_page():
+    async def go():
+        async with Client(app.mcp) as client:
+            return {uri: (await client.read_resource(uri)).contents[0].text
+                    for uri in [app.CARD_URI, *app.HELD_CARD_URIS]}
+
+    pages = anyio.run(go)
+    assert "report_problem" in pages[app.CARD_URI]
+    assert all("report_problem" not in pages[uri] for uri in app.HELD_CARD_URIS)
+
+
+def shaded_pixels(result):
+    page = Image.open(io.BytesIO(base64.b64decode(result.content[0].data))).convert("RGB")
+    return sum(count for count, colour in page.getcolors(1 << 24)
+               if all(abs(a - b) <= 2 for a, b in zip(colour, SHADE)))
+
+
+SHADE = tuple(round(255 * (1 - float(tint.FLAG_OPACITY)) + int(tint.FLAG_BAR[i:i + 2], 16) * float(tint.FLAG_OPACITY))
+              for i in (1, 3, 5))
+
+
+def test_after_a_pdf_read_the_model_goes_straight_on_to_the_analysis(server):
+    result = call("read_pdf", ATTACHED)
+    text = text_of(result)
+    assert "call draft_analysis with this score_id now" in text
+    assert "wait" not in text.lower() and "go ahead" not in text.lower() and "check it against your copy" not in text
+    assert "(shaded) looks misread" in text
+
+
+def test_bars_shaded_in_the_reading_stay_shaded_on_the_analysis(server):
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    shaded = json.loads(server.get(f"scores/{score_id}.shaded"))
+    assert len(shaded) == 1
+    marks = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "i", "key": "e"}]
+    drawn = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}})
+    assert f"Shaded bars ({shaded[0]}) may be misread" in text_of(drawn)
+    assert shaded_pixels(drawn) > 1000
+    elsewhere = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1-4"})
+    assert "Shaded bars" not in text_of(elsewhere) and shaded_pixels(elsewhere) == 0
+
+
+def test_a_musicxml_score_is_never_shaded(server):
+    server.put("scores/NOCTURNE", NOCTURNE)
+    marks = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "Eb"}]
+    drawn = call("render_analysis", {"score_id": "NOCTURNE", "annotations": {"annotations": marks}, "measure_range": "1-4"})
+    assert "Shaded bars" not in text_of(drawn) and shaded_pixels(drawn) == 0
+
+
+def test_a_corrected_bar_is_no_longer_shaded(server):
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    assert json.loads(server.get(f"scores/{score_id}.shaded")) == [18]
+    bar = ("N1 div=24 ts=2/2 ks=1s\nm18 len=96\n1.1: 12 D5 C5 E5 E4 48 A4\n1.2: 48 r 36 F#4 12 A4\n"
+           "2.1: 12 A3+C4+E4 A3+C4+E4 A2 E3+F#3+C4 B2+E3+B3 B2+E3+B3 C3+E3+A3 C3+E3+A3\n")
+    corrected = call("correct_bars", {"score_id": score_id, "replacement_bars": bar})
+    assert not corrected.is_error and "score_id: " in text_of(corrected), text_of(corrected)
+    assert json.loads(server.get(f"scores/{score_id_of(corrected)}.shaded")) == []

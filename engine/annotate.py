@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, TypeVar
 from xml.sax.saxutils import escape
 
-from engine import notation, slurs
+from engine import notation, slurs, tint
 from engine.annotations import Alternative, AnnotationList, Cadence, Callout, Harmony, NoteRef, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
 from engine.render import VEROVIO_OPTIONS, Engraving, check_range, incoming_ties, load_toolkit, shorten_ties
@@ -106,14 +106,16 @@ def render(
     role: str | None = None,
     piano: bool = False,
     student_labels: list[Label] | None = None,
+    shaded_bars: list[int] | None = None,
 ) -> Engraving:
     check_range(measures)
     if piano:
         score, annotations = _piano_version(score, annotations, measures)
     labelled_bars = {place.measure for annotation in annotations.annotations for place in vars(annotation).values() if hasattr(place, "measure")}
-    labelled_bars |= {label.measure for label in student_labels or []}
+    labelled_bars |= {label.measure for label in student_labels or []} | set(shaded_bars or [])
     toolkit = load_toolkit(score, ANNOTATED_OPTIONS, labelled_bars=labelled_bars)
     index = ScoreIndex(toolkit.getMEI())
+    shaded_bars = [number for number in shaded_bars or [] if any(measure.number == number for measure in index.measures)]
     check(annotations, index)
     results = None
     if student_labels is not None:
@@ -147,17 +149,18 @@ def render(
         _make_room_for_checks(toolkit, relayout, index, ties, results)
     else:
         drawn = _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role)
-    if drawn:
-        return Engraving([layout.to_svg() for layout in drawn])
-    pages = []
-    for page in range(1, toolkit.getPageCount() + 1):
-        layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
-        if results is None:
-            layout.draw(annotations, view, role)
-        else:
-            check_display.draw(layout, results, page == toolkit.getPageCount())
-        pages.append(layout.to_svg())
-    return Engraving(pages)
+    if not drawn:
+        drawn = []
+        for page in range(1, toolkit.getPageCount() + 1):
+            layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
+            if results is None:
+                layout.draw(annotations, view, role)
+            else:
+                check_display.draw(layout, results, page == toolkit.getPageCount())
+            drawn.append(layout)
+    for layout in drawn:
+        tint.flag_bars(layout, index, shaded_bars)
+    return Engraving([layout.to_svg() for layout in drawn])
 
 
 def _make_room_for_checks(toolkit, relayout, index, ties, results) -> None:

@@ -66,8 +66,10 @@ DOWNLOAD_SECONDS = 30
 MAX_REDIRECTS = 5
 RATING_AFTER_ANALYSES = 3
 DAILY_LIMITS = {"draft": 100, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
-CARD_URI = "ui://sheet-music-analysis/card-v2.html"
-PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v2.html"
+CARD_URI = "ui://sheet-music-analysis/card-v3.html"
+PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v3.html"
+HELD_CARD_URIS = {"ui://sheet-music-analysis/card-v2.html": "Analysis card",
+                  "ui://sheet-music-analysis/pdf-card-v2.html": "PDF reading card"}
 PLAYER_URI = "ui://sheet-music-analysis/player-v3.html"
 UPLOAD_CARD_URI = "ui://sheet-music-analysis/upload-card-v1.html"
 CONNECTOR_URL = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
@@ -353,7 +355,7 @@ def observed(fn):
                         "message": f"{tool} {outcome}", "timings_ms": timings})
             with anyio.move_on_after(5):
                 await anyio.to_thread.run_sync(flush_traces, abandon_on_cancel=True)
-        return error_result(OUR_ERROR_MESSAGE.format(reference=call["reference"])) if outcome == "server_error" else result
+        return our_error(call["reference"], tool, call["platform"]) if outcome == "server_error" else result
 
     return wrapper
 
@@ -380,6 +382,16 @@ OUR_ERROR_MESSAGE = (
     "they can email support@sheetmusicanalysis.com and mention reference {reference}; we read every message "
     "and their feedback helps us fix it."
 )
+OUR_ERROR_FOR_CARD = "Something went wrong on our side, not with your score."
+UNREAD_PDF_FOR_CARD = (
+    "The music in this PDF could not be read. A PDF exported from notation software reads best; a scan should be "
+    "straight and sharp. A MusicXML file needs no reading at all."
+)
+FAILED_CALL = "This call failed and produced nothing, so there is no result to describe. "
+UNREAD_PDF = "This call failed: no music was read, so there is no score_id and nothing to analyse. "
+READING_SHOWN = "This is what I read from your PDF."
+CARD_SHOWS_PROBLEM = " The card shows the user this problem with a button that sends it to us."
+FAILURES_IN_CARD = {"read_pdf", "render_analysis"}
 
 LIMIT_MESSAGE = (
     "Sheet Music Analysis has reached its daily limit; it resets at midnight UTC. "
@@ -536,6 +548,19 @@ def outcome_of(error: Exception) -> str:
 
 def error_result(message: str) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=message)], is_error=True)
+
+
+def failure(message: str, report: dict | None) -> CallToolResult:
+    if not report:
+        return error_result(message)
+    return CallToolResult(content=[TextContent(type="text", text=message)], structured_content={}, meta={"report": report})
+
+
+def our_error(reference: str, tool: str, source: str) -> CallToolResult:
+    message = OUR_ERROR_MESSAGE.format(reference=reference)
+    if tool not in FAILURES_IN_CARD or source == "claude":
+        return error_result(message)
+    return failure(FAILED_CALL + message + CARD_SHOWS_PROBLEM, {"text": OUR_ERROR_FOR_CARD, "reference": reference})
 
 
 ANNOTATION_FORMAT = (
@@ -700,9 +725,23 @@ NOTHING_DRAWN = (
 )
 
 
-async def draw(score: bytes, annotations: AnnotationList, measures: tuple[int, int] | None, view: str, piano: bool):
+SHADED_ON_PAGE = ("Shaded bars ({bars}) may be misread from the PDF, so their analysis may be wrong. Mention this "
+                  "briefly in your reply, and that the user can tell you what a misread bar should be.")
+
+
+def shaded_key(score_id: str) -> str:
+    return f"scores/{clean_id(score_id)}.shaded"
+
+
+async def shaded_bars(score_id: str) -> list[int]:
+    return json.loads(await anyio.to_thread.run_sync(store.get, shaded_key(score_id)) or b"[]")
+
+
+async def draw(score: bytes, annotations: AnnotationList, measures: tuple[int, int] | None, view: str, piano: bool,
+               shaded: list[int]):
     engraving, annotations, problems = await in_turn(
-        lambda: leave_out_rejected(lambda kept: render(score, kept, measures=measures, view=view, piano=piano), annotations))
+        lambda: leave_out_rejected(lambda kept: render(score, kept, measures=measures, view=view, piano=piano,
+                                                       shaded_bars=shaded), annotations))
     left_out = ["Left out, for the reason on each line (fix them and call again to add them; numbers refer to your "
                 "list):\n" + "\n".join(problems)] if problems else []
     return engraving, annotations, left_out
@@ -743,11 +782,12 @@ async def render_analysis(
         score, _ = await resolve_score(None, score_id, source)
         measures = parse_measures(measure_range)
         view = view_named(view)
+        shaded = [bar for bar in await shaded_bars(score_id) if not measures or measures[0] <= bar <= measures[1]]
         if not await take("render", source):
             log("limit", tool="render_analysis", platform=source)
             return error_result(LIMIT_MESSAGE)
         with stage("render"):
-            engraving, annotations, left_out = await draw(score, annotations, measures, view, piano)
+            engraving, annotations, left_out = await draw(score, annotations, measures, view, piano, shaded)
     except AnnotationError as error:
         log("render_analysis", platform=source, problems=len(error.problems))
         return error_result("Fix these annotations and call again:\n" + "\n".join(error.problems))
@@ -794,6 +834,8 @@ async def render_analysis(
     structured_content = {**links, "caption": caption}
     if not asked:
         left_out.append(NOTHING_DRAWN.format(score_id=score_id))
+    if shaded:
+        left_out.append(SHADED_ON_PAGE.format(bars=", ".join(map(str, shaded))))
     return CallToolResult(
         meta={"ask_for_rating": True} if await rating_is_due(ctx) else None,
         content=[
@@ -840,14 +882,32 @@ async def rate_analysis(ctx: Context, helpful: bool) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text="Thanks; the rating is recorded.")])
 
 
-apps.add_html_resource(
-    CARD_URI,
-    (HERE / "card.html").read_text(),
-    name="Analysis card",
-    csp=ResourceCsp(resource_domains=[PUBLIC_BASE_URL]),
-    domain="https://sheetmusicanalysis.com",
-    prefers_border=True,
+@apps.tool(
+    resource_uri=CARD_URI,
+    visibility=["app"],
+    title="Report a problem",
+    description="Records that the user sent us the problem shown in the card, by its reference.",
+    annotations=ToolAnnotations(title="Report a problem", read_only_hint=False, destructive_hint=False,
+                                idempotent_hint=False, open_world_hint=False),
 )
+@observed
+async def report_problem(ctx: Context, reference: str) -> CallToolResult:
+    if not re.fullmatch(r"[0-9a-f]{8}", reference):
+        return error_result("Not a reference.")
+    log("report_problem", about=reference)
+    return CallToolResult(content=[TextContent(type="text", text="Thanks; the report is recorded.")])
+
+
+for uri, name, card in [(CARD_URI, "Analysis card", "card.html"), (PDF_CARD_URI, "PDF reading card", "card.html"),
+                        *((uri, name, "card-v2.html") for uri, name in HELD_CARD_URIS.items())]:
+    apps.add_html_resource(
+        uri,
+        (HERE / card).read_text(),
+        name=name,
+        csp=ResourceCsp(resource_domains=[PUBLIC_BASE_URL]),
+        domain="https://sheetmusicanalysis.com",
+        prefers_border=True,
+    )
 
 BUSY_MESSAGE = (
     "Another PDF is being read right now, and a PDF can take several minutes to read. Tell the user plainly that the "
@@ -873,9 +933,9 @@ claiming = asyncio.Lock()
     title="Read a PDF of sheet music",
     description=(
         "Use this when the user attaches a PDF of printed sheet music (born-digital or scanned) and wants it analysed. "
-        "Reads the music from the PDF and shows the user the engraved result in a card, so they can check it against "
-        "their copy. Returns a score_id. Do not analyse yet: wait until the user says to go ahead, then call "
-        f"draft_analysis with that score_id. PDFs of more than {pdf_reader.MAX_PAGES} pages are refused. Slurs are left out "
+        "Reads the music from the PDF and shows the user the engraved result in a card, with bars that may be misread "
+        "shaded. Returns a score_id. Then go straight on without waiting for the user: call draft_analysis with that "
+        f"score_id and continue as for a MusicXML file. PDFs of more than {pdf_reader.MAX_PAGES} pages are refused. Slurs are left out "
         "unless keep_slurs is true; set it only when the user asks for them."
     ),
     annotations=read_only("Read a PDF of sheet music"),
@@ -929,10 +989,12 @@ async def read_pdf_data(data: bytes, source: str, keep_slurs: bool, tool: str) -
         current_call.get().update(event=tool, platform=source, outcome="server_error",
                                   reference=details["reference"], stack_trace=details["stack_trace"])
         return result
+    if "reference" in details:
+        current_call.get()["reference"] = details["reference"]
     if details.get("limit"):
         log("limit", tool=tool, platform=source, pages=details.get("pages"))
     else:
-        log(tool, platform=source, keep_slurs=keep_slurs,
+        log(tool, platform=source, keep_slurs=keep_slurs, outcome=details["outcome"],
             **{key: details[key] for key in ("busy", "error") if key in details})
     return pdf_card_result(result, keep_slurs, tool) if isinstance(result, dict) else result
 
@@ -971,14 +1033,14 @@ async def wait_for_other_machine(card_key: str, since: float, source: str, keep_
             if card := await anyio.to_thread.run_sync(store.get, card_key):
                 log(tool, platform=source, keep_slurs=keep_slurs, other_machine=True)
                 return pdf_card_result(json.loads(card), keep_slurs, tool)
-            failure = json.loads(await anyio.to_thread.run_sync(store.get, failure_of(card_key)) or b"{}")
-            if failure.get("at", 0) >= since:
-                if failure["error"] == "limit":
+            found = json.loads(await anyio.to_thread.run_sync(store.get, failure_of(card_key)) or b"{}")
+            if found.get("at", 0) >= since:
+                if found["error"] == "limit":
                     log("limit", tool=tool, platform=source, keep_slurs=keep_slurs, other_machine=True)
                 else:
-                    log(tool, platform=source, keep_slurs=keep_slurs, other_machine=True,
-                        **({"busy": True} if failure["error"] == "busy" else {"error": failure["error"]}))
-                return error_result(failure["text"])
+                    log(tool, platform=source, keep_slurs=keep_slurs, other_machine=True, outcome=found.get("outcome"),
+                        **({"busy": True} if found["error"] == "busy" else {"error": found["error"]}))
+                return failure(found["text"], found.get("report"))
             await anyio.sleep(POLL_SECONDS)
     log(tool, platform=source, reading=True, other_machine=True, keep_slurs=keep_slurs)
     return CallToolResult(content=[TextContent(type="text", text=STILL_READING.format(
@@ -1012,23 +1074,28 @@ async def pdf_outcome(data: bytes, digest: str, keep_slurs: bool, source: str, c
         if isinstance(error, verovio_workers.VerovioFailed):
             details["verovio"] = error.reason
             message = pdf_reader.NOTHING_READ
-        unread = isinstance(error, (pdf_reader.ReadError, verovio_workers.VerovioFailed))
-        result = error_result(message + (pdf_reader.NEXT_STEP if unread else ""))
-        if unread:
+        if isinstance(error, (pdf_reader.ReadError, verovio_workers.VerovioFailed)):
+            details.update(reference=secrets.token_hex(4), digest=digest)
+            result = (failure(UNREAD_PDF + message + pdf_reader.NEXT_STEP + CARD_SHOWS_PROBLEM,
+                              {"text": UNREAD_PDF_FOR_CARD, "reference": details["reference"]})
+                      if source != "claude" else error_result(message + pdf_reader.NEXT_STEP))
             try:
                 await anyio.to_thread.run_sync(store.put, f"failed/{digest}.pdf", data)
             except Exception:
                 details["failed_copy_lost"] = True
+        else:
+            result = error_result(str(error))
         outcome = "user_error"
     except Exception:
         details["stack_trace"] = traceback.format_exc()
         reference = secrets.token_hex(4)
         details["reference"] = reference
-        result = error_result(OUR_ERROR_MESSAGE.format(reference=reference))
+        result = our_error(reference, "read_pdf", source)
         outcome = "server_error"
     if not isinstance(result, dict):
-        failure = {"at": time.time(), "error": details.get("error", outcome), "text": result.content[0].text}
-        await anyio.to_thread.run_sync(store.put, failure_of(card_key), json.dumps(failure).encode())
+        failed = {"at": time.time(), "error": details.get("error", outcome), "outcome": outcome,
+                  "text": result.content[0].text, "report": (result.meta or {}).get("report")}
+        await anyio.to_thread.run_sync(store.put, failure_of(card_key), json.dumps(failed).encode())
     timings["total"] = round((time.perf_counter() - started) * 1000)
     details["outcome"] = outcome
     details["timings_ms"] = timings
@@ -1076,11 +1143,12 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
         spots = pdf_reader.problem_spots(score)
         numbers = [measure.number for measure in ScoreIndex(load_toolkit(score).getMEI()).measures]
         return (pdf_reader.preview(score, spots=spots), engrave(score),
-                pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots, reading.get("low_resolution", False)) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
-                f"{numbers[0]} to {numbers[-1]}", len(numbers), len(spots[0]))
+                pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots, reading.get("low_resolution", False), opening=READING_SHOWN) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
+                f"{numbers[0]} to {numbers[-1]}", len(numbers), spots[0])
 
     with stage("render"):
-        shaded, engraving, notice, measures, bars, bars_shaded = await in_turn(render)
+        shaded, engraving, notice, measures, bars, uneven = await in_turn(render)
+    await anyio.to_thread.run_sync(store.put, shaded_key(score_id), json.dumps(uneven).encode())
     more_pages = shaded.page_count > CARD_PAGES
     if more_pages:
         notice += f" This shows the first {CARD_PAGES} pages; download the PDF to check the rest."
@@ -1096,7 +1164,7 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
         image, pdf, pages = await in_turn(files)
         image_url, pdf_url = await in_turn(lambda: (publish(image, "png"), publish(pdf, "pdf")))
     log("read_pdf_work", pages=reading["pages"], scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached),
-        passes=passes, bars=bars, bars_shaded=bars_shaded)
+        passes=passes, bars=bars, bars_shaded=len(uneven))
     return {"score_id": score_id, "pages": reading["pages"], "measures": measures, "notice": notice, "image_url": image_url,
             "pdf_url": pdf_url, "more_pages": more_pages, "page_images": [base64.b64encode(png).decode() for png in pages]}
 
@@ -1108,10 +1176,11 @@ def pdf_card_result(card: dict, keep_slurs: bool, tool: str) -> CallToolResult:
     text = (
         f"score_id: {card['score_id']}\n"
         f"The card shows the user {shown}. "
-        f"The card holds no text, so give the user this message in your reply: \"{card['notice']}\"\n"
         f"The score has measures {card['measures']}.\n"
-        "Then stop and wait. Analyse only after the user says to go ahead: "
-        "then call draft_analysis with this score_id and continue exactly as for an attached MusicXML file."
+        "Go straight on to the analysis without asking the user to check the reading: call draft_analysis with this "
+        "score_id now and continue exactly as for an attached MusicXML file, drawing it with render_analysis. "
+        "Bars shaded in the reading stay shaded on the drawn page. "
+        f"The card holds no text, so in your reply with the analysis pass on this note about the reading, briefly: \"{card['notice']}\""
         + ("" if keep_slurs else f" If the user asks to keep the slurs, call {CALL_AGAIN[tool]} and "
            "keep_slurs=true, and use the score_id it returns.")
     )
@@ -1126,14 +1195,6 @@ def pdf_card_result(card: dict, keep_slurs: bool, tool: str) -> CallToolResult:
     )
 
 
-apps.add_html_resource(
-    PDF_CARD_URI,
-    (HERE / "card.html").read_text(),
-    name="PDF reading card",
-    csp=ResourceCsp(resource_domains=[PUBLIC_BASE_URL]),
-    domain="https://sheetmusicanalysis.com",
-    prefers_border=True,
-)
 
 
 @apps.tool(
@@ -1523,6 +1584,9 @@ async def correct_bars(
             )
             code = secrets.token_hex(8).upper()
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", after)
+            if await anyio.to_thread.run_sync(store.get, shaded_key(score_id)) is not None:
+                uneven, _ = await in_turn(pdf_reader.problem_spots, after)
+                await anyio.to_thread.run_sync(store.put, shaded_key(code), json.dumps(uneven).encode())
     except (correct.CorrectionError, ScoreError, PositionError) as error:
         log("correct_bars", platform=source, error=type(error).__name__)
         return error_result("Fix the replacement bars and call correct_bars again: " + str(error)

@@ -1,6 +1,6 @@
 # Directory listings (draft for the owner's approval)
 
-Text for the Claude and ChatGPT directory forms. Keep it consistent with the website, readable by someone with very basic music knowledge, and honest about the weak spots (borrowed chords sometimes read as a key change; Debussy-style music gets looser descriptions).
+Text for the Claude directory forms and the ChatGPT plugin ZIP. Keep it consistent with the website, readable by someone with very basic music knowledge, and honest about the weak spots (borrowed chords sometimes read as a key change; Debussy-style music gets looser descriptions).
 
 ## Shared
 
@@ -19,9 +19,9 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 
 > Harmonic analysis drawn on the score. Attach or link a MusicXML file or a PDF and get the chords, cadences and phrases marked on the engraved page, with a short explanation.
 
-**Description** (Claude up to 2,000 characters, ChatGPT up to 4,000; about 1,300):
+**Description** (Claude up to 2,000 characters, ChatGPT up to 4,000; about 1,979):
 
-> Sheet Music Analysis marks up a piece of music the way a theory teacher would pencil it in. Attach a score as a MusicXML file (.mxl or .musicxml, which MuseScore, Sibelius, Finale and Dorico can all export) or a PDF of printed music, and ask what is happening in the music. A PDF is read first and shown to you to check before anything is analysed.
+> Sheet Music Analysis marks up a piece of music the way a theory teacher would pencil it in. Attach a score as a MusicXML file (.mxl or .musicxml, which MuseScore, Sibelius, Finale and Dorico can all export) or a PDF of printed music, and ask what is happening in the music. A PDF is read first, and bars that may be misread are shaded so you can check them.
 >
 > You get the engraved score back, as an image and a PDF, with:
 > - every chord labelled with a Roman numeral, and coloured bands showing its job: home (tonic), moving away (predominant) or pulling back home (dominant);
@@ -30,7 +30,7 @@ Text for the Claude and ChatGPT directory forms. Keep it consistent with the web
 > - arrows where the way one note moves to the next matters;
 > - numbered circles that match a short written explanation in the chat.
 >
-> A computer model trained on hundreds of expert analyses drafts the analysis; the chat model then checks it against the actual notes and corrects it. On 30 pieces the draft model had never seen, checked against experts' analyses, about 67% of the music matched after the review, nearly as often as experts analysing the same pieces match each other (about 71%). Treat it as a well-read study partner, not an answer key: it is least reliable where experts also disagree, such as music in a major key that briefly borrows chords from the minor, and music like Debussy's that doesn't follow the usual chord patterns.
+> The chat model analyses the music from a beat-by-beat table of its notes, our software checks how the parts move in music for two to four parts, and the analysis is drawn on the engraved score. It agrees with an expert 99% as often as experts agree with each other. We tested it chord by chord on 36 pieces, each analysed by two experts: for every chord an expert wrote, we checked whether our analysis named the same chord, in the same key, with the same note in the bass. It matched 69% of an expert's chords, and one expert matched 70% of the other's. This was measured with one chat model writing the analysis; others have not been tested the same way and may do less well. Treat it as a well-read study partner, not an answer key: it is least reliable where experts also disagree, such as music in a major key that briefly borrows chords from the minor, and music like Debussy's that doesn't follow the usual chord patterns.
 >
 > Ask for one layer at a time (harmony, voice leading or form) when a page gets busy. Ask for a whole piece and you get it back as one PDF. No account or sign-in needed.
 
@@ -55,9 +55,9 @@ The connector is the product in Claude. Claude cannot pass a file attached to th
 - **One-liner:** Harmonic analysis drawn on the score. Choose a MusicXML file or a PDF and get the chords, cadences and phrases marked on the engraved page.
 - **Description:**
 
-  > Sheet Music Analysis drafts a harmonic analysis of a piece of music: a Roman numeral for every chord, the cadences and phrase ends, and melody notes that don't belong to the chord. A computer model trained on hundreds of expert analyses makes the draft, and Claude checks it against the notes and explains it. It can also check a student's own Roman numerals beat by beat.
+  > Sheet Music Analysis drafts a harmonic analysis of a piece of music: a Roman numeral for every chord, the cadences and phrase ends, and melody notes that don't belong to the chord. Claude analyses the music from a beat-by-beat table of its notes and explains it, and our software checks how the parts move in music for two to four parts. It can also check a student's own Roman numerals beat by beat.
   >
-  > Ask for an analysis in the chat and choose your score in the card that appears: a MusicXML file (.mxl or .musicxml) or a PDF of printed music. Choosing it sends the file to our server, which reads the music from a PDF and shows you what it read, then draws the analysis on the engraved score. A link to the file also works: a direct link, or a Google Drive or Dropbox link shared so anyone with it can view.
+  > Ask for an analysis in the chat and choose your score in the card that appears: a MusicXML file (.mxl or .musicxml) or a PDF of printed music. Choosing it sends the file to our server, which reads the music from a PDF and shows it to you with bars that may be misread shaded, then draws the analysis on the engraved score. A link to the file also works: a direct link, or a Google Drive or Dropbox link shared so anyone with it can view.
 
 - **Categories, docs, privacy, support, icon:** as in Shared above. Slug: `sheet-music-analysis` (permanent).
 - **Use cases** (use case → example prompt; the score is chosen in the card):
@@ -80,7 +80,7 @@ The connector is the product in Claude. Claude cannot pass a file attached to th
 - **Retention:** scores and drawn pages are deleted after one day; a PDF that could not be read is kept seven days to find out why.
 - **Age-appropriateness:** suitable for general audiences, including students under 18.
 
-## ChatGPT: submission form
+## ChatGPT: plugin ZIP
 
 OpenAI now takes a plugin ZIP rather than a form: the text below lives in `openai-plugin/plugin.json` (see the README), and is uploaded at platform.openai.com/plugins.
 
