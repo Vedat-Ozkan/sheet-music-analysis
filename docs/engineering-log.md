@@ -2513,6 +2513,66 @@ This entry joins two branches and the plugin rewrite that follows from them. Eac
 
 **Reviewer test PDF (2026-11-08).** The PDF reviewer test case pointed at a Mutopia address that now answers 404 (the site serves unrelated pages). It now points at `site/samples/chopin-prelude-op28-no4.pdf`, the Mutopia Chopin Op. 28 No. 4 already in `tests/data` (placed in the public domain by its typesetter), served beside the nocturne sample once the site is published.
 
+### 137. PDFs of any length: the first 8 pages are read (2026-11-08)
+
+**Problem.** A PDF of more than 12 pages was refused before reading, though only the first 8 pages of any PDF are read and charged. On 2026-11-08 a new ChatGPT user's 27-page PDF was refused and they did not try again.
+
+**Change.** The 12-page refusal is gone (owner's request): every PDF is cut to its first 8 pages, as PDFs of 9-12 pages already were, and the reply says which pages were read. Only the pages read count against the daily page limit, as before. Both PDF tools' descriptions now say only the first 8 pages are read; ChatGPT shows the new wording after OpenAI approves it, and until then the old wording says longer PDFs are refused. The site's help page says the same. The long-PDF test now uses 27 pages.
+
+**Not changed.** The Claude plugin's copy of `engine/read_pdf.py` in `dist/` still has the unused 12-page constant until the next plugin build. The benchmark builder's own 12-page limit in `spike/omr/bench/build.py` is separate and stays.
+
+### 138. Stored files kept 30 days instead of 1 (2026-11-08)
+
+**Problem.** Scores, readings of PDFs, drafts and drawn pages were deleted one day after they were stored, and PDFs that could not be read after seven. On 2026-11-08 a new ChatGPT user's poor scan could still be looked at the same evening, but would have been gone by the next day, before anyone could study why it read badly.
+
+**Change.** The owner chose 30 days for everything the bucket deletes by age: `scores/`, `files/`, `keys/`, `chats/` and `failed/`, one rule in `server/deploy.sh`, applied to the bucket on the next deploy. The privacy page, the help page, the plugin readme, the listing text and the server's "no longer kept" messages now say 30 days. Storage cost: the production bucket held about 9 MB at one day, so about 300 MB at 30, under a cent a month.
+
+**Side effects.** A PDF's reading is reused for 30 days instead of one, so sending the same PDF again within a month is answered from the stored reading and its pages are not counted again. "Was this analysis helpful?" is asked once per conversation over 30 days instead of one. The owner approved both on 2026-11-08: the first changes usage counting, and the second replaces the 2026-11-06 decision to keep conversation records one day.
+
+**Not changed.** The original of a PDF that reads successfully is still not stored. Usage identifiers, server logs (30 days) and daily totals are unchanged. The plugin's built copy of the readme in `dist/` changes at the next plugin build; the listing text changes when the owner next submits it.
+
+### 139. The "scan too small" warning judged by the scan itself (2026-11-08)
+
+**What users hit.** On 2026-11-08 two new ChatGPT users sent scans of about 80 dpi (662 and 880 pixels wide, on pages 8.3 and 7.3 inches wide). Both read without the warning that a scan is too small; one had 33 of 38 bars shaded, pages 3, 5 and 6 unread, staves split into invented parts and a tempo read as "J = fill".
+
+**Cause.** The warning (entry 127) was set only when the reader first refused a page for staff lines under 11 pixels apart and the page was then enlarged and read again. The reader sees each page drawn at 300 dpi of its page box, so an 80 dpi image on a full-size page is enlarged before the reader sees it: staff lines about 20 pixels apart, nothing refused, and a reading of a blur. The rule measured the drawn page, not the scan.
+
+**Change.** After every reading of a scan, the staff spacing the reader measured (median over its passes) is scaled by the narrowest page's image width over that page's drawn width: the spacing in the scan's own pixels. Under 11, the reader's own floor, the reading carries the warning. This replaces the old rule, which it covers: an enlarged small scan gets about 7. A sharp image on a small page, which the old rule warned about after enlarging, no longer does.
+
+**Evidence for 11.** Five real scans with reference scores (entry 127's set), each page redrawn at 100, 125, 150 and 200 dpi on its own page size and read. Exact bars (bars with every note right), with the spacing in the scan's pixels:
+
+| Scan | Full size | 200 dpi | 150 dpi | 125 dpi | 100 dpi |
+|---|---|---|---|---|---|
+| Grieg Op. 38/7 (53 bars) | 41 | 31 (14) | 30 (10.5) | 3 (8.3) | 6 (6.7) |
+| Beethoven Op. 2/1 iii (77) | 62 | 44 (13.7) | 32 (10.5) | 36 (6.7) | 8 (6.3) |
+| Mozart K. 545 i, Peters (73) | 26 | 19 (12.3) | 0 (9.5) | 0 (7.5) | 0 (6.3) |
+| Chopin Op. 28/4, Schirmer (26) | 12 | 5 (14) | 8 (9.5) | 0 (6.7) | 2 (7.2) |
+| Bach WTC I/22 prelude (24) | 0 | 0 (8) | 0 (5.8) | 0 (4.6) | 0 (3.5) |
+
+Pitch accuracy, leaving out Bach: at 10.5 and above, 0.89-0.99, within 7 points of full size; under 10, 0.44-0.88 in seven of nine readings (Chopin at 9.5 kept 0.94 and Beethoven at 6.7 kept 0.90). Every reduction loses bars, 200 dpi included, so 11 marks where readings break down, not where they start to lose. Five pieces, one reading each; single readings move by several bars (Chopin reads better at 150 than at 200), so the line is between about 9.5 and 12, not exact. Pages were redrawn smoothly in grey; a real low-resolution scan in black and white may read worse.
+
+**Users seen so far, by the new rule:** the 2026-11-08 users 5.3 and 7.2 (warned), the 2026-11-07 small Joseffy test 7.4 (warned, as before), full-size scans 19-25 (not warned).
+
+**Corpus check.** Every scan in the benchmark sets, the real-scan benchmark and `tests/data` (112 PDFs) read with the new rule by the real reader: no errors; 12 warned. Eleven are pages the reader first refused for staff lines too close and read again enlarged (ten one-system OLiMPiC crops at 300 dpi on pages about 2.6 inches wide, and the small-page Joseffy test), which the old rule warned about too; the twelfth is the new 80 dpi test file. No full-size scan is warned. The lowest spacing among the rest is 12 (`mozart-quartet-k80--scan`). A 2530-point page with a 72 dpi image (real-scan benchmark row 31) is shrunk to A4 before reading and comes out at 17: not warned, correctly.
+
+**Tests.** `tests/data/chopin-op67-joseffy-80dpi-scan.pdf` is the real Joseffy scan redrawn at 80 dpi on its own page, the users' case. It warns when read by the real reader, and through the reading hook; the full-size scan does not.
+
+**Known limits.** The image is taken to fill its page's width; an image placed smaller than its page counts as coarser than it is, so may warn when it should not. Rotated pages are not handled. The narrowest page sets the share, so a sharp scan with a page carrying only a small picture (a cover with a logo) could be warned; none of the 112 corpus scans is. Readings cached before this change carry no warning until they expire (30 days with entry 138).
+
+### 140. "Suggest something" on the cards (2026-11-08, branch `suggest-box`, not released)
+
+**Why.** The product is new and the owner wants to hear what users ask for, not only what fails. The only channels were the support email and the error card's report button, which shows only after a failure.
+
+**Options shown to the owner.** A: a box on the error card only; B: a "Suggest something" control on every card; C: a form on the site. The owner chose B. Three looks for B were mocked up from the real card (a quiet link, a button like the download buttons, a box always open) and drawn as ChatGPT and Claude chats; the owner chose the button.
+
+**What the user sees.** Under the downloads of every analysis and PDF reading card: "Ideas or problems?" and a button **Suggest something**. A tap opens a box headed "What would you like it to do? Ideas, problems, anything.", with "Please don't include personal details. Only what you type here is sent to us." and **Send**, greyed out until something is typed; at most 1,000 characters. After sending: "Sent. Thank you; we read every message." If the call fails (for instance in ChatGPT before OpenAI approves the new tool), the typed text stays in the box and the card says "It could not be sent from here. You can copy your message and email it to support@sheetmusicanalysis.com." It is not on the error card, which has its own button.
+
+**What we keep.** New app-only tool `send_suggestion(text)` (`visibility=["app"]`, 1 to 1,000 characters after trimming, else refused). One log line with the text and, in ChatGPT, the usage identifier; Claude sends no user identity, so Claude suggestions are anonymous. Claude only sees the tools the server lists for it, so `send_suggestion` is added to `CLAUDE_TOOLS` (hidden from the model by `visibility=["app"]`); a different-model review caught that it was missing. 30 days like every log line. Privacy page: one new row. No daily cap: the tool only logs a line, and any cap is a new limit, which needs the owner's yes.
+
+**OpenAI must review:** the new tool and the changed card (still at the `card-v3` / `pdf-card-v3` addresses, not yet approved), with entries 135 and 136.
+
+**Checks.** `tests/test_chatgpt_flow.py`: a suggestion is logged trimmed; empty and over-long ones are refused; only the card can call it; the held v2 cards do not have it. The real `server/card.html` was drawn in a headless browser as ChatGPT (light, dark) and Claude (light, dark) before a tap, typed, sent and could-not-send, and looked at full size. Staging, 2026-11-09, driven in the owner's browser: in ChatGPT (app "sheet-music-staging") the first send showed "could not be sent" and no call reached the server, because ChatGPT keeps the tool list from when the app was last refreshed; after "Refresh tools" in the app's settings the send arrived (log line with the text, `platform` chatgpt and a user code). In Claude (a custom connector to the staging address) the send arrived with `platform` claude and no user code. After sending, the card left a tall empty space in Claude: it reported `documentElement.scrollHeight`, which never drops below the frame's current height, so the card could grow but never shrink. It now reports `body.offsetHeight`, as the player card already did.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

@@ -515,7 +515,7 @@ async def resolve_score(score_file: AttachedFile | None, score_id: str | None, s
                                      "the score_id it returns.")
                 if await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is not None:
                     raise ScoreError(NOT_CHOSEN_YET)
-                raise ScoreError(f"No score has the id {score_id!r}; scores are kept for one day")
+                raise ScoreError(f"No score has the id {score_id!r}; scores are kept for 30 days")
             return data, "score_id"
     raise ScoreError(NO_SCORE_GIVEN["claude" if source == "claude" else "other"])
 
@@ -898,6 +898,26 @@ async def report_problem(ctx: Context, reference: str) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text="Thanks; the report is recorded.")])
 
 
+SUGGESTION_LENGTH = 1000
+
+
+@apps.tool(
+    resource_uri=CARD_URI,
+    visibility=["app"],
+    title="Send a suggestion",
+    description="Records a suggestion the user typed into the card.",
+    annotations=ToolAnnotations(title="Send a suggestion", read_only_hint=False, destructive_hint=False,
+                                idempotent_hint=False, open_world_hint=False),
+)
+@observed
+async def send_suggestion(ctx: Context, text: str) -> CallToolResult:
+    text = text.strip()
+    if not 0 < len(text) <= SUGGESTION_LENGTH:
+        return error_result(f"A suggestion is 1 to {SUGGESTION_LENGTH} characters.")
+    log("send_suggestion", text=text)
+    return CallToolResult(content=[TextContent(type="text", text="Thanks; the suggestion is recorded.")])
+
+
 for uri, name, card in [(CARD_URI, "Analysis card", "card.html"), (PDF_CARD_URI, "PDF reading card", "card.html"),
                         *((uri, name, "card-v2.html") for uri, name in HELD_CARD_URIS.items())]:
     apps.add_html_resource(
@@ -935,7 +955,7 @@ claiming = asyncio.Lock()
         "Use this when the user attaches a PDF of printed sheet music (born-digital or scanned) and wants it analysed. "
         "Reads the music from the PDF and shows the user the engraved result in a card, with bars that may be misread "
         "shaded. Returns a score_id. Then go straight on without waiting for the user: call draft_analysis with that "
-        f"score_id and continue as for a MusicXML file. PDFs of more than {pdf_reader.MAX_PAGES} pages are refused. Slurs are left out "
+        f"score_id and continue as for a MusicXML file. Only the first {pdf_reader.READ_PAGES} pages are read. Slurs are left out "
         "unless keep_slurs is true; set it only when the user asks for them."
     ),
     annotations=read_only("Read a PDF of sheet music"),
@@ -1112,9 +1132,6 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
         reading = json.loads(cached)
     else:
         pages = len((await anyio.to_thread.run_sync(pdf_reader.open_pdf, data)).pages)
-        if pages > pdf_reader.MAX_PAGES:
-            log("read_pdf_work", error="too many pages", pages=pages)
-            return error_result(pdf_reader.too_many_pages(pages))
         read = min(pages, pdf_reader.READ_PAGES)
         if read < pages:
             data = await anyio.to_thread.run_sync(pdf_reader.first_pages, data, read)
@@ -1204,7 +1221,7 @@ def pdf_card_result(card: dict, keep_slurs: bool, tool: str) -> CallToolResult:
         "Use this when choose_score or fetch_score gave a pdf_id, with that pdf_id. Reads the music from the PDF and shows the "
         "user the engraved result in a card. Returns a score_id. Then go straight on to the analysis without waiting "
         "for the user: call draft_analysis with that score_id, and pass on the result's note about the reading in your "
-        f"reply with the analysis. PDFs of more than {pdf_reader.MAX_PAGES} pages are refused. Slurs are left out unless keep_slurs is true; set it only when "
+        f"reply with the analysis. Only the first {pdf_reader.READ_PAGES} pages are read. Slurs are left out unless keep_slurs is true; set it only when "
         "the user asks for them."
     ),
     annotations=read_only("Read a chosen PDF of sheet music"),
@@ -1220,13 +1237,13 @@ async def read_fetched_pdf(ctx: Context, pdf_id: str, keep_slurs: bool = False) 
             return error_result(f"This score is a MusicXML file, not a PDF. Call draft_analysis with score_id {code}.")
         if await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is not None:
             return error_result(NOT_CHOSEN_YET)
-        return error_result(f"No PDF has the pdf_id {pdf_id!r}; PDFs are kept for one day. Call choose_score so "
+        return error_result(f"No PDF has the pdf_id {pdf_id!r}; PDFs are kept for 30 days. Call choose_score so "
                             "the user can choose the PDF again.")
     return await read_pdf_data(data, source, keep_slurs, "read_fetched_pdf")
 
 
 CLAUDE_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis", "play",
-                "draft_from_notes"}
+                "draft_from_notes", "send_suggestion"}
 CLAUDE_ONLY_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "play", "draft_from_notes"}
 CLAUDE_HIDDEN_ARGUMENTS = {"draft_analysis": {"score_file"}}
 CLAUDE_RESULT_CHARS = 100_000
@@ -1357,7 +1374,7 @@ async def play(ctx: Context, score_id: str | None = None, measure_range: str = "
             if play_id and (stored := await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(play_id)}.notes")):
                 notes = stored.decode()
             elif play_id and not notes:
-                return error_result(f"No draft has the play_id {play_id!r}; drafts are kept for one day. Call "
+                return error_result(f"No draft has the play_id {play_id!r}; drafts are kept for 30 days. Call "
                                     "draft_from_notes again, or pass the note list as notes.")
             if not notes or not notes.lstrip().startswith("N1"):
                 return error_result(NO_PLAY_NOTES)
@@ -1781,7 +1798,7 @@ async def files(request: Request) -> Response:
                     if data:
                         await anyio.to_thread.run_sync(store.put, f"files/{name}", data)
     if not data:
-        return Response("This file has expired; pages are kept for one day.", status_code=404)
+        return Response("This file has expired; pages are kept for 30 days.", status_code=404)
     media_types = {"png": "image/png", "pdf": "application/pdf", "musicxml": "application/vnd.recordare.musicxml+xml",
                    "mid": "audio/midi", "rntxt": "text/plain; charset=utf-8"}
     extension = name.rsplit(".", 1)[1]

@@ -25,6 +25,14 @@
   .report small { display: block; margin-top: 8px; color: var(--muted); font-size: 13px; }
   #send { width: 100%; height: 40px; border: 0; border-radius: 20px; background: var(--button); color: var(--button-fg); font: inherit; font-size: 15px; cursor: pointer; }
   .rating button { height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: 16px; background: none; font-size: 16px; cursor: pointer; }
+  .suggest { padding: 0 12px 12px; color: var(--muted); font-size: 13px; }
+  .suggest[hidden], .suggest [hidden] { display: none; }
+  .suggest form { display: flex; flex-direction: column; gap: 8px; }
+  .suggest label { color: var(--fg); font-size: 15px; }
+  .suggest textarea { box-sizing: border-box; width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--fg); font: inherit; font-size: 15px; resize: vertical; }
+  #suggest-open { height: 32px; padding: 0 12px; margin-left: 8px; border: 1px solid var(--border); border-radius: 16px; background: none; color: var(--fg); font: inherit; cursor: pointer; }
+  #suggest-send { height: 40px; border: 0; border-radius: 20px; background: var(--button); color: var(--button-fg); font: inherit; font-size: 15px; cursor: pointer; }
+  #suggest-send:disabled { opacity: 0.4; cursor: default; }
 </style>
 </head>
 <body>
@@ -52,6 +60,17 @@
   <small id="sent" hidden>Sent. Thank you; we look at every report.</small>
   <small id="unsent" hidden>It could not be sent from here. You can email support@sheetmusicanalysis.com and mention reference <span id="unsent-reference"></span>.</small>
 </div>
+<div class="suggest" id="suggest" hidden>
+  <span id="suggest-closed">Ideas or problems?<button id="suggest-open">Suggest something</button></span>
+  <form id="suggest-form" hidden>
+    <label for="suggestion">What would you like it to do? Ideas, problems, anything.</label>
+    <textarea id="suggestion" maxlength="1000" rows="3"></textarea>
+    <span>Please don't include personal details. Only what you type here is sent to us.</span>
+    <button id="suggest-send" type="submit" disabled>Send</button>
+    <span id="suggest-unsent" hidden>It could not be sent from here. You can copy your message and email it to support@sheetmusicanalysis.com.</span>
+  </form>
+  <span id="suggest-sent" hidden>Sent. Thank you; we read every message.</span>
+  </div>
 <script>
   let nextId = 1;
   const pending = {};
@@ -67,7 +86,7 @@
   function reportSize() {
     const root = document.documentElement;
     send({ jsonrpc: "2.0", method: "ui/notifications/size-changed",
-           params: { width: root.scrollWidth, height: root.scrollHeight } });
+           params: { width: root.scrollWidth, height: document.body.offsetHeight } });
   }
   function applyTheme(hostContext) {
     if (hostContext && (hostContext.theme === "light" || hostContext.theme === "dark")) document.documentElement.dataset.theme = hostContext.theme;
@@ -101,6 +120,7 @@
       document.getElementById(name).hidden = !extras[name];
     }
     document.getElementById("more").hidden = !Object.values(extras).some(Boolean);
+    document.getElementById("suggest").hidden = false;
     const rated = window.openai && window.openai.widgetState && window.openai.widgetState.rated;
     document.getElementById("rating").hidden = !askForRating || (Boolean(rated) && !answeredHere);
   }
@@ -160,6 +180,29 @@
   });
   document.getElementById("up").addEventListener("click", () => rate(true));
   document.getElementById("down").addEventListener("click", () => rate(false));
+
+  document.getElementById("suggest-open").addEventListener("click", () => {
+    document.getElementById("suggest-closed").hidden = true;
+    document.getElementById("suggest-form").hidden = false;
+    document.getElementById("suggestion").focus();
+  });
+  document.getElementById("suggestion").addEventListener("input", (event) => {
+    document.getElementById("suggest-send").disabled = !event.target.value.trim();
+  });
+  document.getElementById("suggest-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    document.getElementById("suggest-send").disabled = true;
+    const text = document.getElementById("suggestion").value.trim();
+    request("tools/call", { name: "send_suggestion", arguments: { text } }).then((result) => {
+      if (!result || result.isError) {
+        document.getElementById("suggest-send").hidden = true;
+        document.getElementById("suggest-unsent").hidden = false;
+        return;
+      }
+      document.getElementById("suggest-form").hidden = true;
+      document.getElementById("suggest-sent").hidden = false;
+    });
+  });
 
   reportSize();
   new ResizeObserver(reportSize).observe(document.body);

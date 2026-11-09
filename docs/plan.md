@@ -40,7 +40,7 @@ Hosted MCP server (streamable HTTP, no login, rate-limited)
 - The chat model is the reviewer, so there is no LLM cost on the server.
 - The skill carries the full method (function before labels, key areas, cadences, non-chord tones, voice leading, surprise, two zoom levels; student and composer roles). Tool descriptions carry a short version for users who connect without the skill.
 - Views stay separate (harmony / voice leading / form) with numbered callouts tied to the commentary.
-- Uploaded scores are deleted within 24 hours; only counts and hashes are kept.
+- Uploaded scores are deleted after 30 days; only counts and hashes are kept.
 
 Repo layout (the project directory is currently empty):
 `engine/` (parse, model adapters, annotation schema, inject, render, overlay, export) · `server/` (MCP tools, storage, rate limit, counters) · `plugin/` (Claude plugin: `plugin.json`, `skills/<name>/SKILL.md`, `.mcp.json`; OpenAI package generated from it) · `site/` (landing, gallery, privacy, terms, support) · `eval/` · `tests/`.
