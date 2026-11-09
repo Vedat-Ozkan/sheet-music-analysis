@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 
-from engine import notes as note_list
 from engine.performance import marked_index, performance_text
 from server import app
 
@@ -42,7 +41,7 @@ def test_an_unknown_score_id_says_scores_are_kept_for_30_days(local_store):
 
 
 def test_only_claude_is_offered_the_player():
-    assert {"draft_from_notes", "play"} <= listed_for("Claude-User")
+    assert "play" in listed_for("Claude-User")
     assert "play" not in listed_for("openai-mcp/1.0.0")
 
 
@@ -88,25 +87,3 @@ def test_only_the_tempo_word_in_force_over_the_bars_played_is_asked_about(local_
     app.store.put("scores/MARKED", bars_marked(["Largo", "", "Allegro"]))
     assert "Bar 1 is marked 'largo'" in call(app.play, score_id="MARKED", measure_range="2-2").content[0].text
     assert "Bar 3 is marked 'allegro'" in call(app.play, score_id="MARKED", measure_range="3-3").content[0].text
-
-
-@pytest.mark.xdist_group("draft_model")
-def test_a_draft_hands_back_a_play_id_for_the_same_passage(local_store):
-    sent = note_list.encode(marked_index(CHOPIN.read_bytes()), 1, 8)
-    drafted = call(app.draft_from_notes, notes=sent).content[0].text
-    play_id = drafted.split("play_id ")[1].split()[0]
-    result = call(app.play, play_id=play_id)
-    assert not result.is_error
-    assert result.structured_content == {"performance": performance_text(note_list.decode(sent))}
-
-
-def test_a_note_list_plays_without_a_draft(local_store):
-    sent = note_list.encode(marked_index(CHOPIN.read_bytes()), 1, 8)
-    result = call(app.play, notes=sent)
-    assert result.structured_content["performance"].startswith("P1 v55 ")
-
-
-def test_an_unknown_play_id_explains_what_to_pass(local_store):
-    result = call(app.play, play_id="NOPE00")
-    assert result.is_error and "drafts are kept for 30 days. Call draft_from_notes again, or pass the note list as notes" in result.content[0].text
-

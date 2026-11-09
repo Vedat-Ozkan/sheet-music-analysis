@@ -222,96 +222,6 @@
     "width": 12,
     "height": 16,
     "widget": {
-     "title": "Model wait p95 (ms)",
-     "xyChart": {
-      "dataSets": [
-       {
-        "timeSeriesQuery": {
-         "timeSeriesFilter": {
-          "filter": "metric.type=\"logging.googleapis.com/user/gnn_wait_ms\" AND resource.type=\"cloud_run_revision\"",
-          "aggregation": {
-           "alignmentPeriod": "300s",
-           "perSeriesAligner": "ALIGN_PERCENTILE_95",
-           "crossSeriesReducer": "REDUCE_PERCENTILE_95",
-           "groupByFields": [
-            "metric.label.tool"
-           ]
-          }
-         }
-        },
-        "plotType": "LINE"
-       }
-      ],
-      "timeshiftDuration": "0s"
-     }
-    }
-   },
-   {
-    "xPos": 0,
-    "yPos": 32,
-    "width": 12,
-    "height": 16,
-    "widget": {
-     "title": "Model inference p95 (ms)",
-     "xyChart": {
-      "dataSets": [
-       {
-        "timeSeriesQuery": {
-         "timeSeriesFilter": {
-          "filter": "metric.type=\"logging.googleapis.com/user/gnn_ms\" AND resource.type=\"cloud_run_revision\"",
-          "aggregation": {
-           "alignmentPeriod": "300s",
-           "perSeriesAligner": "ALIGN_PERCENTILE_95",
-           "crossSeriesReducer": "REDUCE_PERCENTILE_95",
-           "groupByFields": [
-            "metric.label.tool"
-           ]
-          }
-         }
-        },
-        "plotType": "LINE"
-       }
-      ],
-      "timeshiftDuration": "0s"
-     }
-    }
-   },
-   {
-    "xPos": 12,
-    "yPos": 32,
-    "width": 12,
-    "height": 16,
-    "widget": {
-     "title": "Model start-up p95 (ms)",
-     "xyChart": {
-      "dataSets": [
-       {
-        "timeSeriesQuery": {
-         "timeSeriesFilter": {
-          "filter": "metric.type=\"logging.googleapis.com/user/gnn_start_ms\" AND resource.type=\"cloud_run_revision\"",
-          "aggregation": {
-           "alignmentPeriod": "300s",
-           "perSeriesAligner": "ALIGN_PERCENTILE_95",
-           "crossSeriesReducer": "REDUCE_PERCENTILE_95",
-           "groupByFields": [
-            "metric.label.tool"
-           ]
-          }
-         }
-        },
-        "plotType": "LINE"
-       }
-      ],
-      "timeshiftDuration": "0s"
-     }
-    }
-   },
-   {
-    "xPos": 24,
-    "yPos": 32,
-    "width": 12,
-    "height": 16,
-    "widget": {
      "title": "Render p95 (ms)",
      "xyChart": {
       "dataSets": [
@@ -337,7 +247,7 @@
     }
    },
    {
-    "xPos": 36,
+    "xPos": 0,
     "yPos": 32,
     "width": 12,
     "height": 16,

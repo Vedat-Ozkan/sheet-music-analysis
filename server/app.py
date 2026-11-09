@@ -572,10 +572,6 @@ def make_worksheet(name: str) -> bytes | None:
     return render(score, AnnotationList(annotations=[]), measures=measures, piano=recipe["piano"]).pdf()
 
 
-def outcome_of(error: Exception) -> str:
-    return "server_error" if isinstance(error, draft.DraftError) else "user_error"
-
-
 def error_result(message: str) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=message)], is_error=True)
 
@@ -613,7 +609,6 @@ def drawing_plan(mei: str, index: ScoreIndex) -> str:
 
 
 SKILL_RULES = re.sub(r"<!--.*?-->\n+", "", (HERE.parent / "skill" / "SKILL.md").read_text().split("## Method", 1)[1])
-SEND_DRAFT = os.environ.get("SEND_DRAFT", "off") == "on"
 DRAW_STEP = (
     "call render_analysis with the score_id and your annotation list (its `view` argument draws one layer: "
     "harmony, voice_leading or form), show the page and write the commentary.\n"
@@ -628,80 +623,38 @@ GUIDE_RULES = (
     "given), and explain every finding of a spot in its numbered paragraph of the commentary, in terms of the notes. "
     "Call these strict classroom rules, not verdicts on a composer.\n\n"
     "If there is a STUDENT CHECK section, the user wants their own numerals checked: draw the "
-    "page as usual from your reviewed analysis (how their numerals are marked on it is not decided yet), and write the commentary as a second "
+    "page as usual from your own analysis (how their numerals are marked on it is not decided yet), and write the commentary as a second "
     "reader would, not as an answer key, following that section's guidance. This is for learning; if they say it is "
     "coursework, remind them to check their course's rules on AI help.\n"
 )
-REVIEW_GUIDE = (
-    "HOW TO USE THIS DRAFT\n"
-    "The draft below is a neural model's starting point, right about half the time on full chord labels. Check "
-    "each line against the NOTES table, analyse following the method below, then " + DRAW_STEP + GUIDE_RULES
-)
 NOTES_GUIDE = (
     "HOW TO ANALYSE THIS SCORE\n"
-    "No automatic draft analysis is given with this reply, by design: nothing failed, so do not mention a draft to "
-    "the user. Analyse from the NOTES table below, following the method "
-    "below; where the method mentions the draft, work from the notes instead. If the user asked for their own "
-    "numerals to be checked and there is no STUDENT CHECK section, compare them with your reading of the NOTES "
-    "table. Then " + DRAW_STEP + GUIDE_RULES
+    "Analyse from the NOTES table below, following the method below. If the user asked for their own numerals to be "
+    "checked and there is no STUDENT CHECK section, compare them with your reading of the NOTES table. Then "
+    + DRAW_STEP + GUIDE_RULES
 )
 METHOD = "## Method" + SKILL_RULES
-
-
-DRAFT_UNAVAILABLE = (
-    "DRAFT UNAVAILABLE: the draft model failed on this score this time. Analyse from the NOTES table below alone, "
-    "following the method, and tell the user in one sentence that the automatic first draft was unavailable. If they "
-    "asked for their own numerals to be checked, compare them with your reading of the NOTES table."
-)
-
-
-def model_output(code: str, index: ScoreIndex):
-    with stage("fetch"):
-        cached = store.get(f"scores/{code}.draft.json")
-    if cached:
-        return json.loads(cached)
-    try:
-        with tracer.start_as_current_span("model"):
-            raw = draft.MODELS["analysisgnn"](note_list.encode(index).encode(), "notes")
-    except draft.DraftError as error:
-        log("draft_analysis", outcome="degraded", draft_error=str(error)[:300], stack_trace=traceback.format_exc())
-        return None
-    with stage("publish"):
-        store.put(f"scores/{code}.draft.json", json.dumps(raw).encode())
-    return raw
 
 
 def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, student_analysis: str | None = None) -> str:
     with stage("parse"):
         mei = load_toolkit(score).getMEI()
         index = ScoreIndex(mei)
-    needs_chords = SEND_DRAFT or student_analysis or optional("part_writing", lambda: part_writing.applies(index))
-    raw = model_output(code, index) if needs_chords else None
-    log("draft_analysis", draft_sent=SEND_DRAFT and raw is not None)
     with stage("build"):
-        result = draft.build(raw, index) if raw is not None else None
         first, last = measures or (None, None)
         unit = index.measure(first or index.measures[-1].number).beat_length
         numbers = f"{index.measures[0].number} to {index.measures[-1].number}"
         sections = [
-            ("part_writing", lambda: part_writing.as_text(index, result.chords, first, last) if result else ""),
+            ("part_writing", lambda: part_writing.as_text(index, None, first, last)),
             ("ledger", lambda: ledger.as_text(mei, index, first, last)),
             ("student_check", lambda: check_analysis.as_text(
-                check_analysis.student_labels(student_analysis, score, index), result, index)
-                if student_analysis and result else ""),
+                check_analysis.student_labels(student_analysis, score, index), index) if student_analysis else ""),
         ]
-        if not SEND_DRAFT:
-            draft_section = ""
-        elif result:
-            draft_section = "\n" + draft.as_text(result, first, last)
-        else:
-            draft_section = "\n" + DRAFT_UNAVAILABLE
         return (
             f"score_id: {code}\nThe score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n"
             + ANNOTATION_FORMAT + drawing_plan(mei, index) + "\n"
-            + (REVIEW_GUIDE if SEND_DRAFT else NOTES_GUIDE)
+            + NOTES_GUIDE
             + "".join("\n" + text + "\n" for text in (optional(name, make) for name, make in sections) if text)
-            + draft_section
             + "\n\n" + METHOD
             + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
             + reduce.as_text(index, first, last)
@@ -1274,18 +1227,13 @@ async def read_fetched_pdf(ctx: Context, pdf_id: str) -> CallToolResult:
 
 
 CLAUDE_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis", "play",
-                "draft_from_notes", "send_suggestion"}
-CLAUDE_ONLY_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "play", "draft_from_notes"}
+                "send_suggestion"}
+CLAUDE_ONLY_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "play"}
 CLAUDE_HIDDEN_ARGUMENTS = {"draft_analysis": {"score_file"}}
 CLAUDE_RESULT_CHARS = 100_000
 IMAGES_LEFT_OUT = (
     "{count} image(s) were left out of this reply to keep it within Claude's size limit. The card shows the page to "
     "the user; where no card is shown, give the user the links above."
-)
-NO_NOTE_LIST = (
-    "No note list: draft_from_notes needs the compact note list (starting 'N1 div=') that the Sheet Music Analysis "
-    "plugin's skill makes from the user's score file. Without the plugin, call choose_score so the user can choose "
-    "their score file in a card."
 )
 QUESTION_FOR_USER = "Question for the user about their Roman numerals: "
 
@@ -1372,12 +1320,6 @@ class Server(MCPServer):
 SITE = "https://sheetmusicanalysis.com"
 
 
-NO_PLAY_NOTES = (
-    "Nothing to play: pass the score_id that choose_score, fetch_score, read_fetched_pdf or correct_bars gave. Older plugin "
-    "versions pass the play_id that draft_from_notes returned, or the compact note list (starting 'N1 div=') as notes."
-)
-
-
 @apps.tool(
     resource_uri=PLAYER_URI,
     title="Play the score",
@@ -1386,43 +1328,30 @@ NO_PLAY_NOTES = (
         "wants to hear the passage or score. Pass the score_id that choose_score, fetch_score, read_fetched_pdf or "
         "correct_bars gave and the bars to play as measure_range, e.g. \"1-8\" (\"all\" plays the whole score). It plays the "
         "score's tempo, dynamics, pedal marks and ornaments. tempo, in quarter notes per minute, is only for a tempo "
-        "word whose speed play says is unclear: ask the user, then pass their answer. play_id and notes are only for "
-        "older versions of the Sheet Music Analysis plugin (1.8.0 and earlier); in a new chat use score_id."
+        "word whose speed play says is unclear: ask the user, then pass their answer."
     ),
     annotations=read_only("Play the score"),
 )
 @observed
-async def play(ctx: Context, score_id: str | None = None, measure_range: str = "all", tempo: float | None = None,
-               play_id: str | None = None, notes: str | None = None) -> CallToolResult:
+async def play(ctx: Context, score_id: str, measure_range: str = "all", tempo: float | None = None) -> CallToolResult:
     source = platform(ctx)
     try:
-        if score_id:
-            score, _ = await resolve_score(None, score_id, source)
-            measures = parse_measures(measure_range)
-            index = await in_turn(marked_index, score)
-        else:
-            measures = None
-            if play_id and (stored := await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(play_id)}.notes")):
-                notes = stored.decode()
-            elif play_id and not notes:
-                return error_result(f"No draft has the play_id {play_id!r}; drafts are kept for 30 days. Call "
-                                    "draft_from_notes again, or pass the note list as notes.")
-            if not notes or not notes.lstrip().startswith("N1"):
-                return error_result(NO_PLAY_NOTES)
-            index = await in_turn(note_list.decode, notes)
+        score, _ = await resolve_score(None, score_id, source)
+        measures = parse_measures(measure_range)
+        index = await in_turn(marked_index, score)
         unclear = unclear_tempos(index, measures)
         if unclear and not tempo:
             bar, word = unclear[0]
-            log("play", platform=source, measure_range=measure_range, legacy=not score_id, asked_tempo=word)
+            log("play", platform=source, measure_range=measure_range, asked_tempo=word)
             return CallToolResult(content=[TextContent(type="text", text=(
                 f"Bar {bar} is marked '{word}' with a half-note beat, so how fast to play it is unclear. Ask the user how "
                 "fast they want it, then call play again with the same arguments and tempo in quarter notes per minute."
             ))])
         performance = await in_turn(lambda: performance_text(index, measures, tempo=tempo))
     except (ScoreError, PositionError, ValueError) as error:
-        log("play", platform=source, legacy=not score_id, error=type(error).__name__, outcome=outcome_of(error))
+        log("play", platform=source, error=type(error).__name__, outcome="user_error")
         return error_result(str(error))
-    log("play", platform=source, measure_range=measure_range, legacy=not score_id)
+    log("play", platform=source, measure_range=measure_range)
     return CallToolResult(
         content=[TextContent(type="text", text="The user now has a player for this passage in the chat.")],
         structured_content={"performance": performance},
@@ -1505,11 +1434,12 @@ del mcp._lowlevel_server._request_handlers["subscriptions/listen"]
 
 DRAFT_ANALYSIS_USE = (
     "Use this when the user wants a harmonic analysis of a MusicXML score (.mxl or .musicxml): Roman numerals, "
-    "cadences, phrases, non-chord tones. Returns a neural model's draft as a table for you to review and correct, "
+    "cadences, phrases, non-chord tones. Returns the score's notes beat by beat as a table for you to analyse, "
     "plus a score_id. Follow it with render_analysis. If the user wants their own analysis checked, pass their "
     "Roman numerals as student_analysis, as they typed them (\"m1 I, m2 V6, m3 beat 3 ii65 ...\"), or the word "
-    "\"score\" when the numerals are written into their score file; the draft then lists, beat by beat, where "
-    "they agree with it. If the result is a question, ask the user that question and call again with their answer. "
+    "\"score\" when the numerals are written into their score file; the result then lists, for each of their "
+    "labels, the notes at that beat and whether the numeral fits them. If the result is a question, ask the user "
+    "that question and call again with their answer. "
 )
 CLAUDE_SCORE_INPUT_HELP = (
     "score_id: the id that choose_score, fetch_score, read_fetched_pdf or correct_bars gave. Never encode, paste or "
@@ -1550,8 +1480,8 @@ async def draft_analysis(
         text = await in_turn(make_draft, score, code, measures, student_analysis)
     except check_analysis.ClarificationNeeded as error:
         return error_result(QUESTION_FOR_USER + error.question)
-    except (ScoreError, PositionError, ValueError, draft.DraftError, httpx.HTTPError) as error:
-        log("draft_analysis", platform=source, error=type(error).__name__, outcome=outcome_of(error))
+    except (ScoreError, PositionError, ValueError, httpx.HTTPError) as error:
+        log("draft_analysis", platform=source, error=type(error).__name__, outcome="user_error")
         return error_result(str(error))
     log("draft_analysis", platform=source, input=given, score_bytes=len(score), measure_range=measure_range,
         seconds=round(time.time() - started, 1))
@@ -1653,66 +1583,6 @@ async def correct_bars(
         structured_content={"score_id": code, "changed_bars": review.changed_bars,
                             "image_urls": urls, "notes": {str(n): note for n, note in review.notes.items()}},
     )
-
-
-@mcp.tool(
-    title="Draft a harmonic analysis from a note list",
-    description=(
-        "Only for older versions of the Sheet Music Analysis plugin (1.8.0 and earlier), whose skill passes a compact "
-        "note list starting 'N1 div=' that it made in Claude's code sandbox. In a new chat do not use this: call "
-        "choose_score so the user can choose their score file. Drafts a harmonic analysis from that note list, passed "
-        "unchanged as `notes`, and returns the draft with a play_id for play."
-    ),
-    annotations=read_only("Draft a harmonic analysis from a note list"),
-)
-@observed
-async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | None = None) -> CallToolResult:
-    source = platform(ctx)
-    if not notes.lstrip().startswith("N1"):
-        return error_result(NO_NOTE_LIST)
-    try:
-        if student_analysis:
-            await in_turn(check_analysis.student_labels, student_analysis, None, None)
-    except check_analysis.ClarificationNeeded as error:
-        return error_result(QUESTION_FOR_USER + error.question)
-    except ValueError as error:
-        return error_result(str(error))
-    if refused := await take_score(caller(), source):
-        log("limit", tool="draft_from_notes", platform=source, per=refused)
-        return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
-    started = time.time()
-    try:
-        with tracer.start_as_current_span("model"):
-            result = await in_turn(draft.draft_from_notes, notes)
-        with stage("parse"):
-            index = await in_turn(note_list.decode, notes)
-        if student_analysis:
-            student = await in_turn(check_analysis.student_labels, student_analysis, None, index)
-    except check_analysis.ClarificationNeeded as error:
-        return error_result(QUESTION_FOR_USER + error.question)
-    except draft.DraftError as error:
-        log("draft_from_notes", platform=source, outcome="degraded", draft_error=str(error)[:300],
-            stack_trace=traceback.format_exc(), chars=len(notes))
-        return CallToolResult(content=[TextContent(type="text", text=DRAFT_UNAVAILABLE.replace(
-            "the NOTES table below", "the note list").replace("your reading of the NOTES table", "your reading of the note list"))])
-    except (note_list.NotesError, PositionError, ValueError) as error:
-        log("draft_from_notes", platform=source, error=type(error).__name__, chars=len(notes), outcome=outcome_of(error))
-        return error_result(str(error))
-    def build() -> str:
-        text = draft.as_text(result)
-        if section := part_writing.as_text(index, result.chords):
-            text += "\n\n" + section
-        if student_analysis:
-            text += "\n\n" + check_analysis.as_text(student, result, index)
-        return text
-
-    with stage("build"):
-        text = await in_turn(build)
-    play_id = secrets.token_hex(8).upper()
-    await anyio.to_thread.run_sync(store.put, f"scores/{play_id}.notes", notes.encode())
-    text += f"\n\nPLAY: play_id {play_id} plays this passage. Call play with it when the user wants to hear it."
-    log("draft_from_notes", platform=source, chars_in=len(notes), seconds=round(time.time() - started, 1))
-    return CallToolResult(content=[TextContent(type="text", text=text)])
 
 
 LINK_NOT_A_SCORE = (

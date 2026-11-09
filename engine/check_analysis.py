@@ -8,8 +8,10 @@ from dataclasses import asdict, replace
 from fractions import Fraction
 
 from music21 import key as m21key
+from music21 import roman
 
-from engine.comparison import Label, from_annotations, from_draft, matches, sounding
+from engine.comparison import Label, from_annotations, matches, sounding
+from engine.reduce import midi
 from engine.score import ScoreIndex, beat_length
 
 KEY_NAME = r"[A-Ga-g][#b♯♭-]*(?:\s+(?:major|minor|maj|min))?"
@@ -345,26 +347,61 @@ def as_typed(labels: list[Label]) -> str:
     return '; '.join(f"m{label.measure} b{label.beat:g} {label.key}: {label.figure}" for label in labels)
 
 
-def as_text(student: list[Label], draft, index: ScoreIndex) -> str:
-    chords = {(chord.measure, chord.beat): chord for chord in draft.chords}
+def _chord(key: str, figure: str) -> roman.RomanNumeral:
+    local = m21key.Key(m21key.convertKeyStringToMusic21KeyString(key))
+    return roman.RomanNumeral(figure.replace('ø', '/o'), local, sixthMinor=roman.Minor67Default.CAUTIONARY,
+                              seventhMinor=roman.Minor67Default.CAUTIONARY)
+
+
+def _heard(index: ScoreIndex, label: Label, following: Label | None) -> list:
+    measure = index.measure(label.measure)
+    start = measure.offset_of(label.beat)
+    end = int(label.beat) * measure.beat_length
+    if following and following.measure == label.measure:
+        end = min(end, measure.offset_of(following.beat))
+    notes = [event for event in measure.events if event.pitch and not event.grace
+             and (start <= event.onset < end or event.onset < start < event.onset + event.duration)]
+    return sorted(notes, key=lambda event: midi(event.pitch))
+
+
+def _fit(chord: roman.RomanNumeral, heard: list) -> tuple[str, list[str], list[str]]:
+    tones = {pitch.pitchClass for pitch in chord.pitches}
+    classes = {midi(event.pitch) % 12 for event in heard}
+    missing = [pitch.name.replace('-', 'b') for pitch in chord.pitches if pitch.pitchClass not in classes]
+    other = list(dict.fromkeys(event.pitch.rstrip('0123456789') for event in heard if midi(event.pitch) % 12 not in tones))
+    if not heard:
+        return "doesn't fit the notes", missing, other
+    bass = midi(heard[0].pitch) % 12
+    if bass not in tones or chord.root().pitchClass not in classes or len(tones & classes) < len(classes - tones):
+        return "doesn't fit the notes", missing, other
+    if bass != chord.bass().pitchClass:
+        return 'right chord, different inversion', missing, other
+    if missing:
+        return 'chord tone missing (a non-chord tone in its place, or an incomplete chord)', missing, other
+    return 'fits', missing, other
+
+
+def as_text(student: list[Label], index: ScoreIndex) -> str:
     lines = [
         "STUDENT CHECK (the user gave their own Roman numerals and wants a second reader, not an answer key). "
-        "Each line is one of their labels beside the draft's chord at that beat. Start with what they got right. "
-        "Explain every difference in terms of the notes (the bass, which pitch classes are present), say plainly "
-        "when both readings are defensible, and count 'same chord different spelling' as agreement. The draft is "
-        "right only about half the time: where its confidence is low or it lists a runner-up, or on the weak spots "
-        "named in the method, say the reading is a close call instead of claiming the student is wrong.",
+        "Each line is one of their labels with the notes sounding in that beat and the notes their numeral stands for "
+        "in their key. The last column is an automatic test of whether those notes fit: it only matches notes, so it "
+        "cannot tell a passing note from a chord tone or say whether the key is right. Make your own analysis from the "
+        "NOTES table and compare it with theirs. Start with what the student got right. Explain every difference in "
+        "terms of the notes: the bass, and which notes are there or missing. When both readings are defensible, say so "
+        "plainly instead of calling the student wrong.",
         "",
-        "measure beat | student | draft (confidence) | draft bass | draft pitch classes | how they compare",
+        "measure beat | student | bass heard | notes heard, low to high | their numeral's notes, bass first | "
+        "chord notes not heard | other notes heard | fit",
     ]
-    for item in compare_labels(student, from_draft(draft), index):
-        label, expected = item['student'], item['reviewed']
-        chord = chords.get((expected['measure'], expected['beat'])) if expected else None
-        confidence = f" ({chord.confidence:.2f}" + (f", runner-up {chord.alternative} {chord.alternative_confidence:.2f}" if chord.alternative else '') + ')' if chord else ''
+    for label, following in zip(student, student[1:] + [None]):
+        heard = _heard(index, label, following)
+        chord = _chord(label.key, label.figure)
+        fit, missing, other = _fit(chord, heard)
+        names = list(dict.fromkeys(event.pitch.rstrip('0123456789') for event in heard))
         lines.append(
-            f"m{label['measure']} b{label['beat']:g} | {label['key']}: {label['figure']} | "
-            f"{expected['key'] + ': ' + expected['figure'] + confidence if expected else 'none'} | "
-            f"{chord.bass if chord else ''} | {' '.join(chord.pitches) if chord else ''} | "
-            + item['classification'].replace('_', ' ')
+            f"m{label.measure} b{label.beat:g} | {label.key}: {label.figure} | {heard[0].pitch if heard else 'rest'} | "
+            f"{' '.join(names)} | {' '.join(pitch.name.replace('-', 'b') for pitch in chord.pitches)} | "
+            f"{' '.join(missing) or '-'} | {' '.join(other) or '-'} | {fit}"
         )
     return '\n'.join(lines)

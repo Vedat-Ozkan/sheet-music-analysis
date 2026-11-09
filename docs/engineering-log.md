@@ -2600,6 +2600,48 @@ Pitch accuracy, leaving out Bach: at 10.5 and above, 0.89-0.99, within 7 points 
 
 The Worker was run locally with `wrangler dev`: OPTIONS passes, an upload over the limit gets the 429 JSON with the card's CORS header, and other paths pass through. NOT RUN: the device code inside Claude's card iframe (whether its storage is kept between chats).
 
+### 143. The draft model removed from the server, the legacy tools retired, and a student check that tests each numeral against the notes (2026-11-09, branch `remove-model`, not released)
+
+**Why.** Since the 2026-11-07 release the model's draft was not sent to the chat model (`SEND_DRAFT=off`); Claude and ChatGPT analyse from the notes table. The model still ran in three cases: a score in two to four parts (its chords fed the part-writing check), a student's own numerals (the student check listed them beside its chords), and `draft_from_notes`. Each server instance that ran it first paid the model's start-up, about 10 s per instance in production (`gnn_start`), and the image carried its environment and weights. The owner decided to remove it from the server entirely.
+
+**Part-writing without the model's chords.** Measured before the change on the 93 chorales where the check applies (the audited Bach chorales, the chorales in `tests/data` and the evaluation's reviewed chorales), the check with the model's chords against the check without them (the path every other score already used):
+
+| Rule | With chords | Without |
+|---|---|---|
+| Parallel fifths, parallel octaves, direct fifths, direct octaves, range, spacing, voice crossing, voice overlap | identical findings | identical findings |
+| Doubled leading tone | 64 | 13 |
+| Unresolved leading tone | 34 | 13 |
+| Unresolved seventh | 50 | 37 |
+
+Findings on one side only: 124 with chords only (53 doubled leading tone, 47 unresolved seventh, 24 unresolved leading tone) and 39 without chords only (34 unresolved seventh, 3 unresolved leading tone, 2 doubled leading tone). Against the hand-audited list (`tests/data/reference/part_writing_audit.json`, 78 real findings and 13 known checker bugs), the check without chords gets all 91 right; with chords it missed 5 real findings (4 unresolved sevenths, 1 unresolved leading tone) and brought back 6 known false doubled-leading-tone reports. That list was built and tuned on the check without chords, so it favours that side, and the 124 chord-only findings were never audited: some are surely real. The fair summary is that the three chord rules trade errors; the owner accepted that. The check itself took a median 0.11 s per chorale without chords and 0.20 s with them, not counting the model.
+
+**Student check, rebuilt.** Before, each of the student's labels was printed beside the model's chord at that beat with the model's confidence; the model's full chord labels are right only about half the time. Now each label gets the notes in that beat (the same window as a row of the NOTES table: notes starting in the beat and notes held into it, stopping at the student's next label), the notes their numeral stands for in their key (from music21's Roman numeral reading), and an automatic fit test:
+- **doesn't fit the notes:** the bass is not in the chord, or the chord's root is not heard, or more of the heard pitch classes are outside the chord than in it;
+- **right chord, different inversion:** otherwise, when the bass is a chord tone but not the numeral's bass;
+- **chord tone missing (a non-chord tone in its place, or an incomplete chord);**
+- **fits.**
+Notes heard that are not in the chord are listed, so a "fits" with passing notes in the beat still shows them. The test cannot judge the key, and does not tell a passing note from a chord tone; the instructions say so and ask the chat model to make its own analysis from the NOTES table, start with what the student got right, explain differences by the notes, and say when two readings are defensible. Old and new rows for the same typed answers (Chopin, Nocturne Op. 9 No. 2, and the Bach chorale in `spike/export/a-harmony.musicxml`):
+
+| Label | Before (model's chord, bass, pitch classes, verdict) | After (bass, notes heard, numeral's notes, verdict) |
+|---|---|---|
+| Chopin m1 b3 `I6` | I (0.89), Eb2, D Eb G Bb F: different inversion | Eb2, Eb G Bb F; G Bb Eb: right chord, different inversion |
+| Chopin m2 b3 `ii` | ii (0.95), F2, F Bb: agrees | F2, F Bb Db E; F Ab C: doesn't fit (the ii arrives on beat 4) |
+| Chopin m3 b2 `V65` | V65/vi (1.00), B2, B G D F: different chord | B2, B G D F; D F Ab Bb: doesn't fit |
+| Bach m1 b2 `vi` | IV6 (1.00), E3, E B C: different chord | E3, E B C G; E G B: fits, with C also heard |
+| Bach m3 b2.5 `ii7` | viio6 (1.00), A2, A F#: different chord | A2, A C F#; A C E G: chord tone missing (E G not heard, F# heard) |
+
+The old check called Chopin's bar 2 beat 3 "agrees" because the model's ii started there; the notes of that beat are F Bb Db E, which lean on the ii chord that arrives on beat 4, and whether to label them as that ii is the chat model's call. The new one has no model to be wrong, but it is cruder: it judges one beat's notes, so an anticipation or a suspension on the beat reads as a misfit, and the chat model has to explain it.
+
+**Legacy tools retired.** `draft_from_notes` and `play` with a `play_id` or a note list served plugin 1.8.0 and earlier; production logs show the last such call on 2026-11-02. Both are gone, and `play` now requires a `score_id`.
+
+**Removed.** In `server/app.py`: `model_output`, the `.draft.json` cache, `SEND_DRAFT`, the draft section and its guide and "unavailable" text, the model's error branch. The `gnn_wait`, `gnn_start` and `gnn` timings, and their three log-based metrics and dashboard tiles from `server/monitoring/`; `apply.sh` never deletes a metric and only creates the dashboard when it is missing, so the live metrics and tiles stay in Google Cloud until deleted by hand. From the image: the model's environment, the vendored model, its weights and the step that listed its files for read-ahead (`Dockerfile.base`, `Dockerfile`), and `server/requirements-agnn.txt`. `SEND_DRAFT` from `server/deploy.sh`. The model install from CI. Tests that ran the real model or asserted the draft. Kept: `engine/draft.py`'s model code and `engine/models/analysisgnn_runner.py`, which `eval/` and `tools/robustness.py` still use on the development machine; the server imports `engine/draft.py` only for its stage timings.
+
+**Image size.** The production base image was 793 MB compressed in the registry (2026-11-06). The removed parts measure 1.4 GB (the model's environment) and 122 MB (weights) uncompressed on the development machine. The new base image is not built yet, so its size is not measured: `server/deploy.sh` names the base image by a hash of `Dockerfile.base`, `pyproject.toml` and `uv.lock`, so the next deploy builds a new base on Cloud Build before the server image.
+
+**Public text.** The privacy page no longer lists a stored draft; the method page no longer mentions a first guess that was switched off; the plugin readme and the skill no longer mention a draft. The `draft_analysis` description no longer promises a model's draft: ChatGPT shows it after OpenAI approves the update, and keeps the old description until then. The skill and the plugin readme are in the built plugin, so they reach Claude's plugin users only with the next plugin build.
+
+**Checks.** End-to-end through `draft_analysis` on the Chopin score: a label that fits, one in a different inversion and one that doesn't fit, with the exact notes in each row; a corpus check in `tests/test_awkward.py` puts a numeral on every beat of every awkward score and gets one row per label. The part-writing tests now pass without the model, including the planted errors. `tools/diff_check.py --base HEAD typed partwriting`: 191 and 80 inputs unchanged.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

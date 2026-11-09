@@ -3,9 +3,6 @@ from pathlib import Path
 
 import pytest
 
-from engine import notes as note_list
-from engine.render import load_toolkit
-from engine.score import ScoreIndex
 from server import app
 
 ROOT = Path(__file__).parent.parent
@@ -30,72 +27,44 @@ def call(tool, **arguments):
 
 
 def section_of(text):
-    return text.split("STUDENT CHECK (", 1)[1].split("Draft analysis from", 1)[0]
+    return text.split("STUDENT CHECK (", 1)[1].split("## Method", 1)[0]
 
 
-def assert_planted_differences(section):
-    rows = {line.split(" | ")[0]: line for line in section.splitlines() if line.startswith("m")}
-    assert rows["m1 b1"].endswith("same chord different spelling")
-    assert rows["m1 b3"].endswith("different inversion")
-    assert rows["m3 b2"].endswith("different chord") and "V65/vi" in rows["m3 b2"]
-    assert rows["m2 b1"].endswith("agrees") and rows["m7 b2"].endswith("agrees")
-    assert "second reader" in section and "both readings are defensible" in section
+def rows_of(section):
+    return {line.split(" | ")[0]: line.split(" | ") for line in section.splitlines() if line.startswith("m")}
 
 
-@pytest.mark.xdist_group("draft_model")
-def test_draft_analysis_checks_typed_answer(local_store, monkeypatch):
-    monkeypatch.setattr(app, "SEND_DRAFT", True)
+def test_each_typed_label_is_tested_against_the_notes_of_its_beat(local_store):
     result = call(app.draft_analysis, score_id="CHOPIN", measure_range="1-8", student_analysis=STUDENT)
     assert not result.is_error
-    text = result.content[0].text
-    assert_planted_differences(section_of(text))
-    assert "If there is a STUDENT CHECK section" in text.split("HOW TO USE", 1)[1]
+    rows = rows_of(section_of(result.content[0].text))
+    assert rows["m1 b1"] == ["m1 b1", "Eb: I53", "Eb2", "Eb G Bb", "Eb G Bb", "-", "-", "fits"]
+    assert rows["m1 b3"][1:4] == ["Eb: I6", "Eb2", "Eb G Bb F"]
+    assert rows["m1 b3"][4] == "G Bb Eb" and rows["m1 b3"][-1] == "right chord, different inversion"
+    assert rows["m3 b2"][1:4] == ["Eb: V65", "B2", "B G D F"] and rows["m3 b2"][-1] == "doesn't fit the notes"
+    assert rows["m7 b2"][1] == "Eb: V65/vi" and rows["m7 b2"][-1] == "fits"
+    assert rows["m3 b2"][5:7] == ["Ab Bb", "B G"]
 
 
-@pytest.mark.xdist_group("draft_model")
+def test_the_check_tells_the_chat_model_how_to_answer(local_store):
+    text = call(app.draft_analysis, score_id="CHOPIN", measure_range="1-8", student_analysis=STUDENT).content[0].text
+    section = section_of(text)
+    assert "second reader" in section and "Start with what the student got right" in section
+    assert "both readings are defensible" in section and "the bass" in section
+    assert "draft" not in section.lower() and "model" not in section.lower()
+    assert "If there is a STUDENT CHECK section" in text.split("HOW TO ANALYSE", 1)[1]
+
+
 def test_draft_analysis_without_answer_has_no_section(local_store):
     assert "STUDENT CHECK (" not in call(app.draft_analysis, score_id="CHOPIN", measure_range="1-8").content[0].text
 
 
-@pytest.mark.xdist_group("draft_model")
 def test_numerals_written_in_the_score_are_read_only_when_asked(local_store):
     asked = call(app.draft_analysis, score_id="LABELLED", student_analysis="score").content[0].text
-    assert "m2 b1 | G: V6 |" in section_of(asked)
+    assert rows_of(section_of(asked))["m2 b1"][1:3] == ["G: V6", "G4"]
     assert "STUDENT CHECK (" not in call(app.draft_analysis, score_id="LABELLED").content[0].text
 
 
 def test_ambiguous_answer_comes_back_as_the_question(local_store):
     result = call(app.draft_analysis, score_id="CHOPIN", student_analysis="I IV V I")
     assert result.is_error and result.content[0].text == app.QUESTION_FOR_USER + QUESTION
-
-
-def test_with_the_draft_parked_a_student_check_still_gets_its_section(local_store, monkeypatch):
-    monkeypatch.setattr(app, "SEND_DRAFT", False)
-    text = call(app.draft_analysis, score_id="CHOPIN", measure_range="1-8", student_analysis=STUDENT).content[0].text
-    assert_planted_differences(text.split("STUDENT CHECK (", 1)[1].split("## Method", 1)[0])
-    assert "Draft analysis from" not in text and "DRAFT UNAVAILABLE" not in text
-
-
-@pytest.mark.xdist_group("draft_model")
-def test_draft_from_notes_checks_typed_answer(local_store):
-    index = ScoreIndex(load_toolkit(CHOPIN.read_bytes()).getMEI())
-    result = call(app.draft_from_notes, notes=note_list.encode(index, 1, 8), student_analysis=STUDENT)
-    assert not result.is_error
-    assert_planted_differences(section_of(result.content[0].text))
-
-
-def test_draft_from_notes_ambiguous_answer(local_store):
-    index = ScoreIndex(load_toolkit(CHOPIN.read_bytes()).getMEI())
-    result = call(app.draft_from_notes, notes=note_list.encode(index, 1, 8), student_analysis="I IV V I")
-    assert result.is_error and result.content[0].text == app.QUESTION_FOR_USER + QUESTION
-
-
-def test_draft_from_notes_without_note_list(local_store):
-    result = call(app.draft_from_notes, notes="Please analyse my attached score.")
-    assert result.is_error and result.content[0].text == app.NO_NOTE_LIST
-
-
-def test_with_the_draft_parked_a_student_check_still_gets_its_section(local_store, monkeypatch):
-    text = call(app.draft_analysis, score_id="CHOPIN", measure_range="1-8", student_analysis=STUDENT).content[0].text
-    assert_planted_differences(text.split("STUDENT CHECK (", 1)[1].split("## Method", 1)[0])
-    assert "Draft analysis from" not in text and "DRAFT UNAVAILABLE" not in text

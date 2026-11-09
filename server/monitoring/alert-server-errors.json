@@ -1,6 +1,6 @@
 {
   "displayName": "Server errors",
-  "documentation": {"content": "A tool call ended in server_error (an exception nothing caught) or degraded (the draft model failed or an optional draft section failed, and the user got a reduced answer). The log line has the stack trace; see Error Reporting. The service_name label says production or staging.", "mimeType": "text/markdown"},
+  "documentation": {"content": "A tool call ended in server_error (an exception nothing caught) or degraded (an optional section of the analysis reply failed, and the user got a reduced answer). The log line has the stack trace; see Error Reporting. The service_name label says production or staging.", "mimeType": "text/markdown"},
   "combiner": "OR",
   "conditions": [{
     "displayName": "server_error in 10 minutes",

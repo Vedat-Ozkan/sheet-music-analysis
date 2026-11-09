@@ -80,7 +80,6 @@ def charged(store, kind):
     return json.loads(raw).get(kind, 0) if raw else 0
 
 
-@pytest.mark.xdist_group("draft_model")
 def test_a_musicxml_link_is_drafted_and_counted_like_an_attached_score(server, site):
     fetched = call("fetch_score", {"url": f"{site}/public/moved"})
     assert not fetched.is_error and "Call draft_analysis" in text_of(fetched)

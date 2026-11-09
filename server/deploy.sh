@@ -62,7 +62,7 @@ cat > /tmp/$SERVICE-cleanup.json <<'EOF'
  {"name": "recent-servers", "action": {"type": "Keep"}, "mostRecentVersions": {"packageNamePrefixes": ["server"], "keepCount": 5}}]
 EOF
 gcloud artifacts repositories set-cleanup-policies "$SERVICE" --location="$REGION" --policy=/tmp/$SERVICE-cleanup.json --no-dry-run
-BASE=$REGION-docker.pkg.dev/$PROJECT/$SERVICE/base:$(cat Dockerfile.base pyproject.toml uv.lock server/requirements-agnn.txt | sha256sum | cut -c1-16)
+BASE=$REGION-docker.pkg.dev/$PROJECT/$SERVICE/base:$(cat Dockerfile.base pyproject.toml uv.lock | sha256sum | cut -c1-16)
 if ! gcloud artifacts docker images describe "$BASE" >/dev/null 2>&1; then
   gcloud builds submit --config=cloudbuild.yaml --substitutions=_DOCKERFILE=Dockerfile.base,_IMAGE="$BASE"
 fi
@@ -81,5 +81,5 @@ gcloud run deploy "$RUN_SERVICE" --image="$DIGEST" --region="$REGION" \
   --service-account="$ACCOUNT" "$ACCESS" \
   --execution-environment=gen2 --cpu=4 --memory=4Gi --concurrency=2 --min-instances=0 --max-instances=2 --timeout=900 \
   --startup-probe=tcpSocket.port=8080,timeoutSeconds=240,periodSeconds=240,failureThreshold=3 \
-  --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL@CONNECTOR_URL=${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}@SEND_DRAFT=${SEND_DRAFT:-off}$LIMITS"
+  --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL@CONNECTOR_URL=${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}$LIMITS"
 echo "Connector URL: ${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}"
