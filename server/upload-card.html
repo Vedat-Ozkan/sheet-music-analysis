@@ -65,6 +65,10 @@
     const file = event.target.files[0];
     event.target.value = "";
     if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      show("This file is larger than 10 MB. Choose a smaller one.", true);
+      return;
+    }
     choose.hidden = true;
     show("Sending " + file.name + "…");
     let body;

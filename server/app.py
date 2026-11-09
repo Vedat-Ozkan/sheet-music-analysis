@@ -1405,7 +1405,8 @@ ATTACHED_FILE_SENTENCE = (
     title="Choose a score file",
     description=(
         "Use this only when the user wants their score analysed and no score_id or link to the score is available yet "
-        "in this conversation; never call it otherwise. It shows a small card in which the user chooses their score "
+        "in this conversation; never call it otherwise, and not again while a card you showed is still waiting for "
+        "the user's file (ask them to use that card). It shows a small card in which the user chooses their score "
         "file, a MusicXML file (.mxl or .musicxml) or a PDF of printed music, which goes straight to this server. "
         "Files attached to the chat cannot be passed to this server, so if the user attached their score to the chat, "
         f"start your reply with this sentence and then call this tool: \"{ATTACHED_FILE_SENTENCE}\" It returns the "
@@ -1807,7 +1808,8 @@ async def upload(request: Request) -> Response:
         return Response(status_code=204, headers=UPLOAD_HEADERS)
     source = "claude" if (request.headers.get("origin") or "").endswith(".claudemcpcontent.com") else "other"
     too_large = upload_refused("This file is larger than 10 MB. Choose a smaller one.", 413)
-    if int(request.headers.get("content-length") or 0) > MAX_SCORE_BYTES:
+    announced = request.headers.get("content-length") or ""
+    if announced.isdigit() and int(announced) > MAX_SCORE_BYTES:
         log("upload", platform=source, error="too large")
         return too_large
     data = bytearray()
