@@ -35,6 +35,7 @@
     <li>Enter <code>Vedat-Ozkan/sheet-music-analysis</code> and add it.</li>
     <li>Find <em>Sheet Music Analysis</em> in the list of plugins and select <em>Add</em>.</li>
     <li>Open the plugin, go to its <em>Connectors</em> tab and add the connector it lists. The plugin needs it to make the analysis and to play the music.</li>
+    <li>In a chat, ask for an analysis and choose your score file in the card that appears.</li>
   </ol>
   <p>To get new versions, open the marketplace under <em>Customize → Plugins</em> and turn on <em>Sync automatically</em>, or select <em>Check for updates</em> now and then.</p>
   <p>If you already added it from Claude's directory, remove that copy first, so you have only one.</p>
@@ -59,8 +60,8 @@
   <p>A PDF can have any number of pages, but <strong>only the first 8 are read</strong>. Reading takes a few minutes; for a longer score, attach just the pages you need. If the chat seems to stop while the PDF is being read, send the same message again and it will pick up the finished reading.</p>
 
   <h2>2. Ask in the chat</h2>
-  <p><strong>In Claude</strong>, paste a link to your score instead of attaching it: a link to a MusicXML file or PDF, or a Google Drive or Dropbox link shared so anyone with the link can view it. For a score from IMSLP, download the PDF from IMSLP first, then share it from Google Drive or Dropbox.</p>
-  <p>Attach the file (in Claude, paste its link) and ask the way you would ask a teacher. Some examples:</p>
+  <p><strong>In Claude</strong>, don't attach the file: ask for an analysis, and Claude shows a small card where you choose your score file. Choosing it starts the analysis. Claude can't pass a file attached to the chat to the tool, so if you attached one, choose the same file again in the card. (You can also paste a link to your score instead: a link to a MusicXML file or PDF, or a Google Drive or Dropbox link shared so anyone with the link can view it.)</p>
+  <p>Attach the file (in Claude, choose it in the card) and ask the way you would ask a teacher. Some examples:</p>
   <span class="prompt">Analyse the harmony of bars 1–16 of the attached score.</span>
   <span class="prompt">Where are the cadences in this movement, and how do the phrases group?</span>
   <span class="prompt">I'm a composition student. What makes the harmony in bars 9–12 surprising, and how could I use the idea?</span>
