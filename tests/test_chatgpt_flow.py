@@ -331,6 +331,20 @@ def test_with_the_draft_parked_a_score_is_charged_once_however_many_calls_ask_ab
     assert charged(server, "score") == 1
 
 
+def test_one_chatgpt_account_gets_its_own_daily_limit_of_new_scores(server, monkeypatch):
+    monkeypatch.setattr(app, "PERSON_SCORE_LIMIT", 1)
+    monkeypatch.setattr(app, "caller", lambda: "0123456789abcdef")
+    assert not call("read_pdf", ATTACHED).is_error
+
+    async def nocturne(url):
+        return NOCTURNE
+
+    monkeypatch.setattr(app, "download", nocturne)
+    refused = call("draft_analysis", {"score_file": ATTACHED["pdf_file"]})
+    assert refused.is_error and app.PERSON_LIMIT_MESSAGE in text_of(refused)
+    assert charged(server, "score") == 1
+
+
 def test_the_sent_draft_is_logged(server, capsys, monkeypatch):
     monkeypatch.setattr(app, "SEND_DRAFT", True)
     score_id = score_id_of(call("read_pdf", ATTACHED))

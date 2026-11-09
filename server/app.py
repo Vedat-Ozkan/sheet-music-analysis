@@ -65,6 +65,7 @@ MAX_SCORE_BYTES = 10 * 1024 * 1024
 DOWNLOAD_SECONDS = 30
 MAX_REDIRECTS = 5
 RATING_AFTER_ANALYSES = 3
+PERSON_SCORE_LIMIT = 5
 DAILY_LIMITS = {"score": 100, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
 CARD_URI = "ui://sheet-music-analysis/card-v3.html"
 PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v3.html"
@@ -361,17 +362,31 @@ def observed(fn):
 
 
 async def take(kind: str, source: str, amount: int = 1) -> bool:
-    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    key = f"usage/{day}.json"
+    return await count(f"usage/{today()}.json", kind, amount, DAILY_LIMITS[kind], f"{kind}:{source}")
+
+
+async def take_for(person: str | None) -> bool:
+    return person is None or await count(f"limits/{today()}.json", person, 1, PERSON_SCORE_LIMIT)
+
+
+def caller() -> str | None:
+    return (current_call.get() or {}).get("user")
+
+
+def today() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+async def count(key: str, name: str, amount: int, limit: int, also: str | None = None) -> bool:
     with stage("counter"):
         async with counter_lock:
             while True:
                 raw, version = await anyio.to_thread.run_sync(store.get_versioned, key)
                 counts = json.loads(raw) if raw else {}
-                if counts.get(kind, 0) + amount > DAILY_LIMITS[kind]:
+                if counts.get(name, 0) + amount > limit:
                     return False
-                counts[kind] = counts.get(kind, 0) + amount
-                counts[f"{kind}:{source}"] = counts.get(f"{kind}:{source}", 0) + amount
+                for field in filter(None, (name, also)):
+                    counts[field] = counts.get(field, 0) + amount
                 if await anyio.to_thread.run_sync(store.put_if, key, json.dumps(counts).encode(), version):
                     return True
 
@@ -394,6 +409,11 @@ CARD_SHOWS_PROBLEM = " The card shows the user this problem with a button that s
 FAILURES_IN_CARD = {"read_pdf", "render_analysis"}
 
 UPLOAD_LIMIT_MESSAGE = "Today's limit of new scores has been reached; it resets at midnight UTC. Please try again tomorrow."
+PERSON_LIMIT_MESSAGE = (
+    f"The user has reached today's limit of {PERSON_SCORE_LIMIT} new scores per person; it resets at midnight UTC. "
+    "Tell them plainly and that they can analyse the scores they already sent, or try again tomorrow."
+)
+UPLOAD_PERSON_MESSAGE = f"You have reached today's limit of {PERSON_SCORE_LIMIT} new scores; it resets at midnight UTC."
 LIMIT_MESSAGE = (
     "Sheet Music Analysis has reached its daily limit; it resets at midnight UTC. "
     "Tell the user plainly that the free service is at capacity for today and to try again tomorrow."
@@ -989,7 +1009,7 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
             work = contextvars.copy_context()
             work.run(current_call.set, None)
             work.run(draft.timings.set, None)
-            task = asyncio.create_task(pdf_work(data, digest, source, card_key, token, tool == "read_pdf"), context=work)
+            task = asyncio.create_task(pdf_work(data, digest, source, card_key, token, tool == "read_pdf", caller()), context=work)
             pdfs_reading[card_key] = task, time.time()
             task.add_done_callback(lambda _: pdfs_reading.pop(card_key, None))
     if started_here and token is None:
@@ -1067,7 +1087,7 @@ async def wait_for_other_machine(card_key: str, since: float, source: str, tool:
 
 
 async def pdf_work(data: bytes, digest: str, source: str, card_key: str,
-                   token: str, arrived: bool) -> tuple[dict | CallToolResult, dict]:
+                   token: str, arrived: bool, person: str | None) -> tuple[dict | CallToolResult, dict]:
     details = {"event": "read_pdf_work", "platform": source}
     timings = {}
     current_call.set(details)
@@ -1075,15 +1095,15 @@ async def pdf_work(data: bytes, digest: str, source: str, card_key: str,
     started = time.perf_counter()
     try:
         async with verovio_request():
-            return await pdf_outcome(data, digest, source, card_key, details, timings, started, arrived)
+            return await pdf_outcome(data, digest, source, card_key, details, timings, started, arrived, person)
     finally:
         await release_read(card_key, token)
 
 
 async def pdf_outcome(data: bytes, digest: str, source: str, card_key: str, details: dict,
-                      timings: dict, started: float, arrived: bool) -> tuple[dict | CallToolResult, dict]:
+                      timings: dict, started: float, arrived: bool, person: str | None) -> tuple[dict | CallToolResult, dict]:
     try:
-        result = await read_pdf_card(data, digest, source, arrived)
+        result = await read_pdf_card(data, digest, source, arrived, person)
         if isinstance(result, dict):
             await anyio.to_thread.run_sync(store.put, card_key, json.dumps(result).encode())
         outcome = "ok" if isinstance(result, dict) else "limit" if details.get("limit") else "busy" if details.get("busy") else "user_error"
@@ -1123,7 +1143,7 @@ async def pdf_outcome(data: bytes, digest: str, source: str, card_key: str, deta
     return result, details
 
 
-async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool) -> dict | CallToolResult:
+async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, person: str | None) -> dict | CallToolResult:
     cache_key = f"scores/pdf-{pdf_reader.READER}-{digest}.json"
     cached = await anyio.to_thread.run_sync(store.get, cache_key)
     passes = None
@@ -1138,6 +1158,9 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool) ->
             log("read_pdf_work", busy=True)
             return error_result(BUSY_MESSAGE)
         async with pdf_lock:
+            if arrived and not await take_for(person):
+                log("read_pdf_work", limit="person", pages=read)
+                return error_result(PERSON_LIMIT_MESSAGE)
             if arrived and not await take("score", source) or not await take("pdf_page", source, read):
                 log("read_pdf_work", limit=True, pages=read)
                 return error_result(LIMIT_MESSAGE)
@@ -1507,6 +1530,9 @@ async def draft_analysis(
         if given == "score_id":
             code = clean_id(score_id)
         else:
+            if not await take_for(caller()):
+                log("limit", tool="draft_analysis", platform=source, per="person")
+                return error_result(PERSON_LIMIT_MESSAGE)
             if not await take("score", source):
                 log("limit", tool="draft_analysis", platform=source)
                 return error_result(LIMIT_MESSAGE)
@@ -1642,6 +1668,9 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         return error_result(QUESTION_FOR_USER + error.question)
     except ValueError as error:
         return error_result(str(error))
+    if not await take_for(caller()):
+        log("limit", tool="draft_from_notes", platform=source, per="person")
+        return error_result(PERSON_LIMIT_MESSAGE)
     if not await take("score", source):
         log("limit", tool="draft_from_notes", platform=source)
         return error_result(LIMIT_MESSAGE)
@@ -1848,6 +1877,10 @@ async def upload(request: Request) -> Response:
     if kind is None:
         log("upload", platform=source, error="not a score", score_bytes=len(data))
         return upload_refused("This is not a MusicXML file or a PDF. Choose a .mxl, .musicxml or .pdf file.", 415)
+    device = request.query_params.get("device", "")
+    if not await take_for(f"device:{device}" if re.fullmatch(r"[0-9a-f]{32}", device) else None):
+        log("upload", platform=source, error="person limit")
+        return upload_refused(UPLOAD_PERSON_MESSAGE, 429)
     if not await take("score", source):
         log("upload", platform=source, error="limit")
         return upload_refused(UPLOAD_LIMIT_MESSAGE, 429)
