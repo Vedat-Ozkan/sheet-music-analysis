@@ -67,10 +67,10 @@
     <textarea id="suggestion" maxlength="1000" rows="3"></textarea>
     <span>Please don't include personal details. Only what you type here is sent to us.</span>
     <button id="suggest-send" type="submit" disabled>Send</button>
+    <span id="suggest-unsent" hidden>It could not be sent from here. You can copy your message and email it to support@sheetmusicanalysis.com.</span>
   </form>
   <span id="suggest-sent" hidden>Sent. Thank you; we read every message.</span>
-  <span id="suggest-unsent" hidden>It could not be sent from here. You can email support@sheetmusicanalysis.com.</span>
-</div>
+  </div>
 <script>
   let nextId = 1;
   const pending = {};
@@ -194,8 +194,13 @@
     document.getElementById("suggest-send").disabled = true;
     const text = document.getElementById("suggestion").value.trim();
     request("tools/call", { name: "send_suggestion", arguments: { text } }).then((result) => {
+      if (!result || result.isError) {
+        document.getElementById("suggest-send").hidden = true;
+        document.getElementById("suggest-unsent").hidden = false;
+        return;
+      }
       document.getElementById("suggest-form").hidden = true;
-      document.getElementById(!result || result.isError ? "suggest-unsent" : "suggest-sent").hidden = false;
+      document.getElementById("suggest-sent").hidden = false;
     });
   });
 

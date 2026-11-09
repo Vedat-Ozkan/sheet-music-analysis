@@ -1234,7 +1234,7 @@ async def read_fetched_pdf(ctx: Context, pdf_id: str, keep_slurs: bool = False) 
 
 
 CLAUDE_TOOLS = {"fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis", "play",
-                "draft_from_notes"}
+                "draft_from_notes", "send_suggestion"}
 CLAUDE_ONLY_TOOLS = {"fetch_score", "read_fetched_pdf", "play", "draft_from_notes"}
 CLAUDE_HIDDEN_ARGUMENTS = {"draft_analysis": {"score_file"}}
 CLAUDE_RESULT_CHARS = 100_000
