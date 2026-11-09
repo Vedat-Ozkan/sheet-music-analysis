@@ -2495,6 +2495,34 @@ This entry joins two branches and the plugin rewrite that follows from them. Eac
 
 **Reviewer test PDF (2026-11-08).** The PDF reviewer test case pointed at a Mutopia address that now answers 404 (the site serves unrelated pages). It now points at `site/samples/chopin-prelude-op28-no4.pdf`, the Mutopia Chopin Op. 28 No. 4 already in `tests/data` (placed in the public domain by its typesetter), served beside the nocturne sample once the site is published.
 
+### 139. The "scan too small" warning judged by the scan itself (2026-11-08)
+
+**What users hit.** On 2026-11-08 two new ChatGPT users sent scans of about 80 dpi (662 and 880 pixels wide, on pages 8.3 and 7.3 inches wide). Both read without the warning that a scan is too small; one had 33 of 38 bars shaded, pages 3, 5 and 6 unread, staves split into invented parts and a tempo read as "J = fill".
+
+**Cause.** The warning (entry 127) was set only when the reader first refused a page for staff lines under 11 pixels apart and the page was then enlarged and read again. The reader sees each page drawn at 300 dpi of its page box, so an 80 dpi image on a full-size page is enlarged before the reader sees it: staff lines about 20 pixels apart, nothing refused, and a reading of a blur. The rule measured the drawn page, not the scan.
+
+**Change.** After every reading of a scan, the staff spacing the reader measured (median over its passes) is scaled by the narrowest page's image width over that page's drawn width: the spacing in the scan's own pixels. Under 11, the reader's own floor, the reading carries the warning. This replaces the old rule, which it covers: an enlarged small scan gets about 7. A sharp image on a small page, which the old rule warned about after enlarging, no longer does.
+
+**Evidence for 11.** Five real scans with reference scores (entry 127's set), each page redrawn at 100, 125, 150 and 200 dpi on its own page size and read. Exact bars (bars with every note right), with the spacing in the scan's pixels:
+
+| Scan | Full size | 200 dpi | 150 dpi | 125 dpi | 100 dpi |
+|---|---|---|---|---|---|
+| Grieg Op. 38/7 (53 bars) | 41 | 31 (14) | 30 (10.5) | 3 (8.3) | 6 (6.7) |
+| Beethoven Op. 2/1 iii (77) | 62 | 44 (13.7) | 32 (10.5) | 36 (6.7) | 8 (6.3) |
+| Mozart K. 545 i, Peters (73) | 26 | 19 (12.3) | 0 (9.5) | 0 (7.5) | 0 (6.3) |
+| Chopin Op. 28/4, Schirmer (26) | 12 | 5 (14) | 8 (9.5) | 0 (6.7) | 2 (7.2) |
+| Bach WTC I/22 prelude (24) | 0 | 0 (8) | 0 (5.8) | 0 (4.6) | 0 (3.5) |
+
+Pitch accuracy, leaving out Bach: at 10.5 and above, 0.89-0.99, within 7 points of full size; under 10, 0.44-0.88 in seven of nine readings (Chopin at 9.5 kept 0.94 and Beethoven at 6.7 kept 0.90). Every reduction loses bars, 200 dpi included, so 11 marks where readings break down, not where they start to lose. Five pieces, one reading each; single readings move by several bars (Chopin reads better at 150 than at 200), so the line is between about 9.5 and 12, not exact. Pages were redrawn smoothly in grey; a real low-resolution scan in black and white may read worse.
+
+**Users seen so far, by the new rule:** the 2026-11-08 users 5.3 and 7.2 (warned), the 2026-11-07 small Joseffy test 7.4 (warned, as before), full-size scans 19-25 (not warned).
+
+**Corpus check.** Every scan in the benchmark sets, the real-scan benchmark and `tests/data` (112 PDFs) read with the new rule by the real reader: no errors; 12 warned. Eleven are pages the reader first refused for staff lines too close and read again enlarged (ten one-system OLiMPiC crops at 300 dpi on pages about 2.6 inches wide, and the small-page Joseffy test), which the old rule warned about too; the twelfth is the new 80 dpi test file. No full-size scan is warned. The lowest spacing among the rest is 12 (`mozart-quartet-k80--scan`). A 2530-point page with a 72 dpi image (real-scan benchmark row 31) is shrunk to A4 before reading and comes out at 17: not warned, correctly.
+
+**Tests.** `tests/data/chopin-op67-joseffy-80dpi-scan.pdf` is the real Joseffy scan redrawn at 80 dpi on its own page, the users' case. It warns when read by the real reader, and through the reading hook; the full-size scan does not.
+
+**Known limits.** The image is taken to fill its page's width; an image placed smaller than its page counts as coarser than it is, so may warn when it should not. Rotated pages are not handled.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

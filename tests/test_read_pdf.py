@@ -549,9 +549,25 @@ def test_a_reading_made_by_enlarging_a_small_scan_warns_of_many_mistakes():
     data = (Path(__file__).parent / "data" / "chopin-op67-small-page-scan.pdf").read_bytes()
     score = (Path(__file__).parent / "data" / "chopin_prelude_op28_no4_audiveris.mxl").read_bytes()
     readings = iter([RawReading(None, [], {"outcome": "no music", "too_close_interlines": [7]})] * 2
-                    + [RawReading(score, [], {"outcome": "done"})] * 2)
+                    + [RawReading(score, [], {"outcome": "done", "interlines": [20]})] * 2)
 
     reading = read_pdf(data, audiveris="unused", raw=lambda *args: next(readings))
     assert reading.low_resolution
     assert "expect many mistakes" in notice(reading.musicxml, True, [], False, low_resolution=reading.low_resolution)
     assert "expect many mistakes" not in notice(reading.musicxml, True, [], False)
+
+
+@pytest.mark.parametrize("name, low", [("chopin-op67-joseffy-80dpi-scan.pdf", True),
+                                       ("chopin-op67-joseffy-two-mazurkas-scan.pdf", False)])
+def test_a_scan_with_few_pixels_between_staff_lines_warns_though_the_reader_took_it(name, low):
+    data = (Path(__file__).parent / "data" / name).read_bytes()
+    score = (Path(__file__).parent / "data" / "chopin_prelude_op28_no4_audiveris.mxl").read_bytes()
+
+    reading = read_pdf(data, audiveris="unused", raw=lambda *args: RawReading(score, [], {"outcome": "done", "interlines": [21]}))
+    assert reading.low_resolution is low
+
+
+@pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
+def test_reading_an_80_dpi_scan_warns_of_many_mistakes():
+    reading = read_pdf((Path(__file__).parent / "data" / "chopin-op67-joseffy-80dpi-scan.pdf").read_bytes(), audiveris=AUDIVERIS)
+    assert reading.low_resolution
