@@ -2495,6 +2495,14 @@ This entry joins two branches and the plugin rewrite that follows from them. Eac
 
 **Reviewer test PDF (2026-11-08).** The PDF reviewer test case pointed at a Mutopia address that now answers 404 (the site serves unrelated pages). It now points at `site/samples/chopin-prelude-op28-no4.pdf`, the Mutopia Chopin Op. 28 No. 4 already in `tests/data` (placed in the public domain by its typesetter), served beside the nocturne sample once the site is published.
 
+### 137. PDFs of any length: the first 8 pages are read (2026-11-08)
+
+**Problem.** A PDF of more than 12 pages was refused before reading, though only the first 8 pages of any PDF are read and charged. On 2026-11-08 a new ChatGPT user's 27-page PDF was refused and they did not try again.
+
+**Change.** The 12-page refusal is gone (owner's request): every PDF is cut to its first 8 pages, as PDFs of 9-12 pages already were, and the reply says which pages were read. Only the pages read count against the daily page limit, as before. Both PDF tools' descriptions now say only the first 8 pages are read; ChatGPT shows the new wording after OpenAI approves it, and until then the old wording says longer PDFs are refused. The site's help page says the same. The long-PDF test now uses 27 pages.
+
+**Not changed.** The Claude plugin's copy of `engine/read_pdf.py` in `dist/` still has the unused 12-page constant until the next plugin build. The benchmark builder's own 12-page limit in `spike/omr/bench/build.py` is separate and stays.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

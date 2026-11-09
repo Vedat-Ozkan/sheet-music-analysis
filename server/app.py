@@ -928,7 +928,7 @@ claiming = asyncio.Lock()
         "Use this when the user attaches a PDF of printed sheet music (born-digital or scanned) and wants it analysed. "
         "Reads the music from the PDF and shows the user the engraved result in a card, with bars that may be misread "
         "shaded. Returns a score_id. Then go straight on without waiting for the user: call draft_analysis with that "
-        f"score_id and continue as for a MusicXML file. PDFs of more than {pdf_reader.MAX_PAGES} pages are refused. Slurs are left out "
+        f"score_id and continue as for a MusicXML file. Only the first {pdf_reader.READ_PAGES} pages are read. Slurs are left out "
         "unless keep_slurs is true; set it only when the user asks for them."
     ),
     annotations=read_only("Read a PDF of sheet music"),
@@ -1105,9 +1105,6 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
         reading = json.loads(cached)
     else:
         pages = len((await anyio.to_thread.run_sync(pdf_reader.open_pdf, data)).pages)
-        if pages > pdf_reader.MAX_PAGES:
-            log("read_pdf_work", error="too many pages", pages=pages)
-            return error_result(pdf_reader.too_many_pages(pages))
         read = min(pages, pdf_reader.READ_PAGES)
         if read < pages:
             data = await anyio.to_thread.run_sync(pdf_reader.first_pages, data, read)
@@ -1197,7 +1194,7 @@ def pdf_card_result(card: dict, keep_slurs: bool, tool: str) -> CallToolResult:
         "Use this after fetch_score returned a pdf_id, with that pdf_id. Reads the music from the PDF and shows the "
         "user the engraved result in a card. Returns a score_id. Then go straight on to the analysis without waiting "
         "for the user: call draft_analysis with that score_id, and pass on the result's note about the reading in your "
-        f"reply with the analysis. PDFs of more than {pdf_reader.MAX_PAGES} pages are refused. Slurs are left out unless keep_slurs is true; set it only when "
+        f"reply with the analysis. Only the first {pdf_reader.READ_PAGES} pages are read. Slurs are left out unless keep_slurs is true; set it only when "
         "the user asks for them."
     ),
     annotations=read_only("Read a PDF of sheet music from a link"),

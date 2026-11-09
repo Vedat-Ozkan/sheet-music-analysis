@@ -39,7 +39,6 @@ READER_DPI = 300
 MOST_DRAWN_PIXELS = 19_900_000
 A4_DRAWN_PIXELS = 8_700_000
 READABLE_INTERLINE = 20
-MAX_PAGES = 12
 NOTHING_READ = "No music could be read from this PDF"
 NEXT_STEP = (
     ". Tell the user plainly, and suggest what may work: a PDF exported from notation software reads best; a scan "
@@ -297,11 +296,6 @@ def open_pdf(data: bytes) -> pikepdf.Pdf:
         return pikepdf.open(io.BytesIO(data))
     except pikepdf.PdfError as error:
         raise ReadError("This file could not be opened as a PDF") from error
-
-
-def too_many_pages(pages: int) -> str:
-    return (f"This PDF has {pages} pages; the most that can be read is {MAX_PAGES}. Tell the user plainly, "
-            "and suggest they attach a PDF of just the pages they want analysed.")
 
 
 def unread_pages(read: int, total: int) -> str:

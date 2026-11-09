@@ -217,13 +217,13 @@ def test_a_long_pdf_reads_its_first_pages_and_says_which(server, monkeypatch):
         return out.getvalue()
 
     async def download(url):
-        return pdf_of(10)
+        return pdf_of(27)
 
     monkeypatch.setattr(app, "download", download)
     monkeypatch.setattr(app.pdf_reader, "read_pdf", read)
     result = call("read_pdf", ATTACHED)
     assert pages_read == [pdf_reader.READ_PAGES]
-    assert f"Only pages 1-{pdf_reader.READ_PAGES} of the 10 were read" in text_of(result)
+    assert f"Only pages 1-{pdf_reader.READ_PAGES} of the 27 were read" in text_of(result)
     assert charged(server, "pdf_page") == pdf_reader.READ_PAGES
 
 
