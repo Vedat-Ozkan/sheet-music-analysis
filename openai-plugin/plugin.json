@@ -101,7 +101,7 @@
               "tools_triggered": "read_pdf, draft_analysis, render_analysis",
               "expected_behavior": "After up to a few minutes, a card shows the engraved music read from the PDF, with bars that may be misread shaded; without waiting for the user, a second card shows the analysis drawn on the score, with the same bars still shaded, and the reply briefly mentions them.",
               "file_attachment_urls": [
-                "https://www.mutopiaproject.org/ftp/ChopinFF/O6/Mazurka-Op6-No1/Mazurka-Op6-No1-a4.pdf"
+                "https://sheetmusicanalysis.com/samples/chopin-prelude-op28-no4.pdf"
               ]
             }
           ],
