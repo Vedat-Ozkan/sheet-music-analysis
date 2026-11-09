@@ -65,7 +65,7 @@ MAX_SCORE_BYTES = 10 * 1024 * 1024
 DOWNLOAD_SECONDS = 30
 MAX_REDIRECTS = 5
 RATING_AFTER_ANALYSES = 3
-DAILY_LIMITS = {"draft": 100, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
+DAILY_LIMITS = {"score": 100, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
 CARD_URI = "ui://sheet-music-analysis/card-v3.html"
 PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v3.html"
 HELD_CARD_URIS = {"ui://sheet-music-analysis/card-v2.html": "Analysis card",
@@ -393,6 +393,7 @@ READING_SHOWN = "This is what I read from your PDF."
 CARD_SHOWS_PROBLEM = " The card shows the user this problem with a button that sends it to us."
 FAILURES_IN_CARD = {"read_pdf", "render_analysis"}
 
+UPLOAD_LIMIT_MESSAGE = "Today's limit of new scores has been reached; it resets at midnight UTC. Please try again tomorrow."
 LIMIT_MESSAGE = (
     "Sheet Music Analysis has reached its daily limit; it resets at midnight UTC. "
     "Tell the user plainly that the free service is at capacity for today and to try again tomorrow."
@@ -647,8 +648,6 @@ def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, studen
         index = ScoreIndex(mei)
     needs_chords = SEND_DRAFT or student_analysis or optional("part_writing", lambda: part_writing.applies(index))
     raw = model_output(code, index) if needs_chords else None
-    if not needs_chords:
-        store.put(f"scores/{code}.seen", b"")
     log("draft_analysis", draft_sent=SEND_DRAFT and raw is not None)
     with stage("build"):
         result = draft.build(raw, index) if raw is not None else None
@@ -955,14 +954,14 @@ claiming = asyncio.Lock()
         "Use this when the user attaches a PDF of printed sheet music (born-digital or scanned) and wants it analysed. "
         "Reads the music from the PDF and shows the user the engraved result in a card, with bars that may be misread "
         "shaded. Returns a score_id. Then go straight on without waiting for the user: call draft_analysis with that "
-        f"score_id and continue as for a MusicXML file. Only the first {pdf_reader.READ_PAGES} pages are read. Slurs are left out "
-        "unless keep_slurs is true; set it only when the user asks for them."
+        f"score_id and continue as for a MusicXML file. Only the first {pdf_reader.READ_PAGES} pages are read. "
+        "Slurs are not read, because they are often misread from PDFs; if the user asks for slurs, tell them so."
     ),
     annotations=read_only("Read a PDF of sheet music"),
     meta={"openai/outputTemplate": PDF_CARD_URI, "openai/fileParams": ["pdf_file"]},
 )
 @observed
-async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = False) -> CallToolResult:
+async def read_pdf(ctx: Context, pdf_file: AttachedFile) -> CallToolResult:
     source = platform(ctx)
     try:
         with stage("fetch"):
@@ -972,16 +971,16 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
     except (ScoreError, httpx.HTTPError) as error:
         log("read_pdf", platform=source, error=type(error).__name__)
         return error_result(str(error))
-    return await read_pdf_data(data, source, keep_slurs, "read_pdf")
+    return await read_pdf_data(data, source, "read_pdf")
 
 
-async def read_pdf_data(data: bytes, source: str, keep_slurs: bool, tool: str) -> CallToolResult:
+async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
     digest = hashlib.sha256(data).hexdigest()
-    card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}-{'slurs' if keep_slurs else 'no-slurs'}.json"
+    card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}.json"
     if card := await anyio.to_thread.run_sync(store.get, card_key):
         card = json.loads(card)
-        log(tool, platform=source, pages=card["pages"], cached="card", keep_slurs=keep_slurs)
-        return pdf_card_result(card, keep_slurs, tool)
+        log(tool, platform=source, pages=card["pages"], cached="card")
+        return pdf_card_result(card, tool)
     async with claiming:
         started_here = card_key not in pdfs_reading
         if started_here:
@@ -990,16 +989,16 @@ async def read_pdf_data(data: bytes, source: str, keep_slurs: bool, tool: str) -
             work = contextvars.copy_context()
             work.run(current_call.set, None)
             work.run(draft.timings.set, None)
-            task = asyncio.create_task(pdf_work(data, digest, keep_slurs, source, card_key, token), context=work)
+            task = asyncio.create_task(pdf_work(data, digest, source, card_key, token, tool == "read_pdf"), context=work)
             pdfs_reading[card_key] = task, time.time()
             task.add_done_callback(lambda _: pdfs_reading.pop(card_key, None))
     if started_here and token is None:
-        return await wait_for_other_machine(card_key, elsewhere, source, keep_slurs, tool)
+        return await wait_for_other_machine(card_key, elsewhere, source, tool)
     task, since = pdfs_reading[card_key]
     with anyio.move_on_after(STARTER_WAIT if started_here and source != "claude" else SAME_FILE_WAIT):
         await asyncio.shield(task)
     if not task.done():
-        log(tool, platform=source, reading=True, keep_slurs=keep_slurs)
+        log(tool, platform=source, reading=True)
         return CallToolResult(content=[TextContent(type="text", text=STILL_READING.format(
             seconds=round(time.time() - since), again=CALL_AGAIN[tool], wait=SAME_FILE_WAIT, minutes=READ_MINUTES))])
     result, details = task.result()
@@ -1014,9 +1013,9 @@ async def read_pdf_data(data: bytes, source: str, keep_slurs: bool, tool: str) -
     if details.get("limit"):
         log("limit", tool=tool, platform=source, pages=details.get("pages"))
     else:
-        log(tool, platform=source, keep_slurs=keep_slurs, outcome=details["outcome"],
+        log(tool, platform=source, outcome=details["outcome"],
             **{key: details[key] for key in ("busy", "error") if key in details})
-    return pdf_card_result(result, keep_slurs, tool) if isinstance(result, dict) else result
+    return pdf_card_result(result, tool) if isinstance(result, dict) else result
 
 
 def marker_of(card_key: str) -> str:
@@ -1047,44 +1046,44 @@ async def release_read(card_key: str, token: str | None) -> None:
         await anyio.to_thread.run_sync(store.delete, marker_of(card_key))
 
 
-async def wait_for_other_machine(card_key: str, since: float, source: str, keep_slurs: bool, tool: str) -> CallToolResult:
+async def wait_for_other_machine(card_key: str, since: float, source: str, tool: str) -> CallToolResult:
     with anyio.move_on_after(SAME_FILE_WAIT):
         while True:
             if card := await anyio.to_thread.run_sync(store.get, card_key):
-                log(tool, platform=source, keep_slurs=keep_slurs, other_machine=True)
-                return pdf_card_result(json.loads(card), keep_slurs, tool)
+                log(tool, platform=source, other_machine=True)
+                return pdf_card_result(json.loads(card), tool)
             found = json.loads(await anyio.to_thread.run_sync(store.get, failure_of(card_key)) or b"{}")
             if found.get("at", 0) >= since:
                 if found["error"] == "limit":
-                    log("limit", tool=tool, platform=source, keep_slurs=keep_slurs, other_machine=True)
+                    log("limit", tool=tool, platform=source, other_machine=True)
                 else:
-                    log(tool, platform=source, keep_slurs=keep_slurs, other_machine=True, outcome=found.get("outcome"),
+                    log(tool, platform=source, other_machine=True, outcome=found.get("outcome"),
                         **({"busy": True} if found["error"] == "busy" else {"error": found["error"]}))
                 return failure(found["text"], found.get("report"))
             await anyio.sleep(POLL_SECONDS)
-    log(tool, platform=source, reading=True, other_machine=True, keep_slurs=keep_slurs)
+    log(tool, platform=source, reading=True, other_machine=True)
     return CallToolResult(content=[TextContent(type="text", text=STILL_READING.format(
         seconds=round(time.time() - since), again=CALL_AGAIN[tool], wait=SAME_FILE_WAIT, minutes=READ_MINUTES))])
 
 
-async def pdf_work(data: bytes, digest: str, keep_slurs: bool, source: str, card_key: str,
-                   token: str) -> tuple[dict | CallToolResult, dict]:
-    details = {"event": "read_pdf_work", "platform": source, "keep_slurs": keep_slurs}
+async def pdf_work(data: bytes, digest: str, source: str, card_key: str,
+                   token: str, arrived: bool) -> tuple[dict | CallToolResult, dict]:
+    details = {"event": "read_pdf_work", "platform": source}
     timings = {}
     current_call.set(details)
     draft.timings.set(timings)
     started = time.perf_counter()
     try:
         async with verovio_request():
-            return await pdf_outcome(data, digest, keep_slurs, source, card_key, details, timings, started)
+            return await pdf_outcome(data, digest, source, card_key, details, timings, started, arrived)
     finally:
         await release_read(card_key, token)
 
 
-async def pdf_outcome(data: bytes, digest: str, keep_slurs: bool, source: str, card_key: str, details: dict,
-                      timings: dict, started: float) -> tuple[dict | CallToolResult, dict]:
+async def pdf_outcome(data: bytes, digest: str, source: str, card_key: str, details: dict,
+                      timings: dict, started: float, arrived: bool) -> tuple[dict | CallToolResult, dict]:
     try:
-        result = await read_pdf_card(data, digest, keep_slurs, source)
+        result = await read_pdf_card(data, digest, source, arrived)
         if isinstance(result, dict):
             await anyio.to_thread.run_sync(store.put, card_key, json.dumps(result).encode())
         outcome = "ok" if isinstance(result, dict) else "limit" if details.get("limit") else "busy" if details.get("busy") else "user_error"
@@ -1124,7 +1123,7 @@ async def pdf_outcome(data: bytes, digest: str, keep_slurs: bool, source: str, c
     return result, details
 
 
-async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str) -> dict | CallToolResult:
+async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool) -> dict | CallToolResult:
     cache_key = f"scores/pdf-{pdf_reader.READER}-{digest}.json"
     cached = await anyio.to_thread.run_sync(store.get, cache_key)
     passes = None
@@ -1139,7 +1138,7 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
             log("read_pdf_work", busy=True)
             return error_result(BUSY_MESSAGE)
         async with pdf_lock:
-            if not await take("pdf_page", source, read):
+            if arrived and not await take("score", source) or not await take("pdf_page", source, read):
                 log("read_pdf_work", limit=True, pages=read)
                 return error_result(LIMIT_MESSAGE)
             log("read_pdf_work", **await anyio.to_thread.run_sync(pdf_reader.file_facts, data))
@@ -1151,16 +1150,15 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
         await anyio.to_thread.run_sync(store.put, f"scores/{reading['score_id']}", result.musicxml)
         await anyio.to_thread.run_sync(store.put, cache_key, json.dumps(reading).encode())
     score, _ = await resolve_score(None, reading["score_id"])
-    score_id = reading["score_id"] if keep_slurs else reading["score_id"] + "N"
-    if not keep_slurs:
-        score = await in_turn(pdf_reader.without_slurs, score)
-        await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
+    score_id = reading["score_id"] + "N"
+    score = await in_turn(pdf_reader.without_slurs, score)
+    await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
 
     def render():
         spots = pdf_reader.problem_spots(score)
         numbers = [measure.number for measure in ScoreIndex(load_toolkit(score).getMEI()).measures]
         return (pdf_reader.preview(score, spots=spots), engrave(score),
-                pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots, reading.get("low_resolution", False), opening=READING_SHOWN) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
+                pdf_reader.notice(score, reading["scan"], reading["skipped"], spots, reading.get("low_resolution", False), opening=READING_SHOWN) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
                 f"{numbers[0]} to {numbers[-1]}", len(numbers), spots[0])
 
     with stage("render"):
@@ -1186,7 +1184,7 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
             "pdf_url": pdf_url, "more_pages": more_pages, "page_images": [base64.b64encode(png).decode() for png in pages]}
 
 
-def pdf_card_result(card: dict, keep_slurs: bool, tool: str) -> CallToolResult:
+def pdf_card_result(card: dict, tool: str) -> CallToolResult:
     more_pages = card.get("more_pages")
     shown = (f"the first {CARD_PAGES} pages of the engraved score read from their {card['pages']}-page PDF; the PDF has every bar"
              if more_pages else f"every bar of the engraved score read from their {card['pages']}-page PDF, in one image")
@@ -1198,8 +1196,6 @@ def pdf_card_result(card: dict, keep_slurs: bool, tool: str) -> CallToolResult:
         "score_id now and continue exactly as for an attached MusicXML file, drawing it with render_analysis. "
         "Bars shaded in the reading stay shaded on the drawn page. "
         f"The card holds no text, so in your reply with the analysis pass on this note about the reading, briefly: \"{card['notice']}\""
-        + ("" if keep_slurs else f" If the user asks to keep the slurs, call {CALL_AGAIN[tool]} and "
-           "keep_slurs=true, and use the score_id it returns.")
     )
     return CallToolResult(
         content=[
@@ -1221,13 +1217,13 @@ def pdf_card_result(card: dict, keep_slurs: bool, tool: str) -> CallToolResult:
         "Use this when choose_score or fetch_score gave a pdf_id, with that pdf_id. Reads the music from the PDF and shows the "
         "user the engraved result in a card. Returns a score_id. Then go straight on to the analysis without waiting "
         "for the user: call draft_analysis with that score_id, and pass on the result's note about the reading in your "
-        f"reply with the analysis. Only the first {pdf_reader.READ_PAGES} pages are read. Slurs are left out unless keep_slurs is true; set it only when "
-        "the user asks for them."
+        f"reply with the analysis. Only the first {pdf_reader.READ_PAGES} pages are read. "
+        "Slurs are not read, because they are often misread from PDFs; if the user asks for slurs, tell them so."
     ),
     annotations=read_only("Read a chosen PDF of sheet music"),
 )
 @observed
-async def read_fetched_pdf(ctx: Context, pdf_id: str, keep_slurs: bool = False) -> CallToolResult:
+async def read_fetched_pdf(ctx: Context, pdf_id: str) -> CallToolResult:
     source = platform(ctx)
     code = clean_id(pdf_id)
     data = await anyio.to_thread.run_sync(store.get, f"scores/{code}.pdf")
@@ -1239,7 +1235,7 @@ async def read_fetched_pdf(ctx: Context, pdf_id: str, keep_slurs: bool = False) 
             return error_result(NOT_CHOSEN_YET)
         return error_result(f"No PDF has the pdf_id {pdf_id!r}; PDFs are kept for 30 days. Call choose_score so "
                             "the user can choose the PDF again.")
-    return await read_pdf_data(data, source, keep_slurs, "read_fetched_pdf")
+    return await read_pdf_data(data, source, "read_fetched_pdf")
 
 
 CLAUDE_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis", "play",
@@ -1510,15 +1506,12 @@ async def draft_analysis(
             await in_turn(check_analysis.from_text, student_analysis)
         if given == "score_id":
             code = clean_id(score_id)
-            kept = [await anyio.to_thread.run_sync(store.get, f"scores/{code}.{name}") for name in ("draft.json", "seen")]
-            fresh = all(item is None for item in kept)
         else:
+            if not await take("score", source):
+                log("limit", tool="draft_analysis", platform=source)
+                return error_result(LIMIT_MESSAGE)
             code = secrets.token_hex(8).upper()
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)
-            fresh = True
-        if fresh and not await take("draft", source):
-            log("limit", tool="draft_analysis", platform=source)
-            return error_result(LIMIT_MESSAGE)
         text = await in_turn(make_draft, score, code, measures, student_analysis)
     except check_analysis.ClarificationNeeded as error:
         return error_result(QUESTION_FOR_USER + error.question)
@@ -1649,7 +1642,7 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         return error_result(QUESTION_FOR_USER + error.question)
     except ValueError as error:
         return error_result(str(error))
-    if not await take("draft", source):
+    if not await take("score", source):
         log("limit", tool="draft_from_notes", platform=source)
         return error_result(LIMIT_MESSAGE)
     started = time.time()
@@ -1754,6 +1747,9 @@ async def fetch_score(ctx: Context, url: str) -> CallToolResult:
     if kind is None:
         log("fetch_score", platform=source, host=host, error="not a score", score_bytes=len(data))
         return error_result(LINK_NOT_A_SCORE)
+    if not await take("score", source):
+        log("limit", tool="fetch_score", platform=source)
+        return error_result(LIMIT_MESSAGE)
     code = await keep_score(data, kind)
     log("fetch_score", platform=source, host=host, kind=kind, score_bytes=len(data))
     return CallToolResult(content=[TextContent(type="text", text=next_step(kind, code))])
@@ -1852,6 +1848,9 @@ async def upload(request: Request) -> Response:
     if kind is None:
         log("upload", platform=source, error="not a score", score_bytes=len(data))
         return upload_refused("This is not a MusicXML file or a PDF. Choose a .mxl, .musicxml or .pdf file.", 415)
+    if not await take("score", source):
+        log("upload", platform=source, error="limit")
+        return upload_refused(UPLOAD_LIMIT_MESSAGE, 429)
     await keep_score(bytes(data), kind, code)
     log("upload", platform=source, kind=kind, score_bytes=len(data))
     return JSONResponse({"kind": kind}, headers=UPLOAD_HEADERS)
