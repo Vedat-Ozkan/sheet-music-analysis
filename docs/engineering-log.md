@@ -2619,7 +2619,8 @@ Findings on one side only: 124 with chords only (53 doubled leading tone, 47 unr
 - **doesn't fit the notes:** the bass is not in the chord, or the chord's root is not heard, or more of the heard pitch classes are outside the chord than in it;
 - **right chord, different inversion:** otherwise, when the bass is a chord tone but not the numeral's bass;
 - **chord tone missing (a non-chord tone in its place, or an incomplete chord);**
-- **fits.**
+- **fits;**
+- **no notes in this beat**, when the beat holds only rests (the Sonnet review found such beats were called "doesn't fit").
 Notes heard that are not in the chord are listed, so a "fits" with passing notes in the beat still shows them. The test cannot judge the key, and does not tell a passing note from a chord tone; the instructions say so and ask the chat model to make its own analysis from the NOTES table, start with what the student got right, explain differences by the notes, and say when two readings are defensible. Old and new rows for the same typed answers (Chopin, Nocturne Op. 9 No. 2, and the Bach chorale in `spike/export/a-harmony.musicxml`):
 
 | Label | Before (model's chord, bass, pitch classes, verdict) | After (bass, notes heard, numeral's notes, verdict) |

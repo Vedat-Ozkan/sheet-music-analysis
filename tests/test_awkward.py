@@ -113,7 +113,7 @@ def test_student_check_finds_the_notes_of_every_beat(name):
     labels = from_text(" ".join(f"m{bar} b{beat} I" for bar, beat in beats), index=index)
     rows = [line for line in student_check(labels, index).splitlines() if re.match(r"m\d", line)]
     assert len(rows) == len(labels) == len(set(beats))
-    assert all(row.split(" | ")[2] != "rest" or row.endswith("doesn't fit the notes") for row in rows)
+    assert all((row.split(" | ")[2] == "rest") == row.endswith("no notes in this beat") for row in rows)
 
 
 @score_ids

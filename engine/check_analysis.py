@@ -370,7 +370,7 @@ def _fit(chord: roman.RomanNumeral, heard: list) -> tuple[str, list[str], list[s
     missing = [pitch.name.replace('-', 'b') for pitch in chord.pitches if pitch.pitchClass not in classes]
     other = list(dict.fromkeys(event.pitch.rstrip('0123456789') for event in heard if midi(event.pitch) % 12 not in tones))
     if not heard:
-        return "doesn't fit the notes", missing, other
+        return 'no notes in this beat', missing, other
     bass = midi(heard[0].pitch) % 12
     if bass not in tones or chord.root().pitchClass not in classes or len(tones & classes) < len(classes - tones):
         return "doesn't fit the notes", missing, other
