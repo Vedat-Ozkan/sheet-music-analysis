@@ -124,7 +124,7 @@
         "commerce": false
       },
       "publication": {
-        "release_notes": "First release: Roman-numeral analysis, cadences, phrases, non-chord tones and voice leading drawn on the engraved score, with harmony, voice-leading and form views."
+        "release_notes": "When something goes wrong, the card now shows the problem with a one-tap button to report it to us. After a PDF is read, the analysis now starts straight away, with bars that may be misread still shaded.\nThe description now says how the analysis is made and how its accuracy was measured."
       }
     }
   }
