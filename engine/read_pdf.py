@@ -7,6 +7,7 @@ import logging
 import math
 import os
 import re
+import statistics
 import subprocess
 import tempfile
 import threading
@@ -39,6 +40,7 @@ READER_DPI = 300
 MOST_DRAWN_PIXELS = 19_900_000
 A4_DRAWN_PIXELS = 8_700_000
 READABLE_INTERLINE = 20
+SHARP_SCAN_INTERLINE = 11
 NOTHING_READ = "No music could be read from this PDF"
 NEXT_STEP = (
     ". Tell the user plainly, and suggest what may work: a PDF exported from notation software reads best; a scan "
@@ -416,7 +418,8 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
     data = without_oversize_pages(data)
     deadline = time.monotonic() + TIMEOUT
     try:
-        return _read_with_every_setting(data, audiveris, raw, pages, scan, leland, deadline)
+        return _resolution_checked(_read_with_every_setting(data, audiveris, raw, pages, scan, leland, deadline),
+                                   data, scan)
     except ReadError as error:
         interlines = [value for record in error.passes for value in record.get("too_close_interlines", []) if value]
         if not interlines:
@@ -424,13 +427,33 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
         first_passes = error.passes
     enlarged = enlarged_for_interline(data, min(interlines))
     try:
-        reading = _read_with_every_setting(enlarged, audiveris, raw, pages, scan, leland, deadline)
+        reading = _resolution_checked(_read_with_every_setting(enlarged, audiveris, raw, pages, scan, leland, deadline),
+                                      enlarged, scan)
     except ReadError as error:
         error.passes = [*first_passes, *error.passes]
         raise
     reading.passes = [*first_passes, *reading.passes]
-    reading.low_resolution = True
     return reading
+
+
+def _resolution_checked(reading: PdfReading, data: bytes, scan: bool) -> PdfReading:
+    spacing = scan_staff_spacing(data, [value for record in reading.passes for value in record.get("interlines", [])])
+    reading.low_resolution = scan and spacing is not None and spacing < SHARP_SCAN_INTERLINE
+    return reading
+
+
+def scan_staff_spacing(data: bytes, drawn_interlines: list[int]) -> float | None:
+    try:
+        pdf = open_pdf(data)
+        shares = [max(int(image.Width) for image in page.get_images().values())
+                  / (page_width_height(page)[0] * READER_DPI / 72)
+                  for page in pdf.pages if page.get_images()]
+    except UNUSUAL_PDF:
+        log.exception("Scan resolution not read")
+        return None
+    if not shares or not drawn_interlines:
+        return None
+    return statistics.median(drawn_interlines) * min(shares)
 
 
 def _read_with_every_setting(data: bytes, audiveris: str, raw, pages: int, scan: bool, leland: bool,
