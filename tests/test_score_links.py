@@ -100,19 +100,25 @@ def test_a_pdf_link_is_read_and_its_pages_counted_like_an_attached_pdf(server, s
 
 
 def test_a_pdf_chosen_in_the_card_is_read_and_its_pages_counted_like_an_attached_pdf(server):
+    server.put("scores/CARD.waiting", b"")
+
     async def send():
         transport = httpx.ASGITransport(app=app.mcp.streamable_http_app(stateless_http=True))
         async with httpx.AsyncClient(transport=transport, base_url="http://card") as browser:
-            return await browser.post("/upload", content=FILES["/public/prelude.pdf"],
+            return await browser.post("/upload?id=CARD", content=FILES["/public/prelude.pdf"],
                                       headers={"Origin": "https://abc.claudemcpcontent.com"})
 
-    sent = anyio.run(send).json()
-    read = call("read_fetched_pdf", {"pdf_id": sent["next"].split("pdf_id: ", 1)[1].split()[0]})
+    assert anyio.run(send).json() == {"kind": "pdf"}
+    misrouted = call("draft_analysis", {"score_id": "CARD"})
+    read = call("read_fetched_pdf", {"pdf_id": "CARD"})
+    assert misrouted.is_error and "Call read_fetched_pdf with pdf_id CARD" in text_of(misrouted)
     assert not read.is_error and "The score has measures 0 to 24" in text_of(read)
     assert charged(server, "pdf_page") == 1
 
 
 def test_an_upload_sent_without_its_length_is_stopped_at_10_mb(server):
+    server.put("scores/CARD.waiting", b"")
+
     async def flood():
         for _ in range(11):
             yield bytes(1024 * 1024)
@@ -120,7 +126,7 @@ def test_an_upload_sent_without_its_length_is_stopped_at_10_mb(server):
     async def send():
         transport = httpx.ASGITransport(app=app.mcp.streamable_http_app(stateless_http=True))
         async with httpx.AsyncClient(transport=transport, base_url="http://card") as browser:
-            return await browser.post("/upload", content=flood())
+            return await browser.post("/upload?id=CARD", content=flood())
 
     answer = anyio.run(send)
     assert answer.status_code == 413 and "larger than 10 MB" in answer.json()["error"]
@@ -128,6 +134,7 @@ def test_an_upload_sent_without_its_length_is_stopped_at_10_mb(server):
 
 def test_an_upload_that_arrives_too_slowly_is_given_up(server, monkeypatch):
     monkeypatch.setattr(app, "DOWNLOAD_SECONDS", 0.5)
+    server.put("scores/CARD.waiting", b"")
 
     async def trickle():
         yield b"%PDF"
@@ -137,7 +144,7 @@ def test_an_upload_that_arrives_too_slowly_is_given_up(server, monkeypatch):
     async def send():
         transport = httpx.ASGITransport(app=app.mcp.streamable_http_app(stateless_http=True))
         async with httpx.AsyncClient(transport=transport, base_url="http://card") as browser:
-            return await browser.post("/upload", content=trickle())
+            return await browser.post("/upload?id=CARD", content=trickle())
 
     answer = anyio.run(send)
     assert answer.status_code == 408 and "took longer than 0.5 seconds" in answer.json()["error"]

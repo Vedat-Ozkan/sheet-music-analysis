@@ -26,6 +26,8 @@
   const choose = document.getElementById("choose"), status = document.getElementById("status");
   let nextId = 1;
   const pending = {};
+  let gotUploadId;
+  const uploadId = new Promise((resolve) => { gotUploadId = resolve; });
 
   function send(message) { window.parent.postMessage(message, "*"); }
   function request(method, params) {
@@ -49,6 +51,10 @@
     const message = event.data;
     if (!message || message.jsonrpc !== "2.0") return;
     if (message.method === "ui/notifications/host-context-changed") applyTheme(message.params);
+    if (message.method === "ui/notifications/tool-result") {
+      const id = message.params && message.params.structuredContent && message.params.structuredContent.upload_id;
+      if (id) gotUploadId(id);
+    }
     if (message.id !== undefined && pending[message.id]) {
       pending[message.id](message);
       delete pending[message.id];
@@ -63,20 +69,18 @@
     show("Sending " + file.name + "…");
     let body;
     try {
-      const response = await fetch(UPLOAD_URL, { method: "POST", body: file });
+      const response = await fetch(UPLOAD_URL + "?id=" + encodeURIComponent(await uploadId), { method: "POST", body: file });
       body = await response.json();
     } catch {
       body = { error: "The file could not be sent. Check your connection and choose it again." };
     }
-    if (!body.next) {
+    if (!body.kind) {
       choose.hidden = false;
       show(body.error, true);
       return;
     }
     show(body.kind === "pdf" ? "Got " + file.name + ". Reading the music from a PDF takes a minute or two." : "Got " + file.name + ". The analysis is on its way.");
-    const settled = new Promise((resolve) => setTimeout(resolve, 3000));
-    await Promise.race([settled, request("ui/update-model-context", { content: [{ type: "text", text: 'The user chose their score file "' + file.name + '" in the card.\n' + body.next }] })]);
-    const sent = await request("ui/message", { role: "user", content: [{ type: "text", text: "I've chosen my score: " + file.name + "\n" + body.next.split("\n")[0] }] });
+    const sent = await request("ui/message", { role: "user", content: [{ type: "text", text: "I've chosen my score: " + file.name }] });
     if (sent.error) show("Got " + file.name + ". Now tell Claude in the chat that you have chosen it.");
   });
 

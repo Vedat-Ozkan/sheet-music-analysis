@@ -495,8 +495,14 @@ async def resolve_score(score_file: AttachedFile | None, score_id: str | None, s
                 raise ScoreError("This file is a PDF. Call read_pdf with it first, then use the score_id it returns.")
             return data, "score_file"
         if score_id:
-            data = await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(score_id)}")
+            code = clean_id(score_id)
+            data = await anyio.to_thread.run_sync(store.get, f"scores/{code}")
             if data is None:
+                if await anyio.to_thread.run_sync(store.get, f"scores/{code}.pdf") is not None:
+                    raise ScoreError(f"This score is a PDF. Call read_fetched_pdf with pdf_id {code} first, then use "
+                                     "the score_id it returns.")
+                if await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is not None:
+                    raise ScoreError(NOT_CHOSEN_YET)
                 raise ScoreError(f"No score has the id {score_id!r}; scores are kept for one day")
             return data, "score_id"
     raise ScoreError(NO_SCORE_GIVEN["claude" if source == "claude" else "other"])
@@ -1145,9 +1151,14 @@ apps.add_html_resource(
 @observed
 async def read_fetched_pdf(ctx: Context, pdf_id: str, keep_slurs: bool = False) -> CallToolResult:
     source = platform(ctx)
-    data = await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(pdf_id)}.pdf")
+    code = clean_id(pdf_id)
+    data = await anyio.to_thread.run_sync(store.get, f"scores/{code}.pdf")
     if data is None:
         log("read_fetched_pdf", platform=source, error="ScoreError")
+        if await anyio.to_thread.run_sync(store.get, f"scores/{code}") is not None:
+            return error_result(f"This score is a MusicXML file, not a PDF. Call draft_analysis with score_id {code}.")
+        if await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is not None:
+            return error_result(NOT_CHOSEN_YET)
         return error_result(f"No PDF has the pdf_id {pdf_id!r}; PDFs are kept for one day. Call choose_score so "
                             "the user can choose the PDF again.")
     return await read_pdf_data(data, source, keep_slurs, "read_fetched_pdf")
@@ -1319,6 +1330,10 @@ apps.add_html_resource(
 )
 
 
+NOT_CHOSEN_YET = ("The user has not chosen their file in the card yet. Ask them to click Choose your score in the "
+                  "card and choose it.")
+
+
 ATTACHED_FILE_SENTENCE = (
     "I can't pass a file attached to the chat to the analysis tool, so please choose the same file again in the card below."
 )
@@ -1332,18 +1347,22 @@ ATTACHED_FILE_SENTENCE = (
         "in this conversation; never call it otherwise. It shows a small card in which the user chooses their score "
         "file, a MusicXML file (.mxl or .musicxml) or a PDF of printed music, which goes straight to this server. "
         "Files attached to the chat cannot be passed to this server, so if the user attached their score to the chat, "
-        f"start your reply with this sentence and then call this tool: \"{ATTACHED_FILE_SENTENCE}\" Then end your "
-        "reply: when the user has chosen the file, its id and what to call next arrive with their next message. If "
-        "the user gives a link to the score instead, call fetch_score with it."
+        f"start your reply with this sentence and then call this tool: \"{ATTACHED_FILE_SENTENCE}\" It returns the "
+        "id the file will be kept under; end your reply, and when the user's next message says they have chosen it, "
+        "use that id as the result says. If the user gives a link to the score instead, call fetch_score with it."
     ),
     annotations=read_only("Choose a score file"),
 )
 @observed
 async def choose_score(ctx: Context) -> CallToolResult:
     log("choose_score", platform=platform(ctx))
+    code = secrets.token_hex(8).upper()
+    await anyio.to_thread.run_sync(store.put, f"scores/{code}.waiting", b"")
     return CallToolResult(content=[TextContent(type="text", text=(
-        "The user now sees a card in which to choose their score file. End your reply here; when they have chosen "
-        "it, the file's id and what to call next arrive with their next message."))])
+        f"The user now sees a card in which to choose their score file, which will be kept under the id {code}. "
+        "End your reply here. When their next message says they have chosen it: if the file name ends in .pdf, "
+        f"call read_fetched_pdf with pdf_id {code}; otherwise it is MusicXML, so call draft_analysis with "
+        f"score_id {code}."))], structuredContent={"upload_id": code})
 
 
 apps.add_html_resource(
@@ -1658,8 +1677,8 @@ async def fetch_score(ctx: Context, url: str) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=next_step(kind, code))])
 
 
-async def keep_score(data: bytes, kind: str) -> str:
-    code = secrets.token_hex(8).upper()
+async def keep_score(data: bytes, kind: str, code: str | None = None) -> str:
+    code = code or secrets.token_hex(8).upper()
     await anyio.to_thread.run_sync(store.put, f"scores/{code}.pdf" if kind == "pdf" else f"scores/{code}", data)
     return code
 
@@ -1723,6 +1742,14 @@ async def upload(request: Request) -> Response:
     if request.method == "OPTIONS":
         return Response(status_code=204, headers=UPLOAD_HEADERS)
     source = "claude" if (request.headers.get("origin") or "").endswith(".claudemcpcontent.com") else "other"
+    code = clean_id(request.query_params.get("id", ""))
+    if not code or await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is None:
+        log("upload", platform=source, error="no card")
+        return upload_refused("This card has expired. Ask Claude for a new one.", 404)
+    for key in (f"scores/{code}", f"scores/{code}.pdf"):
+        if await anyio.to_thread.run_sync(store.get, key) is not None:
+            log("upload", platform=source, error="already chosen")
+            return upload_refused("A file was already chosen in this card. To choose another, ask Claude for a new card.", 409)
     too_large = upload_refused("This file is larger than 10 MB. Choose a smaller one.", 413)
     if int(request.headers.get("content-length") or 0) > MAX_SCORE_BYTES:
         log("upload", platform=source, error="too large")
@@ -1742,9 +1769,9 @@ async def upload(request: Request) -> Response:
     if kind is None:
         log("upload", platform=source, error="not a score", score_bytes=len(data))
         return upload_refused("This is not a MusicXML file or a PDF. Choose a .mxl, .musicxml or .pdf file.", 415)
-    code = await keep_score(bytes(data), kind)
+    await keep_score(bytes(data), kind, code)
     log("upload", platform=source, kind=kind, score_bytes=len(data))
-    return JSONResponse({"kind": kind, "next": next_step(kind, code)}, headers=UPLOAD_HEADERS)
+    return JSONResponse({"kind": kind}, headers=UPLOAD_HEADERS)
 
 
 @mcp.custom_route("/health", methods=["GET"])
