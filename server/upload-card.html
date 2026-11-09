@@ -79,7 +79,7 @@
       show(body.error, true);
       return;
     }
-    show(body.kind === "pdf" ? "Got " + file.name + ". Reading the music from a PDF takes a minute or two." : "Got " + file.name + ". The analysis is on its way.");
+    show(body.kind === "pdf" ? "Got " + file.name + ". Press Enter to send the message below and start reading it; a PDF takes a minute or two." : "Got " + file.name + ". Press Enter to send the message below and start the analysis.");
     const sent = await request("ui/message", { role: "user", content: [{ type: "text", text: "I've chosen my score: " + file.name }] });
     if (sent.error) show("Got " + file.name + ". Now tell Claude in the chat that you have chosen it.");
   });
