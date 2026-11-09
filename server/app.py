@@ -44,7 +44,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import NonRecordingSpan, SpanContext, StatusCode, TraceFlags
 from pydantic import BaseModel, ConfigDict
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 from engine import correct, draft, read_ahead, verovio_workers
 from engine import notes as note_list
@@ -71,6 +71,7 @@ PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v3.html"
 HELD_CARD_URIS = {"ui://sheet-music-analysis/card-v2.html": "Analysis card",
                   "ui://sheet-music-analysis/pdf-card-v2.html": "PDF reading card"}
 PLAYER_URI = "ui://sheet-music-analysis/player-v3.html"
+UPLOAD_CARD_URI = "ui://sheet-music-analysis/upload-card-v1.html"
 CONNECTOR_URL = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
 CLAUDE_UI_DOMAIN = hashlib.sha256(CONNECTOR_URL.encode()).hexdigest()[:32] + ".claudemcpcontent.com"
 HERE = Path(__file__).parent
@@ -493,7 +494,7 @@ def clean_id(score_id: str) -> str:
 
 
 NO_SCORE_GIVEN = {
-    "claude": "No score was provided. Ask the user for a link to their score (MusicXML or PDF) and call fetch_score with it.",
+    "claude": "No score was provided. Call choose_score so the user can choose their score file in a card.",
     "other": "No score was provided. Ask the user to attach their MusicXML file (.mxl or .musicxml) to the chat.",
 }
 
@@ -506,8 +507,14 @@ async def resolve_score(score_file: AttachedFile | None, score_id: str | None, s
                 raise ScoreError("This file is a PDF. Call read_pdf with it first, then use the score_id it returns.")
             return data, "score_file"
         if score_id:
-            data = await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(score_id)}")
+            code = clean_id(score_id)
+            data = await anyio.to_thread.run_sync(store.get, f"scores/{code}")
             if data is None:
+                if await anyio.to_thread.run_sync(store.get, f"scores/{code}.pdf") is not None:
+                    raise ScoreError(f"This score is a PDF. Call read_fetched_pdf with pdf_id {code} first, then use "
+                                     "the score_id it returns.")
+                if await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is not None:
+                    raise ScoreError(NOT_CHOSEN_YET)
                 raise ScoreError(f"No score has the id {score_id!r}; scores are kept for one day")
             return data, "score_id"
     raise ScoreError(NO_SCORE_GIVEN["claude" if source == "claude" else "other"])
@@ -1192,30 +1199,35 @@ def pdf_card_result(card: dict, keep_slurs: bool, tool: str) -> CallToolResult:
 
 @apps.tool(
     resource_uri=PDF_CARD_URI,
-    title="Read a PDF of sheet music from a link",
+    title="Read a chosen PDF of sheet music",
     description=(
-        "Use this after fetch_score returned a pdf_id, with that pdf_id. Reads the music from the PDF and shows the "
+        "Use this when choose_score or fetch_score gave a pdf_id, with that pdf_id. Reads the music from the PDF and shows the "
         "user the engraved result in a card. Returns a score_id. Then go straight on to the analysis without waiting "
         "for the user: call draft_analysis with that score_id, and pass on the result's note about the reading in your "
         f"reply with the analysis. PDFs of more than {pdf_reader.MAX_PAGES} pages are refused. Slurs are left out unless keep_slurs is true; set it only when "
         "the user asks for them."
     ),
-    annotations=read_only("Read a PDF of sheet music from a link"),
+    annotations=read_only("Read a chosen PDF of sheet music"),
 )
 @observed
 async def read_fetched_pdf(ctx: Context, pdf_id: str, keep_slurs: bool = False) -> CallToolResult:
     source = platform(ctx)
-    data = await anyio.to_thread.run_sync(store.get, f"scores/link-{clean_id(pdf_id)}.pdf")
+    code = clean_id(pdf_id)
+    data = await anyio.to_thread.run_sync(store.get, f"scores/{code}.pdf")
     if data is None:
         log("read_fetched_pdf", platform=source, error="ScoreError")
-        return error_result(f"No PDF has the pdf_id {pdf_id!r}; PDFs are kept for one day. Call fetch_score with "
-                            "the user's link again.")
+        if await anyio.to_thread.run_sync(store.get, f"scores/{code}") is not None:
+            return error_result(f"This score is a MusicXML file, not a PDF. Call draft_analysis with score_id {code}.")
+        if await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is not None:
+            return error_result(NOT_CHOSEN_YET)
+        return error_result(f"No PDF has the pdf_id {pdf_id!r}; PDFs are kept for one day. Call choose_score so "
+                            "the user can choose the PDF again.")
     return await read_pdf_data(data, source, keep_slurs, "read_fetched_pdf")
 
 
-CLAUDE_TOOLS = {"fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis", "play",
+CLAUDE_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis", "play",
                 "draft_from_notes"}
-CLAUDE_ONLY_TOOLS = {"fetch_score", "read_fetched_pdf", "play", "draft_from_notes"}
+CLAUDE_ONLY_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "play", "draft_from_notes"}
 CLAUDE_HIDDEN_ARGUMENTS = {"draft_analysis": {"score_file"}}
 CLAUDE_RESULT_CHARS = 100_000
 IMAGES_LEFT_OUT = (
@@ -1224,8 +1236,8 @@ IMAGES_LEFT_OUT = (
 )
 NO_NOTE_LIST = (
     "No note list: draft_from_notes needs the compact note list (starting 'N1 div=') that the Sheet Music Analysis "
-    "plugin's skill makes from the user's score file. Without the plugin, ask the user for a link to their score "
-    "(MusicXML or PDF) and call fetch_score with it."
+    "plugin's skill makes from the user's score file. Without the plugin, call choose_score so the user can choose "
+    "their score file in a card."
 )
 QUESTION_FOR_USER = "Question for the user about their Roman numerals: "
 
@@ -1313,7 +1325,7 @@ SITE = "https://sheetmusicanalysis.com"
 
 
 NO_PLAY_NOTES = (
-    "Nothing to play: pass the score_id that fetch_score, read_fetched_pdf or correct_bars returned. Older plugin "
+    "Nothing to play: pass the score_id that choose_score, fetch_score, read_fetched_pdf or correct_bars gave. Older plugin "
     "versions pass the play_id that draft_from_notes returned, or the compact note list (starting 'N1 div=') as notes."
 )
 
@@ -1323,8 +1335,8 @@ NO_PLAY_NOTES = (
     title="Play the score",
     description=(
         "Shows the user a small piano player in the chat, with play, pause and a seek bar. Use it when the user "
-        "wants to hear the passage or score. Pass the score_id that fetch_score, read_fetched_pdf or correct_bars "
-        "returned and the bars to play as measure_range, e.g. \"1-8\" (\"all\" plays the whole score). It plays the "
+        "wants to hear the passage or score. Pass the score_id that choose_score, fetch_score, read_fetched_pdf or "
+        "correct_bars gave and the bars to play as measure_range, e.g. \"1-8\" (\"all\" plays the whole score). It plays the "
         "score's tempo, dynamics, pedal marks and ornaments. tempo, in quarter notes per minute, is only for a tempo "
         "word whose speed play says is unclear: ask the user, then pass their answer. play_id and notes are only for "
         "older versions of the Sheet Music Analysis plugin (1.8.0 and earlier); in a new chat use score_id."
@@ -1379,6 +1391,52 @@ apps.add_html_resource(
 )
 
 
+NOT_CHOSEN_YET = ("The user has not chosen their file in the card yet. Ask them to click Choose your score in the "
+                  "card and choose it.")
+
+
+ATTACHED_FILE_SENTENCE = (
+    "I can't pass a file attached to the chat to the analysis tool, so please choose the same file again in the card below."
+)
+
+
+@apps.tool(
+    resource_uri=UPLOAD_CARD_URI,
+    title="Choose a score file",
+    description=(
+        "Use this only when the user wants their score analysed and no score_id or link to the score is available yet "
+        "in this conversation; never call it otherwise, and not again while a card you showed is still waiting for "
+        "the user's file (ask them to use that card). It shows a small card in which the user chooses their score "
+        "file, a MusicXML file (.mxl or .musicxml) or a PDF of printed music, which goes straight to this server. "
+        "Files attached to the chat cannot be passed to this server, so if the user attached their score to the chat, "
+        f"start your reply with this sentence and then call this tool: \"{ATTACHED_FILE_SENTENCE}\" It returns the "
+        "id the file will be kept under; end your reply, and when the user's next message says they have chosen it, "
+        "use that id as the result says. If the user gives a link to the score instead, call fetch_score with it."
+    ),
+    annotations=read_only("Choose a score file"),
+)
+@observed
+async def choose_score(ctx: Context) -> CallToolResult:
+    log("choose_score", platform=platform(ctx))
+    code = secrets.token_hex(8).upper()
+    await anyio.to_thread.run_sync(store.put, f"scores/{code}.waiting", b"")
+    return CallToolResult(content=[TextContent(type="text", text=(
+        f"The user now sees a card in which to choose their score file, which will be kept under the id {code}. "
+        "End your reply here. When their next message says they have chosen it: if the file name ends in .pdf, "
+        f"call read_fetched_pdf with pdf_id {code}; otherwise it is MusicXML, so call draft_analysis with "
+        f"score_id {code}."))], structuredContent={"upload_id": code})
+
+
+apps.add_html_resource(
+    UPLOAD_CARD_URI,
+    (HERE / "upload-card.html").read_text().replace("__UPLOAD_URL__", f"{PUBLIC_BASE_URL}/upload"),
+    name="Score file chooser",
+    csp=ResourceCsp(connect_domains=[PUBLIC_BASE_URL]),
+    domain=CLAUDE_UI_DOMAIN,
+    prefers_border=True,
+)
+
+
 mcp = Server(
     "sheet-music-analysis",
     title="Sheet Music Analysis",
@@ -1389,8 +1447,8 @@ mcp = Server(
     ],
     instructions=(
         "Harmonic analysis of sheet music: Roman numerals, cadences, phrases and non-chord tones. The server reads "
-        "MusicXML and PDF scores and draws the analysis on the engraved page. In Claude the user gives a link to their "
-        "score, which fetch_score downloads, and play shows a small piano player for the passage in the chat."
+        "MusicXML and PDF scores and draws the analysis on the engraved page. In Claude the user chooses their score file "
+        "in a card that choose_score shows, or gives a link that fetch_score downloads, and play shows a small piano player for the passage in the chat."
     ),
     extensions=[apps],
 )
@@ -1406,8 +1464,8 @@ DRAFT_ANALYSIS_USE = (
     "they agree with it. If the result is a question, ask the user that question and call again with their answer. "
 )
 CLAUDE_SCORE_INPUT_HELP = (
-    "score_id: the id returned by fetch_score, read_fetched_pdf or correct_bars. Never encode, paste or retype a "
-    "file's contents. If the user has not given a link to their score, ask them for one."
+    "score_id: the id that choose_score, fetch_score, read_fetched_pdf or correct_bars gave. Never encode, paste or "
+    "retype a file's contents. If there is no score_id yet, call choose_score so the user can choose their score file."
 )
 
 
@@ -1556,8 +1614,8 @@ async def correct_bars(
     title="Draft a harmonic analysis from a note list",
     description=(
         "Only for older versions of the Sheet Music Analysis plugin (1.8.0 and earlier), whose skill passes a compact "
-        "note list starting 'N1 div=' that it made in Claude's code sandbox. In a new chat do not use this: ask the "
-        "user for a link to the score and call fetch_score. Drafts a harmonic analysis from that note list, passed "
+        "note list starting 'N1 div=' that it made in Claude's code sandbox. In a new chat do not use this: call "
+        "choose_score so the user can choose their score file. Drafts a harmonic analysis from that note list, passed "
         "unchanged as `notes`, and returns the draft with a play_id for play."
     ),
     annotations=read_only("Draft a harmonic analysis from a note list"),
@@ -1654,10 +1712,8 @@ def link_host(url: str) -> str:
         "MusicXML file (.mxl or .musicxml) or a PDF of printed music, or a Google Drive or Dropbox share link to one. "
         "The server downloads the file (https only, at most 10 MB). For MusicXML it returns a score_id: call "
         "draft_analysis with it. For a PDF it returns a pdf_id: call read_fetched_pdf with it. IMSLP links are not "
-        "downloaded; the result says what to tell the user. Files attached to the chat cannot reach this server, so if "
-        "the user attaches a score, ask them for a link to it instead. Never download, open or search for the score "
-        "yourself (no web search, no code sandbox): only this server fetches it, from a link the user gave. If the "
-        "user has not given a link, ask for one."
+        "downloaded; the result says what to tell the user. Without a link, call choose_score instead. Never download, open or search for the score "
+        "yourself (no web search, no code sandbox): only this server fetches it, from a link the user gave."
     ),
     annotations=ToolAnnotations(title="Open a score from a link", read_only_hint=True, destructive_hint=False,
                                 idempotent_hint=True, open_world_hint=True),
@@ -1681,15 +1737,22 @@ async def fetch_score(ctx: Context, url: str) -> CallToolResult:
     if kind is None:
         log("fetch_score", platform=source, host=host, error="not a score", score_bytes=len(data))
         return error_result(LINK_NOT_A_SCORE)
-    code = secrets.token_hex(8).upper()
-    await anyio.to_thread.run_sync(store.put, f"scores/link-{code}.pdf" if kind == "pdf" else f"scores/{code}", data)
+    code = await keep_score(data, kind)
     log("fetch_score", platform=source, host=host, kind=kind, score_bytes=len(data))
+    return CallToolResult(content=[TextContent(type="text", text=next_step(kind, code))])
+
+
+async def keep_score(data: bytes, kind: str, code: str | None = None) -> str:
+    code = code or secrets.token_hex(8).upper()
+    await anyio.to_thread.run_sync(store.put, f"scores/{code}.pdf" if kind == "pdf" else f"scores/{code}", data)
+    return code
+
+
+def next_step(kind: str, code: str) -> str:
     if kind == "pdf":
-        text = (f"pdf_id: {code}\nThe link is a PDF. Call read_fetched_pdf with this pdf_id to read the music from it; "
+        return (f"pdf_id: {code}\nIt is a PDF. Call read_fetched_pdf with this pdf_id now to read the music from it; "
                 "a PDF takes a minute or more to read.")
-    else:
-        text = f"score_id: {code}\nThe link is a MusicXML score. Call draft_analysis with this score_id."
-    return CallToolResult(content=[TextContent(type="text", text=text)])
+    return f"score_id: {code}\nIt is a MusicXML score. Call draft_analysis with this score_id now."
 
 
 CLAUDE_DESCRIPTIONS = {
@@ -1729,6 +1792,52 @@ async def files(request: Request) -> Response:
         "Content-Security-Policy": "sandbox",
         "X-Content-Type-Options": "nosniff",
     })
+
+
+UPLOAD_HEADERS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS",
+                  "Access-Control-Allow-Headers": "content-type"}
+
+
+def upload_refused(message: str, status: int) -> JSONResponse:
+    return JSONResponse({"error": message}, status_code=status, headers=UPLOAD_HEADERS)
+
+
+@mcp.custom_route("/upload", methods=["POST", "OPTIONS"])
+async def upload(request: Request) -> Response:
+    if request.method == "OPTIONS":
+        return Response(status_code=204, headers=UPLOAD_HEADERS)
+    source = "claude" if (request.headers.get("origin") or "").endswith(".claudemcpcontent.com") else "other"
+    too_large = upload_refused("This file is larger than 10 MB. Choose a smaller one.", 413)
+    announced = request.headers.get("content-length") or ""
+    if announced.isdigit() and int(announced) > MAX_SCORE_BYTES:
+        log("upload", platform=source, error="too large")
+        return too_large
+    data = bytearray()
+    try:
+        with anyio.fail_after(DOWNLOAD_SECONDS):
+            async for chunk in request.stream():
+                data += chunk
+                if len(data) > MAX_SCORE_BYTES:
+                    log("upload", platform=source, error="too large")
+                    return too_large
+    except TimeoutError:
+        log("upload", platform=source, error="too slow", score_bytes=len(data))
+        return upload_refused(f"The file took longer than {DOWNLOAD_SECONDS} seconds to arrive. Choose it again.", 408)
+    code = clean_id(request.query_params.get("id", ""))
+    if not code or await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is None:
+        log("upload", platform=source, error="no card")
+        return upload_refused("This card has expired. Ask Claude for a new one.", 404)
+    for key in (f"scores/{code}", f"scores/{code}.pdf"):
+        if await anyio.to_thread.run_sync(store.get, key) is not None:
+            log("upload", platform=source, error="already chosen")
+            return upload_refused("A file was already chosen in this card. To choose another, ask Claude for a new card.", 409)
+    kind = score_kind(bytes(data))
+    if kind is None:
+        log("upload", platform=source, error="not a score", score_bytes=len(data))
+        return upload_refused("This is not a MusicXML file or a PDF. Choose a .mxl, .musicxml or .pdf file.", 415)
+    await keep_score(bytes(data), kind, code)
+    log("upload", platform=source, kind=kind, score_bytes=len(data))
+    return JSONResponse({"kind": kind}, headers=UPLOAD_HEADERS)
 
 
 @mcp.custom_route("/health", methods=["GET"])

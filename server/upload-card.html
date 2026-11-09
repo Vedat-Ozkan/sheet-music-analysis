@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: light; --fg: #111; --muted: #6e6e73; --button: #0d0d0d; --button-fg: #fff; --danger: #b3261e; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --fg: #f2f2f5; --muted: #a1a1a6; --button: #f2f2f5; --button-fg: #111; --danger: #ff8a80; } }
+  :root[data-theme="dark"] { color-scheme: dark; --fg: #f2f2f5; --muted: #a1a1a6; --button: #f2f2f5; --button-fg: #111; --danger: #ff8a80; }
+  body { margin: 0; font: 13px system-ui, sans-serif; color: var(--fg); background: transparent; }
+  .chooser { display: flex; align-items: center; gap: 12px; padding: 10px 12px; flex-wrap: wrap; }
+  label { flex: none; padding: 8px 14px; border-radius: 16px; background: var(--button); color: var(--button-fg); font-weight: 600; cursor: pointer; }
+  label:focus-within { outline: 2px solid var(--muted); outline-offset: 2px; }
+  label[hidden] { display: none; }
+  input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  #status { flex: 1; min-width: 160px; color: var(--muted); }
+  #status.error { color: var(--danger); }
+</style>
+</head>
+<body>
+<div class="chooser">
+  <label id="choose">Choose your score<input id="file" type="file" accept=".mxl,.musicxml,.xml,.pdf,application/pdf"></label>
+  <span id="status">A MusicXML file (.mxl, .musicxml) or a PDF of printed music. The analysis starts as soon as you choose it.</span>
+</div>
+<script>
+  const UPLOAD_URL = "__UPLOAD_URL__";
+  const choose = document.getElementById("choose"), status = document.getElementById("status");
+  let nextId = 1;
+  const pending = {};
+  let gotUploadId;
+  const uploadId = new Promise((resolve) => { gotUploadId = resolve; });
+
+  function send(message) { window.parent.postMessage(message, "*"); }
+  function request(method, params) {
+    const id = nextId++;
+    send({ jsonrpc: "2.0", id, method, params });
+    return new Promise((resolve) => { pending[id] = resolve; });
+  }
+  function reportSize() {
+    send({ jsonrpc: "2.0", method: "ui/notifications/size-changed", params: { width: document.documentElement.scrollWidth, height: document.body.offsetHeight } });
+  }
+  function applyTheme(hostContext) {
+    if (hostContext && (hostContext.theme === "light" || hostContext.theme === "dark")) document.documentElement.dataset.theme = hostContext.theme;
+  }
+  function show(text, isError) {
+    status.textContent = text;
+    status.className = isError ? "error" : "";
+  }
+
+  window.addEventListener("message", (event) => {
+    if (event.source !== window.parent) return;
+    const message = event.data;
+    if (!message || message.jsonrpc !== "2.0") return;
+    if (message.method === "ui/notifications/host-context-changed") applyTheme(message.params);
+    if (message.method === "ui/notifications/tool-result") {
+      const id = message.params && message.params.structuredContent && message.params.structuredContent.upload_id;
+      if (id) gotUploadId(id);
+    }
+    if (message.id !== undefined && pending[message.id]) {
+      pending[message.id](message);
+      delete pending[message.id];
+    }
+  });
+
+  document.getElementById("file").addEventListener("change", async (event) => {
+    const file = event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      show("This file is larger than 10 MB. Choose a smaller one.", true);
+      return;
+    }
+    choose.hidden = true;
+    show("Sending " + file.name + "…");
+    let body;
+    try {
+      const response = await fetch(UPLOAD_URL + "?id=" + encodeURIComponent(await uploadId), { method: "POST", body: file });
+      body = await response.json();
+    } catch {
+      body = { error: "The file could not be sent. Check your connection and choose it again." };
+    }
+    if (!body.kind) {
+      choose.hidden = false;
+      show(body.error, true);
+      return;
+    }
+    show(body.kind === "pdf" ? "Got " + file.name + ". Press Enter to send the message below and start reading it; a PDF takes a minute or two." : "Got " + file.name + ". Press Enter to send the message below and start the analysis.");
+    const sent = await request("ui/message", { role: "user", content: [{ type: "text", text: "I've chosen my score: " + file.name }] });
+    if (sent.error) show("Got " + file.name + ". Now tell Claude in the chat that you have chosen it.");
+  });
+
+  reportSize();
+  new ResizeObserver(reportSize).observe(document.body);
+
+  const identity = { name: "score-chooser", version: "1.0.0" };
+  request("ui/initialize", { protocolVersion: "2026-01-26", appInfo: identity, clientInfo: identity, appCapabilities: {} })
+    .then((result) => {
+      applyTheme(result.result && result.result.hostContext);
+      send({ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {} });
+    });
+</script>
+</body>
+</html>
