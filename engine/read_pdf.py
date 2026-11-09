@@ -83,8 +83,9 @@ LOW_RESOLUTION_WARNING = ("This scan is too small to read well, so expect many m
                           "not shaded. A sharper scan will read much better.")
 
 
-def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool, spots=None, low_resolution: bool = False) -> str:
-    text = CHECK + (" " + SCAN_WARNING if scan else "") + (" " + LOW_RESOLUTION_WARNING if low_resolution else "")
+def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool, spots=None, low_resolution: bool = False,
+           opening: str = CHECK) -> str:
+    text = opening + (" " + SCAN_WARNING if scan else "") + (" " + LOW_RESOLUTION_WARNING if low_resolution else "")
     if skipped:
         pages = ", ".join(str(page) for page in skipped)
         text += f" Page{'s' if len(skipped) > 1 else ''} {pages} could not be read, so that music is missing."
@@ -211,18 +212,6 @@ def preview(score: bytes, spots=None) -> Engraving:
     return shade(load_toolkit(score, PREVIEW_OPTIONS, labelled_bars=spots[0]), spots)
 
 
-def _courtesy_x(layout: PageLayout) -> dict[str, float]:
-    found = {}
-    for group in layout.root.iter(f"{S}g"):
-        if "measure" in group.get("class", "").split() and group.get("id") in layout.measures:
-            for staff in group.findall(f"{S}g"):
-                kids = [kid for kid in staff.findall(f"{S}g") if kid.get("class") in {"layer", "keySig"}]
-                for after, kid in zip(kids, kids[1:]):
-                    if kid.get("class") == "keySig" and after.get("class") == "layer" and kid.get("id") in layout.boxes:
-                        found[group.get("id")] = min(found.get(group.get("id"), 1e9), layout.boxes[kid.get("id")].x)
-    return found
-
-
 def _ending_brackets(layout: PageLayout) -> list[Box]:
     found = []
     for group in layout.root.iter(f"{S}g"):
@@ -291,16 +280,7 @@ def shade(toolkit, spots) -> Engraving:
     index = ScoreIndex(toolkit.getMEI())
     layouts = fit_top_margin(toolkit, index)
     for layout in layouts:
-        courtesy = _courtesy_x(layout) if uneven else {}
-        for number in uneven:
-            for segment in index.measure(number).segments:
-                geometry = layout.measures.get(segment.id)
-                if geometry:
-                    top = min(box.y for box in geometry.lines)
-                    bottom = max(box.bottom for box in geometry.lines)
-                    right = courtesy.get(segment.id, geometry.x1)
-                    tint.tint(layout, Box(geometry.x0, top, right - geometry.x0, bottom - top),
-                              tint.FLAG_BAR, tint.FLAG_OPACITY, radius=0)
+        tint.flag_bars(layout, index, uneven)
     return tint.finish(layouts)
 
 

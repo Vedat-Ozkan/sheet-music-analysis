@@ -218,3 +218,28 @@ def test_a_limit_on_the_other_machine_is_logged_as_a_limit(monkeypatch, tmp_path
 def test_a_failed_reading_on_the_other_machine_stays_a_user_error(monkeypatch, tmp_path, capsys):
     result, line = waiter_outcome(monkeypatch, tmp_path, capsys, "ReadError", "No music could be read from this PDF")
     assert line["outcome"] == "user_error"
+
+
+def test_an_unread_pdf_on_the_other_machine_shows_its_card_and_stays_a_user_error(monkeypatch, tmp_path, capsys):
+    slow_reader(monkeypatch, tmp_path, 0)
+
+    def unreadable(data):
+        raise pdf_reader.ReadError("No music could be read from this PDF", [{"setting": 0, "outcome": "no music"}])
+
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable)
+
+    async def call():
+        async with Client(app.mcp) as client:
+            return await client.call_tool("read_pdf", ATTACHED)
+
+    first = anyio.run(call)
+    digest = __import__("hashlib").sha256(PDF).hexdigest()
+    card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}-no-slurs.json"
+    app.store.put(app.marker_of(card_key), json.dumps({"token": "other", "started": time.time() - 60}).encode())
+    capsys.readouterr()
+    waiter = anyio.run(call)
+    line = next(json.loads(line) for line in capsys.readouterr().out.splitlines()
+                if line.startswith("{") and json.loads(line).get("tool") == "read_pdf")
+    assert not waiter.is_error and waiter.meta["report"] == first.meta["report"]
+    assert text_of(waiter) == text_of(first)
+    assert line["outcome"] == "user_error" and line["other_machine"]

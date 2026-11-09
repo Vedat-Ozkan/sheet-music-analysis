@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "sheet-music-analysis",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Harmonic analysis of sheet music, drawn on the engraved score.",
   "author": {
     "name": "Sheet Music Analysis",
@@ -28,7 +28,7 @@
       "interface": {
         "displayName": "Sheet Music Analysis",
         "shortDescription": "Harmony analysis on the score",
-        "longDescription": "Sheet Music Analysis marks up a piece of music the way a theory teacher would pencil it in. Attach a score as a MusicXML file (.mxl or .musicxml, which MuseScore, Sibelius, Finale and Dorico can all export) or a PDF of printed music, and ask what is happening in the music. A PDF is read first and shown to you to check before anything is analysed.\n\nYou get the engraved score back, as an image and a PDF, with:\n- every chord labelled with a Roman numeral, and coloured bands showing its job: home (tonic), moving away (predominant) or pulling back home (dominant);\n- cadences, the musical commas and full stops, boxed, and brackets showing where each phrase begins and ends;\n- melody notes that don't belong to the chord circled and named;\n- arrows where the way one note moves to the next matters;\n- numbered circles that match a short written explanation in the chat.\n\nA computer model trained on hundreds of expert analyses drafts the analysis; the chat model then checks it against the actual notes and corrects it. On 30 pieces the draft model had never seen, checked against experts' analyses, about 67% of the music matched after the review, nearly as often as experts analysing the same pieces match each other (about 71%). Treat it as a well-read study partner, not an answer key: it is least reliable where experts also disagree, such as music in a major key that briefly borrows chords from the minor, and music like Debussy's that doesn't follow the usual chord patterns.\n\nAsk for one layer at a time (harmony, voice leading or form) when a page gets busy. Ask for a whole piece and you get it back as one PDF. No account or sign-in needed.",
+        "longDescription": "Sheet Music Analysis marks up a piece of music the way a theory teacher would pencil it in. Attach a score as a MusicXML file (.mxl or .musicxml, which MuseScore, Sibelius, Finale and Dorico can all export) or a PDF of printed music, and ask what is happening in the music. A PDF is read first, and bars that may be misread are shaded so you can check them.\n\nYou get the engraved score back, as an image and a PDF, with:\n- every chord labelled with a Roman numeral, and coloured bands showing its job: home (tonic), moving away (predominant) or pulling back home (dominant);\n- cadences, the musical commas and full stops, boxed, and brackets showing where each phrase begins and ends;\n- melody notes that don't belong to the chord circled and named;\n- arrows where the way one note moves to the next matters;\n- numbered circles that match a short written explanation in the chat.\n\nThe chat model analyses the music from a beat-by-beat table of its notes, our software checks how the parts move in music for two to four parts, and the analysis is drawn on the engraved score. It agrees with an expert 99% as often as experts agree with each other. We tested it chord by chord on 36 pieces, each analysed by two experts: for every chord an expert wrote, we checked whether our analysis named the same chord, in the same key, with the same note in the bass. It matched 69% of an expert's chords, and one expert matched 70% of the other's. This was measured with one chat model writing the analysis; others have not been tested the same way and may do less well. Treat it as a well-read study partner, not an answer key: it is least reliable where experts also disagree, such as music in a major key that briefly borrows chords from the minor, and music like Debussy's that doesn't follow the usual chord patterns.\n\nAsk for one layer at a time (harmony, voice leading or form) when a page gets busy. Ask for a whole piece and you get it back as one PDF. No account or sign-in needed.",
         "developerName": "Sheet Music Analysis",
         "category": "Education & Research",
         "capabilities": [
@@ -97,11 +97,11 @@
             },
             {
               "description": "Reading an attached PDF of printed music",
-              "prompt": "Please read this PDF and show me what you read.",
-              "tools_triggered": "read_pdf",
-              "expected_behavior": "After up to a few minutes, a card shows the engraved music read from the PDF with a link to the whole PDF, and the reply asks the user to compare it with their copy before any analysis.",
+              "prompt": "Can you analyse the harmony of this piece?",
+              "tools_triggered": "read_pdf, draft_analysis, render_analysis",
+              "expected_behavior": "After up to a few minutes, a card shows the engraved music read from the PDF, with bars that may be misread shaded; without waiting for the user, a second card shows the analysis drawn on the score, with the same bars still shaded, and the reply briefly mentions them.",
               "file_attachment_urls": [
-                "https://www.mutopiaproject.org/ftp/ChopinFF/O6/Mazurka-Op6-No1/Mazurka-Op6-No1-a4.pdf"
+                "https://sheetmusicanalysis.com/samples/chopin-prelude-op28-no4.pdf"
               ]
             }
           ],
@@ -124,7 +124,7 @@
         "commerce": false
       },
       "publication": {
-        "release_notes": "First release: Roman-numeral analysis, cadences, phrases, non-chord tones and voice leading drawn on the engraved score, with harmony, voice-leading and form views."
+        "release_notes": "When something goes wrong, the card now shows the problem with a one-tap button to report it to us. After a PDF is read, the analysis now starts straight away, with bars that may be misread still shaded.\nThe description now says how the analysis is made and how its accuracy was measured."
       }
     }
   }

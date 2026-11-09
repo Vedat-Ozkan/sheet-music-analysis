@@ -96,6 +96,7 @@ def test_a_pdf_link_is_read_and_its_pages_counted_like_an_attached_pdf(server, s
     read = call("read_fetched_pdf", {"pdf_id": id_of(fetched, "pdf_id")})
     assert not read.is_error and "The score has measures 0 to 24" in text_of(read)
     assert "call read_fetched_pdf again with the same pdf_id and keep_slurs=true" in text_of(read)
+    assert "Go straight on to the analysis" in text_of(read) and "stop and wait" not in text_of(read)
     assert charged(server, "pdf_page") == 1
 
 
