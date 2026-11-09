@@ -1742,14 +1742,6 @@ async def upload(request: Request) -> Response:
     if request.method == "OPTIONS":
         return Response(status_code=204, headers=UPLOAD_HEADERS)
     source = "claude" if (request.headers.get("origin") or "").endswith(".claudemcpcontent.com") else "other"
-    code = clean_id(request.query_params.get("id", ""))
-    if not code or await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is None:
-        log("upload", platform=source, error="no card")
-        return upload_refused("This card has expired. Ask Claude for a new one.", 404)
-    for key in (f"scores/{code}", f"scores/{code}.pdf"):
-        if await anyio.to_thread.run_sync(store.get, key) is not None:
-            log("upload", platform=source, error="already chosen")
-            return upload_refused("A file was already chosen in this card. To choose another, ask Claude for a new card.", 409)
     too_large = upload_refused("This file is larger than 10 MB. Choose a smaller one.", 413)
     if int(request.headers.get("content-length") or 0) > MAX_SCORE_BYTES:
         log("upload", platform=source, error="too large")
@@ -1765,6 +1757,14 @@ async def upload(request: Request) -> Response:
     except TimeoutError:
         log("upload", platform=source, error="too slow", score_bytes=len(data))
         return upload_refused(f"The file took longer than {DOWNLOAD_SECONDS} seconds to arrive. Choose it again.", 408)
+    code = clean_id(request.query_params.get("id", ""))
+    if not code or await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is None:
+        log("upload", platform=source, error="no card")
+        return upload_refused("This card has expired. Ask Claude for a new one.", 404)
+    for key in (f"scores/{code}", f"scores/{code}.pdf"):
+        if await anyio.to_thread.run_sync(store.get, key) is not None:
+            log("upload", platform=source, error="already chosen")
+            return upload_refused("A file was already chosen in this card. To choose another, ask Claude for a new card.", 409)
     kind = score_kind(bytes(data))
     if kind is None:
         log("upload", platform=source, error="not a score", score_bytes=len(data))
