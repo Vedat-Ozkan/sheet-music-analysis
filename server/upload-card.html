@@ -76,7 +76,7 @@
     show(body.kind === "pdf" ? "Got " + file.name + ". Reading the music from a PDF takes a minute or two." : "Got " + file.name + ". The analysis is on its way.");
     const settled = new Promise((resolve) => setTimeout(resolve, 3000));
     await Promise.race([settled, request("ui/update-model-context", { content: [{ type: "text", text: 'The user chose their score file "' + file.name + '" in the card.\n' + body.next }] })]);
-    const sent = await request("ui/message", { role: "user", content: [{ type: "text", text: "I've chosen my score: " + file.name }] });
+    const sent = await request("ui/message", { role: "user", content: [{ type: "text", text: "I've chosen my score: " + file.name + "\n" + body.next.split("\n")[0] }] });
     if (sent.error) show("Got " + file.name + ". Now tell Claude in the chat that you have chosen it.");
   });
 
