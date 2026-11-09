@@ -2541,6 +2541,20 @@ Pitch accuracy, leaving out Bach: at 10.5 and above, 0.89-0.99, within 7 points 
 
 **Known limits.** The image is taken to fill its page's width; an image placed smaller than its page counts as coarser than it is, so may warn when it should not. Rotated pages are not handled. The narrowest page sets the share, so a sharp scan with a page carrying only a small picture (a cover with a logo) could be warned; none of the 112 corpus scans is. Readings cached before this change carry no warning until they expire (30 days with entry 138).
 
+### 140. "Suggest something" on the cards (2026-11-08, branch `suggest-box`, not released)
+
+**Why.** The product is new and the owner wants to hear what users ask for, not only what fails. The only channels were the support email and the error card's report button, which shows only after a failure.
+
+**Options shown to the owner.** A: a box on the error card only; B: a "Suggest something" control on every card; C: a form on the site. The owner chose B. Three looks for B were mocked up from the real card (a quiet link, a button like the download buttons, a box always open) and drawn as ChatGPT and Claude chats; the owner chose the button.
+
+**What the user sees.** Under the downloads of every analysis and PDF reading card: "Ideas or problems?" and a button **Suggest something**. A tap opens a box headed "What would you like it to do? Ideas, problems, anything.", with "Please don't include personal details. Only what you type here is sent to us." and **Send**, greyed out until something is typed; at most 1,000 characters. After sending: "Sent. Thank you; we read every message." If the call fails (for instance in ChatGPT before OpenAI approves the new tool): "It could not be sent from here. You can email support@sheetmusicanalysis.com." It is not on the error card, which has its own button.
+
+**What we keep.** New app-only tool `send_suggestion(text)` (`visibility=["app"]`, 1 to 1,000 characters after trimming, else refused). One log line with the text and, in ChatGPT, the usage identifier; Claude sends no user identity, so Claude suggestions are anonymous. 30 days like every log line. Privacy page: one new row. No daily cap: the tool only logs a line, and any cap is a new limit, which needs the owner's yes.
+
+**OpenAI must review:** the new tool and the changed card (still at the `card-v3` / `pdf-card-v3` addresses, not yet approved), with entries 135 and 136.
+
+**Checks.** `tests/test_chatgpt_flow.py`: a suggestion is logged trimmed; empty and over-long ones are refused; only the card can call it; the held v2 cards do not have it. The real `server/card.html` was drawn in a headless browser as ChatGPT (light, dark) and Claude (light, dark) before a tap, typed, sent and could-not-send, and looked at full size. Not yet seen inside real ChatGPT or Claude.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

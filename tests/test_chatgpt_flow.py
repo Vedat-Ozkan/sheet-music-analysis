@@ -418,6 +418,22 @@ def test_only_the_card_can_send_a_report_and_only_a_reference(server):
     assert refused.is_error
 
 
+def test_a_suggestion_from_the_card_is_logged_and_an_empty_or_long_one_refused(server, capsys):
+    async def go():
+        async with Client(app.mcp) as client:
+            tools = {tool.name: tool for tool in (await client.list_tools()).tools}
+            sent = await client.call_tool("send_suggestion", {"text": "  Could it show where the key changes?  "})
+            refused = [await client.call_tool("send_suggestion", {"text": text})
+                       for text in ["   ", "x" * (app.SUGGESTION_LENGTH + 1)]]
+            return tools["send_suggestion"], sent, refused
+
+    tool, sent, refused = anyio.run(go)
+    assert tool.meta["ui"]["visibility"] == ["app"]
+    assert not sent.is_error and all(result.is_error for result in refused)
+    lines = [line for line in logged(capsys, "send_suggestion") if line.get("event") == "send_suggestion"]
+    assert [line.get("text") for line in lines] == ["Could it show where the key changes?", None, None]
+
+
 def test_cards_held_for_review_keep_their_old_page():
     async def go():
         async with Client(app.mcp) as client:
@@ -425,8 +441,8 @@ def test_cards_held_for_review_keep_their_old_page():
                     for uri in [app.CARD_URI, *app.HELD_CARD_URIS]}
 
     pages = anyio.run(go)
-    assert "report_problem" in pages[app.CARD_URI]
-    assert all("report_problem" not in pages[uri] for uri in app.HELD_CARD_URIS)
+    assert "report_problem" in pages[app.CARD_URI] and "send_suggestion" in pages[app.CARD_URI]
+    assert all("report_problem" not in pages[uri] and "send_suggestion" not in pages[uri] for uri in app.HELD_CARD_URIS)
 
 
 def shaded_pixels(result):

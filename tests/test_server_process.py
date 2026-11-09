@@ -91,7 +91,7 @@ def test_claude_is_offered_score_links_and_cards_on_its_own_domain(server):
 
 def test_chatgpt_keeps_its_tools_and_attachment_arguments(server):
     listed = {tool["name"]: tool for tool in json.loads(as_client(server, "openai-mcp/1.0.0", "tools/list", {}))["result"]["tools"]}
-    assert set(listed) == {"draft_analysis", "render_analysis", "correct_bars", "read_pdf", "rate_analysis", "report_problem"}
+    assert set(listed) == {"draft_analysis", "render_analysis", "correct_bars", "read_pdf", "rate_analysis", "report_problem", "send_suggestion"}
     assert "pdf_file" in listed["read_pdf"]["inputSchema"]["properties"]
     assert "score_file" in listed["draft_analysis"]["inputSchema"]["properties"]
 
