@@ -18,7 +18,7 @@ The connector receives the file you choose in the card (or downloads it from you
 
 ## Data
 
-The connector receives only the file you choose in the card, or downloads it from the link you give, and keeps the score and the pages it draws for one day, then deletes them. Privacy policy: https://sheetmusicanalysis.com/privacy.html
+The connector receives only the file you choose in the card, or downloads it from the link you give, and keeps the score and the pages it draws for 30 days, then deletes them. Privacy policy: https://sheetmusicanalysis.com/privacy.html
 
 ## More
 
