@@ -2521,7 +2521,7 @@ Pitch accuracy, leaving out Bach: at 10.5 and above, 0.89-0.99, within 7 points 
 
 **Tests.** `tests/data/chopin-op67-joseffy-80dpi-scan.pdf` is the real Joseffy scan redrawn at 80 dpi on its own page, the users' case. It warns when read by the real reader, and through the reading hook; the full-size scan does not.
 
-**Known limits.** The image is taken to fill its page's width; an image placed smaller than its page counts as coarser than it is, so may warn when it should not. Rotated pages are not handled.
+**Known limits.** The image is taken to fill its page's width; an image placed smaller than its page counts as coarser than it is, so may warn when it should not. Rotated pages are not handled. The narrowest page sets the share, so a sharp scan with a page carrying only a small picture (a cover with a logo) could be warned; none of the 112 corpus scans is. Readings cached before this change carry no warning until they expire (30 days with entry 138).
 
 ## Checking against teachers' prose
 
