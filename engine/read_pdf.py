@@ -50,7 +50,7 @@ NEXT_STEP = (
 PAINT_OPERATORS = {"S", "s", "f", "F", "f*", "B", "B*", "b", "b*"}
 CHECK = "This is what I read from your PDF; check it against your copy before I analyse it."
 SCAN_WARNING = "Scanned pages often have reading mistakes, so please check carefully."
-SLURS_LEFT_OUT = "Slurs are left out, because they are often misread from PDFs; ask if you want them kept."
+SLURS_LEFT_OUT = "Slurs are not read, because they are often misread from PDFs."
 SHOWN = 4
 _LENGTH = {"whole": 4, "half": 2, "quarter": 1, "eighth": Fraction(1, 2),
            "16th": Fraction(1, 4), "32nd": Fraction(1, 8), "64th": Fraction(1, 16)}
@@ -84,7 +84,7 @@ LOW_RESOLUTION_WARNING = ("This scan is too small to read well, so expect many m
                           "not shaded. A sharper scan will read much better.")
 
 
-def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool, spots=None, low_resolution: bool = False,
+def notice(score: bytes, scan: bool, skipped: list[int], spots=None, low_resolution: bool = False,
            opening: str = CHECK) -> str:
     text = opening + (" " + SCAN_WARNING if scan else "") + (" " + LOW_RESOLUTION_WARNING if low_resolution else "")
     if skipped:
@@ -97,7 +97,7 @@ def notice(score: bytes, scan: bool, skipped: list[int], slurs_kept: bool, spots
         verb = "looks" if len(uneven) == 1 else "look"
         who = f"The shaded bars ({_numbers(uneven)[5:]})" if len(uneven) > SHOWN else f"{_numbers(uneven)} (shaded)"
         text += f" {who} {verb} misread: the beats don't add up, or notes that should line up don't."
-    return text + ("" if slurs_kept else " " + SLURS_LEFT_OUT)
+    return text + " " + SLURS_LEFT_OUT
 
 
 def _numbers(bars: list[int]) -> str:
