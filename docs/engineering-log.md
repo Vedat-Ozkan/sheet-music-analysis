@@ -2573,6 +2573,10 @@ Pitch accuracy, leaving out Bach: at 10.5 and above, 0.89-0.99, within 7 points 
 
 **Checks.** `tests/test_chatgpt_flow.py`: a suggestion is logged trimmed; empty and over-long ones are refused; only the card can call it; the held v2 cards do not have it. The real `server/card.html` was drawn in a headless browser as ChatGPT (light, dark) and Claude (light, dark) before a tap, typed, sent and could-not-send, and looked at full size. Staging, 2026-11-09, driven in the owner's browser: in ChatGPT (app "sheet-music-staging") the first send showed "could not be sent" and no call reached the server, because ChatGPT keeps the tool list from when the app was last refreshed; after "Refresh tools" in the app's settings the send arrived (log line with the text, `platform` chatgpt and a user code). In Claude (a custom connector to the staging address) the send arrived with `platform` claude and no user code. After sending, the card left a tall empty space in Claude: it reported `documentElement.scrollHeight`, which never drops below the frame's current height, so the card could grow but never shrink. It now reports `body.offsetHeight`, as the player card already did.
 
+### 141. Plugin 1.10.1: the readme says 30 days (2026-11-09)
+
+The built plugin's readme (`dist/sheet-music-analysis/README.md`, from `plugin/README.md`) still said scores are kept one day after entry 138 moved storage to 30 days. Rebuilt with `tools/build_skill.py`; version 1.10.1. No other change.
+
 ### 142. Limits on new scores, per day and per person; PDFs always read without slurs; Claude Desktop card wording (2026-11-09, branch `upload-limits`)
 
 **Problem.** The Claude upload card (log 134) and Claude's link fetching store a file before any analysis, and nothing counted them; with 30-day storage (138) nothing bounded what could pile up. In ChatGPT, `draft_analysis` stored an attached score before checking its limit. The daily `draft` limit (100) dated from 2026-10-06, when the draft model was the costly step; it is parked since 2026-11-07. Nothing limited one person from using up everyone's daily allowance.
