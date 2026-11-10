@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from engine import notes as note_list
 from engine.performance import marked_index, performance_text
 from server import app
 
@@ -40,9 +41,39 @@ def test_an_unknown_score_id_says_scores_are_kept_for_30_days(local_store):
     assert result.is_error and "scores are kept for 30 days" in result.content[0].text
 
 
-def test_only_claude_is_offered_the_player():
-    assert "play" in listed_for("Claude-User")
-    assert "play" not in listed_for("openai-mcp/1.0.0")
+def test_only_claude_is_offered_the_player_and_the_old_plugins_note_list_tool():
+    assert {"play", "draft_from_notes"} <= listed_for("Claude-User")
+    assert not {"play", "draft_from_notes"} & listed_for("openai-mcp/1.0.0")
+
+
+def test_an_old_plugins_note_list_gets_no_draft_and_a_play_id_for_the_same_passage(local_store):
+    sent = note_list.encode(marked_index(CHOPIN.read_bytes()), 1, 8)
+    result = call(app.draft_from_notes, notes=sent, student_analysis="m1 I, m2 V7/ii")
+    text = result.content[0].text
+    assert not result.is_error and text.startswith(app.NOTES_FROM_LIST)
+    assert "| Eb: I |" in text and "| Eb: V7/ii |" in text
+    played = call(app.play, play_id=text.split("play_id ")[1].split()[0])
+    assert played.structured_content == {"performance": performance_text(note_list.decode(sent))}
+
+
+def test_a_numeral_the_note_list_has_no_beat_for_is_a_question_and_not_charged(local_store):
+    sent = note_list.encode(marked_index(CHOPIN.read_bytes()), 1, 8)
+    result = call(app.draft_from_notes, notes=sent, student_analysis="m1 b9 I")
+    assert result.is_error and result.content[0].text.startswith(app.QUESTION_FOR_USER + "Bar 1 has 4 beats")
+    assert app.store.get(f"usage/{app.today()}.json") is None
+    assert not call(app.draft_from_notes, notes=sent, student_analysis="m1 b4 I").is_error
+    assert app.store.get(f"usage/{app.today()}.json") is not None
+
+
+def test_a_note_list_plays_without_a_draft(local_store):
+    sent = note_list.encode(marked_index(CHOPIN.read_bytes()), 1, 8)
+    result = call(app.play, notes=sent)
+    assert result.structured_content["performance"].startswith("P1 v55 ")
+
+
+def test_an_unknown_play_id_explains_what_to_pass(local_store):
+    result = call(app.play, play_id="NOPE00")
+    assert result.is_error and "they are kept for 30 days. Call draft_from_notes again, or pass the note list as notes" in result.content[0].text
 
 
 def a_bar_marked(word: str, time: str) -> bytes:
