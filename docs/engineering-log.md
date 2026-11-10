@@ -2675,6 +2675,18 @@ The old check called Chopin's bar 2 beat 3 "agrees" because the model's ii start
 
 **The old plugin's tools kept, without a draft.** Entry 143 retired `draft_from_notes` and `play` by `play_id` or note list. Before release, the production logs still showed `draft_from_notes` calls up to 2026-11-02 (two on each of 2026-10-27, 2026-11-01 and 2026-11-02, three on 2026-10-30), so the two quiet weeks the owner set for removal end on 2026-11-16 at the earliest. The Claude directory listing also still exposes only `draft_from_notes` until the plugin 1.9.0 listing is approved. The owner chose to keep both tools rather than hold the release. `draft_from_notes` keeps its name, description and inputs, and now returns what the analysis tool returns for a score without the model: a line telling the chat model to analyse from the note list it sent, the part-writing check and the student check, then the `play_id`. It reads the note list and the student's numerals before counting the score against the day's limits, so a question about a numeral costs nothing. `play` takes `play_id` and `notes` again. Both stay until the logs are quiet for two weeks and the new listing is live.
 
+### 145. Releases of 2026-11-09 and 2026-11-10
+
+**2026-11-09.** PRs #10 and #11 merged to `main` (`7243eb2`, `ed394dd`), CI green, production revision `sheet-music-analysis-00057-bnh`: entries 137 to 141 (PDFs of any length, 30-day storage, the scan-resolution warning, "Suggest something", plugin 1.10.1).
+
+**2026-11-10.** PR #12 merged to `main` as `a3429eb`, CI green, production revision `sheet-music-analysis-00058-lxg` (rollback target `00057-bnh`): entries 142 to 144 (limits on new scores, PDFs read without slurs, the draft model removed, the student check rebuilt, the old plugin's tools kept without a draft). The Worker secret `ADDRESS_SALT` was set and both Workers (the MCP proxy and the site) published.
+
+**After the deploy.** No errors on `00058-lxg`. Its warnings in the first day are 404s and a 405 from clients probing the run.app address for sign-in metadata (`/.well-known/oauth-*`, `openid-configuration`, a GET on `/mcp`) and one `draft_analysis user_error`. Claude's tool list includes `draft_from_notes` and `play` with `play_id` and `notes`; ChatGPT's tool list is unchanged; `mcp.sheetmusicanalysis.com` and the site answer 200.
+
+### 146. Plugin 1.10.2: the readme and skill without the draft model (2026-11-10)
+
+The built plugin still described the draft model removed in entry 143: the skill told Claude to check a neural model's draft, and the readme credited the model and said Claude corrects a draft. Its readme also still said a PDF is read only if it has at most 12 pages, which entry 137 ended; `plugin/README.md` now says the first 8 pages are read. Rebuilt with `tools/build_skill.py`; version 1.10.2. `tests/test_skill_build.py` passes.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
