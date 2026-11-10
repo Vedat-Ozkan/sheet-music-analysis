@@ -18,7 +18,7 @@ RUN curl -fL -o /tmp/audiveris.deb https://github.com/Audiveris/audiveris/releas
  && dpkg-deb -x /tmp/audiveris.deb /audiveris && rm /tmp/audiveris.deb
 # Our fixes to it (tuplets sharing a beam, crashes that lost pages and bars; log 35), built from
 # https://github.com/Vedat-Ozkan/audiveris branch sma-pitch as its licence (AGPL-3.0) requires.
-RUN curl -fL -o /audiveris/opt/audiveris/lib/app/audiveris.jar https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.7/audiveris.jar \
+RUN curl -fL -o /audiveris/opt/audiveris/lib/app/audiveris.jar https://github.com/Vedat-Ozkan/audiveris/releases/download/5.11.0-sma.8/audiveris.jar \
  && echo "f8221a281f59c52114583a9c6582c41b6e78c5815871f8202832902c0a82dfb6  /audiveris/opt/audiveris/lib/app/audiveris.jar" | sha256sum -c
 
 RUN mkdir /audiveris/opt/audiveris/tessdata \
