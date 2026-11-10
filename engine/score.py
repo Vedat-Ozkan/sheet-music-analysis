@@ -98,6 +98,10 @@ class Measure:
     def beat_of(self, offset: Fraction) -> float:
         return float(offset / self.beat_length + 1)
 
+    @property
+    def beat_count(self) -> int:
+        return int(self.length / self.beat_length + Fraction(95, 96)) if self.length else 0
+
 
 def normalise_pitch(pitch: str) -> str:
     return pitch[0].upper() + pitch[1:].replace("-", "b")

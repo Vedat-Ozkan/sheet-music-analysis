@@ -24,8 +24,7 @@ def describe_key_signature(signature: str) -> str:
 def _beat_rows(measure: Measure) -> list[str]:
     notes = [event for event in measure.events if event.pitch and not event.grace]
     rows = []
-    beats = int(measure.length / measure.beat_length + Fraction(95, 96)) if measure.length else 0
-    for number in range(beats):
+    for number in range(measure.beat_count):
         start, end = number * measure.beat_length, (number + 1) * measure.beat_length
         starting = [event for event in notes if start <= event.onset < end]
         held = [event for event in notes if event.onset < start < event.onset + event.duration]

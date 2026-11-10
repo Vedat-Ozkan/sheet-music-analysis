@@ -138,14 +138,15 @@ def from_text(text: str, default_key: str | None = None, index: ScoreIndex | Non
         raise ClarificationNeeded('Multiple unaddressed keys', 'Where does the key change occur (bar and beat)?')
     if initial_keys:
         key = next(iter(initial_keys))
-    labels, measure, beat = [], None, 1.0
+    labels, measure, beat, placed = [], None, 1.0, True
+    unplaced_bars = {}
     for position, token in enumerate(tokens):
         kind, value = token.lastgroup, token.group()
         if kind == 'bar':
             address = re.search(r'(\d+)(?:\.(\d+(?:\.\d+)?))?$', value)
-            measure, beat = int(address[1]), float(address[2] or 1)
+            measure, beat, placed = int(address[1]), float(address[2] or 1), bool(address[2])
         elif kind == 'beat':
-            beat = float(re.search(r'\d+(?:\.\d+)?$', value)[0])
+            beat, placed = float(re.search(r'\d+(?:\.\d+)?$', value)[0]), True
         elif kind in ('key', 'shortkey'):
             key = _key(re.sub(r'^(?:key\s*:?|in)\s*', '', value, flags=re.I).rstrip(':'))
         else:
@@ -162,8 +163,25 @@ def from_text(text: str, default_key: str | None = None, index: ScoreIndex | Non
                 raise ValueError(f"Beat must be at least 1 in bar {measure}")
             in_key = key or (_signature_key(_measure(index, measure, value)) if index else 'C')
             labels.append(Label(measure, beat, in_key, _figure(value, in_key)))
-            beat += 1
+            unplaced_bars.setdefault(measure, []).append(placed)
+            beat, placed = beat + 1, False
+    if index:
+        for number, given in unplaced_bars.items():
+            _check_one_per_beat(index, number, given, [label.figure for label in labels if label.measure == number])
     return _finish(labels, index)
+
+
+def _check_one_per_beat(index: ScoreIndex, number: int, given: list[bool], figures: list[str]) -> None:
+    if len(given) < 2 or all(given[1:]):
+        return
+    measure = _measure(index, number, figures[0])
+    beats = measure.beat_count
+    if not any(given) and len(given) == beats:
+        return
+    meter = f' ({measure.meter} time)' if measure.meter else ''
+    raise ClarificationNeeded(
+        f'Beats not given for {len(given)} numerals in bar {number}',
+        f'Bar {number} has {beats} beat{"" if beats == 1 else "s"}{meter}. Which beat is each of {", ".join(figures)} on?')
 
 
 def _xml_key(element: ET.Element) -> str:

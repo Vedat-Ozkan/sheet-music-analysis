@@ -320,6 +320,21 @@ def test_a_numeral_on_a_beat_the_bar_lacks_is_asked_about_and_the_answer_is_not_
     assert charged(server, "score") == 1
 
 
+
+def test_two_numerals_in_a_four_beat_bar_without_beats_are_asked_about(server, monkeypatch):
+    async def nocturne(url):
+        return NOCTURNE
+
+    monkeypatch.setattr(app, "download", nocturne)
+    asked = call("draft_analysis", {"score_file": ATTACHED["pdf_file"], "measure_range": "1-2",
+                                    "student_analysis": "m1 I, m2 ii V"})
+    assert asked.is_error and text_of(asked).startswith(
+        app.QUESTION_FOR_USER + "Bar 2 has 4 beats (12/8 time). Which beat is each of ii, V on?")
+    answered = call("draft_analysis", {"score_id": score_id_of(asked), "measure_range": "1-2",
+                                       "student_analysis": "m1 I, m2 beat 1 ii, m2 beat 3 V"})
+    assert not answered.is_error and "| Eb: I |" in text_of(answered)
+    assert charged(server, "score") == 1
+
 def report_of(result):
     return (result.meta or {}).get("report")
 

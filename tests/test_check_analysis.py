@@ -218,3 +218,9 @@ def test_a_beat_typed_as_the_table_prints_it_matches_a_label_on_a_triplet():
     student = check.from_text('m1 b1 I m1 b2.33 V', index=triplet)
     results = check.compare_labels(student, [Label(1, 1.0, 'C', 'I'), Label(1, 7 / 3, 'C', 'V')], triplet)
     assert [result['classification'] for result in results] == ['agrees', 'agrees']
+
+def test_staging_chat_numerals_as_the_student_typed_them():
+    score = (ROOT / 'tests/data/export-mozart-k458.musicxml').read_bytes()
+    index = ScoreIndex(load_toolkit(score).getMEI())
+    labels = check.student_labels('m1 I, m2 V6, m3 I, m4 IV V', score, index)
+    assert [(label.measure, label.beat, label.figure) for label in labels][-2:] == [(4, 1.0, 'IV'), (4, 2.0, 'V')]

@@ -162,6 +162,23 @@ def test_student_numerals_outside_the_score_ask(name):
 
 
 @score_ids
+def test_student_numerals_without_beats_one_per_beat_or_ask(name):
+    data, index = load(name)
+    for measure in index.measures:
+        beats = int(measure.length / measure.beat_length + Fraction(95, 96))
+        bar = f"m{measure.number} "
+        if beats >= 2:
+            placed = student_labels(bar + " ".join(["I"] * beats), data, index)
+            assert [label.beat for label in placed] == list(range(1, beats + 1))
+        unclear = [bar + " ".join(["I"] * (beats + 1)), bar + "b2 I V"]
+        if beats >= 3:
+            unclear.append(bar + " ".join(["I"] * (beats - 1)))
+        for text in unclear:
+            with pytest.raises(ClarificationNeeded, match="Which beat"):
+                student_labels(text, data, index)
+
+
+@score_ids
 def test_note_list_keeps_every_bar_key(name):
     _, index = load(name)
     decoded = notes.decode(notes.encode(index))
