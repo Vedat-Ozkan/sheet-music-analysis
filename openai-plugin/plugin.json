@@ -124,7 +124,7 @@
         "commerce": false
       },
       "publication": {
-        "release_notes": "Every card now has a \"Suggest something\" button, so you can send us ideas or problems straight from the chat.\nA PDF of any length is now accepted; the first 8 pages are read.\nA scan too small to read well now always comes with a warning that many mistakes are likely."
+        "release_notes": "Every card now has a \"Suggest something\" button, so you can send us ideas or problems straight from the chat.\nA PDF of any length is now accepted; the first 8 pages are read.\nA scan too small to read well now always comes with a warning that many mistakes are likely.\nWhen you ask it to check your own Roman numerals, each one is now tested against the notes in its beat, in the key of the piece."
       }
     }
   }
