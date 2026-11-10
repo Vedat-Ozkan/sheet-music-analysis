@@ -8,7 +8,7 @@ import pytest
 from engine import correct, notes, piano, reduce
 from engine.annotate import render
 from engine.annotations import AnnotationList
-from engine.check_analysis import ClarificationNeeded, from_text
+from engine.check_analysis import ClarificationNeeded, from_text, student_labels
 from engine.check_analysis import as_text as student_check
 from engine.export import _document, export_musicxml
 from engine.part_writing import applies, as_text, check
@@ -114,6 +114,36 @@ def test_student_check_finds_the_notes_of_every_beat(name):
     rows = [line for line in student_check(labels, index).splitlines() if re.match(r"m\d", line)]
     assert len(rows) == len(labels) == len(set(beats))
     assert all((row.split(" | ")[2] == "rest") == row.endswith("no notes in this beat") for row in rows)
+
+
+SIGNATURE_KEYS = {
+    "pickup-repeat-split": "D", "key-change-tuplets": "A", "compound-6-8-grace": "Bb", "compound-9-8": "Db",
+    "tuplets-6-8": "F", "tuplets-4-4": "Eb", "grace-mixed-meter": "Eb", "cross-staff": "A", "two-parts": "C",
+    "four-parts-pickup": "C", "pdf-reading-prelude": "G", "pdf-reading-overrun": "Ab",
+}
+
+
+@score_ids
+def test_student_numerals_without_a_key_follow_the_key_signature(name):
+    data, index = load(name)
+    labels = student_labels(" ".join(f"m{measure.number} I" for measure in index.measures), data, index)
+    assert {label.key for label in labels} == {SIGNATURE_KEYS[name]}
+
+
+def test_student_numerals_without_a_key_follow_a_change_of_key_signature():
+    data = (DATA / "ravel-oiseaux-tristes-scan-verovio-crashed-beam-setting0.mxl").read_bytes()
+    index = ScoreIndex(load_toolkit(data).getMEI())
+    assert [label.key for label in student_labels("m3 I m4 I", data, index)] == ["Bb", "Gb"]
+
+
+@score_ids
+def test_student_numerals_outside_the_score_ask(name):
+    data, index = load(name)
+    last = index.measures[-1]
+    beats = int(last.length / last.beat_length + Fraction(95, 96))
+    for text in (f"m{last.number} b{beats + 1} I", f"m{last.number + 1} I", f"m{index.measures[0].number - 1} I"):
+        with pytest.raises(ClarificationNeeded):
+            student_labels(text, data, index)
 
 
 @score_ids

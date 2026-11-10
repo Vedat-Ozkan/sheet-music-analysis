@@ -12,7 +12,7 @@ from music21 import roman
 
 from engine.comparison import Label, from_annotations, matches, sounding
 from engine.reduce import midi
-from engine.score import ScoreIndex, beat_length
+from engine.score import Measure, PositionError, ScoreIndex, beat_length
 
 KEY_NAME = r"[A-Ga-g][#b♯♭-]*(?:\s+(?:major|minor|maj|min))?"
 ROMAN = re.compile(r"[#b-]*(?:VII|III|VI|IV|II|V|I|vii|iii|vi|iv|ii|v|i)(?:o|ø|\+)?M?(?:753|53|65|64|43|42|13|11|9|7|6|2)?")
@@ -78,12 +78,35 @@ def _figure(text: str, key: str) -> str:
     return figure
 
 
+def _measure(index: ScoreIndex, number: int, figure: str) -> Measure:
+    try:
+        return index.measure(number)
+    except PositionError as error:
+        first, last = index.measures[0].number, index.measures[-1].number
+        raise ClarificationNeeded(str(error), f'The score has bars {first} to {last}. Which bar did you mean for {figure}?') from error
+
+
+def _placed(index: ScoreIndex, label: Label) -> Label:
+    measure = _measure(index, label.measure, label.figure)
+    try:
+        return replace(label, beat=measure.beat_of(measure.offset_of(label.beat)))
+    except PositionError as error:
+        beats = round(float(measure.length / measure.beat_length), 2)
+        meter = f' ({measure.meter} time)' if measure.meter else ''
+        raise ClarificationNeeded(str(error), f'Bar {label.measure} has {beats:g} beat{"" if beats == 1 else "s"}{meter}, so there is no beat {label.beat:g}. Which beat did you mean for {label.figure}?') from error
+
+
+def _signature_key(measure: Measure) -> str:
+    signature = measure.key_signature
+    sharps = int(signature[:-1]) * (1 if signature.endswith('s') else -1) if signature[:-1] else 0
+    return m21key.KeySignature(sharps).asKey('major').tonic.name.replace('-', 'b')
+
+
 def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
     found = {}
     for label in labels:
         if index:
-            measure = index.measure(label.measure)
-            label = replace(label, beat=measure.beat_of(measure.offset_of(label.beat)))
+            label = _placed(index, label)
         position = (label.measure, label.beat)
         if position in found and found[position] != label:
             raise ClarificationNeeded(f"Conflicting labels at bar {label.measure} beat {round(label.beat, 2):g}", f'Which label belongs at bar {label.measure} beat {round(label.beat, 2):g}: {found[position].figure} or {label.figure}?')
@@ -93,14 +116,14 @@ def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
     return sorted(found.values(), key=lambda label: (label.measure, label.beat))
 
 
-def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None) -> list[Label]:
+def from_text(text: str, default_key: str | None = None, index: ScoreIndex | None = None) -> list[Label]:
     text = text.translate(SCRIPT_DIGITS)
     text = re.sub(r'(?:\s+/\s*|\s*/\s+)(?=[#b-]*[ivIV])', '/\0', text)
     text = re.sub(r'\s*/\s*', '/', text)
     text = re.sub(r'\bCad\s*6\s*[-–—]\s*4', 'Cad64', text, flags=re.IGNORECASE)
     text = re.sub(r'(?<=\S)\s+[-–—]\s+(?=\S)', ' ', text)
     tokens = list(TOKEN.finditer(text))
-    key = _key(default_key)
+    key = _key(default_key) if default_key else None
     initial_keys = set()
     kinds = [t.lastgroup for t in tokens]
     unaddressed = [i for i, k in enumerate(kinds) if k in ('key', 'shortkey') and not (i > 0 and kinds[i - 1] in ('bar', 'beat'))]
@@ -137,7 +160,8 @@ def from_text(text: str, default_key: str = 'C', index: ScoreIndex | None = None
                 raise ClarificationNeeded(f"Give a bar number before {value!r}", 'Which bar and beat does each numeral belong to?')
             if beat < 1:
                 raise ValueError(f"Beat must be at least 1 in bar {measure}")
-            labels.append(Label(measure, beat, key, _figure(value, key)))
+            in_key = key or (_signature_key(_measure(index, measure, value)) if index else 'C')
+            labels.append(Label(measure, beat, in_key, _figure(value, in_key)))
             beat += 1
     return _finish(labels, index)
 
@@ -389,7 +413,9 @@ def as_text(student: list[Label], index: ScoreIndex) -> str:
         "cannot tell a passing note from a chord tone or say whether the key is right. Make your own analysis from the "
         "NOTES table and compare it with theirs. Start with what the student got right. Explain every difference in "
         "terms of the notes: the bass, and which notes are there or missing. When both readings are defensible, say so "
-        "plainly instead of calling the student wrong.",
+        "plainly instead of calling the student wrong. Numerals typed without a key are read in the major key of the "
+        "key signature, shown before each numeral; if the music is in the minor, call again with the key before the "
+        "numerals, as in \"g: m1 i\".",
         "",
         "measure beat | student | bass heard | notes heard, low to high | their numeral's notes, bass first | "
         "chord notes not heard | other notes heard | fit",

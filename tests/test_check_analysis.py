@@ -92,6 +92,18 @@ def test_bad_position(bach):
         check.from_text('bar 1 beat 4 I', index=bach)
 
 
+def test_staging_chat_numerals_in_six_eight():
+    score = (ROOT / 'tests/data/export-mozart-k458.musicxml').read_bytes()
+    index = ScoreIndex(load_toolkit(score).getMEI())
+    with pytest.raises(check.ClarificationNeeded, match='Bar 4 has 2 beats'):
+        check.student_labels('m1 I, m2 V6, m3 I, m4 beat 1 IV, m4 beat 3 V', score, index)
+    rows = check.as_text(check.student_labels('m1 I, m2 V6, m3 I, m4 beat 1 IV, m4 beat 2 V', score, index), index)
+    fits = {row.split(' | ')[0]: row.split(' | ')[-1] for row in rows.splitlines() if row.startswith('m')}
+    assert '| Bb: I |' in rows
+    assert fits['m1 b1'] == fits['m4 b2'] == 'fits'
+    assert fits['m2 b1'] == "doesn't fit the notes"
+
+
 def test_reference_sustain_and_key_precedence(bach):
     reviewed = {'annotations': [{'type': 'harmony', 'at': {'measure': 1}, 'key': 'G', 'label': 'I'}]}
     result = check.compare(check.from_text('bar 2 beat 2 I; bar 3 in D: IV', default_key='G'), reviewed, bach)

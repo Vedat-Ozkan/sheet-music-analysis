@@ -1464,6 +1464,7 @@ async def draft_analysis(
     """measure_range limits the table, e.g. "1-8"; the default "all" returns the whole piece."""
     source = platform(ctx)
     started = time.time()
+    code = None
     try:
         score, given = await resolve_score(score_file, score_id, source)
         measures = parse_measures(measure_range)
@@ -1479,7 +1480,8 @@ async def draft_analysis(
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)
         text = await in_turn(make_draft, score, code, measures, student_analysis)
     except check_analysis.ClarificationNeeded as error:
-        return error_result(QUESTION_FOR_USER + error.question)
+        kept = f"\nThe score is saved as score_id: {code}. Call again with it and the user's answer." if code else ""
+        return error_result(QUESTION_FOR_USER + error.question + kept)
     except (ScoreError, PositionError, ValueError, httpx.HTTPError) as error:
         log("draft_analysis", platform=source, error=type(error).__name__, outcome="user_error")
         return error_result(str(error))

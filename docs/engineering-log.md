@@ -2643,6 +2643,30 @@ The old check called Chopin's bar 2 beat 3 "agrees" because the model's ii start
 
 **Checks.** End-to-end through `draft_analysis` on the Chopin score: a label that fits, one in a different inversion and one that doesn't fit, with the exact notes in each row; a corpus check in `tests/test_awkward.py` puts a numeral on every beat of every awkward score and gets one row per label. The part-writing tests now pass without the model, including the planted errors. `tools/diff_check.py --base HEAD typed partwriting`: 191 and 80 inputs unchanged.
 
+### 144. Student check: numerals typed without a key, and numerals on a beat the bar lacks (2026-11-09, branch `remove-model`, not released)
+
+**Found by the staging test of entry 143** (revision 00102-tz4, claude.ai with the staging connector, Mozart K. 458 first movement, 6/8, two flats). The test typed "check my numerals for bars 1-4: I | V6 | I | IV V". Claude sent `m1 I, m2 V6, m3 I, m4 beat 1 IV, m4 beat 3 V`. Two faults, each enough to lose the check:
+
+1. **Beat 3 of a 6/8 bar.** A 6/8 bar has two beats. The label's position raised `PositionError` inside the student check; the draft's section guard treats any exception there as an internal fault, logged it as `degraded` (`section_error: student_check: PositionError`) and left the section out. The chat got the notes table with no check and no word why; Claude analysed the bars itself, so the answer looked fine and nobody would have noticed. The early text check runs before the score is read, so it cannot see the bar's length.
+2. **No key typed.** Numerals with no key were read in C major whatever the score. Run by hand with the beat corrected, every label in this B-flat piece came out "doesn't fit the notes", including the student's correct `I` in bar 1 and `V` in bar 4.
+
+**Fix.**
+- A numeral on a bar the score lacks or a beat the bar lacks is now a question for the user, returned like the other unreadable-numeral questions: "Bar 4 has 2 beats (6/8 time), so there is no beat 3. Which beat did you mean for V?" or "The score has bars 0 to 9. Which bar did you mean for I?". This covers the typed path and the numerals-in-the-score path, which share the same placing step.
+- Numerals typed without a key are read in the major key of the key signature in force at each label's bar (the owner chose this over asking the student or guessing major or minor from the notes; a key signature alone cannot tell B-flat major from G minor, and the scores' own mode markings are missing or contradictory in most of `tests/data`). The key is printed before each numeral, and the check's instructions tell the chat model to call again with the key when the music is in the minor. A key the student types still wins from where it is typed. Without a score (the early text check) the default stays C, as before; it only validates the numerals there.
+- When such a question comes back for a score uploaded in the same call, the score is already stored and counted against the day's limits. The question now carries its `score_id`, so the answer is not charged as a second new score. This was already true of the one older question raised after the score is read (two different numerals on the same beat).
+
+**Before and after** (the student's numerals, beat corrected to 2, bars 1-4):
+
+| Label | Before | After |
+|---|---|---|
+| m1 `I` | read as C: I, doesn't fit | B-flat: I, fits |
+| m2 `V6` | C: V6, doesn't fit | B-flat: V6, doesn't fit (the bass is B-flat, not A) |
+| m3 `I` | C: I, doesn't fit | B-flat: I, doesn't fit (a C minor chord) |
+| m4 `IV` | C: IV, doesn't fit | B-flat: IV, doesn't fit (B-flat D F) |
+| m4 b2 `V` | C: V, doesn't fit | B-flat: V, fits |
+
+**Checks.** Two corpus checks in `tests/test_awkward.py`, written first and failing on 22 of 24 cases (the two that passed are in C): on every awkward score, an unkeyed `I` in every bar is read in that bar's signature key, and a numeral one beat past the last bar's end, one bar after the last or one before the first is a question; on the Ravel scan, whose signature changes at bar 4, bar 3 is read in B-flat and bar 4 in G-flat. The staging chat's exact input as a test (`tests/test_check_analysis.py`), and an end-to-end run through the MCP tool: a new upload with a numeral on beat 5 of a 12/8 bar gets the question with a `score_id`, the answer with that `score_id` gets the check, and one score is charged. `tools/diff_check.py --base HEAD typed`: 191 inputs unchanged.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
