@@ -11,7 +11,7 @@ import pytest
 from mcp.client.client import Client
 from PIL import Image
 
-from engine import draft, tint
+from engine import tint
 from engine.annotate import render
 from engine import read_pdf as pdf_reader
 from server import app
@@ -87,18 +87,6 @@ def test_a_request_turned_away_before_any_work_is_not_charged(server):
     result = call("render_analysis", {"score_id": "NOSUCHSCORE", "annotations": {"annotations": []}})
     assert result.is_error and "No score has the id" in text_of(result)
     assert charged(server, "render") == 0
-
-
-def test_when_the_draft_model_fails_the_notes_table_still_comes_back(server, monkeypatch):
-    monkeypatch.setattr(app, "SEND_DRAFT", True)
-    def broken(*args):
-        raise draft.DraftError("AnalysisGNN failed: injected")
-
-    monkeypatch.setitem(app.draft.MODELS, "analysisgnn", broken)
-    score_id = score_id_of(call("read_pdf", ATTACHED))
-    result = call("draft_analysis", {"score_id": score_id, "measure_range": "1-4"})
-    assert not result.is_error
-    assert "DRAFT UNAVAILABLE" in text_of(result) and "NOTES (one row per beat" in text_of(result)
 
 
 def test_a_failed_correction_shows_the_bars_as_they_are_now(server):
@@ -186,19 +174,6 @@ def test_a_crash_while_reading_a_pdf_is_a_server_error_with_the_reference_the_us
     assert f"reference {calls[-1]['reference']}" in text_of(result)
 
 
-def test_a_failed_draft_model_is_logged_as_degraded(server, monkeypatch, capsys):
-    monkeypatch.setattr(app, "SEND_DRAFT", True)
-    def broken(*args):
-        raise draft.DraftError("AnalysisGNN failed: injected")
-
-    monkeypatch.setitem(app.draft.MODELS, "analysisgnn", broken)
-    score_id = score_id_of(call("read_pdf", ATTACHED))
-    capsys.readouterr()
-    call("draft_analysis", {"score_id": score_id, "measure_range": "1-4"})
-    line = logged(capsys, "draft_analysis")[-1]
-    assert line["outcome"] == "degraded" and line["severity"] == "ERROR"
-
-
 def test_a_long_pdf_reads_its_first_pages_and_says_which(server, monkeypatch):
     pages_read = []
 
@@ -227,7 +202,6 @@ def test_a_long_pdf_reads_its_first_pages_and_says_which(server, monkeypatch):
     assert charged(server, "pdf_page") == pdf_reader.READ_PAGES
 
 
-@pytest.mark.xdist_group("draft_model")
 def test_a_whole_score_draft_shows_the_drawing_format_before_the_long_tables(server):
     score_id = score_id_of(call("read_pdf", ATTACHED))
     text = text_of(call("draft_analysis", {"score_id": score_id}))
@@ -264,13 +238,11 @@ def test_a_drawing_with_no_marks_says_so_first_and_skips_the_extra_downloads(ser
     assert "worksheet" not in text_of(result).lower()
 
 
-@pytest.mark.xdist_group("draft_model")
-def test_a_whole_score_draft_gives_its_instructions_before_the_chords_and_the_notes_last(server, monkeypatch):
-    monkeypatch.setattr(app, "SEND_DRAFT", True)
+def test_a_whole_score_draft_gives_its_instructions_before_the_method_and_the_notes_last(server):
     score_id = score_id_of(call("read_pdf", ATTACHED))
     text = text_of(call("draft_analysis", {"score_id": score_id}))
-    assert text.index("HOW TO USE THIS DRAFT") < 1000
-    assert text.index("HOW TO USE THIS DRAFT") < text.index("CHORDS:") < text.index("## Method") < text.index("NOTES (one row")
+    assert text.index("HOW TO ANALYSE THIS SCORE") < 1000
+    assert text.index("HOW TO ANALYSE THIS SCORE") < text.index("## Method") < text.index("NOTES (one row")
 
 
 def test_the_worksheet_is_made_when_first_opened_and_the_other_downloads_with_the_drawing(server):
@@ -299,43 +271,53 @@ def test_the_worksheet_is_made_when_first_opened_and_the_other_downloads_with_th
     ("chopin_nocturne_op9_no2.mxl", 'for the whole piece pass measure_range "all"'),
     ("piano/dvorak-9-2.mxl", "passages of at most 80 bars"),
 ])
-def test_the_draft_says_whether_the_whole_score_can_be_drawn_in_one_call(server, monkeypatch, name, plan):
-    def unavailable(*args):
-        raise draft.DraftError("not needed here")
-
-    monkeypatch.setitem(app.draft.MODELS, "analysisgnn", unavailable)
+def test_the_draft_says_whether_the_whole_score_can_be_drawn_in_one_call(server, name, plan):
     text = app.make_draft((DATA / name).read_bytes(), "PLAN", None)
     assert plan in text[:1000]
 
 
-def test_with_the_draft_parked_an_ordinary_score_gets_the_notes_without_starting_the_model(server, monkeypatch, capsys):
-    def must_not_run(*args):
-        raise AssertionError("the draft model was started")
-
-    monkeypatch.setitem(app.draft.MODELS, "analysisgnn", must_not_run)
+def test_an_ordinary_score_gets_the_notes_table_and_no_mention_of_a_draft(server):
     score_id = score_id_of(call("read_pdf", ATTACHED))
-    capsys.readouterr()
     result = call("draft_analysis", {"score_id": score_id, "measure_range": "1-4"})
     text = text_of(result)
-    assert not result.is_error
-    assert "No automatic draft analysis" in text and "NOTES (one row per beat" in text
-    assert "Draft analysis from" not in text and "DRAFT UNAVAILABLE" not in text and "HOW TO USE THIS DRAFT" not in text
-    assert logged(capsys, "draft_analysis")[-1]["draft_sent"] is False
+    assert not result.is_error and "NOTES (one row per beat" in text
+    assert "draft" not in text.split("NOTES (one row", 1)[0].lower().replace("draft_analysis", "")
 
 
-def test_with_the_draft_parked_a_score_is_charged_once_however_many_calls_ask_about_it(server, monkeypatch):
+def test_a_score_is_charged_once_however_many_calls_ask_about_it(server):
     score_id = score_id_of(call("read_pdf", ATTACHED))
     for bars in ("1-4", "5-8", "1-8"):
         assert not call("draft_analysis", {"score_id": score_id, "measure_range": bars}).is_error
-    assert charged(server, "draft") == 1
+    assert not call("read_pdf", ATTACHED).is_error
+    assert charged(server, "score") == 1
 
 
-def test_the_sent_draft_is_logged(server, capsys, monkeypatch):
-    monkeypatch.setattr(app, "SEND_DRAFT", True)
-    score_id = score_id_of(call("read_pdf", ATTACHED))
-    capsys.readouterr()
-    assert "Draft analysis from" in text_of(call("draft_analysis", {"score_id": score_id, "measure_range": "1-4"}))
-    assert logged(capsys, "draft_analysis")[-1]["draft_sent"] is True
+def test_one_chatgpt_account_gets_its_own_daily_limit_of_new_scores(server, monkeypatch):
+    monkeypatch.setattr(app, "PERSON_SCORE_LIMIT", 1)
+    monkeypatch.setattr(app, "caller", lambda: "0123456789abcdef")
+    assert not call("read_pdf", ATTACHED).is_error
+
+    async def nocturne(url):
+        return NOCTURNE
+
+    monkeypatch.setattr(app, "download", nocturne)
+    refused = call("draft_analysis", {"score_file": ATTACHED["pdf_file"]})
+    assert refused.is_error and app.PERSON_LIMIT_MESSAGE in text_of(refused)
+    assert charged(server, "score") == 1
+
+
+def test_a_numeral_on_a_beat_the_bar_lacks_is_asked_about_and_the_answer_is_not_charged_again(server, monkeypatch):
+    async def nocturne(url):
+        return NOCTURNE
+
+    monkeypatch.setattr(app, "download", nocturne)
+    asked = call("draft_analysis", {"score_file": ATTACHED["pdf_file"], "measure_range": "1-2",
+                                    "student_analysis": "m1 I, m2 beat 5 ii"})
+    assert asked.is_error and text_of(asked).startswith(app.QUESTION_FOR_USER + "Bar 2 has 4 beats (12/8 time)")
+    answered = call("draft_analysis", {"score_id": score_id_of(asked), "measure_range": "1-2",
+                                       "student_analysis": "m1 I, m2 beat 4 ii"})
+    assert not answered.is_error and "| Eb: I |" in text_of(answered)
+    assert charged(server, "score") == 1
 
 
 def report_of(result):

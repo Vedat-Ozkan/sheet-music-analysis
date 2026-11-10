@@ -40,12 +40,6 @@ BORROWED = ["out/engraving", "spike/omr/truth"]
 def _borrow() -> None:
     if MAIN == ROOT:
         return
-    for rel, env, default in [
-        (".venv-agnn/bin/python", "ANALYSISGNN_PYTHON", None),
-        ("artifacts/models/model.ckpt", "ANALYSISGNN_CHECKPOINT", None),
-    ]:
-        if not (ROOT / rel).exists() and (MAIN / rel).exists():
-            os.environ.setdefault(env, str(MAIN / rel))
     for rel in BORROWED:
         mine, theirs = ROOT / rel, MAIN / rel
         if not mine.exists() and theirs.exists():
@@ -70,6 +64,6 @@ def pytest_runtest_makereport(item, call):
     report = outcome.get_result()
     if call.excinfo and call.excinfo.errisinstance(FileNotFoundError):
         name = str(getattr(call.excinfo.value, "filename", "") or "")
-        if any(f"/{rel}" in name for rel in BORROWED) or "/.venv-agnn/" in name or "model.ckpt" in name:
+        if any(f"/{rel}" in name for rel in BORROWED):
             report.outcome = "skipped"
             report.longrepr = (str(item.path), item.location[1], f"Skipped: ignored fixture missing everywhere: {name}")

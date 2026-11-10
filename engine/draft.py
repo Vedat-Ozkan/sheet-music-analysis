@@ -6,7 +6,6 @@ import select
 import subprocess
 import tempfile
 import threading
-import time
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from fractions import Fraction
@@ -117,13 +116,9 @@ class _Worker:
             self.process = None
 
     def run(self, source: Path, result: Path) -> None:
-        waiting = time.perf_counter()
         with self.lock:
-            add_timing("gnn_wait", time.perf_counter() - waiting)
             if self.process is None or self.process.poll() is not None:
-                starting = time.perf_counter()
                 self._start()
-                add_timing("gnn_start", time.perf_counter() - starting)
             try:
                 self.process.stdin.write(f"{source}\t{result}\n")
                 self.process.stdin.flush()
@@ -140,7 +135,6 @@ class _Worker:
             status, _, detail = reply.partition(" ")
             if status != "ok":
                 raise DraftError(f"AnalysisGNN failed: {detail}")
-            add_timing("gnn", float(detail))
 
 
 _worker = _Worker()

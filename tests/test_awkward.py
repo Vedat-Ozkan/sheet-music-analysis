@@ -5,10 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from engine import correct, draft, notes, piano, reduce
+from engine import correct, notes, piano, reduce
 from engine.annotate import render
 from engine.annotations import AnnotationList
-from engine.check_analysis import ClarificationNeeded, from_text
+from engine.check_analysis import ClarificationNeeded, from_text, student_labels
+from engine.check_analysis import as_text as student_check
 from engine.export import _document, export_musicxml
 from engine.part_writing import applies, as_text, check
 from engine.performance import marked_index, perform
@@ -31,9 +32,7 @@ SCORES = {
     "pdf-reading-prelude": DATA / "chopin_prelude_op28_no4_reading.musicxml",
     "pdf-reading-overrun": DATA / "awkward" / "kinkel-op8-5-trennung-reading.musicxml",
 }
-KNOWN: dict[tuple[str, str], str] = {
-    ("model_notes", "key-change-tuplets"): "notes in its last bar run past the bar's length, so the model refuses the score",
-}
+KNOWN: dict[tuple[str, str], str] = {}
 
 score_ids = pytest.mark.parametrize("name", list(SCORES))
 
@@ -106,39 +105,61 @@ def test_correct_roundtrip(request, name):
     assert not failures, failures
 
 
-@pytest.mark.xdist_group("draft_model")
 @score_ids
-def test_model_hears_every_note_once(request, name):
-    known(request, "model_notes", name)
+def test_student_check_finds_the_notes_of_every_beat(name):
     _, index = load(name)
-    text = notes.encode(index)
-    expected, held, start = 0, {}, Fraction(0)
-    for measure in notes.decode(text).measures:
-        for event in measure.events:
-            if not event.pitch or event.grace:
-                continue
-            begin = start + event.onset
-            if held.pop((event.staff, event.pitch), None) != begin:
-                expected += 1
-            if event.tied:
-                held[(event.staff, event.pitch)] = begin + event.duration
-        start += measure.length
-    raw = draft.MODELS["analysisgnn"](text.encode(), "notes")
-    assert sum(1 for duration in raw["notes"]["duration"] if duration > 0) == expected
+    beats = [(measure.number, beat) for measure in index.measures
+             for beat in range(1, int(measure.length / measure.beat_length + Fraction(95, 96)) + 1)]
+    labels = from_text(" ".join(f"m{bar} b{beat} I" for bar, beat in beats), index=index)
+    rows = [line for line in student_check(labels, index).splitlines() if re.match(r"m\d", line)]
+    assert len(rows) == len(labels) == len(set(beats))
+    assert all((row.split(" | ")[2] == "rest") == row.endswith("no notes in this beat") for row in rows)
 
 
-
-
-@pytest.mark.xdist_group("draft_model")
 @score_ids
-def test_draft_positions_land_on_notes(request, name):
-    known(request, "model_notes", name)
+def test_student_check_bass_is_the_lowest_note_sounding_as_the_beat_starts(name):
     _, index = load(name)
-    result = draft.draft(index)
-    for item in result.chords + result.cadences + result.non_chord_tones:
-        measure = index.measure(item.measure)
-        assert measure.offset_of(item.beat) in {event.onset for event in measure.events}, (item.measure, item.beat)
-        assert measure.offset_of(round(item.beat, 2)) == measure.offset_of(item.beat), (item.measure, item.beat)
+    beats = [(measure, beat) for measure in index.measures
+             for beat in range(1, int(measure.length / measure.beat_length + Fraction(95, 96)) + 1)]
+    labels = from_text(" ".join(f"m{measure.number} b{beat} I" for measure, beat in beats), index=index)
+    rows = [line.split(" | ") for line in student_check(labels, index).splitlines() if re.match(r"m\d", line)]
+    for (measure, beat), row in zip(beats, rows, strict=True):
+        start = (beat - 1) * measure.beat_length
+        sounding = [event.pitch for event in measure.events if event.pitch and not event.grace
+                    and event.onset <= start < event.onset + event.duration]
+        if sounding:
+            assert row[2] == min(sounding, key=reduce.midi), (row, sounding)
+
+
+SIGNATURE_KEYS = {
+    "pickup-repeat-split": "D", "key-change-tuplets": "A", "compound-6-8-grace": "Bb", "compound-9-8": "Db",
+    "tuplets-6-8": "F", "tuplets-4-4": "Eb", "grace-mixed-meter": "Eb", "cross-staff": "A", "two-parts": "C",
+    "four-parts-pickup": "C", "pdf-reading-prelude": "G", "pdf-reading-overrun": "Ab",
+}
+
+
+@score_ids
+def test_student_numerals_without_a_key_follow_the_key_signature(name):
+    data, index = load(name)
+    labels = student_labels(" ".join(f"m{measure.number} I" for measure in index.measures), data, index)
+    assert {label.key for label in labels} == {SIGNATURE_KEYS[name]}
+
+
+def test_student_numerals_without_a_key_follow_a_change_of_key_signature():
+    data = (DATA / "ravel-oiseaux-tristes-scan-verovio-crashed-beam-setting0.mxl").read_bytes()
+    index = ScoreIndex(load_toolkit(data).getMEI())
+    assert [label.key for label in student_labels("m3 I m4 I", data, index)] == ["Bb", "Gb"]
+
+
+@score_ids
+def test_student_numerals_outside_the_score_ask(name):
+    data, index = load(name)
+    last = index.measures[-1]
+    beats = int(last.length / last.beat_length + Fraction(95, 96))
+    for text in (f"m{last.number} b{beats + 1} I", f"m{last.number + 1} I", f"m{index.measures[0].number - 1} I"):
+        with pytest.raises(ClarificationNeeded):
+            student_labels(text, data, index)
+
 
 @score_ids
 def test_note_list_keeps_every_bar_key(name):

@@ -86,10 +86,10 @@ def test_names_the_bars_a_reading_likely_got_wrong():
 
     assert problem_spots(score) == ([12, 18], False)
     assert b"<slur" not in score
-    assert notice(score, False, [], False) == (
+    assert notice(score, False, []) == (
         "This is what I read from your PDF; check it against your copy before I analyse it. Bars 12 and 18 (shaded) look "
         "misread: the beats don't add up, or notes that should line up don't. "
-        "Slurs are left out, because they are often misread from PDFs; ask if you want them kept."
+        "Slurs are not read, because they are often misread from PDFs."
     )
 
 
@@ -98,7 +98,7 @@ def test_names_bars_with_durations_that_disagree_with_written_notes():
     uneven, meter = problem_spots(score)
     assert {5, 7, 8, 10, 11} <= set(uneven)
     assert meter
-    assert 'The shaded bars (1, 2, 3, 4 and 27 more) look misread' in notice(score, False, [], False)
+    assert 'The shaded bars (1, 2, 3, 4 and 27 more) look misread' in notice(score, False, [])
 
 
 def test_names_a_bar_whose_notes_line_up_at_different_times():
@@ -116,7 +116,7 @@ def test_accepts_the_correct_schubert_with_dots_and_triplets():
 def test_names_bars_whose_backup_runs_before_the_start(filename):
     score = (Path(__file__).parent / 'data/pdf_warnings' / filename).read_bytes()
     assert 1 in problem_spots(score)[0]
-    assert "(1, " in notice(score, False, [], False)
+    assert "(1, " in notice(score, False, [])
 
 
 def test_haydn_readings_tied_on_problem_bars_keep_the_first_setting():
@@ -248,7 +248,7 @@ def test_a_reading_without_a_time_signature_is_checked_against_its_most_common_b
     assert uneven
     assert _problem_spots(score, timing=False)[0]
     assert ("No time signature was read, so bars were checked against the most common bar length. "
-            "The shaded bars") in notice(score, True, [], False)
+            "The shaded bars") in notice(score, True, [])
 
 
 def test_clean_drops_a_key_that_only_restates_the_current_one():
@@ -553,8 +553,8 @@ def test_a_reading_made_by_enlarging_a_small_scan_warns_of_many_mistakes():
 
     reading = read_pdf(data, audiveris="unused", raw=lambda *args: next(readings))
     assert reading.low_resolution
-    assert "expect many mistakes" in notice(reading.musicxml, True, [], False, low_resolution=reading.low_resolution)
-    assert "expect many mistakes" not in notice(reading.musicxml, True, [], False)
+    assert "expect many mistakes" in notice(reading.musicxml, True, [], low_resolution=reading.low_resolution)
+    assert "expect many mistakes" not in notice(reading.musicxml, True, [])
 
 
 @pytest.mark.parametrize("name, low", [("chopin-op67-joseffy-80dpi-scan.pdf", True),

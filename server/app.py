@@ -65,7 +65,8 @@ MAX_SCORE_BYTES = 10 * 1024 * 1024
 DOWNLOAD_SECONDS = 30
 MAX_REDIRECTS = 5
 RATING_AFTER_ANALYSES = 3
-DAILY_LIMITS = {"draft": 100, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
+PERSON_SCORE_LIMIT = int(os.environ.get("PERSON_SCORE_LIMIT", "5"))
+DAILY_LIMITS = {"score": 100, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
 CARD_URI = "ui://sheet-music-analysis/card-v3.html"
 PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v3.html"
 HELD_CARD_URIS = {"ui://sheet-music-analysis/card-v2.html": "Analysis card",
@@ -361,17 +362,40 @@ def observed(fn):
 
 
 async def take(kind: str, source: str, amount: int = 1) -> bool:
-    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    key = f"usage/{day}.json"
+    return await count(f"usage/{today()}.json", kind, amount, DAILY_LIMITS[kind], f"{kind}:{source}")
+
+
+async def take_for(person: str | None, amount: int = 1) -> bool:
+    return person is None or await count(f"limits/{today()}.json", person, amount, PERSON_SCORE_LIMIT)
+
+
+async def take_score(person: str | None, source: str) -> str | None:
+    if not await take_for(person):
+        return "person"
+    if not await take("score", source):
+        await take_for(person, -1)
+        return "shared"
+    return None
+
+
+def caller() -> str | None:
+    return (current_call.get() or {}).get("user")
+
+
+def today() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+async def count(key: str, name: str, amount: int, limit: int, also: str | None = None) -> bool:
     with stage("counter"):
         async with counter_lock:
             while True:
                 raw, version = await anyio.to_thread.run_sync(store.get_versioned, key)
                 counts = json.loads(raw) if raw else {}
-                if counts.get(kind, 0) + amount > DAILY_LIMITS[kind]:
+                if counts.get(name, 0) + amount > limit:
                     return False
-                counts[kind] = counts.get(kind, 0) + amount
-                counts[f"{kind}:{source}"] = counts.get(f"{kind}:{source}", 0) + amount
+                for field in filter(None, (name, also)):
+                    counts[field] = counts.get(field, 0) + amount
                 if await anyio.to_thread.run_sync(store.put_if, key, json.dumps(counts).encode(), version):
                     return True
 
@@ -393,6 +417,12 @@ READING_SHOWN = "This is what I read from your PDF."
 CARD_SHOWS_PROBLEM = " The card shows the user this problem with a button that sends it to us."
 FAILURES_IN_CARD = {"read_pdf", "render_analysis"}
 
+UPLOAD_LIMIT_MESSAGE = "Today's limit of new scores has been reached; it resets at midnight UTC. Please try again tomorrow."
+PERSON_LIMIT_MESSAGE = (
+    f"The user has reached today's limit of {PERSON_SCORE_LIMIT} new scores per person; it resets at midnight UTC. "
+    "Tell them plainly and that they can analyse the scores they already sent, or try again tomorrow."
+)
+UPLOAD_PERSON_MESSAGE = f"You have reached today's limit of {PERSON_SCORE_LIMIT} new scores; it resets at midnight UTC."
 LIMIT_MESSAGE = (
     "Sheet Music Analysis has reached its daily limit; it resets at midnight UTC. "
     "Tell the user plainly that the free service is at capacity for today and to try again tomorrow."
@@ -542,10 +572,6 @@ def make_worksheet(name: str) -> bytes | None:
     return render(score, AnnotationList(annotations=[]), measures=measures, piano=recipe["piano"]).pdf()
 
 
-def outcome_of(error: Exception) -> str:
-    return "server_error" if isinstance(error, draft.DraftError) else "user_error"
-
-
 def error_result(message: str) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=message)], is_error=True)
 
@@ -583,7 +609,6 @@ def drawing_plan(mei: str, index: ScoreIndex) -> str:
 
 
 SKILL_RULES = re.sub(r"<!--.*?-->\n+", "", (HERE.parent / "skill" / "SKILL.md").read_text().split("## Method", 1)[1])
-SEND_DRAFT = os.environ.get("SEND_DRAFT", "off") == "on"
 DRAW_STEP = (
     "call render_analysis with the score_id and your annotation list (its `view` argument draws one layer: "
     "harmony, voice_leading or form), show the page and write the commentary.\n"
@@ -598,82 +623,38 @@ GUIDE_RULES = (
     "given), and explain every finding of a spot in its numbered paragraph of the commentary, in terms of the notes. "
     "Call these strict classroom rules, not verdicts on a composer.\n\n"
     "If there is a STUDENT CHECK section, the user wants their own numerals checked: draw the "
-    "page as usual from your reviewed analysis (how their numerals are marked on it is not decided yet), and write the commentary as a second "
+    "page as usual from your own analysis (how their numerals are marked on it is not decided yet), and write the commentary as a second "
     "reader would, not as an answer key, following that section's guidance. This is for learning; if they say it is "
     "coursework, remind them to check their course's rules on AI help.\n"
 )
-REVIEW_GUIDE = (
-    "HOW TO USE THIS DRAFT\n"
-    "The draft below is a neural model's starting point, right about half the time on full chord labels. Check "
-    "each line against the NOTES table, analyse following the method below, then " + DRAW_STEP + GUIDE_RULES
-)
 NOTES_GUIDE = (
     "HOW TO ANALYSE THIS SCORE\n"
-    "No automatic draft analysis is given with this reply, by design: nothing failed, so do not mention a draft to "
-    "the user. Analyse from the NOTES table below, following the method "
-    "below; where the method mentions the draft, work from the notes instead. If the user asked for their own "
-    "numerals to be checked and there is no STUDENT CHECK section, compare them with your reading of the NOTES "
-    "table. Then " + DRAW_STEP + GUIDE_RULES
+    "Analyse from the NOTES table below, following the method below. If the user asked for their own numerals to be "
+    "checked and there is no STUDENT CHECK section, compare them with your reading of the NOTES table. Then "
+    + DRAW_STEP + GUIDE_RULES
 )
 METHOD = "## Method" + SKILL_RULES
-
-
-DRAFT_UNAVAILABLE = (
-    "DRAFT UNAVAILABLE: the draft model failed on this score this time. Analyse from the NOTES table below alone, "
-    "following the method, and tell the user in one sentence that the automatic first draft was unavailable. If they "
-    "asked for their own numerals to be checked, compare them with your reading of the NOTES table."
-)
-
-
-def model_output(code: str, index: ScoreIndex):
-    with stage("fetch"):
-        cached = store.get(f"scores/{code}.draft.json")
-    if cached:
-        return json.loads(cached)
-    try:
-        with tracer.start_as_current_span("model"):
-            raw = draft.MODELS["analysisgnn"](note_list.encode(index).encode(), "notes")
-    except draft.DraftError as error:
-        log("draft_analysis", outcome="degraded", draft_error=str(error)[:300], stack_trace=traceback.format_exc())
-        return None
-    with stage("publish"):
-        store.put(f"scores/{code}.draft.json", json.dumps(raw).encode())
-    return raw
 
 
 def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, student_analysis: str | None = None) -> str:
     with stage("parse"):
         mei = load_toolkit(score).getMEI()
         index = ScoreIndex(mei)
-    needs_chords = SEND_DRAFT or student_analysis or optional("part_writing", lambda: part_writing.applies(index))
-    raw = model_output(code, index) if needs_chords else None
-    if not needs_chords:
-        store.put(f"scores/{code}.seen", b"")
-    log("draft_analysis", draft_sent=SEND_DRAFT and raw is not None)
     with stage("build"):
-        result = draft.build(raw, index) if raw is not None else None
         first, last = measures or (None, None)
         unit = index.measure(first or index.measures[-1].number).beat_length
         numbers = f"{index.measures[0].number} to {index.measures[-1].number}"
         sections = [
-            ("part_writing", lambda: part_writing.as_text(index, result.chords, first, last) if result else ""),
+            ("part_writing", lambda: part_writing.as_text(index, None, first, last)),
             ("ledger", lambda: ledger.as_text(mei, index, first, last)),
             ("student_check", lambda: check_analysis.as_text(
-                check_analysis.student_labels(student_analysis, score, index), result, index)
-                if student_analysis and result else ""),
+                check_analysis.student_labels(student_analysis, score, index), index) if student_analysis else ""),
         ]
-        if not SEND_DRAFT:
-            draft_section = ""
-        elif result:
-            draft_section = "\n" + draft.as_text(result, first, last)
-        else:
-            draft_section = "\n" + DRAFT_UNAVAILABLE
         return (
             f"score_id: {code}\nThe score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n"
             + ANNOTATION_FORMAT + drawing_plan(mei, index) + "\n"
-            + (REVIEW_GUIDE if SEND_DRAFT else NOTES_GUIDE)
+            + NOTES_GUIDE
             + "".join("\n" + text + "\n" for text in (optional(name, make) for name, make in sections) if text)
-            + draft_section
             + "\n\n" + METHOD
             + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
             + reduce.as_text(index, first, last)
@@ -955,14 +936,14 @@ claiming = asyncio.Lock()
         "Use this when the user attaches a PDF of printed sheet music (born-digital or scanned) and wants it analysed. "
         "Reads the music from the PDF and shows the user the engraved result in a card, with bars that may be misread "
         "shaded. Returns a score_id. Then go straight on without waiting for the user: call draft_analysis with that "
-        f"score_id and continue as for a MusicXML file. Only the first {pdf_reader.READ_PAGES} pages are read. Slurs are left out "
-        "unless keep_slurs is true; set it only when the user asks for them."
+        f"score_id and continue as for a MusicXML file. Only the first {pdf_reader.READ_PAGES} pages are read. "
+        "Slurs are not read, because they are often misread from PDFs; if the user asks for slurs, tell them so."
     ),
     annotations=read_only("Read a PDF of sheet music"),
     meta={"openai/outputTemplate": PDF_CARD_URI, "openai/fileParams": ["pdf_file"]},
 )
 @observed
-async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = False) -> CallToolResult:
+async def read_pdf(ctx: Context, pdf_file: AttachedFile) -> CallToolResult:
     source = platform(ctx)
     try:
         with stage("fetch"):
@@ -972,16 +953,16 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile, keep_slurs: bool = Fals
     except (ScoreError, httpx.HTTPError) as error:
         log("read_pdf", platform=source, error=type(error).__name__)
         return error_result(str(error))
-    return await read_pdf_data(data, source, keep_slurs, "read_pdf")
+    return await read_pdf_data(data, source, "read_pdf")
 
 
-async def read_pdf_data(data: bytes, source: str, keep_slurs: bool, tool: str) -> CallToolResult:
+async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
     digest = hashlib.sha256(data).hexdigest()
-    card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}-{'slurs' if keep_slurs else 'no-slurs'}.json"
+    card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}.json"
     if card := await anyio.to_thread.run_sync(store.get, card_key):
         card = json.loads(card)
-        log(tool, platform=source, pages=card["pages"], cached="card", keep_slurs=keep_slurs)
-        return pdf_card_result(card, keep_slurs, tool)
+        log(tool, platform=source, pages=card["pages"], cached="card")
+        return pdf_card_result(card, tool)
     async with claiming:
         started_here = card_key not in pdfs_reading
         if started_here:
@@ -990,16 +971,16 @@ async def read_pdf_data(data: bytes, source: str, keep_slurs: bool, tool: str) -
             work = contextvars.copy_context()
             work.run(current_call.set, None)
             work.run(draft.timings.set, None)
-            task = asyncio.create_task(pdf_work(data, digest, keep_slurs, source, card_key, token), context=work)
+            task = asyncio.create_task(pdf_work(data, digest, source, card_key, token, tool == "read_pdf", caller()), context=work)
             pdfs_reading[card_key] = task, time.time()
             task.add_done_callback(lambda _: pdfs_reading.pop(card_key, None))
     if started_here and token is None:
-        return await wait_for_other_machine(card_key, elsewhere, source, keep_slurs, tool)
+        return await wait_for_other_machine(card_key, elsewhere, source, tool)
     task, since = pdfs_reading[card_key]
     with anyio.move_on_after(STARTER_WAIT if started_here and source != "claude" else SAME_FILE_WAIT):
         await asyncio.shield(task)
     if not task.done():
-        log(tool, platform=source, reading=True, keep_slurs=keep_slurs)
+        log(tool, platform=source, reading=True)
         return CallToolResult(content=[TextContent(type="text", text=STILL_READING.format(
             seconds=round(time.time() - since), again=CALL_AGAIN[tool], wait=SAME_FILE_WAIT, minutes=READ_MINUTES))])
     result, details = task.result()
@@ -1014,9 +995,9 @@ async def read_pdf_data(data: bytes, source: str, keep_slurs: bool, tool: str) -
     if details.get("limit"):
         log("limit", tool=tool, platform=source, pages=details.get("pages"))
     else:
-        log(tool, platform=source, keep_slurs=keep_slurs, outcome=details["outcome"],
+        log(tool, platform=source, outcome=details["outcome"],
             **{key: details[key] for key in ("busy", "error") if key in details})
-    return pdf_card_result(result, keep_slurs, tool) if isinstance(result, dict) else result
+    return pdf_card_result(result, tool) if isinstance(result, dict) else result
 
 
 def marker_of(card_key: str) -> str:
@@ -1047,44 +1028,44 @@ async def release_read(card_key: str, token: str | None) -> None:
         await anyio.to_thread.run_sync(store.delete, marker_of(card_key))
 
 
-async def wait_for_other_machine(card_key: str, since: float, source: str, keep_slurs: bool, tool: str) -> CallToolResult:
+async def wait_for_other_machine(card_key: str, since: float, source: str, tool: str) -> CallToolResult:
     with anyio.move_on_after(SAME_FILE_WAIT):
         while True:
             if card := await anyio.to_thread.run_sync(store.get, card_key):
-                log(tool, platform=source, keep_slurs=keep_slurs, other_machine=True)
-                return pdf_card_result(json.loads(card), keep_slurs, tool)
+                log(tool, platform=source, other_machine=True)
+                return pdf_card_result(json.loads(card), tool)
             found = json.loads(await anyio.to_thread.run_sync(store.get, failure_of(card_key)) or b"{}")
             if found.get("at", 0) >= since:
                 if found["error"] == "limit":
-                    log("limit", tool=tool, platform=source, keep_slurs=keep_slurs, other_machine=True)
+                    log("limit", tool=tool, platform=source, other_machine=True)
                 else:
-                    log(tool, platform=source, keep_slurs=keep_slurs, other_machine=True, outcome=found.get("outcome"),
+                    log(tool, platform=source, other_machine=True, outcome=found.get("outcome"),
                         **({"busy": True} if found["error"] == "busy" else {"error": found["error"]}))
                 return failure(found["text"], found.get("report"))
             await anyio.sleep(POLL_SECONDS)
-    log(tool, platform=source, reading=True, other_machine=True, keep_slurs=keep_slurs)
+    log(tool, platform=source, reading=True, other_machine=True)
     return CallToolResult(content=[TextContent(type="text", text=STILL_READING.format(
         seconds=round(time.time() - since), again=CALL_AGAIN[tool], wait=SAME_FILE_WAIT, minutes=READ_MINUTES))])
 
 
-async def pdf_work(data: bytes, digest: str, keep_slurs: bool, source: str, card_key: str,
-                   token: str) -> tuple[dict | CallToolResult, dict]:
-    details = {"event": "read_pdf_work", "platform": source, "keep_slurs": keep_slurs}
+async def pdf_work(data: bytes, digest: str, source: str, card_key: str,
+                   token: str, arrived: bool, person: str | None) -> tuple[dict | CallToolResult, dict]:
+    details = {"event": "read_pdf_work", "platform": source}
     timings = {}
     current_call.set(details)
     draft.timings.set(timings)
     started = time.perf_counter()
     try:
         async with verovio_request():
-            return await pdf_outcome(data, digest, keep_slurs, source, card_key, details, timings, started)
+            return await pdf_outcome(data, digest, source, card_key, details, timings, started, arrived, person)
     finally:
         await release_read(card_key, token)
 
 
-async def pdf_outcome(data: bytes, digest: str, keep_slurs: bool, source: str, card_key: str, details: dict,
-                      timings: dict, started: float) -> tuple[dict | CallToolResult, dict]:
+async def pdf_outcome(data: bytes, digest: str, source: str, card_key: str, details: dict,
+                      timings: dict, started: float, arrived: bool, person: str | None) -> tuple[dict | CallToolResult, dict]:
     try:
-        result = await read_pdf_card(data, digest, keep_slurs, source)
+        result = await read_pdf_card(data, digest, source, arrived, person)
         if isinstance(result, dict):
             await anyio.to_thread.run_sync(store.put, card_key, json.dumps(result).encode())
         outcome = "ok" if isinstance(result, dict) else "limit" if details.get("limit") else "busy" if details.get("busy") else "user_error"
@@ -1124,7 +1105,7 @@ async def pdf_outcome(data: bytes, digest: str, keep_slurs: bool, source: str, c
     return result, details
 
 
-async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str) -> dict | CallToolResult:
+async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, person: str | None) -> dict | CallToolResult:
     cache_key = f"scores/pdf-{pdf_reader.READER}-{digest}.json"
     cached = await anyio.to_thread.run_sync(store.get, cache_key)
     passes = None
@@ -1139,9 +1120,15 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
             log("read_pdf_work", busy=True)
             return error_result(BUSY_MESSAGE)
         async with pdf_lock:
-            if not await take("pdf_page", source, read):
-                log("read_pdf_work", limit=True, pages=read)
-                return error_result(LIMIT_MESSAGE)
+            refused = await take_score(person, source) if arrived else None
+            if not refused and not await take("pdf_page", source, read):
+                if arrived:
+                    await take_for(person, -1)
+                    await take("score", source, -1)
+                refused = "shared"
+            if refused:
+                log("read_pdf_work", limit=refused, pages=read)
+                return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
             log("read_pdf_work", **await anyio.to_thread.run_sync(pdf_reader.file_facts, data))
             with stage("omr"):
                 result = await anyio.to_thread.run_sync(pdf_reader.read_pdf, data)
@@ -1151,16 +1138,15 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
         await anyio.to_thread.run_sync(store.put, f"scores/{reading['score_id']}", result.musicxml)
         await anyio.to_thread.run_sync(store.put, cache_key, json.dumps(reading).encode())
     score, _ = await resolve_score(None, reading["score_id"])
-    score_id = reading["score_id"] if keep_slurs else reading["score_id"] + "N"
-    if not keep_slurs:
-        score = await in_turn(pdf_reader.without_slurs, score)
-        await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
+    score_id = reading["score_id"] + "N"
+    score = await in_turn(pdf_reader.without_slurs, score)
+    await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
 
     def render():
         spots = pdf_reader.problem_spots(score)
         numbers = [measure.number for measure in ScoreIndex(load_toolkit(score).getMEI()).measures]
         return (pdf_reader.preview(score, spots=spots), engrave(score),
-                pdf_reader.notice(score, reading["scan"], reading["skipped"], keep_slurs, spots, reading.get("low_resolution", False), opening=READING_SHOWN) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
+                pdf_reader.notice(score, reading["scan"], reading["skipped"], spots, reading.get("low_resolution", False), opening=READING_SHOWN) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
                 f"{numbers[0]} to {numbers[-1]}", len(numbers), spots[0])
 
     with stage("render"):
@@ -1186,7 +1172,7 @@ async def read_pdf_card(data: bytes, digest: str, keep_slurs: bool, source: str)
             "pdf_url": pdf_url, "more_pages": more_pages, "page_images": [base64.b64encode(png).decode() for png in pages]}
 
 
-def pdf_card_result(card: dict, keep_slurs: bool, tool: str) -> CallToolResult:
+def pdf_card_result(card: dict, tool: str) -> CallToolResult:
     more_pages = card.get("more_pages")
     shown = (f"the first {CARD_PAGES} pages of the engraved score read from their {card['pages']}-page PDF; the PDF has every bar"
              if more_pages else f"every bar of the engraved score read from their {card['pages']}-page PDF, in one image")
@@ -1198,8 +1184,6 @@ def pdf_card_result(card: dict, keep_slurs: bool, tool: str) -> CallToolResult:
         "score_id now and continue exactly as for an attached MusicXML file, drawing it with render_analysis. "
         "Bars shaded in the reading stay shaded on the drawn page. "
         f"The card holds no text, so in your reply with the analysis pass on this note about the reading, briefly: \"{card['notice']}\""
-        + ("" if keep_slurs else f" If the user asks to keep the slurs, call {CALL_AGAIN[tool]} and "
-           "keep_slurs=true, and use the score_id it returns.")
     )
     return CallToolResult(
         content=[
@@ -1221,13 +1205,13 @@ def pdf_card_result(card: dict, keep_slurs: bool, tool: str) -> CallToolResult:
         "Use this when choose_score or fetch_score gave a pdf_id, with that pdf_id. Reads the music from the PDF and shows the "
         "user the engraved result in a card. Returns a score_id. Then go straight on to the analysis without waiting "
         "for the user: call draft_analysis with that score_id, and pass on the result's note about the reading in your "
-        f"reply with the analysis. Only the first {pdf_reader.READ_PAGES} pages are read. Slurs are left out unless keep_slurs is true; set it only when "
-        "the user asks for them."
+        f"reply with the analysis. Only the first {pdf_reader.READ_PAGES} pages are read. "
+        "Slurs are not read, because they are often misread from PDFs; if the user asks for slurs, tell them so."
     ),
     annotations=read_only("Read a chosen PDF of sheet music"),
 )
 @observed
-async def read_fetched_pdf(ctx: Context, pdf_id: str, keep_slurs: bool = False) -> CallToolResult:
+async def read_fetched_pdf(ctx: Context, pdf_id: str) -> CallToolResult:
     source = platform(ctx)
     code = clean_id(pdf_id)
     data = await anyio.to_thread.run_sync(store.get, f"scores/{code}.pdf")
@@ -1239,22 +1223,27 @@ async def read_fetched_pdf(ctx: Context, pdf_id: str, keep_slurs: bool = False) 
             return error_result(NOT_CHOSEN_YET)
         return error_result(f"No PDF has the pdf_id {pdf_id!r}; PDFs are kept for 30 days. Call choose_score so "
                             "the user can choose the PDF again.")
-    return await read_pdf_data(data, source, keep_slurs, "read_fetched_pdf")
+    return await read_pdf_data(data, source, "read_fetched_pdf")
 
 
 CLAUDE_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis", "play",
                 "draft_from_notes", "send_suggestion"}
 CLAUDE_ONLY_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "play", "draft_from_notes"}
+NO_NOTE_LIST = (
+    "No note list: draft_from_notes needs the compact note list (starting 'N1 div=') that the Sheet Music Analysis "
+    "plugin's skill makes from the user's score file. Without the plugin, call choose_score so the user can choose "
+    "their score file in a card."
+)
+NOTES_FROM_LIST = (
+    "No automatic draft analysis is given with this reply, by design: nothing failed, so do not mention a draft to "
+    "the user. Analyse from the note list you sent. If the user asked for their own numerals to be checked and there "
+    "is no STUDENT CHECK section, compare them with your reading of the note list."
+)
 CLAUDE_HIDDEN_ARGUMENTS = {"draft_analysis": {"score_file"}}
 CLAUDE_RESULT_CHARS = 100_000
 IMAGES_LEFT_OUT = (
     "{count} image(s) were left out of this reply to keep it within Claude's size limit. The card shows the page to "
     "the user; where no card is shown, give the user the links above."
-)
-NO_NOTE_LIST = (
-    "No note list: draft_from_notes needs the compact note list (starting 'N1 div=') that the Sheet Music Analysis "
-    "plugin's skill makes from the user's score file. Without the plugin, call choose_score so the user can choose "
-    "their score file in a card."
 )
 QUESTION_FOR_USER = "Question for the user about their Roman numerals: "
 
@@ -1341,12 +1330,6 @@ class Server(MCPServer):
 SITE = "https://sheetmusicanalysis.com"
 
 
-NO_PLAY_NOTES = (
-    "Nothing to play: pass the score_id that choose_score, fetch_score, read_fetched_pdf or correct_bars gave. Older plugin "
-    "versions pass the play_id that draft_from_notes returned, or the compact note list (starting 'N1 div=') as notes."
-)
-
-
 @apps.tool(
     resource_uri=PLAYER_URI,
     title="Play the score",
@@ -1374,7 +1357,7 @@ async def play(ctx: Context, score_id: str | None = None, measure_range: str = "
             if play_id and (stored := await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(play_id)}.notes")):
                 notes = stored.decode()
             elif play_id and not notes:
-                return error_result(f"No draft has the play_id {play_id!r}; drafts are kept for 30 days. Call "
+                return error_result(f"No passage has the play_id {play_id!r}; they are kept for 30 days. Call "
                                     "draft_from_notes again, or pass the note list as notes.")
             if not notes or not notes.lstrip().startswith("N1"):
                 return error_result(NO_PLAY_NOTES)
@@ -1388,8 +1371,8 @@ async def play(ctx: Context, score_id: str | None = None, measure_range: str = "
                 "fast they want it, then call play again with the same arguments and tempo in quarter notes per minute."
             ))])
         performance = await in_turn(lambda: performance_text(index, measures, tempo=tempo))
-    except (ScoreError, PositionError, ValueError) as error:
-        log("play", platform=source, legacy=not score_id, error=type(error).__name__, outcome=outcome_of(error))
+    except (ScoreError, PositionError, ValueError, note_list.NotesError) as error:
+        log("play", platform=source, legacy=not score_id, error=type(error).__name__, outcome="user_error")
         return error_result(str(error))
     log("play", platform=source, measure_range=measure_range, legacy=not score_id)
     return CallToolResult(
@@ -1405,6 +1388,12 @@ apps.add_html_resource(
     csp=ResourceCsp(connect_domains=[SITE]),
     domain=CLAUDE_UI_DOMAIN,
     prefers_border=True,
+)
+
+
+NO_PLAY_NOTES = (
+    "Nothing to play: pass the score_id that choose_score, fetch_score, read_fetched_pdf or correct_bars gave. Older plugin "
+    "versions pass the play_id that draft_from_notes returned, or the compact note list (starting 'N1 div=') as notes."
 )
 
 
@@ -1474,16 +1463,60 @@ del mcp._lowlevel_server._request_handlers["subscriptions/listen"]
 
 DRAFT_ANALYSIS_USE = (
     "Use this when the user wants a harmonic analysis of a MusicXML score (.mxl or .musicxml): Roman numerals, "
-    "cadences, phrases, non-chord tones. Returns a neural model's draft as a table for you to review and correct, "
+    "cadences, phrases, non-chord tones. Returns the score's notes beat by beat as a table for you to analyse, "
     "plus a score_id. Follow it with render_analysis. If the user wants their own analysis checked, pass their "
     "Roman numerals as student_analysis, as they typed them (\"m1 I, m2 V6, m3 beat 3 ii65 ...\"), or the word "
-    "\"score\" when the numerals are written into their score file; the draft then lists, beat by beat, where "
-    "they agree with it. If the result is a question, ask the user that question and call again with their answer. "
+    "\"score\" when the numerals are written into their score file; the result then lists, for each of their "
+    "labels, the notes at that beat and whether the numeral fits them. If the result is a question, ask the user "
+    "that question and call again with their answer. "
 )
 CLAUDE_SCORE_INPUT_HELP = (
     "score_id: the id that choose_score, fetch_score, read_fetched_pdf or correct_bars gave. Never encode, paste or "
     "retype a file's contents. If there is no score_id yet, call choose_score so the user can choose their score file."
 )
+
+
+@mcp.tool(
+    title="Draft a harmonic analysis from a note list",
+    description=(
+        "Only for older versions of the Sheet Music Analysis plugin (1.8.0 and earlier), whose skill passes a compact "
+        "note list starting 'N1 div=' that it made in Claude's code sandbox. In a new chat do not use this: call "
+        "choose_score so the user can choose their score file. Drafts a harmonic analysis from that note list, passed "
+        "unchanged as `notes`, and returns the draft with a play_id for play."
+    ),
+    annotations=read_only("Draft a harmonic analysis from a note list"),
+)
+@observed
+async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | None = None) -> CallToolResult:
+    source = platform(ctx)
+    if not notes.lstrip().startswith("N1"):
+        return error_result(NO_NOTE_LIST)
+    started = time.time()
+    try:
+        with stage("parse"):
+            index = await in_turn(note_list.decode, notes)
+        student = await in_turn(check_analysis.student_labels, student_analysis, None, index) if student_analysis else None
+    except check_analysis.ClarificationNeeded as error:
+        return error_result(QUESTION_FOR_USER + error.question)
+    except (note_list.NotesError, PositionError, ValueError) as error:
+        log("draft_from_notes", platform=source, error=type(error).__name__, chars=len(notes), outcome="user_error")
+        return error_result(str(error))
+    if refused := await take_score(caller(), source):
+        log("limit", tool="draft_from_notes", platform=source, per=refused)
+        return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
+
+    def build() -> str:
+        sections = [NOTES_FROM_LIST, optional("part_writing", lambda: part_writing.as_text(index)),
+                    optional("student_check", lambda: check_analysis.as_text(student, index) if student else "")]
+        return "\n\n".join(section for section in sections if section)
+
+    with stage("build"):
+        text = await in_turn(build)
+    play_id = secrets.token_hex(8).upper()
+    await anyio.to_thread.run_sync(store.put, f"scores/{play_id}.notes", notes.encode())
+    text += f"\n\nPLAY: play_id {play_id} plays this passage. Call play with it when the user wants to hear it."
+    log("draft_from_notes", platform=source, chars_in=len(notes), seconds=round(time.time() - started, 1))
+    return CallToolResult(content=[TextContent(type="text", text=text)])
 
 
 @mcp.tool(
@@ -1503,6 +1536,7 @@ async def draft_analysis(
     """measure_range limits the table, e.g. "1-8"; the default "all" returns the whole piece."""
     source = platform(ctx)
     started = time.time()
+    code = None
     try:
         score, given = await resolve_score(score_file, score_id, source)
         measures = parse_measures(measure_range)
@@ -1510,20 +1544,18 @@ async def draft_analysis(
             await in_turn(check_analysis.from_text, student_analysis)
         if given == "score_id":
             code = clean_id(score_id)
-            kept = [await anyio.to_thread.run_sync(store.get, f"scores/{code}.{name}") for name in ("draft.json", "seen")]
-            fresh = all(item is None for item in kept)
         else:
+            if refused := await take_score(caller(), source):
+                log("limit", tool="draft_analysis", platform=source, per=refused)
+                return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
             code = secrets.token_hex(8).upper()
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)
-            fresh = True
-        if fresh and not await take("draft", source):
-            log("limit", tool="draft_analysis", platform=source)
-            return error_result(LIMIT_MESSAGE)
         text = await in_turn(make_draft, score, code, measures, student_analysis)
     except check_analysis.ClarificationNeeded as error:
-        return error_result(QUESTION_FOR_USER + error.question)
-    except (ScoreError, PositionError, ValueError, draft.DraftError, httpx.HTTPError) as error:
-        log("draft_analysis", platform=source, error=type(error).__name__, outcome=outcome_of(error))
+        kept = f"\nThe score is saved as score_id: {code}. Call again with it and the user's answer." if code else ""
+        return error_result(QUESTION_FOR_USER + error.question + kept)
+    except (ScoreError, PositionError, ValueError, httpx.HTTPError) as error:
+        log("draft_analysis", platform=source, error=type(error).__name__, outcome="user_error")
         return error_result(str(error))
     log("draft_analysis", platform=source, input=given, score_bytes=len(score), measure_range=measure_range,
         seconds=round(time.time() - started, 1))
@@ -1627,66 +1659,6 @@ async def correct_bars(
     )
 
 
-@mcp.tool(
-    title="Draft a harmonic analysis from a note list",
-    description=(
-        "Only for older versions of the Sheet Music Analysis plugin (1.8.0 and earlier), whose skill passes a compact "
-        "note list starting 'N1 div=' that it made in Claude's code sandbox. In a new chat do not use this: call "
-        "choose_score so the user can choose their score file. Drafts a harmonic analysis from that note list, passed "
-        "unchanged as `notes`, and returns the draft with a play_id for play."
-    ),
-    annotations=read_only("Draft a harmonic analysis from a note list"),
-)
-@observed
-async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | None = None) -> CallToolResult:
-    source = platform(ctx)
-    if not notes.lstrip().startswith("N1"):
-        return error_result(NO_NOTE_LIST)
-    try:
-        if student_analysis:
-            await in_turn(check_analysis.student_labels, student_analysis, None, None)
-    except check_analysis.ClarificationNeeded as error:
-        return error_result(QUESTION_FOR_USER + error.question)
-    except ValueError as error:
-        return error_result(str(error))
-    if not await take("draft", source):
-        log("limit", tool="draft_from_notes", platform=source)
-        return error_result(LIMIT_MESSAGE)
-    started = time.time()
-    try:
-        with tracer.start_as_current_span("model"):
-            result = await in_turn(draft.draft_from_notes, notes)
-        with stage("parse"):
-            index = await in_turn(note_list.decode, notes)
-        if student_analysis:
-            student = await in_turn(check_analysis.student_labels, student_analysis, None, index)
-    except check_analysis.ClarificationNeeded as error:
-        return error_result(QUESTION_FOR_USER + error.question)
-    except draft.DraftError as error:
-        log("draft_from_notes", platform=source, outcome="degraded", draft_error=str(error)[:300],
-            stack_trace=traceback.format_exc(), chars=len(notes))
-        return CallToolResult(content=[TextContent(type="text", text=DRAFT_UNAVAILABLE.replace(
-            "the NOTES table below", "the note list").replace("your reading of the NOTES table", "your reading of the note list"))])
-    except (note_list.NotesError, PositionError, ValueError) as error:
-        log("draft_from_notes", platform=source, error=type(error).__name__, chars=len(notes), outcome=outcome_of(error))
-        return error_result(str(error))
-    def build() -> str:
-        text = draft.as_text(result)
-        if section := part_writing.as_text(index, result.chords):
-            text += "\n\n" + section
-        if student_analysis:
-            text += "\n\n" + check_analysis.as_text(student, result, index)
-        return text
-
-    with stage("build"):
-        text = await in_turn(build)
-    play_id = secrets.token_hex(8).upper()
-    await anyio.to_thread.run_sync(store.put, f"scores/{play_id}.notes", notes.encode())
-    text += f"\n\nPLAY: play_id {play_id} plays this passage. Call play with it when the user wants to hear it."
-    log("draft_from_notes", platform=source, chars_in=len(notes), seconds=round(time.time() - started, 1))
-    return CallToolResult(content=[TextContent(type="text", text=text)])
-
-
 LINK_NOT_A_SCORE = (
     "The link gave something other than a MusicXML file or a PDF, usually a web page: a sign-in page when the file is "
     "not shared publicly, or a page about the file rather than the file itself. Ask the user to share the file so "
@@ -1754,6 +1726,9 @@ async def fetch_score(ctx: Context, url: str) -> CallToolResult:
     if kind is None:
         log("fetch_score", platform=source, host=host, error="not a score", score_bytes=len(data))
         return error_result(LINK_NOT_A_SCORE)
+    if not await take("score", source):
+        log("limit", tool="fetch_score", platform=source)
+        return error_result(LIMIT_MESSAGE)
     code = await keep_score(data, kind)
     log("fetch_score", platform=source, host=host, kind=kind, score_bytes=len(data))
     return CallToolResult(content=[TextContent(type="text", text=next_step(kind, code))])
@@ -1852,6 +1827,10 @@ async def upload(request: Request) -> Response:
     if kind is None:
         log("upload", platform=source, error="not a score", score_bytes=len(data))
         return upload_refused("This is not a MusicXML file or a PDF. Choose a .mxl, .musicxml or .pdf file.", 415)
+    device = request.query_params.get("device", "")
+    if refused := await take_score(f"device:{device}" if re.fullmatch(r"[0-9a-f]{32}", device) else None, source):
+        log("upload", platform=source, error=f"{refused} limit")
+        return upload_refused(UPLOAD_PERSON_MESSAGE if refused == "person" else UPLOAD_LIMIT_MESSAGE, 429)
     await keep_score(bytes(data), kind, code)
     log("upload", platform=source, kind=kind, score_bytes=len(data))
     return JSONResponse({"kind": kind}, headers=UPLOAD_HEADERS)

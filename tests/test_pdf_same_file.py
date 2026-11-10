@@ -135,7 +135,7 @@ def test_a_call_on_the_other_machine_waits_for_that_machines_reading(monkeypatch
 def test_a_marker_left_by_a_machine_that_stopped_is_taken_over(monkeypatch, tmp_path):
     reads = slow_reader(monkeypatch, tmp_path, 0)
     digest = __import__("hashlib").sha256(PDF).hexdigest()
-    card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}-no-slurs.json"
+    card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}.json"
     app.store.put(app.marker_of(card_key), json.dumps({"token": "gone", "started": time.time() - 3600}).encode())
 
     async def call():
@@ -189,7 +189,7 @@ def test_the_reading_card_of_a_short_score_shows_every_bar(monkeypatch, tmp_path
 def waiter_outcome(monkeypatch, tmp_path, capsys, failure_error, text):
     slow_reader(monkeypatch, tmp_path, 0)
     digest = __import__("hashlib").sha256(PDF).hexdigest()
-    card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}-no-slurs.json"
+    card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}.json"
     started = time.time() - 5
     app.store.put(app.marker_of(card_key), json.dumps({"token": "other", "started": started}).encode())
     app.store.put(app.failure_of(card_key), json.dumps({"at": time.time(), "error": failure_error, "text": text}).encode())
@@ -234,7 +234,7 @@ def test_an_unread_pdf_on_the_other_machine_shows_its_card_and_stays_a_user_erro
 
     first = anyio.run(call)
     digest = __import__("hashlib").sha256(PDF).hexdigest()
-    card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}-no-slurs.json"
+    card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}.json"
     app.store.put(app.marker_of(card_key), json.dumps({"token": "other", "started": time.time() - 60}).encode())
     capsys.readouterr()
     waiter = anyio.run(call)

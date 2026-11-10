@@ -6,8 +6,7 @@ import pytest
 
 from engine import check_analysis as check
 from engine import notes as note_list
-from engine.draft import Chord, Draft
-from engine.comparison import Label, from_annotations, from_draft
+from engine.comparison import Label, from_annotations
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 from eval import compare as evaluation
@@ -91,6 +90,20 @@ def test_bad_position(bach):
         check.from_text('bar 99 I', index=bach)
     with pytest.raises(ValueError, match='has no beat'):
         check.from_text('bar 1 beat 4 I', index=bach)
+
+
+def test_staging_chat_numerals_in_six_eight():
+    score = (ROOT / 'tests/data/export-mozart-k458.musicxml').read_bytes()
+    index = ScoreIndex(load_toolkit(score).getMEI())
+    with pytest.raises(check.ClarificationNeeded, match='Bar 4 has 2 beats'):
+        check.student_labels('m1 I, m2 V6, m3 I, m4 beat 1 IV, m4 beat 3 V', score, index)
+    rows = check.as_text(check.student_labels('m1 I, m2 V6, m3 I, m4 beat 1 IV, m4 beat 2 V', score, index), index)
+    fits = {row.split(' | ')[0]: row.split(' | ')[-1] for row in rows.splitlines() if row.startswith('m')}
+    assert '| Bb: I |' in rows
+    assert fits['m1 b1'] == fits['m4 b2'] == 'fits'
+    assert fits['m2 b1'] == "doesn't fit the notes"
+    second_bar = check.as_text(check.student_labels('m2 I6, m2 beat 2 V', score, index), index)
+    assert [row.split(' | ')[2::5] for row in second_bar.splitlines() if row[1:2].isdigit()] == [['D3', 'fits'], ['F3', 'fits']]
 
 
 def test_reference_sustain_and_key_precedence(bach):
@@ -200,19 +213,8 @@ def test_musescore_native_roman_export():
     assert [item['at']['measure'] for item in results if item['is_error']] == [3, 4, 5, 6, 9]
 
 
-def test_student_check_marks_labels_with_no_draft_chord_before_them(bach):
-    student = check.from_text('key: G major; bar 1 I bar 2 V', index=bach)
-    later = Draft('analysisgnn', [Chord(2, 1.0, 'G', 'V', 0.9, 1, 'D')], [], [], [], [])
-    text = check.as_text(student, later, bach)
-    assert 'm1 b1 | G: I | none |  |  | unchecked' in text
-    assert 'm2 b1 | G: V | G: V (0.90) |' in text
-    empty = check.as_text(student, Draft('analysisgnn', [], [], [], [], []), bach)
-    assert empty.count('| none |  |  | unchecked') == 2
-
-
-def test_a_beat_typed_as_the_draft_prints_it_matches_the_draft_chord_on_a_triplet():
+def test_a_beat_typed_as_the_table_prints_it_matches_a_label_on_a_triplet():
     triplet = note_list.decode("N1 div=3 ts=4/4 ks=0\nm1 len=12\n1.1: 3 C4 1 E4 G4 B4 6 C5\n")
     student = check.from_text('m1 b1 I m1 b2.33 V', index=triplet)
-    draft = Draft('analysisgnn', [Chord(1, 1.0, 'C', 'I', 0.9, 1, 'T'), Chord(1, 7 / 3, 'C', 'V', 0.9, 1, 'D')], [], [], [], [])
-    results = check.compare_labels(student, from_draft(draft), triplet)
+    results = check.compare_labels(student, [Label(1, 1.0, 'C', 'I'), Label(1, 7 / 3, 'C', 'V')], triplet)
     assert [result['classification'] for result in results] == ['agrees', 'agrees']

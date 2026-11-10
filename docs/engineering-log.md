@@ -2577,6 +2577,104 @@ Pitch accuracy, leaving out Bach: at 10.5 and above, 0.89-0.99, within 7 points 
 
 The built plugin's readme (`dist/sheet-music-analysis/README.md`, from `plugin/README.md`) still said scores are kept one day after entry 138 moved storage to 30 days. Rebuilt with `tools/build_skill.py`; version 1.10.1. No other change.
 
+### 142. Limits on new scores, per day and per person; PDFs always read without slurs; Claude Desktop card wording (2026-11-09, branch `upload-limits`)
+
+**Problem.** The Claude upload card (log 134) and Claude's link fetching store a file before any analysis, and nothing counted them; with 30-day storage (138) nothing bounded what could pile up. In ChatGPT, `draft_analysis` stored an attached score before checking its limit. The daily `draft` limit (100) dated from 2026-10-06, when the draft model was the costly step; it is parked since 2026-11-07. Nothing limited one person from using up everyone's daily allowance.
+
+**Owner's decisions (2026-11-09).**
+- One shared limit, **100 new scores a day**, replacing `draft`. It is charged once per file that arrives from outside, when it first arrives: Claude's card and links (`fetch_score`, `/upload`), a ChatGPT attachment in `draft_analysis`, a ChatGPT PDF on its first (uncached) reading, and `draft_from_notes`. Anything derived from it is not charged: drafts by score_id, corrections, re-reads of a cached PDF.
+- **5 new scores a day per person**: per ChatGPT usage identifier, and per device in Claude's upload card (a random code the card keeps in the browser's storage). Claude sends no user identity, and links come from Anthropic's servers, so a link is bounded only by the shared 100.
+- **30 uploads a day per internet connection** in the Cloudflare Worker on `POST /upload`. It is a backstop for someone clearing the device code. The server's own run.app address bypasses the Worker, so the shared 100 is the bound that always holds.
+- PDFs are **always read without slurs**. The `keep_slurs` option, its second reading and its card key are gone. If the user asks for slurs, the model is told to say that slurs are not read. This also removes the Nov 8 "busy" case, where the same PDF was read with and without slurs at once, and the double page charge.
+- Saved PDF readings from before the low-resolution warning (139) were deleted from production (17 objects under `scores/pdf-*`), so repeats are read fresh.
+- The upload card adds "If your reply box is empty, type "I've chosen it" and send that." The owner's test in Claude Desktop showed that its host accepts `ui/message` but leaves the reply box empty; claude.ai fills it.
+
+**How the counts are kept.** The shared total is in `usage/{day}.json`, as before, under the key `score` (staging override renamed). Per-person counts are in `limits/{day}.json`, deleted after 2 days by a second lifecycle rule. Per-connection counts are in a Workers KV namespace (`sheet-music-analysis-uploads`), keyed by a SHA-256 of a secret salt (Worker secret `ADDRESS_SALT`), the day and the address, cut to 12 bytes, and expiring after 2 days. Privacy page: one new row.
+
+**After review (Sonnet).** Fixed: a refusal no longer leaves part of a charge behind (a person charged when the shared limit then refused, or a score charged when the page limit then refused); the Worker lets uploads through if KV fails; the address hash is salted, since an unsalted hash of an IPv4 address can be reversed by trying every address; staging can lift the per-person limit too. Left as they are: a PDF that can't be read still counts, because the reading time was spent; two people sending the identical PDF in the same minute, one of them over their limit, can show the other the refusal; a double-sent card upload can count twice; a card without a stored code has no device limit. All are rare or bounded by the shared limit.
+
+**Measured.** On 2026-11-08 the new rule would have counted about 12 scores (7 PDF reads, 5 MusicXML analyses), against the 100. Worst-case storage at 100 files of 10 MB a day for 30 days is 30 GB, about US$0.60 a month at the list price of $0.020/GB-month.
+
+**Checks.** End-to-end tests, all through the tools:
+- a card upload and a link past the shared limit are refused (429, with the card's message) and nothing is kept;
+- one device's second upload is refused while another device's goes through;
+- one ChatGPT account's second new score is refused;
+- a ChatGPT PDF is charged once, including when it is sent again;
+- a Claude PDF is charged once at arrival and not again when read.
+
+The Worker was run locally with `wrangler dev`: OPTIONS passes, an upload over the limit gets the 429 JSON with the card's CORS header, and other paths pass through. NOT RUN: the device code inside Claude's card iframe (whether its storage is kept between chats).
+
+### 143. The draft model removed from the server, the legacy tools retired, and a student check that tests each numeral against the notes (2026-11-09, branch `remove-model`, not released)
+
+**Why.** Since the 2026-11-07 release the model's draft was not sent to the chat model (`SEND_DRAFT=off`); Claude and ChatGPT analyse from the notes table. The model still ran in three cases: a score in two to four parts (its chords fed the part-writing check), a student's own numerals (the student check listed them beside its chords), and `draft_from_notes`. Each server instance that ran it first paid the model's start-up, about 10 s per instance in production (`gnn_start`), and the image carried its environment and weights. The owner decided to remove it from the server entirely.
+
+**Part-writing without the model's chords.** Measured before the change on the 93 chorales where the check applies (the audited Bach chorales, the chorales in `tests/data` and the evaluation's reviewed chorales), the check with the model's chords against the check without them (the path every other score already used):
+
+| Rule | With chords | Without |
+|---|---|---|
+| Parallel fifths, parallel octaves, direct fifths, direct octaves, range, spacing, voice crossing, voice overlap | identical findings | identical findings |
+| Doubled leading tone | 64 | 13 |
+| Unresolved leading tone | 34 | 13 |
+| Unresolved seventh | 50 | 37 |
+
+Findings on one side only: 124 with chords only (53 doubled leading tone, 47 unresolved seventh, 24 unresolved leading tone) and 39 without chords only (34 unresolved seventh, 3 unresolved leading tone, 2 doubled leading tone). Against the hand-audited list (`tests/data/reference/part_writing_audit.json`, 78 real findings and 13 known checker bugs), the check without chords gets all 91 right; with chords it missed 5 real findings (4 unresolved sevenths, 1 unresolved leading tone) and brought back 6 known false doubled-leading-tone reports. That list was built and tuned on the check without chords, so it favours that side, and the 124 chord-only findings were never audited: some are surely real. The fair summary is that the three chord rules trade errors; the owner accepted that. The check itself took a median 0.11 s per chorale without chords and 0.20 s with them, not counting the model.
+
+**Student check, rebuilt.** Before, each of the student's labels was printed beside the model's chord at that beat with the model's confidence; the model's full chord labels are right only about half the time. Now each label gets the notes in that beat (the same window as a row of the NOTES table: notes starting in the beat and notes held into it, stopping at the student's next label), the notes their numeral stands for in their key (from music21's Roman numeral reading), and an automatic fit test:
+- **doesn't fit the notes:** the bass is not in the chord, or the chord's root is not heard, or more of the heard pitch classes are outside the chord than in it;
+- **right chord, different inversion:** otherwise, when the bass is a chord tone but not the numeral's bass;
+- **chord tone missing (a non-chord tone in its place, or an incomplete chord);**
+- **fits;**
+- **no notes in this beat**, when the beat holds only rests (the Sonnet review found such beats were called "doesn't fit").
+Notes heard that are not in the chord are listed, so a "fits" with passing notes in the beat still shows them. The test cannot judge the key, and does not tell a passing note from a chord tone; the instructions say so and ask the chat model to make its own analysis from the NOTES table, start with what the student got right, explain differences by the notes, and say when two readings are defensible. Old and new rows for the same typed answers (Chopin, Nocturne Op. 9 No. 2, and the Bach chorale in `spike/export/a-harmony.musicxml`):
+
+| Label | Before (model's chord, bass, pitch classes, verdict) | After (bass, notes heard, numeral's notes, verdict) |
+|---|---|---|
+| Chopin m1 b3 `I6` | I (0.89), Eb2, D Eb G Bb F: different inversion | Eb2, Eb G Bb F; G Bb Eb: right chord, different inversion |
+| Chopin m2 b3 `ii` | ii (0.95), F2, F Bb: agrees | F2, F Bb Db E; F Ab C: doesn't fit (the ii arrives on beat 4) |
+| Chopin m3 b2 `V65` | V65/vi (1.00), B2, B G D F: different chord | B2, B G D F; D F Ab Bb: doesn't fit |
+| Bach m1 b2 `vi` | IV6 (1.00), E3, E B C: different chord | E3, E B C G; E G B: fits, with C also heard |
+| Bach m3 b2.5 `ii7` | viio6 (1.00), A2, A F#: different chord | A2, A C F#; A C E G: chord tone missing (E G not heard, F# heard) |
+
+The old check called Chopin's bar 2 beat 3 "agrees" because the model's ii started there; the notes of that beat are F Bb Db E, which lean on the ii chord that arrives on beat 4, and whether to label them as that ii is the chat model's call. The new one has no model to be wrong, but it is cruder: it judges one beat's notes, so an anticipation or a suspension on the beat reads as a misfit, and the chat model has to explain it.
+
+**Legacy tools retired.** `draft_from_notes` and `play` with a `play_id` or a note list served plugin 1.8.0 and earlier; production logs show the last such call on 2026-11-02. Both are gone, and `play` now requires a `score_id`.
+
+**Removed.** In `server/app.py`: `model_output`, the `.draft.json` cache, `SEND_DRAFT`, the draft section and its guide and "unavailable" text, the model's error branch. The `gnn_wait`, `gnn_start` and `gnn` timings, and their three log-based metrics and dashboard tiles from `server/monitoring/`; `apply.sh` never deletes a metric and only creates the dashboard when it is missing, so the live metrics and tiles stay in Google Cloud until deleted by hand. From the image: the model's environment, the vendored model, its weights and the step that listed its files for read-ahead (`Dockerfile.base`, `Dockerfile`), and `server/requirements-agnn.txt`. `SEND_DRAFT` from `server/deploy.sh`. The model install from CI. Tests that ran the real model or asserted the draft. Kept: `engine/draft.py`'s model code and `engine/models/analysisgnn_runner.py`, which `eval/` and `tools/robustness.py` still use on the development machine; the server imports `engine/draft.py` only for its stage timings.
+
+**Image size.** The production base image was 793 MB compressed in the registry (2026-11-06). The removed parts measure 1.4 GB (the model's environment) and 122 MB (weights) uncompressed on the development machine. The new base image, built on Cloud Build for the staging deploy on 2026-11-09 (revision 00102-tz4), is 283 MB compressed: 64% smaller. That revision started on its first probe with no errors.
+
+**Public text.** The privacy page no longer lists a stored draft; the method page no longer mentions a first guess that was switched off; the plugin readme and the skill no longer mention a draft. The `draft_analysis` description no longer promises a model's draft: ChatGPT shows it after OpenAI approves the update, and keeps the old description until then. The skill and the plugin readme are in the built plugin, so they reach Claude's plugin users only with the next plugin build.
+
+**Checks.** End-to-end through `draft_analysis` on the Chopin score: a label that fits, one in a different inversion and one that doesn't fit, with the exact notes in each row; a corpus check in `tests/test_awkward.py` puts a numeral on every beat of every awkward score and gets one row per label. The part-writing tests now pass without the model, including the planted errors. `tools/diff_check.py --base HEAD typed partwriting`: 191 and 80 inputs unchanged.
+
+### 144. Student check: numerals typed without a key, and numerals on a beat the bar lacks (2026-11-09, branch `remove-model`, not released)
+
+**Found by the staging test of entry 143** (revision 00102-tz4, claude.ai with the staging connector, Mozart K. 458 first movement, 6/8, two flats). The test typed "check my numerals for bars 1-4: I | V6 | I | IV V". Claude sent `m1 I, m2 V6, m3 I, m4 beat 1 IV, m4 beat 3 V`. Two faults, each enough to lose the check:
+
+1. **Beat 3 of a 6/8 bar.** A 6/8 bar has two beats. The label's position raised `PositionError` inside the student check; the draft's section guard treats any exception there as an internal fault, logged it as `degraded` (`section_error: student_check: PositionError`) and left the section out. The chat got the notes table with no check and no word why; Claude analysed the bars itself, so the answer looked fine and nobody would have noticed. The early text check runs before the score is read, so it cannot see the bar's length.
+2. **No key typed.** Numerals with no key were read in C major whatever the score. Run by hand with the beat corrected, every label in this B-flat piece came out "doesn't fit the notes", including the student's correct `I` in bar 1 and `V` in bar 4.
+
+**Fix.**
+- A numeral on a bar the score lacks or a beat the bar lacks is now a question for the user, returned like the other unreadable-numeral questions: "Bar 4 has 2 beats (6/8 time), so there is no beat 3. Which beat did you mean for V?" or "The score has bars 0 to 9. Which bar did you mean for I?". This covers the typed path and the numerals-in-the-score path, which share the same placing step.
+- Numerals typed without a key are read in the major key of the key signature in force at each label's bar (the owner chose this over asking the student or guessing major or minor from the notes; a key signature alone cannot tell B-flat major from G minor, and the scores' own mode markings are missing or contradictory in most of `tests/data`). The key is printed before each numeral, and the check's instructions tell the chat model to call again with the key when the music is in the minor. A key the student types still wins from where it is typed. Without a score (the early text check) the default stays C, as before; it only validates the numerals there.
+- When such a question comes back for a score uploaded in the same call, the score is already stored and counted against the day's limits. The question now carries its `score_id`, so the answer is not charged as a second new score. This was already true of the one older question raised after the score is read (two different numerals on the same beat).
+
+**Before and after** (the student's numerals, beat corrected to 2, bars 1-4):
+
+| Label | Before | After |
+|---|---|---|
+| m1 `I` | read as C: I, doesn't fit | B-flat: I, fits |
+| m2 `V6` | C: V6, doesn't fit | B-flat: V6, doesn't fit (the bass is B-flat, not A) |
+| m3 `I` | C: I, doesn't fit | B-flat: I, doesn't fit (a C minor chord) |
+| m4 `IV` | C: IV, doesn't fit | B-flat: IV, doesn't fit (B-flat D F) |
+| m4 b2 `V` | C: V, doesn't fit | B-flat: V, fits |
+
+**Checks.** Two corpus checks in `tests/test_awkward.py`, written first and failing on 22 of 24 cases (the two that passed are in C): on every awkward score, an unkeyed `I` in every bar is read in that bar's signature key, and a numeral one beat past the last bar's end, one bar after the last or one before the first is a question; on the Ravel scan, whose signature changes at bar 4, bar 3 is read in B-flat and bar 4 in G-flat. The staging chat's exact input as a test (`tests/test_check_analysis.py`), and an end-to-end run through the MCP tool: a new upload with a numeral on beat 5 of a 12/8 bar gets the question with a `score_id`, the answer with that `score_id` gets the check, and one score is charged. `tools/diff_check.py --base HEAD typed`: 191 inputs unchanged.
+
+**The bass is the note on the beat.** The same chat's reading of bar 2 showed a third fault: the check took the lowest note anywhere in the beat as the bass. In Mozart's bar 2 the cello plays D for a quarter, then B-flat for an eighth, inside the first dotted-quarter beat, and F then D inside the second; a correct `I6` came out "right chord, different inversion" and a correct `V` "doesn't fit the notes". The check now takes the lowest note sounding as the beat starts, and the lowest note in the beat only when the beat starts on a rest; the column is renamed "bass on the beat". A corpus check (every beat of every awkward score: the bass shown is the lowest note sounding at the beat's start) failed on 9 of 12 scores before and passes on all after. Bar 2 now gives `I6` bass D3, fits, and `V` bass F3, fits. The NOTES table's "bass" per beat is still the lowest note in the beat; changing it would change every analysis, so it is left for a separate measured change. Owner's decision, 2026-11-09.
+
+**The old plugin's tools kept, without a draft.** Entry 143 retired `draft_from_notes` and `play` by `play_id` or note list. Before release, the production logs still showed `draft_from_notes` calls up to 2026-11-02 (two on each of 2026-10-27, 2026-11-01 and 2026-11-02, three on 2026-10-30), so the two quiet weeks the owner set for removal end on 2026-11-16 at the earliest. The Claude directory listing also still exposes only `draft_from_notes` until the plugin 1.9.0 listing is approved. The owner chose to keep both tools rather than hold the release. `draft_from_notes` keeps its name, description and inputs, and now returns what the analysis tool returns for a score without the model: a line telling the chat model to analyse from the note list it sent, the part-writing check and the student check, then the `play_id`. It reads the note list and the student's numerals before counting the score against the day's limits, so a question about a numeral costs nothing. `play` takes `play_id` and `notes` again. Both stay until the logs are quiet for two weeks and the new listing is live.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

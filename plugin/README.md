@@ -10,11 +10,11 @@ Add the plugin and the connector it lists on its Connectors tab. Then ask Claude
 
 Claude returns the page with Roman numerals, chord functions, cadences, phrase brackets, non-chord tones and voice-leading arrows, with PNG and PDF downloads, plus a short commentary numbered to match the page. Ask for a whole piece and Claude analyses it passage by passage, then returns it as one PDF. A PDF is read first (up to the first 8 pages of a PDF of at most 12, about a minute or two); Claude shows you what was read, then goes straight on to the analysis. Ask to hear the music and a small piano player appears in the chat.
 
-Works with any Claude model; the analysis is most accurate with Claude Opus, since Claude checks and corrects the draft analysis itself (see below).
+Works with any Claude model; the analysis is most accurate with Claude Opus, since Claude makes the analysis itself from the notes (see below).
 
 ## How it works
 
-The connector receives the file you choose in the card (or downloads it from your link), reads it, and returns the notes beat by beat with a draft analysis. Claude checks and corrects that draft, then the connector draws the analysis on the engraved page. Claude does not download, open or search for files itself, and nothing runs on your computer or in Claude's code sandbox.
+The connector receives the file you choose in the card (or downloads it from your link), reads it, and returns the notes beat by beat. Claude analyses them, then the connector draws the analysis on the engraved page. Claude does not download, open or search for files itself, and nothing runs on your computer or in Claude's code sandbox.
 
 ## Data
 
@@ -24,4 +24,3 @@ The connector receives only the file you choose in the card, or downloads it fro
 
 - Website and how-to guide: https://sheetmusicanalysis.com
 - Support: support@sheetmusicanalysis.com
-- The draft analysis comes from [AnalysisGNN](https://github.com/manoskary/analysisgnn) by Emmanouil Karystinaios, Johannes Hentschel, Markus Neuwirth and Gerhard Widmer, with our thanks.

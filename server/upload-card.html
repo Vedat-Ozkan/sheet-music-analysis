@@ -61,6 +61,19 @@
     }
   });
 
+  function device() {
+    try {
+      let code = localStorage.getItem("device");
+      if (!code) {
+        code = Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+        localStorage.setItem("device", code);
+      }
+      return code;
+    } catch {
+      return "";
+    }
+  }
+
   document.getElementById("file").addEventListener("change", async (event) => {
     const file = event.target.files[0];
     event.target.value = "";
@@ -73,7 +86,7 @@
     show("Sending " + file.name + "…");
     let body;
     try {
-      const response = await fetch(UPLOAD_URL + "?id=" + encodeURIComponent(await uploadId), { method: "POST", body: file });
+      const response = await fetch(UPLOAD_URL + "?id=" + encodeURIComponent(await uploadId) + "&device=" + device(), { method: "POST", body: file });
       body = await response.json();
     } catch {
       body = { error: "The file could not be sent. Check your connection and choose it again." };
@@ -83,7 +96,7 @@
       show(body.error, true);
       return;
     }
-    show(body.kind === "pdf" ? "Got " + file.name + ". Press Enter to send the message below and start reading it; a PDF takes a minute or two." : "Got " + file.name + ". Press Enter to send the message below and start the analysis.");
+    show("Got " + file.name + ". Press Enter to send the message below " + (body.kind === "pdf" ? "and start reading it; a PDF takes a minute or two." : "and start the analysis.") + " If your reply box is empty, type \"I've chosen it\" and send that.");
     const sent = await request("ui/message", { role: "user", content: [{ type: "text", text: "I've chosen my score: " + file.name }] });
     if (sent.error) show("Got " + file.name + ". Now tell Claude in the chat that you have chosen it.");
   });

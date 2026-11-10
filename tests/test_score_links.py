@@ -80,14 +80,13 @@ def charged(store, kind):
     return json.loads(raw).get(kind, 0) if raw else 0
 
 
-@pytest.mark.xdist_group("draft_model")
 def test_a_musicxml_link_is_drafted_and_counted_like_an_attached_score(server, site):
     fetched = call("fetch_score", {"url": f"{site}/public/moved"})
     assert not fetched.is_error and "Call draft_analysis" in text_of(fetched)
     score_id = id_of(fetched, "score_id")
     drafted = call("draft_analysis", {"score_id": score_id, "measure_range": "1-2"})
     assert not drafted.is_error and text_of(drafted).startswith(f"score_id: {score_id}")
-    assert charged(server, "draft") == 1
+    assert charged(server, "score") == 1
 
 
 def test_a_pdf_link_is_read_and_its_pages_counted_like_an_attached_pdf(server, site):
@@ -95,9 +94,9 @@ def test_a_pdf_link_is_read_and_its_pages_counted_like_an_attached_pdf(server, s
     assert "Call read_fetched_pdf" in text_of(fetched)
     read = call("read_fetched_pdf", {"pdf_id": id_of(fetched, "pdf_id")})
     assert not read.is_error and "The score has measures 0 to 24" in text_of(read)
-    assert "call read_fetched_pdf again with the same pdf_id and keep_slurs=true" in text_of(read)
+    assert "Slurs are not read" in text_of(read) and "keep_slurs" not in text_of(read)
     assert "Go straight on to the analysis" in text_of(read) and "stop and wait" not in text_of(read)
-    assert charged(server, "pdf_page") == 1
+    assert charged(server, "pdf_page") == 1 and charged(server, "score") == 1
 
 
 def test_a_pdf_chosen_in_the_card_is_read_and_its_pages_counted_like_an_attached_pdf(server):
@@ -114,7 +113,42 @@ def test_a_pdf_chosen_in_the_card_is_read_and_its_pages_counted_like_an_attached
     read = call("read_fetched_pdf", {"pdf_id": "CARD"})
     assert misrouted.is_error and "Call read_fetched_pdf with pdf_id CARD" in text_of(misrouted)
     assert not read.is_error and "The score has measures 0 to 24" in text_of(read)
-    assert charged(server, "pdf_page") == 1
+    assert charged(server, "pdf_page") == 1 and charged(server, "score") == 1
+
+
+def test_a_file_past_the_daily_score_limit_is_refused_and_not_kept(server, site, monkeypatch):
+    monkeypatch.setitem(app.DAILY_LIMITS, "score", 0)
+    server.put("scores/CARD.waiting", b"")
+
+    async def send():
+        transport = httpx.ASGITransport(app=app.mcp.streamable_http_app(stateless_http=True))
+        async with httpx.AsyncClient(transport=transport, base_url="http://card") as browser:
+            return await browser.post(f"/upload?id=CARD&device={'a' * 32}", content=FILES["/public/prelude.pdf"],
+                                      headers={"Origin": "https://abc.claudemcpcontent.com"})
+
+    refused = anyio.run(send)
+    assert refused.status_code == 429 and refused.json() == {"error": app.UPLOAD_LIMIT_MESSAGE}
+    assert server.get("scores/CARD.pdf") is None
+    assert json.loads(server.get(f"limits/{app.today()}.json")) == {f"device:{'a' * 32}": 0}
+    linked = call("fetch_score", {"url": f"{site}/public/moved"})
+    assert linked.is_error and app.LIMIT_MESSAGE in text_of(linked)
+
+
+def test_one_device_gets_its_own_daily_limit_of_new_scores(server, monkeypatch):
+    monkeypatch.setattr(app, "PERSON_SCORE_LIMIT", 1)
+
+    async def send(card, device):
+        server.put(f"scores/{card}.waiting", b"")
+        transport = httpx.ASGITransport(app=app.mcp.streamable_http_app(stateless_http=True))
+        async with httpx.AsyncClient(transport=transport, base_url="http://card") as browser:
+            return await browser.post(f"/upload?id={card}&device={device}", content=FILES["/public/prelude.pdf"],
+                                      headers={"Origin": "https://abc.claudemcpcontent.com"})
+
+    first, again, other = (anyio.run(send, card, device) for card, device in
+                           (("CARD1", "a" * 32, ), ("CARD2", "a" * 32), ("CARD3", "b" * 32)))
+    assert first.status_code == 200 and other.status_code == 200
+    assert again.status_code == 429 and again.json() == {"error": app.UPLOAD_PERSON_MESSAGE}
+    assert server.get("scores/CARD2.pdf") is None and charged(server, "score") == 2
 
 
 def test_an_upload_sent_without_its_length_is_stopped_at_10_mb(server):
