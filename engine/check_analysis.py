@@ -377,7 +377,7 @@ def _chord(key: str, figure: str) -> roman.RomanNumeral:
                               seventhMinor=roman.Minor67Default.CAUTIONARY)
 
 
-def _heard(index: ScoreIndex, label: Label, following: Label | None) -> list:
+def _heard(index: ScoreIndex, label: Label, following: Label | None) -> tuple[str | None, list]:
     measure = index.measure(label.measure)
     start = measure.offset_of(label.beat)
     end = int(label.beat) * measure.beat_length
@@ -385,17 +385,19 @@ def _heard(index: ScoreIndex, label: Label, following: Label | None) -> list:
         end = min(end, measure.offset_of(following.beat))
     notes = [event for event in measure.events if event.pitch and not event.grace
              and (start <= event.onset < end or event.onset < start < event.onset + event.duration)]
-    return sorted(notes, key=lambda event: midi(event.pitch))
+    heard = sorted(notes, key=lambda event: midi(event.pitch))
+    on_the_beat = [event for event in heard if event.onset <= start < event.onset + event.duration]
+    return next((event.pitch for event in on_the_beat + heard), None), heard
 
 
-def _fit(chord: roman.RomanNumeral, heard: list) -> tuple[str, list[str], list[str]]:
+def _fit(chord: roman.RomanNumeral, bass_pitch: str | None, heard: list) -> tuple[str, list[str], list[str]]:
     tones = {pitch.pitchClass for pitch in chord.pitches}
     classes = {midi(event.pitch) % 12 for event in heard}
     missing = [pitch.name.replace('-', 'b') for pitch in chord.pitches if pitch.pitchClass not in classes]
     other = list(dict.fromkeys(event.pitch.rstrip('0123456789') for event in heard if midi(event.pitch) % 12 not in tones))
     if not heard:
         return 'no notes in this beat', missing, other
-    bass = midi(heard[0].pitch) % 12
+    bass = midi(bass_pitch) % 12
     if bass not in tones or chord.root().pitchClass not in classes or len(tones & classes) < len(classes - tones):
         return "doesn't fit the notes", missing, other
     if bass != chord.bass().pitchClass:
@@ -417,16 +419,16 @@ def as_text(student: list[Label], index: ScoreIndex) -> str:
         "key signature, shown before each numeral; if the music is in the minor, call again with the key before the "
         "numerals, as in \"g: m1 i\".",
         "",
-        "measure beat | student | bass heard | notes heard, low to high | their numeral's notes, bass first | "
+        "measure beat | student | bass on the beat | notes heard, low to high | their numeral's notes, bass first | "
         "chord notes not heard | other notes heard | fit",
     ]
     for label, following in zip(student, student[1:] + [None]):
-        heard = _heard(index, label, following)
+        bass, heard = _heard(index, label, following)
         chord = _chord(label.key, label.figure)
-        fit, missing, other = _fit(chord, heard)
+        fit, missing, other = _fit(chord, bass, heard)
         names = list(dict.fromkeys(event.pitch.rstrip('0123456789') for event in heard))
         lines.append(
-            f"m{label.measure} b{label.beat:g} | {label.key}: {label.figure} | {heard[0].pitch if heard else 'rest'} | "
+            f"m{label.measure} b{label.beat:g} | {label.key}: {label.figure} | {bass or 'rest'} | "
             f"{' '.join(names)} | {' '.join(pitch.name.replace('-', 'b') for pitch in chord.pitches)} | "
             f"{' '.join(missing) or '-'} | {' '.join(other) or '-'} | {fit}"
         )

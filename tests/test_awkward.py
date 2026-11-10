@@ -116,6 +116,21 @@ def test_student_check_finds_the_notes_of_every_beat(name):
     assert all((row.split(" | ")[2] == "rest") == row.endswith("no notes in this beat") for row in rows)
 
 
+@score_ids
+def test_student_check_bass_is_the_lowest_note_sounding_as_the_beat_starts(name):
+    _, index = load(name)
+    beats = [(measure, beat) for measure in index.measures
+             for beat in range(1, int(measure.length / measure.beat_length + Fraction(95, 96)) + 1)]
+    labels = from_text(" ".join(f"m{measure.number} b{beat} I" for measure, beat in beats), index=index)
+    rows = [line.split(" | ") for line in student_check(labels, index).splitlines() if re.match(r"m\d", line)]
+    for (measure, beat), row in zip(beats, rows, strict=True):
+        start = (beat - 1) * measure.beat_length
+        sounding = [event.pitch for event in measure.events if event.pitch and not event.grace
+                    and event.onset <= start < event.onset + event.duration]
+        if sounding:
+            assert row[2] == min(sounding, key=reduce.midi), (row, sounding)
+
+
 SIGNATURE_KEYS = {
     "pickup-repeat-split": "D", "key-change-tuplets": "A", "compound-6-8-grace": "Bb", "compound-9-8": "Db",
     "tuplets-6-8": "F", "tuplets-4-4": "Eb", "grace-mixed-meter": "Eb", "cross-staff": "A", "two-parts": "C",

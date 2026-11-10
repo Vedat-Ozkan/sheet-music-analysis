@@ -102,6 +102,8 @@ def test_staging_chat_numerals_in_six_eight():
     assert '| Bb: I |' in rows
     assert fits['m1 b1'] == fits['m4 b2'] == 'fits'
     assert fits['m2 b1'] == "doesn't fit the notes"
+    second_bar = check.as_text(check.student_labels('m2 I6, m2 beat 2 V', score, index), index)
+    assert [row.split(' | ')[2::5] for row in second_bar.splitlines() if row[1:2].isdigit()] == [['D3', 'fits'], ['F3', 'fits']]
 
 
 def test_reference_sustain_and_key_precedence(bach):
