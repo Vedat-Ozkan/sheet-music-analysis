@@ -2687,6 +2687,26 @@ The old check called Chopin's bar 2 beat 3 "agrees" because the model's ii start
 
 The built plugin still described the draft model removed in entry 143: the skill told Claude to check a neural model's draft, and the readme credited the model and said Claude corrects a draft. Its readme also still said a PDF is read only if it has at most 12 pages, which entry 137 ended; `plugin/README.md` now says the first 8 pages are read. Rebuilt with `tools/build_skill.py`; version 1.10.2. `tests/test_skill_build.py` passes.
 
+### 147. Student check: numerals typed without beats are placed one per beat, or the user is asked (2026-11-10, branch `student-beats`)
+
+**Found by the staging test of entry 144** (Chopin, Prelude Op. 28 No. 4, a two-beat bar). Claude turned the student's "iv V" into `beat 1 iv, beat 3 V` itself, and the server asked the student about a beat 3 they had never typed. A second, silent fault sat underneath: numerals typed one after another in a bar without beats were put on beats 1, 2, 3 and so on, whatever the bar's length. "m2 ii V" in a four-beat bar put V on beat 2, where a student writing two chords in a 4/4 bar usually means beats 1 and 3, and nothing said the beat was guessed.
+
+**Owner's decision (2026-11-10).** Both: the tool description and a server question.
+- `draft_analysis`'s description now says to pass a beat only where the user gave one and never to choose beats, since the server places them or asks.
+- Numerals in a bar after the first without a beat are placed one per beat only when there is one for every beat that starts in the bar and none of them has a beat. Otherwise the user is asked: "Bar 2 has 4 beats (12/8 time). Which beat is each of ii, V on?". A single numeral in a bar still means beat 1. The question carries the `score_id`, like entry 144's, so the answer is not charged as a new score. Without a score (the early text check) nothing is asked; the check runs again when the score is read.
+- The count of beats that start in a bar (a bar that is short or long by a fraction, from a bad reading or tuplets, still counts its partial last beat) moved from `engine/reduce.py` into `Measure.beat_count`, so the NOTES table and the check count the same beats.
+
+**Before and after.**
+
+| Typed | Score, bar | Before | After |
+|---|---|---|---|
+| `m4 IV V` | Mozart K. 458, 6/8 (2 beats) | beats 1 and 2 | beats 1 and 2 |
+| `m2 ii V` | Chopin Op. 9 No. 2, 12/8 (4 beats) | beats 1 and 2, nothing said | question |
+| `m7 V7 V65/vi vi viio7/V` | Chopin Op. 9 No. 2 (4 beats) | beats 1 to 4 | beats 1 to 4 |
+| `m2 beat 2 I V` | Chopin Op. 9 No. 2 (4 beats) | V on beat 3, nothing said | question |
+
+**Checks.** A corpus check in `tests/test_awkward.py`, written first and failing on 9 of 10 scores: in every bar of every awkward score, one `I` per beat is placed on beats 1 to n; one too many, one too few (bars of three beats or more) and a run starting on beat 2 are each a question. The staging chat's own typing as a test, and an end-to-end run through `draft_analysis`: the question with a `score_id`, the answer with beats gets the check, one score charged. `tools/diff_check.py --base origin/main typed render`: 191 and 28 inputs unchanged. ChatGPT shows the new description after OpenAI approves it.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
