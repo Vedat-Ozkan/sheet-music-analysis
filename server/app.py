@@ -1506,7 +1506,8 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
 
     def build() -> str:
-        sections = [NOTES_FROM_LIST, part_writing.as_text(index), check_analysis.as_text(student, index) if student else ""]
+        sections = [NOTES_FROM_LIST, optional("part_writing", lambda: part_writing.as_text(index)),
+                    optional("student_check", lambda: check_analysis.as_text(student, index) if student else "")]
         return "\n\n".join(section for section in sections if section)
 
     with stage("build"):

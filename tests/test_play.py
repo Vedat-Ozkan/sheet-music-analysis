@@ -56,6 +56,13 @@ def test_an_old_plugins_note_list_gets_no_draft_and_a_play_id_for_the_same_passa
     assert played.structured_content == {"performance": performance_text(note_list.decode(sent))}
 
 
+def test_a_chorale_note_list_gets_the_part_writing_and_student_checks(local_store):
+    chorale = Path(__file__).parent / "data/part_writing_bwv303.musicxml"
+    sent = note_list.encode(marked_index(chorale.read_bytes()))
+    text = call(app.draft_from_notes, notes=sent, student_analysis="m1 I, m2 V").content[0].text
+    assert "PART-WRITING CHECK (" in text and "STUDENT CHECK (" in text and "| D: I |" in text
+
+
 def test_a_numeral_the_note_list_has_no_beat_for_is_a_question_and_not_charged(local_store):
     sent = note_list.encode(marked_index(CHOPIN.read_bytes()), 1, 8)
     result = call(app.draft_from_notes, notes=sent, student_analysis="m1 b9 I")
