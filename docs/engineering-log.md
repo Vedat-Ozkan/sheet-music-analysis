@@ -2759,6 +2759,16 @@ The unseen set as a whole moves 0.9457 to 0.9462 pitch, with the same bar-length
 
 **To release.** This needs a reader build. It means a fork release from `sma-clef-changes`, the jar hash in `Dockerfile.base`, a new `READER` label, and a base image rebuild.
 
+### 149. Release of 2026-11-10: the beat question and reader sma.8
+
+PR #13 merged to `main` as `4e9cd8e`: plugin 1.10.2 (entry 146). No server change.
+
+PR #14 merged as `f8304ce`, CI green, production revision `sheet-music-analysis-00059-8sb` (rollback target `00058-lxg`): entry 147 (numerals without beats are placed one per beat or asked about; `draft_analysis` tells the chat model never to choose beats) and entry 148 (clef changes printed small). The reader is GitHub release `5.11.0-sma.8` of the fork, built from `e1cdbcd52` on branch `sma-clef-changes`; `Dockerfile.base` and CI pin its checksum. PDF readings cached under the sma.7 reader key are not reused, so a PDF sent again is read once more. The site Worker was published with the "Add from a repository" install step and the footer link to the sma.8 source.
+
+**Staging before release.** Revision `00105-hxk` (the beat change alone): "m2 ii V" in a four-beat bar of the Chopin nocturne asked "Bar 2 has 4 beats (12/8 time). Which beat is each of ii, V on?" with its `score_id`; the answer with beats got the check; four numerals in that bar were placed on beats 1 to 4. Revision `00106-qv2` (with sma.8): the Mozart K. 545 scan, sent through the card's upload address, read in 224 s, bars 1 to 73, 11 shaded. A first staging build failed because the old jar checksum was still pinned.
+
+**After the deploy.** The revision started with no errors. Claude's `draft_analysis` description has the new wording; ChatGPT's tool list is unchanged until OpenAI approves listing 1.3.0, which also carries entries 137 to 140 and 143 to 147. The site serves the new install step and links the sma.8 source.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
