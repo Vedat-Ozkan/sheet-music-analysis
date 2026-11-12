@@ -2860,6 +2860,10 @@ The two kept-copy tests failed before the copy was keyed by person. With `test_p
 - Its retry read the kept copy (`attachment_kept` true, no second download), started at 05:50:38, right after the first, and finished at 05:52:39.
 - Both calls landed on one instance, so the two-machine path was NOT RUN on staging.
 
+**Staging, the stop signal (revision `00108-69w` and the revisions made from it, 2026-11-12).** A new revision was forced with an environment change (no rebuild) while a read was running.
+- A ChatGPT-style call still open (Chopin Op. 10 No. 1, 7 pages): Cloud Run let the old machine finish the read (06:38:24) before stopping it, and the marker was released the normal way. A held call was never at risk.
+- A Claude-style call that had already answered "still being read" (Tchaikovsky Op. 37 No. 1, 6 pages), the shape of the 11-09 case: the old revision logged "released reads at shutdown" (1 read), the marker was gone 19 s after the change, and the retry got its reading at once.
+
 **Not tested.** A real two-machine compare-and-swap race: `LocalStore` versions by file time, which is too coarse to test it, while GCS generations are exact. Also NOT RUN: ChatGPT's real timeout, how long its file links last, and whether its retries keep the file id. Only production logs can show these.
 
 ## Checking against teachers' prose
