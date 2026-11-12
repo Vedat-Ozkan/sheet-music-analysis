@@ -2815,6 +2815,45 @@ Both had several minutes with no open request, and their steps ran up to 10× sl
 - "Busy" with two machines.
 - CPU outside requests.
 
+### 151. One person's PDFs are read one after another; a resent attachment is read from our copy (2026-11-12, branch `one-person-queue`)
+
+**Why.** Since read lines began on 11-01, every "busy" reply went to a ChatGPT user who already had a read running, from their own second attachment or ChatGPT's retry. Of the 6 since 11-08, 3 came while only one read was running, on the machine the call landed on; the other machine was free. Each machine reads one PDF at a time, and it refused the second instead of waiting. The owner's rule (2026-11-12): one person never uses more than one machine, and their PDFs are read in turn. The owner also asked that a file already downloaded is not downloaded again. Entry 150's failed chat broke exactly there: ChatGPT's retry, about 300 s later, could not download the attachment.
+
+**Change.**
+- **The person's turn.**
+  - A read claims its file as before. Then, by compare-and-swap (GCS generation), it writes the person's record `scores/pdf-person-{code}.json`, naming that file and the claim's token.
+  - The record counts only while that exact claim is live: the file's marker exists, has the same token and is under `READ_MARKER_SECONDS` old. It has no clock of its own. Because the claim is written before the record points at it, the record never names a file without a marker. Two of one person's waiters racing for a freed turn can still show a loser's claim for a moment, so a same-file call in that instant may wait for a read that is not happening; this is narrower than before, not gone.
+  - If the swap shows another live read of the same person, the call gives its file claim back and waits.
+  - While waiting, a call only reads the record, every `POLL_SECONDS`, and claims nothing. A first version claimed and released the file on every poll, which for a moment made the file look "being read" to anyone else. A second version took the turn before the claim and covered the gap with a 2 s grace, which a slow claim or clock drift between machines could beat. The Opus reviews found both.
+- **How long a call waits.**
+  - A call waits for its turn up to `SAME_FILE_WAIT` (100 s), the same bound as today's waits for the same file. The read that follows still has 755 s of open request, more than the first setting's 480 s deadline, so it keeps its CPU.
+  - The waits after it (the read itself, or a read on the other machine) get only what is left of the call's `STARTER_WAIT`. A first version gave them a fresh 100 s, which could pass the 900 s request limit.
+  - A call that runs out answers "The user's previous PDF is still being read, and this one is read after it. Tell the user, then call read_pdf again in a minute or two." It reads nothing and charges nothing.
+- **Cost of waiting.** The service has 4 request slots: 2 per machine (`containerConcurrency`) on at most 2 machines. A waiting call holds one for up to 100 s where it used to get "busy" in about 1 s, so one person sending three PDFs at once holds 3 of 4 for that time. An idle wait keeps its machine billable: at most 100 s, about US$0.01.
+- **A machine that stops mid-read (owner to decide before production).** The record's life is its read marker's, so after a crash, or a deploy that kills a read, all of that person's PDFs wait until the marker expires (up to 15 minutes). They are told a PDF is still being read when nothing is. Today only that one PDF is blocked; this widens the 11-06 decision. The same holds if a read loses its CPU because ChatGPT dropped the starting request (entry 150's ~300 s retries): its marker stays fresh while it crawls. Whether Cloud Run removes CPU on a client disconnect is not verified.
+- A waiting call also checks for a finished reading of its own file each time it polls, so a file read meanwhile by someone else is not read twice. Avoiding it would need a heartbeat, which 11-06 ruled out. One earlier case (11-09, a deploy during our own test) cannot tell whether markers are released at shutdown: after the deploy, both new machines read the same file again.
+- **The kept attachment.**
+  - `read_pdf` keeps the attached PDF under `scores/attached-{hash of person and ChatGPT's file id}.pdf`. A call with the same file id from the same person reads that copy instead of downloading again.
+  - The log line records the hashed id and whether the copy was used, so production can confirm that ChatGPT's retries keep the file id.
+  - Callers without a user code (Claude, other) keep nothing and behave as before.
+  - New stored data: before, only unread PDFs were kept. Every ChatGPT PDF is now kept for 30 days, under the privacy page's existing "Scores … deleted 30 days after they are stored". The owner's yes is needed before production.
+- Two different people on one machine still get "busy"; the owner chose not to raise the machine limit. No tool description changed, so nothing waits on OpenAI's review.
+
+**Checks.** End-to-end tests in `tests/test_pdf_one_person.py`, written first; the first failed on main with the "busy" reply:
+- one person's two PDFs sent together are both read, the second after the first;
+- a PDF waits while the same person's other PDF is read on the other machine, then reads;
+- another person's read does not hold anyone up;
+- a person whose other read's marker has expired is not held up;
+- a call still waiting at the end of its time gets the call-again answer, nothing is read and nothing is charged;
+- a call that loses the swap after claiming gives its file back, waits, and reads once the other read ends;
+- a resent attachment whose link now fails is read from the kept copy;
+- the same file id from two people gives each their own PDF;
+- nothing is kept for a caller without a user code, or for an attachment without a file id.
+
+The two kept-copy tests failed before the copy was keyed by person. With `test_pdf_same_file`: 22 passed.
+
+**Not tested.** A real two-machine compare-and-swap race: `LocalStore` versions by file time, which is too coarse to test it, while GCS generations are exact. Also NOT RUN: ChatGPT's real timeout, how long its file links last, and whether its retries keep the file id. Only production logs can show these.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
