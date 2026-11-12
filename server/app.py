@@ -29,6 +29,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import anyio
 import httpx
 import uvicorn
+from uvicorn.main import STARTUP_FAILURE
 from google.api_core.exceptions import NotFound, PreconditionFailed
 from google.cloud import storage
 from mcp.server.apps import Apps, ResourceCsp
@@ -942,8 +943,14 @@ STILL_READING = (
     "This PDF is still being read ({seconds} s so far; a long PDF takes up to about {minutes} minutes). Tell the user it is "
     "still being read, then call {again}; each call waits up to {wait} s for the result."
 )
+WAITING_FOR_TURN = (
+    "The user's previous PDF is still being read, and this one is read after it. Tell the user, then call {again} "
+    "in a minute or two."
+)
+LOST_TURN = "lost the turn"
 CALL_AGAIN = {"read_pdf": "read_pdf again with the same file", "read_fetched_pdf": "read_fetched_pdf again with the same pdf_id"}
 pdfs_reading: dict[str, tuple[asyncio.Task, float]] = {}
+reads_held: dict[str, str] = {}
 claiming = asyncio.Lock()
 
 
@@ -962,10 +969,20 @@ claiming = asyncio.Lock()
 )
 @observed
 async def read_pdf(ctx: Context, pdf_file: AttachedFile) -> CallToolResult:
-    source = platform(ctx)
+    source, person = platform(ctx), caller()
+    kept = None
+    if person and pdf_file.file_id:
+        attachment = await anyio.to_thread.run_sync(pseudonym, f"{person}/{pdf_file.file_id}")
+        kept = f"scores/attached-{attachment}.pdf"
     try:
         with stage("fetch"):
-            data = await download_attachment(pdf_file.download_url)
+            data = kept and await anyio.to_thread.run_sync(store.get, kept)
+            if kept:
+                log("read_pdf", attachment=attachment, attachment_kept=data is not None)
+            if not data:
+                data = await download_attachment(pdf_file.download_url)
+                if kept and data.startswith(b"%PDF"):
+                    await anyio.to_thread.run_sync(store.put, kept, data)
         if not data.startswith(b"%PDF"):
             raise ScoreError("This file is not a PDF. Ask the user to attach a PDF of the printed music or a MusicXML file.")
     except ScoreError as error:
@@ -981,21 +998,42 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
         card = json.loads(card)
         log(tool, platform=source, pages=card["pages"], cached="card")
         return pdf_card_result(card, tool)
-    async with claiming:
-        started_here = card_key not in pdfs_reading
-        if started_here:
-            token, elsewhere = await claim_read(card_key)
-        if started_here and token is not None:
-            work = contextvars.copy_context()
-            work.run(current_call.set, None)
-            work.run(draft.timings.set, None)
-            task = asyncio.create_task(pdf_work(data, digest, source, card_key, token, tool == "read_pdf", caller()), context=work)
-            pdfs_reading[card_key] = task, time.time()
-            task.add_done_callback(lambda _: pdfs_reading.pop(card_key, None))
+    person, arrived_at = caller(), time.time()
+    starter_wait = STARTER_WAIT if source != "claude" else SAME_FILE_WAIT
+    while True:
+        if not person or card_key in pdfs_reading or await turn_is_free(person, card_key):
+            async with claiming:
+                started_here = card_key not in pdfs_reading
+                if started_here:
+                    token, elsewhere = await claim_read(card_key)
+                    if token is not None:
+                        reads_held[card_key] = token
+                    if token is not None and person and not await take_turn(person, card_key, token):
+                        reads_held.pop(card_key, None)
+                        await release_read(card_key, token)
+                        token = LOST_TURN
+                if started_here and token not in (None, LOST_TURN):
+                    work = contextvars.copy_context()
+                    work.run(current_call.set, None)
+                    work.run(draft.timings.set, None)
+                    task = asyncio.create_task(pdf_work(data, digest, source, card_key, token, tool == "read_pdf", person), context=work)
+                    pdfs_reading[card_key] = task, time.time()
+                    task.add_done_callback(lambda _: pdfs_reading.pop(card_key, None))
+            if not (started_here and token == LOST_TURN):
+                break
+        if card := await anyio.to_thread.run_sync(store.get, card_key):
+            card = json.loads(card)
+            log(tool, platform=source, pages=card["pages"], cached="card")
+            return pdf_card_result(card, tool)
+        if time.time() - arrived_at >= min(SAME_FILE_WAIT, starter_wait):
+            log(tool, platform=source, reading=True, waiting_turn=True)
+            return CallToolResult(content=[TextContent(type="text", text=WAITING_FOR_TURN.format(again=CALL_AGAIN[tool]))])
+        await anyio.sleep(POLL_SECONDS)
+    remaining = max(starter_wait - (time.time() - arrived_at), 0)
     if started_here and token is None:
-        return await wait_for_other_machine(card_key, elsewhere, source, tool)
+        return await wait_for_other_machine(card_key, elsewhere, source, tool, min(SAME_FILE_WAIT, remaining))
     task, since = pdfs_reading[card_key]
-    with anyio.move_on_after(STARTER_WAIT if started_here and source != "claude" else SAME_FILE_WAIT):
+    with anyio.move_on_after(min(starter_wait if started_here else SAME_FILE_WAIT, remaining)):
         await asyncio.shield(task)
     if not task.done():
         log(tool, platform=source, reading=True)
@@ -1040,14 +1078,66 @@ async def claim_read(card_key: str) -> tuple[str | None, float]:
     return None, now
 
 
-async def release_read(card_key: str, token: str | None) -> None:
-    found = json.loads(await anyio.to_thread.run_sync(store.get, marker_of(card_key)) or b"{}")
+def person_reading(person: str) -> str:
+    return f"scores/pdf-person-{person}.json"
+
+
+async def turn_holder(person: str) -> tuple[dict, int]:
+    found, version = await anyio.to_thread.run_sync(store.get_versioned, person_reading(person))
+    return json.loads(found or b"{}"), version
+
+
+async def holds_turn(holder: dict, card_key: str) -> bool:
+    if holder.get("card") in (None, card_key):
+        return False
+    found = json.loads(await anyio.to_thread.run_sync(store.get, marker_of(holder["card"])) or b"{}")
+    return found.get("token") == holder.get("token") and time.time() - found.get("started", 0) <= READ_MARKER_SECONDS
+
+
+async def turn_is_free(person: str, card_key: str) -> bool:
+    holder, _ = await turn_holder(person)
+    return not await holds_turn(holder, card_key)
+
+
+async def take_turn(person: str, card_key: str, token: str) -> bool:
+    holder, version = await turn_holder(person)
+    if await holds_turn(holder, card_key):
+        return False
+    turn = json.dumps({"card": card_key, "token": token}).encode()
+    return await anyio.to_thread.run_sync(store.put_if, person_reading(person), turn, version)
+
+
+def release_marker(card_key: str, token: str | None) -> None:
+    found = json.loads(store.get(marker_of(card_key)) or b"{}")
     if found.get("token") == token:
-        await anyio.to_thread.run_sync(store.delete, marker_of(card_key))
+        store.delete(marker_of(card_key))
 
 
-async def wait_for_other_machine(card_key: str, since: float, source: str, tool: str) -> CallToolResult:
-    with anyio.move_on_after(SAME_FILE_WAIT):
+async def release_read(card_key: str, token: str | None) -> None:
+    await anyio.to_thread.run_sync(release_marker, card_key, token)
+
+
+def release_reads_at_shutdown() -> None:
+    released, failed = 0, 0
+    for card_key, token in list(reads_held.items()):
+        reads_held.pop(card_key, None)
+        try:
+            release_marker(card_key, token)
+            released += 1
+        except Exception:
+            failed += 1
+    if released or failed:
+        write_line({"severity": "WARNING", "message": "released reads at shutdown", "reads": released, "failed": failed})
+
+
+class HttpServer(uvicorn.Server):
+    def handle_exit(self, sig, frame) -> None:
+        asyncio.get_running_loop().call_soon_threadsafe(release_reads_at_shutdown)
+        super().handle_exit(sig, frame)
+
+
+async def wait_for_other_machine(card_key: str, since: float, source: str, tool: str, wait: float) -> CallToolResult:
+    with anyio.move_on_after(wait):
         while True:
             if card := await anyio.to_thread.run_sync(store.get, card_key):
                 log(tool, platform=source, other_machine=True)
@@ -1077,6 +1167,7 @@ async def pdf_work(data: bytes, digest: str, source: str, card_key: str,
         async with verovio_request():
             return await pdf_outcome(data, digest, source, card_key, details, timings, started, arrived, person)
     finally:
+        reads_held.pop(card_key, None)
         await release_read(card_key, token)
 
 
@@ -1894,7 +1985,11 @@ def main() -> None:
     tool_calls = logging.getLogger("mcp.server.mcpserver.server")
     tool_calls.setLevel(logging.INFO)
     tool_calls.addFilter(lambda record: record.levelno > logging.INFO or record.msg.startswith("Tool %r rejected arguments"))
-    uvicorn.run(traced(without_event_stream(app)), host="0.0.0.0", port=PORT, log_level="warning", log_config=None)
+    server = HttpServer(uvicorn.Config(traced(without_event_stream(app)), host="0.0.0.0", port=PORT, log_level="warning",
+                                       log_config=None))
+    server.run()
+    if not server.started:
+        sys.exit(STARTUP_FAILURE)
 
 
 if __name__ == "__main__":
