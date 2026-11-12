@@ -2852,6 +2852,12 @@ Both had several minutes with no open request, and their steps ran up to 10× sl
 
 The two kept-copy tests failed before the copy was keyed by person. With `test_pdf_same_file`: 22 passed.
 
+**Staging (revision `00107-zhq`, 2026-11-12).** A script sent two PDFs from one test user 2 s apart, the way ChatGPT attaches them, with the files linked from this repo.
+- The Beethoven movement (5 pages) read from 05:48:43 to 05:50:37.
+- The Mozart K. 545 scan (4 pages, its cached reading cleared first) got no "busy". It waited its turn for 100 s and answered "read after it".
+- Its retry read the kept copy (`attachment_kept` true, no second download), started at 05:50:38, right after the first, and finished at 05:52:39.
+- Both calls landed on one instance, so the two-machine path was NOT RUN on staging.
+
 **Not tested.** A real two-machine compare-and-swap race: `LocalStore` versions by file time, which is too coarse to test it, while GCS generations are exact. Also NOT RUN: ChatGPT's real timeout, how long its file links last, and whether its retries keep the file id. Only production logs can show these.
 
 ## Checking against teachers' prose
