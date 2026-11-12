@@ -66,7 +66,7 @@ MAX_SCORE_BYTES = 10 * 1024 * 1024
 DOWNLOAD_SECONDS = 30
 MAX_REDIRECTS = 5
 RATING_AFTER_ANALYSES = 3
-PERSON_SCORE_LIMIT = int(os.environ.get("PERSON_SCORE_LIMIT", "5"))
+PERSON_SCORE_LIMIT = int(os.environ.get("PERSON_SCORE_LIMIT", "10"))
 DAILY_LIMITS = {"score": 100, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
 CARD_URI = "ui://sheet-music-analysis/card-v3.html"
 PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v3.html"
@@ -377,6 +377,20 @@ async def take_score(person: str | None, source: str) -> str | None:
         await take_for(person, -1)
         return "shared"
     return None
+
+
+def sent_key(person: str, data: bytes) -> str:
+    return f"scores/sent-{pseudonym(f'{person}/{hashlib.sha256(data).hexdigest()}')}"
+
+
+async def sent_before(person: str | None, data: bytes) -> str | None:
+    kept = person and await anyio.to_thread.run_sync(store.get, sent_key(person, data))
+    return kept.decode() if kept else None
+
+
+async def remember_sent(person: str | None, data: bytes, code: str) -> None:
+    if person:
+        await anyio.to_thread.run_sync(store.put, sent_key(person, data), code.encode())
 
 
 def caller() -> str | None:
@@ -1655,10 +1669,13 @@ async def draft_analysis(
         if given == "score_id":
             code = clean_id(score_id)
         else:
-            if refused := await take_score(caller(), source):
-                log("limit", tool="draft_analysis", platform=source, per=refused)
-                return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
-            code = secrets.token_hex(8).upper()
+            person = caller()
+            if not (code := await sent_before(person, score)):
+                if refused := await take_score(person, source):
+                    log("limit", tool="draft_analysis", platform=source, per=refused)
+                    return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
+                code = secrets.token_hex(8).upper()
+                await remember_sent(person, score, code)
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)
         text = await in_turn(make_draft, score, code, measures, student_analysis)
     except check_analysis.ClarificationNeeded as error:
@@ -1938,9 +1955,12 @@ async def upload(request: Request) -> Response:
         log("upload", platform=source, error="not a score", score_bytes=len(data))
         return upload_refused("This is not a MusicXML file or a PDF. Choose a .mxl, .musicxml or .pdf file.", 415)
     device = request.query_params.get("device", "")
-    if refused := await take_score(f"device:{device}" if re.fullmatch(r"[0-9a-f]{32}", device) else None, source):
-        log("upload", platform=source, error=f"{refused} limit")
-        return upload_refused(UPLOAD_PERSON_MESSAGE if refused == "person" else UPLOAD_LIMIT_MESSAGE, 429)
+    person = f"device:{device}" if re.fullmatch(r"[0-9a-f]{32}", device) else None
+    if not await sent_before(person, bytes(data)):
+        if refused := await take_score(person, source):
+            log("upload", platform=source, error=f"{refused} limit")
+            return upload_refused(UPLOAD_PERSON_MESSAGE if refused == "person" else UPLOAD_LIMIT_MESSAGE, 429)
+        await remember_sent(person, bytes(data), code)
     await keep_score(bytes(data), kind, code)
     log("upload", platform=source, kind=kind, score_bytes=len(data))
     return JSONResponse({"kind": kind}, headers=UPLOAD_HEADERS)
