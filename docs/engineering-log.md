@@ -2885,6 +2885,18 @@ PR #16 merged to `main` as `be156b8` (entry 150), PR #17 as `7bf5898` (site gall
 
 **Tests.** New: the same file twice from one ChatGPT account keeps one score_id and one charge; another account is charged. The device test now checks that the same file in a new card is free and a different file is refused at the limit.
 
+### 154. Claude's PDF errors in the directory: a card not filled yet is not an error (2026-11-12, branch `not-chosen-not-error`)
+
+**What the directory showed.** The Claude directory page gave `read_fetched_pdf` a 23.1% error rate: 3 of 13 calls in 30 days.
+
+**Root cause, from the logs.**
+- Two of the three (10 Nov 02:58, 11 Nov 01:04) came 18 to 100 s after `choose_score`, before any file had been chosen in the card. The server answered with the "not chosen yet" message as a tool error. On 10 Nov the user chose the file 2 minutes later; on 11 Nov no file was ever chosen.
+- The third (10 Nov 03:09) is a 5-page scan the reader could not read (staff lines too close at first, then a timeout at higher resolution). That one is a real reading failure, followed up under scan normalisation.
+
+**Change.** "The user has not chosen their file in the card yet" is now a plain answer from `read_fetched_pdf` and from `draft_analysis` with the card's id, logged as `not_chosen`. Every other missing-file answer is still an error.
+
+**Test.** A card with no file yet: both tools answer with the message and `is_error` false.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
