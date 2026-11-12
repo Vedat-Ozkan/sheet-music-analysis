@@ -2866,6 +2866,12 @@ The two kept-copy tests failed before the copy was keyed by person. With `test_p
 
 **Not tested.** A real two-machine compare-and-swap race: `LocalStore` versions by file time, which is too coarse to test it, while GCS generations are exact. Also NOT RUN: ChatGPT's real timeout, how long its file links last, and whether its retries keep the file id. Only production logs can show these.
 
+### 152. Release of 2026-11-12: one person's PDFs in turn, attachment download failures, gallery
+
+PR #16 merged to `main` as `be156b8` (entry 150), PR #17 as `7bf5898` (site gallery redrawn; help text says brackets, not coloured bands; privacy page says every score is kept 30 days) and PR #18 as `c114e23` (entry 151). CI green on `c114e23`. Production revision `sheet-music-analysis-00060-xv9` (rollback target `00059-8sb`), deployed from a clean checkout of `c114e23`; the site Worker was published from the same commit.
+
+**After the deploy.** The revision started on two instances with no errors, only the usual Python and Cloud Trace deprecation warnings. The site serves the 30-day privacy line, the "Bracket under the numerals" legend row, no mention of coloured bands, and the redrawn gallery images. No user call had reached the new revision when this was written, so `attachment_kept`, `waiting_turn` and download `status` lines in production are still to be seen.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
