@@ -116,11 +116,14 @@ def test_a_pdf_chosen_in_the_card_is_read_and_its_pages_counted_like_an_attached
     assert charged(server, "pdf_page") == 1 and charged(server, "score") == 1
 
 
-def test_a_card_whose_file_is_not_chosen_yet_is_a_plain_answer_not_an_error(server):
+def test_a_card_whose_file_is_not_chosen_yet_is_a_plain_answer_not_an_error(server, capsys):
     server.put("scores/CARD.waiting", b"")
     for tool, arguments in (("read_fetched_pdf", {"pdf_id": "CARD"}), ("draft_analysis", {"score_id": "CARD"})):
         result = call(tool, arguments)
         assert not result.is_error and text_of(result) == app.NOT_CHOSEN_YET
+        lines = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")]
+        row = [line for line in lines if line.get("tool") == tool][-1]
+        assert row["outcome"] == "ok" and row["not_chosen"] and "error" not in row
 
 
 def test_a_file_past_the_daily_score_limit_is_refused_and_not_kept(server, site, monkeypatch):

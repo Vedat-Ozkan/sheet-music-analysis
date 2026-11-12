@@ -2893,9 +2893,9 @@ PR #16 merged to `main` as `be156b8` (entry 150), PR #17 as `7bf5898` (site gall
 - Two of the three (10 Nov 02:58, 11 Nov 01:04) came 18 to 100 s after `choose_score`, before any file had been chosen in the card. The server answered with the "not chosen yet" message as a tool error. On 10 Nov the user chose the file 2 minutes later; on 11 Nov no file was ever chosen.
 - The third (10 Nov 03:09) is a 5-page scan the reader could not read (staff lines too close at first, then a timeout at higher resolution). That one is a real reading failure, followed up under scan normalisation.
 
-**Change.** "The user has not chosen their file in the card yet" is now a plain answer from `read_fetched_pdf` and from `draft_analysis` with the card's id, logged as `not_chosen`. Every other missing-file answer is still an error.
+**Change.** "The user has not chosen their file in the card yet" is now a plain answer from `read_fetched_pdf` and from `draft_analysis` with the card's id, logged as `not_chosen` (outcome ok, no `error` field) and counted as "file not chosen yet" by `tools/usage_report.py`. Every other missing-file answer is still an error.
 
-**Test.** A card with no file yet: both tools answer with the message and `is_error` false.
+**Test.** A card with no file yet: both tools answer with the message, `is_error` false, and the logged row has no `error` field. Sonnet review found the stale `error` field before this test checked the row.
 
 ## Checking against teachers' prose
 

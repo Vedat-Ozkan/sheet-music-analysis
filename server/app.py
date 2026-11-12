@@ -1344,11 +1344,11 @@ async def read_fetched_pdf(ctx: Context, pdf_id: str) -> CallToolResult:
     code = clean_id(pdf_id)
     data = await anyio.to_thread.run_sync(store.get, f"scores/{code}.pdf")
     if data is None:
+        if await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is not None:
+            return waiting_for_choice("read_fetched_pdf", source)
         log("read_fetched_pdf", platform=source, error="ScoreError")
         if await anyio.to_thread.run_sync(store.get, f"scores/{code}") is not None:
             return error_result(f"This score is a MusicXML file, not a PDF. Call draft_analysis with score_id {code}.")
-        if await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is not None:
-            return waiting_for_choice("read_fetched_pdf", source)
         return error_result(f"No PDF has the pdf_id {pdf_id!r}; PDFs are kept for 30 days. Call choose_score so "
                             "the user can choose the PDF again.")
     return await read_pdf_data(data, source, "read_fetched_pdf")
