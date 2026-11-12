@@ -134,21 +134,22 @@ def test_a_file_past_the_daily_score_limit_is_refused_and_not_kept(server, site,
     assert linked.is_error and app.LIMIT_MESSAGE in text_of(linked)
 
 
-def test_one_device_gets_its_own_daily_limit_of_new_scores(server, monkeypatch):
+def test_one_device_gets_its_own_daily_limit_of_new_scores_and_a_file_sent_again_is_free(server, monkeypatch):
     monkeypatch.setattr(app, "PERSON_SCORE_LIMIT", 1)
 
-    async def send(card, device):
+    async def send(card, device, file):
         server.put(f"scores/{card}.waiting", b"")
         transport = httpx.ASGITransport(app=app.mcp.streamable_http_app(stateless_http=True))
         async with httpx.AsyncClient(transport=transport, base_url="http://card") as browser:
-            return await browser.post(f"/upload?id={card}&device={device}", content=FILES["/public/prelude.pdf"],
+            return await browser.post(f"/upload?id={card}&device={device}", content=FILES[file],
                                       headers={"Origin": "https://abc.claudemcpcontent.com"})
 
-    first, again, other = (anyio.run(send, card, device) for card, device in
-                           (("CARD1", "a" * 32, ), ("CARD2", "a" * 32), ("CARD3", "b" * 32)))
-    assert first.status_code == 200 and other.status_code == 200
-    assert again.status_code == 429 and again.json() == {"error": app.UPLOAD_PERSON_MESSAGE}
-    assert server.get("scores/CARD2.pdf") is None and charged(server, "score") == 2
+    first, same, new, other = (anyio.run(send, card, device, file) for card, device, file in
+                               (("CARD1", "a" * 32, "/public/prelude.pdf"), ("CARD2", "a" * 32, "/public/prelude.pdf"),
+                                ("CARD3", "a" * 32, "/public/nocturne.mxl"), ("CARD4", "b" * 32, "/public/prelude.pdf")))
+    assert first.status_code == 200 and same.status_code == 200 and other.status_code == 200
+    assert new.status_code == 429 and new.json() == {"error": app.UPLOAD_PERSON_MESSAGE}
+    assert server.get("scores/CARD3") is None and charged(server, "score") == 2
 
 
 def test_an_upload_sent_without_its_length_is_stopped_at_10_mb(server):

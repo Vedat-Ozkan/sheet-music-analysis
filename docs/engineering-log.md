@@ -2872,6 +2872,19 @@ PR #16 merged to `main` as `be156b8` (entry 150), PR #17 as `7bf5898` (site gall
 
 **After the deploy.** The revision started on two instances with no errors, only the usual Python and Cloud Trace deprecation warnings. The site serves the 30-day privacy line, the "Bracket under the numerals" legend row, no mention of coloured bands, and the redrawn gallery images. No user call had reached the new revision when this was written, so `attachment_kept`, `waiting_turn` and download `status` lines in production are still to be seen.
 
+### 153. Ten unique scores per person a day; a score sent again is free (2026-11-12, branch `resent-scores-free`)
+
+**What happened.** On 12 Nov a returning ChatGPT user (first seen 7 Nov) sent five different MusicXML files to `draft_analysis` in one turn, all read; 26 s later the same turn sent five more calls with files attached, and all five were refused with today's limit of 5 new scores per person. They never reached a marked page. Refused calls stop before the file is parsed, so the logs cannot tell whether the second five were the same files again. Each `draft_analysis` call with an attached file was charged as a new score, even when the same person sent the same file again.
+
+**Usage across the product, 13 Oct to 12 Nov (logs).** No other person used more than 6 new scores in a day; most use 1 to 3. PDFs were already charged once per file, because a reading is cached by the file's content.
+
+**Change (owner's decision).**
+- `PERSON_SCORE_LIMIT` default 5 → 10.
+- A file the same person (ChatGPT usage code, or the upload card's device code in Claude) has sent before is not charged again, against either the person's or the shared daily count. `scores/sent-{HMAC(person/file digest)}` holds the score_id given the first time and expires with the scores (30 days). In `draft_analysis` the same file gets the same `score_id` back; in the upload card the new card is filled without a charge.
+- Not covered: Claude calls other than the upload card carry no person code, so links through `fetch_score` count only against the shared limit, as before.
+
+**Tests.** New: the same file twice from one ChatGPT account keeps one score_id and one charge; another account is charged. The device test now checks that the same file in a new card is free and a different file is refused at the limit.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

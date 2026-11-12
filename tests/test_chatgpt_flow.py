@@ -306,6 +306,23 @@ def test_one_chatgpt_account_gets_its_own_daily_limit_of_new_scores(server, monk
     assert charged(server, "score") == 1
 
 
+def test_a_score_file_sent_again_by_the_same_account_keeps_its_score_id_and_is_not_charged_again(server, monkeypatch):
+    async def nocturne(url):
+        return NOCTURNE
+
+    monkeypatch.setattr(app, "download", nocturne)
+    monkeypatch.setattr(app, "caller", lambda: "0123456789abcdef")
+    first = call("draft_analysis", {"score_file": ATTACHED["pdf_file"], "measure_range": "1-2"})
+    again = call("draft_analysis", {"score_file": ATTACHED["pdf_file"], "measure_range": "1-2"})
+    assert not first.is_error and not again.is_error
+    assert score_id_of(again) == score_id_of(first)
+    assert charged(server, "score") == 1
+    monkeypatch.setattr(app, "caller", lambda: "fedcba9876543210")
+    other = call("draft_analysis", {"score_file": ATTACHED["pdf_file"], "measure_range": "1-2"})
+    assert score_id_of(other) != score_id_of(first)
+    assert charged(server, "score") == 2
+
+
 def test_a_numeral_on_a_beat_the_bar_lacks_is_asked_about_and_the_answer_is_not_charged_again(server, monkeypatch):
     async def nocturne(url):
         return NOCTURNE
