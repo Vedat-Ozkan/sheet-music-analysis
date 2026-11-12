@@ -577,7 +577,7 @@ async def resolve_score(score_file: AttachedFile | None, score_id: str | None, s
                     raise ScoreError(f"This score is a PDF. Call read_fetched_pdf with pdf_id {code} first, then use "
                                      "the score_id it returns.")
                 if await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is not None:
-                    raise ScoreError(NOT_CHOSEN_YET)
+                    raise NotChosenYet(NOT_CHOSEN_YET)
                 raise ScoreError(f"No score has the id {score_id!r}; scores are kept for 30 days")
             return data, "score_id"
     raise ScoreError(NO_SCORE_GIVEN["claude" if source == "claude" else "other"])
@@ -603,6 +603,11 @@ def make_worksheet(name: str) -> bytes | None:
     recipe = json.loads(recipe)
     measures = tuple(recipe["measures"]) if recipe["measures"] else None
     return render(score, AnnotationList(annotations=[]), measures=measures, piano=recipe["piano"]).pdf()
+
+
+def waiting_for_choice(tool: str, source: str) -> CallToolResult:
+    log(tool, platform=source, not_chosen=True)
+    return CallToolResult(content=[TextContent(type="text", text=NOT_CHOSEN_YET)])
 
 
 def error_result(message: str) -> CallToolResult:
@@ -1343,7 +1348,7 @@ async def read_fetched_pdf(ctx: Context, pdf_id: str) -> CallToolResult:
         if await anyio.to_thread.run_sync(store.get, f"scores/{code}") is not None:
             return error_result(f"This score is a MusicXML file, not a PDF. Call draft_analysis with score_id {code}.")
         if await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is not None:
-            return error_result(NOT_CHOSEN_YET)
+            return waiting_for_choice("read_fetched_pdf", source)
         return error_result(f"No PDF has the pdf_id {pdf_id!r}; PDFs are kept for 30 days. Call choose_score so "
                             "the user can choose the PDF again.")
     return await read_pdf_data(data, source, "read_fetched_pdf")
@@ -1524,6 +1529,10 @@ NOT_CHOSEN_YET = ("The user has not chosen their file in the card yet. Ask them 
                   "card and choose it.")
 
 
+class NotChosenYet(ScoreError):
+    pass
+
+
 ATTACHED_FILE_SENTENCE = (
     "I can't pass a file attached to the chat to the analysis tool, so please choose the same file again in the card below."
 )
@@ -1681,6 +1690,8 @@ async def draft_analysis(
     except check_analysis.ClarificationNeeded as error:
         kept = f"\nThe score is saved as score_id: {code}. Call again with it and the user's answer." if code else ""
         return error_result(QUESTION_FOR_USER + error.question + kept)
+    except NotChosenYet:
+        return waiting_for_choice("draft_analysis", source)
     except (ScoreError, PositionError, ValueError, httpx.HTTPError) as error:
         log("draft_analysis", platform=source, error=type(error).__name__, outcome="user_error")
         return error_result(str(error))
