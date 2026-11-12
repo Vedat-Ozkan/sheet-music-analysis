@@ -29,6 +29,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import anyio
 import httpx
 import uvicorn
+from uvicorn.main import STARTUP_FAILURE
 from google.api_core.exceptions import NotFound, PreconditionFailed
 from google.cloud import storage
 from mcp.server.apps import Apps, ResourceCsp
@@ -949,6 +950,7 @@ WAITING_FOR_TURN = (
 LOST_TURN = "lost the turn"
 CALL_AGAIN = {"read_pdf": "read_pdf again with the same file", "read_fetched_pdf": "read_fetched_pdf again with the same pdf_id"}
 pdfs_reading: dict[str, tuple[asyncio.Task, float]] = {}
+reads_held: dict[str, str] = {}
 claiming = asyncio.Lock()
 
 
@@ -1013,6 +1015,7 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
                     work.run(draft.timings.set, None)
                     task = asyncio.create_task(pdf_work(data, digest, source, card_key, token, tool == "read_pdf", person), context=work)
                     pdfs_reading[card_key] = task, time.time()
+                    reads_held[card_key] = token
                     task.add_done_callback(lambda _: pdfs_reading.pop(card_key, None))
             if not (started_here and token == LOST_TURN):
                 break
@@ -1102,10 +1105,31 @@ async def take_turn(person: str, card_key: str, token: str) -> bool:
     return await anyio.to_thread.run_sync(store.put_if, person_reading(person), turn, version)
 
 
-async def release_read(card_key: str, token: str | None) -> None:
-    found = json.loads(await anyio.to_thread.run_sync(store.get, marker_of(card_key)) or b"{}")
+def release_marker(card_key: str, token: str | None) -> None:
+    found = json.loads(store.get(marker_of(card_key)) or b"{}")
     if found.get("token") == token:
-        await anyio.to_thread.run_sync(store.delete, marker_of(card_key))
+        store.delete(marker_of(card_key))
+
+
+async def release_read(card_key: str, token: str | None) -> None:
+    await anyio.to_thread.run_sync(release_marker, card_key, token)
+
+
+def release_reads_at_shutdown() -> None:
+    held = list(reads_held.items())
+    reads_held.clear()
+    for card_key, token in held:
+        release_marker(card_key, token)
+    if held:
+        write_line({"severity": "WARNING", "message": "released reads at shutdown", "reads": len(held)})
+
+
+class HttpServer(uvicorn.Server):
+    def handle_exit(self, sig, frame) -> None:
+        try:
+            release_reads_at_shutdown()
+        finally:
+            super().handle_exit(sig, frame)
 
 
 async def wait_for_other_machine(card_key: str, since: float, source: str, tool: str, wait: float) -> CallToolResult:
@@ -1139,6 +1163,7 @@ async def pdf_work(data: bytes, digest: str, source: str, card_key: str,
         async with verovio_request():
             return await pdf_outcome(data, digest, source, card_key, details, timings, started, arrived, person)
     finally:
+        reads_held.pop(card_key, None)
         await release_read(card_key, token)
 
 
@@ -1956,7 +1981,11 @@ def main() -> None:
     tool_calls = logging.getLogger("mcp.server.mcpserver.server")
     tool_calls.setLevel(logging.INFO)
     tool_calls.addFilter(lambda record: record.levelno > logging.INFO or record.msg.startswith("Tool %r rejected arguments"))
-    uvicorn.run(traced(without_event_stream(app)), host="0.0.0.0", port=PORT, log_level="warning", log_config=None)
+    server = HttpServer(uvicorn.Config(traced(without_event_stream(app)), host="0.0.0.0", port=PORT, log_level="warning",
+                                       log_config=None))
+    server.run()
+    if not server.started:
+        sys.exit(STARTUP_FAILURE)
 
 
 if __name__ == "__main__":

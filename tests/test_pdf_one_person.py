@@ -210,3 +210,25 @@ def test_an_attachment_without_a_file_id_is_not_kept(monkeypatch, tmp_path):
 
     assert "score_id:" in text_of(anyio.run(no_id))
     assert not list(tmp_path.glob("scores/attached-*"))
+
+
+def test_a_machine_told_to_stop_frees_the_reads_it_holds(monkeypatch, tmp_path):
+    readers(monkeypatch, tmp_path, 2)
+    marker = app.marker_of(card_key_of(FIRST))
+    seen = []
+
+    async def stop_while_reading():
+        async with Client(app.mcp) as client:
+            async with anyio.create_task_group() as group:
+                async def read():
+                    await client.call_tool("read_pdf", attached("https://example.com/first.pdf"), meta=as_person("person-1"))
+
+                group.start_soon(read)
+                while not app.store.get(marker):
+                    await anyio.sleep(0.05)
+                server = app.HttpServer(app.uvicorn.Config(None))
+                server.handle_exit(15, None)
+                seen.append((server.should_exit, app.store.get(marker)))
+
+    anyio.run(stop_while_reading)
+    assert seen == [(True, None)]
