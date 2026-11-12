@@ -67,6 +67,8 @@ def main() -> None:
                 counts["pdf pages"] += data.get("pages", 0)
         elif event == "limit":
             counts["limits"] += 1
+        elif data.get("not_chosen"):
+            counts["file not chosen yet"] += 1
         elif "error" in data or "problems" in data or data.get("outcome") in ("user_error", "server_error", "degraded"):
             counts["errors"] += 1
         elif event == "read_pdf":

@@ -157,7 +157,7 @@ def test_a_score_chosen_in_the_card_is_kept_drafted_and_drawn_for_claude(server,
     too_soon = as_claude(server, "tools/call", {"name": "draft_analysis", "arguments": {"score_id": score_id}})
     status, headers, body = upload(server, NOCTURNE.read_bytes(), score_id)
     again = upload(server, NOCTURNE.read_bytes(), score_id)
-    assert too_soon["isError"] and "has not chosen their file in the card yet" in too_soon["content"][0]["text"]
+    assert not too_soon.get("isError") and "has not chosen their file in the card yet" in too_soon["content"][0]["text"]
     assert status == 200 and headers["Access-Control-Allow-Origin"] == "*" and body == {"kind": "musicxml"}
     assert again[0] == 409 and "already chosen in this card" in again[2]["error"]
     assert (store / "scores" / score_id).is_file()
