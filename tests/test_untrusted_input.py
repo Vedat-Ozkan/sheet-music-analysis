@@ -1,4 +1,5 @@
 import asyncio
+import json
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -30,6 +31,9 @@ class Files(BaseHTTPRequestHandler):
             chunk = b"x" * (1 << 20)
             for _ in range(20):
                 self.wfile.write(chunk)
+        elif self.path.startswith("/public/expired"):
+            self.send_response(403)
+            self.end_headers()
         elif self.path == "/public/slow":
             self.send_response(200)
             self.end_headers()
@@ -91,3 +95,17 @@ def test_a_reversed_bar_range_is_refused(tmp_path, monkeypatch):
 
     result = asyncio.run(call())
     assert result.is_error and "start at the lower bar" in result.content[0].text
+
+
+def test_an_attachment_that_cannot_be_downloaded_gets_a_plain_answer_and_logs_the_status(site, only_public_paths, capsys):
+    link = f"{site}/public/expired?signature=secret"
+
+    async def call():
+        async with Client(app.mcp) as client:
+            return await client.call_tool("read_pdf", {"pdf_file": {"download_url": link, "file_id": "file-1"}})
+
+    result = asyncio.run(call())
+    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")]
+    line = next(line for line in reversed(lines) if line.get("event") == "read_pdf")
+    assert result.is_error and "HTTP 403" in result.content[0].text and "secret" not in result.content[0].text
+    assert line["status"] == 403 and line["host"] == "127.0.0.1" and "secret" not in json.dumps(line)

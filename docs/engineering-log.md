@@ -2769,6 +2769,52 @@ PR #14 merged as `f8304ce`, CI green, production revision `sheet-music-analysis-
 
 **After the deploy.** The revision started with no errors. Claude's `draft_analysis` description has the new wording; ChatGPT's tool list is unchanged until OpenAI approves listing 1.3.0, which also carries entries 137 to 140 and 143 to 147. The site serves the new install step and links the sma.8 source.
 
+### 150. A ChatGPT user's PDF that never reached an analysis; attachment download failures (2026-11-11, branch `read-failure-logging`)
+
+**What happened.** On 2026-11-10 between 22:42 and 22:51 UTC a real ChatGPT user made seven `read_pdf` calls on revision `00059-8sb` and never got a draft. ChatGPT's trace ids pair the calls into retries. Ordered by start, and with the guesses marked:
+- A first read of an 8-page A4 PDF (59 bars, 45 shaded) finished after 447 s and was logged ok. By then ChatGPT had already retried, so most likely nobody received it.
+- A cold-start call failed in the download step with a ScoreError. Its message was not logged, so the cause is unknown.
+- A third PDF got "busy": both machines (max 2) were reading.
+- A retry failed with `HTTPStatusError` on the attachment download. The status and host were not logged, and the user was shown httpx's raw error text, which contains the signed file link. (Guess: the link had expired.)
+- The user's band-score scan was read for 480 s and timed out. It was reported once on each machine, two `ReadError` lines for one failure.
+- A "still reading" reply was logged with outcome ok.
+
+**The scan.** It is a 24-staff concert band score with handwritten marks, about 110 dpi. The page sits in the right half of a landscape sheet whose left half is blank. Read locally with reader sma.8 (whole file, full CPU), it gives "No music could be read from this PDF" after 369 s. So the failure is real, and the file is not readable as it stands.
+
+**ChatGPT's wait.** Two retry gaps (303 s and 306 s) suggest ChatGPT gives up after about 300 s. Over 30 days of ChatGPT reads:
+- None of the 3 reads over 285 s (287, 302 and 445 s) was followed by a draft.
+- The longest read that was followed by a draft took 232 s.
+- The server holds non-Claude callers for `STARTER_WAIT` (855 s).
+
+This is consistent with a ~300 s limit, not proven.
+
+**Our own failed files.** The other two files kept under `failed/` came from our own Claude tests:
+- `e9ec…`, 11-09: a deploy stopped its read.
+- `c4fe…`, 11-10: a vector PDF with staff lines 9 px apart.
+
+Both had several minutes with no open request, and their steps ran up to 10× slower. Inferred cause: Cloud Run gives CPU only during requests, and no CPU-always setting is set.
+
+**Gate check.** `gate_report.py` counts `read_pdf` ok, which includes the 3 "still reading" replies. This changes no user counts: 24 users with a read, with or without them.
+
+**Change.** ChatGPT attachments (`resolve_score` and `read_pdf`) now download through `download_attachment`:
+- An HTTP error logs `status` and `host` (never the link) and answers "The attached file could not be downloaded from the chat (HTTP 403). Ask the user to attach it again in a new message."
+- A network error logs its kind and gives the same answer without a status.
+- `read_pdf` logs the ScoreError's text as `reason`. Every ScoreError that reaches that line is a fixed sentence (checked by review), never user input.
+- `fetch_score` already did this for links and is unchanged.
+
+**Checks.**
+- A new end-to-end test sends `read_pdf` an attachment link that answers 403. The answer says HTTP 403 without the link, and the log line has the status and host but not the link.
+- `test_untrusted_input`, `test_score_links` and `test_call_log`: 39 passed.
+- Independent Sonnet review: no high or medium findings. Its low points:
+  - a future f-string ScoreError on this path would be logged;
+  - `draft_analysis`'s `httpx.HTTPError` clause is now unreachable for attachments.
+
+**Open, for the owner.**
+- Answering ChatGPT before ~300 s.
+- Telling the user sooner when a scan cannot be read, or normalising it (e.g. cropping the blank half).
+- "Busy" with two machines.
+- CPU outside requests.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

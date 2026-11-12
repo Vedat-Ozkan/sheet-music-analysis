@@ -519,6 +519,24 @@ async def download(url: str) -> bytes:
     raise ScoreError("The file's link redirects too many times")
 
 
+ATTACHMENT_ANSWERED = (
+    "The attached file could not be downloaded from the chat (HTTP {status}). Ask the user to attach it again in a "
+    "new message."
+)
+ATTACHMENT_UNREACHABLE = "The attached file could not be downloaded from the chat. Ask the user to attach it again in a new message."
+
+
+async def download_attachment(url: str) -> bytes:
+    try:
+        return await download(url)
+    except httpx.HTTPStatusError as error:
+        log("download", host=urlparse(url).hostname, status=error.response.status_code)
+        raise ScoreError(ATTACHMENT_ANSWERED.format(status=error.response.status_code)) from error
+    except httpx.HTTPError as error:
+        log("download", host=urlparse(url).hostname, download_error=type(error).__name__)
+        raise ScoreError(ATTACHMENT_UNREACHABLE) from error
+
+
 def clean_id(score_id: str) -> str:
     return re.sub(r"[^A-Za-z0-9]", "", score_id).upper()
 
@@ -532,7 +550,7 @@ NO_SCORE_GIVEN = {
 async def resolve_score(score_file: AttachedFile | None, score_id: str | None, source: str = "other") -> tuple[bytes, str]:
     with stage("fetch"):
         if score_file:
-            data = await download(score_file.download_url)
+            data = await download_attachment(score_file.download_url)
             if data.startswith(b"%PDF"):
                 raise ScoreError("This file is a PDF. Call read_pdf with it first, then use the score_id it returns.")
             return data, "score_file"
@@ -947,11 +965,11 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile) -> CallToolResult:
     source = platform(ctx)
     try:
         with stage("fetch"):
-            data = await download(pdf_file.download_url)
+            data = await download_attachment(pdf_file.download_url)
         if not data.startswith(b"%PDF"):
             raise ScoreError("This file is not a PDF. Ask the user to attach a PDF of the printed music or a MusicXML file.")
-    except (ScoreError, httpx.HTTPError) as error:
-        log("read_pdf", platform=source, error=type(error).__name__)
+    except ScoreError as error:
+        log("read_pdf", platform=source, error=type(error).__name__, reason=str(error))
         return error_result(str(error))
     return await read_pdf_data(data, source, "read_pdf")
 
