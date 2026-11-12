@@ -228,6 +228,7 @@ def test_a_machine_told_to_stop_frees_the_reads_it_holds(monkeypatch, tmp_path):
                     await anyio.sleep(0.05)
                 server = app.HttpServer(app.uvicorn.Config(None))
                 server.handle_exit(15, None)
+                await anyio.sleep(0.2)
                 seen.append((server.should_exit, app.store.get(marker)))
 
     anyio.run(stop_while_reading)

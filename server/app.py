@@ -1006,7 +1006,10 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
                 started_here = card_key not in pdfs_reading
                 if started_here:
                     token, elsewhere = await claim_read(card_key)
+                    if token is not None:
+                        reads_held[card_key] = token
                     if token is not None and person and not await take_turn(person, card_key, token):
+                        reads_held.pop(card_key, None)
                         await release_read(card_key, token)
                         token = LOST_TURN
                 if started_here and token not in (None, LOST_TURN):
@@ -1015,7 +1018,6 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
                     work.run(draft.timings.set, None)
                     task = asyncio.create_task(pdf_work(data, digest, source, card_key, token, tool == "read_pdf", person), context=work)
                     pdfs_reading[card_key] = task, time.time()
-                    reads_held[card_key] = token
                     task.add_done_callback(lambda _: pdfs_reading.pop(card_key, None))
             if not (started_here and token == LOST_TURN):
                 break
@@ -1116,20 +1118,22 @@ async def release_read(card_key: str, token: str | None) -> None:
 
 
 def release_reads_at_shutdown() -> None:
-    held = list(reads_held.items())
-    reads_held.clear()
-    for card_key, token in held:
-        release_marker(card_key, token)
-    if held:
-        write_line({"severity": "WARNING", "message": "released reads at shutdown", "reads": len(held)})
+    released, failed = 0, 0
+    for card_key, token in list(reads_held.items()):
+        reads_held.pop(card_key, None)
+        try:
+            release_marker(card_key, token)
+            released += 1
+        except Exception:
+            failed += 1
+    if released or failed:
+        write_line({"severity": "WARNING", "message": "released reads at shutdown", "reads": released, "failed": failed})
 
 
 class HttpServer(uvicorn.Server):
     def handle_exit(self, sig, frame) -> None:
-        try:
-            release_reads_at_shutdown()
-        finally:
-            super().handle_exit(sig, frame)
+        asyncio.get_running_loop().call_soon_threadsafe(release_reads_at_shutdown)
+        super().handle_exit(sig, frame)
 
 
 async def wait_for_other_machine(card_key: str, since: float, source: str, tool: str, wait: float) -> CallToolResult:
