@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass, field
 from fractions import Fraction
 
+from engine.errors import UserError
 from engine.score import Event, Mark, Measure, ScoreIndex, beat_length
 
 VERSION = "N1"
@@ -20,7 +21,7 @@ METER = re.compile(r"(?:[1-9]\d*/[1-9]\d*)?")
 KEY = re.compile(r"0|[1-7][sf]")
 
 
-class NotesError(ValueError):
+class NotesError(UserError):
     pass
 
 

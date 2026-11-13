@@ -75,23 +75,35 @@ def crashing_reader(data, audiveris, setting, leland, deadline, stop):
     return pdf_reader.RawReading(CRASH, [], {"outcome": "done"})
 
 
-def test_a_reading_that_crashes_the_drawing_gets_the_normal_unread_pdf_answer(pool, store, monkeypatch, capsys):
+def test_a_reading_that_crashes_the_drawing_is_a_server_error_and_keeps_the_pdf(pool, store, monkeypatch, capsys):
     monkeypatch.setattr(app.pdf_reader, "read_pdf", lambda data: pdf_reader.PdfReading(CRASH, 1, True))
     before = pids(pool)
     result = call("read_pdf", ATTACHED)
-    assert not result.is_error and result.meta["report"]["text"] == app.UNREAD_PDF_FOR_CARD
-    assert text_of(result) == app.UNREAD_PDF + pdf_reader.NOTHING_READ + pdf_reader.NEXT_STEP + app.CARD_SHOWS_PROBLEM
+    assert not result.is_error and result.meta["report"]["text"] == app.OUR_ERROR_FOR_CARD
+    reference = result.meta["report"]["reference"]
+    assert text_of(result) == app.FAILED_CALL + app.OUR_ERROR_MESSAGE.format(reference=reference) + app.CARD_SHOWS_PROBLEM
     digest = hashlib.sha256(PDF).hexdigest()
     assert store.get(f"failed/{digest}.pdf") == PDF
     assert not list(Path(store.folder, "scores").glob("pdf-reading-*"))
-    work = [line for line in logged(capsys) if line.get("event") == "read_pdf_work"][-1]
-    assert work["outcome"] == "user_error" and work["error"] == "VerovioFailed"
-    assert work["verovio"].startswith("crashed")
+    lines = logged(capsys)
+    work = [line for line in lines if line.get("event") == "read_pdf_work"][-1]
+    assert work["outcome"] == "server_error" and work["verovio"].startswith("crashed")
+    assert "VerovioFailed" in work["stack_trace"]
+    call_line = [line for line in lines if line.get("tool") == "read_pdf"][-1]
+    assert call_line["outcome"] == "server_error" and call_line["reference"] == reference
 
     drawn = call("render_analysis", {"score_id": "CHORALE", "annotations": NO_MARKS})
     assert not drawn.is_error
     assert len(set(before) & set(pids(pool))) == 1
     assert [worker.bound for worker in pool.workers] == [0, 0]
+
+
+def test_a_reading_the_drawing_cannot_load_is_a_server_error_not_the_users_mistake(pool, store, monkeypatch, capsys):
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", lambda data: pdf_reader.PdfReading(b"<music/>", 1, True))
+    result = call("read_pdf", ATTACHED)
+    assert result.meta["report"]["text"] == app.OUR_ERROR_FOR_CARD and "MusicXML" not in text_of(result)
+    work = [line for line in logged(capsys) if line.get("event") == "read_pdf_work"][-1]
+    assert work["outcome"] == "server_error" and "ScoreError" in work["stack_trace"]
 
 
 def test_a_crash_in_one_reading_leaves_a_drawing_on_the_other_worker_running(pool, store, monkeypatch):
@@ -174,7 +186,7 @@ def test_the_server_survives_a_score_that_crashes_the_drawing_library(server_pro
 
     before = workers_of(process)
     crashed = asyncio.run(draw("CRASH"))
-    assert crashed.is_error and text_of(crashed) == render.UNREADABLE
+    assert text_of(crashed).startswith(app.FAILED_CALL + "Something went wrong on our side")
     drawn = asyncio.run(draw("CHORALE"))
     assert not drawn.is_error and "shown in a card" in text_of(drawn)
     assert process.poll() is None

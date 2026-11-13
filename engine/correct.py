@@ -14,12 +14,13 @@ from music21 import meter, note as m21note
 from music21.duration import Duration
 
 from engine import notes, tint
+from engine.errors import UserError
 from engine.overlay import Box, PageLayout
 from engine.render import Engraving, incoming_ties, load_toolkit, shorten_ties
 from engine.score import ScoreIndex
 
 
-class CorrectionError(ValueError):
+class CorrectionError(UserError):
     pass
 
 

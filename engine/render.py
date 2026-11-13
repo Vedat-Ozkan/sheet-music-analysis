@@ -21,6 +21,7 @@ from xml.sax.saxutils import escape, unescape
 import resvg_py
 from PIL import Image, ImageChops
 
+from engine.errors import UserError
 from engine.reduce import midi
 from engine.score import TOLERANCE, PositionError, ScoreIndex
 from engine.text import FONT_DIR, FONT_FILES, MAIN as TEXT_FONT
@@ -106,7 +107,7 @@ _SHORT_NAME_SOURCE = {
 SHORT_NAMES = {name: abbr for abbr, names in _SHORT_NAME_SOURCE.items() for name in names.split(", ")}
 
 
-class ScoreError(ValueError):
+class ScoreError(UserError):
     pass
 
 

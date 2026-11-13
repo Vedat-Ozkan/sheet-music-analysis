@@ -8,6 +8,7 @@ from bisect import bisect_right
 from dataclasses import dataclass
 from fractions import Fraction
 
+from engine.errors import UserError
 from engine.render import load_toolkit
 from engine.score import LETTERS, MEI, SEMITONES, XML_ID, Event, Mark, Measure, ScoreIndex
 
@@ -160,7 +161,7 @@ def perform(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: f
             try:
                 return float(value)
             except ValueError:
-                raise ValueError(f"Bar {measure.number} is marked {value!r}; give the tempo in quarter notes per minute "
+                raise UserError(f"Bar {measure.number} is marked {value!r}; give the tempo in quarter notes per minute "
                                  f"or as one of {', '.join(TEMPO_WORDS)}") from None
         return tempo or TEMPO_WORDS[value] * float(measure.beat_length)
 
