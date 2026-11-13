@@ -71,6 +71,10 @@ class ReadError(ValueError):
         self.passes = passes or []
 
 
+class ScanTooSmall(ReadError):
+    pass
+
+
 @dataclass
 class PdfReading:
     musicxml: bytes
@@ -80,6 +84,8 @@ class PdfReading:
     passes: list[dict] = field(default_factory=list)
     low_resolution: bool = False
 
+SCAN_TOO_SMALL = ("This scan is too small to read: its staff lines are only about {} apart, and a sharp scan "
+                  "has at least {}. Scanning the pages again at a higher resolution should let them be read")
 LOW_RESOLUTION_WARNING = ("This scan is too small to read well, so expect many mistakes, including in bars that are "
                           "not shaded. A sharper scan will read much better.")
 
@@ -423,15 +429,16 @@ def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
     except ReadError as error:
         interlines = [value for record in error.passes for value in record.get("too_close_interlines", []) if value]
         if not interlines:
-            raise
+            raise _explained(error, scan, (data, error.passes))
         first_passes = error.passes
     enlarged = enlarged_for_interline(data, min(interlines))
     try:
         reading = _resolution_checked(_read_with_every_setting(enlarged, audiveris, raw, pages, scan, leland, deadline),
                                       enlarged, scan)
     except ReadError as error:
-        error.passes = [*first_passes, *error.passes]
-        raise
+        retry_passes = error.passes
+        error.passes = [*first_passes, *retry_passes]
+        raise _explained(error, scan, (data, first_passes), (enlarged, retry_passes))
     reading.passes = [*first_passes, *reading.passes]
     return reading
 
@@ -440,6 +447,19 @@ def _resolution_checked(reading: PdfReading, data: bytes, scan: bool) -> PdfRead
     spacing = scan_staff_spacing(data, [value for record in reading.passes for value in record.get("interlines", [])])
     reading.low_resolution = scan and spacing is not None and spacing < SHARP_SCAN_INTERLINE
     return reading
+
+
+def _explained(error: ReadError, scan: bool, *attempts: tuple[bytes, list[dict]]) -> ReadError:
+    spacings = [scan_staff_spacing(data, [value for record in passes for value in record.get("interlines", [])])
+                for data, passes in attempts] if scan else []
+    spacing = min((value for value in spacings if value), default=None)
+    if spacing is None or spacing >= SHARP_SCAN_INTERLINE:
+        return error
+    return ScanTooSmall(SCAN_TOO_SMALL.format(_pixels(max(1, round(spacing))), SHARP_SCAN_INTERLINE), error.passes)
+
+
+def _pixels(count: int) -> str:
+    return f"{count} pixel{'' if count == 1 else 's'}"
 
 
 def scan_staff_spacing(data: bytes, drawn_interlines: list[int]) -> float | None:

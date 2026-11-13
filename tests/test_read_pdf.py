@@ -16,7 +16,7 @@ from PIL import Image
 from engine import tint
 from engine.overlay import Box, PageLayout
 from engine.performance import marked_index
-from engine.read_pdf import MOST_DRAWN_PIXELS, drawn_pixels, enlarged_for_interline, file_facts, is_scan, page_width_height, without_oversize_pages, text_meaning, PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, audiveris_facts, audiveris_options, audiveris_read, clean, join_movements, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
+from engine.read_pdf import MOST_DRAWN_PIXELS, drawn_pixels, enlarged_for_interline, file_facts, is_scan, page_width_height, without_oversize_pages, text_meaning, PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, ScanTooSmall, audiveris_facts, audiveris_options, audiveris_read, clean, join_movements, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
 from engine.render import engrave, load_toolkit, noteless_beams
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets
@@ -565,6 +565,31 @@ def test_a_scan_with_few_pixels_between_staff_lines_warns_though_the_reader_took
 
     reading = read_pdf(data, audiveris="unused", raw=lambda *args: RawReading(score, [], {"outcome": "done", "interlines": [21]}))
     assert reading.low_resolution is low
+
+
+@pytest.mark.parametrize("name, outcome, too_small", [("chopin-op67-joseffy-80dpi-scan.pdf", "no music", True),
+                                                     ("chopin-op67-joseffy-80dpi-scan.pdf", "timeout", True),
+                                                     ("chopin-op67-joseffy-two-mazurkas-scan.pdf", "no music", False),
+                                                     ("chopin-28-4-mutopia.pdf", "no music", False)])
+def test_a_scan_that_fails_with_few_pixels_between_staff_lines_says_it_is_too_small(name, outcome, too_small):
+    data = (Path(__file__).parent / "data" / name).read_bytes()
+
+    with pytest.raises(ReadError) as caught:
+        read_pdf(data, audiveris="unused", raw=lambda *args: RawReading(None, [], {"outcome": outcome, "interlines": [21]}))
+    assert isinstance(caught.value, ScanTooSmall) is too_small
+    assert ("staff lines are only about 6 pixels apart" in str(caught.value)) is too_small
+    assert len(caught.value.passes) == len(SETTINGS)
+
+
+def test_a_small_scan_whose_enlarged_retry_fails_says_it_is_too_small():
+    data = (Path(__file__).parent / "data" / "chopin-op67-small-page-scan.pdf").read_bytes()
+    readings = iter([RawReading(None, [], {"outcome": "no music", "too_close_interlines": [7]})] * 2
+                    + [RawReading(None, [], {"outcome": "no music", "interlines": [20]})] * 2)
+
+    with pytest.raises(ScanTooSmall) as caught:
+        read_pdf(data, audiveris="unused", raw=lambda *args: next(readings))
+    assert len(caught.value.passes) == 4 and caught.value.passes[0]["too_close_interlines"] == [7]
+    assert "about 7 pixels apart" in str(caught.value)
 
 
 @pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
