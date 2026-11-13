@@ -108,6 +108,17 @@ def test_a_pdf_that_cannot_be_read_says_what_to_try_next(server, monkeypatch):
     assert server.get(f"failed/{hashlib.sha256(PDF).hexdigest()}.pdf") == PDF
 
 
+def test_a_scan_too_small_to_read_tells_the_user_in_the_card_too(server, monkeypatch):
+    too_small = pdf_reader.SCAN_TOO_SMALL.format("3 pixels", pdf_reader.SHARP_SCAN_INTERLINE)
+    def unreadable(data):
+        raise pdf_reader.ScanTooSmall(too_small, [{"setting": 0, "outcome": "timeout", "interlines": [11]}])
+
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable)
+    result = call("read_pdf", ATTACHED)
+    assert text_of(result).startswith("This call failed: no music was read") and too_small in text_of(result)
+    assert report_of(result)["text"] == too_small + "."
+
+
 def test_losing_the_copy_of_an_unread_pdf_does_not_change_what_the_user_is_told(server, monkeypatch, capsys):
     def unreadable(data):
         raise pdf_reader.ReadError("No music could be read from this PDF", [{"setting": 0, "outcome": "no music"}])

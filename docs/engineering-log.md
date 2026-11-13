@@ -2789,7 +2789,7 @@ PR #14 merged as `f8304ce`, CI green, production revision `sheet-music-analysis-
 This is consistent with a ~300 s limit, not proven.
 
 **Our own failed files.** The other two files kept under `failed/` came from our own Claude tests:
-- `e9ec…`, 11-09: a deploy stopped its read.
+- `e9ec…`, 11-09: the same file was read twice at once, on both machines, although the read is claimed per file (corrected in entry 155; earlier this said a deploy stopped the read, which the logs do not show). The cause is not known.
 - `c4fe…`, 11-10: a vector PDF with staff lines 9 px apart.
 
 Both had several minutes with no open request, and their steps ran up to 10× slower. Inferred cause: Cloud Run gives CPU only during requests, and no CPU-always setting is set.
@@ -2896,6 +2896,22 @@ PR #16 merged to `main` as `be156b8` (entry 150), PR #17 as `7bf5898` (site gall
 **Change.** "The user has not chosen their file in the card yet" is now a plain answer from `read_fetched_pdf` and from `draft_analysis` with the card's id, logged as `not_chosen` (outcome ok, no `error` field) and counted as "file not chosen yet" by `tools/usage_report.py`. Every other missing-file answer is still an error.
 
 **Test.** A card with no file yet: both tools answer with the message, `is_error` false, and the logged row has no `error` field. Sonnet review found the stale `error` field before this test checked the row.
+
+### 155. A scan too small to read says so (2026-11-13, branch `scan-too-small`)
+
+**The real user's scan.** The band score from entry 150 (`cf27…`, ChatGPT, 11-10) has its staff lines about 3 px apart in the scanned image: each page image is 1284 px wide for a 1278 pt page. A sharp scan has at least 11 px (`SHARP_SCAN_INTERLINE`). Making the page bigger or cleaner cannot add the detail that was never scanned, so normalising the input does not help. The user was told only "Reading this PDF took too long", with the general advice.
+
+**Our own two failed files (correcting entry 150).** `c4fe…` is a dense orchestral score. Its enlarged retry is held down by the pixel limit and timed out. `e9ec…` was read twice at once on both machines although the read is claimed per file; the cause is not known. Neither is changed here.
+
+**Change.** When a scan's reading fails, `read_pdf` estimates its staff spacing the same way as the low-resolution warning: the reader's interlines times the image's share of the page at 300 dpi. If that is under 11 px, the failure becomes `ScanTooSmall`: "This scan is too small to read: its staff lines are only about N pixels apart, and a sharp scan has at least 11. Scanning the pages again at a higher resolution should let them be read". This covers both "no music" and "took too long". The first reading is measured on the file as sent; the enlarged retry is measured on the enlarged file. The ChatGPT card shows this sentence instead of the general one. Successful readings, the reader and `READER` are unchanged.
+
+**Checks.**
+- The real `cf27…` file, read locally with Audiveris (sma.8): `ScanTooSmall`, "about 3 pixels apart", after 262 s.
+- New tests: the 80 dpi Joseffy scan failing with no music and with a timeout says it is too small (6 px); a sharp scan and a notation PDF that fail keep the general message; a failed enlarged retry of the small-page scan says it is too small and keeps all four passes; the ChatGPT card shows the sentence.
+
+**Still open.** The user still waits for the whole read (up to 480 s) before hearing this. Refusing before reading would also refuse scans that read today with the low-resolution warning, so it is not done.
+- The spacing estimate takes the narrowest page image's share of the page, the same as the low-resolution warning. A notation PDF that draws a small image (a logo) on every page counts as a scan, so if it fails to read it can be told it is too small; a non-music scan that fails can be too. Not seen in the logs; not changed here.
+- Sonnet review: the enlarged-retry test did not show which file each attempt was measured on; it now checks the 7 px figure, which only the enlarged file gives (the file as sent gives 20). "1 pixels" fixed.
 
 ## Checking against teachers' prose
 

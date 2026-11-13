@@ -1206,7 +1206,8 @@ async def pdf_outcome(data: bytes, digest: str, source: str, card_key: str, deta
         if isinstance(error, (pdf_reader.ReadError, verovio_workers.VerovioFailed)):
             details.update(reference=secrets.token_hex(4), digest=digest)
             result = (failure(UNREAD_PDF + message + pdf_reader.NEXT_STEP + CARD_SHOWS_PROBLEM,
-                              {"text": UNREAD_PDF_FOR_CARD, "reference": details["reference"]})
+                              {"text": f"{message}." if isinstance(error, pdf_reader.ScanTooSmall) else UNREAD_PDF_FOR_CARD,
+                               "reference": details["reference"]})
                       if source != "claude" else error_result(message + pdf_reader.NEXT_STEP))
             try:
                 await anyio.to_thread.run_sync(store.put, f"failed/{digest}.pdf", data)
