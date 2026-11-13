@@ -52,4 +52,4 @@ Tool calls since the deploy: `.venv/bin/python -m tools.usage_report --days 1`. 
 
 ## Release history
 
-Each release has an entry in `docs/engineering-log.md` with its pull requests, commit, revision and rollback target (entries 145, 149, 152 and 156), and a `prod-*` tag.
+Each release has an entry in `docs/engineering-log.md` with its pull requests, commit, revision and rollback target (entries 145, 149, 152, 156 and 158), and a `prod-*` tag.

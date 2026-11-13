@@ -2947,6 +2947,18 @@ Each commit is the one `main` pointed to when its build started, and `server/dep
 - `draft_analysis` catches `httpx.HTTPError`, which no longer reaches it: attachment downloads turn it into `ScoreError`. Left as found.
 - Two users' unexplained `ScoreError` readings are not reproduced; from now on such a failure logs its stack trace.
 
+### 158. Release of 2026-11-13: errors that are ours are reported as ours
+
+PR #23 merged to `main` as `e5dd58d` (entry 156, the runbook, `prod-*` tags from the deploy script) and PR #24 as `d580277` (entry 157), CI green on both and on `main`. Production revision `sheet-music-analysis-00064-tcs` (rollback target `00063-qcs`), created 17:28 UTC. The deploy script tagged the commit `prod-00064-tcs` itself, the first run of that step.
+
+**Staging before release.** Revision `00111-fpb`, as Claude: a chorale (BWV 303) through the card, drafted and drawn, both `ok`, the page showing the bars with their labels; four mistakes of the user's (an unknown view, beat 0, a bar range backwards, an unknown score) each answered with their own sentence as `user_error`; the Bach chorale 269 PDF read fresh in 37 s, 23 bars; a PDF cut short answered "This file could not be opened as a PDF" as `user_error` with its `reason` logged and the file kept under `failed/`; `play`; no error lines.
+
+**After the deploy.** Clean start, no error lines. On production as Claude: the same chorale through the card, drafted, drawn and played, an unknown view and an unknown score each a `user_error`; one score used, no PDF read.
+
+**NOT RUN.** The server-error path on staging or production (it cannot be caused from outside; the tests of entry 157 cover it), the too-small-scan sentence on staging, ChatGPT's attachment route, and the rollback command.
+
+**Seen in these tests, not changed.** The draft says "One beat = 1 quarter notes". A cadence placed on a beat that has no numeral is drawn under the last numeral before it, with no warning. The chorale PDF's bar 2 is shaded as possibly misread on a clean engraved page. Drawing bars 1 to 4 of BWV 303 also prints a nearly empty second line numbered 4a.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
