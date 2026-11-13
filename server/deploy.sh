@@ -82,4 +82,9 @@ gcloud run deploy "$RUN_SERVICE" --image="$DIGEST" --region="$REGION" \
   --execution-environment=gen2 --cpu=4 --memory=4Gi --concurrency=2 --min-instances=0 --max-instances=2 --timeout=900 \
   --startup-probe=tcpSocket.port=8080,timeoutSeconds=240,periodSeconds=240,failureThreshold=3 \
   --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL@CONNECTOR_URL=${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}$LIMITS"
+if [ "$STAGE" = production ]; then
+  REVISION=$(gcloud run services describe "$RUN_SERVICE" --region="$REGION" --format='value(status.latestReadyRevisionName)')
+  git tag "prod-${REVISION#$SERVICE-}"
+  git push -q origin "prod-${REVISION#$SERVICE-}"
+fi
 echo "Connector URL: ${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}"
