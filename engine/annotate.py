@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, TypeVar
 from xml.sax.saxutils import escape
 
 from engine import notation, slurs, tint
+from engine.errors import UserError
 from engine.annotations import Alternative, AnnotationList, Cadence, Callout, Harmony, NoteRef, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
 from engine.render import VEROVIO_OPTIONS, Engraving, check_range, incoming_ties, load_toolkit, shorten_ties
@@ -29,7 +30,7 @@ ANNOTATED_OPTIONS = {
 }
 
 
-class AnnotationError(ValueError):
+class AnnotationError(UserError):
     def __init__(self, problems: list[str], rejected: set[int] | None = None):
         super().__init__("\n".join(problems))
         self.problems = problems

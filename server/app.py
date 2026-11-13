@@ -54,6 +54,7 @@ from engine import check_analysis, ledger, part_writing, reduce
 from engine.annotate import AnnotationError, leave_out_rejected, render
 from engine.performance import marked_index, performance_text, unclear_tempos
 from engine.annotations import AnnotationList, view_named
+from engine.errors import UserError
 from engine.export import export_midi, export_musicxml, export_romantext
 from engine.render import ScoreError, engrave, load_toolkit, parse_measures
 from engine.score import PositionError, ScoreIndex
@@ -810,7 +811,7 @@ async def render_analysis(
     except AnnotationError as error:
         log("render_analysis", platform=source, problems=len(error.problems))
         return error_result("Fix these annotations and call again:\n" + "\n".join(error.problems))
-    except ValueError as error:
+    except UserError as error:
         log("render_analysis", platform=source, error=type(error).__name__)
         return error_result(str(error))
     measure_range = f"{measures[0]}-{measures[1]}" if measures else "all"
@@ -1197,31 +1198,27 @@ async def pdf_outcome(data: bytes, digest: str, source: str, card_key: str, deta
         if isinstance(result, dict):
             await anyio.to_thread.run_sync(store.put, card_key, json.dumps(result).encode())
         outcome = "ok" if isinstance(result, dict) else "limit" if details.get("limit") else "busy" if details.get("busy") else "user_error"
-    except (ScoreError, pdf_reader.ReadError) as error:
-        details.update(error=type(error).__name__, passes=getattr(error, "passes", None) or None)
+    except pdf_reader.ReadError as error:
         message = str(error)
+        details.update(error=type(error).__name__, passes=error.passes or None, reason=message,
+                       reference=secrets.token_hex(4))
+        result = (failure(UNREAD_PDF + message + pdf_reader.NEXT_STEP + CARD_SHOWS_PROBLEM,
+                          {"text": f"{message}." if isinstance(error, pdf_reader.ScanTooSmall) else UNREAD_PDF_FOR_CARD,
+                           "reference": details["reference"]})
+                  if source != "claude" else error_result(message + pdf_reader.NEXT_STEP))
+        outcome = "user_error"
+    except Exception as error:
         if isinstance(error, verovio_workers.VerovioFailed):
             details["verovio"] = error.reason
-            message = pdf_reader.NOTHING_READ
-        if isinstance(error, (pdf_reader.ReadError, verovio_workers.VerovioFailed)):
-            details.update(reference=secrets.token_hex(4), digest=digest)
-            result = (failure(UNREAD_PDF + message + pdf_reader.NEXT_STEP + CARD_SHOWS_PROBLEM,
-                              {"text": f"{message}." if isinstance(error, pdf_reader.ScanTooSmall) else UNREAD_PDF_FOR_CARD,
-                               "reference": details["reference"]})
-                      if source != "claude" else error_result(message + pdf_reader.NEXT_STEP))
-            try:
-                await anyio.to_thread.run_sync(store.put, f"failed/{digest}.pdf", data)
-            except Exception:
-                details["failed_copy_lost"] = True
-        else:
-            result = error_result(str(error))
-        outcome = "user_error"
-    except Exception:
-        details["stack_trace"] = traceback.format_exc()
-        reference = secrets.token_hex(4)
-        details["reference"] = reference
-        result = our_error(reference, "read_pdf", source)
+        details.update(stack_trace=traceback.format_exc(), reference=secrets.token_hex(4))
+        result = our_error(details["reference"], "read_pdf", source)
         outcome = "server_error"
+    if "reference" in details:
+        details["digest"] = digest
+        try:
+            await anyio.to_thread.run_sync(store.put, f"failed/{digest}.pdf", data)
+        except Exception:
+            details["failed_copy_lost"] = True
     if not isinstance(result, dict):
         failed = {"at": time.time(), "error": details.get("error", outcome), "outcome": outcome,
                   "text": result.content[0].text, "report": (result.meta or {}).get("report")}
@@ -1500,7 +1497,7 @@ async def play(ctx: Context, score_id: str | None = None, measure_range: str = "
                 "fast they want it, then call play again with the same arguments and tempo in quarter notes per minute."
             ))])
         performance = await in_turn(lambda: performance_text(index, measures, tempo=tempo))
-    except (ScoreError, PositionError, ValueError, note_list.NotesError) as error:
+    except UserError as error:
         log("play", platform=source, legacy=not score_id, error=type(error).__name__, outcome="user_error")
         return error_result(str(error))
     log("play", platform=source, measure_range=measure_range, legacy=not score_id)
@@ -1632,7 +1629,7 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         student = await in_turn(check_analysis.student_labels, student_analysis, None, index) if student_analysis else None
     except check_analysis.ClarificationNeeded as error:
         return error_result(QUESTION_FOR_USER + error.question)
-    except (note_list.NotesError, PositionError, ValueError) as error:
+    except UserError as error:
         log("draft_from_notes", platform=source, error=type(error).__name__, chars=len(notes), outcome="user_error")
         return error_result(str(error))
     if refused := await take_score(caller(), source):
@@ -1693,7 +1690,7 @@ async def draft_analysis(
         return error_result(QUESTION_FOR_USER + error.question + kept)
     except NotChosenYet:
         return waiting_for_choice("draft_analysis", source)
-    except (ScoreError, PositionError, ValueError, httpx.HTTPError) as error:
+    except (UserError, httpx.HTTPError) as error:
         log("draft_analysis", platform=source, error=type(error).__name__, outcome="user_error")
         return error_result(str(error))
     log("draft_analysis", platform=source, input=given, score_bytes=len(score), measure_range=measure_range,

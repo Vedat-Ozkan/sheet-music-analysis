@@ -23,7 +23,8 @@ from pathlib import Path
 
 import pikepdf
 
-from engine import text, tint
+from engine import text, tint, verovio_workers
+from engine.errors import UserError
 from engine.overlay import S, Box, PageLayout
 from engine.render import Engraving, ScoreError, load_toolkit
 from engine.score import TOLERANCE, ScoreIndex
@@ -65,7 +66,7 @@ READER = "5.11.0-sma.8-best2-tuplet-rests-eight-leland-ocr-r9-page-size"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
-class ReadError(ValueError):
+class ReadError(UserError):
     def __init__(self, message: str, passes: list[dict] | None = None):
         super().__init__(message)
         self.passes = passes or []
@@ -584,7 +585,7 @@ def _read(data: bytes, audiveris: str, setting: int, leland: bool, deadline: flo
     try:
         musicxml = clean(read.mxl)
         return record, (musicxml, read.skipped, _problem_spots(musicxml, timing=False)[0])
-    except (ScoreError, zipfile.BadZipFile, ET.ParseError) as error:
+    except (ScoreError, verovio_workers.VerovioFailed, zipfile.BadZipFile, ET.ParseError) as error:
         record["outcome"] = f"unusable output ({type(error).__name__})"
         return record, None
 

@@ -5,6 +5,8 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from fractions import Fraction
 
+from engine.errors import UserError
+
 MEI = "{http://www.music-encoding.org/ns/mei}"
 XML_ID = "{http://www.w3.org/XML/1998/namespace}id"
 ACCIDENTALS = {"f": "b", "s": "#", "ff": "bb", "ss": "##", "x": "##", "n": ""}
@@ -14,7 +16,7 @@ SEMITONES = (0, 2, 4, 5, 7, 9, 11)
 TOLERANCE = Fraction(1, 96)
 
 
-class PositionError(ValueError):
+class PositionError(UserError):
     pass
 
 

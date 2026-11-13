@@ -11,7 +11,6 @@ from multiprocessing.connection import Connection
 from pathlib import Path
 
 from engine import render
-from engine.render import UNREADABLE, ScoreError
 
 WORKERS = 2
 CALL_SECONDS = 120
@@ -19,9 +18,9 @@ RUNNER = Path(__file__).with_name("verovio_runner.py")
 log = logging.getLogger(__name__)
 
 
-class VerovioFailed(ScoreError):
+class VerovioFailed(RuntimeError):
     def __init__(self, reason: str):
-        super().__init__(UNREADABLE)
+        super().__init__(reason)
         self.reason = reason
 
 

@@ -10,6 +10,7 @@ from fractions import Fraction
 from music21 import key as m21key
 from music21 import roman
 
+from engine.errors import UserError
 from engine.comparison import Label, from_annotations, matches, sounding
 from engine.reduce import midi
 from engine.score import Measure, PositionError, ScoreIndex, beat_length
@@ -26,7 +27,7 @@ TOKEN = re.compile(
 SCRIPT_DIGITS = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉', 'o1234567890123456789')
 
 
-class ClarificationNeeded(ValueError):
+class ClarificationNeeded(UserError):
     def __init__(self, message: str, question: str):
         self.question = question
         super().__init__(f'{message}. {question}')
@@ -38,7 +39,7 @@ def _key(text: str) -> str:
     if len(parts) > 1:
         name = name.lower() if parts[1].lower().startswith('min') else name[0].upper() + name[1:]
     if sounding(name, 'I') is None:
-        raise ValueError(f"Cannot read key {text!r}")
+        raise UserError(f"Cannot read key {text!r}")
     return name
 
 
@@ -112,7 +113,7 @@ def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
             raise ClarificationNeeded(f"Conflicting labels at bar {label.measure} beat {round(label.beat, 2):g}", f'Which label belongs at bar {label.measure} beat {round(label.beat, 2):g}: {found[position].figure} or {label.figure}?')
         found[position] = label
     if not found:
-        raise ValueError('No Roman numeral labels found')
+        raise UserError('No Roman numeral labels found')
     return sorted(found.values(), key=lambda label: (label.measure, label.beat))
 
 
@@ -160,7 +161,7 @@ def from_text(text: str, default_key: str | None = None, index: ScoreIndex | Non
             if measure is None:
                 raise ClarificationNeeded(f"Give a bar number before {value!r}", 'Which bar and beat does each numeral belong to?')
             if beat < 1:
-                raise ValueError(f"Beat must be at least 1 in bar {measure}")
+                raise UserError(f"Beat must be at least 1 in bar {measure}")
             in_key = key or (_signature_key(_measure(index, measure, value)) if index else 'C')
             labels.append(Label(measure, beat, in_key, _figure(value, in_key)))
             unplaced_bars.setdefault(measure, []).append(placed)
@@ -380,7 +381,7 @@ def from_score(score: bytes, index: ScoreIndex) -> list[Label]:
 def student_labels(text: str, score: bytes | None, index: ScoreIndex) -> list[Label]:
     if text.strip().lower() == 'score':
         if score is None:
-            raise ValueError('Numerals inside the score can only be read from the score file; type the labels instead.')
+            raise UserError('Numerals inside the score can only be read from the score file; type the labels instead.')
         return from_score(score, index)
     return from_text(text, index=index)
 
