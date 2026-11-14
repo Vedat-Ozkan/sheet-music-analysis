@@ -738,7 +738,7 @@ def downloads_text(links: dict[str, str]) -> str:
     if not present:
         return ""
     return ("\nMore downloads, shown on the card under \"More downloads\"; mention them to the user once per "
-            "conversation, not after every render:\n" + "\n".join(present))
+            "conversation, not after every render, by the names given here:\n" + "\n".join(present))
 
 
 CARD_PAGES = 2
