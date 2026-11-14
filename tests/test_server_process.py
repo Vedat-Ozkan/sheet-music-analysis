@@ -146,6 +146,7 @@ def test_the_upload_card_tool_shows_the_card_that_sends_to_this_server(server):
     code = shown["structuredContent"]["upload_id"]
     assert not shown.get("isError") and "End your reply here" in shown["content"][0]["text"]
     assert f"read_fetched_pdf with pdf_id {code}" in shown["content"][0]["text"]
+    assert "you are reading the PDF now" in shown["content"][0]["text"]
     assert f"draft_analysis with score_id {code}" in shown["content"][0]["text"]
     assert card["_meta"]["ui"]["domain"].endswith(".claudemcpcontent.com")
     assert card["_meta"]["ui"]["csp"]["connectDomains"] == [f"http://localhost:{port}"]

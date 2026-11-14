@@ -438,7 +438,8 @@ PERSON_LIMIT_MESSAGE = (
     f"The user has reached today's limit of {PERSON_SCORE_LIMIT} new scores per person; it resets at midnight UTC. "
     "Tell them plainly and that they can analyse the scores they already sent, or try again tomorrow."
 )
-UPLOAD_PERSON_MESSAGE = f"You have reached today's limit of {PERSON_SCORE_LIMIT} new scores; it resets at midnight UTC."
+UPLOAD_PERSON_MESSAGE = (f"You have reached today's limit of {PERSON_SCORE_LIMIT} new scores; it resets at midnight UTC. "
+                         "Scores you already sent can still be analysed, and choosing one of them again does not count.")
 LIMIT_MESSAGE = (
     "Sheet Music Analysis has reached its daily limit; it resets at midnight UTC. "
     "Tell the user plainly that the free service is at capacity for today and to try again tomorrow."
@@ -727,8 +728,8 @@ worksheet_lock = anyio.Lock()
 
 
 def downloads_text(links: dict[str, str]) -> str:
-    names = {"worksheet_url": "worksheet (the same passage with no analysis, PDF)", "midi_url": "MIDI",
-             "romantext_url": "RomanText (the harmony analysis as .rntxt)"}
+    names = {"worksheet_url": "Blank worksheet (the same passage with no analysis, PDF)", "midi_url": "MIDI",
+             "romantext_url": "Analysis as text (the harmony analysis in RomanText, .rntxt)"}
     present = [f"{label}: {links[key]}" for key, label in names.items() if key in links]
     if not present:
         return ""
@@ -743,6 +744,14 @@ NOTHING_DRAWN = (
     "No analysis marks were drawn: the annotation list was empty, so the page shows only the score. To analyse, "
     "call draft_analysis with score_id {score_id}, review the draft, then call render_analysis with your annotation list."
 )
+
+
+VIEW_NAMES = {"all": "", "harmony": ", harmony only", "voice_leading": ", voice leading only", "form": ", form only"}
+
+
+def card_caption(measures: tuple[int, int] | None, view: str, piano: bool) -> str:
+    bars = f"bars {measures[0]}–{measures[1]}" if measures and measures[0] != measures[1] else f"bar {measures[0]}" if measures else "the whole score"
+    return f"Analysis of {bars}{VIEW_NAMES[view]}" + (", piano reduction" if piano else "")
 
 
 SHADED_ON_PAGE = ("Shaded bars ({bars}) may be misread from the PDF, so their analysis may be wrong. Mention this "
@@ -851,7 +860,7 @@ async def render_analysis(
                   "Tell the user to open the PDF for the rest." if engraving.page_count > CARD_PAGES else "")
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
         view=view, measure_range=measure_range, left_out=asked - len(annotations.annotations) or None)
-    structured_content = {**links, "caption": caption}
+    structured_content = {**links, "caption": card_caption(measures, view, piano), "shaded_bars": shaded}
     if not asked:
         left_out.append(NOTHING_DRAWN.format(score_id=score_id))
     if shaded:
@@ -949,8 +958,9 @@ for uri, name, card in [(CARD_URI, "Analysis card", "card.html"), (PDF_CARD_URI,
         prefers_border=True,
     )
 
+PDF_WAIT = "a PDF usually takes a minute or two to read; a long one can take several minutes"
 BUSY_MESSAGE = (
-    "Another PDF is being read right now, and a PDF can take several minutes to read. Tell the user plainly that the "
+    f"Another PDF is being read right now, and {PDF_WAIT}. Tell the user plainly that the "
     "service is busy reading another PDF and to send theirs again in a few minutes."
 )
 SAME_FILE_WAIT = 100
@@ -960,12 +970,12 @@ READ_MARKER_SECONDS = REQUEST_SECONDS
 READ_MINUTES = round((pdf_reader.TIMEOUT + 120) / 60)
 POLL_SECONDS = 3
 STILL_READING = (
-    "This PDF is still being read ({seconds} s so far; a long PDF takes up to about {minutes} minutes). Tell the user it is "
+    "This PDF is still being read ({seconds} s so far): " + PDF_WAIT + ", up to about {minutes}. Tell the user it is "
     "still being read, then call {again}; each call waits up to {wait} s for the result."
 )
 WAITING_FOR_TURN = (
-    "The user's previous PDF is still being read, and this one is read after it. Tell the user, then call {again} "
-    "in a minute or two."
+    "The user's previous PDF is still being read, and this one is read after it: " + PDF_WAIT + ". Tell the user, then "
+    "call {again} in a minute or two."
 )
 LOST_TURN = "lost the turn"
 CALL_AGAIN = {"read_pdf": "read_pdf again with the same file", "read_fetched_pdf": "read_fetched_pdf again with the same pdf_id"}
@@ -1295,7 +1305,7 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
     log("read_pdf_work", pages=reading["pages"], scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached),
         passes=passes, bars=bars, bars_shaded=len(uneven))
     return {"score_id": score_id, "pages": reading["pages"], "measures": measures, "notice": notice, "image_url": image_url,
-            "pdf_url": pdf_url, "more_pages": more_pages, "page_images": [base64.b64encode(png).decode() for png in pages]}
+            "pdf_url": pdf_url, "more_pages": more_pages, "shaded_bars": uneven, "page_images": [base64.b64encode(png).decode() for png in pages]}
 
 
 def pdf_card_result(card: dict, tool: str) -> CallToolResult:
@@ -1309,7 +1319,7 @@ def pdf_card_result(card: dict, tool: str) -> CallToolResult:
         "Go straight on to the analysis without asking the user to check the reading: call draft_analysis with this "
         "score_id now and continue exactly as for an attached MusicXML file, drawing it with render_analysis. "
         "Bars shaded in the reading stay shaded on the drawn page. "
-        f"The card holds no text, so in your reply with the analysis pass on this note about the reading, briefly: \"{card['notice']}\""
+        f"The card does not show this note, so in your reply with the analysis pass on this note about the reading, briefly: \"{card['notice']}\""
     )
     return CallToolResult(
         content=[
@@ -1318,7 +1328,7 @@ def pdf_card_result(card: dict, tool: str) -> CallToolResult:
         ],
         structured_content={"image_url": card["image_url"], "pdf_url": card["pdf_url"],
                             "caption": f"What I read from your PDF, first {CARD_PAGES} pages" if more_pages else "What I read from your PDF, every bar",
-                            "title": "What I read from your PDF"},
+                            "title": "What I read from your PDF", "shaded_bars": card.get("shaded_bars", [])},
     )
 
 
@@ -1503,8 +1513,13 @@ async def play(ctx: Context, score_id: str | None = None, measure_range: str = "
     log("play", platform=source, measure_range=measure_range, legacy=not score_id)
     return CallToolResult(
         content=[TextContent(type="text", text="The user now has a player for this passage in the chat.")],
-        structured_content={"performance": performance},
+        structured_content={"performance": performance, "measures": played_bars(index, measures)},
     )
+
+
+def played_bars(index, measures: tuple[int, int] | None) -> list[int]:
+    first, last = index.measures[0].number, index.measures[-1].number
+    return [max(first, measures[0]), min(last, measures[1])] if measures else [first, last]
 
 
 apps.add_html_resource(
@@ -1559,6 +1574,7 @@ async def choose_score(ctx: Context) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=(
         f"The user now sees a card in which to choose their score file, which will be kept under the id {code}. "
         "End your reply here. When their next message says they have chosen it: if the file name ends in .pdf, "
+        f"write one short sentence saying you are reading the PDF now and that {PDF_WAIT}, then in the same reply "
         f"call read_fetched_pdf with pdf_id {code}; otherwise it is MusicXML, so call draft_analysis with "
         f"score_id {code}."))], structuredContent={"upload_id": code})
 
@@ -1878,8 +1894,8 @@ async def keep_score(data: bytes, kind: str, code: str | None = None) -> str:
 
 def next_step(kind: str, code: str) -> str:
     if kind == "pdf":
-        return (f"pdf_id: {code}\nIt is a PDF. Call read_fetched_pdf with this pdf_id now to read the music from it; "
-                "a PDF takes a minute or more to read.")
+        return (f"pdf_id: {code}\nIt is a PDF. Write one short sentence saying you are reading the PDF now and that "
+                f"{PDF_WAIT}, then in the same reply call read_fetched_pdf with this pdf_id to read the music from it.")
     return f"score_id: {code}\nIt is a MusicXML score. Call draft_analysis with this score_id now."
 
 

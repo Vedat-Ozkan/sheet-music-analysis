@@ -8,17 +8,20 @@
   :root[data-theme="dark"] { color-scheme: dark; --fg: #f2f2f5; --muted: #a1a1a6; --track: #48484a; --button: #f2f2f5; --button-fg: #111; }
   body { margin: 0; font: 13px system-ui, sans-serif; color: var(--fg); background: transparent; }
   .player { display: flex; align-items: center; gap: 10px; padding: 8px 12px; }
-  button { flex: none; width: 32px; height: 32px; border: 0; border-radius: 16px; background: var(--button); color: var(--button-fg); cursor: pointer; display: grid; place-items: center; }
+  button { flex: none; width: 44px; height: 44px; border: 0; border-radius: 22px; background: var(--button); color: var(--button-fg); cursor: pointer; display: grid; place-items: center; }
   button:disabled { opacity: .5; cursor: default; }
-  svg { width: 14px; height: 14px; fill: currentColor; }
+  svg { width: 16px; height: 16px; fill: currentColor; }
+  .bars { flex: none; white-space: nowrap; }
+  .bars:empty { display: none; }
   input { flex: 1; min-width: 60px; accent-color: var(--button); }
   .time { flex: none; font-variant-numeric: tabular-nums; color: var(--muted); }
-  .credit { padding: 0 12px 6px; font-size: 11px; color: var(--muted); }
+  .credit { padding: 0 12px 8px; font-size: 12px; color: var(--muted); }
 </style>
 </head>
 <body hidden>
 <div class="player">
   <button id="play" aria-label="Play" disabled><svg id="icon" viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button>
+  <span class="bars" id="bars"></span>
   <input id="seek" type="range" min="0" max="0" step="0.1" value="0" aria-label="Position" disabled>
   <span class="time" id="time">0:00 / 0:00</span>
 </div>
@@ -57,6 +60,11 @@
     const layer = LAYERS.reduce((a, b) => Math.abs(8 * b - note.velocity) < Math.abs(8 * a - note.velocity) ? b : a);
     const pitch = Math.min(108, Math.max(21, 21 + 3 * Math.round((note.pitch - 21) / 3)));
     return { layer, pitch, key: SAMPLE_NAMES[pitch % 12] + (Math.floor(pitch / 12) - 1) + "v" + layer };
+  }
+
+  function showBars(measures) {
+    if (!Array.isArray(measures) || measures.length !== 2) return;
+    document.getElementById("bars").textContent = measures[0] === measures[1] ? "Bar " + measures[0] : "Bars " + measures[0] + "–" + measures[1];
   }
 
   function show(text) {
@@ -192,7 +200,9 @@
     } else if (message.method === "ui/notifications/tool-input") {
       show(message.params && message.params.arguments && message.params.arguments.performance);
     } else if (message.method === "ui/notifications/tool-result") {
-      show(message.params && message.params.structuredContent && message.params.structuredContent.performance);
+      const content = (message.params && message.params.structuredContent) || {};
+      showBars(content.measures);
+      show(content.performance);
     }
   });
 

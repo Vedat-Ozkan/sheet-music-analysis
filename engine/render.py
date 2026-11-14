@@ -111,7 +111,7 @@ class ScoreError(UserError):
     pass
 
 
-UNREADABLE = "Verovio could not read this file as MusicXML"
+UNREADABLE = "This file looks like MusicXML but its music could not be read"
 
 
 def parse_measures(measure_range: str | None) -> tuple[int, int] | None:

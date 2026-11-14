@@ -240,6 +240,7 @@ def test_a_view_in_other_case_and_a_range_with_a_long_dash_are_drawn(server):
     result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1–4", "view": "Harmony"})
     assert not result.is_error
     assert text_of(result).startswith("Analysis, measures 1-4, view harmony")
+    assert result.structured_content["caption"] == "Analysis of bars 1–4, harmony only"
 
 
 def test_a_drawing_with_no_marks_says_so_first_and_skips_the_extra_downloads(server):
@@ -489,15 +490,17 @@ def test_after_a_pdf_read_the_model_goes_straight_on_to_the_analysis(server):
 
 
 def test_bars_shaded_in_the_reading_stay_shaded_on_the_analysis(server):
-    score_id = score_id_of(call("read_pdf", ATTACHED))
+    reading = call("read_pdf", ATTACHED)
+    score_id = score_id_of(reading)
     shaded = json.loads(server.get(f"scores/{score_id}.shaded"))
-    assert len(shaded) == 1
+    assert len(shaded) == 1 and reading.structured_content["shaded_bars"] == shaded
     marks = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "i", "key": "e"}]
     drawn = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}})
-    assert f"Shaded bars ({shaded[0]}) may be misread" in text_of(drawn)
+    assert f"Shaded bars ({shaded[0]}) may be misread" in text_of(drawn) and drawn.structured_content["shaded_bars"] == shaded
     assert shaded_pixels(drawn) > 1000
     elsewhere = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1-4"})
     assert "Shaded bars" not in text_of(elsewhere) and shaded_pixels(elsewhere) == 0
+    assert elsewhere.structured_content["shaded_bars"] == [] and elsewhere.structured_content["caption"] == "Analysis of bars 1–4"
 
 
 def test_a_musicxml_score_is_never_shaded(server):

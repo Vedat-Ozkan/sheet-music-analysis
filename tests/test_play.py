@@ -33,7 +33,11 @@ def test_a_score_id_plays_the_bars_asked_for(local_store):
     app.store.put("scores/CHOPIN", CHOPIN.read_bytes())
     result = call(app.play, score_id="CHOPIN", measure_range="1-8")
     assert not result.is_error
-    assert result.structured_content == {"performance": performance_text(marked_index(CHOPIN.read_bytes()), (1, 8))}
+    assert result.structured_content == {"performance": performance_text(marked_index(CHOPIN.read_bytes()), (1, 8)),
+                                         "measures": [1, 8]}
+    whole = call(app.play, score_id="CHOPIN", measure_range="all")
+    index = marked_index(CHOPIN.read_bytes())
+    assert whole.structured_content["measures"] == [index.measures[0].number, index.measures[-1].number]
 
 
 def test_an_unknown_score_id_says_scores_are_kept_for_30_days(local_store):
@@ -53,7 +57,9 @@ def test_an_old_plugins_note_list_gets_no_draft_and_a_play_id_for_the_same_passa
     assert not result.is_error and text.startswith(app.NOTES_FROM_LIST)
     assert "| Eb: I |" in text and "| Eb: V7/ii |" in text
     played = call(app.play, play_id=text.split("play_id ")[1].split()[0])
-    assert played.structured_content == {"performance": performance_text(note_list.decode(sent))}
+    decoded = note_list.decode(sent)
+    assert played.structured_content == {"performance": performance_text(decoded),
+                                         "measures": [decoded.measures[0].number, decoded.measures[-1].number]}
 
 
 def test_a_chorale_note_list_gets_the_part_writing_and_student_checks(local_store):
