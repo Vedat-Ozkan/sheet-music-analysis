@@ -49,7 +49,7 @@ def test_server_render_style_and_musicxml(chopin, chopin_annotations, tmp_path, 
         result = await app.render_analysis(None, 'REAL', annotations, measure_range='1-8')
         assert not result.is_error
         assert base64.b64decode(result.content[0].data) == render(
-            chopin, annotations, measures=(1, 8)
+            chopin, annotations, measures=(1, 8), key=True
         ).png(1)
         assert 'harmony labels (open in MuseScore' in result.content[1].text
         assert 'standard Roman numerals' in result.content[1].text
@@ -102,7 +102,7 @@ def test_legacy_latin1_render_and_export(tmp_path, monkeypatch):
     annotations = AnnotationList.model_validate({'annotations': [
         {'type': 'harmony', 'at': {'measure': 1}, 'key': 'G', 'label': 'I'},
     ]})
-    expected_png = render(score, annotations).png(1)
+    expected_png = render(score, annotations, key=True).png(1)
     monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
     app.store.put('scores/LEGACY', score)
 
@@ -241,7 +241,7 @@ def test_server_card_has_the_key_on_its_first_page_and_the_pdf_on_its_last(chopi
 
     async def run():
         result = await app.render_analysis(None, 'REAL', chopin_annotations)
-        assert 'carries a key at its foot' in result.content[1].text
+        assert 'guide to the marks at its foot' in result.content[1].text
         name = result.structured_content['pdf_url'].rsplit('/', 1)[1]
         return (await app.files(Request({'type': 'http', 'path_params': {'name': name}}))).body
 
@@ -269,3 +269,17 @@ def test_server_piano_worksheet_has_no_key(tmp_path, monkeypatch):
     files = asyncio.run(run())
     assert 'who plays it' in files['pdf']
     assert 'who plays it' not in files['worksheet'] and 'the key' not in files['worksheet']
+
+
+@pytest.mark.parametrize('view, measure_range', [('form', '1-8'), ('all', '20-24')])
+def test_server_mentions_the_guide_only_when_one_is_drawn(chopin, chopin_annotations, tmp_path, monkeypatch, view, measure_range):
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/REAL', chopin)
+    harmonies = chopin_annotations.model_copy(update={'annotations': [a for a in chopin_annotations.annotations if a.type == 'harmony']})
+
+    async def run():
+        result = await app.render_analysis(None, 'REAL', harmonies, measure_range=measure_range, view=view)
+        assert not result.is_error
+        assert 'guide to the marks' not in result.content[1].text
+
+    asyncio.run(run())

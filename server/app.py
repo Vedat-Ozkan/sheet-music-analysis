@@ -604,7 +604,7 @@ def make_worksheet(name: str) -> bytes | None:
         return None
     recipe = json.loads(recipe)
     measures = tuple(recipe["measures"]) if recipe["measures"] else None
-    return render(score, AnnotationList(annotations=[]), measures=measures, piano=recipe["piano"], key=False).pdf()
+    return render(score, AnnotationList(annotations=[]), measures=measures, piano=recipe["piano"]).pdf()
 
 
 def waiting_for_choice(tool: str, source: str) -> CallToolResult:
@@ -754,9 +754,12 @@ def card_caption(measures: tuple[int, int] | None, view: str, piano: bool) -> st
     return f"Analysis of {bars}{VIEW_NAMES[view]}" + (", piano reduction" if piano else "")
 
 
-KEY_ON_PAGE = ("The page carries a key at its foot (on the first page in the card, the last page in the PDF) saying what "
-               "each mark and code stands for, so do not spend the reply defining the codes; still say what each numbered "
-               "callout is about and explain the reasoning behind the labels.")
+KEY_ON_PAGE = ("The page has a guide to the marks at its foot (on the first page in the card, at the end of the last page "
+               "in the PDF). It names the marks and codes drawn around the numerals: the label for the key, the chord's job, "
+               "cadence labels, non-chord-tone and part-writing codes, phrase and alternative-reading brackets, arrows, "
+               "callouts, instrument cues and shaded bars, so do not define those again. It does not explain Roman "
+               "numerals, figures or inversions: for a student, still explain each numeral the first time it appears. Say "
+               "what each numbered callout is about and explain the reasoning behind the labels.")
 
 
 SHADED_ON_PAGE = ("Shaded bars ({bars}) may be misread from the PDF, so their analysis may be wrong. Mention this "
@@ -775,7 +778,8 @@ async def draw(score: bytes, annotations: AnnotationList, measures: tuple[int, i
                shaded: list[int]):
     engraving, annotations, problems = await in_turn(
         lambda: leave_out_rejected(lambda kept: render(score, kept, measures=measures, view=view, piano=piano,
-                                                       shaded_bars=shaded), annotations))
+                                                       shaded_bars=shaded, key=True, preview_pages=CARD_PAGES),
+                                     annotations))
     left_out = ["Left out, for the reason on each line (fix them and call again to add them; numbers refer to your "
                 "list):\n" + "\n".join(problems)] if problems else []
     return engraving, annotations, left_out
@@ -868,7 +872,7 @@ async def render_analysis(
     structured_content = {**links, "caption": card_caption(measures, view, piano), "shaded_bars": shaded}
     if not asked:
         left_out.append(NOTHING_DRAWN.format(score_id=score_id))
-    elif annotations.annotations:
+    elif engraving.key_drawn:
         left_out.append(KEY_ON_PAGE)
     if shaded:
         left_out.append(SHADED_ON_PAGE.format(bars=", ".join(map(str, shaded))))

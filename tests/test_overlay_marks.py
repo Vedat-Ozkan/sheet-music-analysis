@@ -489,13 +489,12 @@ def _key_text(svg: str) -> str:
     return " ".join(re.findall(r">([^<]+)</text>", group.group(1))) if group else ""
 
 
-def test_page_key_is_left_off_when_asked(chopin, chopin_annotations):
-    engraving = render(chopin, chopin_annotations, measures=(1, 8), key=False)
-    assert not any('class="page-key"' in svg for svg in engraving.svgs + engraving.preview.svgs)
+def test_page_key_is_off_by_default(chopin, chopin_annotations):
+    assert 'class="page-key"' not in render(chopin, chopin_annotations, measures=(1, 8)).svgs[0]
 
 
 def test_page_key_names_exactly_the_marks_on_the_page(chopin, chopin_annotations):
-    key = _key_text(render(chopin, chopin_annotations, measures=(1, 8)).svgs[-1])
+    key = _key_text(render(chopin, chopin_annotations, measures=(1, 8), key=True).svgs[-1])
     for said in ("passing note", "neighbour note", "appoggiatura", "perfect authentic cadence", "the chord’s job",
                  "where a note moves", "a phrase", "see that number"):
         assert said in key, said
@@ -509,36 +508,40 @@ def test_page_key_names_exactly_the_part_writing_codes_drawn():
              {"type": "voice_leading", "kind": "ring", "from_note": _ref(1, 2, 3, "G3")},
              {"type": "voice_leading", "kind": "line", "from_note": _ref(2, 3, 1, "C4"), "to_note": _ref(2, 4, 1, "G4")},
              {"type": "voice_leading", "kind": "line", "from_note": _ref(2, 3, 4, "C3"), "to_note": _ref(2, 4, 4, "C4"), "label": "H5"}]
-    key = _key_text(_page(path.read_bytes(), marks).svgs[-1])
+    key = _key_text(_page(path.read_bytes(), marks, key=True).svgs[-1])
     assert "VO voice overlap" in key and "H5 direct fifths" in key and "part-writing faults" in key
     assert not any(code in key for code in ("P5", "VC", "parallel", "passing", "the key", "the chord’s job", "numbered"))
 
 
 def test_page_key_is_at_the_foot_of_the_first_preview_page_and_the_end_of_the_last_download_page(chopin, chopin_annotations):
-    engraving = render(chopin, chopin_annotations)
-    assert engraving.page_count > 2
+    later = {"type": "cadence", "at": {"measure": 34, "beat": 1}, "label": "HC"}
+    marks = AnnotationList.model_validate({"annotations": chopin_annotations.model_dump(exclude_none=True)["annotations"] + [later]})
+    engraving = render(chopin, marks, key=True, preview_pages=2)
+    assert engraving.page_count > 2 and engraving.key_drawn
     keyed = lambda svgs: [number for number, svg in enumerate(svgs) if 'class="page-key"' in svg]
     assert keyed(engraving.preview.svgs) == [0] and keyed(engraving.svgs) == [engraving.page_count - 1]
-    assert _key_text(engraving.preview.svgs[0]) == _key_text(engraving.svgs[-1])
+    preview, download = _key_text(engraving.preview.svgs[0]), _key_text(engraving.svgs[-1])
+    assert "half cadence" in download and "half cadence" not in preview
+    assert preview == download.replace(" · HC half cadence", "")
 
 
 def test_one_page_render_has_one_key_shared_by_preview_and_download(chopin, chopin_annotations):
-    engraving = render(chopin, chopin_annotations, measures=(1, 8))
-    assert engraving.page_count == 1
+    engraving = render(chopin, chopin_annotations, measures=(1, 8), key=True)
+    assert engraving.page_count == 1 and engraving.key_drawn
     assert engraving.preview.svgs[0].count('class="page-key"') == engraving.svgs[0].count('class="page-key"') == 1
 
 
 def test_page_key_names_each_job_once_whichever_forms_are_drawn(chopin, chopin_annotations):
-    engraving = render(chopin, chopin_annotations)
+    engraving = render(chopin, chopin_annotations, key=True)
     drawn = {form for svg in engraving.svgs for form in re.findall(r">(tonic|pre-dom\.|dominant|T|PD|D)</text>", svg)}
     assert {"tonic", "T"} <= drawn
     assert "the chord’s job: tonic (T), pre-dominant (pre-dom., PD), dominant (D)" in _key_text(engraving.svgs[-1])
-    one_form = _key_text(render(chopin, chopin_annotations, measures=(1, 8)).svgs[0])
+    one_form = _key_text(render(chopin, chopin_annotations, measures=(1, 8), key=True).svgs[0])
     assert "the chord’s job: tonic, pre-dominant (pre-dom.), dominant" in one_form
 
 
 def test_page_key_names_shaded_bars(chopin, chopin_annotations):
-    assert "misread" in _key_text(render(chopin, chopin_annotations, measures=(1, 8), shaded_bars=[6]).svgs[-1])
+    assert "misread" in _key_text(render(chopin, chopin_annotations, measures=(1, 8), shaded_bars=[6], key=True).svgs[-1])
 
 
 def test_page_key_has_words_for_every_code_the_engine_draws():

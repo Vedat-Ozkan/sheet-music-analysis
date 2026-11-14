@@ -279,7 +279,7 @@ def test_page_key_sits_below_every_mark_of_the_last_system(name):
               {"type": "alternative", "start": {"measure": bars[-2].number}, "end": {"measure": last.number, "beat": 1}, "label": "vi V"},
               {"type": "nct", "note": {"measure": last.number, "beat": last.beat_of(lowest.onset), "staff": lowest.staff, "pitch": lowest.pitch},
                "label": "PT"}]
-    engraving = render(data, AnnotationList.model_validate({"annotations": marks}), measures=(bars[0].number, last.number))
+    engraving = render(data, AnnotationList.model_validate({"annotations": marks}), measures=(bars[0].number, last.number), key=True)
     for svg in (engraving.preview.svgs[0], engraving.svgs[-1]):
         root = ET.fromstring(svg)
         for parent in root.iter():

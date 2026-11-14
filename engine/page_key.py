@@ -98,11 +98,11 @@ def cues_on(layouts: list[PageLayout]) -> list[str]:
     return found
 
 
-def draw(layouts: list[PageLayout], layout: PageLayout, cues: list[str] = ()) -> None:
+def draw(layouts: list[PageLayout], layout: PageLayout, cues: list[str] = ()) -> bool:
     shown = set().union(*(page.shown for page in layouts))
     pieces = entries(shown, cues)
     if not pieces:
-        return
+        return False
     over = layout.over
     layout.over = ET.SubElement(over, f"{S}g", {"class": "page-key"})
     left = min(system.left for system in layout.systems)
@@ -121,6 +121,7 @@ def draw(layouts: list[PageLayout], layout: PageLayout, cues: list[str] = ()) ->
         pen.keep([head + _code_piece(entry, 0)] + [_code_piece(entry, position) for position in range(1, len(entry.codes))])
     layout.over = over
     _grow_page(layout, pen.y + SIZE)
+    return True
 
 
 def _code_piece(entry: Entry, position: int) -> list[tuple[str, str, str]]:

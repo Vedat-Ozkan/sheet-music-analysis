@@ -12,7 +12,7 @@ from bisect import bisect_right
 from collections.abc import Callable, Collection
 from itertools import accumulate
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from fractions import Fraction
 from importlib.resources import files
 from typing import TYPE_CHECKING
@@ -129,11 +129,12 @@ def parse_measures(measure_range: str | None) -> tuple[int, int] | None:
 @dataclass
 class Engraving:
     svgs: list[str]
-    preview_svgs: list[str] | None = None
+    preview_svgs: list[str] | None = field(default=None, kw_only=True)
+    key_drawn: bool = field(default=False, kw_only=True)
 
     @property
     def preview(self) -> Engraving:
-        return Engraving(self.preview_svgs or self.svgs)
+        return replace(self, svgs=self.preview_svgs, preview_svgs=None) if self.preview_svgs else self
 
     @property
     def page_count(self) -> int:

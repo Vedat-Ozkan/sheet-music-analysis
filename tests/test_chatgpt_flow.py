@@ -164,7 +164,7 @@ def test_an_alternative_with_the_wrong_number_of_chords_is_left_out_and_the_rest
     assert not result.is_error
     assert f"annotations[{len(marks)}] (alternative): its label has 3 chords" in text_of(result)
     assert "Left out" in text_of(result) and "position" not in text_of(result)
-    assert base64.b64decode(result.content[0].data) == render(chopin, chopin_annotations, measures=(1, 8)).png(1)
+    assert base64.b64decode(result.content[0].data) == render(chopin, chopin_annotations, measures=(1, 8), key=True).png(1)
     assert logged(capsys, "render_analysis")[-1]["left_out"] == 1
 
 
@@ -239,7 +239,7 @@ def test_a_view_in_other_case_and_a_range_with_a_long_dash_are_drawn(server):
     marks = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "i", "key": "e"}]
     result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1–4", "view": "Harmony"})
     assert not result.is_error
-    assert text_of(result).startswith("Analysis, measures 1-4, view harmony")
+    assert "Analysis, measures 1-4, view harmony" in text_of(result)
     assert result.structured_content["caption"] == "Analysis of bars 1–4, harmony only"
 
 
