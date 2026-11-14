@@ -109,7 +109,6 @@ def render(
     student_labels: list[Label] | None = None,
     shaded_bars: list[int] | None = None,
     key: str | None = None,
-    shading: str = "tint",
 ) -> Engraving:
     check_range(measures)
     if piano:
@@ -162,7 +161,7 @@ def render(
                 check_display.draw(layout, results, page == toolkit.getPageCount())
             drawn.append(layout)
     for layout in drawn:
-        tint.flag_bars(layout, index, shaded_bars, shading)
+        tint.flag_bars(layout, index, shaded_bars)
     if key and results is None:
         from engine import page_key
         page_key.draw(drawn, key, page_key.cues_on(drawn) if piano else [])

@@ -493,9 +493,8 @@ def test_page_key_is_off_by_default(chopin, chopin_annotations):
     assert 'class="page-key"' not in render(chopin, chopin_annotations, measures=(1, 8)).svgs[0]
 
 
-@pytest.mark.parametrize("style", page_key.STYLES)
-def test_page_key_names_exactly_the_marks_on_the_page(chopin, chopin_annotations, style):
-    key = _key_text(render(chopin, chopin_annotations, measures=(1, 8), key=style).svgs[-1])
+def test_page_key_names_exactly_the_marks_on_the_page(chopin, chopin_annotations):
+    key = _key_text(render(chopin, chopin_annotations, measures=(1, 8), key="last").svgs[-1])
     for said in ("passing note", "neighbour note", "appoggiatura", "perfect authentic cadence", "the chord’s job",
                  "where a note moves", "a phrase", "see that number"):
         assert said in key, said
@@ -509,9 +508,18 @@ def test_page_key_names_exactly_the_part_writing_codes_drawn():
              {"type": "voice_leading", "kind": "ring", "from_note": _ref(1, 2, 3, "G3")},
              {"type": "voice_leading", "kind": "line", "from_note": _ref(2, 3, 1, "C4"), "to_note": _ref(2, 4, 1, "G4")},
              {"type": "voice_leading", "kind": "line", "from_note": _ref(2, 3, 4, "C3"), "to_note": _ref(2, 4, 4, "C4"), "label": "H5"}]
-    key = _key_text(_page(path.read_bytes(), marks, key="text").svgs[-1])
+    key = _key_text(_page(path.read_bytes(), marks, key="last").svgs[-1])
     assert "VO voice overlap" in key and "H5 direct fifths" in key and "part-writing faults" in key
     assert not any(code in key for code in ("P5", "VC", "parallel", "passing", "the key", "the chord’s job", "numbered"))
+
+
+@pytest.mark.parametrize("place", page_key.PLACES)
+def test_page_key_is_drawn_once_on_the_page_its_place_names(chopin, chopin_annotations, place):
+    svgs = render(chopin, chopin_annotations, key=place).svgs
+    assert len(svgs) > 2
+    keyed = [number for number, svg in enumerate(svgs) if 'class="page-key"' in svg]
+    assert keyed == [0 if place == "first" else len(svgs) - 1]
+    assert "the chord’s job" in _key_text(svgs[keyed[0]])
 
 
 def test_page_key_has_words_for_every_code_the_engine_draws():

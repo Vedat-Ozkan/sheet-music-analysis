@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from engine import part_writing, piano, text, tint
 from engine.overlay import ARROW, ERROR, FUNCTION_NAMES, INK, LABEL_PAD, LABEL_SIZE, LINE, S, Box, PageLayout
 
-STYLES = ("text", "samples")
+PLACES = ("first", "last")
 SIZE = LABEL_SIZE
 LINE_STEP = 500
 GAP = 900
@@ -39,8 +39,8 @@ def cue_words() -> dict[str, str]:
 @dataclass
 class Entry:
     sample: str
-    noun: str
     meaning: str
+    noun: str = ""
     codes: list[tuple[str, str]] = field(default_factory=list)
     code_colour: str = INK
     boxed: bool = False
@@ -52,38 +52,38 @@ def entries(shown: set[tuple[str, str]], cues: list[str] = ()) -> list[Entry]:
         found.setdefault(kind, []).append(code)
     result = []
     if "key" in found:
-        result.append(Entry("", found["key"][0], "the key (capital major, small minor)"))
+        result.append(Entry("", "the key (capital major, small minor)", found["key"][0]))
     if "function" in found:
         letters = [f for f in FUNCTION_NAMES if f in found["function"]]
         named = [f for f in FUNCTION_NAMES if FUNCTION_NAMES[f] in found["function"]]
         jobs = [(f, FUNCTION_WORDS[f]) for f in letters] + [(FUNCTION_NAMES[f], "") if FUNCTION_NAMES[f] == FUNCTION_WORDS[f]
                                                                else (FUNCTION_NAMES[f], f"({FUNCTION_WORDS[f]})") for f in named]
-        result.append(Entry("function", "bracket under the numerals", "the chord’s job", jobs))
+        result.append(Entry("function", "the chord’s job", codes=jobs))
     if "cadence" in found:
-        result += [Entry("", "", "", [(code, CADENCE_WORDS[code])], boxed=True) for code in CADENCE_WORDS if code in found["cadence"]]
+        result += [Entry("", "", codes=[(code, CADENCE_WORDS[code])], boxed=True) for code in CADENCE_WORDS if code in found["cadence"]]
     if "alternative" in found:
-        result.append(Entry("alternative", "dotted line under the numerals", "another reading a teacher would accept"))
+        result.append(Entry("alternative", "another reading a teacher would accept"))
     if "nct" in found:
-        result.append(Entry("nct", "circled note", "not part of the chord",
-                            [(code, words) for code, words in NCT_WORDS.items() if code in found["nct"]]))
+        result.append(Entry("nct", "not part of the chord",
+                            codes=[(code, words) for code, words in NCT_WORDS.items() if code in found["nct"]]))
     if "arrow" in found:
-        result.append(Entry("arrow", "arrow", "where a note moves"))
+        result.append(Entry("arrow", "where a note moves"))
     if "fault" in found:
         known = fault_words()
-        result.append(Entry("fault", "", "red marks are part-writing faults",
-                            [(code, words) for code, words in known.items() if code in found["fault"]], ERROR))
+        result.append(Entry("fault", "red marks are part-writing faults",
+                            codes=[(code, words) for code, words in known.items() if code in found["fault"]], code_colour=ERROR))
     if "phrase" in found:
-        result.append(Entry("phrase", "bracket above", "a phrase"))
+        result.append(Entry("phrase", "a phrase"))
     if "region" in found:
-        result.append(Entry("region", "dashed bracket above", "a passage named by what it is built on"))
+        result.append(Entry("region", "a passage named by what it is built on"))
     if "callout" in found:
-        result.append(Entry("callout", "numbered disc", "see that number in the reply"))
+        result.append(Entry("callout", "see that number in the reply"))
     if cues:
         known = cue_words()
-        result.append(Entry("", "names above the staff", "who plays it in the original",
-                            [(cue, known[cue]) for cue in dict.fromkeys(cues) if cue in known]))
+        result.append(Entry("", "who plays it in the original", "names above the staff",
+                            codes=[(cue, known[cue]) for cue in dict.fromkeys(cues) if cue in known]))
     if "shaded" in found:
-        result.append(Entry("shaded:" + found["shaded"][0], "shaded bar", "may be misread from the PDF; check it against the original"))
+        result.append(Entry("shaded", "may be misread from the PDF; check it against the original"))
     return result
 
 
@@ -98,12 +98,12 @@ def cues_on(layouts: list[PageLayout]) -> list[str]:
     return found
 
 
-def draw(layouts: list[PageLayout], style: str, cues: list[str] = ()) -> None:
+def draw(layouts: list[PageLayout], place: str, cues: list[str] = ()) -> None:
     shown = set().union(*(layout.shown for layout in layouts))
     pieces = entries(shown, cues)
     if not pieces:
         return
-    layout = layouts[-1]
+    layout = layouts[0] if place == "first" else layouts[-1]
     over = layout.over
     layout.over = ET.SubElement(over, f"{S}g", {"class": "page-key"})
     left = min(system.left for system in layout.systems)
@@ -113,23 +113,22 @@ def draw(layouts: list[PageLayout], style: str, cues: list[str] = ()) -> None:
     pen = _Pen(layout, left, right, y)
     for number, entry in enumerate(pieces):
         lead = [] if number == 0 else [("text", DOT, INK)]
-        if style == "samples" and entry.sample:
+        if entry.sample:
             head = lead + [("sample", entry.sample, INK)]
             head += [("text", entry.meaning + (":" if entry.codes else ""), INK)] if entry.meaning else []
         else:
             said = f"{entry.noun} = {entry.meaning}" if entry.noun else entry.meaning
             head = lead + ([("text", said + (":" if entry.codes else ""), INK)] if said else [])
-        pen.keep([head + _code_piece(entry, 0, style)] + [_code_piece(entry, position, style) for position in range(1, len(entry.codes))])
+        pen.keep([head + _code_piece(entry, 0)] + [_code_piece(entry, position) for position in range(1, len(entry.codes))])
     layout.over = over
     _grow_page(layout, pen.y + SIZE)
 
 
-def _code_piece(entry: Entry, position: int, style: str) -> list[tuple[str, str, str]]:
+def _code_piece(entry: Entry, position: int) -> list[tuple[str, str, str]]:
     if not entry.codes:
         return []
     code, words = entry.codes[position]
-    boxed = style == "samples" and entry.boxed
-    piece = [("boxed" if boxed else "code", code, entry.code_colour)]
+    piece = [("boxed" if entry.boxed else "code", code, entry.code_colour)]
     tail = ("," if position < len(entry.codes) - 1 else "")
     if words:
         piece.append(("text", words + tail, INK))
@@ -208,17 +207,9 @@ def _sample(layout: PageLayout, kind: str, box: Box) -> None:
     elif kind == "callout":
         layout._add("circle", cx=round(box.cx), cy=round(mid), r=170, fill=INK)
         layout._text(box.cx, mid + SIZE * 0.3, "1", SIZE * 0.9, bold=True, fill="#ffffff", anchor="middle")
-    elif kind.startswith("shaded:"):
-        shading = kind.split(":", 1)[1]
-        swatch = Box(x0, top, x1 - x0, bottom - top)
-        layout._add("rect", x=round(swatch.x), y=round(swatch.y), width=round(swatch.width), height=round(swatch.height),
+    elif kind == "shaded":
+        layout._add("rect", x=round(x0), y=round(top), width=round(x1 - x0), height=round(bottom - top),
                     fill=tint.FLAG_BAR, fill_opacity=tint.FLAG_OPACITY)
-        if shading == "outline":
-            layout._add("rect", x=round(swatch.x), y=round(swatch.y), width=round(swatch.width), height=round(swatch.height),
-                        rx=40, fill="none", stroke=tint.FLAG_EDGE, stroke_width=40)
-        elif shading == "flag":
-            layout._add("circle", cx=round(swatch.cx), cy=round(swatch.cy), r=150, fill=tint.FLAG_EDGE)
-            layout._text(swatch.cx, swatch.cy + SIZE * 0.3, "?", SIZE * 0.9, bold=True, fill="#ffffff", anchor="middle")
 
 
 def _grow_page(layout: PageLayout, bottom: float) -> None:
