@@ -24,7 +24,7 @@ Text for the Claude directory forms and the ChatGPT plugin ZIP. Keep it consiste
 > Sheet Music Analysis marks up a piece of music the way a theory teacher would pencil it in. Attach a score as a MusicXML file (.mxl or .musicxml, which MuseScore, Sibelius, Finale and Dorico can all export) or a PDF of printed music, and ask what is happening in the music. A PDF is read first, and bars that may be misread are shaded so you can check them.
 >
 > You get the engraved score back, as an image and a PDF, with:
-> - every chord labelled with a Roman numeral, and coloured bands showing its job: home (tonic), moving away (predominant) or pulling back home (dominant);
+> - every chord labelled with a Roman numeral, and a labelled bracket showing its job: home (tonic), moving away (predominant) or pulling back home (dominant);
 > - cadences, the musical commas and full stops, boxed, and brackets showing where each phrase begins and ends;
 > - melody notes that don't belong to the chord circled and named;
 > - arrows where the way one note moves to the next matters;
@@ -90,7 +90,7 @@ OpenAI now takes a plugin ZIP rather than a form: the text below lives in `opena
 
 **Should use the app** (prompt → tools → what the user sees):
 
-1. [attach the sample] "Analyse the harmony of bars 1–8 of this." → `draft_analysis`, then `render_analysis` → the engraved bars 1–8 with numerals, coloured bands, cadences and numbered circles, plus a commentary.
+1. [attach the sample] "Analyse the harmony of bars 1–8 of this." → `draft_analysis`, then `render_analysis` → the engraved bars 1–8 with numerals, labelled brackets, cadences and numbered circles, plus a commentary.
 2. [same chat] "Now show only the harmony." → `render_analysis` with view `harmony` → the same bars with chords and bands only.
 3. [same chat] "What happens in bars 9–16?" → `draft_analysis`, then `render_analysis` → bars 9–16 annotated, with a commentary.
 4. [same chat] "Show the phrase structure of bars 1–16." → `render_analysis` with view `form` → phrase brackets and cadences.
