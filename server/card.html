@@ -171,6 +171,7 @@
   for (const name in extras) download(name, () => extras[name]);
 
   function rate(helpful) {
+    document.getElementById("rating-status").textContent = "";
     for (const id of ["up", "down"]) document.getElementById(id).disabled = true;
     request("tools/call", { name: "rate_analysis", arguments: { helpful } }).then((result) => {
       if (!result || result.isError) {
@@ -206,6 +207,7 @@
   document.getElementById("suggest-open").addEventListener("click", () => {
     document.getElementById("suggest-closed").hidden = true;
     document.getElementById("suggest-form").hidden = false;
+    document.getElementById("suggest-send").disabled = !document.getElementById("suggestion").value.trim();
     document.getElementById("suggestion").focus();
   });
   document.getElementById("suggest-cancel").addEventListener("click", () => {
