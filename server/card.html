@@ -135,6 +135,7 @@
     opener.setAttribute("aria-label", "Open the page full size: " + description);
     opener.hidden = false;
     pdfUrl = data.pdf_url;
+    document.getElementById("pdf").hidden = !pdfUrl;
     for (const name in extras) {
       extras[name] = data[name + "_url"] || null;
       document.getElementById(name).hidden = !extras[name];

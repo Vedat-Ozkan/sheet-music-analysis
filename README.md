@@ -79,6 +79,7 @@ This project would not exist without [AnalysisGNN](https://github.com/manoskary/
 
 ```bash
 uv sync --python 3.11
+.venv/bin/python -m playwright install --only-shell chromium
 .venv/bin/python -m pytest
 ```
 

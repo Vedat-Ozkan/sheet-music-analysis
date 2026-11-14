@@ -2959,6 +2959,41 @@ PR #23 merged to `main` as `e5dd58d` (entry 156, the runbook, `prod-*` tags from
 
 **Seen in these tests, not changed.** The draft says "One beat = 1 quarter notes". A cadence placed on a beat that has no numeral is drawn under the last numeral before it, with no warning. The chorale PDF's bar 2 is shaded as possibly misread on a clean engraved page. Drawing bars 1 to 4 of BWV 303 also prints a nearly empty second line numbered 4a.
 
+### 161. Design review of the site, the chat cards and the drawn page (2026-11-13, branch `ux-fixes`, nothing released)
+
+**How it was reviewed.** The live site was captured at 375, 768 and 1440 px in light and dark; each chat card state was rendered in a stand-in chat column; eight pages were drawn with the current engine. Two Opus reviewers applied published critique methods (Nielsen's ten heuristics scored 0 to 4, cognitive load, personas) without seeing the first read, and the claims that became findings were rechecked in the files. Scores: site 24 of 36, chat flow 21 of 40, drawn page 17 of 28. The cards were not seen inside real Claude or ChatGPT chats, and keyboard and screen-reader behaviour was not tested.
+
+**What was wrong, and what changed on this branch.**
+
+| Finding | Before | After |
+|---|---|---|
+| Terms and privacy disagreed on retention | Terms: "within about two days"; privacy: 30 days | Both say 30 days |
+| The file card promised the analysis starts on choosing | "The analysis starts as soon as you choose it" | Says to press Enter to send the message in the reply box; the received state is the boldest text in the card |
+| The PDF wait had five wordings | "a minute or two", "a minute or more", "a few minutes", "several minutes", "up to about 10 minutes" | One sentence from one constant (`PDF_WAIT`); the still-reading message keeps its 10-minute cap, which is the reader's 480 s limit plus 120 s |
+| No sign of progress in Claude during a PDF read | Nothing between the card and the result | The result of `choose_score` and `fetch_score`, and the skill, tell the model to say one sentence before the read |
+| The reading card looked like the analysis card | Caption sent, never shown; shading unexplained on the card | Caption shown as a heading; a key line when bars are shaded (`shaded_bars` in the result) |
+| Download buttons unexplained | "Worksheet", "MIDI", "RomanText" | "Blank worksheet", "MIDI", "Analysis as text", each explained on the How to use page |
+| The page image could not be enlarged in the card | Plain image | The image opens the full-size PNG |
+| Status changes not announced to screen readers | No live regions | Live regions on the upload status, rating, report and suggestion messages |
+| "Function colours" promised, brackets drawn | Docs, two image descriptions, skill text | Brackets everywhere on the site and in the skill |
+| The limit of 10 new scores a day was stated nowhere | Only in the error | Stated on the How to use page |
+| Claude steps said "attach" | Three places | Attach in ChatGPT, choose in the card in Claude |
+| Marks table missed marks the page draws | No shading, alternative bracket, part-writing codes, cue labels, three non-chord-tone codes | Rows added |
+| Home page text ran about 115 characters a line | Full 980 px | Capped at 640 px; figures stay wide |
+| Phone navigation wrapped with an indented second row | `margin-left` | `column-gap`, 40 px tap height |
+| A library named in an error | "Verovio could not read this file as MusicXML" | "This file looks like MusicXML but its music could not be read" |
+| Player | 32 px button, no bars shown | 44 px button, "Bars 1–8" from `measures` in the result |
+
+**Check added for this class of defect.** `tests/test_site_facts.py` ties the site's retention days, per-person limit, page limit and upload size to the server's constants and the bucket rule in `server/deploy.sh`, and refuses "two days", "function colours" and "a few minutes" on any site page. Against the old site it fails five checks. It asserts one matching phrase per page, so other figures on those pages, such as the rows of the privacy table, are not tied.
+
+**Review.** A Sonnet reviewer read the branch diff. Fixed from it: the still-reading message had lost its unit ("up to about 10."), Cancel on the suggestion form could leave an error with no form while a send was in flight, and the report status was written before its block showed. One claim was wrong: a caption cannot name bars the score lacks, because an out-of-range request is refused before a card is drawn (checked on the nocturne: "Measure 500 does not exist").
+
+**Tests.** Full suite on `725e448`: 1,421 passed, 21 skipped (17 need the PDF reader, 4 existing). `tools/diff_check.py --base main render`: 28 inputs, 0 changed. The later commits changed card script and one message; the files near them pass. NOT RUN: automated tests of the card scripts (no browser driver in the project environment; checked through the visual harness only), the cards in real Claude and ChatGPT chats.
+
+**For the next release.** No tool name, description, schema or widget address changed. `server/card.html` changed in place at the `card-v3` addresses, so it belongs in the next OpenAI submission. `render_analysis`'s description and the ChatGPT listing still say "RomanText" and "coloured bands", left because changed metadata is held until approved. The skill and plugin readme changes reach Claude users at the next plugin build. A PDF reading cached before the deploy has no `shaded_bars`, so its card shows the shading without the key line.
+
+**Known and left.** On a PDF of more than two pages the card's key line shows when the only shaded bars are on later pages. In ChatGPT the method still asks which bars to analyse before starting, while Claude starts on the first eight; making them the same changes ChatGPT's behaviour and is the owner's call. The drawn page has no key to its marks; examples are being built on branch `ux-page`, off by default, for the owner to choose from.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
