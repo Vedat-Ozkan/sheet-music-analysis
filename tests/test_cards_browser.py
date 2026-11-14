@@ -301,7 +301,6 @@ def test_analysis_card_hides_downloads_it_has_no_url_for(page, server):
     expect(card.locator("#more")).to_be_hidden()
 
 
-@pytest.mark.xfail(strict=True, reason="card.html never hides #pdf when pdf_url is absent")
 def test_analysis_card_hides_download_pdf_without_a_pdf_url(page, server):
     card = open_card(page, server, "card.html")
     deliver(page, links(server, pdf_url=None))
