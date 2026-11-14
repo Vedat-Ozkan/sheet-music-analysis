@@ -7,7 +7,7 @@ import pytest
 
 from engine import correct, notes, piano, reduce
 from engine.annotate import render
-from engine.annotations import AnnotationList, Position, RangeEnd
+from engine.annotations import Alternative, AnnotationList
 from engine.check_analysis import ClarificationNeeded, from_text, student_labels
 from engine.check_analysis import as_text as student_check
 from engine.export import _document, export_musicxml
@@ -33,10 +33,7 @@ SCORES = {
     "pdf-reading-prelude": DATA / "chopin_prelude_op28_no4_reading.musicxml",
     "pdf-reading-overrun": DATA / "awkward" / "kinkel-op8-5-trennung-reading.musicxml",
 }
-KNOWN: dict[tuple[str, str], str] = {
-    ("alternative_bracket", name): "check() and _draw_alternative count the harmony on an end beat; the dotted bracket stops before it"
-    for name in SCORES
-}
+KNOWN: dict[tuple[str, str], str] = {}
 
 score_ids = pytest.mark.parametrize("name", list(SCORES))
 
@@ -245,13 +242,23 @@ def test_alternative_bracket_reaches_every_chord_it_replaces(request, name, monk
     data, index = load(name)
     bars = [measure.number for measure in index.measures if measure.number > 0][:3]
     harmonies = [{"type": "harmony", "at": {"measure": bar, "beat": 1}, "key": "C", "label": "I"} for bar in bars]
-    alternative = {"type": "alternative", "start": {"measure": bars[0]}, "end": {"measure": bars[-1], "beat": 1},
-                   "label": " ".join(["V"] * len(bars))}
+    alternative = Alternative.model_validate({"type": "alternative", "start": {"measure": bars[0]}, "end": {"measure": bars[-1], "beat": 1},
+                                              "label": " ".join(["V"] * len(bars))})
     drawn = []
     to_svg = PageLayout.to_svg
     monkeypatch.setattr(PageLayout, "to_svg", lambda layout: drawn.append(layout) or to_svg(layout))
-    render(data, AnnotationList.model_validate({"annotations": harmonies + [alternative]}), measures=(bars[0], bars[-1]))
+    render(data, AnnotationList.model_validate({"annotations": harmonies + [alternative.model_dump()]}), measures=(bars[0], bars[-1]))
     for layout in drawn:
-        pieces = {piece.system.index: piece for piece in layout.segments(Position(measure=bars[0]), RangeEnd(measure=bars[-1], beat=1))}
+        pieces = {piece.system.index: piece for piece in layout.segments(alternative.start, layout.alternative_end(alternative))}
         for system, centre, *_ in layout.numerals.values():
             assert system in pieces and pieces[system].x0 <= centre <= pieces[system].x1, (name, bars)
+
+
+@score_ids
+def test_one_chord_alternative_is_drawn(name):
+    data, index = load(name)
+    bars = [measure.number for measure in index.measures if measure.number > 0][:2]
+    harmonies = [{"type": "harmony", "at": {"measure": bar, "beat": 1}, "key": "C", "label": "I"} for bar in bars]
+    alternative = {"type": "alternative", "start": {"measure": bars[0], "beat": 1}, "end": {"measure": bars[0], "beat": 1}, "label": "V"}
+    svg = render(data, AnnotationList.model_validate({"annotations": harmonies + [alternative]}), measures=(bars[0], bars[-1])).svgs[0]
+    assert 'stroke-dasharray="1 70"' in svg and ">V<" in svg

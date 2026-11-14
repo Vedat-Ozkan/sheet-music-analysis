@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 
 from engine import notation, text
-from engine.annotations import FAULT_ARROW_LABELS, Alternative, AnnotationList, Cadence, Callout, Harmony, NonChordTone, Phrase, Region, VoiceLeading
+from engine.annotations import FAULT_ARROW_LABELS, Alternative, AnnotationList, Cadence, Callout, Harmony, NonChordTone, Phrase, RangeEnd, Region, VoiceLeading
 from engine.score import TOLERANCE, Event, PositionError, ScoreIndex
 
 SVG_NS = "http://www.w3.org/2000/svg"
@@ -1148,15 +1148,29 @@ class PageLayout:
         self._text(cx, cy + LABEL_SIZE * 0.34, str(callout.number), LABEL_SIZE, bold=True, fill="#ffffff", anchor="middle")
         self._reserve(system, Box(cx - radius, cy - radius, 2 * radius, 2 * radius))
 
+    def alternative_end(self, alternative: Alternative) -> RangeEnd:
+        end = alternative.end
+        if end.beat is None:
+            return end
+        where = lambda measure, beat: (self.index.measure(measure).index, beat)
+        after = [at for at in self.numerals if where(*at) > where(end.measure, end.beat)]
+        if not after:
+            return RangeEnd(measure=end.measure)
+        measure, beat = min(after, key=lambda at: where(*at))
+        return RangeEnd(measure=measure, beat=beat)
+
     def _draw_alternative(self, alternative: Alternative) -> None:
+        bracket = alternative.model_copy(update={"end": self.alternative_end(alternative), "label": ""})
         try:
-            pieces = self.segments(alternative.start, alternative.end)
+            pieces = self.segments(bracket.start, bracket.end)
         except NotOnPage:
+            return
+        if not pieces:
             return
         key, _, rest = alternative.label.partition(": ") if re.match(r"^\S+: ", alternative.label) else ("", "", alternative.label)
         lines = {piece.system.index: piece.system.bottom(piece.x0, piece.x1) + 230 for piece in pieces}
         rows = {piece.system.index: (piece, lines[piece.system.index] + 90 + LABEL_SIZE * 0.75) for piece in pieces}
-        self._draw_phrase(alternative.model_copy(update={"label": ""}), below=True)
+        self._draw_phrase(bracket, below=True)
         tokens = rest.split()
         where = lambda measure, beat: (self.index.measure(measure).index, beat)
         last = where(alternative.end.measure, alternative.end.beat if alternative.end.beat is not None else math.inf)

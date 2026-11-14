@@ -79,7 +79,7 @@ class Region(Annotation):
 class Alternative(Annotation):
     type: Literal["alternative"]
     start: Position
-    end: RangeEnd
+    end: RangeEnd = Field(description="The last chord it replaces, that chord included: the same as start for one chord. Without beat, the end of that measure")
     label: str = Field(description='The other reading in numerals, one chord per harmony label in the range, "-" where unchanged, e.g. "F#: V7 I", "- V43/vi vi6"')
 
 
