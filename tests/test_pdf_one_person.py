@@ -127,6 +127,7 @@ def test_a_pdf_still_waiting_its_turn_is_answered_with_call_again_and_not_read(m
     reading_elsewhere("person-1", SECOND, time.time())
     result = call("https://example.com/first.pdf", "person-1")
     assert not result.is_error and "after" in text_of(result) and "read_pdf again" in text_of(result)
+    assert result.structured_content == {"status": app.WAITING_FOR_TURN_STATUS}
     assert spans == [] and not list(tmp_path.glob("limits/**/*"))
 
 

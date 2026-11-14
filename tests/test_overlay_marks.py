@@ -489,6 +489,11 @@ def _key_text(svg: str) -> str:
     return " ".join(re.findall(r">([^<]+)</text>", group.group(1))) if group else ""
 
 
+def _key_sizes(svg: str) -> set[str]:
+    group = re.search(r'<g class="page-key">(.*?)</g>', svg, re.S)
+    return set(re.findall(r'font-size="(\d+)px"', group.group(1)))
+
+
 def test_page_key_is_off_by_default(chopin, chopin_annotations):
     assert 'class="page-key"' not in render(chopin, chopin_annotations, measures=(1, 8)).svgs[0]
 
@@ -522,7 +527,9 @@ def test_page_key_is_at_the_foot_of_the_first_preview_page_and_the_end_of_the_la
     assert keyed(engraving.preview.svgs) == [0] and keyed(engraving.svgs) == [engraving.page_count - 1]
     preview, download = _key_text(engraving.preview.svgs[0]), _key_text(engraving.svgs[-1])
     assert "half cadence" in download and "half cadence" not in preview
-    assert preview == download.replace(" · HC half cadence", "")
+    assert preview.replace(" ·", "") == download.replace(" · HC half cadence", "").replace(" ·", "")
+    assert _key_sizes(engraving.preview.svgs[0]) == {str(overlay.NUMERAL_SIZE), str(round(overlay.NUMERAL_SIZE * 0.9))}
+    assert _key_sizes(engraving.svgs[-1]) == {str(overlay.LABEL_SIZE), str(round(overlay.LABEL_SIZE * 0.9))}
 
 
 def test_one_page_render_has_one_key_shared_by_preview_and_download(chopin, chopin_annotations):

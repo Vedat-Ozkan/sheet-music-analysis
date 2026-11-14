@@ -431,6 +431,34 @@ def test_analysis_card_says_how_to_send_a_suggestion_that_failed(page, server):
     expect(card.locator("#suggestion")).to_have_value("Show key changes")
 
 
+STILL_READING = "Still reading your PDF: 1 min 40 s so far. What I read appears next, then the analysis."
+
+
+def test_reading_card_shows_only_a_status_line_for_a_result_without_an_image(page, server):
+    card = open_card(page, server, "card.html")
+    deliver(page, {"status": STILL_READING})
+    expect(card.get_by_text(STILL_READING)).to_be_visible()
+    for element in ("#caption", "#shading", "#open-page", "#actions", "#more", "#rating", "#report", "#suggest"):
+        expect(card.locator(element)).to_be_hidden()
+    page.wait_for_function("received.filter((m) => m.method === 'ui/notifications/size-changed').at(-1).params.height > 20")
+
+
+def test_reading_card_status_line_gives_way_to_the_reading(page, server):
+    card = open_card(page, server, "card.html")
+    deliver(page, {"status": STILL_READING})
+    expect(card.get_by_text(STILL_READING)).to_be_visible()
+    deliver(page, links(server, caption="What I read from your PDF, every bar"))
+    expect(card.get_by_text("What I read from your PDF, every bar")).to_be_visible()
+    expect(card.get_by_text(STILL_READING)).to_be_hidden()
+
+
+def test_reading_card_shows_the_status_chatgpt_opens_it_with(page, server):
+    page.add_init_script("if (window !== window.top) window.openai = { toolOutput: { status: %s } };" % json.dumps(STILL_READING))
+    card = open_card(page, server, "card.html")
+    expect(card.get_by_text(STILL_READING)).to_be_visible()
+    expect(card.locator("#open-page")).to_be_hidden()
+
+
 def test_analysis_card_takes_the_theme_from_the_host(page, server):
     open_card(page, server, "card.html")
     frame = card_frame(page)

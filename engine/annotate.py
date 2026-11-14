@@ -164,16 +164,17 @@ def render(
     for layout in drawn:
         tint.flag_bars(layout, index, shaded_bars)
     pages = [layout.to_svg() for layout in drawn]
+    callouts = sorted({int(number) for layout in drawn for kind, number in layout.shown if kind == "callout"})
     if not key or results is not None:
-        return Engraving(pages)
+        return Engraving(pages, callouts=callouts)
     from engine import page_key
     shown = drawn[:preview_pages]
-    preview_key = page_key.draw(shown, drawn[0], page_key.cues_on(shown) if piano else [])
+    preview_key = page_key.draw(shown, drawn[0], page_key.cues_on(shown) if piano else [], page_key.SCREEN_SIZE)
     preview = [drawn[0].to_svg(), *pages[1:]]
     if len(drawn) == 1:
-        return Engraving(preview, preview_svgs=preview, key_drawn=preview_key)
+        return Engraving(preview, preview_svgs=preview, key_drawn=preview_key, callouts=callouts)
     key_drawn = page_key.draw(drawn, drawn[-1], page_key.cues_on(drawn) if piano else [])
-    return Engraving([*pages[:-1], drawn[-1].to_svg()], preview_svgs=preview, key_drawn=key_drawn)
+    return Engraving([*pages[:-1], drawn[-1].to_svg()], preview_svgs=preview, key_drawn=key_drawn, callouts=callouts)
 
 
 def _make_room_for_checks(toolkit, relayout, index, ties, results) -> None:

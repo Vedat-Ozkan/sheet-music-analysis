@@ -1142,7 +1142,7 @@ class PageLayout:
         while any(abs(cx - other) < 2 * radius + 40 for other in taken):
             cx += 2 * radius + 60
         taken.append(cx)
-        self.shown.add(("callout", ""))
+        self.shown.add(("callout", str(callout.number)))
         cy = system.top(cx - radius, cx + radius) - 90 - radius
         self._add("circle", cx=round(cx), cy=round(cy), r=radius, fill=INK)
         self._text(cx, cy + LABEL_SIZE * 0.34, str(callout.number), LABEL_SIZE, bold=True, fill="#ffffff", anchor="middle")

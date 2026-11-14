@@ -42,7 +42,7 @@ class Annotation(BaseModel):
 
     views: list[View] | None = Field(None, description="Views that show this; the default depends on the type")
     role: Role | None = Field(None, description="Show only for this role; omitted means both")
-    callout: int | None = Field(None, description="Number of the commentary note that discusses this")
+    callout: int | None = Field(None, description="Links this mark to the callout with this number; it draws nothing itself, so give the numbered disc its own callout annotation")
 
 
 class Harmony(Annotation):

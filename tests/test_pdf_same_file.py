@@ -1,5 +1,6 @@
 import io
 import json
+import re
 import threading
 import time
 import zipfile
@@ -73,6 +74,8 @@ def test_the_call_that_starts_a_read_stays_for_it_and_a_repeat_is_told_it_is_sti
     assert "score_id:" in text_of(results["first"])
     assert not results["second"].is_error and "still being read" in text_of(results["second"])
     assert "up to about 10 minutes." in text_of(results["second"])
+    assert re.fullmatch(r"Still reading your PDF: \d+ s so far\. What I read appears next, then the analysis\.",
+                        results["second"].structured_content["status"])
 
 
 def test_a_read_carries_on_when_the_call_that_started_it_is_cancelled(monkeypatch, tmp_path):
@@ -207,6 +210,7 @@ def waiter_outcome(monkeypatch, tmp_path, capsys, failure_error, text):
 def test_a_busy_reading_on_the_other_machine_is_logged_as_busy(monkeypatch, tmp_path, capsys):
     result, line = waiter_outcome(monkeypatch, tmp_path, capsys, "busy", app.BUSY_MESSAGE)
     assert text_of(result) == app.BUSY_MESSAGE
+    assert result.is_error and result.structured_content == {"status": app.BUSY_STATUS}
     assert line["outcome"] == "busy"
 
 

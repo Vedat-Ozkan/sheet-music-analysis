@@ -17,7 +17,7 @@ Everything that touches the score file happens on the connector's server. Never 
 
 3. **Get the notes.** Call `draft_analysis` with the `score_id` and, as `measure_range`, the bars the user named (`"all"` for the whole piece). If they named none, do not stop to ask which bars (this replaces the question in step 0 of the method): analyse the opening, up to the first 8 bars, or only the first phrase if it ends sooner, and end your reply by saying they can ask for other bars. It returns the notes beat by beat (each row: the lowest note, the pitch classes sounding, and every note as `pitch@beat`) and the annotation format. Use the table's exact measure numbers, beats and pitches in your annotations. Analyse a long piece passage by passage, about 16 to 32 bars at a time, then draw the whole stretch the user asked for once, with all your annotations, so they get one PDF.
 
-4. **Analyse**, following the method below.
+4. **Analyse**, following the method below. The user sees nothing while you work, so once per request (not for each passage of a long piece) write one short sentence before you analyse, such as "I have the notes and am working out the harmony now; this takes a minute or two.", and one before your first `render_analysis` call, such as "Now I'm drawing the analysis on the score."
 
 5. **Draw.** Call `render_analysis` with the `score_id`, your annotation list and the `measure_range`. For one layer of the analysis, pass `view` as `harmony`, `voice_leading` or `form`. If it lists annotations that do not match the score, fix exactly those and call again. Look at the page yourself before replying: labels should sit where you meant them.
 
@@ -64,15 +64,15 @@ Tell the user which of these you judged the passage to be.
 - `region` brackets where a scale, mode, parallel motion or pedal explains the passage better than chord labels. When the region belongs to one instrument or hand (a theme in the cello, a pedal in the bass), give the region a `staff` field of its own, beside `label` and not inside `start` or `end`, so the bracket sits at that staff, and keep the label short (`theme`, not `theme in the cello`).
 - At most one row of brackets: never a `phrase` and a `region` over the same bars. Keep whichever says more about the passage and put the other in the commentary.
 - `nct` for the non-chord tones worth showing: a handful, not every one. Circle accented ones (suspensions, appoggiaturas), and the first instance of a figure that gives the passage its character (a recurring anticipation, a sighing appoggiatura); mention the later instances in the commentary. Never circle passing or neighbor notes inside a scale run or running figuration: they are the run, not an event in it. Before writing a label, check where the note goes: if the next chord holds the same pitch it is an anticipation (ANT), not a neighbor.
-- `voice_leading` for one or two resolutions.
-- `callout` numbers 1, 2, 3… at the unusual moments, matching your commentary.
+- `voice_leading` for one or two resolutions. An arrow's `label` is optional; if you give one, make it plain words or figures a reader understands without a key (`leading tone`, `7–6`, `4–3`), never a private abbreviation such as `LT`.
+- `callout` annotations numbered 1, 2, 3… at the unusual moments, one for each numbered paragraph of your commentary. Each is its own annotation, `{"type": "callout", "at": {...}, "number": 1}`; the `callout` field on another annotation only links it to that number and draws nothing.
 - `alternative` where experts commonly split and a teacher would accept the second reading: modulation or tonicization, an inversion or a pedal, a cadential six-four or a seventh, a iii that may be I6 or V with a non-chord tone, major or minor mode. Its `label` is the other reading in numerals, one chord for each of your chords in those bars, in order, `-` where a chord stays the same, with a key first if it changes (`F#: V7 I`, `- V43/vi vi6`). Add one only where you yourself hesitated between the two readings: usually none, rarely more than one in 24 bars. Each gets a callout whose paragraph explains both readings.
 
 Keep the page readable. If a passage would be crowded, render separate views (harmony, voice_leading, form) instead of one page with everything.
 
 ## Commentary
 
-Write it after the page, as numbered paragraphs matching the callouts, then one or two sentences on the passage as a whole.
+Write it after the page: one numbered paragraph for each callout drawn on the page, with the same number (the `render_analysis` result lists the callouts it drew), then one or two sentences on the passage as a whole. Never number a paragraph that has no callout on the page; if none were drawn, do not number the commentary.
 
 - **For a student** (the default): explain each label the first time it appears, show the reasoning ("the bass rises by step, so this is a passing chord"), and keep to what is on the page. Codes the guide to the marks on the page already names need not be defined again.
 - **For a composer** (when the user says they write music, or asks how or why it works): skip the definitions, focus on what is unusual, compare with the expected version, and name the technique so it can be reused.

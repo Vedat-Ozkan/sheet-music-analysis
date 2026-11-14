@@ -9,7 +9,8 @@
   body { margin: 0; font: 14px system-ui, sans-serif; background: var(--bg); color: var(--fg); }
   .caption { margin: 0; padding: 10px 12px; font-size: 15px; font-weight: 600; }
   .key { display: flex; align-items: center; gap: 8px; margin: 0; padding: 0 12px 10px; color: var(--muted); font-size: 13px; }
-  .caption[hidden], .key[hidden] { display: none; }
+  .status { margin: 0; padding: 10px 12px; color: var(--muted); font-size: 14px; }
+  .caption[hidden], .key[hidden], .status[hidden] { display: none; }
   .swatch { flex: none; width: 14px; height: 14px; border: 1px solid var(--border); border-radius: 3px; background: #fff3c2; }
   #open-page { display: block; width: 100%; padding: 0; border: 0; background: #fff; cursor: zoom-in; }
   #open-page[hidden] { display: none; }
@@ -46,6 +47,7 @@
 </style>
 </head>
 <body>
+<p class="status" id="status" role="status" aria-live="polite" hidden></p>
 <p class="caption" id="caption" hidden></p>
 <p class="key" id="shading" hidden><span class="swatch"></span>Shaded bars may be misread; check them against your copy.</p>
 <button id="open-page" hidden><img id="page" alt=""></button>
@@ -117,6 +119,9 @@
     report = (metadata && metadata.report) || null;
     document.getElementById("report").hidden = true;
     if (report) showReport(Boolean(window.openai && window.openai.widgetState && window.openai.widgetState.reported));
+    const status = document.getElementById("status");
+    status.textContent = (data && data.status) || "";
+    status.hidden = !status.textContent;
     if (!data || !data.image_url) return;
     document.getElementById("actions").hidden = false;
     const caption = document.getElementById("caption");

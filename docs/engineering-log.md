@@ -3012,6 +3012,20 @@ PR #23 merged to `main` as `e5dd58d` (entry 156, the runbook, `prod-*` tags from
 
 **For a release.** The six gallery images and the sample PDF need redrawing with the guide; the plugin needs a rebuild, as the skill changed. **Known and left:** an alternative that crosses a page break prints its whole label on both pages (older than this branch).
 
+### 163. Five findings from a real Claude chat on staging (2026-11-14, branch `ux-page`, nothing released)
+
+**Guide too small in the chat.** The card shows the 1,400-px preview about 580 px wide, so the guide, set at the label size (330 units, three quarters of the numerals' 440), was a few pixels high. The preview's guide is now set at the numeral size (`page_key.SCREEN_SIZE = NUMERAL_SIZE`) with spacing and samples scaled to match; the PDF's guide stays at the label size (`PRINT_SIZE`), except on a one-page render, where preview and PDF share one page and so the larger guide. Checked by eye on the nocturne and the Mozart piano reduction downscaled to 580 px; the corpus check that the guide sits below every other mark passes on all 12 scores.
+
+**Empty card while a PDF is read.** Every "still reading" answer of `read_fetched_pdf` drew an empty card frame, because the tool has a card and the result had no image. The still-reading, waiting-for-turn and busy results now carry a `status` line that the card shows on its own ("Still reading your PDF: 1 min 40 s so far. What I read appears next, then the analysis."). The busy result stays an error. The model's still-reading text now gives the time as minutes and seconds and says what follows.
+
+**Download names.** The `render_analysis` description and the result's download list said "worksheet PDF" and "RomanText" while the card says Blank worksheet and Analysis as text; the model repeated the old names. Both now use the card's names. Metadata change: the `render_analysis` description.
+
+**Numbered commentary with no numbers on the page.** Staging logs of the chat's render show 32 marks and nothing left out, and the page shows no callout and the guide no callout entry, so no callout annotation was sent; the numbered paragraphs matched nothing. The schema invited this: every mark has a `callout` field, described as "Number of the commentary note that discusses this", which draws nothing. The skill now says each numbered paragraph needs its own callout annotation and that the field only links a mark to one; the field's description says it draws nothing (metadata change); and the `render_analysis` result names the callouts the engine actually drew (`Engraving.callouts`), or says none were drawn, so the model numbers its commentary to match. Arrow labels such as "LT" and "7th" were unexplained: the skill now asks for plain words or figures ("leading tone", "7–6", "4–3"), not private abbreviations, rather than growing the guide.
+
+**Long silences.** About 2 min 20 s passed between choosing a file and the card with only a status line. The draft result and the skill now ask for one short sentence before analysing and one before the first drawing, once per request.
+
+**NOT RUN.** A real Claude or ChatGPT chat with these changes.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

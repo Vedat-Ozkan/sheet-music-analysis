@@ -669,6 +669,10 @@ GUIDE_RULES = (
 )
 NOTES_GUIDE = (
     "HOW TO ANALYSE THIS SCORE\n"
+    "The user sees nothing while you work, so once per request (not for each passage of a long piece) write them one "
+    "short sentence before you analyse, such as \"I have the notes and am working out the harmony now; this takes a "
+    "minute or two.\", and one before your first render_analysis call, such as \"Now I'm drawing the analysis on the "
+    "score.\"\n"
     "Analyse from the NOTES table below, following the method below. If the user asked for their own numerals to be "
     "checked and there is no STUDENT CHECK section, compare them with your reading of the NOTES table. Then "
     + DRAW_STEP + GUIDE_RULES
@@ -729,7 +733,7 @@ worksheet_lock = anyio.Lock()
 
 def downloads_text(links: dict[str, str]) -> str:
     names = {"worksheet_url": "Blank worksheet (the same passage with no analysis, PDF)", "midi_url": "MIDI",
-             "romantext_url": "Analysis as text (the harmony analysis in RomanText, .rntxt)"}
+             "romantext_url": "Analysis as text (the key and the Roman numeral of each chord, bar by bar, as a text file)"}
     present = [f"{label}: {links[key]}" for key, label in names.items() if key in links]
     if not present:
         return ""
@@ -760,6 +764,16 @@ KEY_ON_PAGE = ("The page has a guide to the marks at its foot (on the first page
                "callouts, instrument cues and shaded bars, so do not define those again. It does not explain Roman "
                "numerals, figures or inversions: for a student, still explain each numeral the first time it appears. Say "
                "what each numbered callout is about and explain the reasoning behind the labels.")
+
+
+CALLOUTS_DRAWN = ("Numbered callouts drawn on the page: {numbers}. Number your commentary paragraphs to match exactly "
+                  "these, one paragraph for each callout.")
+NO_CALLOUTS = ("No numbered callouts are drawn on the page, so do not write the commentary as numbered points: the "
+               "reader would look for numbers that are not there.")
+
+
+def callouts_text(numbers: list[int]) -> str:
+    return CALLOUTS_DRAWN.format(numbers=", ".join(map(str, numbers))) if numbers else NO_CALLOUTS
 
 
 SHADED_ON_PAGE = ("Shaded bars ({bars}) may be misread from the PDF, so their analysis may be wrong. Mention this "
@@ -797,7 +811,7 @@ async def draw(score: bytes, annotations: AnnotationList, measures: tuple[int, i
         "Set annotations.style to abrsm (letter inversions, Ib, Vc) when the user mentions ABRSM, figured_bass when they ask "
         "for figured bass, otherwise leave it out. "
         "Offer the MusicXML link once per conversation, not after every render: it downloads a file for "
-        "MuseScore, Sibelius or Dorico; the result also lists a worksheet PDF, MIDI and RomanText to mention once. "
+        "MuseScore, Sibelius or Dorico; the result also lists the card's other downloads (Blank worksheet, MIDI, Analysis as text) to mention once. "
         "piano=true draws the same annotation list (written for the original score) on a two-staff piano reduction "
         "with instrument cues. For a score with more than four staves (an orchestra, band or large ensemble), draw the original first, then offer the user "
         "the piano reduction once; call again with piano=true only if they accept."
@@ -872,8 +886,10 @@ async def render_analysis(
     structured_content = {**links, "caption": card_caption(measures, view, piano), "shaded_bars": shaded}
     if not asked:
         left_out.append(NOTHING_DRAWN.format(score_id=score_id))
-    elif engraving.key_drawn:
-        left_out.append(KEY_ON_PAGE)
+    else:
+        left_out.append(callouts_text(engraving.callouts))
+        if engraving.key_drawn:
+            left_out.append(KEY_ON_PAGE)
     if shaded:
         left_out.append(SHADED_ON_PAGE.format(bars=", ".join(map(str, shaded))))
     return CallToolResult(
@@ -981,15 +997,39 @@ READ_MARKER_SECONDS = REQUEST_SECONDS
 READ_MINUTES = round((pdf_reader.TIMEOUT + 120) / 60)
 POLL_SECONDS = 3
 STILL_READING = (
-    "This PDF is still being read ({seconds} s so far): " + PDF_WAIT + ", up to about {minutes} minutes. Tell the user it is "
-    "still being read, then call {again}; each call waits up to {wait} s for the result."
+    "This PDF is still being read ({elapsed} so far): " + PDF_WAIT + ", up to about {minutes} minutes. Tell the user in one "
+    "short sentence how long it has been reading and that the card will show what was read, then you analyse it; "
+    "then call {again}; each call waits up to {wait} s for the result."
 )
+STILL_READING_STATUS = "Still reading your PDF: {elapsed} so far. What I read appears next, then the analysis."
 WAITING_FOR_TURN = (
     "The user's previous PDF is still being read, and this one is read after it: " + PDF_WAIT + ". Tell the user, then "
     "call {again} in a minute or two."
 )
+WAITING_FOR_TURN_STATUS = "Your previous PDF is still being read; this one is read after it."
+BUSY_STATUS = "Another PDF is being read right now. Send yours again in a few minutes."
 LOST_TURN = "lost the turn"
 CALL_AGAIN = {"read_pdf": "read_pdf again with the same file", "read_fetched_pdf": "read_fetched_pdf again with the same pdf_id"}
+
+
+def elapsed(seconds: float) -> str:
+    minutes, seconds = divmod(round(seconds), 60)
+    return f"{minutes} min {seconds} s" if minutes else f"{seconds} s"
+
+
+def reading_status(text: str, status: str, is_error: bool = False) -> CallToolResult:
+    return CallToolResult(content=[TextContent(type="text", text=text)], structured_content={"status": status},
+                          is_error=is_error)
+
+
+def still_reading(since: float, tool: str) -> CallToolResult:
+    so_far = elapsed(time.time() - since)
+    return reading_status(STILL_READING.format(elapsed=so_far, again=CALL_AGAIN[tool], wait=SAME_FILE_WAIT, minutes=READ_MINUTES),
+                          STILL_READING_STATUS.format(elapsed=so_far))
+
+
+def busy() -> CallToolResult:
+    return reading_status(BUSY_MESSAGE, BUSY_STATUS, is_error=True)
 pdfs_reading: dict[str, tuple[asyncio.Task, float]] = {}
 reads_held: dict[str, str] = {}
 claiming = asyncio.Lock()
@@ -1068,7 +1108,7 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
             return pdf_card_result(card, tool)
         if time.time() - arrived_at >= min(SAME_FILE_WAIT, starter_wait):
             log(tool, platform=source, reading=True, waiting_turn=True)
-            return CallToolResult(content=[TextContent(type="text", text=WAITING_FOR_TURN.format(again=CALL_AGAIN[tool]))])
+            return reading_status(WAITING_FOR_TURN.format(again=CALL_AGAIN[tool]), WAITING_FOR_TURN_STATUS)
         await anyio.sleep(POLL_SECONDS)
     remaining = max(starter_wait - (time.time() - arrived_at), 0)
     if started_here and token is None:
@@ -1078,8 +1118,7 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
         await asyncio.shield(task)
     if not task.done():
         log(tool, platform=source, reading=True)
-        return CallToolResult(content=[TextContent(type="text", text=STILL_READING.format(
-            seconds=round(time.time() - since), again=CALL_AGAIN[tool], wait=SAME_FILE_WAIT, minutes=READ_MINUTES))])
+        return still_reading(since, tool)
     result, details = task.result()
     if started_here and (timings := draft.timings.get()) is not None:
         timings.update({name: value for name, value in details.get("timings_ms", {}).items() if name != "total"})
@@ -1190,11 +1229,10 @@ async def wait_for_other_machine(card_key: str, since: float, source: str, tool:
                 else:
                     log(tool, platform=source, other_machine=True, outcome=found.get("outcome"),
                         **({"busy": True} if found["error"] == "busy" else {"error": found["error"]}))
-                return failure(found["text"], found.get("report"))
+                return busy() if found["error"] == "busy" else failure(found["text"], found.get("report"))
             await anyio.sleep(POLL_SECONDS)
     log(tool, platform=source, reading=True, other_machine=True)
-    return CallToolResult(content=[TextContent(type="text", text=STILL_READING.format(
-        seconds=round(time.time() - since), again=CALL_AGAIN[tool], wait=SAME_FILE_WAIT, minutes=READ_MINUTES))])
+    return still_reading(since, tool)
 
 
 async def pdf_work(data: bytes, digest: str, source: str, card_key: str,
@@ -1265,7 +1303,7 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
             data = await anyio.to_thread.run_sync(pdf_reader.first_pages, data, read)
         if pdf_lock.locked():
             log("read_pdf_work", busy=True)
-            return error_result(BUSY_MESSAGE)
+            return busy()
         async with pdf_lock:
             refused = await take_score(person, source) if arrived else None
             if not refused and not await take("pdf_page", source, read):

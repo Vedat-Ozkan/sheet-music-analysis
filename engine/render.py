@@ -131,6 +131,7 @@ class Engraving:
     svgs: list[str]
     preview_svgs: list[str] | None = field(default=None, kw_only=True)
     key_drawn: bool = field(default=False, kw_only=True)
+    callouts: list[int] = field(default_factory=list, kw_only=True)
 
     @property
     def preview(self) -> Engraving:

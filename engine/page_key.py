@@ -5,13 +5,14 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
 from engine import part_writing, piano, text, tint
-from engine.overlay import ARROW, ERROR, FUNCTION_NAMES, INK, LABEL_PAD, LABEL_SIZE, LINE, S, Box, PageLayout
+from engine.overlay import ARROW, ERROR, FUNCTION_NAMES, INK, LABEL_PAD, LABEL_SIZE, LINE, NUMERAL_SIZE, S, Box, PageLayout
 
-SIZE = LABEL_SIZE
-LINE_STEP = 500
+PRINT_SIZE = LABEL_SIZE
+SCREEN_SIZE = NUMERAL_SIZE
+LINE_STEP = 1.5
 GAP = 900
 DOT = "·"
-SAMPLE = 520
+SAMPLE = 1.6
 
 NCT_WORDS = {"PT": "passing note", "NT": "neighbour note", "SUS": "suspension", "APP": "appoggiatura", "ET": "escape tone",
              "RET": "retardation", "ANT": "anticipation", "PED": "pedal note"}
@@ -98,7 +99,7 @@ def cues_on(layouts: list[PageLayout]) -> list[str]:
     return found
 
 
-def draw(layouts: list[PageLayout], layout: PageLayout, cues: list[str] = ()) -> bool:
+def draw(layouts: list[PageLayout], layout: PageLayout, cues: list[str] = (), size: float = PRINT_SIZE) -> bool:
     shown = set().union(*(page.shown for page in layouts))
     pieces = entries(shown, cues)
     if not pieces:
@@ -109,7 +110,7 @@ def draw(layouts: list[PageLayout], layout: PageLayout, cues: list[str] = ()) ->
     right = max(system.right for system in layout.systems)
     last = layout.systems[-1]
     y = max([box.bottom for box in last.content + last.words] + [last.staff_bottom]) + GAP
-    pen = _Pen(layout, left, right, y)
+    pen = _Pen(layout, left, right, y, size)
     for number, entry in enumerate(pieces):
         lead = [] if number == 0 else [("text", DOT, INK)]
         if entry.sample:
@@ -120,7 +121,7 @@ def draw(layouts: list[PageLayout], layout: PageLayout, cues: list[str] = ()) ->
             head = lead + ([("text", said + (":" if entry.codes else ""), INK)] if said else [])
         pen.keep([head + _code_piece(entry, 0)] + [_code_piece(entry, position) for position in range(1, len(entry.codes))])
     layout.over = over
-    _grow_page(layout, pen.y + SIZE)
+    _grow_page(layout, pen.y + size)
     return True
 
 
@@ -138,8 +139,8 @@ def _code_piece(entry: Entry, position: int) -> list[tuple[str, str, str]]:
 
 
 class _Pen:
-    def __init__(self, layout: PageLayout, left: float, right: float, y: float):
-        self.layout, self.left, self.right, self.x, self.y = layout, left, right, left, y
+    def __init__(self, layout: PageLayout, left: float, right: float, y: float, size: float):
+        self.layout, self.left, self.right, self.x, self.y, self.size = layout, left, right, left, y, size
 
     def keep(self, pieces: list[list[tuple[str, str, str]]]) -> None:
         if len(pieces) > 2:
@@ -148,15 +149,15 @@ class _Pen:
             self._put(piece)
 
     def _span(self, parts: list[tuple[str, str, str]]) -> float:
-        return sum(self._width(kind, string) for kind, string, _ in parts) + text.width(" ", SIZE) * len(parts)
+        return sum(self._width(kind, string) for kind, string, _ in parts) + text.width(" ", self.size) * len(parts)
 
     def _break(self) -> None:
-        self.x, self.y = self.left, self.y + LINE_STEP
+        self.x, self.y = self.left, self.y + LINE_STEP * self.size
 
     def _put(self, parts: list[tuple[str, str, str]]) -> None:
         if not parts:
             return
-        space = text.width(" ", SIZE)
+        space = text.width(" ", self.size)
         if self.x > self.left and self.x + self._span(parts) > self.right:
             self._break()
             if parts[0] == ("text", DOT, INK):
@@ -166,28 +167,32 @@ class _Pen:
                 self.x += space
             self.x = self._draw(kind, string, colour)
 
-    @staticmethod
-    def _width(kind: str, string: str) -> float:
+    def _width(self, kind: str, string: str) -> float:
         if kind == "sample":
-            return SAMPLE
-        return text.width(string, SIZE) + (2 * LABEL_PAD if kind == "boxed" else 0)
+            return SAMPLE * self.size
+        return text.width(string, self.size) + (2 * self._pad if kind == "boxed" else 0)
+
+    @property
+    def _pad(self) -> float:
+        return LABEL_PAD * self.size / PRINT_SIZE
 
     def _draw(self, kind: str, string: str, colour: str) -> float:
-        layout, x, y = self.layout, self.x, self.y
+        layout, x, y, size = self.layout, self.x, self.y, self.size
         if kind == "sample":
-            _sample(layout, string, Box(x, y - SIZE * 0.7, SAMPLE, SIZE * 0.8))
-            return x + SAMPLE
+            _sample(layout, string, Box(x, y - size * 0.7, SAMPLE * size, size * 0.8), size)
+            return x + SAMPLE * size
         if kind == "boxed":
-            width = text.width(string, SIZE) + 2 * LABEL_PAD
-            layout._add("rect", x=round(x), y=round(y - SIZE * 0.78), width=round(width), height=round(SIZE * 0.98),
+            width = text.width(string, size) + 2 * self._pad
+            layout._add("rect", x=round(x), y=round(y - size * 0.78), width=round(width), height=round(size * 0.98),
                         fill="#ffffff", stroke=INK, stroke_width=LINE)
-            layout._text(x + LABEL_PAD, y, string, SIZE, fill=colour)
+            layout._text(x + self._pad, y, string, size, fill=colour)
             return x + width
-        return layout._text(x, y, string, SIZE, fill=colour).right
+        return layout._text(x, y, string, size, fill=colour).right
 
 
-def _sample(layout: PageLayout, kind: str, box: Box) -> None:
-    x0, x1, top, bottom, mid = box.x + 30, box.right - 30, box.y, box.bottom, box.cy
+def _sample(layout: PageLayout, kind: str, box: Box, size: float) -> None:
+    scale = size / PRINT_SIZE
+    x0, x1, top, bottom, mid = box.x + 30 * scale, box.right - 30 * scale, box.y, box.bottom, box.cy
     if kind == "function":
         layout._add("path", d=f"M{x0:.0f},{top:.0f} L{x0:.0f},{mid:.0f} L{x1:.0f},{mid:.0f} L{x1:.0f},{top:.0f}",
                     fill="none", stroke=INK, stroke_width=LINE, stroke_linejoin="round")
@@ -199,14 +204,14 @@ def _sample(layout: PageLayout, kind: str, box: Box) -> None:
         layout._add("path", d=f"M{x0:.0f},{top:.0f} L{x0:.0f},{mid:.0f} L{x1:.0f},{mid:.0f} L{x1:.0f},{top:.0f}",
                     fill="none", stroke=INK, stroke_width=LINE * 2, stroke_linejoin="round", stroke_dasharray="1 70", stroke_linecap="round")
     elif kind == "nct":
-        layout._add("ellipse", cx=round(box.cx), cy=round(mid), rx=150, ry=120, fill="none", stroke=INK, stroke_width=LINE)
+        layout._add("ellipse", cx=round(box.cx), cy=round(mid), rx=round(150 * scale), ry=round(120 * scale), fill="none", stroke=INK, stroke_width=LINE)
     elif kind == "fault":
-        layout._add("ellipse", cx=round(box.cx), cy=round(mid), rx=150, ry=120, fill="none", stroke=ERROR, stroke_width=30)
+        layout._add("ellipse", cx=round(box.cx), cy=round(mid), rx=round(150 * scale), ry=round(120 * scale), fill="none", stroke=ERROR, stroke_width=30)
     elif kind == "arrow":
         layout._line_or_arrow(x0, mid, x1, mid, head=True, colour=ARROW)
     elif kind == "callout":
-        layout._add("circle", cx=round(box.cx), cy=round(mid), r=170, fill=INK)
-        layout._text(box.cx, mid + SIZE * 0.3, "1", SIZE * 0.9, bold=True, fill="#ffffff", anchor="middle")
+        layout._add("circle", cx=round(box.cx), cy=round(mid), r=round(170 * scale), fill=INK)
+        layout._text(box.cx, mid + size * 0.3, "1", size * 0.9, bold=True, fill="#ffffff", anchor="middle")
     elif kind == "shaded":
         layout._add("rect", x=round(x0), y=round(top), width=round(x1 - x0), height=round(bottom - top),
                     fill=tint.FLAG_BAR, fill_opacity=tint.FLAG_OPACITY)
