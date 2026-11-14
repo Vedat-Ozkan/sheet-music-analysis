@@ -49,7 +49,7 @@ from starlette.responses import JSONResponse, Response
 
 from engine import correct, draft, read_ahead, verovio_workers
 from engine import notes as note_list
-from engine import read_pdf as pdf_reader
+from engine import read_homr, read_pdf as pdf_reader
 from engine import check_analysis, ledger, part_writing, reduce
 from engine.annotate import AnnotationError, leave_out_rejected, render
 from engine.performance import marked_index, performance_text, unclear_tempos
@@ -76,6 +76,7 @@ HELD_CARD_URIS = {"ui://sheet-music-analysis/card-v2.html": "Analysis card",
 PLAYER_URI = "ui://sheet-music-analysis/player-v3.html"
 UPLOAD_CARD_URI = "ui://sheet-music-analysis/upload-card-v1.html"
 CONNECTOR_URL = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
+reader = {"audiveris": pdf_reader, "homr": read_homr}[os.environ.get("PDF_READER", "audiveris")]
 CLAUDE_UI_DOMAIN = hashlib.sha256(CONNECTOR_URL.encode()).hexdigest()[:32] + ".claudemcpcontent.com"
 HERE = Path(__file__).parent
 
@@ -1074,7 +1075,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile) -> CallToolResult:
 
 async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
     digest = hashlib.sha256(data).hexdigest()
-    card_key = f"scores/pdf-card-{pdf_reader.READER}-{digest}.json"
+    card_key = f"scores/pdf-card-{reader.READER}-{digest}.json"
     if card := await anyio.to_thread.run_sync(store.get, card_key):
         card = json.loads(card)
         log(tool, platform=source, pages=card["pages"], cached="card")
@@ -1291,7 +1292,7 @@ async def pdf_outcome(data: bytes, digest: str, source: str, card_key: str, deta
 
 
 async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, person: str | None) -> dict | CallToolResult:
-    cache_key = f"scores/pdf-{pdf_reader.READER}-{digest}.json"
+    cache_key = f"scores/pdf-{reader.READER}-{digest}.json"
     cached = await anyio.to_thread.run_sync(store.get, cache_key)
     passes = None
     if cached:
@@ -1316,7 +1317,7 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
                 return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
             log("read_pdf_work", **await anyio.to_thread.run_sync(pdf_reader.file_facts, data))
             with stage("omr"):
-                result = await anyio.to_thread.run_sync(pdf_reader.read_pdf, data)
+                result = await anyio.to_thread.run_sync(reader.read_pdf, data)
         passes = result.passes
         reading = {"score_id": secrets.token_hex(8).upper(), "pages": result.pages, "scan": result.scan,
                    "skipped": result.skipped, "of_pages": pages, "low_resolution": result.low_resolution}
@@ -2065,7 +2066,7 @@ def main() -> None:
         return
     verovio_workers.start()
     write_line({"severity": "INFO", "message": "server imported", "imports_s": round(STARTED - IMPORTS_BEGUN, 1),
-                "read_ahead": read_ahead.report})
+                "read_ahead": read_ahead.report, "pdf_reader": reader.READER})
     if service := os.environ.get("K_SERVICE"):
         start_tracing(service)
     app = mcp.streamable_http_app(

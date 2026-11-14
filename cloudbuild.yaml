@@ -1,10 +1,11 @@
 # Used by server/deploy.sh for both images: the base (Dockerfile.base) and the server on top of it (Dockerfile).
 steps:
   - name: gcr.io/cloud-builders/docker
-    args: ["build", "-f", "${_DOCKERFILE}", "--build-arg", "BASE=${_BASE}", "-t", "${_IMAGE}", "."]
+    args: ["build", "-f", "${_DOCKERFILE}", "--build-arg", "BASE=${_BASE}", "--build-arg", "PDF_READER=${_PDF_READER}", "-t", "${_IMAGE}", "."]
 images: ["${_IMAGE}"]
 substitutions:
   _DOCKERFILE: Dockerfile
   _BASE: ""
+  _PDF_READER: audiveris
   _IMAGE: ""
 timeout: 2400s

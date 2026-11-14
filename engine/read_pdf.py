@@ -501,12 +501,16 @@ def _read_with_every_setting(data: bytes, audiveris: str, raw, pages: int, scan:
     counts = [_pitched_notes(reading[0]) for reading in readings]
     complete = [reading for reading, count in zip(readings, counts) if count >= MIN_NOTES * max(counts)]
     musicxml, skipped, _ = min(complete, key=lambda reading: (len(reading[1]), len(reading[2])))
+    return PdfReading(repaired(musicxml), pages, scan, skipped, passes)
+
+
+def repaired(musicxml: bytes) -> bytes:
     for repair in (infer_tuplet_rests, infer_triplets):
         try:
             musicxml = repair(musicxml)
         except Exception:
             log.exception("PDF reading repair %s failed", repair.__name__)
-    return PdfReading(musicxml, pages, scan, skipped, passes)
+    return musicxml
 
 
 _TEMPO_NUMBER = re.compile(r"=\s*\d|\bca\.?\s*\d")
@@ -633,13 +637,18 @@ def _archived_score(mxl: bytes) -> ET.Element:
 def join_movements(movements: list[bytes]) -> bytes:
     if len(movements) == 1:
         return movements[0]
-    joined, *following = [_archived_score(movement) for movement in movements]
-    for movement in following:
-        _append_movement(joined, movement)
     sink = io.BytesIO()
     with zipfile.ZipFile(sink, "w") as archive:
-        archive.writestr("score.xml", ET.tostring(joined, encoding="utf-8", xml_declaration=True))
+        whole = joined([_archived_score(movement) for movement in movements])
+        archive.writestr("score.xml", ET.tostring(whole, encoding="utf-8", xml_declaration=True))
     return sink.getvalue()
+
+
+def joined(scores: list[ET.Element]) -> ET.Element:
+    whole, *following = scores
+    for score in following:
+        _append_movement(whole, score)
+    return whole
 
 
 def _append_movement(joined: ET.Element, movement: ET.Element) -> None:
@@ -786,7 +795,10 @@ def audiveris_facts(run_: AudiverisRun) -> dict:
 
 
 def clean(mxl: bytes) -> bytes:
-    root = _archived_score(mxl)
+    return clean_score(_archived_score(mxl))
+
+
+def clean_score(root: ET.Element) -> bytes:
     for note in root.iter("note"):
         if note.find("chord") is not None:
             for beam in note.findall("beam"):

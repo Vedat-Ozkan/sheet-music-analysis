@@ -4,6 +4,7 @@ cd "$(dirname "$0")/.."
 
 PROJECT=${1:?usage: server/deploy.sh PROJECT_ID [staging]}
 STAGE=${2:-production}
+PDF_READER=${PDF_READER:-audiveris}
 REGION=us-central1
 SERVICE=sheet-music-analysis
 BUCKET=$PROJECT-data
@@ -19,6 +20,9 @@ if [ "$STAGE" = staging ]; then
   LIMITS='@DAILY_LIMITS={"score": 100000, "render": 100000, "pdf_page": 100000}@PERSON_SCORE_LIMIT=100000'
 elif [ "$STAGE" != production ]; then
   echo "unknown stage: $STAGE" >&2
+  exit 1
+elif [ "$PDF_READER" != audiveris ]; then
+  echo "production reads PDFs with audiveris only" >&2
   exit 1
 else
   git fetch -q origin main
@@ -62,9 +66,9 @@ cat > /tmp/$SERVICE-cleanup.json <<'EOF'
  {"name": "recent-servers", "action": {"type": "Keep"}, "mostRecentVersions": {"packageNamePrefixes": ["server"], "keepCount": 5}}]
 EOF
 gcloud artifacts repositories set-cleanup-policies "$SERVICE" --location="$REGION" --policy=/tmp/$SERVICE-cleanup.json --no-dry-run
-BASE=$REGION-docker.pkg.dev/$PROJECT/$SERVICE/base:$(cat Dockerfile.base pyproject.toml uv.lock | sha256sum | cut -c1-16)
+BASE=$REGION-docker.pkg.dev/$PROJECT/$SERVICE/base:$( (cat Dockerfile.base pyproject.toml uv.lock; [ "$PDF_READER" = audiveris ] || echo "$PDF_READER") | sha256sum | cut -c1-16)
 if ! gcloud artifacts docker images describe "$BASE" >/dev/null 2>&1; then
-  gcloud builds submit --config=cloudbuild.yaml --substitutions=_DOCKERFILE=Dockerfile.base,_IMAGE="$BASE"
+  gcloud builds submit --config=cloudbuild.yaml --substitutions=_DOCKERFILE=Dockerfile.base,_IMAGE="$BASE",_PDF_READER="$PDF_READER"
 fi
 gcloud builds submit --config=cloudbuild.yaml --substitutions=_BASE="$BASE",_IMAGE="$IMAGE"
 DIGEST=$(gcloud artifacts docker images describe "$IMAGE" --format='value(image_summary.fully_qualified_digest)')
@@ -81,7 +85,7 @@ gcloud run deploy "$RUN_SERVICE" --image="$DIGEST" --region="$REGION" \
   --service-account="$ACCOUNT" "$ACCESS" \
   --execution-environment=gen2 --cpu=4 --memory=4Gi --concurrency=2 --min-instances=0 --max-instances=2 --timeout=900 \
   --startup-probe=tcpSocket.port=8080,timeoutSeconds=240,periodSeconds=240,failureThreshold=3 \
-  --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL@CONNECTOR_URL=${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}$LIMITS"
+  --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL@CONNECTOR_URL=${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}@PDF_READER=$PDF_READER$LIMITS"
 if [ "$STAGE" = production ]; then
   REVISION=$(gcloud run services describe "$RUN_SERVICE" --region="$REGION" --format='value(status.latestReadyRevisionName)')
   git tag "prod-${REVISION#$SERVICE-}"
