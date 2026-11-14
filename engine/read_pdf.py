@@ -834,27 +834,27 @@ def _share_numbers_of_split_bars(root: ET.Element) -> None:
     for bars in zip(*(part.findall("measure") for part in parts)):
         full = _full_bar(bars[0]) or full
         length = max(Fraction(_bar_length(bar), each) for bar, each in zip(bars, divisions))
-        label = bars[0].get("number", "")
+        if shift:
+            for bar in bars:
+                bar.set("number", re.sub(r"\d+", lambda number: str(int(number.group()) - shift), bar.get("number"), count=1))
         if before is not None and _second_half(before, (bars, length, full)):
             for bar in bars:
                 bar.set("number", "X" + before[0][0].get("number"))
                 bar.set("implicit", "yes")
             shift += 1
-        elif shift:
-            for bar in bars:
-                bar.set("number", re.sub(r"\d+", lambda number: str(int(number.group()) - shift), bar.get("number"), count=1))
-        before = (bars, length, full, label)
+        before = (bars, length, full)
 
 
 def _second_half(before: tuple, after: tuple) -> bool:
-    bars, length, full, label = before
+    bars, length, full = before
     later_bars, later_length, later_full = after
-    later_label = later_bars[0].get("number", "")
+    label, later_label = bars[0].get("number", ""), later_bars[0].get("number", "")
     barlines = [barline for bar in bars for barline in bar.findall("barline") if barline.get("location", "right") == "right"]
     barlines += [barline for bar in later_bars for barline in bar.findall("barline") if barline.get("location") == "left"]
     return (full is not None and later_full == full and 0 < length < full and 0 < later_length < full
             and length + later_length == full
             and label.isdigit() and label != "0" and later_label.isdigit() and later_label != label
+            and later_bars[0].get("implicit") != "yes"
             and any(barline.find("repeat") is not None or barline.findtext("bar-style") in DOUBLE_BARS for barline in barlines))
 
 
