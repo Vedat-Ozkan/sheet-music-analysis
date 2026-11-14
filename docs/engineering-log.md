@@ -3026,6 +3026,23 @@ PR #23 merged to `main` as `e5dd58d` (entry 156, the runbook, `prod-*` tags from
 
 **NOT RUN.** A real Claude or ChatGPT chat with these changes.
 
+### 164. Release preparation for the guide to the marks: gallery, plugin 1.10.3, ChatGPT metadata (2026-11-14, branch `release-guide`, nothing released)
+
+**Gallery and sample PDF.** The six images in `site/gallery/` and `chopin-nocturne-op9-no2.pdf` were redrawn with the guide. The generator is not in the repo: the 2026-11-12 redraw (PR #17) used two scratch scripts, kept only in that session's scratchpad, which render the saved analyses (`examples/chopin_op9_no2_m1-8.json`, bars 1–8 of `site/samples/chopin-nocturne-op9-no2.mxl` in the four views, and `examples/engraving/mozart-41.json`, bars 1–4 of the Symphony No. 41 score from `tools/engraving_check.py`, the piano version with only the annotations in bars 1–4). The same inputs were drawn again the way `render_analysis` now draws them: `key=True`, `preview_pages=2`, the image from `preview.png(1, width=1400, colors=256, pages=2)` and the PDF from `pdf()`. Every render is one page, so the image and the PDF carry the same guide. Each image and the PDF were looked at full size: the guide is at the foot, below every other mark, readable, and lists only the marks on that page (the form view: cadence, phrase and callout; the piano version adds who plays in the original). Image heights grew by 68 to 199 px; `site/index.html` has the new sizes. The alt texts do not mention the guide.
+
+**Plugin 1.10.3.** Rebuilt with `tools/build_skill.py` after the version bump in `plugin/.claude-plugin/plugin.json`. The built skill and readme now carry the changes of entries 161 to 163; `docs/listing.md` names 1.10.3. `tests/test_skill_build.py` passes.
+
+**Tool metadata that differs from `main`.** Listed from local servers on `main` (`e52afb8`) and on this branch, as ChatGPT (`openai-mcp` user agent) and as Claude (`Claude-User`), and diffed field by field. The same three changes for both:
+- `render_analysis` description: "the result also lists a worksheet PDF, MIDI and RomanText to mention once" became "the result also lists the card's other downloads (Blank worksheet, MIDI, Analysis as text) to mention once" (entry 163).
+- The `callout` field of all eight annotation types: "Number of the commentary note that discusses this" became "Links this mark to the callout with this number; it draws nothing itself, so give the numbered disc its own callout annotation" (entry 163).
+- `Alternative.end`: "Where a range stops. Without `beat` the range runs to the end of the measure." became "The last chord it replaces, that chord included: the same as start for one chord. Without beat, the end of that measure" (entry 162).
+
+No tool was added or removed, and no title, annotation, `_meta` or widget address changed. All six widget addresses (`card-v2`, `card-v3`, `pdf-card-v2`, `pdf-card-v3`, `player-v3`, `upload-card-v1`) answer on this branch, for both clients. `card-v3` serves the changed card of entries 161 and 163 in place.
+
+**ChatGPT.** These changes and the card need OpenAI's review: the next upload is 1.4.0 (1.3.0 is published), with `version` and `release_notes` in `openai-plugin/plugin.json`, zipped as the README says and uploaded at platform.openai.com/plugins. Until it is approved, ChatGPT keeps the old descriptions. The listing's long description and its first two test cases still say "coloured bands", which the page has not drawn since the brackets.
+
+**Checks.** `tests/test_site_facts.py`, `tests/test_skill_build.py`, `tests/test_server_process.py` and the held-cards test: 33 passed. No engine or server code changed, so the full suite was not run.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

@@ -24,7 +24,7 @@ Text for the Claude directory forms and the ChatGPT plugin ZIP. Keep it consiste
 > Sheet Music Analysis marks up a piece of music the way a theory teacher would pencil it in. Attach a score as a MusicXML file (.mxl or .musicxml, which MuseScore, Sibelius, Finale and Dorico can all export) or a PDF of printed music, and ask what is happening in the music. A PDF is read first, and bars that may be misread are shaded so you can check them.
 >
 > You get the engraved score back, as an image and a PDF, with:
-> - every chord labelled with a Roman numeral, and coloured bands showing its job: home (tonic), moving away (predominant) or pulling back home (dominant);
+> - every chord labelled with a Roman numeral, and a labelled bracket showing its job: home (tonic), moving away (predominant) or pulling back home (dominant);
 > - cadences, the musical commas and full stops, boxed, and brackets showing where each phrase begins and ends;
 > - melody notes that don't belong to the chord circled and named;
 > - arrows where the way one note moves to the next matters;
@@ -40,7 +40,7 @@ Text for the Claude directory forms and the ChatGPT plugin ZIP. Keep it consiste
 
 ## Claude
 
-The connector is the product in Claude. Claude cannot pass a file attached to the chat to a remote server, so in Claude the user chooses their score file in a card (`choose_score`), which sends it to the server; a pasted link (a direct link to a MusicXML file or PDF, or a Google Drive or Dropbox share link) works too. From there Claude uses its own tools for the PDF (`read_fetched_pdf`, for a file chosen in the card or fetched from a link) and the same analysis tools as ChatGPT (`draft_analysis`, `render_analysis`, `correct_bars`). IMSLP links are not downloaded: Claude asks the user to download the PDF from IMSLP and choose it in the card. `play` gives a small piano player in the chat. The plugin (1.10.2) adds only a skill, one Markdown file, that tells Claude to show the card and use these tools; it runs nothing in Claude's sandbox. No Code execution setting is needed.
+The connector is the product in Claude. Claude cannot pass a file attached to the chat to a remote server, so in Claude the user chooses their score file in a card (`choose_score`), which sends it to the server; a pasted link (a direct link to a MusicXML file or PDF, or a Google Drive or Dropbox share link) works too. From there Claude uses its own tools for the PDF (`read_fetched_pdf`, for a file chosen in the card or fetched from a link) and the same analysis tools as ChatGPT (`draft_analysis`, `render_analysis`, `correct_bars`). IMSLP links are not downloaded: Claude asks the user to download the PDF from IMSLP and choose it in the card. `play` gives a small piano player in the chat. The plugin (1.10.3) adds only a skill, one Markdown file, that tells Claude to show the card and use these tools; it runs nothing in Claude's sandbox. No Code execution setting is needed.
 
 **Carousel screenshots**, if a form asks (3–5 PNGs at least 1000 px wide, the response only, each with its prompt):
 1. "Analyse the harmony of bars 1–8 of this nocturne": the full page.
@@ -90,8 +90,8 @@ OpenAI now takes a plugin ZIP rather than a form: the text below lives in `opena
 
 **Should use the app** (prompt → tools → what the user sees):
 
-1. [attach the sample] "Analyse the harmony of bars 1–8 of this." → `draft_analysis`, then `render_analysis` → the engraved bars 1–8 with numerals, coloured bands, cadences and numbered circles, plus a commentary.
-2. [same chat] "Now show only the harmony." → `render_analysis` with view `harmony` → the same bars with chords and bands only.
+1. [attach the sample] "Analyse the harmony of bars 1–8 of this." → `draft_analysis`, then `render_analysis` → the engraved bars 1–8 with numerals, labelled brackets, cadences and numbered circles, plus a commentary.
+2. [same chat] "Now show only the harmony." → `render_analysis` with view `harmony` → the same bars with chords and brackets only.
 3. [same chat] "What happens in bars 9–16?" → `draft_analysis`, then `render_analysis` → bars 9–16 annotated, with a commentary.
 4. [same chat] "Show the phrase structure of bars 1–16." → `render_analysis` with view `form` → phrase brackets and cadences.
 5. [same chat] "How do the voices move in bars 5-8?" → `render_analysis` with view `voice_leading` → bars 5–8 with arrows for the resolutions that matter.
