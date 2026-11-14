@@ -72,6 +72,7 @@ def test_the_call_that_starts_a_read_stays_for_it_and_a_repeat_is_told_it_is_sti
     assert len(reads) == 1
     assert "score_id:" in text_of(results["first"])
     assert not results["second"].is_error and "still being read" in text_of(results["second"])
+    assert "up to about 10 minutes." in text_of(results["second"])
 
 
 def test_a_read_carries_on_when_the_call_that_started_it_is_cancelled(monkeypatch, tmp_path):

@@ -970,7 +970,7 @@ READ_MARKER_SECONDS = REQUEST_SECONDS
 READ_MINUTES = round((pdf_reader.TIMEOUT + 120) / 60)
 POLL_SECONDS = 3
 STILL_READING = (
-    "This PDF is still being read ({seconds} s so far): " + PDF_WAIT + ", up to about {minutes}. Tell the user it is "
+    "This PDF is still being read ({seconds} s so far): " + PDF_WAIT + ", up to about {minutes} minutes. Tell the user it is "
     "still being read, then call {again}; each call waits up to {wait} s for the result."
 )
 WAITING_FOR_TURN = (

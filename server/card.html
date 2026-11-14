@@ -109,8 +109,8 @@
     document.getElementById("reference").textContent = report.reference;
     document.getElementById("send").hidden = sent;
     document.getElementById("sending").hidden = sent;
-    document.getElementById("report-status").textContent = sent ? "Sent. Thank you; we look at every report." : "";
     document.getElementById("report").hidden = false;
+    document.getElementById("report-status").textContent = sent ? "Sent. Thank you; we look at every report." : "";
   }
   function show(data, metadata) {
     askForRating = Boolean(metadata && metadata.ask_for_rating);
@@ -223,8 +223,10 @@
   document.getElementById("suggest-form").addEventListener("submit", (event) => {
     event.preventDefault();
     document.getElementById("suggest-send").disabled = true;
+    document.getElementById("suggest-cancel").disabled = true;
     const text = document.getElementById("suggestion").value.trim();
     request("tools/call", { name: "send_suggestion", arguments: { text } }).then((result) => {
+      document.getElementById("suggest-cancel").disabled = false;
       if (!result || result.isError) {
         document.getElementById("suggest-send").hidden = true;
         document.getElementById("suggest-status").textContent = "It could not be sent from here. You can copy your "
