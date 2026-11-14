@@ -489,6 +489,27 @@ def _key_text(svg: str) -> str:
     return " ".join(re.findall(r">([^<]+)</text>", group.group(1))) if group else ""
 
 
+def _key_entries(svg: str) -> list[str]:
+    group = re.search(r'<g class="page-key">(.*?)</g>', svg, re.S).group(1)
+    lines: dict[str, list[str]] = {}
+    for y, string in re.findall(r'<text [^>]*?y="([^"]+)"[^>]*>([^<]+)</text>', group):
+        lines.setdefault(y, []).append(string)
+    found: list[list[str]] = []
+    for words in lines.values():
+        assert words[0] != page_key.DOT and words[-1] != page_key.DOT, words
+        segments = [[]]
+        for word in words:
+            if word == page_key.DOT:
+                assert segments[-1], words
+                segments.append([])
+            else:
+                segments[-1].append(word)
+        if found and found[-1][-1].endswith(","):
+            found[-1] += segments.pop(0)
+        found += segments
+    return [" ".join(entry) for entry in found]
+
+
 def _key_sizes(svg: str) -> set[str]:
     group = re.search(r'<g class="page-key">(.*?)</g>', svg, re.S)
     return set(re.findall(r'font-size="(\d+)px"', group.group(1)))
@@ -527,7 +548,7 @@ def test_page_key_is_at_the_foot_of_the_first_preview_page_and_the_end_of_the_la
     assert keyed(engraving.preview.svgs) == [0] and keyed(engraving.svgs) == [engraving.page_count - 1]
     preview, download = _key_text(engraving.preview.svgs[0]), _key_text(engraving.svgs[-1])
     assert "half cadence" in download and "half cadence" not in preview
-    assert preview.replace(" ·", "") == download.replace(" · HC half cadence", "").replace(" ·", "")
+    assert _key_entries(engraving.preview.svgs[0]) == [entry for entry in _key_entries(engraving.svgs[-1]) if entry != "HC half cadence"]
     assert _key_sizes(engraving.preview.svgs[0]) == {str(overlay.NUMERAL_SIZE), str(round(overlay.NUMERAL_SIZE * 0.9))}
     assert _key_sizes(engraving.svgs[-1]) == {str(overlay.LABEL_SIZE), str(round(overlay.LABEL_SIZE * 0.9))}
 
