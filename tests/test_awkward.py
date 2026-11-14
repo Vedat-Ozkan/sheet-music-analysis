@@ -7,12 +7,13 @@ import pytest
 
 from engine import correct, notes, piano, reduce
 from engine.annotate import render
-from engine.annotations import AnnotationList
+from engine.annotations import AnnotationList, Position, RangeEnd
 from engine.check_analysis import ClarificationNeeded, from_text, student_labels
 from engine.check_analysis import as_text as student_check
 from engine.export import _document, export_musicxml
 from engine.part_writing import applies, as_text, check
 from engine.performance import marked_index, perform
+from engine.overlay import PageLayout
 from engine.read_pdf import problem_spots
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
@@ -32,7 +33,10 @@ SCORES = {
     "pdf-reading-prelude": DATA / "chopin_prelude_op28_no4_reading.musicxml",
     "pdf-reading-overrun": DATA / "awkward" / "kinkel-op8-5-trennung-reading.musicxml",
 }
-KNOWN: dict[tuple[str, str], str] = {}
+KNOWN: dict[tuple[str, str], str] = {
+    ("alternative_bracket", name): "check() and _draw_alternative count the harmony on an end beat; the dotted bracket stops before it"
+    for name in SCORES
+}
 
 score_ids = pytest.mark.parametrize("name", list(SCORES))
 
@@ -233,3 +237,21 @@ def test_typed_answer_parses_or_asks(line):
     except ClarificationNeeded:
         return
     assert labels and all(re.fullmatch(r"\S+", label.figure) for label in labels)
+
+
+@score_ids
+def test_alternative_bracket_reaches_every_chord_it_replaces(request, name, monkeypatch):
+    known(request, "alternative_bracket", name)
+    data, index = load(name)
+    bars = [measure.number for measure in index.measures if measure.number > 0][:3]
+    harmonies = [{"type": "harmony", "at": {"measure": bar, "beat": 1}, "key": "C", "label": "I"} for bar in bars]
+    alternative = {"type": "alternative", "start": {"measure": bars[0]}, "end": {"measure": bars[-1], "beat": 1},
+                   "label": " ".join(["V"] * len(bars))}
+    drawn = []
+    to_svg = PageLayout.to_svg
+    monkeypatch.setattr(PageLayout, "to_svg", lambda layout: drawn.append(layout) or to_svg(layout))
+    render(data, AnnotationList.model_validate({"annotations": harmonies + [alternative]}), measures=(bars[0], bars[-1]))
+    for layout in drawn:
+        pieces = {piece.system.index: piece for piece in layout.segments(Position(measure=bars[0]), RangeEnd(measure=bars[-1], beat=1))}
+        for system, centre, *_ in layout.numerals.values():
+            assert system in pieces and pieces[system].x0 <= centre <= pieces[system].x1, (name, bars)

@@ -154,6 +154,7 @@ class PageLayout:
         self.staff_marks: list[tuple[set[int], Box]] = []
         self.staff_of: dict[int, int] = {}
         self.stems: dict[str, str] = {}
+        self.shown: set[tuple[str, str]] = set()
         self._remove("fing")
         self._remove("harm")
         self._remove("analysis-room")
@@ -524,6 +525,8 @@ class PageLayout:
                     pieces.setdefault(system_index, []).append((x0, max(x1, entries[-1][3]), function, number > 0, number < len(spans) - 1))
             position = following
         words = all(text.width(FUNCTION_NAMES[f], FUNCTION_SIZE) + 2 * LABEL_PAD <= x1 - x0 for row in pieces.values() for x0, x1, f, _, _ in row)
+        self.shown.update(("function", name) for row in pieces.values() for _, _, function, _, _ in row
+                          for name in [FUNCTION_NAMES[function] if words else function])
         for system_index, row in pieces.items():
             system = self.systems[system_index]
             hook = NUMERAL_SIZE * 0.2
@@ -590,6 +593,7 @@ class PageLayout:
                 left = max(system.left + 80, first_x - 0.4 * NUMERAL_SIZE - text.width(label, NUMERAL_SIZE))
                 box = self._text(left, baseline, label, NUMERAL_SIZE)
                 self.harmony_labels.append((label, box))
+                self.shown.add(("key", label))
                 cursor = box.right + 0.4 * NUMERAL_SIZE
             key = key_at_start[system_index]
             deepest = 0.0
@@ -650,6 +654,7 @@ class PageLayout:
                   fill="#ffffff", stroke=INK, stroke_width=LINE)
         self._text(centre, top + height / 2 + LABEL_SIZE * 0.33, cadence.label, LABEL_SIZE, anchor="middle")
         self._reserve(system, Box(left, top, width, height), pad=30)
+        self.shown.add(("cadence", cadence.label))
         self.cadence_bottom[system.index] = max(self.cadence_bottom.get(system.index, -1e9), top + height)
 
     def _draw_ncts(self, ncts: list[NonChordTone]) -> None:
@@ -674,6 +679,7 @@ class PageLayout:
         self._add("ellipse", cx=round(circle.cx), cy=round(circle.cy), rx=round(rx), ry=round(ry),
                   fill="none", stroke=INK, stroke_width=LINE)
         string = NCT_NAMES.get(string.strip().upper(), string)
+        self.shown.add(("nct", string))
         width, height = text.width(string, LABEL_SIZE), LABEL_SIZE
         cx, cy = self._place_label(system, circle, width, height, below=event.staff > 1)
         label = Box(cx - width / 2, cy - height / 2, width, height)
@@ -729,6 +735,9 @@ class PageLayout:
                 system_b, b, _ = self.note_box(mark.to_note) if mark.to_note else (system_a, a, None)
             except NotOnPage:
                 continue
+            fault = mark.kind != "arrow" or any(label in FAULT_ARROW_LABELS for label in labels)
+            words = [label for member in shared.get(id(entry), [entry]) for label in member[1]]
+            self.shown.update([("fault" if fault else "arrow", label) for label in words] or [("fault" if fault else "arrow", "")])
             if mark.kind == "ring":
                 ring = self._draw_ring(system_a, a)
                 self.staff_of[id(system_a.content[-1])] = event.staff
@@ -1133,6 +1142,7 @@ class PageLayout:
         while any(abs(cx - other) < 2 * radius + 40 for other in taken):
             cx += 2 * radius + 60
         taken.append(cx)
+        self.shown.add(("callout", ""))
         cy = system.top(cx - radius, cx + radius) - 90 - radius
         self._add("circle", cx=round(cx), cy=round(cy), r=radius, fill=INK)
         self._text(cx, cy + LABEL_SIZE * 0.34, str(callout.number), LABEL_SIZE, bold=True, fill="#ffffff", anchor="middle")
@@ -1177,6 +1187,7 @@ class PageLayout:
             pieces = self.segments(phrase.start, phrase.end)
         except NotOnPage:
             return
+        self.shown.add((phrase.type, ""))
         tick = -150 if below else 150
         string = phrase.label
         size = PHRASE_LETTER_SIZE if re.fullmatch(r"[A-Za-z][′']?", string) else LABEL_SIZE
