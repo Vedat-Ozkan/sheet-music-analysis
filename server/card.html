@@ -122,7 +122,10 @@
     const status = document.getElementById("status");
     status.textContent = (data && data.status) || "";
     status.hidden = !status.textContent;
-    if (!data || !data.image_url) return;
+    if (!data || !data.image_url) {
+      for (const id of ["caption", "shading", "open-page", "actions", "more", "rating", "suggest"]) document.getElementById(id).hidden = true;
+      return;
+    }
     document.getElementById("actions").hidden = false;
     const caption = document.getElementById("caption");
     caption.textContent = data.caption || "";

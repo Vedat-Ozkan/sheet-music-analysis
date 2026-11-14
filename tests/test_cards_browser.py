@@ -452,6 +452,32 @@ def test_reading_card_status_line_gives_way_to_the_reading(page, server):
     expect(card.get_by_text(STILL_READING)).to_be_hidden()
 
 
+CARD_CONTENT = ("#caption", "#shading", "#open-page", "#actions", "#more", "#rating", "#suggest")
+
+
+def test_reading_card_status_after_a_reading_hides_the_old_reading(page, server):
+    card = open_card(page, server, "card.html")
+    deliver(page, links(server, shaded_bars=[3]), {"ask_for_rating": True})
+    expect(card.locator("#open-page")).to_be_visible()
+    deliver(page, {"status": STILL_READING})
+    expect(card.get_by_text(STILL_READING)).to_be_visible()
+    for element in CARD_CONTENT:
+        expect(card.locator(element)).to_be_hidden()
+
+
+def test_reading_card_status_after_a_reading_hides_the_old_reading_in_chatgpt(page, server):
+    page.add_init_script("if (window !== window.top) window.openai = { toolOutput: %s };" % json.dumps(links(server)))
+    card = open_card(page, server, "card.html")
+    expect(card.locator("#open-page")).to_be_visible()
+    card_frame(page).evaluate("""(status) => {
+        window.openai.toolOutput = { status };
+        window.dispatchEvent(new Event("openai:set_globals"));
+    }""", STILL_READING)
+    expect(card.get_by_text(STILL_READING)).to_be_visible()
+    for element in CARD_CONTENT:
+        expect(card.locator(element)).to_be_hidden()
+
+
 def test_reading_card_shows_the_status_chatgpt_opens_it_with(page, server):
     page.add_init_script("if (window !== window.top) window.openai = { toolOutput: { status: %s } };" % json.dumps(STILL_READING))
     card = open_card(page, server, "card.html")
