@@ -513,13 +513,19 @@ def test_page_key_names_exactly_the_part_writing_codes_drawn():
     assert not any(code in key for code in ("P5", "VC", "parallel", "passing", "the key", "the chord’s job", "numbered"))
 
 
-@pytest.mark.parametrize("place", page_key.PLACES)
-def test_page_key_is_drawn_once_on_the_page_its_place_names(chopin, chopin_annotations, place):
-    svgs = render(chopin, chopin_annotations, key=place).svgs
-    assert len(svgs) > 2
-    keyed = [number for number, svg in enumerate(svgs) if 'class="page-key"' in svg]
-    assert keyed == [0 if place == "first" else len(svgs) - 1]
-    assert "the chord’s job" in _key_text(svgs[keyed[0]])
+def test_page_key_is_drawn_once_on_the_page_its_place_names(chopin, chopin_annotations):
+    said = {}
+    for place in page_key.PLACES:
+        svgs = render(chopin, chopin_annotations, key=place).svgs
+        assert len(svgs) > 2
+        keyed = [number for number, svg in enumerate(svgs) if 'class="page-key"' in svg]
+        assert keyed == [0 if place == "first" else len(svgs) - 1]
+        said[place] = _key_text(svgs[keyed[0]])
+    assert said["first"] == said["last"] and "T tonic" in said["first"]
+
+
+def test_page_key_names_shaded_bars(chopin, chopin_annotations):
+    assert "misread" in _key_text(render(chopin, chopin_annotations, measures=(1, 8), shaded_bars=[6], key="last").svgs[-1])
 
 
 def test_page_key_has_words_for_every_code_the_engine_draws():
