@@ -215,9 +215,9 @@ BAR_NUMBER_SIZE = 500
 TOP_CLEARANCE = 3 * tint.SPACE
 
 
-def preview(score: bytes, spots=None) -> Engraving:
+def preview(score: bytes, spots=None, shading: str = "tint") -> Engraving:
     spots = spots or problem_spots(score)
-    return shade(load_toolkit(score, PREVIEW_OPTIONS, labelled_bars=spots[0]), spots)
+    return shade(load_toolkit(score, PREVIEW_OPTIONS, labelled_bars=spots[0]), spots, shading)
 
 
 def _ending_brackets(layout: PageLayout) -> list[Box]:
@@ -283,12 +283,12 @@ def fit_top_margin(toolkit, index: ScoreIndex) -> list[PageLayout]:
     return layouts
 
 
-def shade(toolkit, spots) -> Engraving:
+def shade(toolkit, spots, shading: str = "tint") -> Engraving:
     uneven, _ = spots
     index = ScoreIndex(toolkit.getMEI())
     layouts = fit_top_margin(toolkit, index)
     for layout in layouts:
-        tint.flag_bars(layout, index, uneven)
+        tint.flag_bars(layout, index, uneven, shading)
     return tint.finish(layouts)
 
 

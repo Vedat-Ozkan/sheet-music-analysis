@@ -12,7 +12,7 @@ SIZE = LABEL_SIZE
 LINE_STEP = 500
 GAP = 900
 DOT = "·"
-SAMPLE = 420
+SAMPLE = 520
 
 NCT_WORDS = {"PT": "passing note", "NT": "neighbour note", "SUS": "suspension", "APP": "appoggiatura", "ET": "escape tone",
              "RET": "retardation", "ANT": "anticipation", "PED": "pedal note"}
