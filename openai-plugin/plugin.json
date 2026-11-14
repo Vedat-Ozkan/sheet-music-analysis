@@ -54,7 +54,7 @@
               "description": "Full analysis of an attached score",
               "prompt": "Analyse the harmony of bars 1-8 of this.",
               "tools_triggered": "draft_analysis, render_analysis",
-              "expected_behavior": "A card shows the engraved bars 1-8 with Roman numerals, coloured chord-function bands, boxed cadences and numbered circles, with PNG and PDF links, followed by a short commentary.",
+              "expected_behavior": "A card shows the engraved bars 1-8 with Roman numerals, labelled chord-function brackets, boxed cadences and numbered circles, with PNG and PDF links, followed by a short commentary.",
               "file_attachment_urls": [
                 "https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl"
               ]
@@ -63,7 +63,7 @@
               "description": "One layer only, same chat",
               "prompt": "Now show only the harmony.",
               "tools_triggered": "render_analysis",
-              "expected_behavior": "The same bars redrawn with chords and bands only (view harmony).",
+              "expected_behavior": "The same bars redrawn with chords and brackets only (view harmony).",
               "file_attachment_urls": [
                 "https://sheetmusicanalysis.com/samples/chopin-nocturne-op9-no2.mxl"
               ]
@@ -124,7 +124,7 @@
         "commerce": false
       },
       "publication": {
-        "release_notes": "The analysed page now ends with a short guide to the marks on it: what each kind of label, bracket, circle and arrow means.\nNumbered points in the reply now always match a numbered circle on the page.\nWhile a PDF is being read, the card says so and how long it has taken.\nThe other downloads are named the same in the reply and on the card: Blank worksheet, MIDI, Analysis as text."
+        "release_notes": "The analysed page now ends with a short guide to the marks on it: what each kind of label, bracket, circle and arrow means.\nNumbered points in the reply now always match a numbered circle on the page.\nWhen a PDF takes long to read, the card says it is still reading and how long it has taken.\nThe other downloads are named the same in the reply and on the card: Blank worksheet, MIDI, Analysis as text."
       }
     }
   }

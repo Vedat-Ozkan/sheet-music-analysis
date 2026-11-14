@@ -91,7 +91,7 @@ OpenAI now takes a plugin ZIP rather than a form: the text below lives in `opena
 **Should use the app** (prompt → tools → what the user sees):
 
 1. [attach the sample] "Analyse the harmony of bars 1–8 of this." → `draft_analysis`, then `render_analysis` → the engraved bars 1–8 with numerals, labelled brackets, cadences and numbered circles, plus a commentary.
-2. [same chat] "Now show only the harmony." → `render_analysis` with view `harmony` → the same bars with chords and bands only.
+2. [same chat] "Now show only the harmony." → `render_analysis` with view `harmony` → the same bars with chords and brackets only.
 3. [same chat] "What happens in bars 9–16?" → `draft_analysis`, then `render_analysis` → bars 9–16 annotated, with a commentary.
 4. [same chat] "Show the phrase structure of bars 1–16." → `render_analysis` with view `form` → phrase brackets and cadences.
 5. [same chat] "How do the voices move in bars 5-8?" → `render_analysis` with view `voice_leading` → bars 5–8 with arrows for the resolutions that matter.
