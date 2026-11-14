@@ -41,6 +41,7 @@ def flag_bars(layout: PageLayout, index: ScoreIndex, bars) -> None:
                 bottom = max(box.bottom for box in geometry.lines)
                 right = courtesy.get(segment.id, geometry.x1)
                 tint(layout, Box(geometry.x0, top, right - geometry.x0, bottom - top), FLAG_BAR, FLAG_OPACITY, radius=0)
+                layout.shown.add(("shaded", ""))
 
 
 def _courtesy_x(layout: PageLayout) -> dict[str, float]:

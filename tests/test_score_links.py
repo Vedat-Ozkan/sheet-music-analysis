@@ -91,7 +91,7 @@ def test_a_musicxml_link_is_drafted_and_counted_like_an_attached_score(server, s
 
 def test_a_pdf_link_is_read_and_its_pages_counted_like_an_attached_pdf(server, site):
     fetched = call("fetch_score", {"url": f"{site}/public/prelude.pdf"})
-    assert "Call read_fetched_pdf" in text_of(fetched)
+    assert "you are reading the PDF now" in text_of(fetched) and "call read_fetched_pdf with this pdf_id" in text_of(fetched)
     read = call("read_fetched_pdf", {"pdf_id": id_of(fetched, "pdf_id")})
     assert not read.is_error and "The score has measures 0 to 24" in text_of(read)
     assert "Slurs are not read" in text_of(read) and "keep_slurs" not in text_of(read)
@@ -159,6 +159,7 @@ def test_one_device_gets_its_own_daily_limit_of_new_scores_and_a_file_sent_again
                                 ("CARD3", "a" * 32, "/public/nocturne.mxl"), ("CARD4", "b" * 32, "/public/prelude.pdf")))
     assert first.status_code == 200 and same.status_code == 200 and other.status_code == 200
     assert new.status_code == 429 and new.json() == {"error": app.UPLOAD_PERSON_MESSAGE}
+    assert "already sent can still be analysed" in app.UPLOAD_PERSON_MESSAGE
     assert server.get("scores/CARD3") is None and charged(server, "score") == 2
 
 

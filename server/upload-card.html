@@ -14,12 +14,14 @@
   input { position: absolute; width: 1px; height: 1px; opacity: 0; }
   #status { flex: 1; min-width: 160px; color: var(--muted); }
   #status.error { color: var(--danger); }
+  #status.got { color: var(--muted); }
+  #status.got strong { display: block; margin-bottom: 4px; color: var(--fg); font-size: 15px; font-weight: 600; }
 </style>
 </head>
 <body>
 <div class="chooser">
   <label id="choose">Choose your score<input id="file" type="file" accept=".mxl,.musicxml,.xml,.pdf,application/pdf"></label>
-  <span id="status">A MusicXML file (.mxl, .musicxml) or a PDF of printed music. The analysis starts as soon as you choose it.</span>
+  <span id="status" role="status" aria-live="polite">A MusicXML file (.mxl, .musicxml) or a PDF of printed music. After you choose it, press Enter to send the message that appears in your reply box.</span>
 </div>
 <script>
   const UPLOAD_URL = "__UPLOAD_URL__";
@@ -44,6 +46,12 @@
   function show(text, isError) {
     status.textContent = text;
     status.className = isError ? "error" : "";
+  }
+  function showGot(name, next, fallback) {
+    const heading = document.createElement("strong");
+    heading.textContent = "Got " + name + ". " + next;
+    status.replaceChildren(heading, fallback);
+    status.className = "got";
   }
 
   window.addEventListener("message", (event) => {
@@ -96,9 +104,10 @@
       show(body.error, true);
       return;
     }
-    show("Got " + file.name + ". Press Enter to send the message below " + (body.kind === "pdf" ? "and start reading it; a PDF takes a minute or two." : "and start the analysis.") + " If your reply box is empty, type \"I've chosen it\" and send that.");
+    showGot(file.name, "Press Enter to send the message in your reply box " + (body.kind === "pdf" ? "and start reading it." : "and start the analysis."),
+            (body.kind === "pdf" ? "A PDF usually takes a minute or two to read; a long one can take several minutes. " : "") + "If your reply box is empty, type \"I've chosen it\" and send that.");
     const sent = await request("ui/message", { role: "user", content: [{ type: "text", text: "I've chosen my score: " + file.name }] });
-    if (sent.error) show("Got " + file.name + ". Now tell Claude in the chat that you have chosen it.");
+    if (sent.error) showGot(file.name, "Now tell Claude in the chat that you have chosen it.", "");
   });
 
   reportSize();

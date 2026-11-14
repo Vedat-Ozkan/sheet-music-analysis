@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -87,6 +88,8 @@ def test_claude_is_offered_the_upload_card_score_links_and_cards_on_its_own_doma
     assert "score_file" not in listed["draft_analysis"]["inputSchema"]["properties"]
     assert set(listed["play"]["inputSchema"]["properties"]) == {"score_id", "measure_range", "tempo", "play_id", "notes"}
     assert "fetch_score" in listed["draft_analysis"]["description"] and "read_fetched_pdf" in listed["correct_bars"]["description"]
+    assert "(Blank worksheet, MIDI, Analysis as text)" in listed["render_analysis"]["description"]
+    assert not [name for name, tool in listed.items() if re.search("RomanText|worksheet PDF", tool["description"])]
     assert card["result"]["contents"][0]["_meta"]["ui"]["domain"].endswith(".claudemcpcontent.com")
 
 
@@ -146,6 +149,7 @@ def test_the_upload_card_tool_shows_the_card_that_sends_to_this_server(server):
     code = shown["structuredContent"]["upload_id"]
     assert not shown.get("isError") and "End your reply here" in shown["content"][0]["text"]
     assert f"read_fetched_pdf with pdf_id {code}" in shown["content"][0]["text"]
+    assert "you are reading the PDF now" in shown["content"][0]["text"]
     assert f"draft_analysis with score_id {code}" in shown["content"][0]["text"]
     assert card["_meta"]["ui"]["domain"].endswith(".claudemcpcontent.com")
     assert card["_meta"]["ui"]["csp"]["connectDomains"] == [f"http://localhost:{port}"]

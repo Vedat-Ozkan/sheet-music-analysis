@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from engine import overlay, text
+from engine import overlay, page_key, part_writing, piano, text
 from engine.annotate import render
 from engine.annotations import AnnotationList
 from engine.overlay import ARROW, ERROR, NUMERAL_SIZE, PageLayout
@@ -482,3 +482,76 @@ def test_ring_codes_keep_clear_space(name, bars, spied, layouts):
             hit = [o for o in system.content + system.words if layout._meets(clear, o)
                    and not (o.x <= box.x + 1 and o.right >= box.right - 1 and o.y <= box.y + 1 and o.bottom >= box.bottom - 1)]
             assert not hit, f"{name}: {string} at {round(box.cx)},{round(box.cy)} touches {[(round(o.x), round(o.y)) for o in hit]}"
+
+
+def _key_text(svg: str) -> str:
+    group = re.search(r'<g class="page-key">(.*?)</g>', svg, re.S)
+    return " ".join(re.findall(r">([^<]+)</text>", group.group(1))) if group else ""
+
+
+def _key_sizes(svg: str) -> set[str]:
+    group = re.search(r'<g class="page-key">(.*?)</g>', svg, re.S)
+    return set(re.findall(r'font-size="(\d+)px"', group.group(1)))
+
+
+def test_page_key_is_off_by_default(chopin, chopin_annotations):
+    assert 'class="page-key"' not in render(chopin, chopin_annotations, measures=(1, 8)).svgs[0]
+
+
+def test_page_key_names_exactly_the_marks_on_the_page(chopin, chopin_annotations):
+    key = _key_text(render(chopin, chopin_annotations, measures=(1, 8), key=True).svgs[-1])
+    for said in ("passing note", "neighbour note", "appoggiatura", "perfect authentic cadence", "the chord’s job",
+                 "where a note moves", "a phrase", "see that number"):
+        assert said in key, said
+    for unused in ("suspension", "half cadence", "part-writing", "another reading", "built on", "misread", "who plays"):
+        assert unused not in key, unused
+
+
+def test_page_key_names_exactly_the_part_writing_codes_drawn():
+    path = Path(__file__).parent / "data" / "part_writing_bwv102.7.musicxml"
+    marks = [{"type": "voice_leading", "kind": "ring", "from_note": _ref(1, 3, 4, "Ab3"), "label": "VO"},
+             {"type": "voice_leading", "kind": "ring", "from_note": _ref(1, 2, 3, "G3")},
+             {"type": "voice_leading", "kind": "line", "from_note": _ref(2, 3, 1, "C4"), "to_note": _ref(2, 4, 1, "G4")},
+             {"type": "voice_leading", "kind": "line", "from_note": _ref(2, 3, 4, "C3"), "to_note": _ref(2, 4, 4, "C4"), "label": "H5"}]
+    key = _key_text(_page(path.read_bytes(), marks, key=True).svgs[-1])
+    assert "VO voice overlap" in key and "H5 direct fifths" in key and "part-writing faults" in key
+    assert not any(code in key for code in ("P5", "VC", "parallel", "passing", "the key", "the chord’s job", "numbered"))
+
+
+def test_page_key_is_at_the_foot_of_the_first_preview_page_and_the_end_of_the_last_download_page(chopin, chopin_annotations):
+    later = {"type": "cadence", "at": {"measure": 34, "beat": 1}, "label": "HC"}
+    marks = AnnotationList.model_validate({"annotations": chopin_annotations.model_dump(exclude_none=True)["annotations"] + [later]})
+    engraving = render(chopin, marks, key=True, preview_pages=2)
+    assert engraving.page_count > 2 and engraving.key_drawn
+    keyed = lambda svgs: [number for number, svg in enumerate(svgs) if 'class="page-key"' in svg]
+    assert keyed(engraving.preview.svgs) == [0] and keyed(engraving.svgs) == [engraving.page_count - 1]
+    preview, download = _key_text(engraving.preview.svgs[0]), _key_text(engraving.svgs[-1])
+    assert "half cadence" in download and "half cadence" not in preview
+    assert preview.replace(" ·", "") == download.replace(" · HC half cadence", "").replace(" ·", "")
+    assert _key_sizes(engraving.preview.svgs[0]) == {str(overlay.NUMERAL_SIZE), str(round(overlay.NUMERAL_SIZE * 0.9))}
+    assert _key_sizes(engraving.svgs[-1]) == {str(overlay.LABEL_SIZE), str(round(overlay.LABEL_SIZE * 0.9))}
+
+
+def test_one_page_render_has_one_key_shared_by_preview_and_download(chopin, chopin_annotations):
+    engraving = render(chopin, chopin_annotations, measures=(1, 8), key=True)
+    assert engraving.page_count == 1 and engraving.key_drawn
+    assert engraving.preview.svgs[0].count('class="page-key"') == engraving.svgs[0].count('class="page-key"') == 1
+
+
+def test_page_key_names_each_job_once_whichever_forms_are_drawn(chopin, chopin_annotations):
+    engraving = render(chopin, chopin_annotations, key=True)
+    drawn = {form for svg in engraving.svgs for form in re.findall(r">(tonic|pre-dom\.|dominant|T|PD|D)</text>", svg)}
+    assert {"tonic", "T"} <= drawn
+    assert "the chord’s job: tonic (T), pre-dominant (pre-dom., PD), dominant (D)" in _key_text(engraving.svgs[-1])
+    one_form = _key_text(render(chopin, chopin_annotations, measures=(1, 8), key=True).svgs[0])
+    assert "the chord’s job: tonic, pre-dominant (pre-dom.), dominant" in one_form
+
+
+def test_page_key_names_shaded_bars(chopin, chopin_annotations):
+    assert "misread" in _key_text(render(chopin, chopin_annotations, measures=(1, 8), shaded_bars=[6], key=True).svgs[-1])
+
+
+def test_page_key_has_words_for_every_code_the_engine_draws():
+    assert set(page_key.NCT_WORDS) == set(overlay.NCT_NAMES.values())
+    assert set(page_key.fault_words()) == set(part_writing.LABELS.values())
+    assert set(page_key.CUE_WORDS) | set(piano.ABBREVIATIONS.values()) <= set(page_key.cue_words())

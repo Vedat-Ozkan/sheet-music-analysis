@@ -4,17 +4,19 @@ from fractions import Fraction
 from pathlib import Path
 
 import pytest
+from PIL import Image, ImageChops
 
 from engine import correct, notes, piano, reduce
 from engine.annotate import render
-from engine.annotations import AnnotationList
+from engine.annotations import Alternative, AnnotationList
 from engine.check_analysis import ClarificationNeeded, from_text, student_labels
 from engine.check_analysis import as_text as student_check
 from engine.export import _document, export_musicxml
 from engine.part_writing import applies, as_text, check
 from engine.performance import marked_index, perform
+from engine.overlay import PageLayout
 from engine.read_pdf import problem_spots
-from engine.render import load_toolkit
+from engine.render import Engraving, load_toolkit
 from engine.score import ScoreIndex
 
 DATA = Path(__file__).parent / "data"
@@ -233,3 +235,57 @@ def test_typed_answer_parses_or_asks(line):
     except ClarificationNeeded:
         return
     assert labels and all(re.fullmatch(r"\S+", label.figure) for label in labels)
+
+
+@score_ids
+def test_alternative_bracket_reaches_every_chord_it_replaces(request, name, monkeypatch):
+    known(request, "alternative_bracket", name)
+    data, index = load(name)
+    bars = [measure.number for measure in index.measures if measure.number > 0][:3]
+    harmonies = [{"type": "harmony", "at": {"measure": bar, "beat": 1}, "key": "C", "label": "I"} for bar in bars]
+    alternative = Alternative.model_validate({"type": "alternative", "start": {"measure": bars[0]}, "end": {"measure": bars[-1], "beat": 1},
+                                              "label": " ".join(["V"] * len(bars))})
+    drawn = []
+    to_svg = PageLayout.to_svg
+    monkeypatch.setattr(PageLayout, "to_svg", lambda layout: drawn.append(layout) or to_svg(layout))
+    render(data, AnnotationList.model_validate({"annotations": harmonies + [alternative.model_dump()]}), measures=(bars[0], bars[-1]))
+    for layout in drawn:
+        pieces = {piece.system.index: piece for piece in layout.segments(alternative.start, layout.alternative_end(alternative))}
+        for system, centre, *_ in layout.numerals.values():
+            assert system in pieces and pieces[system].x0 <= centre <= pieces[system].x1, (name, bars)
+
+
+@score_ids
+def test_one_chord_alternative_is_drawn(name):
+    data, index = load(name)
+    bars = [measure.number for measure in index.measures if measure.number > 0][:2]
+    harmonies = [{"type": "harmony", "at": {"measure": bar, "beat": 1}, "key": "C", "label": "I"} for bar in bars]
+    alternative = {"type": "alternative", "start": {"measure": bars[0], "beat": 1}, "end": {"measure": bars[0], "beat": 1}, "label": "V"}
+    svg = render(data, AnnotationList.model_validate({"annotations": harmonies + [alternative]}), measures=(bars[0], bars[-1])).svgs[0]
+    assert 'stroke-dasharray="1 70"' in svg and ">V<" in svg
+
+
+@score_ids
+def test_page_key_sits_below_every_mark_of_the_last_system(name):
+    data, index = load(name)
+    bars = [measure for measure in index.measures if measure.number > 0][:4]
+    last = bars[-1]
+    lowest = max((event for event in last.events if event.pitch and not event.grace), key=lambda event: (event.staff, -reduce.midi(event.pitch)))
+    marks = [{"type": "harmony", "at": {"measure": bar.number, "beat": 1}, "label": label, "function": job, **({"key": "C"} if not number else {})}
+             for number, (bar, label, job) in enumerate(zip(bars, ["I", "IV", "V", "I"], ["T", "PD", "D", "T"]))]
+    marks += [{"type": "cadence", "at": {"measure": last.number, "beat": 1}, "label": "PAC"},
+              {"type": "callout", "at": {"measure": last.number, "beat": 1}, "number": 1},
+              {"type": "phrase", "start": {"measure": bars[0].number}, "end": {"measure": last.number}, "label": "a"},
+              {"type": "alternative", "start": {"measure": bars[-2].number}, "end": {"measure": last.number, "beat": 1}, "label": "vi V"},
+              {"type": "nct", "note": {"measure": last.number, "beat": last.beat_of(lowest.onset), "staff": lowest.staff, "pitch": lowest.pitch},
+               "label": "PT"}]
+    engraving = render(data, AnnotationList.model_validate({"annotations": marks}), measures=(bars[0].number, last.number), key=True)
+    for svg in (engraving.preview.svgs[0], engraving.svgs[-1]):
+        root = ET.fromstring(svg)
+        for parent in root.iter():
+            for group in [child for child in parent if child.get("class") == "page-key"]:
+                parent.remove(group)
+        keyed, plain = (Engraving([page])._raster(1, 1400) for page in (svg, ET.tostring(root, encoding="unicode")))
+        marks_bottom = ImageChops.difference(plain, Image.new("RGB", plain.size, "#ffffff")).getbbox()[3]
+        key_box = ImageChops.difference(keyed, plain).getbbox()
+        assert key_box and key_box[1] > marks_bottom, (name, key_box, marks_bottom)

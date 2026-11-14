@@ -93,6 +93,20 @@ def test_names_the_bars_a_reading_likely_got_wrong():
     )
 
 
+@pytest.mark.parametrize("reading", ["chopin_prelude_op28_no4_audiveris.mxl", "pdf_warnings/schubert_die_stadt_audiveris.musicxml",
+                                     "pdf_warnings/lang_auf_der_reise_audiveris.musicxml"])
+def test_a_shaded_reading_preview_pictures_every_page_trimmed(reading):
+    data = (Path(__file__).parent / "data" / reading).read_bytes()
+    score = without_slurs(clean(data) if reading.endswith(".mxl") else data)
+    spots = problem_spots(score)
+    assert spots[0]
+    engraving = preview(score, spots=spots)
+    assert len(engraving.ratios) == engraving.page_count
+    for page in range(1, engraving.page_count + 1):
+        assert Image.open(io.BytesIO(engraving.png(page))).width == round(1400 * engraving.ratios[page - 1])
+    assert Image.open(io.BytesIO(engraving.preview.png())).width == round(1400 * engraving.ratios[0])
+
+
 def test_names_bars_with_durations_that_disagree_with_written_notes():
     score = (Path(__file__).parent / 'data/pdf_warnings/schubert_die_stadt_audiveris.musicxml').read_bytes()
     uneven, meter = problem_spots(score)

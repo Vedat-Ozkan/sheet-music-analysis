@@ -7,8 +7,15 @@
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --bg: #212121; --fg: #f2f2f5; --muted: #a1a1a6; --border: #48484a; --button: #f2f2f5; --button-fg: #111; } }
   :root[data-theme="dark"] { color-scheme: dark; --bg: #212121; --fg: #f2f2f5; --muted: #a1a1a6; --border: #48484a; --button: #f2f2f5; --button-fg: #111; }
   body { margin: 0; font: 14px system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+  .caption { margin: 0; padding: 10px 12px; font-size: 15px; font-weight: 600; }
+  .key { display: flex; align-items: center; gap: 8px; margin: 0; padding: 0 12px 10px; color: var(--muted); font-size: 13px; }
+  .status { margin: 0; padding: 10px 12px; color: var(--muted); font-size: 14px; }
+  .caption[hidden], .key[hidden], .status[hidden] { display: none; }
+  .swatch { flex: none; width: 14px; height: 14px; border: 1px solid var(--border); border-radius: 3px; background: #fff3c2; }
+  #open-page { display: block; width: 100%; padding: 0; border: 0; background: #fff; cursor: zoom-in; }
+  #open-page[hidden] { display: none; }
+  #open-page:focus-visible { outline: 3px solid var(--fg); outline-offset: -3px; }
   img { display: block; width: 100%; height: auto; background: #fff; }
-  img[hidden] { display: none; }
   .actions { display: flex; flex-direction: column; gap: 4px; padding: 12px; }
   .actions button { width: 100%; height: 40px; border: 0; border-radius: 20px; font: inherit; font-size: 15px; cursor: pointer; }
   .actions button[hidden], .actions[hidden] { display: none; }
@@ -33,32 +40,38 @@
   #suggest-open { height: 32px; padding: 0 12px; margin-left: 8px; border: 1px solid var(--border); border-radius: 16px; background: none; color: var(--fg); font: inherit; cursor: pointer; }
   #suggest-send { height: 40px; border: 0; border-radius: 20px; background: var(--button); color: var(--button-fg); font: inherit; font-size: 15px; cursor: pointer; }
   #suggest-send:disabled { opacity: 0.4; cursor: default; }
+  .suggest .buttons { display: flex; gap: 8px; }
+  #suggest-send { flex: 1; }
+  #suggest-cancel { height: 40px; padding: 0 16px; border: 1px solid var(--border); border-radius: 20px; background: none; color: var(--fg); font: inherit; font-size: 15px; cursor: pointer; }
+  .report small:empty { margin-top: 0; }
 </style>
 </head>
 <body>
-<img id="page" alt="Engraved score" hidden>
+<p class="status" id="status" role="status" aria-live="polite" hidden></p>
+<p class="caption" id="caption" hidden></p>
+<p class="key" id="shading" hidden><span class="swatch"></span>Shaded bars may be misread; check them against your copy.</p>
+<button id="open-page" hidden><img id="page" alt=""></button>
 <div class="actions" id="actions" hidden>
   <button id="pdf">Download PDF</button>
 </div>
 <div class="more" id="more" hidden>
   More downloads
   <button id="musicxml" hidden>MusicXML</button>
-  <button id="worksheet" hidden>Worksheet</button>
+  <button id="worksheet" hidden>Blank worksheet</button>
   <button id="midi" hidden>MIDI</button>
-  <button id="romantext" hidden>RomanText</button>
+  <button id="romantext" hidden>Analysis as text</button>
 </div>
 <div class="rating" id="rating" hidden>
   <span id="question">Was this analysis helpful?</span>
   <button id="up" aria-label="Yes, helpful">👍</button>
   <button id="down" aria-label="Not helpful">👎</button>
-  <span id="thanks" hidden>Thanks for telling us.</span>
+  <span id="rating-status" role="status" aria-live="polite"></span>
 </div>
 <div class="report" id="report" hidden>
   <p id="problem"></p>
   <button id="send">Send this problem to us</button>
   <small id="sending">Sends us reference <span id="reference"></span> so we can look into it. Nothing from your chat is sent.</small>
-  <small id="sent" hidden>Sent. Thank you; we look at every report.</small>
-  <small id="unsent" hidden>It could not be sent from here. You can email support@sheetmusicanalysis.com and mention reference <span id="unsent-reference"></span>.</small>
+  <small id="report-status" role="status" aria-live="polite"></small>
 </div>
 <div class="suggest" id="suggest" hidden>
   <span id="suggest-closed">Ideas or problems?<button id="suggest-open">Suggest something</button></span>
@@ -66,15 +79,14 @@
     <label for="suggestion">What would you like it to do? Ideas, problems, anything.</label>
     <textarea id="suggestion" maxlength="1000" rows="3"></textarea>
     <span>Please don't include personal details. Only what you type here is sent to us.</span>
-    <button id="suggest-send" type="submit" disabled>Send</button>
-    <span id="suggest-unsent" hidden>It could not be sent from here. You can copy your message and email it to support@sheetmusicanalysis.com.</span>
+    <span class="buttons"><button id="suggest-send" type="submit" disabled>Send</button><button id="suggest-cancel" type="button">Cancel</button></span>
   </form>
-  <span id="suggest-sent" hidden>Sent. Thank you; we read every message.</span>
+  <span id="suggest-status" role="status" aria-live="polite"></span>
   </div>
 <script>
   let nextId = 1;
   const pending = {};
-  let pdfUrl = null;
+  let pdfUrl = null, pageUrl = null;
   const extras = { musicxml: null, worksheet: null, midi: null, romantext: null };
 
   function send(message) { window.parent.postMessage(message, "*"); }
@@ -99,22 +111,36 @@
     document.getElementById("reference").textContent = report.reference;
     document.getElementById("send").hidden = sent;
     document.getElementById("sending").hidden = sent;
-    document.getElementById("sent").hidden = !sent;
-    document.getElementById("unsent").hidden = true;
     document.getElementById("report").hidden = false;
+    document.getElementById("report-status").textContent = sent ? "Sent. Thank you; we look at every report." : "";
   }
   function show(data, metadata) {
     askForRating = Boolean(metadata && metadata.ask_for_rating);
     report = (metadata && metadata.report) || null;
     document.getElementById("report").hidden = true;
     if (report) showReport(Boolean(window.openai && window.openai.widgetState && window.openai.widgetState.reported));
+    const status = document.getElementById("status");
+    status.textContent = (data && data.status) || "";
+    status.hidden = !status.textContent;
     if (!data || !data.image_url) return;
     document.getElementById("actions").hidden = false;
+    const caption = document.getElementById("caption");
+    caption.textContent = data.caption || "";
+    caption.hidden = !data.caption;
+    const shaded = data.shaded_bars || [];
+    document.getElementById("shading").hidden = !shaded.length;
+    const description = (data.caption || "Engraved score")
+      + (shaded.length ? ". Shaded bars, which may be misread: " + shaded.join(", ") : "");
     const image = document.getElementById("page");
     image.onload = reportSize;
-    image.hidden = false;
+    image.alt = description;
     image.src = data.image_url;
+    pageUrl = data.image_url;
+    const opener = document.getElementById("open-page");
+    opener.setAttribute("aria-label", "Open the page full size: " + description);
+    opener.hidden = false;
     pdfUrl = data.pdf_url;
+    document.getElementById("pdf").hidden = !pdfUrl;
     for (const name in extras) {
       extras[name] = data[name + "_url"] || null;
       document.getElementById(name).hidden = !extras[name];
@@ -146,20 +172,23 @@
       else request("ui/open-link", { url: href });
     });
   }
+  download("open-page", () => pageUrl);
   download("pdf", () => pdfUrl);
   for (const name in extras) download(name, () => extras[name]);
 
   function rate(helpful) {
+    document.getElementById("rating-status").textContent = "";
     for (const id of ["up", "down"]) document.getElementById(id).disabled = true;
     request("tools/call", { name: "rate_analysis", arguments: { helpful } }).then((result) => {
       if (!result || result.isError) {
         for (const id of ["up", "down"]) document.getElementById(id).disabled = false;
+        document.getElementById("rating-status").textContent = "It could not be sent; please try again.";
         return;
       }
       answeredHere = true;
       if (window.openai && window.openai.setWidgetState) window.openai.setWidgetState({ rated: true });
       for (const id of ["question", "up", "down"]) document.getElementById(id).hidden = true;
-      document.getElementById("thanks").hidden = false;
+      document.getElementById("rating-status").textContent = "Thanks for telling us.";
     });
   }
   document.getElementById("send").addEventListener("click", () => {
@@ -170,8 +199,8 @@
       if (!result || result.isError) {
         button.hidden = true;
         document.getElementById("sending").hidden = true;
-        document.getElementById("unsent-reference").textContent = report.reference;
-        document.getElementById("unsent").hidden = false;
+        document.getElementById("report-status").textContent = "It could not be sent from here. You can email "
+          + "support@sheetmusicanalysis.com and mention reference " + report.reference + ".";
         return;
       }
       if (window.openai && window.openai.setWidgetState) window.openai.setWidgetState({ reported: true });
@@ -184,7 +213,15 @@
   document.getElementById("suggest-open").addEventListener("click", () => {
     document.getElementById("suggest-closed").hidden = true;
     document.getElementById("suggest-form").hidden = false;
+    document.getElementById("suggest-send").disabled = !document.getElementById("suggestion").value.trim();
     document.getElementById("suggestion").focus();
+  });
+  document.getElementById("suggest-cancel").addEventListener("click", () => {
+    document.getElementById("suggest-form").hidden = true;
+    document.getElementById("suggest-status").textContent = "";
+    document.getElementById("suggest-send").hidden = false;
+    document.getElementById("suggest-closed").hidden = false;
+    document.getElementById("suggest-open").focus();
   });
   document.getElementById("suggestion").addEventListener("input", (event) => {
     document.getElementById("suggest-send").disabled = !event.target.value.trim();
@@ -192,15 +229,18 @@
   document.getElementById("suggest-form").addEventListener("submit", (event) => {
     event.preventDefault();
     document.getElementById("suggest-send").disabled = true;
+    document.getElementById("suggest-cancel").disabled = true;
     const text = document.getElementById("suggestion").value.trim();
     request("tools/call", { name: "send_suggestion", arguments: { text } }).then((result) => {
+      document.getElementById("suggest-cancel").disabled = false;
       if (!result || result.isError) {
         document.getElementById("suggest-send").hidden = true;
-        document.getElementById("suggest-unsent").hidden = false;
+        document.getElementById("suggest-status").textContent = "It could not be sent from here. You can copy your "
+          + "message and email it to support@sheetmusicanalysis.com.";
         return;
       }
       document.getElementById("suggest-form").hidden = true;
-      document.getElementById("suggest-sent").hidden = false;
+      document.getElementById("suggest-status").textContent = "Sent. Thank you; we read every message.";
     });
   });
 

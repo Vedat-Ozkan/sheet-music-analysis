@@ -2959,6 +2959,73 @@ PR #23 merged to `main` as `e5dd58d` (entry 156, the runbook, `prod-*` tags from
 
 **Seen in these tests, not changed.** The draft says "One beat = 1 quarter notes". A cadence placed on a beat that has no numeral is drawn under the last numeral before it, with no warning. The chorale PDF's bar 2 is shaded as possibly misread on a clean engraved page. Drawing bars 1 to 4 of BWV 303 also prints a nearly empty second line numbered 4a.
 
+### 161. Design review of the site, the chat cards and the drawn page (2026-11-13, branch `ux-fixes`, nothing released)
+
+**How it was reviewed.** The live site was captured at 375, 768 and 1440 px in light and dark; each chat card state was rendered in a stand-in chat column; eight pages were drawn with the current engine. Two Opus reviewers applied published critique methods (Nielsen's ten heuristics scored 0 to 4, cognitive load, personas) without seeing the first read, and the claims that became findings were rechecked in the files. Scores: site 24 of 36, chat flow 21 of 40, drawn page 17 of 28. The cards were not seen inside real Claude or ChatGPT chats, and keyboard and screen-reader behaviour was not tested.
+
+**What was wrong, and what changed on this branch.**
+
+| Finding | Before | After |
+|---|---|---|
+| Terms and privacy disagreed on retention | Terms: "within about two days"; privacy: 30 days | Both say 30 days |
+| The file card promised the analysis starts on choosing | "The analysis starts as soon as you choose it" | Says to press Enter to send the message in the reply box; the received state is the boldest text in the card |
+| The PDF wait had five wordings | "a minute or two", "a minute or more", "a few minutes", "several minutes", "up to about 10 minutes" | One sentence from one constant (`PDF_WAIT`); the still-reading message keeps its 10-minute cap, which is the reader's 480 s limit plus 120 s |
+| No sign of progress in Claude during a PDF read | Nothing between the card and the result | The result of `choose_score` and `fetch_score`, and the skill, tell the model to say one sentence before the read |
+| The reading card looked like the analysis card | Caption sent, never shown; shading unexplained on the card | Caption shown as a heading; a key line when bars are shaded (`shaded_bars` in the result) |
+| Download buttons unexplained | "Worksheet", "MIDI", "RomanText" | "Blank worksheet", "MIDI", "Analysis as text", each explained on the How to use page |
+| The page image could not be enlarged in the card | Plain image | The image opens the full-size PNG |
+| Status changes not announced to screen readers | No live regions | Live regions on the upload status, rating, report and suggestion messages |
+| "Function colours" promised, brackets drawn | Docs, two image descriptions, skill text | Brackets everywhere on the site and in the skill |
+| The limit of 10 new scores a day was stated nowhere | Only in the error | Stated on the How to use page |
+| Claude steps said "attach" | Three places | Attach in ChatGPT, choose in the card in Claude |
+| Marks table missed marks the page draws | No shading, alternative bracket, part-writing codes, cue labels, three non-chord-tone codes | Rows added |
+| Home page text ran about 115 characters a line | Full 980 px | Capped at 640 px; figures stay wide |
+| Phone navigation wrapped with an indented second row | `margin-left` | `column-gap`, 40 px tap height |
+| A library named in an error | "Verovio could not read this file as MusicXML" | "This file looks like MusicXML but its music could not be read" |
+| Player | 32 px button, no bars shown | 44 px button, "Bars 1–8" from `measures` in the result |
+
+**Check added for this class of defect.** `tests/test_site_facts.py` ties the site's retention days, per-person limit, page limit and upload size to the server's constants and the bucket rule in `server/deploy.sh`, and refuses "two days", "function colours" and "a few minutes" on any site page. Against the old site it fails five checks. It asserts one matching phrase per page, so other figures on those pages, such as the rows of the privacy table, are not tied.
+
+**Review.** A Sonnet reviewer read the branch diff. Fixed from it: the still-reading message had lost its unit ("up to about 10."), Cancel on the suggestion form could leave an error with no form while a send was in flight, and the report status was written before its block showed. One claim was wrong: a caption cannot name bars the score lacks, because an out-of-range request is refused before a card is drawn (checked on the nocturne: "Measure 500 does not exist").
+
+**Tests.** Full suite on `725e448`: 1,421 passed, 21 skipped (17 need the PDF reader, 4 existing). `tools/diff_check.py --base main render`: 28 inputs, 0 changed. The later commits changed card script and one message; the files near them pass. NOT RUN: automated tests of the card scripts (no browser driver in the project environment; checked through the visual harness only), the cards in real Claude and ChatGPT chats.
+
+**For the next release.** No tool name, description, schema or widget address changed. `server/card.html` changed in place at the `card-v3` addresses, so it belongs in the next OpenAI submission. `render_analysis`'s description and the ChatGPT listing still say "RomanText" and "coloured bands", left because changed metadata is held until approved. The skill and plugin readme changes reach Claude users at the next plugin build. A PDF reading cached before the deploy has no `shaded_bars`, so its card shows the shading without the key line.
+
+**Known and left.** On a PDF of more than two pages the card's key line shows when the only shaded bars are on later pages. In ChatGPT the method still asks which bars to analyse before starting, while Claude starts on the first eight; making them the same changes ChatGPT's behaviour and is the owner's call. The drawn page has no key to its marks; examples are being built on branch `ux-page`, off by default, for the owner to choose from.
+
+### 162. A guide to the marks on the drawn page, and the alternative bracket's end (2026-11-14, branch `ux-page`, nothing released)
+
+**Why.** Entry 161's review scored the drawn page 17 of 28: its codes (PT, APP, PAC, "pre-dom.", the red part-writing codes, the dotted and dashed brackets, the shading) were explained nowhere on the page. Only the student-check page carried a legend.
+
+**What was built.** `engine/page_key.py` draws a guide with a small sample of each kind of mark, listing only marks drawn in that render. The engine default is off (`render(key=False)`), so `tools/diff_check.py --base main render` shows 28 inputs, 0 changed. The server asks for it in `render_analysis`: at the foot of page 1 in the chat preview, listing the marks on the pages the preview shows, and at the end of the last page in the PDF, listing every page's marks. One layout serves both (`Engraving.preview`); measured cost about 0.1 s a call (one-page excerpt 2.36 to 2.47 s, whole nocturne 5.47 to 5.58 s). None on the blank worksheet, the student-check page, the PDF reading or corrected-bar pages. The owner chose the drawn samples over a text-only strip, this placement over the last page only, a strip in the card or the top of page 1, and the plain tint over an outline or a flag on doubted bars; the examples are in the review folder, not the repo.
+
+**Alternative readings.** Two parts of the code read an alternative's end beat differently: `check` and the chord selection counted the chord on the end beat, the bracket stopped before it. The last replacement chord was printed outside its dotted bracket and onto the function bracket, and a one-chord alternative raised `ValueError`, which is not an annotation error, so the whole render failed. The end beat is now the last chord replaced everywhere. `tests/test_awkward.py` checks, on all 12 corpus scores, that the bracket reaches every chord it replaces and that a one-chord alternative draws; both failed on all 12 before. This changes one schema description (`Alternative.end`), the branch's only metadata change, so it belongs in the next OpenAI submission.
+
+**A regression caught before release.** The commit that turned the guide on was not run against the full suite by its author. Run with the PDF reader, it gave 62 failures. Cause of about 45: a new dataclass field on `Engraving` shifted the positional construction of `tint.Trimmed`, so its ratios were empty and every PDF reading preview and corrected-bar page raised `IndexError`. The new fields are keyword-only now, and `test_a_shaded_reading_preview_pictures_every_page_trimmed` covers the preview without the reader. Cause of about 15: the guide had been made the engine default, which changed what the engine tests and goldens meant; the default went back to off. A Sonnet review found the first cause independently, and three smaller points, all fixed: the model was told of a guide when none was drawn, the preview's guide listed marks from pages the preview does not show, and the wording claimed it explains the numerals, which it does not.
+
+**Tests.** Full suite with the PDF reader on `a4b704f`: 1,524 passed, 4 skipped (existing "no ring codes"), 0 failed. A corpus check confirms the guide starts below every other mark in both placements. Card scripts now have 26 browser tests (Playwright in the dev group and one CI step); they found a Download PDF button that stayed visible with no link, fixed.
+
+**Wording.** Public and model-facing text call it "a guide to the marks", because "key" also means the music's key and is the guide's own first entry. The skill keeps "explain each label the first time it appears" and adds only that codes the guide names need not be defined again.
+
+**NOT RUN.** The cards and the guide in real Claude or ChatGPT chats (staging refuses Claude with 403 because it requires sign-in). CI, as nothing is pushed.
+
+**For a release.** The six gallery images and the sample PDF need redrawing with the guide; the plugin needs a rebuild, as the skill changed. **Known and left:** an alternative that crosses a page break prints its whole label on both pages (older than this branch).
+
+### 163. Five findings from a real Claude chat on staging (2026-11-14, branch `ux-page`, nothing released)
+
+**Guide too small in the chat.** The card shows the 1,400-px preview about 580 px wide, so the guide, set at the label size (330 units, three quarters of the numerals' 440), was a few pixels high. The preview's guide is now set at the numeral size (`page_key.SCREEN_SIZE = NUMERAL_SIZE`) with spacing and samples scaled to match; the PDF's guide stays at the label size (`PRINT_SIZE`), except on a one-page render, where preview and PDF share one page and so the larger guide. Checked by eye on the nocturne and the Mozart piano reduction downscaled to 580 px; the corpus check that the guide sits below every other mark passes on all 12 scores.
+
+**Empty card while a PDF is read.** Every "still reading" answer of `read_fetched_pdf` drew an empty card frame, because the tool has a card and the result had no image. The still-reading, waiting-for-turn and busy results now carry a `status` line that the card shows on its own ("Still reading your PDF: 1 min 40 s so far. What I read appears next, then the analysis."). The busy result stays an error. The model's still-reading text now gives the time as minutes and seconds and says what follows.
+
+**Download names.** The `render_analysis` description and the result's download list said "worksheet PDF" and "RomanText" while the card says Blank worksheet and Analysis as text; the model repeated the old names. Both now use the card's names. Metadata change: the `render_analysis` description.
+
+**Numbered commentary with no numbers on the page.** Staging logs of the chat's render show 32 marks and nothing left out, and the page shows no callout and the guide no callout entry, so no callout annotation was sent; the numbered paragraphs matched nothing. The schema invited this: every mark has a `callout` field, described as "Number of the commentary note that discusses this", which draws nothing. The skill now says each numbered paragraph needs its own callout annotation and that the field only links a mark to one; the field's description says it draws nothing (metadata change); and the `render_analysis` result names the callouts the engine actually drew (`Engraving.callouts`), or says none were drawn, so the model numbers its commentary to match. Arrow labels such as "LT" and "7th" were unexplained: the skill now asks for plain words or figures ("leading tone", "7–6", "4–3"), not private abbreviations, rather than growing the guide.
+
+**Long silences.** About 2 min 20 s passed between choosing a file and the card with only a status line. The draft result and the skill now ask for one short sentence before analysing and one before the first drawing, once per request.
+
+**NOT RUN.** A real Claude or ChatGPT chat with these changes.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

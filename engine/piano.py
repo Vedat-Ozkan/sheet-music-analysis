@@ -21,6 +21,7 @@ ABBREVIATIONS = {
     "Euphonium": "Euph.", "Piano": "Pno.", "Organ": "Org.",
 }
 STRINGS = {"Violin", "Viola", "Violoncello", "Contrabass"}
+TUTTI, STRINGS_CUE = "Tutti", "Str."
 BASS = {"Violoncello", "Contrabass", "Bassoon", "Contrabassoon", "Tuba", "Trombone", "BassTrombone", "BassClarinet", "BaritoneSaxophone"}
 LOWEST_RIGHT_HAND = 55
 SPAN = 14
@@ -138,9 +139,9 @@ def _similar(a: list[float], b: list[float]) -> bool:
 def _cue(names: list[str], parts: dict[str, _Part]) -> str:
     families = {parts[n].family for n in names} - {"Timpani"}
     if families & STRINGS and families - STRINGS:
-        return "Tutti"
+        return TUTTI
     if families <= STRINGS and len(families) > 1:
-        return "Str."
+        return STRINGS_CUE
     cues = []
     for family in dict.fromkeys(parts[n].family for n in names if parts[n].family != "Timpani"):
         members = [n for n in names if parts[n].family == family]

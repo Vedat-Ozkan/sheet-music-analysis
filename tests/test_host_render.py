@@ -1,4 +1,5 @@
 import asyncio
+import io
 import base64
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -48,7 +49,7 @@ def test_server_render_style_and_musicxml(chopin, chopin_annotations, tmp_path, 
         result = await app.render_analysis(None, 'REAL', annotations, measure_range='1-8')
         assert not result.is_error
         assert base64.b64decode(result.content[0].data) == render(
-            chopin, annotations, measures=(1, 8)
+            chopin, annotations, measures=(1, 8), key=True
         ).png(1)
         assert 'harmony labels (open in MuseScore' in result.content[1].text
         assert 'standard Roman numerals' in result.content[1].text
@@ -101,7 +102,7 @@ def test_legacy_latin1_render_and_export(tmp_path, monkeypatch):
     annotations = AnnotationList.model_validate({'annotations': [
         {'type': 'harmony', 'at': {'measure': 1}, 'key': 'G', 'label': 'I'},
     ]})
-    expected_png = render(score, annotations).png(1)
+    expected_png = render(score, annotations, key=True).png(1)
     monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
     app.store.put('scores/LEGACY', score)
 
@@ -190,6 +191,8 @@ def test_server_extra_downloads(chopin, chopin_annotations, tmp_path, monkeypatc
     async def run():
         result = await app.render_analysis(None, 'REAL', chopin_annotations, measure_range='1-8')
         assert 'once per conversation' in result.content[1].text
+        assert 'Analysis as text (the key and the Roman numeral of each chord' in result.content[1].text
+        assert 'RomanText' not in result.content[1].text
         assert 'title' not in result.structured_content
         files = {}
         for key, extension, filename in [('pdf', 'pdf', 'analysis.pdf'), ('worksheet', 'pdf', 'worksheet.pdf'),
@@ -222,3 +225,83 @@ def test_romantext_of_a_pickup_piece_with_a_key_change(tmp_path):
         assert_romantext_matches(chords, chosen)
         assert [c.measureNumber for c in chords][:2] == [0, 1]
         assert [c.beat for c in chords][:3] == [4.0, 1.0, 2.0]
+
+
+def test_server_card_has_the_key_on_its_first_page_and_the_pdf_on_its_last(chopin, chopin_annotations, tmp_path, monkeypatch):
+    from pypdf import PdfReader
+    from engine.render import Engraving
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/REAL', chopin)
+    pictured = []
+    png = Engraving.png
+
+    def watched(engraving, page=1, *args, pages=1, **kwargs):
+        pictured.append([('class="page-key"' in svg) for svg in engraving.svgs[page - 1:page - 1 + pages]])
+        return png(engraving, page, *args, pages=pages, **kwargs)
+
+    monkeypatch.setattr(Engraving, 'png', watched)
+
+    async def run():
+        result = await app.render_analysis(None, 'REAL', chopin_annotations)
+        assert 'guide to the marks at its foot' in result.content[1].text
+        name = result.structured_content['pdf_url'].rsplit('/', 1)[1]
+        return (await app.files(Request({'type': 'http', 'path_params': {'name': name}}))).body
+
+    pages = [page.extract_text() for page in PdfReader(io.BytesIO(asyncio.run(run()))).pages]
+    assert pictured == [[True, False], [True, False]]
+    assert len(pages) > 2
+    assert [number for number, text in enumerate(pages) if 'passing note' in text] == [len(pages) - 1]
+
+
+def test_server_piano_worksheet_has_no_key(tmp_path, monkeypatch):
+    from tools.robustness import CORPUS
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/QUARTET', (CORPUS / 'mozart/k458/movement1.mxl').read_bytes())
+    annotations = AnnotationList.model_validate_json((ROOT / 'examples/engraving/mozart-k458.json').read_text())
+
+    async def run():
+        result = await app.render_analysis(None, 'QUARTET', annotations, measure_range='0-8', piano=True)
+        assert not result.is_error
+        files = {}
+        for key in ('pdf', 'worksheet'):
+            name = result.structured_content[f'{key}_url'].rsplit('/', 1)[1]
+            files[key] = pdf_text((await app.files(Request({'type': 'http', 'path_params': {'name': name}}))).body)
+        return files
+
+    files = asyncio.run(run())
+    assert 'who plays it' in files['pdf']
+    assert 'who plays it' not in files['worksheet'] and 'the key' not in files['worksheet']
+
+
+@pytest.mark.parametrize('view, measure_range', [('form', '1-8'), ('all', '20-24')])
+def test_server_mentions_the_guide_only_when_one_is_drawn(chopin, chopin_annotations, tmp_path, monkeypatch, view, measure_range):
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/REAL', chopin)
+    harmonies = chopin_annotations.model_copy(update={'annotations': [a for a in chopin_annotations.annotations if a.type == 'harmony']})
+
+    async def run():
+        result = await app.render_analysis(None, 'REAL', harmonies, measure_range=measure_range, view=view)
+        assert not result.is_error
+        assert 'guide to the marks' not in result.content[1].text
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize('measure_range, kinds, said', [
+    ('1-8', None, 'Numbered callouts drawn on the page: 1, 2, 3, 4.'),
+    ('3-8', None, 'Numbered callouts drawn on the page: 3, 4.'),
+    ('1-8', {'harmony', 'cadence', 'phrase'}, app.NO_CALLOUTS),
+])
+def test_server_names_the_callouts_drawn_so_the_commentary_can_match(chopin, chopin_annotations, tmp_path, monkeypatch,
+                                                                       measure_range, kinds, said):
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/REAL', chopin)
+    marks = chopin_annotations.model_copy(update={'annotations': [a for a in chopin_annotations.annotations
+                                                                  if kinds is None or a.type in kinds]})
+
+    async def run():
+        result = await app.render_analysis(None, 'REAL', marks, measure_range=measure_range)
+        assert not result.is_error
+        assert said in result.content[1].text
+
+    asyncio.run(run())

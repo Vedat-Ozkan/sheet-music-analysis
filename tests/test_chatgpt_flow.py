@@ -164,7 +164,7 @@ def test_an_alternative_with_the_wrong_number_of_chords_is_left_out_and_the_rest
     assert not result.is_error
     assert f"annotations[{len(marks)}] (alternative): its label has 3 chords" in text_of(result)
     assert "Left out" in text_of(result) and "position" not in text_of(result)
-    assert base64.b64decode(result.content[0].data) == render(chopin, chopin_annotations, measures=(1, 8)).png(1)
+    assert base64.b64decode(result.content[0].data) == render(chopin, chopin_annotations, measures=(1, 8), key=True).png(1)
     assert logged(capsys, "render_analysis")[-1]["left_out"] == 1
 
 
@@ -239,7 +239,8 @@ def test_a_view_in_other_case_and_a_range_with_a_long_dash_are_drawn(server):
     marks = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "i", "key": "e"}]
     result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1–4", "view": "Harmony"})
     assert not result.is_error
-    assert text_of(result).startswith("Analysis, measures 1-4, view harmony")
+    assert "Analysis, measures 1-4, view harmony" in text_of(result)
+    assert result.structured_content["caption"] == "Analysis of bars 1–4, harmony only"
 
 
 def test_a_drawing_with_no_marks_says_so_first_and_skips_the_extra_downloads(server):
@@ -254,6 +255,9 @@ def test_a_whole_score_draft_gives_its_instructions_before_the_method_and_the_no
     text = text_of(call("draft_analysis", {"score_id": score_id}))
     assert text.index("HOW TO ANALYSE THIS SCORE") < 1000
     assert text.index("HOW TO ANALYSE THIS SCORE") < text.index("## Method") < text.index("NOTES (one row")
+    guide = text.split("HOW TO ANALYSE THIS SCORE", 1)[1]
+    assert guide.index("I have the notes and am working out the harmony now") < guide.index("Analyse from the NOTES table")
+    assert "Now I'm drawing the analysis on the score." in guide and "not for each passage" in guide
 
 
 def test_the_worksheet_is_made_when_first_opened_and_the_other_downloads_with_the_drawing(server):
@@ -489,15 +493,17 @@ def test_after_a_pdf_read_the_model_goes_straight_on_to_the_analysis(server):
 
 
 def test_bars_shaded_in_the_reading_stay_shaded_on_the_analysis(server):
-    score_id = score_id_of(call("read_pdf", ATTACHED))
+    reading = call("read_pdf", ATTACHED)
+    score_id = score_id_of(reading)
     shaded = json.loads(server.get(f"scores/{score_id}.shaded"))
-    assert len(shaded) == 1
+    assert len(shaded) == 1 and reading.structured_content["shaded_bars"] == shaded
     marks = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "i", "key": "e"}]
     drawn = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}})
-    assert f"Shaded bars ({shaded[0]}) may be misread" in text_of(drawn)
+    assert f"Shaded bars ({shaded[0]}) may be misread" in text_of(drawn) and drawn.structured_content["shaded_bars"] == shaded
     assert shaded_pixels(drawn) > 1000
     elsewhere = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1-4"})
     assert "Shaded bars" not in text_of(elsewhere) and shaded_pixels(elsewhere) == 0
+    assert elsewhere.structured_content["shaded_bars"] == [] and elsewhere.structured_content["caption"] == "Analysis of bars 1–4"
 
 
 def test_a_musicxml_score_is_never_shaded(server):

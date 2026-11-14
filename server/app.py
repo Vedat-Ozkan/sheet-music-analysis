@@ -438,7 +438,8 @@ PERSON_LIMIT_MESSAGE = (
     f"The user has reached today's limit of {PERSON_SCORE_LIMIT} new scores per person; it resets at midnight UTC. "
     "Tell them plainly and that they can analyse the scores they already sent, or try again tomorrow."
 )
-UPLOAD_PERSON_MESSAGE = f"You have reached today's limit of {PERSON_SCORE_LIMIT} new scores; it resets at midnight UTC."
+UPLOAD_PERSON_MESSAGE = (f"You have reached today's limit of {PERSON_SCORE_LIMIT} new scores; it resets at midnight UTC. "
+                         "Scores you already sent can still be analysed, and choosing one of them again does not count.")
 LIMIT_MESSAGE = (
     "Sheet Music Analysis has reached its daily limit; it resets at midnight UTC. "
     "Tell the user plainly that the free service is at capacity for today and to try again tomorrow."
@@ -668,6 +669,10 @@ GUIDE_RULES = (
 )
 NOTES_GUIDE = (
     "HOW TO ANALYSE THIS SCORE\n"
+    "The user sees nothing while you work, so once per request (not for each passage of a long piece) write them one "
+    "short sentence before you analyse, such as \"I have the notes and am working out the harmony now; this takes a "
+    "minute or two.\", and one before your first render_analysis call, such as \"Now I'm drawing the analysis on the "
+    "score.\"\n"
     "Analyse from the NOTES table below, following the method below. If the user asked for their own numerals to be "
     "checked and there is no STUDENT CHECK section, compare them with your reading of the NOTES table. Then "
     + DRAW_STEP + GUIDE_RULES
@@ -727,13 +732,13 @@ worksheet_lock = anyio.Lock()
 
 
 def downloads_text(links: dict[str, str]) -> str:
-    names = {"worksheet_url": "worksheet (the same passage with no analysis, PDF)", "midi_url": "MIDI",
-             "romantext_url": "RomanText (the harmony analysis as .rntxt)"}
+    names = {"worksheet_url": "Blank worksheet (the same passage with no analysis, PDF)", "midi_url": "MIDI",
+             "romantext_url": "Analysis as text (the key and the Roman numeral of each chord, bar by bar, as a text file)"}
     present = [f"{label}: {links[key]}" for key, label in names.items() if key in links]
     if not present:
         return ""
     return ("\nMore downloads, shown on the card under \"More downloads\"; mention them to the user once per "
-            "conversation, not after every render:\n" + "\n".join(present))
+            "conversation, not after every render, by the names given here:\n" + "\n".join(present))
 
 
 CARD_PAGES = 2
@@ -743,6 +748,32 @@ NOTHING_DRAWN = (
     "No analysis marks were drawn: the annotation list was empty, so the page shows only the score. To analyse, "
     "call draft_analysis with score_id {score_id}, review the draft, then call render_analysis with your annotation list."
 )
+
+
+VIEW_NAMES = {"all": "", "harmony": ", harmony only", "voice_leading": ", voice leading only", "form": ", form only"}
+
+
+def card_caption(measures: tuple[int, int] | None, view: str, piano: bool) -> str:
+    bars = f"bars {measures[0]}–{measures[1]}" if measures and measures[0] != measures[1] else f"bar {measures[0]}" if measures else "the whole score"
+    return f"Analysis of {bars}{VIEW_NAMES[view]}" + (", piano reduction" if piano else "")
+
+
+KEY_ON_PAGE = ("The page has a guide to the marks at its foot (on the first page in the card, at the end of the last page "
+               "in the PDF). It names the marks and codes drawn around the numerals: the label for the key, the chord's job, "
+               "cadence labels, non-chord-tone and part-writing codes, phrase and alternative-reading brackets, arrows, "
+               "callouts, instrument cues and shaded bars, so do not define those again. It does not explain Roman "
+               "numerals, figures or inversions: for a student, still explain each numeral the first time it appears. Say "
+               "what each numbered callout is about and explain the reasoning behind the labels.")
+
+
+CALLOUTS_DRAWN = ("Numbered callouts drawn on the page: {numbers}. Number your commentary paragraphs to match exactly "
+                  "these, one paragraph for each callout.")
+NO_CALLOUTS = ("No numbered callouts are drawn on the page, so do not write the commentary as numbered points: the "
+               "reader would look for numbers that are not there.")
+
+
+def callouts_text(numbers: list[int]) -> str:
+    return CALLOUTS_DRAWN.format(numbers=", ".join(map(str, numbers))) if numbers else NO_CALLOUTS
 
 
 SHADED_ON_PAGE = ("Shaded bars ({bars}) may be misread from the PDF, so their analysis may be wrong. Mention this "
@@ -761,7 +792,8 @@ async def draw(score: bytes, annotations: AnnotationList, measures: tuple[int, i
                shaded: list[int]):
     engraving, annotations, problems = await in_turn(
         lambda: leave_out_rejected(lambda kept: render(score, kept, measures=measures, view=view, piano=piano,
-                                                       shaded_bars=shaded), annotations))
+                                                       shaded_bars=shaded, key=True, preview_pages=CARD_PAGES),
+                                     annotations))
     left_out = ["Left out, for the reason on each line (fix them and call again to add them; numbers refer to your "
                 "list):\n" + "\n".join(problems)] if problems else []
     return engraving, annotations, left_out
@@ -779,7 +811,7 @@ async def draw(score: bytes, annotations: AnnotationList, measures: tuple[int, i
         "Set annotations.style to abrsm (letter inversions, Ib, Vc) when the user mentions ABRSM, figured_bass when they ask "
         "for figured bass, otherwise leave it out. "
         "Offer the MusicXML link once per conversation, not after every render: it downloads a file for "
-        "MuseScore, Sibelius or Dorico; the result also lists a worksheet PDF, MIDI and RomanText to mention once. "
+        "MuseScore, Sibelius or Dorico; the result also lists the card's other downloads (Blank worksheet, MIDI, Analysis as text) to mention once. "
         "piano=true draws the same annotation list (written for the original score) on a two-staff piano reduction "
         "with instrument cues. For a score with more than four staves (an orchestra, band or large ensemble), draw the original first, then offer the user "
         "the piano reduction once; call again with piano=true only if they accept."
@@ -824,10 +856,10 @@ async def render_analysis(
         log("render_analysis", platform=source, export_error=type(error).__name__)
 
     with stage("render"):
-        png = await in_turn(lambda: engraving.png(1, pages=CARD_PAGES))
+        png = await in_turn(lambda: engraving.preview.png(1, pages=CARD_PAGES))
     def publish_all():
         with stage("render"):
-            image, pdf = engraving.png(1, width=1400, colors=256, pages=CARD_PAGES), engraving.pdf()
+            image, pdf = engraving.preview.png(1, width=1400, colors=256, pages=CARD_PAGES), engraving.pdf()
         with stage("publish"):
             links = {"image_url": publish(image, "png"), "pdf_url": publish(pdf, "pdf")}
             if musicxml is not None:
@@ -851,9 +883,13 @@ async def render_analysis(
                   "Tell the user to open the PDF for the rest." if engraving.page_count > CARD_PAGES else "")
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
         view=view, measure_range=measure_range, left_out=asked - len(annotations.annotations) or None)
-    structured_content = {**links, "caption": caption}
+    structured_content = {**links, "caption": card_caption(measures, view, piano), "shaded_bars": shaded}
     if not asked:
         left_out.append(NOTHING_DRAWN.format(score_id=score_id))
+    else:
+        left_out.append(callouts_text(engraving.callouts))
+        if engraving.key_drawn:
+            left_out.append(KEY_ON_PAGE)
     if shaded:
         left_out.append(SHADED_ON_PAGE.format(bars=", ".join(map(str, shaded))))
     return CallToolResult(
@@ -949,8 +985,9 @@ for uri, name, card in [(CARD_URI, "Analysis card", "card.html"), (PDF_CARD_URI,
         prefers_border=True,
     )
 
+PDF_WAIT = "a PDF usually takes a minute or two to read; a long one can take several minutes"
 BUSY_MESSAGE = (
-    "Another PDF is being read right now, and a PDF can take several minutes to read. Tell the user plainly that the "
+    f"Another PDF is being read right now, and {PDF_WAIT}. Tell the user plainly that the "
     "service is busy reading another PDF and to send theirs again in a few minutes."
 )
 SAME_FILE_WAIT = 100
@@ -960,15 +997,39 @@ READ_MARKER_SECONDS = REQUEST_SECONDS
 READ_MINUTES = round((pdf_reader.TIMEOUT + 120) / 60)
 POLL_SECONDS = 3
 STILL_READING = (
-    "This PDF is still being read ({seconds} s so far; a long PDF takes up to about {minutes} minutes). Tell the user it is "
-    "still being read, then call {again}; each call waits up to {wait} s for the result."
+    "This PDF is still being read ({elapsed} so far): " + PDF_WAIT + ", up to about {minutes} minutes. Tell the user in one "
+    "short sentence how long it has been reading and that the card will show what was read, then you analyse it; "
+    "then call {again}; each call waits up to {wait} s for the result."
 )
+STILL_READING_STATUS = "Still reading your PDF: {elapsed} so far. What I read appears next, then the analysis."
 WAITING_FOR_TURN = (
-    "The user's previous PDF is still being read, and this one is read after it. Tell the user, then call {again} "
-    "in a minute or two."
+    "The user's previous PDF is still being read, and this one is read after it: " + PDF_WAIT + ". Tell the user, then "
+    "call {again} in a minute or two."
 )
+WAITING_FOR_TURN_STATUS = "Your previous PDF is still being read; this one is read after it."
+BUSY_STATUS = "Another PDF is being read right now. Send yours again in a few minutes."
 LOST_TURN = "lost the turn"
 CALL_AGAIN = {"read_pdf": "read_pdf again with the same file", "read_fetched_pdf": "read_fetched_pdf again with the same pdf_id"}
+
+
+def elapsed(seconds: float) -> str:
+    minutes, seconds = divmod(round(seconds), 60)
+    return f"{minutes} min {seconds} s" if minutes else f"{seconds} s"
+
+
+def reading_status(text: str, status: str, is_error: bool = False) -> CallToolResult:
+    return CallToolResult(content=[TextContent(type="text", text=text)], structured_content={"status": status},
+                          is_error=is_error)
+
+
+def still_reading(since: float, tool: str) -> CallToolResult:
+    so_far = elapsed(time.time() - since)
+    return reading_status(STILL_READING.format(elapsed=so_far, again=CALL_AGAIN[tool], wait=SAME_FILE_WAIT, minutes=READ_MINUTES),
+                          STILL_READING_STATUS.format(elapsed=so_far))
+
+
+def busy() -> CallToolResult:
+    return reading_status(BUSY_MESSAGE, BUSY_STATUS, is_error=True)
 pdfs_reading: dict[str, tuple[asyncio.Task, float]] = {}
 reads_held: dict[str, str] = {}
 claiming = asyncio.Lock()
@@ -1047,7 +1108,7 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
             return pdf_card_result(card, tool)
         if time.time() - arrived_at >= min(SAME_FILE_WAIT, starter_wait):
             log(tool, platform=source, reading=True, waiting_turn=True)
-            return CallToolResult(content=[TextContent(type="text", text=WAITING_FOR_TURN.format(again=CALL_AGAIN[tool]))])
+            return reading_status(WAITING_FOR_TURN.format(again=CALL_AGAIN[tool]), WAITING_FOR_TURN_STATUS)
         await anyio.sleep(POLL_SECONDS)
     remaining = max(starter_wait - (time.time() - arrived_at), 0)
     if started_here and token is None:
@@ -1057,8 +1118,7 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
         await asyncio.shield(task)
     if not task.done():
         log(tool, platform=source, reading=True)
-        return CallToolResult(content=[TextContent(type="text", text=STILL_READING.format(
-            seconds=round(time.time() - since), again=CALL_AGAIN[tool], wait=SAME_FILE_WAIT, minutes=READ_MINUTES))])
+        return still_reading(since, tool)
     result, details = task.result()
     if started_here and (timings := draft.timings.get()) is not None:
         timings.update({name: value for name, value in details.get("timings_ms", {}).items() if name != "total"})
@@ -1169,11 +1229,10 @@ async def wait_for_other_machine(card_key: str, since: float, source: str, tool:
                 else:
                     log(tool, platform=source, other_machine=True, outcome=found.get("outcome"),
                         **({"busy": True} if found["error"] == "busy" else {"error": found["error"]}))
-                return failure(found["text"], found.get("report"))
+                return busy() if found["error"] == "busy" else failure(found["text"], found.get("report"))
             await anyio.sleep(POLL_SECONDS)
     log(tool, platform=source, reading=True, other_machine=True)
-    return CallToolResult(content=[TextContent(type="text", text=STILL_READING.format(
-        seconds=round(time.time() - since), again=CALL_AGAIN[tool], wait=SAME_FILE_WAIT, minutes=READ_MINUTES))])
+    return still_reading(since, tool)
 
 
 async def pdf_work(data: bytes, digest: str, source: str, card_key: str,
@@ -1244,7 +1303,7 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
             data = await anyio.to_thread.run_sync(pdf_reader.first_pages, data, read)
         if pdf_lock.locked():
             log("read_pdf_work", busy=True)
-            return error_result(BUSY_MESSAGE)
+            return busy()
         async with pdf_lock:
             refused = await take_score(person, source) if arrived else None
             if not refused and not await take("pdf_page", source, read):
@@ -1295,7 +1354,7 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
     log("read_pdf_work", pages=reading["pages"], scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached),
         passes=passes, bars=bars, bars_shaded=len(uneven))
     return {"score_id": score_id, "pages": reading["pages"], "measures": measures, "notice": notice, "image_url": image_url,
-            "pdf_url": pdf_url, "more_pages": more_pages, "page_images": [base64.b64encode(png).decode() for png in pages]}
+            "pdf_url": pdf_url, "more_pages": more_pages, "shaded_bars": uneven, "page_images": [base64.b64encode(png).decode() for png in pages]}
 
 
 def pdf_card_result(card: dict, tool: str) -> CallToolResult:
@@ -1309,7 +1368,7 @@ def pdf_card_result(card: dict, tool: str) -> CallToolResult:
         "Go straight on to the analysis without asking the user to check the reading: call draft_analysis with this "
         "score_id now and continue exactly as for an attached MusicXML file, drawing it with render_analysis. "
         "Bars shaded in the reading stay shaded on the drawn page. "
-        f"The card holds no text, so in your reply with the analysis pass on this note about the reading, briefly: \"{card['notice']}\""
+        f"The card does not show this note, so in your reply with the analysis pass on this note about the reading, briefly: \"{card['notice']}\""
     )
     return CallToolResult(
         content=[
@@ -1318,7 +1377,7 @@ def pdf_card_result(card: dict, tool: str) -> CallToolResult:
         ],
         structured_content={"image_url": card["image_url"], "pdf_url": card["pdf_url"],
                             "caption": f"What I read from your PDF, first {CARD_PAGES} pages" if more_pages else "What I read from your PDF, every bar",
-                            "title": "What I read from your PDF"},
+                            "title": "What I read from your PDF", "shaded_bars": card.get("shaded_bars", [])},
     )
 
 
@@ -1503,8 +1562,13 @@ async def play(ctx: Context, score_id: str | None = None, measure_range: str = "
     log("play", platform=source, measure_range=measure_range, legacy=not score_id)
     return CallToolResult(
         content=[TextContent(type="text", text="The user now has a player for this passage in the chat.")],
-        structured_content={"performance": performance},
+        structured_content={"performance": performance, "measures": played_bars(index, measures)},
     )
+
+
+def played_bars(index, measures: tuple[int, int] | None) -> list[int]:
+    first, last = index.measures[0].number, index.measures[-1].number
+    return [max(first, measures[0]), min(last, measures[1])] if measures else [first, last]
 
 
 apps.add_html_resource(
@@ -1559,6 +1623,7 @@ async def choose_score(ctx: Context) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=(
         f"The user now sees a card in which to choose their score file, which will be kept under the id {code}. "
         "End your reply here. When their next message says they have chosen it: if the file name ends in .pdf, "
+        f"write one short sentence saying you are reading the PDF now and that {PDF_WAIT}, then in the same reply "
         f"call read_fetched_pdf with pdf_id {code}; otherwise it is MusicXML, so call draft_analysis with "
         f"score_id {code}."))], structuredContent={"upload_id": code})
 
@@ -1878,8 +1943,8 @@ async def keep_score(data: bytes, kind: str, code: str | None = None) -> str:
 
 def next_step(kind: str, code: str) -> str:
     if kind == "pdf":
-        return (f"pdf_id: {code}\nIt is a PDF. Call read_fetched_pdf with this pdf_id now to read the music from it; "
-                "a PDF takes a minute or more to read.")
+        return (f"pdf_id: {code}\nIt is a PDF. Write one short sentence saying you are reading the PDF now and that "
+                f"{PDF_WAIT}, then in the same reply call read_fetched_pdf with this pdf_id to read the music from it.")
     return f"score_id: {code}\nIt is a MusicXML score. Call draft_analysis with this score_id now."
 
 
