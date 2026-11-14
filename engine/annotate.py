@@ -108,7 +108,7 @@ def render(
     piano: bool = False,
     student_labels: list[Label] | None = None,
     shaded_bars: list[int] | None = None,
-    key: str | None = None,
+    key: bool = True,
 ) -> Engraving:
     check_range(measures)
     if piano:
@@ -162,10 +162,17 @@ def render(
             drawn.append(layout)
     for layout in drawn:
         tint.flag_bars(layout, index, shaded_bars)
-    if key and results is None:
-        from engine import page_key
-        page_key.draw(drawn, key, page_key.cues_on(drawn) if piano else [])
-    return Engraving([layout.to_svg() for layout in drawn])
+    pages = [layout.to_svg() for layout in drawn]
+    if not key or results is not None:
+        return Engraving(pages)
+    from engine import page_key
+    cues = page_key.cues_on(drawn) if piano else []
+    page_key.draw(drawn, drawn[0], cues)
+    preview = [drawn[0].to_svg(), *pages[1:]]
+    if len(drawn) == 1:
+        return Engraving(preview, preview)
+    page_key.draw(drawn, drawn[-1], cues)
+    return Engraving([*pages[:-1], drawn[-1].to_svg()], preview)
 
 
 def _make_room_for_checks(toolkit, relayout, index, ties, results) -> None:

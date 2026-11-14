@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from engine import part_writing, piano, text, tint
 from engine.overlay import ARROW, ERROR, FUNCTION_NAMES, INK, LABEL_PAD, LABEL_SIZE, LINE, S, Box, PageLayout
 
-PLACES = ("first", "last")
 SIZE = LABEL_SIZE
 LINE_STEP = 500
 GAP = 900
@@ -54,10 +53,11 @@ def entries(shown: set[tuple[str, str]], cues: list[str] = ()) -> list[Entry]:
     if "key" in found:
         result.append(Entry("", "the key (capital major, small minor)", found["key"][0]))
     if "function" in found:
-        letters = [f for f in FUNCTION_NAMES if f in found["function"]]
-        named = [f for f in FUNCTION_NAMES if FUNCTION_NAMES[f] in found["function"]]
-        jobs = [(f, FUNCTION_WORDS[f]) for f in letters] + [(FUNCTION_NAMES[f], "") if FUNCTION_NAMES[f] == FUNCTION_WORDS[f]
-                                                               else (FUNCTION_NAMES[f], f"({FUNCTION_WORDS[f]})") for f in named]
+        jobs = []
+        for letter, word in FUNCTION_WORDS.items():
+            forms = [form for form in (FUNCTION_NAMES[letter], letter) if form in found["function"] and form != word]
+            if forms or word in found["function"]:
+                jobs.append((f"{word} ({', '.join(forms)})" if forms else word, ""))
         result.append(Entry("function", "the chord’s job", codes=jobs))
     if "cadence" in found:
         result += [Entry("", "", codes=[(code, CADENCE_WORDS[code])], boxed=True) for code in CADENCE_WORDS if code in found["cadence"]]
@@ -98,12 +98,11 @@ def cues_on(layouts: list[PageLayout]) -> list[str]:
     return found
 
 
-def draw(layouts: list[PageLayout], place: str, cues: list[str] = ()) -> None:
-    shown = set().union(*(layout.shown for layout in layouts))
+def draw(layouts: list[PageLayout], layout: PageLayout, cues: list[str] = ()) -> None:
+    shown = set().union(*(page.shown for page in layouts))
     pieces = entries(shown, cues)
     if not pieces:
         return
-    layout = layouts[0] if place == "first" else layouts[-1]
     over = layout.over
     layout.over = ET.SubElement(over, f"{S}g", {"class": "page-key"})
     left = min(system.left for system in layout.systems)

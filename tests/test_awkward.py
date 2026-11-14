@@ -4,6 +4,7 @@ from fractions import Fraction
 from pathlib import Path
 
 import pytest
+from PIL import Image, ImageChops
 
 from engine import correct, notes, piano, reduce
 from engine.annotate import render
@@ -15,7 +16,7 @@ from engine.part_writing import applies, as_text, check
 from engine.performance import marked_index, perform
 from engine.overlay import PageLayout
 from engine.read_pdf import problem_spots
-from engine.render import load_toolkit
+from engine.render import Engraving, load_toolkit
 from engine.score import ScoreIndex
 
 DATA = Path(__file__).parent / "data"
@@ -262,3 +263,29 @@ def test_one_chord_alternative_is_drawn(name):
     alternative = {"type": "alternative", "start": {"measure": bars[0], "beat": 1}, "end": {"measure": bars[0], "beat": 1}, "label": "V"}
     svg = render(data, AnnotationList.model_validate({"annotations": harmonies + [alternative]}), measures=(bars[0], bars[-1])).svgs[0]
     assert 'stroke-dasharray="1 70"' in svg and ">V<" in svg
+
+
+@score_ids
+def test_page_key_sits_below_every_mark_of_the_last_system(name):
+    data, index = load(name)
+    bars = [measure for measure in index.measures if measure.number > 0][:4]
+    last = bars[-1]
+    lowest = max((event for event in last.events if event.pitch and not event.grace), key=lambda event: (event.staff, -reduce.midi(event.pitch)))
+    marks = [{"type": "harmony", "at": {"measure": bar.number, "beat": 1}, "label": label, "function": job, **({"key": "C"} if not number else {})}
+             for number, (bar, label, job) in enumerate(zip(bars, ["I", "IV", "V", "I"], ["T", "PD", "D", "T"]))]
+    marks += [{"type": "cadence", "at": {"measure": last.number, "beat": 1}, "label": "PAC"},
+              {"type": "callout", "at": {"measure": last.number, "beat": 1}, "number": 1},
+              {"type": "phrase", "start": {"measure": bars[0].number}, "end": {"measure": last.number}, "label": "a"},
+              {"type": "alternative", "start": {"measure": bars[-2].number}, "end": {"measure": last.number, "beat": 1}, "label": "vi V"},
+              {"type": "nct", "note": {"measure": last.number, "beat": last.beat_of(lowest.onset), "staff": lowest.staff, "pitch": lowest.pitch},
+               "label": "PT"}]
+    engraving = render(data, AnnotationList.model_validate({"annotations": marks}), measures=(bars[0].number, last.number))
+    for svg in (engraving.preview.svgs[0], engraving.svgs[-1]):
+        root = ET.fromstring(svg)
+        for parent in root.iter():
+            for group in [child for child in parent if child.get("class") == "page-key"]:
+                parent.remove(group)
+        keyed, plain = (Engraving([page])._raster(1, 1400) for page in (svg, ET.tostring(root, encoding="unicode")))
+        marks_bottom = ImageChops.difference(plain, Image.new("RGB", plain.size, "#ffffff")).getbbox()[3]
+        key_box = ImageChops.difference(keyed, plain).getbbox()
+        assert key_box and key_box[1] > marks_bottom, (name, key_box, marks_bottom)

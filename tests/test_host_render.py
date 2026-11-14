@@ -1,4 +1,5 @@
 import asyncio
+import io
 import base64
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -222,3 +223,49 @@ def test_romantext_of_a_pickup_piece_with_a_key_change(tmp_path):
         assert_romantext_matches(chords, chosen)
         assert [c.measureNumber for c in chords][:2] == [0, 1]
         assert [c.beat for c in chords][:3] == [4.0, 1.0, 2.0]
+
+
+def test_server_card_has_the_key_on_its_first_page_and_the_pdf_on_its_last(chopin, chopin_annotations, tmp_path, monkeypatch):
+    from pypdf import PdfReader
+    from engine.render import Engraving
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/REAL', chopin)
+    pictured = []
+    png = Engraving.png
+
+    def watched(engraving, page=1, *args, pages=1, **kwargs):
+        pictured.append([('class="page-key"' in svg) for svg in engraving.svgs[page - 1:page - 1 + pages]])
+        return png(engraving, page, *args, pages=pages, **kwargs)
+
+    monkeypatch.setattr(Engraving, 'png', watched)
+
+    async def run():
+        result = await app.render_analysis(None, 'REAL', chopin_annotations)
+        assert 'carries a key at its foot' in result.content[1].text
+        name = result.structured_content['pdf_url'].rsplit('/', 1)[1]
+        return (await app.files(Request({'type': 'http', 'path_params': {'name': name}}))).body
+
+    pages = [page.extract_text() for page in PdfReader(io.BytesIO(asyncio.run(run()))).pages]
+    assert pictured == [[True, False], [True, False]]
+    assert len(pages) > 2
+    assert [number for number, text in enumerate(pages) if 'passing note' in text] == [len(pages) - 1]
+
+
+def test_server_piano_worksheet_has_no_key(tmp_path, monkeypatch):
+    from tools.robustness import CORPUS
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/QUARTET', (CORPUS / 'mozart/k458/movement1.mxl').read_bytes())
+    annotations = AnnotationList.model_validate_json((ROOT / 'examples/engraving/mozart-k458.json').read_text())
+
+    async def run():
+        result = await app.render_analysis(None, 'QUARTET', annotations, measure_range='0-8', piano=True)
+        assert not result.is_error
+        files = {}
+        for key in ('pdf', 'worksheet'):
+            name = result.structured_content[f'{key}_url'].rsplit('/', 1)[1]
+            files[key] = pdf_text((await app.files(Request({'type': 'http', 'path_params': {'name': name}}))).body)
+        return files
+
+    files = asyncio.run(run())
+    assert 'who plays it' in files['pdf']
+    assert 'who plays it' not in files['worksheet'] and 'the key' not in files['worksheet']

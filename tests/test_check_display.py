@@ -33,7 +33,7 @@ def passage(name):
 
 def normal_height(name):
     score, annotations, *_ = passage(name)
-    return Image.open(io.BytesIO(render(score, annotations, measures=(1, 8)).png())).height
+    return Image.open(io.BytesIO(render(score, annotations, measures=(1, 8), key=False).png())).height
 
 
 @pytest.mark.parametrize('name', PIECES)
@@ -54,6 +54,7 @@ def test_typed_comparison_page(name):
     assert all(box.x >= 0 and box.right <= max(s.right for s in drawn.systems)
                for _, box in drawn.labels + drawn.harmony_labels)
     assert page.page_count == 1
+    assert 'class="page-key"' not in page.svgs[0] + page.preview.svgs[0]
     height = Image.open(io.BytesIO(page.png())).height
     assert Image.open(io.BytesIO(page.png())).width == 1400
     assert height < 1.25 * normal_height(name)
@@ -193,7 +194,7 @@ def test_default_comparison_disabled_bytes(chopin, chopin_annotations):
     assert hashlib.sha256(page.png()).hexdigest() == PNG_HASH
 
 
-PNG_HASH = '45fe8e5df2691b83b91d80169312db9ab83f4d29725a04f69b3afbb6441e02e7'
+PNG_HASH = '74608899c8e737a3bc5795aa6b01515a0f7cfea05a3edafdefa5fd216f8b177b'
 
 
 def test_coloured_marks_print_in_colour_not_black():

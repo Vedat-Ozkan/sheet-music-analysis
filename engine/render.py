@@ -129,6 +129,11 @@ def parse_measures(measure_range: str | None) -> tuple[int, int] | None:
 @dataclass
 class Engraving:
     svgs: list[str]
+    preview_svgs: list[str] | None = None
+
+    @property
+    def preview(self) -> Engraving:
+        return Engraving(self.preview_svgs or self.svgs)
 
     @property
     def page_count(self) -> int:

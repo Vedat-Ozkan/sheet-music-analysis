@@ -604,7 +604,7 @@ def make_worksheet(name: str) -> bytes | None:
         return None
     recipe = json.loads(recipe)
     measures = tuple(recipe["measures"]) if recipe["measures"] else None
-    return render(score, AnnotationList(annotations=[]), measures=measures, piano=recipe["piano"]).pdf()
+    return render(score, AnnotationList(annotations=[]), measures=measures, piano=recipe["piano"], key=False).pdf()
 
 
 def waiting_for_choice(tool: str, source: str) -> CallToolResult:
@@ -754,6 +754,11 @@ def card_caption(measures: tuple[int, int] | None, view: str, piano: bool) -> st
     return f"Analysis of {bars}{VIEW_NAMES[view]}" + (", piano reduction" if piano else "")
 
 
+KEY_ON_PAGE = ("The page carries a key at its foot (on the first page in the card, the last page in the PDF) saying what "
+               "each mark and code stands for, so do not spend the reply defining the codes; still say what each numbered "
+               "callout is about and explain the reasoning behind the labels.")
+
+
 SHADED_ON_PAGE = ("Shaded bars ({bars}) may be misread from the PDF, so their analysis may be wrong. Mention this "
                   "briefly in your reply, and that the user can tell you what a misread bar should be.")
 
@@ -833,10 +838,10 @@ async def render_analysis(
         log("render_analysis", platform=source, export_error=type(error).__name__)
 
     with stage("render"):
-        png = await in_turn(lambda: engraving.png(1, pages=CARD_PAGES))
+        png = await in_turn(lambda: engraving.preview.png(1, pages=CARD_PAGES))
     def publish_all():
         with stage("render"):
-            image, pdf = engraving.png(1, width=1400, colors=256, pages=CARD_PAGES), engraving.pdf()
+            image, pdf = engraving.preview.png(1, width=1400, colors=256, pages=CARD_PAGES), engraving.pdf()
         with stage("publish"):
             links = {"image_url": publish(image, "png"), "pdf_url": publish(pdf, "pdf")}
             if musicxml is not None:
@@ -863,6 +868,8 @@ async def render_analysis(
     structured_content = {**links, "caption": card_caption(measures, view, piano), "shaded_bars": shaded}
     if not asked:
         left_out.append(NOTHING_DRAWN.format(score_id=score_id))
+    elif annotations.annotations:
+        left_out.append(KEY_ON_PAGE)
     if shaded:
         left_out.append(SHADED_ON_PAGE.format(bars=", ".join(map(str, shaded))))
     return CallToolResult(
