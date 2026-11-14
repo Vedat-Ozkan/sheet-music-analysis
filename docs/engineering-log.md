@@ -3043,6 +3043,16 @@ No tool was added or removed, and no title, annotation, `_meta` or widget addres
 
 **Checks.** `tests/test_site_facts.py`, `tests/test_skill_build.py`, `tests/test_server_process.py` and the held-cards test: 33 passed. No engine or server code changed, so the full suite was not run.
 
+### 165. Three leftovers from the reviews of entries 162 and 163 (2026-11-14, branch `review-leftovers`, nothing released)
+
+**"RomanText" in replies: left as it is.** Real Claude and ChatGPT replies still called the text download "a RomanText file". A local server was asked for `tools/list` and a `render_analysis` result as Claude (`Claude-User`) and as ChatGPT (`openai-mcp`). The result text names the download only "Analysis as text" and has no `_meta`. The literal word reaches the model in two places, both the same for the two hosts: the input schema of `render_analysis`, whose harmony `label` field says "Roman numeral in RomanText style", and the `romantext_url` key of the structured result, which ChatGPT gives the model (whether Claude's model sees structured results was not checked). The link itself ends in `.rntxt`, which a model may know as RomanText. Neither literal source can change safely now: input schemas are held by ChatGPT until approved, and `card-v3` and the held `card-v2` read `romantext_url`. Publishing new files as `.txt` would only remove the hint, so it was not done. Options for later: a Claude-only `label` description (Claude does not hold metadata), a `.txt` extension with `.rntxt` links still served, and renaming the key once a card that reads the new name is approved.
+
+**Separators in the guide test.** The test comparing the screen and print guides removed every " ·" before comparing, so it would pass with no separators at all. It now splits each guide into lines by their height on the page, asserts that no line starts or ends with a separator and that no two are adjacent, and rebuilds the ordered list of entries: a separator ends an entry, and a line ends one unless its last word ends with a comma (the pen only breaks inside an entry after a code followed by a comma). The two lists must match apart from the half cadence that only the print guide has. With the separators removed from `page_key.draw` the test fails.
+
+**Status line over an old image.** A card result with no image (a "Still reading" status or an empty result) set the status line and returned, so a reused card kept the old image, caption, buttons, rating and suggestion box under it. It now hides them. Two browser tests deliver a reading and then a status, through the MCP message and through ChatGPT's `toolOutput`; both failed before the change.
+
+**NOT RUN.** A real Claude or ChatGPT chat with these changes.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
