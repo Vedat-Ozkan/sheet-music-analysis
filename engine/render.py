@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import codecs
 import io
 import math
 import os
@@ -228,11 +229,7 @@ new_toolkit: Callable[[], verovio.toolkit] = local_toolkit
 def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False, labelled_bars: Collection[int] = ()) -> verovio.toolkit:
     toolkit = new_toolkit()
     toolkit.setOptions({**VEROVIO_OPTIONS, **(options or {})})
-    data = _musicxml(score)
-    try:
-        text = data.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        text = data.decode("latin-1")
+    text = xml_text(_musicxml(score))
     if not re.search(r"<score-(?:partwise|timewise)\b", text[:5000]):
         raise ScoreError("This file is not MusicXML" + (" but a PDF" if score[:5] == b"%PDF-" else ""))
     loaded = toolkit.loadData(_importable(text))
@@ -451,6 +448,15 @@ def _musicxml(score: bytes) -> bytes:
         raise ScoreError("This file is not MusicXML: its .mxl archive could not be read") from error
 
 
+def xml_text(data: bytes) -> str:
+    if data[:2] in (codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE):
+        return data.decode("utf-16", errors="replace")
+    try:
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return data.decode("latin-1")
+
+
 def _importable(text: str) -> str:
     try:
         root = ET.fromstring(text)
@@ -505,7 +511,7 @@ def _separate_voices_in(segment: ET.Element) -> bool:
 
 
 def _readable_names(score: bytes) -> dict[str, str]:
-    text = _musicxml(score).decode("utf-8", errors="replace")
+    text = xml_text(_musicxml(score))
     names = {}
     for part in re.finditer(r'<score-part\b[^>]*\bid="([^"]+)"(.*?)</score-part>', text, flags=re.S):
         label = re.search(r"<part-name\b[^>]*>\s*([a-z]+)(\d*)\s*</part-name>", part.group(2))

@@ -12,6 +12,8 @@ from music21 import chord, clef, tie, converter, dynamics, expressions, instrume
 from music21.common.numberTools import opFrac
 from music21.musicxml.m21ToXml import GeneralObjectExporter
 
+from engine.score import beat_length
+
 ABBREVIATIONS = {
     "Piccolo": "Picc.", "Flute": "Fl.", "Oboe": "Ob.", "EnglishHorn": "Cor. ingl.", "Clarinet": "Cl.",
     "BassClarinet": "Cl. b.", "Bassoon": "Fg.", "Contrabassoon": "Cfg.", "Horn": "Cor.", "Trumpet": "Tr.",
@@ -168,7 +170,10 @@ def _beat(ref: stream.Measure) -> float:
         return 1.0
     if signature.denominator == 8 and signature.numerator % 3 == 0:
         return 1.5
-    return float(signature.beatDuration.quarterLength)
+    try:
+        return float(signature.beatDuration.quarterLength)
+    except meter.TimeSignatureException:
+        return float(beat_length(signature.numerator, signature.denominator))
 
 
 def _beam(voice: stream.Stream, beat: float) -> None:

@@ -9,7 +9,7 @@ from PIL import Image, ImageChops
 from engine import correct, notes, piano, reduce
 from engine.annotate import render
 from engine.annotations import Alternative, AnnotationList
-from engine.check_analysis import ClarificationNeeded, from_text, student_labels
+from engine.check_analysis import ClarificationNeeded, from_musicxml, from_text, student_labels
 from engine.check_analysis import as_text as student_check
 from engine.export import _document, export_musicxml
 from engine.part_writing import applies, as_text, check
@@ -33,6 +33,7 @@ SCORES = {
     "four-parts-pickup": DATA / "part_writing_motion.musicxml",
     "pdf-reading-prelude": DATA / "chopin_prelude_op28_no4_reading.musicxml",
     "pdf-reading-overrun": DATA / "awkward" / "kinkel-op8-5-trennung-reading.musicxml",
+    "additive-and-mixed-meters": DATA / "awkward" / "additive-and-mixed-meters.musicxml",
 }
 KNOWN: dict[tuple[str, str], str] = {}
 
@@ -53,6 +54,32 @@ def load(name):
 def test_index_loads(name):
     _, index = load(name)
     assert index.measures
+
+
+@score_ids
+def test_every_bar_has_the_time_signature_the_file_gives_it(name):
+    _, index = load(name)
+    assert all(measure.meter for measure in index.measures)
+
+
+def test_additive_and_mixed_time_signatures_are_read_as_their_sum():
+    _, index = load("additive-and-mixed-meters")
+    eighth = Fraction(1, 2)
+    assert [(measure.meter, measure.beat_length, measure.declared_length) for measure in index.measures] == [
+        ("5/8", eighth, 5 * eighth), ("5/8", eighth, 5 * eighth), ("7/8", eighth, 7 * eighth), ("7/8", eighth, 7 * eighth),
+        ("8/8", eighth, 8 * eighth), ("8/8", eighth, 8 * eighth), ("5/8", eighth, 5 * eighth), ("5/8", eighth, 5 * eighth)]
+    assert [measure.number for measure in index.measures] == list(range(1, 9))
+
+
+@score_ids
+def test_numerals_written_into_the_score_are_read_back_at_their_bar_and_beat(name):
+    data, index = load(name)
+    sounding = [[event for event in measure.events if event.pitch and not event.grace] for measure in index.measures[1:4]]
+    placed = [(events[0].measure, float(index.measure(events[0].measure).beat_of(min(event.onset for event in events))))
+              for events in sounding if events]
+    analysis = {"annotations": [{"type": "harmony", "at": {"measure": bar, "beat": beat}, "key": "C", "label": "I"} for bar, beat in placed]}
+    exported = export_musicxml(data, analysis)
+    assert [(label.measure, label.beat) for label in from_musicxml(exported, index=index)] == placed
 
 
 @score_ids
@@ -137,6 +164,7 @@ SIGNATURE_KEYS = {
     "pickup-repeat-split": "D", "key-change-tuplets": "A", "compound-6-8-grace": "Bb", "compound-9-8": "Db",
     "tuplets-6-8": "F", "tuplets-4-4": "Eb", "grace-mixed-meter": "Eb", "cross-staff": "A", "two-parts": "C",
     "four-parts-pickup": "C", "pdf-reading-prelude": "G", "pdf-reading-overrun": "Ab",
+    "additive-and-mixed-meters": "C",
 }
 
 

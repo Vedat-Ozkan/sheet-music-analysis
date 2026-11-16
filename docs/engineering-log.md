@@ -3085,6 +3085,34 @@ The analysis figure is entry 116's (the draft of the reading against the draft o
 
 **Checks.** `tools/diff_check.py --base main pdfwarn`: 80 inputs, 0 changed (it scores readings already cleaned, so it shows only that the shared full-bar helper still gives the same shading). `tests/test_awkward.py`: 271 passed. Full suite with the reader (sma.8), run twice while other work loaded the machine (load average about 160): 13 failed and 1 error, then 8 failed, all PDF reads that timed out or found no music, a server test refused a connection, and a music21 cache file in `/tmp` truncated; a different set each time. Each set passed when run again alone (14 passed, 8 passed); the new test passed in both full runs. A full run ending in 0 failed is NOT RUN. After the review fixes: `tests/test_read_pdf.py` and `tests/test_awkward.py` with the reader, 381 passed.
 
+### 167. Time signatures written as a sum, and scores saved as UTF-16 (2026-11-16, branch `meter-and-encoding`, nothing released)
+
+Both come from the cold review of 2026-11-14 (engine findings 1 and 2). Each was reproduced on `main` before anything was changed.
+
+**Problem 1: a time signature written as a sum.** A score in 3+2/8 loaded, but its time signature was ignored: the index had no meter for any bar, counted beats in quarter notes (so "beat 2" was the third eighth note), and had no full length for a bar. Checking numerals written into such a score crashed (`ValueError: invalid literal for int() with base 10: '3+2'`), which the user would have seen as a fault on our side.
+
+**Cause.** The time signature was parsed separately in five places, each with its own rule for what counts as readable: `ScoreIndex` (digits only), the student check (`int()` with no guard), the two tuplet repairs (digits only) and the PDF-reading bar check (the only one that added up `+` terms). Three more things came out while fixing it:
+- The engraver marks every bar under such a time signature as incomplete, full or not, so once the meter was read every bar looked like a short bar. The index now decides this itself for these time signatures: a bar whose notes fill the bar is complete.
+- A mixed time signature (3/4 + 2/8, two pairs in the file) was read as its first pair only, 3/4. It is now read as the sum, 8/8.
+- The piano reduction reads the file through a second library, which refuses to give one beat length when the beats are unequal, and crashed. It now uses the same beat as the rest of the engine there.
+
+**Fix.** One reader in `engine/score.py` (`read_meter`, with `musicxml_meter` for a `<time>` element and `bar_length`), used by all five places. A summed time signature is held as its total (3+2/8 as 5/8, 3/4 + 2/8 as 8/8), so everything downstream sees the form it already handles; the page still prints the signature as written.
+
+**How common.** A scan of the 928 MusicXML files in the local test and evaluation corpus (3,679 time signatures) found none written as a sum, none mixed and none unmeasured. So there is no real score to test with: `tests/data/awkward/additive-and-mixed-meters.musicxml` is written by hand and says so in the README there. It should be replaced by a real score when one turns up.
+
+**Known and left.** An unmeasured passage (`<senza-misura/>`) after a time signature keeps the earlier time signature in the index; no file in the corpus has one, so there was nothing real to check a change against. The student check no longer crashes on it. The rule for which meters count as compound is still written three times with small differences (index, tuplet repair, piano reduction; they disagree on 3/8 and 6/16); unifying it would change output for existing scores, so it is not part of this fix.
+
+**Problem 2: UTF-16.** A MusicXML file saved as UTF-16 (legal, and what some notation programs write) was refused as "This file is not MusicXML", and the upload card and link fetching refused it earlier still as "not a MusicXML file or a PDF". The corpus scan found 16 real ones (Beethoven variation sets in `out/eval/ceiling`).
+
+**Cause and fix.** The engine decoded the file as UTF-8, then Latin-1, and looked for the root tag in the result; the server looked for it in the raw bytes. Both now go through one function, `engine.render.xml_text`, which reads the byte-order mark first. The part-name reader used a third decoding and now uses the same one. The parsers that take bytes directly (export, corrections, the student check, the tuplet repairs) already handled UTF-16.
+
+**Checks.**
+- New tests in `tests/test_awkward.py`: every bar of every awkward score has a time signature; the summed signatures are read as their totals with every bar complete; numerals written into each score are read back at the same bar and beat. Run against `main` with the new score, these three fail, and so does the piano reduction; everything else passes. On the branch: 316 passed.
+- New test in `tests/test_server_process.py`: a real score re-saved as UTF-16 is sent to the upload card, drafted and drawn through a running server.
+- All 16 real UTF-16 scores load, export to MusicXML and text, draw and give their bars for correction.
+- `tools/diff_check.py --base origin/main all`: typed 191, part-writing 80, PDF warnings 80, export 6, render 28 inputs; 0 changed in each.
+- Pages looked at full size: the hand-written score with numerals on beat 4 of a 3+2/8 bar, beat 5 of a 2+2+3/8 bar and beat 7 of a 3/4 + 2/8 bar (each sits under the right eighth note), and the first eight bars of Beethoven WoO 70 from its UTF-16 file.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

@@ -16,6 +16,7 @@ and the `tools/diff_check.py` typed area. Most scores are existing fixtures in `
 | two-parts | `tests/data/cadential_64.musicxml` | Two separate parts (not one piano part), four bars; music21-generated fixture. |
 | four-parts-pickup | `tests/data/part_writing_motion.musicxml` | Four single-staff parts with a pickup; planted voice-leading errors (music21-generated fixture). |
 | pdf-reading-overrun | `tests/data/awkward/kinkel-op8-5-trennung-reading.musicxml` | A real Audiveris 5.11.0 reading of a PDF (Johanna Kinkel, Op. 8 No. 5 "Trennung", CC0 Lieder Corpus engraving). `engine.read_pdf.problem_spots` flags bars 1, 3, 10 and 12; bars 10 and 12 have notes that run past the barline, and `correct.replace_bars` rejects their own `bars_from_musicxml` text. Copied from `spike/omr/bench/cache/runs/results-final--kinkel-op8-5-trennung--ms.musicxml`. |
+| additive-and-mixed-meters | `tests/data/awkward/additive-and-mixed-meters.musicxml` | Time signatures written as a sum: 3+2/8, 2+2+3/8 and 3/4 + 2/8, eight bars of one melody line. Written by hand for this suite (no source), because none of the 928 scores in the local corpus has such a time signature; replace it with a real score when one turns up. |
 
 `pdf-reading-prelude` is `tests/data/chopin_prelude_op28_no4_reading.musicxml`, another real PDF reading (Chopin Prelude Op. 28 No. 4, tuplets).
 
