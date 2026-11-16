@@ -71,6 +71,15 @@ def test_additive_and_mixed_time_signatures_are_read_as_their_sum():
     assert [measure.number for measure in index.measures] == list(range(1, 9))
 
 
+def test_numerals_on_late_beats_of_summed_time_signatures_are_read_back_on_those_beats():
+    data, index = load("additive-and-mixed-meters")
+    placed = [(1, 4.0), (3, 5.0), (5, 7.0), (6, 8.0)]
+    analysis = {"annotations": [{"type": "harmony", "at": {"measure": bar, "beat": beat}, "key": "C", "label": "V"} for bar, beat in placed]}
+    exported = export_musicxml(data, analysis)
+    assert [(label.measure, label.beat) for label in from_musicxml(exported, index=index)] == placed
+    assert [(label.measure, label.beat) for label in from_musicxml(exported)] == placed
+
+
 @score_ids
 def test_numerals_written_into_the_score_are_read_back_at_their_bar_and_beat(name):
     data, index = load(name)

@@ -454,7 +454,7 @@ def xml_text(data: bytes) -> str:
     try:
         return data.decode("utf-8-sig")
     except UnicodeDecodeError:
-        return data.decode("latin-1")
+        return data.removeprefix(codecs.BOM_UTF8).decode("latin-1")
 
 
 def _importable(text: str) -> str:
