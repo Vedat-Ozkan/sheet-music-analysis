@@ -1339,7 +1339,6 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
             except pdf_reader.ReadError:
                 raise
             except Exception:
-                await take("pdf_page", source, -read)
                 if arrived:
                     await give_back_score(person, source)
                 raise

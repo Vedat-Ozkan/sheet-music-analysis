@@ -56,20 +56,21 @@ Tool calls since the deploy: `.venv/bin/python -m tools.usage_report --days 1`. 
 
 ## Only the proxy may call production
 
-Production's own run.app address is public, and the limit of uploads per internet connection lives in the `proxy/` Worker, so a call sent straight to run.app would skip it. When the server has a `PROXY_KEY`, it answers 403 to every request that does not carry the same key in the `x-proxy-key` header, except `/health`. The Worker adds that header to everything it forwards. Staging has no key; it requires sign-in instead.
+Production's own run.app address is public, and the limit of uploads per internet connection lives in the `proxy/` Worker, so a call sent straight to run.app would skip it. The server answers 403 to every request that does not carry the proxy's key in the `x-proxy-key` header, except `/health`. The Worker adds that header to everything it forwards. Staging has no key; it requires sign-in instead.
 
-The key lives in two places that must match: the Secret Manager secret `proxy-key` (read by Cloud Run when an instance starts) and the Worker secret `PROXY_KEY`.
+The key is held in three places that must agree: a version of the Secret Manager secret `proxy-key`, the Worker secret `PROXY_KEY`, and the version number the serving Cloud Run revision is pinned to.
 
-Turning it on, in this order:
+`proxy/set-key.sh sheet-music-analysis` makes a new random key and sets all three, in that order: it adds a secret version, deploys the Worker from this checkout with the key, then points the service at that version (a new revision with the same image, not tagged `prod-*`). The key is never printed. If the Worker step fails, the script switches the new version off again and nothing has changed. `server/deploy.sh` pins every production deploy to the newest version that is switched on, and refuses to deploy production when there is none.
 
-1. Deploy the Worker from a checkout that sends the header: `npx wrangler@4 deploy -c proxy/wrangler.jsonc`.
-2. `proxy/set-key.sh sheet-music-analysis` makes a new random key and stores it in both places. Until the server is deployed again nothing checks it.
-3. `server/deploy.sh sheet-music-analysis`. The script passes the key to the service only when the secret exists.
-4. Check: `curl -s -o /dev/null -w '%{http_code}\n' -X POST https://mcp.sheetmusicanalysis.com/mcp` answers anything but 403, and the same request to the run.app address answers 403. Then make one real tool call from Claude or ChatGPT.
+Turning it on for the first time, from a checkout of `main` that has the Worker change:
 
-If every call starts failing with 403, the two copies differ: roll back to the previous revision (above), which removes the check, then repeat steps 2 and 3.
+1. `proxy/set-key.sh sheet-music-analysis`. The server code then live does not check the key, so nothing is refused yet.
+2. `server/deploy.sh sheet-music-analysis`. From this revision on the key is checked.
+3. Check: `curl -s -o /dev/null -w '%{http_code}\n' -X POST https://mcp.sheetmusicanalysis.com/mcp` answers anything but 403, and the same request to the run.app address answers 403. Then make one real tool call from Claude or ChatGPT.
 
-Changing the key: run step 2, then step 3 straight away. Calls are refused between the two, because running instances still hold the old key.
+If every call starts failing with 403, the copies differ: run `proxy/set-key.sh sheet-music-analysis` again, which sets all three afresh. Rolling back helps only to a revision from before the key was first turned on.
+
+Changing the key later is the same script. Calls are refused for the short time between its Worker step and its last step, because the serving revision still holds the old key.
 
 ## Release history
 

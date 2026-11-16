@@ -32,6 +32,14 @@ ACCOUNT=$RUN_SERVICE@$PROJECT.iam.gserviceaccount.com
 PROXY_KEY=()
 
 gcloud config set project "$PROJECT"
+if [ "$STAGE" = production ]; then
+  KEY_VERSION=$(gcloud secrets versions list proxy-key --filter=state:enabled --sort-by=~createTime --limit=1 --format='value(name)' 2>/dev/null || true)
+  if [ -z "$KEY_VERSION" ]; then
+    echo "production has no proxy key yet: run proxy/set-key.sh $PROJECT first (docs/runbook.md, Only the proxy may call production)" >&2
+    exit 1
+  fi
+  PROXY_KEY=(--set-secrets="PROXY_KEY=proxy-key:$KEY_VERSION")
+fi
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com storage.googleapis.com
 
 if ! gcloud storage buckets describe "gs://$BUCKET" >/dev/null 2>&1; then
@@ -52,11 +60,6 @@ for attempt in 1 2 3 4 5 6; do
   [ "$attempt" = 6 ] && exit 1
   sleep 10
 done
-
-if [ "$STAGE" = production ] && gcloud secrets describe proxy-key >/dev/null 2>&1; then
-  gcloud secrets add-iam-policy-binding proxy-key --member="serviceAccount:$ACCOUNT" --role=roles/secretmanager.secretAccessor >/dev/null
-  PROXY_KEY=(--set-secrets=PROXY_KEY=proxy-key:latest)
-fi
 
 if ! gcloud artifacts repositories describe "$SERVICE" --location="$REGION" >/dev/null 2>&1; then
   gcloud artifacts repositories create "$SERVICE" --repository-format=docker --location="$REGION"

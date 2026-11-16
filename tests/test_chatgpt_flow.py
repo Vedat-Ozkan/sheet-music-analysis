@@ -341,7 +341,7 @@ def test_every_draft_and_correction_counts_towards_one_shared_daily_number(serve
     assert charged(server, "draft") == 3
 
 
-def test_a_crash_while_reading_a_pdf_gives_back_what_it_charged_and_an_unreadable_pdf_does_not(server, monkeypatch):
+def test_a_crash_while_reading_a_pdf_gives_back_the_score_and_keeps_the_pages_and_an_unreadable_pdf_keeps_both(server, monkeypatch):
     person = "0123456789abcdef"
     monkeypatch.setattr(app, "caller", lambda: person)
 
@@ -356,13 +356,13 @@ def test_a_crash_while_reading_a_pdf_gives_back_what_it_charged_and_an_unreadabl
 
     monkeypatch.setattr(app.pdf_reader, "read_pdf", crash)
     assert "on our side" in text_of(call("read_pdf", ATTACHED))
-    after_crash = charged(server, "score"), charged(server, "pdf_page"), counted_for(server, person)
+    after_crash = charged(server, "score"), counted_for(server, person), charged(server, "pdf_page")
     monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable)
     monkeypatch.setattr(app, "download", another_pdf)
     assert "No music was found" in text_of(call("read_pdf", ATTACHED))
-    after_unreadable = charged(server, "score"), counted_for(server, person)
-    assert after_crash == (0, 0, 0)
-    assert after_unreadable == (1, 1) and charged(server, "pdf_page") >= 1
+    after_unreadable = charged(server, "score"), counted_for(server, person), charged(server, "pdf_page")
+    assert after_crash[:2] == (0, 0) and after_crash[2] > 0
+    assert after_unreadable[:2] == (1, 1) and after_unreadable[2] > after_crash[2]
 
 
 def test_a_score_file_sent_again_by_the_same_account_keeps_its_score_id_and_is_not_charged_again(server, monkeypatch):

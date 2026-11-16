@@ -3125,9 +3125,9 @@ From the cold review of 2026-11-14 (server findings 1, 2, 3 and 12, each confirm
 - A PDF read charged the person's daily score, the shared score and the shared pages before reading, and gave nothing back when the read then crashed on our side.
 
 **What changed.**
-- **Proxy key.** When the server has a `PROXY_KEY`, it answers 403 to any request without the same key in `x-proxy-key`, except `/health`. The Worker adds the header to everything it forwards. The key is a Secret Manager secret (`proxy-key`) and a Worker secret; `proxy/set-key.sh` makes one and stores it in both. `server/deploy.sh` passes it to production only when the secret exists, so a deploy before the key is set behaves as today. The runbook has the order to turn it on and what to do if the two copies differ.
+- **Proxy key.** When the server has a `PROXY_KEY`, it answers 403 to any request without the same key in `x-proxy-key`, except `/health`. The Worker adds the header to everything it forwards. The key is a Secret Manager secret (`proxy-key`) and a Worker secret; `proxy/set-key.sh` makes one, stores it in both and points the service at that version. `server/deploy.sh` pins production to the newest version that is switched on and refuses to deploy production without one, so the check cannot be dropped by a deploy that fails to find the secret. The runbook has the order to turn it on and what to do if the copies differ.
 - **A shared daily count of drafts, 300.** Every `draft_analysis` call that gets as far as a score, and every `correct_bars` call on a stored score, takes one. A new score refused at its own limit gives the draft back. This reverses part of entry 142 ("drafts by score_id, corrections" were free) and the rule that a correction with invalid bars costs nothing: it now costs a draft and still no render.
-- **Give-back.** If the reader raises anything other than "this PDF could not be read", the pages and the score (the person's and the shared one) are given back. A PDF that cannot be read still counts, as before.
+- **Give-back.** If the reader raises anything other than "this PDF could not be read", the score is given back (the person's and the shared one). The pages stay counted: they are what bounds reader time, and giving them back would let a file that crashes the reader be sent again and again for free. A PDF that cannot be read still counts in full, as before.
 - **Runbook examples.** The rollback example named `00062-fzf`, three releases behind production; the examples now use `<previous-revision>` and `<new-revision>` with a line saying where to find them.
 
 **Checked against production before building.**
@@ -3139,9 +3139,12 @@ From the cold review of 2026-11-14 (server findings 1, 2, 3 and 12, each confirm
 - In Claude there is no per-person identity on tool calls, and in ChatGPT the identity is a value the caller sends. Against a deliberate caller only the shared limits and the Worker's count per connection hold. A Cloudflare rate rule on `POST /mcp` by address (generous for Anthropic's and OpenAI's ranges) would add a real bound; not built.
 - `play` and the first opening of a worksheet link are still counted by nothing.
 - The Worker reads its count, forwards the upload and then writes the count, so parallel uploads can pass 30.
-- Changing the key refuses calls between the two steps, because running instances hold the old key.
+- Changing the key refuses calls for the short time between the script's Worker step and its last step.
+- A read that crosses midnight UTC gives its score back to the new day's count, which then starts one below zero. A read that is cancelled, or cut off when its instance stops, gives nothing back.
 
-**Checks.** New tests: a server started with a key answers 403 without it, with a wrong one and on `/upload`, serves with it and keeps `/health` open; drafts and corrections count towards one number and are refused at it; a crash in the reader gives back all three charges and an unreadable PDF keeps them. Two existing tests that pinned the old rules were changed to the new ones (`test_correct_flow.py`). The Worker change and `deploy.sh` have no test here; they are checked by the steps in the runbook when the key is turned on.
+**Checks.** New tests: a server started with a key answers 403 without it, with a wrong one and on `/upload`, serves with it and keeps `/health` open; drafts and corrections count towards one number and are refused at it; a crash in the reader gives back the score and keeps the pages, and an unreadable PDF keeps both. Two existing tests that pinned the old rules were changed to the new ones (`test_correct_flow.py`). The Worker change, `proxy/set-key.sh` and the `deploy.sh` change have no test and were NOT RUN (they act on production); they are checked by the runbook's steps when the key is turned on.
+
+**After review.** The first version passed the secret as `proxy-key:latest`. With no instance kept warm, each cold start reads `latest`, so adding a secret version would have changed the key production enforces at once, and a failed Worker step would have refused every call; rolling back would not have helped, since later revisions read `latest` too. Versions are now pinned and one script sets all three places. The first version also gave back the pages after a crash (see Give-back).
 
 ## Checking against teachers' prose
 
