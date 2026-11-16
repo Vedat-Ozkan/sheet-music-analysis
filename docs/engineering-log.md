@@ -3112,6 +3112,7 @@ Both come from the cold review of 2026-11-14 (engine findings 1 and 2). Each was
 - After review: the file-type check looks at the first 65,536 bytes, and a UTF-8 file with a byte-order mark and an accented letter cut in half at that point was refused (it was accepted on `main`). The fallback decoding now drops the mark, with a test of exactly that file. A second test writes numerals on beats 4, 5, 7 and 8 of the summed bars and reads them back on those beats, since the first one only used beat 1.
 - All 16 real UTF-16 scores load, export to MusicXML and text, draw and give their bars for correction.
 - `tools/diff_check.py --base origin/main all`: typed 191, part-writing 80, PDF warnings 80, export 6, render 28 inputs; 0 changed in each.
+- Full suite with the PDF reader (sma.8): 1580 passed, 4 skipped ("no ring codes"), 0 failed, before the two review fixes; with them, as part of the branch of entry 168 that sits on this one, 1585 passed, 4 skipped, 0 failed.
 - Pages looked at full size: the hand-written score with numerals on beat 4 of a 3+2/8 bar, beat 5 of a 2+2+3/8 bar and beat 7 of a 3/4 + 2/8 bar (each sits under the right eighth note), and the first eight bars of Beethoven WoO 70 from its UTF-16 file.
 
 ## Checking against teachers' prose
