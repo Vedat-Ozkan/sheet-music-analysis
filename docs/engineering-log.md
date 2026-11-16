@@ -3115,7 +3115,7 @@ Both come from the cold review of 2026-11-14 (engine findings 1 and 2). Each was
 - Full suite with the PDF reader (sma.8): 1580 passed, 4 skipped ("no ring codes"), 0 failed, before the two review fixes; with them, as part of the branch of entry 168 that sits on this one, 1585 passed, 4 skipped, 0 failed.
 - Pages looked at full size: the hand-written score with numerals on beat 4 of a 3+2/8 bar, beat 5 of a 2+2+3/8 bar and beat 7 of a 3/4 + 2/8 bar (each sits under the right eighth note), and the first eight bars of Beethoven WoO 70 from its UTF-16 file.
 
-### 168. Production answers only through the proxy; drafts and corrections are counted; a read that fails on our side costs nothing (2026-11-16, branch `origin-lock-and-limits`, nothing released)
+### 168. Production answers only through the proxy; drafts and corrections are counted; a read that fails on our side gives the score back (2026-11-16, branch `origin-lock-and-limits`, nothing released)
 
 From the cold review of 2026-11-14 (server findings 1, 2, 3 and 12, each confirmed by reading the code first). The owner approved the changes to counting on 2026-11-16.
 
@@ -3143,6 +3143,8 @@ From the cold review of 2026-11-14 (server findings 1, 2, 3 and 12, each confirm
 - A read that crosses midnight UTC gives its score back to the new day's count, which then starts one below zero. A read that is cancelled, or cut off when its instance stops, gives nothing back.
 
 **Checks.** New tests: a server started with a key answers 403 without it, with a wrong one and on `/upload`, serves with it and keeps `/health` open; drafts and corrections count towards one number and are refused at it; a crash in the reader gives back the score and keeps the pages, and an unreadable PDF keeps both. Two existing tests that pinned the old rules were changed to the new ones (`test_correct_flow.py`). The Worker change, `proxy/set-key.sh` and the `deploy.sh` change have no test and were NOT RUN (they act on production); they are checked by the runbook's steps when the key is turned on.
+
+Full suite with the PDF reader (sma.8) on the finished branch, which includes entry 167's: 1585 passed, 4 skipped ("no ring codes"), 0 failed.
 
 **After review.** The first version passed the secret as `proxy-key:latest`. With no instance kept warm, each cold start reads `latest`, so adding a secret version would have changed the key production enforces at once, and a failed Worker step would have refused every call; rolling back would not have helped, since later revisions read `latest` too. Versions are now pinned and one script sets all three places. The first version also gave back the pages after a crash (see Give-back).
 
