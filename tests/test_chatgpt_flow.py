@@ -55,6 +55,11 @@ def charged(store, kind):
     return json.loads(raw).get(kind, 0) if raw else 0
 
 
+def counted_for(store, person):
+    raw = store.get(f"limits/{datetime.now(timezone.utc):%Y-%m-%d}.json")
+    return json.loads(raw).get(person, 0) if raw else 0
+
+
 def score_id_of(result):
     return text_of(result).split("score_id: ", 1)[1].split()[0]
 
@@ -319,6 +324,45 @@ def test_one_chatgpt_account_gets_its_own_daily_limit_of_new_scores(server, monk
     refused = call("draft_analysis", {"score_file": ATTACHED["pdf_file"]})
     assert refused.is_error and app.PERSON_LIMIT_MESSAGE in text_of(refused)
     assert charged(server, "score") == 1
+    assert charged(server, "draft") == 0
+
+
+def test_every_draft_and_correction_counts_towards_one_shared_daily_number(server, monkeypatch):
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    for _ in range(2):
+        assert not call("draft_analysis", {"score_id": score_id, "measure_range": "1-2"}).is_error
+    call("correct_bars", {"score_id": score_id, "replacement_bars": "N1 div=24 ts=2/2 ks=1\nm3 len=96\n1.1: 24 C4\n"})
+    assert charged(server, "draft") == 3
+    monkeypatch.setitem(app.DAILY_LIMITS, "draft", 3)
+    drafts = call("draft_analysis", {"score_id": score_id, "measure_range": "1-2"})
+    corrections = call("correct_bars", {"score_id": score_id, "replacement_bars": "N1 div=24 ts=2/2 ks=1\nm3 len=96\n1.1: 24 C4\n"})
+    assert drafts.is_error and app.LIMIT_MESSAGE in text_of(drafts)
+    assert corrections.is_error and app.LIMIT_MESSAGE in text_of(corrections)
+    assert charged(server, "draft") == 3
+
+
+def test_a_crash_while_reading_a_pdf_gives_back_what_it_charged_and_an_unreadable_pdf_does_not(server, monkeypatch):
+    person = "0123456789abcdef"
+    monkeypatch.setattr(app, "caller", lambda: person)
+
+    def crash(data):
+        raise RuntimeError("injected")
+
+    def unreadable(data):
+        raise pdf_reader.ReadError("No music was found on the page")
+
+    async def another_pdf(url):
+        return (DATA / "chopin-op10-1-mutopia.pdf").read_bytes()
+
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", crash)
+    assert "on our side" in text_of(call("read_pdf", ATTACHED))
+    after_crash = charged(server, "score"), charged(server, "pdf_page"), counted_for(server, person)
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable)
+    monkeypatch.setattr(app, "download", another_pdf)
+    assert "No music was found" in text_of(call("read_pdf", ATTACHED))
+    after_unreadable = charged(server, "score"), counted_for(server, person)
+    assert after_crash == (0, 0, 0)
+    assert after_unreadable == (1, 1) and charged(server, "pdf_page") >= 1
 
 
 def test_a_score_file_sent_again_by_the_same_account_keeps_its_score_id_and_is_not_charged_again(server, monkeypatch):

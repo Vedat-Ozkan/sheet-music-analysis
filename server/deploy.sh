@@ -16,7 +16,7 @@ if [ "$STAGE" = staging ]; then
   IMAGE=$IMAGE:staging
   RUN_SERVICE=$SERVICE-staging
   ACCESS=--no-allow-unauthenticated
-  LIMITS='@DAILY_LIMITS={"score": 100000, "render": 100000, "pdf_page": 100000}@PERSON_SCORE_LIMIT=100000'
+  LIMITS='@DAILY_LIMITS={"score": 100000, "draft": 100000, "render": 100000, "pdf_page": 100000}@PERSON_SCORE_LIMIT=100000'
 elif [ "$STAGE" != production ]; then
   echo "unknown stage: $STAGE" >&2
   exit 1
@@ -29,6 +29,7 @@ else
   fi
 fi
 ACCOUNT=$RUN_SERVICE@$PROJECT.iam.gserviceaccount.com
+PROXY_KEY=()
 
 gcloud config set project "$PROJECT"
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com storage.googleapis.com
@@ -51,6 +52,11 @@ for attempt in 1 2 3 4 5 6; do
   [ "$attempt" = 6 ] && exit 1
   sleep 10
 done
+
+if [ "$STAGE" = production ] && gcloud secrets describe proxy-key >/dev/null 2>&1; then
+  gcloud secrets add-iam-policy-binding proxy-key --member="serviceAccount:$ACCOUNT" --role=roles/secretmanager.secretAccessor >/dev/null
+  PROXY_KEY=(--set-secrets=PROXY_KEY=proxy-key:latest)
+fi
 
 if ! gcloud artifacts repositories describe "$SERVICE" --location="$REGION" >/dev/null 2>&1; then
   gcloud artifacts repositories create "$SERVICE" --repository-format=docker --location="$REGION"
@@ -78,7 +84,7 @@ if [ "$STAGE" = staging ]; then
 fi
 PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://mcp.sheetmusicanalysis.com}
 gcloud run deploy "$RUN_SERVICE" --image="$DIGEST" --region="$REGION" \
-  --service-account="$ACCOUNT" "$ACCESS" \
+  --service-account="$ACCOUNT" "$ACCESS" "${PROXY_KEY[@]}" \
   --execution-environment=gen2 --cpu=4 --memory=4Gi --concurrency=2 --min-instances=0 --max-instances=2 --timeout=900 \
   --startup-probe=tcpSocket.port=8080,timeoutSeconds=240,periodSeconds=240,failureThreshold=3 \
   --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL@CONNECTOR_URL=${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}$LIMITS"
