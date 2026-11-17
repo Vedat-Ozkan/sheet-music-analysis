@@ -3323,7 +3323,7 @@ At any level of misses, the spacing rule warns fewer good readings: to miss only
 
 **Known and left.** A PDF whose page images sit inside nested page objects (the full-size Dvořák of entry 176) has no measurable image width, so it gets no warning, as with our reader.
 
-**Checks.** `tests/test_read_homr.py`: the Kinkel test scan reads with no warning and the same scan shrunk to 450 pixels wide (`kinkel_trennung_scan_450px_wide.pdf`, made as in entry 176) gets it; every page's record carries `note_head`. With homr installed: 9 passed, 1 skipped (Audiveris not set). `tests/test_read_pdf.py`: 93 passed, 17 skipped.
+**Checks.** `tests/test_read_homr.py`: the Kinkel test scan reads with no warning and the same scan shrunk to 450 pixels wide (`kinkel_trennung_scan_450px_wide.pdf`, made as in entry 176) gets it; every page's record carries `note_head`. With homr installed: 9 passed, 1 skipped (Audiveris not set). `tests/test_read_pdf.py`: 93 passed, 17 skipped. Full suite on the finished branch with both readers installed: 1608 passed, 4 skipped (no ring codes).
 
 ## Checking against teachers' prose
 
