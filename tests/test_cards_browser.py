@@ -17,7 +17,7 @@ PDF = ROOT / "tests/data/chopin-28-4-mutopia.pdf"
 MUSICXML = ROOT / "tests/data/chopin_nocturne_op9_no2.mxl"
 PAGE_PNG = ROOT / "tests/golden/chopin_m1-8_all.png"
 UPLOAD_HEADERS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS",
-                  "Access-Control-Allow-Headers": "content-type"}
+                  "Access-Control-Allow-Headers": "content-type, x-device"}
 
 HOST = """<!doctype html><meta charset=utf-8><iframe id=f style="width:600px;height:60px;border:0"></iframe>
 <script>
@@ -90,7 +90,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers["Content-Length"]))
-        self.server.uploads.append((parse_qs(urlsplit(self.path).query), body))
+        self.server.uploads.append((parse_qs(urlsplit(self.path).query), self.headers["x-device"], body))
         if self.server.upload_reply is None:
             self.close_connection = True
             return
@@ -189,10 +189,9 @@ def test_upload_card_sends_a_pdf_and_puts_the_message_in_the_reply_box(page, upl
     expect(status).to_contain_text("If your reply box is empty, type \"I've chosen it\" and send that.")
     expect(card.locator("#status")).to_have_class("got")
     expect(card.locator("#choose")).to_be_hidden()
-    [(query, body)] = upload_server.uploads
-    device = card_frame(page).evaluate("localStorage.getItem('device')")
-    assert re.fullmatch(r"[0-9a-f]{32}", device)
-    assert query == {"id": ["ABC123"], "device": [device]}
+    [(query, device, body)] = upload_server.uploads
+    assert re.fullmatch(r"[0-9a-f]{32}", device) and device == card_frame(page).evaluate("localStorage.getItem('device')")
+    assert query == {"id": ["ABC123"]}
     assert body == PDF.read_bytes()
     [message] = sent(page, "ui/message")
     assert message["params"] == {"role": "user", "content": [{"type": "text", "text": f"I've chosen my score: {PDF.name}"}]}
