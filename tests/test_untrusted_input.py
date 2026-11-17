@@ -1,4 +1,5 @@
 import asyncio
+import codecs
 import json
 import threading
 import time
@@ -109,3 +110,11 @@ def test_an_attachment_that_cannot_be_downloaded_gets_a_plain_answer_and_logs_th
     line = next(line for line in reversed(lines) if line.get("event") == "read_pdf")
     assert result.is_error and "HTTP 403" in result.content[0].text and "secret" not in result.content[0].text
     assert line["status"] == 403 and line["host"] == "127.0.0.1" and "secret" not in json.dumps(line)
+
+
+def test_a_score_with_a_byte_order_mark_is_recognised_when_a_letter_is_cut_at_the_end_of_the_part_looked_at():
+    head = codecs.BOM_UTF8 + b'<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><work><work-title>'
+    score = head + b"a" * (65535 - len(head)) + "é".encode() + b"</work-title></work></score-partwise>"
+    assert score[65535:65537] == "é".encode()
+    assert app.score_kind(score) == "musicxml"
+

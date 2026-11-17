@@ -56,7 +56,7 @@ from engine.performance import marked_index, performance_text, unclear_tempos
 from engine.annotations import AnnotationList, view_named
 from engine.errors import UserError
 from engine.export import export_midi, export_musicxml, export_romantext
-from engine.render import ScoreError, engrave, load_toolkit, parse_measures
+from engine.render import ScoreError, engrave, load_toolkit, parse_measures, xml_text
 from engine.score import PositionError, ScoreIndex
 from server import IMPORTS_BEGUN, SERVER_FILES
 
@@ -1880,8 +1880,8 @@ def score_kind(data: bytes) -> str | None:
                 return "musicxml" if "META-INF/container.xml" in archive.namelist() else None
         except zipfile.BadZipFile:
             return None
-    head = data[:65536].lstrip(b"\xef\xbb\xbf \t\r\n")
-    return "musicxml" if head.startswith(b"<") and re.search(rb"<score-(partwise|timewise)\b", head) else None
+    head = xml_text(data[:65536]).lstrip()
+    return "musicxml" if head.startswith("<") and re.search(r"<score-(partwise|timewise)\b", head) else None
 
 
 def link_host(url: str) -> str:

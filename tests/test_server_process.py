@@ -173,6 +173,21 @@ def test_a_score_chosen_in_the_card_is_kept_drafted_and_drawn_for_claude(server,
     assert not drawn.get("isError") and drawn["structuredContent"]["image_url"]
 
 
+def test_a_score_saved_as_utf_16_is_kept_drafted_and_drawn(server, store):
+    intermezzo = (NOCTURNE.parent / "export-brahms-118-2.musicxml").read_text(encoding="utf-8")
+    score = intermezzo.replace("encoding='utf-8'", "encoding='UTF-16'", 1).encode("utf-16")
+    score_id = card_id(server)
+    status, _, body = upload(server, score, score_id)
+    drafted = as_claude(server, "tools/call", {"name": "draft_analysis", "arguments": {"score_id": score_id, "measure_range": "1-2"}})
+    marks = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "A"}]
+    drawn = as_claude(server, "tools/call", {"name": "render_analysis", "arguments": {
+        "score_id": score_id, "measure_range": "1-2", "annotations": {"annotations": marks}}})
+    assert "encoding='UTF-16'" in score.decode("utf-16")
+    assert status == 200 and body == {"kind": "musicxml"}
+    assert not drafted.get("isError") and drafted["content"][0]["text"].startswith(f"score_id: {score_id}")
+    assert not drawn.get("isError") and drawn["structuredContent"]["image_url"]
+
+
 def test_a_pdf_chosen_in_the_card_is_kept_for_the_pdf_reader(server, store):
     pdf = (NOCTURNE.parent / "chopin-28-4-mutopia.pdf").read_bytes()
     pdf_id = card_id(server)

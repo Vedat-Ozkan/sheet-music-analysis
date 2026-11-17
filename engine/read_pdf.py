@@ -27,7 +27,7 @@ from engine import text, tint, verovio_workers
 from engine.errors import UserError
 from engine.overlay import S, Box, PageLayout
 from engine.render import Engraving, ScoreError, load_toolkit
-from engine.score import TOLERANCE, ScoreIndex
+from engine.score import TOLERANCE, ScoreIndex, bar_length, musicxml_meter
 from engine.triplets import infer_triplets
 from engine.tuplet_rests import infer_tuplet_rests
 
@@ -198,11 +198,8 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
 
 
 def _full_bar(measure: ET.Element) -> Fraction | None:
-    time = measure.find("attributes/time")
-    beats = time.findtext("beats", "") if time is not None else ""
-    if beats and all(count.strip().isdigit() for count in beats.split("+")):
-        return Fraction(sum(int(count) for count in beats.split("+")) * 4, int(time.findtext("beat-type")))
-    return None
+    meter = musicxml_meter(measure.find("attributes/time"))
+    return bar_length(*meter) if meter else None
 
 
 def _columns_disagree(notes: list[tuple[int, str, Fraction, float]]) -> bool:

@@ -13,7 +13,7 @@ from music21 import roman
 from engine.errors import UserError
 from engine.comparison import Label, from_annotations, matches, sounding
 from engine.reduce import midi
-from engine.score import Measure, PositionError, ScoreIndex, beat_length
+from engine.score import Measure, PositionError, ScoreIndex, beat_length, musicxml_meter
 
 KEY_NAME = r"[A-Ga-g][#b♯♭-]*(?:\s+(?:major|minor|maj|min))?"
 ROMAN = re.compile(r"[#b-]*(?:VII|III|VI|IV|II|V|I|vii|iii|vi|iv|ii|v|i)(?:o|ø|\+)?M?(?:753|53|65|64|43|42|13|11|9|7|6|2)?")
@@ -281,9 +281,8 @@ def from_musicxml(data: str | bytes, default_key: str = 'C', index: ScoreIndex |
                 if element.tag == 'attributes':
                     divisions = int(element.findtext('divisions', str(divisions)))
                     staves = int(element.findtext('staves', str(staves)))
-                    time = element.find('time')
-                    if time is not None:
-                        unit = beat_length(int(time.findtext('beats')), int(time.findtext('beat-type')))
+                    if meter := musicxml_meter(element.find('time')):
+                        unit = beat_length(*meter)
                     local = element.find('key')
                     if local is not None:
                         pending.append((cursor, 'key', _xml_key(local)))

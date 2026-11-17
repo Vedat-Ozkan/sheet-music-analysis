@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import xml.etree.ElementTree as ET
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from fractions import Fraction
 
@@ -115,6 +116,30 @@ def beat_length(count: int, unit: int) -> Fraction:
     return Fraction(4, unit)
 
 
+def bar_length(count: int, unit: int) -> Fraction:
+    return Fraction(count * 4, unit)
+
+
+def read_meter(signatures: Iterable[tuple[str | None, str | None]]) -> tuple[int, int] | None:
+    read = []
+    for count, unit in signatures:
+        terms = [term.strip() for term in (count or "").split("+")]
+        unit = (unit or "").strip()
+        if not all(term.isdigit() for term in terms) or not unit.isdigit() or int(unit) == 0:
+            return None
+        read.append((sum(map(int, terms)), int(unit)))
+    if not read:
+        return None
+    shared_unit = math.lcm(*(unit for _, unit in read))
+    return sum(count * shared_unit // unit for count, unit in read), shared_unit
+
+
+def musicxml_meter(time: ET.Element | None) -> tuple[int, int] | None:
+    if time is None:
+        return None
+    return read_meter(zip((beats.text for beats in time.findall("beats")), (unit.text for unit in time.findall("beat-type"))))
+
+
 def in_range(number: int, first: int | None, last: int | None) -> bool:
     return (first is None or number >= first or (first == 1 and number == 0)) and (last is None or number <= last)
 
@@ -163,6 +188,8 @@ class ScoreIndex:
         self._ppq: dict[int, int] = {}
         self._transposition: dict[int, int] = {}
         self._beat_length = Fraction(1)
+        self._bar_length: Fraction | None = None
+        self._meter_is_a_sum = False
         self._meter = ""
         self._key_signature = ""
         self._position = 0
@@ -210,8 +237,7 @@ class ScoreIndex:
                 self._ppq[staff] = int(staff_def.get("ppq"))
             if staff_def.get("trans.semi") is not None:
                 self._transposition[staff] = int(staff_def.get("trans.semi"))
-        count, unit = element.get("meter.count"), element.get("meter.unit")
-        self._read_meter(element.find(f".//{MEI}meterSig"), count, unit)
+        self._read_meter(element)
         concert = [element.find(f"{MEI}keySig")] + [staff_def.find(f"{MEI}keySig") for staff_def in element.iter(f"{MEI}staffDef")
                                                    if int(staff_def.get("n", "1")) not in self._transposition]
         key = next((found for found in concert if found is not None), element.find(f".//{MEI}keySig"))
@@ -220,12 +246,20 @@ class ScoreIndex:
             self._key_signature = signature
             self.key_signature = self.key_signature or signature
 
-    def _read_meter(self, meter: ET.Element | None, count: str | None = None, unit: str | None = None) -> None:
-        if meter is not None:
-            count, unit = meter.get("count", count), meter.get("unit", unit)
-        if count and unit and count.isdigit() and unit.isdigit():
-            self._beat_length = beat_length(int(count), int(unit))
-            self._meter = f"{count}/{unit}"
+    def _read_meter(self, element: ET.Element) -> None:
+        group = element.find(f".//{MEI}meterSigGrp")
+        if group is not None and group.get("func") == "mixed":
+            signatures = group.findall(f"{MEI}meterSig")
+        else:
+            signatures = [found for found in [element.find(f".//{MEI}meterSig")] if found is not None] or [element]
+        count, unit = element.get("meter.count"), element.get("meter.unit")
+        written = [(signature.get("count", count), signature.get("unit", unit)) for signature in signatures]
+        meter = read_meter(written)
+        if meter:
+            self._meter_is_a_sum = len(written) > 1 or "+" in written[0][0]
+            self._beat_length = beat_length(*meter)
+            self._bar_length = bar_length(*meter)
+            self._meter = "{}/{}".format(*meter)
             self.meter = self.meter or self._meter
 
     def _walk(self, element: ET.Element) -> None:
@@ -242,7 +276,7 @@ class ScoreIndex:
         self._position += 1
         self._drawn_bars += 1
         self._drawn_position[self._position] = self._drawn_bars
-        self._read_meter(element.find(f".//{MEI}meterSig"))
+        self._read_meter(element)
         label = element.get("n", "")
         numbered = label.lstrip("-").isdigit()
         incomplete = element.get("metcon") == "false"
@@ -255,16 +289,16 @@ class ScoreIndex:
             meter=self._meter,
             key_signature=self._key_signature,
         )
-        full = None
-        if self._meter:
-            count, unit = self._meter.split("/")
-            full = Fraction(int(count) * 4, int(unit))
+        full = self._bar_length
         if not incomplete:
             measure.declared_length = full
         for staff in element.findall(f"{MEI}staff"):
             for position, layer in enumerate(staff.findall(f"{MEI}layer"), start=1):
                 self._layer = position
                 self._read_layer(layer, measure, int(staff.get("n", "1")), Fraction(0))
+        if self._meter_is_a_sum and full is not None and abs(measure.content_length - full) <= TOLERANCE:
+            incomplete = False
+            measure.declared_length = full
         if not measure.events and full is not None:
             measure.declared_length = full
         for tie in element.findall(f"{MEI}tie"):
