@@ -3173,6 +3173,29 @@ The two scans entry 169 timed fell from 38.8 s a page to 27.6 (29% less) and 21.
 
 **Checks.** `tests/test_read_homr.py` with both readers installed: 8 passed, among them a software-made PDF read through the homr module with no homr present. Full suite: 1542 passed, 4 skipped, 0 failed. **NOT RUN:** `tools/diff_check.py` (`engine/read_pdf.py` is untouched); a file with both scanned and software-made pages on staging; a real chat.
 
+### 174. Ten unseen song scans: the gap between the two readers holds (2026-11-17, branch `homr-staging`, nothing released)
+
+**Question.** Every accuracy figure for homr so far came from twelve scans already used for decisions (entries 159-161). Does its lead hold on scans neither reader has been run on?
+
+**Set.** The first ten candidates of the unseen half of `spike/omr/bench-scan/split.json` (#9, #10, #14, #15, #16, #17, #21, #22, #24, #27), downloaded by the owner by hand; nothing fetched by an agent. Each song's pages were cut out and checked by eye against its OpenScore Lieder reference before any reading: key, metre, the changes of key and metre, and the bar count system by system. All ten match; no drops (`SELECTION.md` on `accuracy-trials` has editions and page ranges). Voice and piano, 656 bars, 35 pages. By the rule set before any reading, the unseen half is reported as totals only, and no per-song result was looked at.
+
+**Method.** Both readers through this branch's engine as the server would run them: `engine.read_pdf.read_pdf` with the sma.8 install, and `engine.read_homr.read_pdf` (homr 0.7.1, the staging image's package versions, pages 2,480 wide). Scoring is entry 161's: `whole_bars.score_pdf` against the reference; a bar is exact only if every staff of every part matches; "wrong" and "shaded" use the engine's own shading; lyrics and words are not scored. Scripts and readings: `~/omr-reader-test-2026-11-07/unseen-songs` (`read.py`, `score.py`).
+
+| 656 bars | Ours (sma.8) | homr 0.7.1 | Entry 161, seven tuning-half songs (ours / homr) |
+|---|---|---|---|
+| Bars exact | 191 (29.1%) | 437 (66.6%) | 9.4% / 53.2% |
+| Wrong bars / of those unshaded | 459 / 162 | 213 / 109 | 251 / 84 and 129 / 77 |
+| Right bars shaded | 1 | 129 | 0 / 10 |
+| Pitch / timing, % of notes | 82.6 / 70.8 | 97.5 / 94.6 | 70.3 / 53.4 and 93.9 / 90.1 |
+| Songs with the reference's bar count | 9 of 10 | 10 of 10 | 4 of 7 / 6 of 7 |
+| Pages not read | 1 | 0 | |
+
+**What it means.** The lead holds on unseen scans: 37 points of exact bars here, 44 on the tuning half. homr leaves fewer wrong bars unshaded in absolute terms (109 against 162), but shades a smaller share of its wrong bars (49% against 65%), and it shades 129 bars that are right (30% of its right bars; 10 of 148 on the tuning half). Why so many right bars are shaded is not known: finding out needs per-song results, which this set's rule does not allow, so it has to be looked at on the tuning half or on new scans.
+
+**Limits.** Ten songs, all voice and piano; no fresh piano scans. OpenScore Lieder renderings are in homr's training images, so homr may have seen these songs' music engraved differently, though not these scans. Two of the ten are modern reproductions delivered as images (Fauré, Munktell). Bars exact ignores lyrics, where homr writes nothing. Each song was read once. The bar counts were checked by eye at reduced size.
+
+**NOT RUN:** the analysis figure of entry 161; the other 20 unseen candidates; timings (the readers ran side by side on shared processors).
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
