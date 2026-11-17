@@ -440,6 +440,15 @@ def test_a_narrow_last_flat_stays_in_the_key_signature():
 
 
 @pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
+def test_a_bar_split_by_a_repeat_sign_keeps_one_number_as_printed():
+    data = (Path(__file__).parent / "data/beethoven-op2-1-iii-mutopia-lilypond2-10-trio-pickup.pdf").read_bytes()
+    index = ScoreIndex(load_toolkit(read_pdf(data, AUDIVERIS).musicxml).getMEI())
+    split = [measure.number for measure in index.measures if len(measure.segments) == 2]
+    assert split == [14, 40, 50]
+    assert index.measures[-1].number == 73
+
+
+@pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
 def test_parts_named_differently_on_later_systems_stay_one_part():
     data = (Path(__file__).parent / "data/bach-chorale-269-verovio-part-names.pdf").read_bytes()
     root = ET.fromstring(read_pdf(data, AUDIVERIS).musicxml)

@@ -53,6 +53,7 @@ CHECK = "This is what I read from your PDF; check it against your copy before I 
 SCAN_WARNING = "Scanned pages often have reading mistakes, so please check carefully."
 SLURS_LEFT_OUT = "Slurs are not read, because they are often misread from PDFs."
 SHOWN = 4
+DOUBLE_BARS = {"light-light", "light-heavy", "heavy-light", "heavy-heavy"}
 _LENGTH = {"whole": 4, "half": 2, "quarter": 1, "eighth": Fraction(1, 2),
            "16th": Fraction(1, 4), "32nd": Fraction(1, 8), "64th": Fraction(1, 16)}
 _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
@@ -133,10 +134,7 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
         for position, measure in enumerate(part.iter("measure"), start=1):
             if measure.find("attributes/divisions") is not None:
                 divisions = int(measure.find("attributes/divisions").text)
-            time = measure.find("attributes/time")
-            beats = time.findtext("beats", "") if time is not None else ""
-            if beats and all(count.strip().isdigit() for count in beats.split("+")):
-                full = Fraction(sum(int(count) for count in beats.split("+")) * 4, int(time.findtext("beat-type")))
+            full = _full_bar(measure) or full
             voices, staff_of, gap = {}, {}, {}
             cursor = onset = Fraction(0)
             for element in measure:
@@ -197,6 +195,14 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
     timing_errors.update(number_at[position] for position, notes in columns.items()
                          if position in number_at and _columns_disagree(notes))
     return sorted(set(uneven) | (timing_errors if timing else set())), inferred
+
+
+def _full_bar(measure: ET.Element) -> Fraction | None:
+    time = measure.find("attributes/time")
+    beats = time.findtext("beats", "") if time is not None else ""
+    if beats and all(count.strip().isdigit() for count in beats.split("+")):
+        return Fraction(sum(int(count) for count in beats.split("+")) * 4, int(time.findtext("beat-type")))
+    return None
 
 
 def _columns_disagree(notes: list[tuple[int, str, Fraction, float]]) -> bool:
@@ -827,9 +833,41 @@ def clean_score(root: ET.Element) -> bytes:
                     open_lines[number] = (measure, direction)
         for measure, direction in unclosed + list(open_lines.values()):
             measure.remove(direction)
+    _share_numbers_of_split_bars(root)
     _keep_meaningful_text(root)
     _lyrics_to_directions(root)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _share_numbers_of_split_bars(root: ET.Element) -> None:
+    parts = root.findall("part")
+    divisions = [int(part.findtext("measure/attributes/divisions") or 1) for part in parts]
+    shift, full, before = 0, None, None
+    for bars in zip(*(part.findall("measure") for part in parts)):
+        full = _full_bar(bars[0]) or full
+        length = max(Fraction(_bar_length(bar), each) for bar, each in zip(bars, divisions))
+        if shift:
+            for bar in bars:
+                bar.set("number", re.sub(r"\d+", lambda number: str(int(number.group()) - shift), bar.get("number"), count=1))
+        if before is not None and _second_half(before, (bars, length, full)):
+            for bar in bars:
+                bar.set("number", "X" + before[0][0].get("number"))
+                bar.set("implicit", "yes")
+            shift += 1
+        before = (bars, length, full)
+
+
+def _second_half(before: tuple, after: tuple) -> bool:
+    bars, length, full = before
+    later_bars, later_length, later_full = after
+    label, later_label = bars[0].get("number", ""), later_bars[0].get("number", "")
+    barlines = [barline for bar in bars for barline in bar.findall("barline") if barline.get("location", "right") == "right"]
+    barlines += [barline for bar in later_bars for barline in bar.findall("barline") if barline.get("location") == "left"]
+    return (full is not None and later_full == full and 0 < length < full and 0 < later_length < full
+            and length + later_length == full
+            and label.isdigit() and label != "0" and later_label.isdigit() and later_label != label
+            and later_bars[0].get("implicit") != "yes"
+            and any(barline.find("repeat") is not None or barline.findtext("bar-style") in DOUBLE_BARS for barline in barlines))
 
 
 def _octave_shifts_in_time_order(measure: ET.Element) -> list[ET.Element]:
