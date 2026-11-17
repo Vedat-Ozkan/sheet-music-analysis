@@ -3163,6 +3163,16 @@ The two scans entry 169 timed fell from 38.8 s a page to 27.6 (29% less) and 21.
 
 **Checks.** Full suite with both readers installed: 1541 passed, 4 skipped (no ring codes), 0 failed. **NOT RUN:** `tools/diff_check.py` (our reader's code is untouched); an eight-page scan; a second PDF arriving while two pages are being read; a real chat; software-made PDFs with homr; a repeat of each timing (one read each).
 
+### 172. The homr trial reads scans only; software-made PDFs stay with our reader (2026-11-17, branch `homr-staging`, staging only)
+
+**Why.** Entry 160 found homr ahead on scans and behind on engraved PDFs, and entry 171 brought its cost on scans level with ours. The owner chose the next step: homr for scans only.
+
+**What changed.** With `PDF_READER=homr`, `engine/read_homr.py` asks the existing scan check (`is_scan`: a file is a scan unless some page draws only vector shapes; a file with both kinds of page counts as software-made, as before) and hands every software-made PDF to `engine/read_pdf.py` unchanged. Its `READER`, the name in the cache keys, now carries both readers' versions, so a change to either gives fresh readings; readings cached under the old names are read again once. Nothing in `server/app.py` changes. The scan check sorted the 80 PDFs of `tools/diff_check.py pdfwarn` as their names say (56 software-made, 24 scans; run of 2026-11-16).
+
+**On staging** (revision `00122-rjc`, one page at a time, at most one instance): a software-made page (Chopin Op. 28 No. 4, Mutopia) was read by our reader in 37.5 s (26 bars, 1 shaded; the log line carries our reader's step timings), and the Satie *Spleen* scan by homr in 41.7 s (10 bars, as before). The refused requests in the staging log at the same time are Claude connectors calling the closed staging service, not this change.
+
+**Checks.** `tests/test_read_homr.py` with both readers installed: 8 passed, among them a software-made PDF read through the homr module with no homr present. Full suite: 1542 passed, 4 skipped, 0 failed. **NOT RUN:** `tools/diff_check.py` (`engine/read_pdf.py` is untouched); a file with both scanned and software-made pages on staging; a real chat.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
