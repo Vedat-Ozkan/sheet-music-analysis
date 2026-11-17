@@ -56,7 +56,7 @@ from engine.performance import marked_index, performance_text, unclear_tempos
 from engine.annotations import AnnotationList, view_named
 from engine.errors import UserError
 from engine.export import export_midi, export_musicxml, export_romantext
-from engine.render import ScoreError, engrave, load_toolkit, parse_measures
+from engine.render import ScoreError, engrave, load_toolkit, parse_measures, xml_text
 from engine.score import PositionError, ScoreIndex
 from server import IMPORTS_BEGUN, SERVER_FILES
 
@@ -68,7 +68,7 @@ DOWNLOAD_SECONDS = 30
 MAX_REDIRECTS = 5
 RATING_AFTER_ANALYSES = 3
 PERSON_SCORE_LIMIT = int(os.environ.get("PERSON_SCORE_LIMIT", "10"))
-DAILY_LIMITS = {"score": 100, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
+DAILY_LIMITS = {"score": 100, "draft": 300, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
 CARD_URI = "ui://sheet-music-analysis/card-v3.html"
 PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v3.html"
 HELD_CARD_URIS = {"ui://sheet-music-analysis/card-v2.html": "Analysis card",
@@ -77,6 +77,8 @@ PLAYER_URI = "ui://sheet-music-analysis/player-v3.html"
 UPLOAD_CARD_URI = "ui://sheet-music-analysis/upload-card-v1.html"
 CONNECTOR_URL = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
 reader = {"audiveris": pdf_reader, "homr": read_homr}[os.environ.get("PDF_READER", "audiveris")]
+PROXY_KEY = os.environ.get("PROXY_KEY", "")
+OWN_ADDRESS = os.environ.get("OWN_ADDRESS", "").rstrip("/")
 CLAUDE_UI_DOMAIN = hashlib.sha256(CONNECTOR_URL.encode()).hexdigest()[:32] + ".claudemcpcontent.com"
 HERE = Path(__file__).parent
 
@@ -275,6 +277,19 @@ def traced(app):
     return with_trace
 
 
+def only_through_the_proxy(app):
+    refusal = Response(f"This address is not public; use {CONNECTOR_URL}", status_code=403)
+
+    async def checking_the_key(scope, receive, send):
+        if PROXY_KEY and scope["type"] == "http" and scope["path"] != "/health":
+            sent = dict(scope["headers"]).get(b"x-proxy-key", b"")
+            if not hmac.compare_digest(sent, PROXY_KEY.encode()):
+                return await refusal(scope, receive, send)
+        return await app(scope, receive, send)
+
+    return checking_the_key
+
+
 def without_event_stream(app):
     refusal = Response("This server sends no event stream; use POST.", status_code=405, headers={"Allow": "POST"})
 
@@ -379,6 +394,11 @@ async def take_score(person: str | None, source: str) -> str | None:
         await take_for(person, -1)
         return "shared"
     return None
+
+
+async def give_back_score(person: str | None, source: str) -> None:
+    await take_for(person, -1)
+    await take("score", source, -1)
 
 
 def sent_key(person: str, data: bytes) -> str:
@@ -1010,6 +1030,7 @@ WAITING_FOR_TURN = (
 WAITING_FOR_TURN_STATUS = "Your previous PDF is still being read; this one is read after it."
 BUSY_STATUS = "Another PDF is being read right now. Send yours again in a few minutes."
 LOST_TURN = "lost the turn"
+READ_NOT_TAKEN = {401, 403, 404, 429}
 CALL_AGAIN = {"read_pdf": "read_pdf again with the same file", "read_fetched_pdf": "read_fetched_pdf again with the same pdf_id"}
 
 
@@ -1075,7 +1096,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile) -> CallToolResult:
 
 async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
     digest = hashlib.sha256(data).hexdigest()
-    card_key = f"scores/pdf-card-{reader.READER}-{digest}.json"
+    card_key = card_of(digest)
     if card := await anyio.to_thread.run_sync(store.get, card_key):
         card = json.loads(card)
         log(tool, platform=source, pages=card["pages"], cached="card")
@@ -1098,7 +1119,7 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
                     work = contextvars.copy_context()
                     work.run(current_call.set, None)
                     work.run(draft.timings.set, None)
-                    task = asyncio.create_task(pdf_work(data, digest, source, card_key, token, tool == "read_pdf", person), context=work)
+                    task = asyncio.create_task(started_read(data, digest, source, card_key, token, tool == "read_pdf", person), context=work)
                     pdfs_reading[card_key] = task, time.time()
                     task.add_done_callback(lambda _: pdfs_reading.pop(card_key, None))
             if not (started_here and token == LOST_TURN):
@@ -1135,6 +1156,10 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
         log(tool, platform=source, outcome=details["outcome"],
             **{key: details[key] for key in ("busy", "error") if key in details})
     return pdf_card_result(result, tool) if isinstance(result, dict) else result
+
+
+def card_of(digest: str) -> str:
+    return f"scores/pdf-card-{reader.READER}-{digest}.json"
 
 
 def marker_of(card_key: str) -> str:
@@ -1236,12 +1261,50 @@ async def wait_for_other_machine(card_key: str, since: float, source: str, tool:
     return still_reading(since, tool)
 
 
+class ReadNotTaken(Exception):
+    pass
+
+
+async def started_read(data: bytes, digest: str, source: str, card_key: str,
+                       token: str, arrived: bool, person: str | None) -> tuple[dict | CallToolResult, dict]:
+    if OWN_ADDRESS:
+        reads_held.pop(card_key, None)
+        try:
+            return await read_in_its_own_request(data, source, token, arrived, person)
+        except ReadNotTaken as refused:
+            write_line({"severity": "WARNING", "message": "read_pdf_work was not taken as a request of its own; reading here",
+                        "reason": str(refused)})
+        except Exception:
+            details = {"event": "read_pdf_work", "platform": source, "stack_trace": traceback.format_exc(),
+                       "reference": secrets.token_hex(4)}
+            return await recorded(data, digest, card_key, our_error(details["reference"], "read_pdf", source),
+                                  "server_error", details, {}, time.perf_counter())
+    return await pdf_work(data, digest, source, card_key, token, arrived, person)
+
+
+async def read_in_its_own_request(data: bytes, source: str, token: str, arrived: bool,
+                                  person: str | None) -> tuple[dict | CallToolResult, dict]:
+    asked = {"x-read-source": source, "x-read-token": token, "x-read-arrived": str(int(arrived)),
+             **({"x-read-person": person} if person else {}), **({"x-proxy-key": PROXY_KEY} if PROXY_KEY else {})}
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(REQUEST_SECONDS, connect=10)) as client:
+            answer = await client.post(f"{OWN_ADDRESS}/read-work", content=data, headers=asked)
+    except (httpx.ConnectError, httpx.ConnectTimeout, httpx.UnsupportedProtocol, httpx.InvalidURL) as error:
+        raise ReadNotTaken(type(error).__name__) from error
+    if answer.status_code in READ_NOT_TAKEN:
+        raise ReadNotTaken(f"status {answer.status_code}")
+    answer.raise_for_status()
+    sent = answer.json()
+    return sent["card"] or CallToolResult.model_validate(sent["refusal"]), sent["details"]
+
+
 async def pdf_work(data: bytes, digest: str, source: str, card_key: str,
                    token: str, arrived: bool, person: str | None) -> tuple[dict | CallToolResult, dict]:
     details = {"event": "read_pdf_work", "platform": source}
     timings = {}
     current_call.set(details)
     draft.timings.set(timings)
+    reads_held[card_key] = token
     started = time.perf_counter()
     try:
         async with verovio_request():
@@ -1273,6 +1336,11 @@ async def pdf_outcome(data: bytes, digest: str, source: str, card_key: str, deta
         details.update(stack_trace=traceback.format_exc(), reference=secrets.token_hex(4))
         result = our_error(details["reference"], "read_pdf", source)
         outcome = "server_error"
+    return await recorded(data, digest, card_key, result, outcome, details, timings, started)
+
+
+async def recorded(data: bytes, digest: str, card_key: str, result: dict | CallToolResult, outcome: str, details: dict,
+                   timings: dict, started: float) -> tuple[dict | CallToolResult, dict]:
     if "reference" in details:
         details["digest"] = digest
         try:
@@ -1309,15 +1377,21 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
             refused = await take_score(person, source) if arrived else None
             if not refused and not await take("pdf_page", source, read):
                 if arrived:
-                    await take_for(person, -1)
-                    await take("score", source, -1)
+                    await give_back_score(person, source)
                 refused = "shared"
             if refused:
                 log("read_pdf_work", limit=refused, pages=read)
                 return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
             log("read_pdf_work", **await anyio.to_thread.run_sync(pdf_reader.file_facts, data))
-            with stage("omr"):
-                result = await anyio.to_thread.run_sync(reader.read_pdf, data)
+            try:
+                with stage("omr"):
+                    result = await anyio.to_thread.run_sync(reader.read_pdf, data)
+            except pdf_reader.ReadError:
+                raise
+            except Exception:
+                if arrived:
+                    await give_back_score(person, source)
+                raise
         passes = result.passes
         reading = {"score_id": secrets.token_hex(8).upper(), "pages": result.pages, "scan": result.scan,
                    "skipped": result.skipped, "of_pages": pages, "low_resolution": result.low_resolution}
@@ -1739,12 +1813,16 @@ async def draft_analysis(
         measures = parse_measures(measure_range)
         if student_analysis and student_analysis.strip().lower() != "score":
             await in_turn(check_analysis.from_text, student_analysis)
+        if not await take("draft", source):
+            log("limit", tool="draft_analysis", platform=source)
+            return error_result(LIMIT_MESSAGE)
         if given == "score_id":
             code = clean_id(score_id)
         else:
             person = caller()
             if not (code := await sent_before(person, score)):
                 if refused := await take_score(person, source):
+                    await take("draft", source, -1)
                     log("limit", tool="draft_analysis", platform=source, per=refused)
                     return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
                 code = secrets.token_hex(8).upper()
@@ -1809,6 +1887,9 @@ async def correct_bars(
     except ScoreError as error:
         log("correct_bars", platform=source, error=type(error).__name__)
         return error_result(str(error))
+    if not await take("draft", source):
+        log("limit", tool="correct_bars", platform=source)
+        return error_result(LIMIT_MESSAGE)
     try:
         with stage("parse"):
             after = await in_turn(lambda: correct.replace_bars(before, replacement_bars, part=part))
@@ -1881,8 +1962,8 @@ def score_kind(data: bytes) -> str | None:
                 return "musicxml" if "META-INF/container.xml" in archive.namelist() else None
         except zipfile.BadZipFile:
             return None
-    head = data[:65536].lstrip(b"\xef\xbb\xbf \t\r\n")
-    return "musicxml" if head.startswith(b"<") and re.search(rb"<score-(partwise|timewise)\b", head) else None
+    head = xml_text(data[:65536]).lstrip()
+    return "musicxml" if head.startswith("<") and re.search(r"<score-(partwise|timewise)\b", head) else None
 
 
 def link_host(url: str) -> str:
@@ -2041,6 +2122,21 @@ async def upload(request: Request) -> Response:
     return JSONResponse({"kind": kind}, headers=UPLOAD_HEADERS)
 
 
+@mcp.custom_route("/read-work", methods=["POST"])
+async def read_work(request: Request) -> Response:
+    data, asked = await request.body(), request.headers
+    digest = hashlib.sha256(data).hexdigest()
+    card_key = card_of(digest)
+    held = json.loads(await anyio.to_thread.run_sync(store.get, marker_of(card_key)) or b"{}")
+    if not asked.get("x-read-token") or held.get("token") != asked["x-read-token"]:
+        return Response(status_code=403)
+    result, details = await pdf_work(data, digest, asked["x-read-source"], card_key, asked["x-read-token"],
+                                     asked["x-read-arrived"] == "1", asked.get("x-read-person"))
+    card = isinstance(result, dict)
+    return JSONResponse({"card": result if card else None, "refusal": None if card else result.model_dump(mode="json"),
+                         "details": details})
+
+
 @mcp.custom_route("/health", methods=["GET"])
 async def health(request: Request) -> Response:
     return Response("ok")
@@ -2080,7 +2176,7 @@ def main() -> None:
     tool_calls = logging.getLogger("mcp.server.mcpserver.server")
     tool_calls.setLevel(logging.INFO)
     tool_calls.addFilter(lambda record: record.levelno > logging.INFO or record.msg.startswith("Tool %r rejected arguments"))
-    server = HttpServer(uvicorn.Config(traced(without_event_stream(app)), host="0.0.0.0", port=PORT, log_level="warning",
+    server = HttpServer(uvicorn.Config(traced(only_through_the_proxy(without_event_stream(app))), host="0.0.0.0", port=PORT, log_level="warning",
                                        log_config=None))
     server.run()
     if not server.started:

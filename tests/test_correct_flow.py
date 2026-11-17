@@ -66,7 +66,7 @@ def test_server_correct_real_triplet_and_draft_score_loading(tmp_path, monkeypat
     assert app.store.get(f"scores/{data['score_id']}.draft.json") is None
     counts = json.loads(next((tmp_path / 'usage').glob('*.json')).read_text())
     assert counts['render'] == 1
-    assert 'draft' not in counts
+    assert counts['draft'] == 1
 
 
 @pytest.mark.parametrize('bad, message', [
@@ -180,11 +180,12 @@ def test_server_correct_malformed_lines_say_what_to_fix(tmp_path, monkeypatch, t
     assert message in result.content[0].text
 
 
-def test_server_correct_invalid_bars_cost_nothing(tmp_path, monkeypatch):
+def test_server_correct_invalid_bars_count_as_a_draft_and_draw_nothing(tmp_path, monkeypatch):
     result = call(tmp_path, monkeypatch, READING.read_bytes(),
                   replacement_bars=replacement().replace('36 F#4', '24 F#4'))
     assert result.is_error
-    assert not (tmp_path / 'usage').exists()
+    counts = json.loads(next((tmp_path / 'usage').glob('*.json')).read_text())
+    assert counts['draft'] == 1 and 'render' not in counts
 
 
 def test_review_note_names_the_staff():

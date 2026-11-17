@@ -2,6 +2,7 @@ import copy
 import xml.etree.ElementTree as ET
 from fractions import Fraction
 
+from engine.score import bar_length, musicxml_meter
 from engine.triplets import _beam, _consistent, _events, _factor
 
 
@@ -60,8 +61,8 @@ def infer_tuplet_rests(score: bytes) -> bytes:
             divisions = int(measure.findtext('attributes/divisions', divisions))
             time = measure.find('attributes/time')
             if time is not None:
-                beats, unit = time.findtext('beats', ''), time.findtext('beat-type', '')
-                full = Fraction(int(beats) * 4, int(unit)) if beats.isdigit() and unit.isdigit() and int(unit) else None
+                meter = musicxml_meter(time)
+                full = bar_length(*meter) if meter else None
             if full is None or measure.get('implicit') == 'yes':
                 continue
             repairs = {}

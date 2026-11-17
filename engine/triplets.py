@@ -2,6 +2,8 @@ import itertools
 import xml.etree.ElementTree as ET
 from fractions import Fraction
 
+from engine.score import bar_length, musicxml_meter
+
 _LENGTH = {'whole': 4, 'half': 2, 'quarter': 1, 'eighth': Fraction(1, 2),
            '16th': Fraction(1, 4), '32nd': Fraction(1, 8), '64th': Fraction(1, 16)}
 _SHORT = {'eighth', '16th', '32nd'}
@@ -173,12 +175,12 @@ def infer_triplets(score: bytes) -> bytes:
                 divisions = int(d)
             time = measure.find('attributes/time')
             if time is not None:
-                beats, unit = time.findtext('beats', ''), time.findtext('beat-type', '')
-                if not beats.isdigit() or not unit.isdigit() or int(unit) == 0:
+                meter = musicxml_meter(time)
+                if meter is None:
                     full = None
                 else:
-                    beats, unit = int(beats), int(unit)
-                    full = Fraction(beats * 4, unit)
+                    beats, unit = meter
+                    full = bar_length(beats, unit)
                     compound = unit >= 8 and beats >= 6 and beats % 3 == 0
             if full is None or compound or measure.get('implicit') == 'yes' or measure.get('number') == '0':
                 continue
