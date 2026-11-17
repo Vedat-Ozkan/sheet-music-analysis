@@ -3128,6 +3128,41 @@ The two songs give the bar counts of the container runs and take about 1.5 times
 
 **NOT RUN:** a real Claude or ChatGPT chat with homr; cold start time with the larger image; a clean four-page timing on one instance (the Mozart reading is now cached on staging with page 4 missing); engraved PDFs through the server with homr.
 
+### 171. The homr trial reads faster: busy-waiting off, one start, no title search, two pages at once (2026-11-16, branch `homr-staging`, staging only)
+
+**Question.** Entry 169 measured homr at 38 s a page on staging against 28 s for our reader on scans in production. Can it be made cheaper without changing what it reads?
+
+**Where the time goes.** From the 18 saved page logs of the song trial (521 s in all): 70% is the note reading, one staff at a time (2-3 s a staff, 134 staves), 12% is finding the staves and symbols, 18% is everything else including starting up. homr resizes every page to 1,920 pixels wide itself, so our 2,480-pixel pages cannot be made cheaper by drawing them smaller.
+
+**Measured on this PC,** homr 0.7.1 with the staging image's package versions, held to 4 processor threads (2 cores), the 18 song pages. Every run gave the trial's readings bar for bar (280 of 280 bars the same, `scripts/same_reading.py`), except the smaller page sizes.
+
+| Setup | Total s | A page |
+|---|---|---|
+| As entry 169 (a start for every page), 4 threads | 331 | 18.4 |
+| As entry 169, 2 threads | 280 | 15.5 |
+| Busy-waiting off, 4 threads, one start for all pages, no title search | 212 | 11.8 |
+| The same, two pages side by side with 2 threads each | 143 | 7.9 |
+
+On six pages, one change at a time: idle threads that spin instead of sleeping cost the most (94 s to 68 s with 4 threads; the processor time halved); one start for all pages saved under 1 s a page; the title search, whose result we never used (it found "2" and "a tempo."), about 1 s a page and 0.5 GB; pages 1,984 or 1,920 wide saved 0.2 s a page in drawing, nothing in reading, and changed 8 of 94 bars, so the size stays. The note reading gains little from more threads (50 s on one thread, 38 s on four), which is why two pages side by side pay.
+
+**What changed.** `engine/homr_read.py`, run by homr's own Python, reads the page images it is given in one process and prints one line a page (outcome, seconds). homr has no setting for the thread count or the spinning, so the script replaces the function homr opens its models with by one that sets both; it calls homr's `process_image` with the title search off. `engine/read_homr.py` starts one such process, or two with half the threads each when `HOMR_PAGES_AT_ONCE=2` (odd and even pages); the setting is in `READER`, so the two ways keep separate cached readings. A page whose process ran out of time is reported as timed out, any other unread page as failed. The test that runs homr itself now runs both ways.
+
+**On staging,** one instance (maximum set to 1 for the measurement, so every waiting call reached the reading instance), 4 CPUs and 4 GiB, each scan read once, reader seconds from `timings_ms.omr`:
+
+| | Pages | Entry 169 | One page at a time | Two at once | Bars, shaded (both ways) |
+|---|---|---|---|---|---|
+| Satie, *Spleen* | 2 | 55 | 41 | 36 | 10, 0 |
+| C. Schumann, Op. 23 No. 1 | 2 | 100 | 69 | 51 | 69, 2 |
+| Mozart K. 545 i, Peters scan | 4 | no clean figure | 108 | 80 | 74, 8 |
+| *Dans l'immense tristesse* (song trial piece 5983777) | 5 | not read | 123 | 104 | 69, 28 |
+| All 13 pages, seconds a page | | | 26.2 | 20.8 | |
+
+The two scans entry 169 timed fell from 38.8 s a page to 27.6 (29% less) and 21.7 (44% less). Our reader on scans in production takes 28 s a page, so homr one page at a time now costs about the same and two at once about a quarter less. The first page of a read carries the start (Satie: 21 s then 12.5 s). Two at once gains less than on this PC, and least with an odd page count. Memory, the highest minute Cloud Monitoring shows for the instance: 40% of 4 GiB one page at a time, 72% with two at once (about 2.9 GB; our reader peaked at 2.71 GB in entry 169's container). No errors or memory warnings in the logs. The drawn Satie page is the same image as the one compared with the scan in entry 169.
+
+**Left as it is.** Staging runs revision `00120-5qp` with `HOMR_PAGES_AT_ONCE=2` and at most one instance; a deploy puts both back. The stalled read across instances (entry 169) is not fixed, only avoided here by the single instance.
+
+**Checks.** Full suite with both readers installed: 1541 passed, 4 skipped (no ring codes), 0 failed. **NOT RUN:** `tools/diff_check.py` (our reader's code is untouched); an eight-page scan; a second PDF arriving while two pages are being read; a real chat; software-made PDFs with homr; a repeat of each timing (one read each).
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
