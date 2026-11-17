@@ -3114,7 +3114,19 @@ The songs give the trial figures exactly. Mozart gives 60 against 62 because ent
 
 **Limits.** Seven songs and five piano scans, all from the trials; no new scans. homr's licence and training data are entry 160's open points (the owner set the licence aside for this trial). No confidence values, so shading relies on the same beat and column checks as ours; the low-resolution warning and "scan too small" message come from our reader's staff spacing and are not given for homr readings.
 
-**NOT RUN:** the staging deploy and a real Claude or ChatGPT chat with homr; cold start time with the larger image; engraved PDFs through the server with homr.
+**On staging (2026-11-16).** The branch, with main merged in up to entry 166, was deployed with `PDF_READER=homr` as staging revision `00117-mm8`; it started without errors and the `card` tag points at it. Full suite on the branch with our reader: 1539 passed, 5 skipped, 0 failed. Three of the trial's scans were sent through the card upload and `read_fetched_pdf`, then `draft_analysis`:
+
+| | Pages | Bars read | Wall s | Reader s | Seconds a page |
+|---|---|---|---|---|---|
+| Satie, *Spleen* | 2 | 10 | 59 | 55 | 29, 24 |
+| C. Schumann, Op. 23 No. 1 | 2 | 69 | 108 | 100 | 44, 54 |
+| Mozart K. 545 i, Peters scan | 4 | 57, page 4 missing | 915 | not recorded | not recorded |
+
+The two songs give the bar counts of the container runs and take about 1.5 times as long as in the local container. The drawn Satie page was compared with the scan at full size and shows the faults already listed above and no new ones.
+
+**The Mozart read shows a fault in the server, not in homr.** The read began on one instance; every later `read_fetched_pdf` call went to a second instance, which had started because of the deploy. Cloud Run gives an instance almost no CPU while it has no request open, so the read crawled on the first instance, ran into its 480 s limit with page 4 unread, and the second instance handed out the three pages after 15 minutes. Production has the same design with our reader. Since 3 November, 3 of 87 production reads had a waiting call answered by another instance (10, 15 and 16 November); two of those finished (216 s and 304 s of reader time) and the one of 10 November ended at the 480 s limit as "could not be read". 21 of 79 production reads took longer than the 100 s one call waits, so each of those depends on the next call reaching the same instance. Longer reads make this more likely, and homr's are about twice as long. Not fixed here; it needs a decision on cost (CPU that stays on between calls) or on routing.
+
+**NOT RUN:** a real Claude or ChatGPT chat with homr; cold start time with the larger image; a clean four-page timing on one instance (the Mozart reading is now cached on staging with page 4 missing); engraved PDFs through the server with homr.
 
 ## Checking against teachers' prose
 
