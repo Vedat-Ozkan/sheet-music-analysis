@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import tempfile
 import time
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -12,8 +14,10 @@ from engine.read_pdf import NOTHING_READ, TIMEOUT, PdfReading, ReadError, clean_
 
 HOMR = "/opt/homr/bin/homr"
 PAGE_WIDTH = 2480
-READER = f"homr-0.7.1-width-{PAGE_WIDTH}"
+PAGES_AT_ONCE = int(os.environ.get("HOMR_PAGES_AT_ONCE", "1"))
+READER = f"homr-0.7.1-width-{PAGE_WIDTH}-{PAGES_AT_ONCE}-at-once"
 RENDER_PAGES = Path(__file__).with_name("homr_pages.py")
+READ_IMAGES = Path(__file__).with_name("homr_read.py")
 TIMED = {"note", "backup", "forward"}
 
 
@@ -21,38 +25,36 @@ def read_pdf(data: bytes, homr: str = HOMR) -> PdfReading:
     pdf = open_pdf(data)
     pages, scan = len(pdf.pages), is_scan(pdf)
     deadline = time.monotonic() + TIMEOUT
+    python = str(Path(homr).parent / "python")
     with tempfile.TemporaryDirectory(prefix="read_homr_") as work:
         source = Path(work) / "score.pdf"
         source.write_bytes(data)
         env = {"PATH": os.defpath, "HOME": work}
-        subprocess.run([str(Path(homr).parent / "python"), "-I", str(RENDER_PAGES), str(source), work, str(PAGE_WIDTH)],
+        subprocess.run([python, "-I", str(RENDER_PAGES), str(source), work, str(PAGE_WIDTH)],
                        env=env, check=True, capture_output=True, timeout=TIMEOUT)
-        passes, readings = [], {}
-        for page in range(1, pages + 1):
-            image = Path(work) / f"page-{page}.png"
-            passes.append(_read_page(homr, image, page, env, deadline))
-            if passes[-1]["outcome"] == "done":
-                readings[page] = image.with_suffix(".musicxml").read_bytes()
+        images = {page: Path(work) / f"page-{page}.png" for page in range(1, pages + 1)}
+        shares = [dict(list(images.items())[share::PAGES_AT_ONCE]) for share in range(min(PAGES_AT_ONCE, pages))]
+        with ThreadPoolExecutor(len(shares)) as pool:
+            read = list(pool.map(lambda share: _read_images(python, share, env, deadline), shares))
+        passes = sorted((record for records in read for record in records), key=lambda record: record["page"])
+        readings = {record["page"]: images[record["page"]].with_suffix(".musicxml").read_bytes()
+                    for record in passes if record["outcome"] == "done"}
     if not readings:
         timed_out = any(record["outcome"] == "timeout" for record in passes)
         raise ReadError("Reading this PDF took too long" if timed_out else NOTHING_READ, passes)
     return reading_from_pages(readings, pages, scan, passes)
 
 
-def _read_page(homr: str, image: Path, page: int, env: dict, deadline: float) -> dict:
-    started = time.monotonic()
-    if started >= deadline:
-        return {"page": page, "outcome": "timeout", "seconds": 0}
-    record = {"page": page}
+def _read_images(python: str, images: dict[int, Path], env: dict, deadline: float) -> list[dict]:
+    threads = max(1, os.cpu_count() // PAGES_AT_ONCE)
+    command = [python, "-I", str(READ_IMAGES), str(threads), *map(str, images.values())]
+    unread = "failed"
     try:
-        run = subprocess.run([homr, str(image)], env=env, capture_output=True, timeout=deadline - started)
-        if run.returncode != 0:
-            record.update(outcome="failed", exit_code=run.returncode, problem=run.stderr.decode(errors="replace")[-300:])
-        else:
-            record["outcome"] = "done" if image.with_suffix(".musicxml").exists() else "no music"
-    except subprocess.TimeoutExpired:
-        record["outcome"] = "timeout"
-    return {**record, "seconds": round(time.monotonic() - started, 1)}
+        printed = subprocess.run(command, env=env, capture_output=True, timeout=max(0, deadline - time.monotonic())).stdout
+    except subprocess.TimeoutExpired as late:
+        printed, unread = late.stdout or b"", "timeout"
+    records = {record.pop("image"): record for record in map(json.loads, printed.decode().splitlines())}
+    return [{"page": page, "outcome": unread, "seconds": 0, **records.get(str(image), {})} for page, image in images.items()]
 
 
 def reading_from_pages(readings: dict[int, bytes], pages: int, scan: bool, passes: list[dict]) -> PdfReading:

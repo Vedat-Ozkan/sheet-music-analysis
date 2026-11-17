@@ -64,7 +64,9 @@ def test_a_page_with_no_music_is_reported_missing():
 
 
 @pytest.mark.skipif(not os.path.exists(HOMR), reason="homr is not installed; set HOMR")
-def test_homr_reads_a_real_scan():
+@pytest.mark.parametrize("pages_at_once", [1, 2])
+def test_homr_reads_a_real_scan(monkeypatch, pages_at_once):
+    monkeypatch.setattr(read_homr, "PAGES_AT_ONCE", pages_at_once)
     reading = read_homr.read_pdf((Path(__file__).parent / "data/pdf_warnings/kinkel_trennung_scan.pdf").read_bytes(), HOMR)
     assert reading.skipped == []
     assert [record["outcome"] for record in reading.passes] == ["done"] * reading.pages
