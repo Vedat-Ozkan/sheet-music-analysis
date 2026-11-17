@@ -3275,6 +3275,21 @@ The two scans entry 169 timed fell from 38.8 s a page to 27.6 (29% less) and 21.
 
 **NOT RUN:** the analysis figure of entry 161; the other 20 unseen candidates; timings (the readers ran side by side on shared processors).
 
+### 175. How small a scan homr still reads (2026-11-17, branch `homr-staging`, nothing released)
+
+**Question.** Our reader warns when a scan's staff lines are under 11 pixels apart and refuses very small ones; a homr reading gives neither message (entry 169). Where does homr's reading actually fall off?
+
+**Method.** The seven tuning-half song scans of entry 161 (278 bars; per-song results are allowed for this half), each page reduced to a greyscale image 600, 800, 1,000, 1,300 or 1,700 pixels wide, put back into a PDF and read through `engine.read_homr.read_pdf` as the server would (which draws every page 2,480 wide again before homr sees it). Three of the scans are smaller than some of these sizes to begin with (Boulanger 1,024 wide, Lehmann 1,242, C. Schumann 1,500), so for them the larger sizes only enlarge. Scoring as in entry 161. Files: `~/omr-reader-test-2026-11-07/fresh-songs/lowres`.
+
+| Page width, pixels | 600 | 800 | 1,000 | 1,300 | 1,700 | As scanned (entry 161) |
+|---|---|---|---|---|---|---|
+| Bars exact of 278 | 80 | 151 | 154 | 149 | 147 | 148 |
+| Wrong bars / of those unshaded | 197 / 125 | 127 / 80 | 124 / 81 | 129 / 82 | 130 / 84 | 129 / 77 |
+
+**What it shows.** From 800 pixels up the size makes no difference beyond a few bars either way. At 600 the reading collapses on some songs and not on others: C. Schumann 59 bars exact at 800 and 11 at 600, Boulanger 20 and 4, Satie's *Danseuse* 9 and 6, while Greger (24), Kinkel (19), Lehmann (8) and Satie's *Spleen* (8) barely move. homr's own note-head height for these pages, measured at its working width of 1,920, is 12 to 17 pixels, so at 600 wide the staff lines are about 4 to 5 pixels apart in the file and at 800 about 5 to 7. The songs that collapse are the ones with the smallest staves (Schumann and Boulanger, under 4 pixels at 600). A whole page of 600 pixels is what a 72-dpi image of a letter-size page gives, so scans this small do reach us.
+
+**Not decided.** The rule for a warning: by page width (simple, from the file) or by staff spacing (closer to the cause, but homr's note-head height would have to be taken from its output). One read of each size; seven songs.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
