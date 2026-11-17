@@ -3148,6 +3148,27 @@ Full suite with the PDF reader (sma.8) on the finished branch, which includes en
 
 **After review.** The first version passed the secret as `proxy-key:latest`. With no instance kept warm, each cold start reads `latest`, so adding a secret version would have changed the key production enforces at once, and a failed Worker step would have refused every call; rolling back would not have helped, since later revisions read `latest` too. Versions are now pinned and one script sets all three places. The first version also gave back the pages after a crash (see Give-back).
 
+### 170. The upload card's device code leaves the web address; the privacy page names the note of a file already sent (2026-11-16, branch `privacy-page-sent-record`, nothing released)
+
+From the cold review of 2026-11-14 (finding 1 of the site and listings part, confirmed by reading the code). The owner chose this form on 2026-11-16: one clause on the page, no technical detail, and the device code moved so the page need not mention it. Entry 169 is on the unmerged branch `homr-staging`.
+
+**Problem.**
+- `site/privacy.html` said "Last updated 8 November 2026" after edits on 9, 10 and 12 November.
+- The table of what we keep did not list `scores/sent-…` (entry 153): for 30 days the server can tell that one usage identifier or one device sent one particular file.
+- The upload card sent its device code in the address (`/upload?id=…&device=…`). The host's request logs keep addresses for 30 days, so a code the page describes as a two-day count key sat in those logs for 30.
+- The page said the host's request logs hold the IP address of Anthropic's or OpenAI's server, or of the browser. Six hundred request-log lines sampled on 2026-11-16 all carry Cloudflare's address.
+
+**What changed.**
+- The card sends the code in an `x-device` header. The server reads the header first and still accepts `device` in the address, so a card a client has kept from before the change is counted as the same device. The upload's cross-origin answer allows the header, in the server and in the Worker's own refusal.
+- Privacy page: new date; the first row of the table now ends "and a note that you already sent a file, so that sending it again is not counted"; the request-logs row says the logs hold the time and web address of each request and that the IP address in them is Cloudflare's.
+
+**Known and left.**
+- A card opened before the release still puts its code in the address until the client fetches the card again. The address form stays accepted until the request logs show two weeks without `device=`; then the fallback can go.
+- Request logs written before the release keep their addresses until they are 30 days old.
+- The page must be published with the server release that carries the card, not before it.
+
+**Checks.** The card in a real browser sends the header and no `device` in the address, and the upload passes the browser's cross-origin check (`tests/test_cards_browser.py`). A device's limit and its free second send are tested through the header; one new test sends the same file once each way and is charged once (`tests/test_score_links.py`).
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
