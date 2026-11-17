@@ -1,4 +1,7 @@
+import contextlib
+import io
 import json
+import re
 import sys
 import time
 
@@ -24,9 +27,14 @@ config = ProcessingConfig(enable_debug=False, enable_cache=False, write_staff_po
                           title_detection=False)
 for image in images:
     started = time.monotonic()
+    printed = io.StringIO()
     try:
-        process_image(image, config, XmlGeneratorArguments())
+        with contextlib.redirect_stderr(printed):
+            process_image(image, config, XmlGeneratorArguments())
         record = {"outcome": "done"}
     except Exception as error:
         record = {"outcome": "failed", "problem": str(error)[-300:]}
+    note_head = re.search(r"Average note head height: ([\d.]+)", printed.getvalue())
+    if note_head:
+        record["note_head"] = float(note_head.group(1))
     print(json.dumps({"image": image, **record, "seconds": round(time.monotonic() - started, 1)}), flush=True)

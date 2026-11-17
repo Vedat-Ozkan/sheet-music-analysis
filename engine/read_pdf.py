@@ -466,11 +466,11 @@ def _pixels(count: int) -> str:
     return f"{count} pixel{'' if count == 1 else 's'}"
 
 
-def scan_staff_spacing(data: bytes, drawn_interlines: list[int]) -> float | None:
+def scan_staff_spacing(data: bytes, drawn_interlines: list[float], drawn_page_width: int | None = None) -> float | None:
     try:
         pdf = open_pdf(data)
         shares = [max(int(image.Width) for image in page.get_images().values())
-                  / (page_width_height(page)[0] * READER_DPI / 72)
+                  / (drawn_page_width or page_width_height(page)[0] * READER_DPI / 72)
                   for page in pdf.pages if page.get_images()]
     except UNUSUAL_PDF:
         log.exception("Scan resolution not read")

@@ -3313,6 +3313,16 @@ At any level of misses, the spacing rule warns fewer good readings: to miss only
 
 **Not decided.** The cut-off: 4.0 px warns about half good readings and misses 5 of 23; 4.5 px misses one and warns about twice as many good as bad.
 
+### 177. homr warns when a scan's staff lines are under 4.5 pixels apart (2026-11-17, branch `homr-staging`, nothing released)
+
+**Problem.** A scan read by homr never got the warning "This scan is too small to read well, so expect many mistakes" that our reader gives (entry 169), although homr's reading collapses on small staves (entries 175, 176).
+
+**What changed.** `engine/homr_read.py` keeps homr's own note-head height for each page (homr prints it while it reads) in that page's record as `note_head`. `engine/read_homr.py` turns it into the staff spacing in the file with the same function our reader uses, `scan_staff_spacing`, which now takes the width the page was measured at (homr measures at 1,920 pixels; ours at 300 dpi): the median note head over the pages, times the narrowest page image width over 1,920. Under 4.5 pixels the reading carries `low_resolution`, and the user sees the same warning as with our reader. The owner chose staff spacing and 4.5 from entry 176. Computed this way on entry 176's readings: 57 warned, 22 of them bad, 1 bad reading not warned (the per-page minimum of entry 176 gave 59, 22, 1). Nothing is refused for being small; homr reads it anyway.
+
+**Known and left.** A PDF whose page images sit inside nested page objects (the full-size Dvořák of entry 176) has no measurable image width, so it gets no warning, as with our reader.
+
+**Checks.** `tests/test_read_homr.py`: the Kinkel test scan reads with no warning and the same scan shrunk to 450 pixels wide (`kinkel_trennung_scan_450px_wide.pdf`, made as in entry 176) gets it; every page's record carries `note_head`. With homr installed: 9 passed, 1 skipped (Audiveris not set). `tests/test_read_pdf.py`: 93 passed, 17 skipped.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

@@ -74,6 +74,14 @@ def test_homr_reads_a_real_scan(monkeypatch, pages_at_once):
     assert len(ET.fromstring(reading.musicxml).find("part").findall("measure")) > 10
 
 
+@pytest.mark.skipif(not os.path.exists(HOMR), reason="homr is not installed; set HOMR")
+@pytest.mark.parametrize("name, low", [("kinkel_trennung_scan.pdf", False), ("kinkel_trennung_scan_450px_wide.pdf", True)])
+def test_a_scan_with_staff_lines_close_together_warns_of_many_mistakes(name, low):
+    reading = read_homr.read_pdf((Path(__file__).parent / "data/pdf_warnings" / name).read_bytes(), HOMR)
+    assert all("note_head" in record for record in reading.passes)
+    assert reading.low_resolution is low
+
+
 @pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
 def test_a_software_made_pdf_is_read_by_our_reader():
     data = (PAGES.parent / "bach-chorale-269-verovio-part-names.pdf").read_bytes()

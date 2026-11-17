@@ -15,6 +15,8 @@ from engine.read_pdf import NOTHING_READ, TIMEOUT, PdfReading, ReadError, clean_
 
 HOMR = "/opt/homr/bin/homr"
 PAGE_WIDTH = 2480
+WORKING_WIDTH = 1920
+SHARP_SCAN_SPACING = 4.5
 PAGES_AT_ONCE = int(os.environ.get("HOMR_PAGES_AT_ONCE", "1"))
 READER = f"{ours.READER}-scans-homr-0.7.1-width-{PAGE_WIDTH}-{PAGES_AT_ONCE}-at-once"
 RENDER_PAGES = Path(__file__).with_name("homr_pages.py")
@@ -45,7 +47,10 @@ def read_pdf(data: bytes, homr: str = HOMR, audiveris: str = ours.AUDIVERIS) -> 
     if not readings:
         timed_out = any(record["outcome"] == "timeout" for record in passes)
         raise ReadError("Reading this PDF took too long" if timed_out else NOTHING_READ, passes)
-    return reading_from_pages(readings, pages, scan, passes)
+    reading = reading_from_pages(readings, pages, scan, passes)
+    spacing = ours.scan_staff_spacing(data, [record["note_head"] for record in passes if "note_head" in record], WORKING_WIDTH)
+    reading.low_resolution = spacing is not None and spacing < SHARP_SCAN_SPACING
+    return reading
 
 
 def _read_images(python: str, images: dict[int, Path], env: dict, deadline: float) -> list[dict]:
