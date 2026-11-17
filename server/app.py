@@ -1273,25 +1273,22 @@ async def started_read(data: bytes, digest: str, source: str, card_key: str,
         except ReadNotTaken as refused:
             write_line({"severity": "WARNING", "message": "read_pdf_work was not taken as a request of its own; reading here",
                         "reason": str(refused)})
-        except (httpx.HTTPError, ValueError):
+        except Exception:
             details = {"event": "read_pdf_work", "platform": source, "stack_trace": traceback.format_exc(),
                        "reference": secrets.token_hex(4)}
-            try:
-                return await recorded(data, digest, card_key, our_error(details["reference"], "read_pdf", source),
-                                      "server_error", details, {}, time.perf_counter())
-            finally:
-                await release_read(card_key, token)
+            return await recorded(data, digest, card_key, our_error(details["reference"], "read_pdf", source),
+                                  "server_error", details, {}, time.perf_counter())
     return await pdf_work(data, digest, source, card_key, token, arrived, person)
 
 
 async def read_in_its_own_request(data: bytes, source: str, token: str, arrived: bool,
                                   person: str | None) -> tuple[dict | CallToolResult, dict]:
-    asked = {"source": source, "token": token, "arrived": int(arrived), **({"person": person} if person else {})}
+    asked = {"x-read-source": source, "x-read-token": token, "x-read-arrived": str(int(arrived)),
+             **({"x-read-person": person} if person else {}), **({"x-proxy-key": PROXY_KEY} if PROXY_KEY else {})}
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(REQUEST_SECONDS, connect=10)) as client:
-            answer = await client.post(f"{OWN_ADDRESS}/read-work", params=asked, content=data,
-                                       headers={"x-proxy-key": PROXY_KEY} if PROXY_KEY else {})
-    except (httpx.ConnectError, httpx.ConnectTimeout) as error:
+            answer = await client.post(f"{OWN_ADDRESS}/read-work", content=data, headers=asked)
+    except (httpx.ConnectError, httpx.ConnectTimeout, httpx.UnsupportedProtocol, httpx.InvalidURL) as error:
         raise ReadNotTaken(type(error).__name__) from error
     if answer.status_code in READ_NOT_TAKEN:
         raise ReadNotTaken(f"status {answer.status_code}")
@@ -2126,14 +2123,14 @@ async def upload(request: Request) -> Response:
 
 @mcp.custom_route("/read-work", methods=["POST"])
 async def read_work(request: Request) -> Response:
-    data, asked = await request.body(), request.query_params
+    data, asked = await request.body(), request.headers
     digest = hashlib.sha256(data).hexdigest()
     card_key = card_of(digest)
     held = json.loads(await anyio.to_thread.run_sync(store.get, marker_of(card_key)) or b"{}")
-    if not asked.get("token") or held.get("token") != asked["token"]:
+    if not asked.get("x-read-token") or held.get("token") != asked["x-read-token"]:
         return Response(status_code=403)
-    result, details = await pdf_work(data, digest, asked["source"], card_key, asked["token"], asked["arrived"] == "1",
-                                     asked.get("person"))
+    result, details = await pdf_work(data, digest, asked["x-read-source"], card_key, asked["x-read-token"],
+                                     asked["x-read-arrived"] == "1", asked.get("x-read-person"))
     card = isinstance(result, dict)
     return JSONResponse({"card": result if card else None, "refusal": None if card else result.model_dump(mode="json"),
                          "details": details})
