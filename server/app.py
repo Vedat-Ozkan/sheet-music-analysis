@@ -68,7 +68,7 @@ DOWNLOAD_SECONDS = 30
 MAX_REDIRECTS = 5
 RATING_AFTER_ANALYSES = 3
 PERSON_SCORE_LIMIT = int(os.environ.get("PERSON_SCORE_LIMIT", "10"))
-DAILY_LIMITS = {"score": 100, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
+DAILY_LIMITS = {"score": 100, "draft": 300, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
 CARD_URI = "ui://sheet-music-analysis/card-v3.html"
 PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v3.html"
 HELD_CARD_URIS = {"ui://sheet-music-analysis/card-v2.html": "Analysis card",
@@ -76,6 +76,7 @@ HELD_CARD_URIS = {"ui://sheet-music-analysis/card-v2.html": "Analysis card",
 PLAYER_URI = "ui://sheet-music-analysis/player-v3.html"
 UPLOAD_CARD_URI = "ui://sheet-music-analysis/upload-card-v1.html"
 CONNECTOR_URL = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
+PROXY_KEY = os.environ.get("PROXY_KEY", "")
 CLAUDE_UI_DOMAIN = hashlib.sha256(CONNECTOR_URL.encode()).hexdigest()[:32] + ".claudemcpcontent.com"
 HERE = Path(__file__).parent
 
@@ -274,6 +275,19 @@ def traced(app):
     return with_trace
 
 
+def only_through_the_proxy(app):
+    refusal = Response(f"This address is not public; use {CONNECTOR_URL}", status_code=403)
+
+    async def checking_the_key(scope, receive, send):
+        if PROXY_KEY and scope["type"] == "http" and scope["path"] != "/health":
+            sent = dict(scope["headers"]).get(b"x-proxy-key", b"")
+            if not hmac.compare_digest(sent, PROXY_KEY.encode()):
+                return await refusal(scope, receive, send)
+        return await app(scope, receive, send)
+
+    return checking_the_key
+
+
 def without_event_stream(app):
     refusal = Response("This server sends no event stream; use POST.", status_code=405, headers={"Allow": "POST"})
 
@@ -378,6 +392,11 @@ async def take_score(person: str | None, source: str) -> str | None:
         await take_for(person, -1)
         return "shared"
     return None
+
+
+async def give_back_score(person: str | None, source: str) -> None:
+    await take_for(person, -1)
+    await take("score", source, -1)
 
 
 def sent_key(person: str, data: bytes) -> str:
@@ -1308,15 +1327,21 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
             refused = await take_score(person, source) if arrived else None
             if not refused and not await take("pdf_page", source, read):
                 if arrived:
-                    await take_for(person, -1)
-                    await take("score", source, -1)
+                    await give_back_score(person, source)
                 refused = "shared"
             if refused:
                 log("read_pdf_work", limit=refused, pages=read)
                 return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
             log("read_pdf_work", **await anyio.to_thread.run_sync(pdf_reader.file_facts, data))
-            with stage("omr"):
-                result = await anyio.to_thread.run_sync(pdf_reader.read_pdf, data)
+            try:
+                with stage("omr"):
+                    result = await anyio.to_thread.run_sync(pdf_reader.read_pdf, data)
+            except pdf_reader.ReadError:
+                raise
+            except Exception:
+                if arrived:
+                    await give_back_score(person, source)
+                raise
         passes = result.passes
         reading = {"score_id": secrets.token_hex(8).upper(), "pages": result.pages, "scan": result.scan,
                    "skipped": result.skipped, "of_pages": pages, "low_resolution": result.low_resolution}
@@ -1738,12 +1763,16 @@ async def draft_analysis(
         measures = parse_measures(measure_range)
         if student_analysis and student_analysis.strip().lower() != "score":
             await in_turn(check_analysis.from_text, student_analysis)
+        if not await take("draft", source):
+            log("limit", tool="draft_analysis", platform=source)
+            return error_result(LIMIT_MESSAGE)
         if given == "score_id":
             code = clean_id(score_id)
         else:
             person = caller()
             if not (code := await sent_before(person, score)):
                 if refused := await take_score(person, source):
+                    await take("draft", source, -1)
                     log("limit", tool="draft_analysis", platform=source, per=refused)
                     return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
                 code = secrets.token_hex(8).upper()
@@ -1808,6 +1837,9 @@ async def correct_bars(
     except ScoreError as error:
         log("correct_bars", platform=source, error=type(error).__name__)
         return error_result(str(error))
+    if not await take("draft", source):
+        log("limit", tool="correct_bars", platform=source)
+        return error_result(LIMIT_MESSAGE)
     try:
         with stage("parse"):
             after = await in_turn(lambda: correct.replace_bars(before, replacement_bars, part=part))
@@ -2079,7 +2111,7 @@ def main() -> None:
     tool_calls = logging.getLogger("mcp.server.mcpserver.server")
     tool_calls.setLevel(logging.INFO)
     tool_calls.addFilter(lambda record: record.levelno > logging.INFO or record.msg.startswith("Tool %r rejected arguments"))
-    server = HttpServer(uvicorn.Config(traced(without_event_stream(app)), host="0.0.0.0", port=PORT, log_level="warning",
+    server = HttpServer(uvicorn.Config(traced(only_through_the_proxy(without_event_stream(app))), host="0.0.0.0", port=PORT, log_level="warning",
                                        log_config=None))
     server.run()
     if not server.started:

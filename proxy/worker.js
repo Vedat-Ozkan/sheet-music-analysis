@@ -22,7 +22,9 @@ export default {
     }
     url.protocol = "https:";
     url.host = ORIGIN;
-    const response = await fetch(new Request(url, request), { cache: "no-store" });
+    const forwarded = new Request(url, request);
+    forwarded.headers.set("x-proxy-key", env.PROXY_KEY);
+    const response = await fetch(forwarded, { cache: "no-store" });
     if (key && response.ok) {
       await env.UPLOADS.put(key, String(Number(sent) + 1), { expirationTtl: 172800 }).catch(() => null);
     }

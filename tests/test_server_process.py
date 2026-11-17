@@ -8,6 +8,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -22,12 +23,12 @@ def store(tmp_path_factory):
     return tmp_path_factory.mktemp("store")
 
 
-@pytest.fixture(scope="module")
-def server(store):
+@contextmanager
+def running_server(store, **settings):
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
-    env = {**os.environ, "PORT": str(port), "DATA_DIR": str(store)}
+    env = {**os.environ, "PORT": str(port), "DATA_DIR": str(store), **settings}
     env.pop("BUCKET", None)
     env.pop("K_SERVICE", None)
     process = subprocess.Popen([sys.executable, "-m", "server.app"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -41,6 +42,12 @@ def server(store):
     yield url
     process.terminate()
     process.wait(10)
+
+
+@pytest.fixture(scope="module")
+def server(store):
+    with running_server(store) as url:
+        yield url
 
 
 def test_a_get_on_the_mcp_path_is_refused_at_once(server):
@@ -71,11 +78,11 @@ def test_tool_inputs_spell_out_every_field(server):
         assert "$ref" not in json.dumps(schema), name
 
 
-def as_client(server, agent, method, params):
+def as_client(server, agent, method, params, **headers):
     request = urllib.request.Request(
         f"{server}/mcp", method="POST",
         data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode(),
-        headers={"User-Agent": agent, "Content-Type": "application/json", "Accept": "application/json, text/event-stream"})
+        headers={"User-Agent": agent, "Content-Type": "application/json", "Accept": "application/json, text/event-stream", **headers})
     body = urllib.request.urlopen(request, timeout=120).read().decode()
     return next(line[5:] for line in body.splitlines() if line.startswith("data:"))
 
@@ -227,3 +234,20 @@ def test_an_upload_announced_over_10_mb_is_refused_before_its_body_is_read(serve
 
 def test_health_still_answers(server):
     assert urllib.request.urlopen(f"{server}/health", timeout=5).read() == b"ok"
+
+
+def test_with_a_proxy_key_set_only_requests_that_carry_it_are_served(tmp_path):
+    with running_server(tmp_path, PROXY_KEY="the key of this test") as locked:
+        with pytest.raises(urllib.error.HTTPError) as no_key:
+            as_client(locked, "Claude-User", "tools/list", {})
+        with pytest.raises(urllib.error.HTTPError) as wrong_key:
+            as_client(locked, "Claude-User", "tools/list", {}, **{"X-Proxy-Key": "another key"})
+        with pytest.raises(urllib.error.HTTPError) as upload_without:
+            urllib.request.urlopen(urllib.request.Request(f"{locked}/upload?id=0123456789ABCDEF", data=b"x", method="POST"), timeout=10)
+        listed = json.loads(as_client(locked, "Claude-User", "tools/list", {}, **{"X-Proxy-Key": "the key of this test"}))
+        health = urllib.request.urlopen(f"{locked}/health", timeout=10)
+    assert no_key.value.code == wrong_key.value.code == upload_without.value.code == 403
+    assert "mcp.sheetmusicanalysis.com" in no_key.value.read().decode()
+    assert "draft_analysis" in {tool["name"] for tool in listed["result"]["tools"]}
+    assert health.status == 200
+
