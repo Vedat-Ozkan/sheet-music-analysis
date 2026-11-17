@@ -54,6 +54,12 @@ gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.revi
 
 Tool calls since the deploy: `.venv/bin/python -m tools.usage_report --days 1`. Cost: `.venv/bin/python -m tools.cost_report`.
 
+A PDF read runs inside a request of its own (`POST /read-work`, sent by the server to its own run.app address, `OWN_ADDRESS`, which `server/deploy.sh` sets), so the instance that reads keeps its processor whichever instance the waiting calls reach (log 173). If that request is refused before it starts, the read runs on the instance that got the call, as it did before, and the log has a warning `read_pdf_work was not taken as a request of its own; reading here`. Staging refuses it while sign-in is required, so every staging read logs that warning unless staging is open:
+
+```bash
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="sheet-music-analysis" AND jsonPayload.message:"not taken as a request of its own"' --project sheet-music-analysis --freshness 1d
+```
+
 ## Only the proxy may call production
 
 Production's own run.app address is public, and the limit of uploads per internet connection lives in the `proxy/` Worker, so a call sent straight to run.app would skip it. The server answers 403 to every request that does not carry the proxy's key in the `x-proxy-key` header, except `/health`. The Worker adds that header to everything it forwards. Staging has no key; it requires sign-in instead.
