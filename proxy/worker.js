@@ -1,7 +1,7 @@
 const ORIGIN = "sheet-music-analysis-cx6osvvmya-uc.a.run.app";
 const UPLOADS_PER_ADDRESS = 30;
 const UPLOAD_HEADERS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS",
-                         "Access-Control-Allow-Headers": "content-type, x-device", "Content-Type": "application/json" };
+                         "Access-Control-Allow-Headers": "content-type", "Content-Type": "application/json" };
 
 async function addressKey(request, env) {
   const day = new Date().toISOString().slice(0, 10);

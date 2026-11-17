@@ -3159,15 +3159,19 @@ From the cold review of 2026-11-14 (finding 1 of the site and listings part, con
 - The page said the host's request logs hold the IP address of Anthropic's or OpenAI's server, or of the browser. Six hundred request-log lines sampled on 2026-11-16 all carry Cloudflare's address.
 
 **What changed.**
-- The card sends the code in an `x-device` header. The server reads the header first and still accepts `device` in the address, so a card a client has kept from before the change is counted as the same device. The upload's cross-origin answer allows the header, in the server and in the Worker's own refusal.
-- Privacy page: new date; the first row of the table now ends "and a note that you already sent a file, so that sending it again is not counted"; the request-logs row says the logs hold the time and web address of each request and that the IP address in them is Cloudflare's.
+- The card sends the code in an `x-device` header. The server reads the header first and still accepts `device` in the address, so a card a client has kept from before the change is counted as the same device. The server's answer to the browser's cross-origin question allows the header. The Worker needed no change: it passes that question on to the server.
+- Privacy page: new date; the first row of the table now ends "and a note that you already sent a file, so that sending it again is not counted"; the request-logs row gives the time and web address of each request as examples of what the logs hold and says that the IP address in them is Cloudflare's.
 
 **Known and left.**
 - A card opened before the release still puts its code in the address until the client fetches the card again. The address form stays accepted until the request logs show two weeks without `device=`; then the fallback can go.
 - Request logs written before the release keep their addresses until they are 30 days old.
 - The page must be published with the server release that carries the card, not before it.
 
-**Checks.** The card in a real browser sends the header and no `device` in the address, and the upload passes the browser's cross-origin check (`tests/test_cards_browser.py`). A device's limit and its free second send are tested through the header; one new test sends the same file once each way and is charged once (`tests/test_score_links.py`).
+**Checks.** The card in a real browser sends the header and no `device` in the address (`tests/test_cards_browser.py`, against a stand-in server). The real server's answer to the cross-origin question names the header (`tests/test_server_process.py`). A device's limit and its free second send are tested through the header; one new test sends the same file once each way and is charged once (`tests/test_score_links.py`).
+
+Full suite with the PDF reader (sma.8): 1586 passed, 4 skipped ("no ring codes"), 0 failed, before the review's changes; the three test files touched were run again after them.
+
+**After review.** A second agent found no fault in the behaviour. It found that no test asked the real server the browser's cross-origin question with the new header (added), that the first version also edited the Worker's refusal headers to no effect (taken out), and that the page's request-logs row read as a full list when the logs also hold such things as the browser's name (now "such as"). Known and left from the review: a header that is present but malformed wins over a valid code in the address, so that upload is counted without a person, as an upload with no code always was. Not checked: whether Cloudflare's own Worker logs are switched on in the dashboard; they are off in `proxy/wrangler.jsonc`.
 
 ## Checking against teachers' prose
 

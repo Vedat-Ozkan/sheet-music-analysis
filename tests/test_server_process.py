@@ -211,9 +211,11 @@ def test_an_upload_without_a_card_id_from_this_server_is_refused(server, store):
 
 
 def test_the_upload_refuses_what_is_not_a_score_and_answers_the_browser_s_preflight(server):
-    preflight = urllib.request.Request(f"{server}/upload", method="OPTIONS")
+    preflight = urllib.request.Request(f"{server}/upload", method="OPTIONS",
+                                       headers={"Access-Control-Request-Headers": "content-type,x-device"})
     with urllib.request.urlopen(preflight, timeout=10) as response:
         assert response.status == 204 and "POST" in response.headers["Access-Control-Allow-Methods"]
+        assert response.headers["Access-Control-Allow-Headers"] == "content-type, x-device"
     page = upload(server, b"<!DOCTYPE html><html><body>Sign in</body></html>", card_id(server))
     empty = upload(server, b"", card_id(server))
     assert page[0] == 415 and page[1]["Access-Control-Allow-Origin"] == "*" and "not a MusicXML file or a PDF" in page[2]["error"]
