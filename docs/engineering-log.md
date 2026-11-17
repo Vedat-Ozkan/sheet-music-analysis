@@ -3053,6 +3053,37 @@ No tool was added or removed, and no title, annotation, `_meta` or widget addres
 
 **NOT RUN.** A real Claude or ChatGPT chat with these changes.
 
+### 169. homr 0.7.1 as a second PDF reader, for staging trials only (2026-11-14, branch `homr-staging`, nothing released)
+
+**Question.** The `accuracy-trials` branch (its entries 159-161) found homr 0.7.1 reading far more of real scans than our reader: 195 of 253 bars exact on the five spent piano scans against 153, and 148 of 278 on seven fresh song scans against 26. Can the owner try it on staging, inside the server, with production unchanged?
+
+**The switch.** `PDF_READER` (default `audiveris`) picks the reader module in `server/app.py`: `engine/read_pdf.py` (ours) or `engine/read_homr.py`. Both give `READER` (the version string in the cache keys, so readings never mix) and `read_pdf(data) -> PdfReading`; the server uses nothing else from the choice. homr renders each page 2,480 pixels wide (entry 161's choice, `engine/homr_pages.py`, run by homr's own Python), reads one page at a time inside the same 480 s limit, joins the pages with the join our reader uses for movements (parts matched by staff count, so a page missing a part gets silent bars), regroups each bar's voices, then goes through the same `clean` and repairs as our reader and the same shading, numbering and drawing. A page homr cannot read, or that has no music, is reported as a missing page. Small changes to `read_pdf.py` to share code: `clean_score`, `joined` and `repaired` split out; no behaviour change (`tools/diff_check.py --base main pdfwarn`: 80 inputs, 0 changed).
+
+**The adapter.** homr writes each bar's voices interleaved, one voice split into several runs between backups; the engine reads that as voices running past the barline (entry 160 of that branch). `regroup_voices` regroups each bar by onset into gap-filled voices (the spike's `tidy.py`). Checked across every saved homr output (83 files, 5,997 bars: the 18 song pages, the five scans, 60 engraved PDFs): a voice in several runs in 274 bars before, 0 after; no note moved in time. That check found one leftover in the spike code: grace notes at the end of a bar kept their old voice after the last one (14 bars); they now join the last voice. Tests in `tests/test_read_homr.py` run the same check on three saved homr pages (Satie *Spleen*, Clara Schumann Op. 23 No. 1, public domain) and draw the joined Satie reading; one test that runs homr itself is skipped unless `HOMR` points at it.
+
+**Same figures as the trials, without running homr.** The saved page readings put through the new engine path: the seven songs 148 of 278 bars exact, wrong 129, of those unshaded 77 (entry 161: the same); the five scans 195 of 253 (entry 159: the same). Our cleaning and repairs change nothing in these scores.
+
+**In the server, end to end.** The server image built with homr, run in Docker at 4 CPUs and 4 GB with `PDF_READER=homr`; each PDF uploaded through `/upload` to a `choose_score` card and read with `read_fetched_pdf`, then `draft_analysis`, one PDF per fresh container.
+
+| | Pages | Bars exact (trial) | Wall s | CPU s, whole read | Container peak |
+|---|---|---|---|---|---|
+| Satie, *Spleen* | 2 | 8 of 10 (8) | 36 | 132 | 2.23 GB |
+| C. Schumann, Op. 23 No. 1 | 2 | 61 of 69 (61) | 75 | 251 | 2.06 GB |
+| Greger, *Liebeslied* | 2 | 27 of 44 (27) | 82 | 237 | 1.96 GB |
+| Mozart K. 545 i, Peters scan | 4 | 60 of 73 (62) | 121 | 394 | 1.85 GB |
+| Ours on the same Mozart scan | 4 | | 66 | 174 | 2.71 GB |
+| Ours on the same Schumann scan | 2 | | 46 | 132 | 2.00 GB |
+
+The songs give the trial figures exactly. Mozart gives 60 against 62 because entry 159 read those pages at 300 dpi (1,984 pixels wide) and the server at 2,480; the same pages read at 300 dpi in the same container through the same path give 62. Reading time per page was 16-42 s (mean 28 s). The drawn readings were looked at full size beside the scans (Satie, Schumann page 1, Mozart page 1): the notes match the print closely; the faults seen are homr's own (accidentals missed in Satie bars 5-6, piano notes moved into the bass staff in Satie bar 9, an empty bass bar in Mozart bar 9), plus one of the join: the next page's time signature is drawn again where a page starts (2/4 at Schumann bar 30), since `clean` drops restated keys but not restated times. No lyrics or words are read, so a song read by homr has no text.
+
+**Cost.** Staging runs 4 CPUs and 4 GiB (deploy settings and `gcloud run services describe`). homr's peak, server included, was 1.85-2.23 GB, below our reader's 2.71 GB on the same scan, and only one PDF is read at a time on an instance, so it fits the current limit; no setting needs to change. CPU time is 1.9-2.3 times ours per scan; at Cloud Run's rates (US$0.000024 a vCPU-second, US$0.0000025 a GiB-second, 4 of each held for the request) the four-page Mozart scan costs about 1.3 US cents against 0.7. The server image grows from 1,138 MB to 2,020 MB (287 to 589 MB compressed); the production image built from this branch is the size of main's (1,138 MB, an empty `/opt/homr`). Staging's extra images in Artifact Registry add about 0.6 GB, around US$0.06 a month.
+
+**Building it.** `PDF_READER=homr server/deploy.sh sheet-music-analysis staging` builds a separate base image (its tag includes the reader) with homr in its own Python environment at `/opt/homr` (`homr[cpu]==0.7.1`, onnxruntime 1.32.0, OpenCV 4.14.0.94, numpy 2.4.6 since 2.5 needs Python 3.12, Pillow, pypdfium2, rapidocr pinned) and its weights fetched at build time by `homr --init` (the same weight files as the trials), so reading needs no network. `deploy.sh` refuses any other reader for production.
+
+**Limits.** Seven songs and five piano scans, all from the trials; no new scans. homr's licence and training data are entry 160's open points (the owner set the licence aside for this trial). No confidence values, so shading relies on the same beat and column checks as ours; the low-resolution warning and "scan too small" message come from our reader's staff spacing and are not given for homr readings.
+
+**NOT RUN:** the staging deploy and a real Claude or ChatGPT chat with homr; cold start time with the larger image; engraved PDFs through the server with homr.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

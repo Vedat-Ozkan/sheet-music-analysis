@@ -28,6 +28,7 @@ server/deploy.sh sheet-music-analysis staging    # staging
 - Production deploys only from a clean checkout of `origin/main` that CI has passed; the script refuses anything else. Staging may run a branch.
 - Measure and quote any change that adds Cloud Run compute first. Never raise max instances or the daily limits without asking.
 - A change to `Dockerfile.base`, `pyproject.toml` or `uv.lock` rebuilds the base image first (a few minutes longer).
+- `PDF_READER=homr server/deploy.sh sheet-music-analysis staging` reads PDFs with homr instead of our reader, on staging only (log 169); it has its own base image. A staging deploy without it goes back to our reader.
 
 ## Roll back
 
