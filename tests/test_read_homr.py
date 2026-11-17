@@ -10,6 +10,7 @@ from engine.read_homr import reading_from_pages, regroup_voices
 from engine.read_pdf import preview, problem_spots, without_slurs
 
 HOMR = os.environ.get("HOMR", read_homr.HOMR)
+AUDIVERIS = os.environ.get("AUDIVERIS", "/opt/audiveris/bin/Audiveris")
 PAGES = Path(__file__).parent / "data/homr"
 SPLEEN = {1: (PAGES / "satie-spleen-scan-p1.musicxml").read_bytes(), 2: (PAGES / "satie-spleen-scan-p2.musicxml").read_bytes()}
 
@@ -70,4 +71,12 @@ def test_homr_reads_a_real_scan(monkeypatch, pages_at_once):
     reading = read_homr.read_pdf((Path(__file__).parent / "data/pdf_warnings/kinkel_trennung_scan.pdf").read_bytes(), HOMR)
     assert reading.skipped == []
     assert [record["outcome"] for record in reading.passes] == ["done"] * reading.pages
+    assert len(ET.fromstring(reading.musicxml).find("part").findall("measure")) > 10
+
+
+@pytest.mark.skipif(not os.path.exists(AUDIVERIS), reason="Audiveris is not installed; set AUDIVERIS")
+def test_a_software_made_pdf_is_read_by_our_reader():
+    data = (PAGES.parent / "bach-chorale-269-verovio-part-names.pdf").read_bytes()
+    reading = read_homr.read_pdf(data, homr="/homr/is/not/here", audiveris=AUDIVERIS)
+    assert (reading.pages, reading.scan, reading.skipped) == (1, False, [])
     assert len(ET.fromstring(reading.musicxml).find("part").findall("measure")) > 10

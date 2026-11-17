@@ -10,20 +10,23 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from engine import read_pdf as ours
 from engine.read_pdf import NOTHING_READ, TIMEOUT, PdfReading, ReadError, clean_score, is_scan, joined, open_pdf, repaired
 
 HOMR = "/opt/homr/bin/homr"
 PAGE_WIDTH = 2480
 PAGES_AT_ONCE = int(os.environ.get("HOMR_PAGES_AT_ONCE", "1"))
-READER = f"homr-0.7.1-width-{PAGE_WIDTH}-{PAGES_AT_ONCE}-at-once"
+READER = f"{ours.READER}-scans-homr-0.7.1-width-{PAGE_WIDTH}-{PAGES_AT_ONCE}-at-once"
 RENDER_PAGES = Path(__file__).with_name("homr_pages.py")
 READ_IMAGES = Path(__file__).with_name("homr_read.py")
 TIMED = {"note", "backup", "forward"}
 
 
-def read_pdf(data: bytes, homr: str = HOMR) -> PdfReading:
+def read_pdf(data: bytes, homr: str = HOMR, audiveris: str = ours.AUDIVERIS) -> PdfReading:
     pdf = open_pdf(data)
     pages, scan = len(pdf.pages), is_scan(pdf)
+    if not scan:
+        return ours.read_pdf(data, audiveris)
     deadline = time.monotonic() + TIMEOUT
     python = str(Path(homr).parent / "python")
     with tempfile.TemporaryDirectory(prefix="read_homr_") as work:
