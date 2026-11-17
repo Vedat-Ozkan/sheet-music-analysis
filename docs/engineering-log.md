@@ -3290,6 +3290,29 @@ The two scans entry 169 timed fell from 38.8 s a page to 27.6 (29% less) and 21.
 
 **Not decided.** The rule for a warning: by page width (simple, from the file) or by staff spacing (closer to the cause, but homr's note-head height would have to be taken from its output). One read of each size; seven songs.
 
+### 176. Which rule should warn that a scan is too small for homr: page width or staff spacing (2026-11-17, branch `homr-staging`, nothing released)
+
+**Question.** Entry 175 left open whether the warning should go by the scan's page width or by its staff spacing. The test below compares the two on the same readings.
+
+**Method.** 15 pieces with per-piece results allowed: the seven tuning-half songs of entry 175 and the eight benchmark rows with reference MusicXML (20-25, 27, 28; rows 24 and 25 are typeset, so they have no as-scanned reading). Each one was shrunk to a greyscale image 450, 550, 600, 650, 700, 800 or 1,000 pixels wide (500 too), and the as-scanned file was read as well: 133 readings, one read each, with homr as the server runs it (pages drawn 2,480 wide, one at a time). Page width is the narrowest page image in the file, as the server logs it. Staff spacing is homr's own median note-head height (measured at its working width of 1,920) times the page image width over 1,920, which gives about the distance between staff lines in the file; the narrowest page counts. A reading is called bad when its exact bars fall more than 15 points below the same piece read full size (as scanned, or 1,000 wide for the two typeset rows). Files: `~/omr-reader-test-2026-11-07/warning-rule` (`run.py`, `analyze.py`, `rows.jsonl`).
+
+**Result.** 23 of the 132 measurable readings are bad. Warnings given, and bad readings left without one:
+
+| Rule | Warned | Of those bad | Bad, not warned |
+|---|---|---|---|
+| Spacing under 3.5 px | 20 | 14 | 9 |
+| Spacing under 4.0 px | 37 | 18 | 5 |
+| Spacing under 4.5 px | 59 | 22 | 1 |
+| Width under 600 px | 45 | 17 | 6 |
+| Width under 700 px | 75 | 22 | 1 |
+| Width under 800 px | 90 | 23 | 0 |
+
+At any level of misses, the spacing rule warns fewer good readings: to miss only one bad reading it warns 59 against 75. The reason shows in the pieces: at 600 px wide, the Grieg rows 20-23 (spacing about 5 px) read as well as full size, while the song 5133647 (spacing 3.5 px) falls from 88% to 16% exact. With 10 or 25 points as the cut for bad, the best spacing rule makes 18 and 12 mistakes, against 28 and 17 for the best width rule, which at those cuts is no warning at all.
+
+**Limits.** The shrunk pages are made from the same 15 scans, so readings of one piece are not independent; real small scans also blur and compress, which shrinking cleanly does not. Short songs move by 10 points with one bar (6994136 has 10 bars), so some "bad" flags are noise. One read of each. The full-size Dvořák (row 27) keeps its page images inside nested page objects, so the width the server logs is empty for it; it is left out of the rule counts, and a width rule could not have measured it either. homr gives its note-head height only on standard error; the server would have to take it from there or from its own measurement.
+
+**Not decided.** The cut-off: 4.0 px warns about half good readings and misses 5 of 23; 4.5 px misses one and warns about twice as many good as bad.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
