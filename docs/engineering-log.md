@@ -3184,7 +3184,9 @@ Numbered 179 because 169 to 178 are taken on unmerged branches (`homr-staging`, 
 - With the fingering gate met, real p dynamics in that score are dropped too.
 - The shaded-bar note still says the beats don't add up or notes don't line up; for an empty bar that is true but not specific.
 
-**Checks.** New `tests/test_user_pdfs.py` (5 tests) reads the three PDFs from `tests/data/users/`, which `.gitignore` keeps out of the repo (copyrighted user files, kept only on the owner's machines); the tests skip when the folder or the reader is missing, as in CI. With the reader: 5 passed. Without the folder: 5 skipped. Nothing else globs into subfolders of `tests/data`. `tests/test_awkward.py`: 317 passed. Full suite: see below.
+**Checks.** New `tests/test_user_pdfs.py` (5 tests) reads the three PDFs from `tests/data/users/`, which `.gitignore` keeps out of the repo (copyrighted user files, kept only on the owner's machines); the tests skip when the folder or the reader is missing, as in CI. With the reader: 5 passed. Without the folder: 5 skipped. Nothing else globs into subfolders of `tests/data`. `tests/test_awkward.py`: 317 passed. Full suite with the reader (`-n 8`): 1590 passed, 4 skipped (the 4 need ring codes).
+
+**Review.** A second agent (Sonnet) reviewed the branch. Two points were fixed: a heading that names an accompaniment ("Ave Maria for Voice and Guitar") would have named the singer's part "Guitar", so names now come from the heading only in one-part scores; and "pp", "mp" and "m." matched the fingering letters, so dynamics other than a lone p no longer count towards the gate or get removed. Its worry that multi-bar rests would be shaded does not hold: the reader writes each later bar of a multi-bar rest as a whole-bar rest (snare bars 60 to 63). After the fixes: the 5 user-PDF tests and 317 awkward tests pass.
 
 ## Checking against teachers' prose
 
