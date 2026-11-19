@@ -761,6 +761,7 @@ def downloads_text(links: dict[str, str]) -> str:
 
 
 CARD_PAGES = 2
+MOSTLY_DOUBTFUL = 0.5
 
 
 NOTHING_DRAWN = (
@@ -1378,8 +1379,17 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
         image_url, pdf_url = await in_turn(lambda: (publish(image, "png"), publish(pdf, "pdf")))
     log("read_pdf_work", pages=reading["pages"], scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached),
         passes=passes, bars=bars, bars_shaded=len(uneven))
-    return {"score_id": score_id, "pages": reading["pages"], "measures": measures, "notice": notice, "image_url": image_url,
+    return {"score_id": score_id, "pages": reading["pages"], "measures": measures, "bars": bars, "notice": notice, "image_url": image_url,
             "pdf_url": pdf_url, "more_pages": more_pages, "shaded_bars": uneven, "page_images": [base64.b64encode(png).decode() for png in pages]}
+
+
+def doubtful_reading(card: dict) -> str:
+    shaded, bars = len(card.get("shaded_bars", [])), card.get("bars")
+    if not bars or shaded < MOSTLY_DOUBTFUL * bars:
+        return ""
+    return (f"Open your reply with this warning, before anything else: \"Much of this reading is doubtful: {shaded} of its "
+            f"{bars} bars are shaded because their beats don't add up, notes are missing, or notes that should line up "
+            "don't. The analysis may be wrong in those bars.\"\n")
 
 
 def pdf_card_result(card: dict, tool: str) -> CallToolResult:
@@ -1390,6 +1400,7 @@ def pdf_card_result(card: dict, tool: str) -> CallToolResult:
         f"score_id: {card['score_id']}\n"
         f"The card shows the user {shown}. "
         f"The score has measures {card['measures']}.\n"
+        f"{doubtful_reading(card)}"
         "Go straight on to the analysis without asking the user to check the reading: call draft_analysis with this "
         "score_id now and continue exactly as for an attached MusicXML file, drawing it with render_analysis. "
         "Bars shaded in the reading stay shaded on the drawn page. "
