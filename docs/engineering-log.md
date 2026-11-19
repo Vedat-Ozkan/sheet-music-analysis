@@ -3148,9 +3148,9 @@ Full suite with the PDF reader (sma.8) on the finished branch, which includes en
 
 **After review.** The first version passed the secret as `proxy-key:latest`. With no instance kept warm, each cold start reads `latest`, so adding a secret version would have changed the key production enforces at once, and a failed Worker step would have refused every call; rolling back would not have helped, since later revisions read `latest` too. Versions are now pinned and one script sets all three places. The first version also gave back the pages after a crash (see Give-back).
 
-### 178. Five reading checks from three user PDFs: empty bars, empty staves, guitar fingering, default part names, a warning on doubtful reads (2026-11-19, branch `reading-checks`, nothing released)
+### 179. Five reading checks from three user PDFs: empty bars, empty staves, guitar fingering, default part names, a warning on doubtful reads (2026-11-19, branch `reading-checks`, nothing released)
 
-Numbered 178 because 169 to 177 are taken on unmerged branches (`homr-staging`, `privacy-page-sent-record`).
+Numbered 179 because 169 to 178 are taken on unmerged branches (`homr-staging`, `privacy-page-sent-record`).
 
 **Problem.** Three PDFs users sent on 15 November (a one-staff snare part, a guitar part with tablature staves, a classical guitar piece with right-hand fingering) showed five faults in our own clean-up of the reader's output:
 - A bar the reader left with nothing in it was never shaded (Padrino bar 21, a bar of harmonics the reader missed): the uneven-bar check skipped bars with no notes or rests.
@@ -3162,8 +3162,8 @@ Numbered 178 because 169 to 177 are taken on unmerged branches (`homr-staging`, 
 **What changed** (`engine/read_pdf.py`, `server/app.py`).
 - **Empty bars are shaded** when a part has nothing at all in the bar (no note, rest or skip) and some part has music in that bar or later. Bars empty in every part at the very end are not shaded.
 - **Parts with no notes are dropped** in `clean()`: a part with no pitched or unpitched note anywhere (rests only, or nothing) is removed, unless every part is like that.
-- **Right-hand fingering.** If at least 3 word marks consist only of the letters p, i, m, a (and "1" for i, spaces, dots, commas), those words, every dynamic that is a single p, and lyrics of the same letters are removed. Word marks only, because lyrics of French songs match.
-- **Default part names.** A part named "Voice" or "NoName" takes the one instrument the first page's heading names (from music21's list of 112 instrument names; a single word must match exactly, a longer name may differ in its later words by OCR, at least 80% alike), unless another part already has that name; otherwise it gets no name. Its abbreviation is removed. A two-staff part keeps the reader's "Piano": in the benchmark readings it was a piano every time.
+- **Right-hand fingering.** A fingering mark is a word made only of the letters p, i, m, a (and "1" for i, spaces, dots, commas) that is not a dynamic other than p ("pp", "mp" and the like stay). If at least 3 word marks other than a lone "p" are fingering marks, those words, every dynamic that is a single p, and lyrics of the same letters are removed. Only word marks count towards the 3, because lyrics of French songs match, and a lone "p" does not, because OCR also reads real dynamics as words.
+- **Default part names.** A part named "Voice" or "NoName" takes the one instrument the first page's heading names (from music21's list of 112 instrument names; a single word must match exactly, a longer name may differ in its later words by OCR, at least 80% alike), but only when the score has a single part; otherwise it gets no name. With several parts a heading such as "Ave Maria for Voice and Guitar" would name the singer's part "Guitar". Its abbreviation is removed. A two-staff part keeps the reader's "Piano": in the benchmark readings it was a piano every time.
 - **Doubtful reads.** When at least half the bars are shaded, the PDF card's reply text (shared by ChatGPT's `read_pdf` and Claude's `read_fetched_pdf`/`choose_score` paths, all through `pdf_card_result`) tells the chat to open its reply with: "Much of this reading is doubtful: N of its M bars are shaded because their beats don't add up, notes are missing, or notes that should line up don't. The analysis may be wrong in those bars." It still goes straight on. Card results cached before this change have no bar count and get no warning.
 
 **Evidence before building.**

@@ -857,7 +857,7 @@ def _name_default_parts(root: ET.Element) -> None:
         return
     heading = " / ".join(" ".join(words.text or "" for words in credit.findall("credit-words"))
                          for credit in root.findall("credit") if credit.get("page", "1") == "1")
-    named = _instruments_named(heading) - {part.findtext("part-name") for part in listed}
+    named = _instruments_named(heading) if len(listed) == 1 else set()
     for part in unnamed:
         part.find("part-name").text = next(iter(named)) if len(named) == 1 else ""
         for abbreviation in part.findall("part-abbreviation"):
@@ -879,8 +879,8 @@ def _instruments_named(text: str) -> set[str]:
 
 def _drop_right_hand_fingering(root: ET.Element) -> None:
     marks = [(kind, words) for kind in root.iter("direction-type") for words in kind.findall("words")
-             if _RIGHT_HAND.match((words.text or "").strip())]
-    if len(marks) < RIGHT_HAND_MARKS:
+             if _right_hand((words.text or "").strip())]
+    if sum((words.text or "").strip() != "p" for _, words in marks) < RIGHT_HAND_MARKS:
         return
     for kind, words in marks:
         kind.remove(words)
@@ -890,8 +890,12 @@ def _drop_right_hand_fingering(root: ET.Element) -> None:
                 parent.remove(dynamics)
     for note in root.iter("note"):
         for lyric in note.findall("lyric"):
-            if _RIGHT_HAND.match((lyric.findtext("text") or "").strip().lower()):
+            if _right_hand((lyric.findtext("text") or "").strip().lower()):
                 note.remove(lyric)
+
+
+def _right_hand(text: str) -> bool:
+    return bool(_RIGHT_HAND.match(text)) and (text == "p" or not _DYNAMIC.match(text))
 
 
 def _share_numbers_of_split_bars(root: ET.Element) -> None:
