@@ -3671,7 +3671,42 @@ Found on the way:
 
 *Checks.* New tests: `tests/test_careful_reading.py` (the offer, the two tools on the real Dvořák pages, a page that cannot be built, the join, words on a Schubert voice line, a clef change, a corrected bar keeping its signs, the accidental rule on every test score) and a kit download in `tests/test_server_process.py`. Full suite with the local reader build: 1,647 passed, 11 skipped (user files kept out of the repository; ring codes), 7 failed. Two of the seven were the tool-list tests, now updated. The other five are PDF-reading tests (a tempo word, octave lines, a narrow flat, one crashing scan, the doubtful-reading warning) and fail the same way on an untouched copy of main with the local reader build, which is older than the reader main expects. `tools/diff_check.py` has no area for the correction step; the 94 correction tests and the rule check above stand in.
 
-**NOT RUN:** anything on Cloud Run; the flow in a real chat of either product from the connector (needs staging open and, for Claude, the branch on GitHub); the general page instructions and the `clef=` rule in a real read; photos that are not PDFs (still refused as not a PDF); a review of the branch by another model; the five reader tests with the reader build main expects.
+*On Cloud Run (staging, sign-in only, driven by a script with an identity token).* The whole server flow on the three-page Dvořák scan: our reader 134 s, the offer and the steps returned, `use_careful_reading` 1.8 s for the three pages, `draft_analysis` 1.1 s. No warnings in the startup lines. The first deploy failed because `kit` was not in the build context (`.gcloudignore`, `.dockerignore`); fixed in f7199d1.
+
+*In real chats from the connector (staging revision 00127-mnw, commit 9dcb06e, staging opened by the owner; one run each on the same scan, 54 bars, 952 notes).*
+
+Three things went wrong before a chat got through, none of them in the reading:
+- ChatGPT did not make the offer. The text said "if you can run code and start helper agents", and it took that as a condition it did not meet. The offer is now a question to the user whose yes is the request to start the helpers (9dcb06e). After that both chats asked.
+- ChatGPT's staging app still listed the four old tools until its tool list was refreshed by hand. In production this is the wait for OpenAI's approval of the two new tools.
+- `server/deploy.sh` closes staging to sign-in only on every deploy, so a deploy in the middle of a chat test cuts the chats off.
+
+| | ChatGPT (highest thinking setting) | Claude (Sonnet, medium) | Our reader |
+|---|---|---|---|
+| Asked with the warning and waited | yes, word for word | yes, word for word, plus one sentence on the alternative | |
+| Where the kit came from | our server | the public repository (our server refused, 403, three times) | |
+| Extra question to the user | none | one: its own check refused to run the downloaded script, and it stopped and asked | |
+| Pages handed in after the yes | 5.5 min | 8 min 4 s, including the wait for the answer to that question | |
+| Analysis drawn after the yes | 7 min 5 s | 12 min 20 s | |
+| Notes right | 924 of 952 | 952 of 952 | 656 of 952 |
+| Key signatures (4 sharps, 5 flats, 4 sharps) | all right | all right | |
+| Clef changes in the left hand (treble at bar 6, bass at bar 8) | bass written at bar 17, so bars 8 to 16 are drawn in the wrong clef with the right pitches | both right | |
+| Slurs with both ends right, of 34 | 8 (36 written) | 29 (39 written) | 22 (50 written) |
+| Staccato dots, of 7 | 7, and 24 that are not on the page | 7, none extra | 7, and 4 extra |
+| Accents, of 4 | 2 | 2, and 1 extra | 2 |
+
+Notes, slurs, dots and accents are counted against the answer key by `marks2.py`. The answer key does not carry the clef change back to bass at bar 8, so the clefs were checked by eye against the scan. ChatGPT called `use_careful_reading` twice with nearly the same pages; both scores were stored and the second is the one scored.
+
+What a user meets that the trials did not show:
+- In Claude the downloaded script is refused once by Claude's own check, and Claude asks the user before going on. So a Claude user answers two questions (the usage warning, then "allow the script"), a ChatGPT user one.
+- The doubtful-reading warning and the careful offer arrive in the same reply: first "27 of its 54 bars are shaded", then the offer. Both chats kept both. Whether that is the wanted wording is the owner's decision.
+- A Claude user who attached the PDF to the chat was first asked to choose it again in the card, because the connector cannot take a chat attachment. The careful reading then used the attached copy. A user who only chose the file in the card would have to attach it as well.
+- Both chats wrote the harmony analysis on the careful reading. Claude's reply said that the reading can still contain mistakes and asked the user to check it against their copy; ChatGPT's wording at that point was not kept.
+
+Claude's cards showed "There was a problem displaying content" in this test. That is the staging set-up (the revision's connector address was the plain one, not the tagged one the test connector uses), so the cards in this flow were not seen in Claude. Afterwards the test connector got its own revision with the tagged address (00151-hoy, same image, no other traffic); the finished chat's cards then load, but without their pictures, because the stored results name the pictures at the other address. In my screenshots ChatGPT's cards looked blank; not looked into.
+
+Usage, roughly: Claude's meter for the weekly limit went from 76% to 79% over the chat on the owner's plan; the five-hour meter was already high from other use and is no measure.
+
+**NOT RUN:** a second run of either chat; a piece longer than three pages, a song or a user's own scan through the connector; a lower plan or the free tier of either product; the cards of this flow in Claude; why ChatGPT's cards looked blank in screenshots; a Claude user who has allowed our address in their settings; photos that are not PDFs (still refused as not a PDF); a review of the branch by another model; the five reader tests with the reader build main expects. Files: `connector-chat-tests` in `round11-reader-vs-quick`.
 
 ## Checking against teachers' prose
 
