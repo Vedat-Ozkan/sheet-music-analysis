@@ -3248,6 +3248,16 @@ Numbered 180 because 169 to 179 are taken on unmerged branches (`homr-staging`, 
 
 **Checks.** New `tests/test_read_user_pdfs.py` (3 tests: rolls, fingering, thin beams) reads the user PDFs from the git-ignored `tests/data/users/` and skips without them. With the reader: 3 passed; `tests/test_awkward.py` 317 passed. `tools/diff_check.py --base origin/main pdfwarn`: 0 of 80 changed, as expected, because it starts from readings already made. Full suite with the reader, after the review fixes and the scan condition: 1588 passed, 4 skipped. After merging with entry 179 and switching `pluckings` off: `tests/test_read_pdf.py`, `tests/test_read_user_pdfs.py`, `tests/test_user_pdfs.py` and `tests/test_awkward.py` 435 passed; `diff_check` pdfwarn 0 of 80 changed; full suite 1593 passed, 4 skipped.
 
+### 182. The guide to the marks sits at the bottom of the chat picture (2026-11-20, branch `guide-at-preview-end`, nothing released)
+
+**Why.** The owner saw the guide in the middle of a drawn analysis in a real Claude chat. The chat picture is the first two pages pasted one under the other (`CARD_PAGES = 2`), and since entry 162 the guide was drawn at the foot of page 1, so on any piece longer than a page it sat between page 1 and page 2. The owner had chosen "foot of page 1" on the understanding that the picture was one page; the wish was always "at the bottom".
+
+**Change.** `engine/annotate.py` draws the picture's guide under the last page the picture shows. A piece no longer than the picture has one guide at its end, shared by the picture and the PDF, as a one-page piece already had. The PDF of a longer piece is unchanged (guide at the end of the last page). The text the chat is given and the sentence on the site's how-to page say "the bottom of the picture" now; the site is not published by this change.
+
+**Checks.** `tools/diff_check.py --base main render`: 28 inputs, 0 changed (the guide is off in the engine's default). The placement test now expects the guide on the second page of the picture; a new test draws a real two-page reading (Chopin, Prelude op. 28 no. 4) and finds one guide, on page 2, in both picture and PDF; the card test expects the same of the server. `tests/test_overlay_marks.py`, `tests/test_host_render.py` and `tests/test_awkward.py`: 424 passed, 4 skipped. Looked at full size, before and after, on Schubert's "Der Lindenbaum" with its example analysis: before, the guide sat under the third system, above the first marks; after, under the last system of the picture.
+
+**NOT RUN:** the full suite; a real Claude or ChatGPT chat with this change (staging holds another branch); a review by another model.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).

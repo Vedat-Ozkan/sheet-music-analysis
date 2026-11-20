@@ -539,18 +539,26 @@ def test_page_key_names_exactly_the_part_writing_codes_drawn():
     assert not any(code in key for code in ("P5", "VC", "parallel", "passing", "the key", "the chord’s job", "numbered"))
 
 
-def test_page_key_is_at_the_foot_of_the_first_preview_page_and_the_end_of_the_last_download_page(chopin, chopin_annotations):
+def test_page_key_is_at_the_end_of_the_preview_and_the_end_of_the_last_download_page(chopin, chopin_annotations):
     later = {"type": "cadence", "at": {"measure": 34, "beat": 1}, "label": "HC"}
     marks = AnnotationList.model_validate({"annotations": chopin_annotations.model_dump(exclude_none=True)["annotations"] + [later]})
     engraving = render(chopin, marks, key=True, preview_pages=2)
     assert engraving.page_count > 2 and engraving.key_drawn
     keyed = lambda svgs: [number for number, svg in enumerate(svgs) if 'class="page-key"' in svg]
-    assert keyed(engraving.preview.svgs) == [0] and keyed(engraving.svgs) == [engraving.page_count - 1]
-    preview, download = _key_text(engraving.preview.svgs[0]), _key_text(engraving.svgs[-1])
+    assert keyed(engraving.preview.svgs) == [1] and keyed(engraving.svgs) == [engraving.page_count - 1]
+    preview, download = _key_text(engraving.preview.svgs[1]), _key_text(engraving.svgs[-1])
     assert "half cadence" in download and "half cadence" not in preview
-    assert _key_entries(engraving.preview.svgs[0]) == [entry for entry in _key_entries(engraving.svgs[-1]) if entry != "HC half cadence"]
-    assert _key_sizes(engraving.preview.svgs[0]) == {str(overlay.NUMERAL_SIZE), str(round(overlay.NUMERAL_SIZE * 0.9))}
+    assert _key_entries(engraving.preview.svgs[1]) == [entry for entry in _key_entries(engraving.svgs[-1]) if entry != "HC half cadence"]
+    assert _key_sizes(engraving.preview.svgs[1]) == {str(overlay.NUMERAL_SIZE), str(round(overlay.NUMERAL_SIZE * 0.9))}
     assert _key_sizes(engraving.svgs[-1]) == {str(overlay.LABEL_SIZE), str(round(overlay.LABEL_SIZE * 0.9))}
+
+
+def test_a_piece_no_longer_than_the_preview_has_one_key_at_its_end():
+    prelude = (Path(__file__).parent / "data/chopin_prelude_op28_no4_reading.musicxml").read_bytes()
+    cadence = AnnotationList.model_validate({"annotations": [{"type": "cadence", "at": {"measure": 2, "beat": 1}, "label": "HC"}]})
+    engraving = render(prelude, cadence, key=True, preview_pages=2)
+    assert engraving.page_count == 2 and engraving.key_drawn
+    assert [svg.count('class="page-key"') for svg in engraving.preview.svgs] == [svg.count('class="page-key"') for svg in engraving.svgs] == [0, 1]
 
 
 def test_one_page_render_has_one_key_shared_by_preview_and_download(chopin, chopin_annotations):

@@ -778,7 +778,7 @@ def card_caption(measures: tuple[int, int] | None, view: str, piano: bool) -> st
     return f"Analysis of {bars}{VIEW_NAMES[view]}" + (", piano reduction" if piano else "")
 
 
-KEY_ON_PAGE = ("The page has a guide to the marks at its foot (on the first page in the card, at the end of the last page "
+KEY_ON_PAGE = ("The page has a guide to the marks at its foot (under the last page the card shows, at the end of the last page "
                "in the PDF). It names the marks and codes drawn around the numerals: the label for the key, the chord's job, "
                "cadence labels, non-chord-tone and part-writing codes, phrase and alternative-reading brackets, arrows, "
                "callouts, instrument cues and shaded bars, so do not define those again. It does not explain Roman "
