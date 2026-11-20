@@ -17,6 +17,10 @@ MARK = re.compile(
     r"|(?P<dynamic>[a-z]+)@(?P<at5>[\d.]+)"
 )
 MAX_CHARS = 200_000
+CLEFS = {"G": ("G", 2, 0), "F": ("F", 4, 0), "C": ("C", 3, 0), "T": ("C", 4, 0), "G8": ("G", 2, -1)}
+CLEF = re.compile(r"clef=(" + "|".join(CLEFS) + ")")
+WORDS_LABEL = re.compile(r"\d+\.\d+w")
+MARKED = re.compile(r"(?P<opened>\(*)(?P<sounding>.+?)(?P<signs>[.>]*)(?P<closed>\)*)")
 METER = re.compile(r"(?:[1-9]\d*/[1-9]\d*)?")
 KEY = re.compile(r"0|[1-7][sf]")
 
@@ -37,6 +41,20 @@ class Voice:
     staff: int
     number: int
     events: list[Event] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class Token:
+    sounding: str
+    slurs_opened: int = 0
+    slurs_closed: int = 0
+    staccato: bool = False
+    accent: bool = False
+
+
+def token(text: str) -> Token:
+    parts = MARKED.fullmatch(text)
+    return Token(parts["sounding"], len(parts["opened"]), len(parts["closed"]), "." in parts["signs"], ">" in parts["signs"])
 
 
 def encode(index: ScoreIndex, first: int | None = None, last: int | None = None) -> str:
@@ -182,6 +200,8 @@ def decode(text: str) -> ScoreIndex:
                 if not measures:
                     raise NotesError(f"Line {number}: a voice line needs a bar line like 'm3 len=96' before it")
                 voice, _, body = line.partition(":")
+                if WORDS_LABEL.fullmatch(voice):
+                    continue
                 if not re.fullmatch(r"\d+\.\d+", voice):
                     raise NotesError(f"Line {number}: expected 'staff.voice: tokens', e.g. '1.1: 24 C4'")
                 staff, layer = (int(part) for part in voice.split("."))
@@ -201,23 +221,26 @@ def decode(text: str) -> ScoreIndex:
 
 def _read_voice(tokens: list[str], measure: Measure, staff: int, layer: int, div: int) -> None:
     cursor, duration = Fraction(0), Fraction(0)
-    for attack, token in enumerate(tokens):
-        if token.isdigit():
-            duration = Fraction(int(token), div)
+    for attack, written in enumerate(tokens):
+        if written.isdigit():
+            duration = Fraction(int(written), div)
             continue
-        if token == "r":
+        if CLEF.fullmatch(written):
+            continue
+        sounding = token(written).sounding
+        if sounding == "r":
             cursor += duration
             continue
-        grace = token.startswith(("g", "u"))
-        for name in token[1 if grace else 0 :].split("+"):
+        grace = sounding.startswith(("g", "u"))
+        for name in sounding[1 if grace else 0 :].split("+"):
             tied = name.endswith("~")
             pitch = name.rstrip("~")
             if pitch[0] not in "ABCDEFG" or not pitch[-1].isdigit():
-                raise ValueError(f"unknown token {token!r}")
+                raise ValueError(f"unknown token {written!r}")
             identity = f"{measure.id}-{staff}.{layer}-{len(measure.events)}"
             measure.events.append(
                 Event(identity, measure.number, staff, cursor, Fraction(0) if grace else duration, pitch, grace, layer, tied,
-                      attack=str(attack) if grace else "", slashed=token.startswith("u"))
+                      attack=str(attack) if grace else "", slashed=sounding.startswith("u"))
             )
         if not grace:
             cursor += duration

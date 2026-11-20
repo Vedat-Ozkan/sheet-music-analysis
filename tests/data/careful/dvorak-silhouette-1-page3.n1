@@ -1,0 +1,55 @@
+N1 div=4 ts=6/8 ks=5f
+m1 len=12
+1.1: gF6+Db6 gF5 4 F5+Db6+F6 2 Eb5+Ab5+Eb6 6 Eb5+Ab5+Eb6
+2.1: 2 Db3 Ab3+Db4+F4 r Db3 Ab3+C4+Eb4+Gb4 r
+m2 len=12
+1.1: gDb6+Ab5 gDb5 6 Db5~+Ab5~+Db6~ 4 Db5+Ab5+Db6 2 Db5+Ab5+Db6
+2.1: 2 Db2+Db3 Ab3+Db4+F4 Ab3+Db4+F4 4 r 2 Ab3+C4+Eb4+Gb4
+m3 len=12
+1.1: gEb6+Ab5 gEb5 4 Eb5+Ab5+Eb6 2 F5+Ab5+F6 gEb6+Ab5 gEb5 4 Eb5+Ab5+Eb6 2 Db5+Ab5+Db6
+2.1: 2 Db3 Ab3+C4+Eb4+Gb4 Ab3+C4+F4+Ab4 r Ab3+C4+Eb4+Gb4 Ab3+Db4+F4
+m4 len=12
+1.1: gEb6+Ab5 gEb5 12 Eb5~+Ab5~+Eb6~
+2.1: 2 Db3 Ab3+C4+Eb4+Gb4 r 4 r 2 Ab3+C4+Eb4+Gb4
+m5 len=12
+1.1: 6 Eb5+Ab5+Eb6 4 r 2 Ab5
+2.1: 2 Ab3+C4+Eb4+Gb4 r Ab3+C4+F4 Ab3+C4+F4 r Ab3+C4+Eb4
+m6 len=12
+1.1: gF6+Ab6 gAb5 6 Ab5~+F6~+Ab6~ 4 Ab5+F6+Ab6 2 Gb5+Eb6+Gb6
+2.1: 2 Db2+Db3 Ab3+Db4+F4 Ab3+Db4+F4 4 r 2 Ab3+C4+Eb4+Gb4
+m7 len=12
+1.1: gF6+Db6 gF5 4 F5+Db6+F6 2 Eb5+Ab5+Eb6 6 Eb5+Ab5+Eb6
+2.1: 2 Db3 Ab3+Db4+F4 r r Ab3+C4+Eb4+Gb4 r
+m8 len=12
+1.1: gDb6+Ab5 gDb5 6 Db5~+Ab5~+Db6~ 4 Db5+Ab5+Db6 2 Db5+Ab5+Db6
+2.1: 2 Db3 Ab3+Db4+F4 Ab3+Db4+F4 4 r 2 Ab3+Db4+F4
+m9 len=12
+1.1: gEb6+Ab5 gEb5 4 Eb5+Ab5+Eb6 2 F5+Ab5+F6 4 Eb5+Ab5+Eb6 2 Ab4+Ab5
+2.1: 2 Db3 Ab3+C4+Eb4+Gb4 r r Ab3+C4+Eb4+Gb4 r
+m10 len=12
+1.1: gDb6+Ab5 gDb5 12 Db5~+Ab5~+Db6~
+2.1: 2 Db3 Ab3+Db4+F4 Ab3+Db4+F4 4 r 2 Ab3+Db4+F4
+m11 len=12
+1.1: 12 Db5+Ab5+Db6
+2.1: 4 r 2 Ab3+Db4+F4 4 r 2 Ab3+Db4+F4
+m12 len=12
+1.1: gDb6+Ab5 gDb5 6 Db5~+Ab5~+Db6~ 6 Db5+Ab5+Db6
+2.1: 2 Db3 r r 6 Ab3+Db4+F4
+m13 len=2 ks=4s
+1.1: 2 G#3+G#4
+2.1: 2 r
+m14 len=12
+1.1: 4 C#4+C#5 2 D#4+D#5 4 E4+E5 2 F#4+F#5
+2.1: 1 C#2 G#2 C#3 E3 C#3 E3 C#3 E3 C#3 E3 C#3 G#2
+m15 len=12
+1.1: 4 G#4+G#5 2 A4+A5 4 B4+B5 2 A4+A5
+2.1: 1 C#2 G#2 C#3 E3 C#3 G#2 B1+B2 D#3 F#3 A3 F#3 D#3
+m16 len=12
+1.1: 4 G#4+G#5 2 F#4+F#5 4 E4+E5 2 D#4+D#5
+2.1: 1 E2 B2 E3 G#3 E3 B2 F#2 D#3 F#3 A3 F#3 D#3
+m17 len=12
+1.1: 4 C#4+C#5 2 D#4+D#5 4 E4+E5 2 B#3+B#4
+2.1: 1 G#2 C#3 E3 G#3 E3 C#3 G#2 D#3 F#3 G#3 F#3 D#3
+m18 len=12
+1.1: 2 C#4+C#5 r r C#4+E4+G#4+C#5+E5+G#5+C#6 r r
+2.1: 2 C#2+C#3 r r r r r

@@ -3,6 +3,7 @@ ARG BASE
 FROM ${BASE}
 COPY engine engine
 COPY server server
+COPY kit kit
 COPY skill/SKILL.md skill/SKILL.md
 RUN python -m server.app --list-files
 CMD ["python", "-m", "server.app"]

@@ -91,7 +91,7 @@ def test_claude_is_offered_the_upload_card_score_links_and_cards_on_its_own_doma
     listed = {tool["name"]: tool for tool in json.loads(as_client(server, "Claude-User", "tools/list", {}))["result"]["tools"]}
     card = json.loads(as_client(server, "Claude-User", "resources/read", {"uri": "ui://sheet-music-analysis/card-v2.html"}))
     assert set(listed) == {"choose_score", "fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis",
-                           "play", "draft_from_notes", "send_suggestion"}
+                           "play", "draft_from_notes", "send_suggestion", "careful_reading", "use_careful_reading"}
     assert "score_file" not in listed["draft_analysis"]["inputSchema"]["properties"]
     assert set(listed["play"]["inputSchema"]["properties"]) == {"score_id", "measure_range", "tempo", "play_id", "notes"}
     assert "fetch_score" in listed["draft_analysis"]["description"] and "read_fetched_pdf" in listed["correct_bars"]["description"]
@@ -100,9 +100,19 @@ def test_claude_is_offered_the_upload_card_score_links_and_cards_on_its_own_doma
     assert card["result"]["contents"][0]["_meta"]["ui"]["domain"].endswith(".claudemcpcontent.com")
 
 
+def test_a_chat_can_download_the_careful_reading_kit(server):
+    opening = {"notetool.py": "import argparse", "tool.md": "# Reading notes with notetool.py", "reader.md": "# Read one page of scanned music"}
+    for name, first_words in opening.items():
+        assert urllib.request.urlopen(f"{server}/kit/{name}", timeout=30).read().decode().startswith(first_words)
+    with pytest.raises(urllib.error.HTTPError) as refused:
+        urllib.request.urlopen(f"{server}/kit/app.py", timeout=30)
+    assert refused.value.code == 404
+
+
 def test_chatgpt_keeps_its_tools_and_attachment_arguments(server):
     listed = {tool["name"]: tool for tool in json.loads(as_client(server, "openai-mcp/1.0.0", "tools/list", {}))["result"]["tools"]}
-    assert set(listed) == {"draft_analysis", "render_analysis", "correct_bars", "read_pdf", "rate_analysis", "report_problem", "send_suggestion"}
+    assert set(listed) == {"draft_analysis", "render_analysis", "correct_bars", "read_pdf", "rate_analysis", "report_problem", "send_suggestion",
+                           "careful_reading", "use_careful_reading"}
     assert "pdf_file" in listed["read_pdf"]["inputSchema"]["properties"]
     assert "score_file" in listed["draft_analysis"]["inputSchema"]["properties"]
 
