@@ -496,10 +496,10 @@ def _key_entries(svg: str) -> list[str]:
         lines.setdefault(y, []).append(string)
     found: list[list[str]] = []
     for words in lines.values():
-        assert words[0] != page_key.DOT and words[-1] != page_key.DOT, words
+        assert words[0] != page_key.BETWEEN and words[-1] != page_key.BETWEEN, words
         segments = [[]]
         for word in words:
-            if word == page_key.DOT:
+            if word == page_key.BETWEEN:
                 assert segments[-1], words
                 segments.append([])
             else:
@@ -521,11 +521,12 @@ def test_page_key_is_off_by_default(chopin, chopin_annotations):
 
 def test_page_key_names_exactly_the_marks_on_the_page(chopin, chopin_annotations):
     key = _key_text(render(chopin, chopin_annotations, measures=(1, 8), key=True).svgs[-1])
-    for said in ("passing note", "neighbour note", "appoggiatura", "perfect authentic cadence", "the chord’s job",
-                 "where a note moves", "a phrase", "see that number"):
+    for said in ("PT passing tone, NT neighbour tone, APP appoggiatura", "perfect authentic cadence", "see below"):
         assert said in key, said
     for unused in ("suspension", "half cadence", "part-writing", "another reading", "built on", "misread", "who plays"):
         assert unused not in key, unused
+    for left_out in ("the key", "the chord’s job", "tonic", "a phrase", "where a note moves", "not part of the chord"):
+        assert left_out not in key, left_out
 
 
 def test_page_key_names_exactly_the_part_writing_codes_drawn():
@@ -539,33 +540,39 @@ def test_page_key_names_exactly_the_part_writing_codes_drawn():
     assert not any(code in key for code in ("P5", "VC", "parallel", "passing", "the key", "the chord’s job", "numbered"))
 
 
-def test_page_key_is_at_the_foot_of_the_first_preview_page_and_the_end_of_the_last_download_page(chopin, chopin_annotations):
+def test_page_key_is_at_the_end_of_the_preview_and_the_end_of_the_last_download_page(chopin, chopin_annotations):
     later = {"type": "cadence", "at": {"measure": 34, "beat": 1}, "label": "HC"}
     marks = AnnotationList.model_validate({"annotations": chopin_annotations.model_dump(exclude_none=True)["annotations"] + [later]})
     engraving = render(chopin, marks, key=True, preview_pages=2)
     assert engraving.page_count > 2 and engraving.key_drawn
     keyed = lambda svgs: [number for number, svg in enumerate(svgs) if 'class="page-key"' in svg]
-    assert keyed(engraving.preview.svgs) == [0] and keyed(engraving.svgs) == [engraving.page_count - 1]
-    preview, download = _key_text(engraving.preview.svgs[0]), _key_text(engraving.svgs[-1])
+    assert keyed(engraving.preview.svgs) == [1] and keyed(engraving.svgs) == [engraving.page_count - 1]
+    preview, download = _key_text(engraving.preview.svgs[1]), _key_text(engraving.svgs[-1])
     assert "half cadence" in download and "half cadence" not in preview
-    assert _key_entries(engraving.preview.svgs[0]) == [entry for entry in _key_entries(engraving.svgs[-1]) if entry != "HC half cadence"]
-    assert _key_sizes(engraving.preview.svgs[0]) == {str(overlay.NUMERAL_SIZE), str(round(overlay.NUMERAL_SIZE * 0.9))}
+    assert _key_entries(engraving.preview.svgs[1]) == [entry for entry in _key_entries(engraving.svgs[-1]) if entry != "HC half cadence"]
+    assert _key_sizes(engraving.preview.svgs[1]) == {str(overlay.NUMERAL_SIZE), str(round(overlay.NUMERAL_SIZE * 0.9))}
     assert _key_sizes(engraving.svgs[-1]) == {str(overlay.LABEL_SIZE), str(round(overlay.LABEL_SIZE * 0.9))}
+
+
+def test_a_preview_whose_pages_have_nothing_to_explain_has_no_key_though_the_download_has(chopin):
+    marks = AnnotationList.model_validate({"annotations": [{"type": "cadence", "at": {"measure": 34, "beat": 1}, "label": "HC"}]})
+    engraving = render(chopin, marks, key=True, preview_pages=2)
+    assert engraving.key_drawn and not engraving.preview.key_drawn
+    assert not any('class="page-key"' in svg for svg in engraving.preview.svgs[:2]) and 'class="page-key"' in engraving.svgs[-1]
+
+
+def test_a_piece_no_longer_than_the_preview_has_one_key_at_its_end():
+    prelude = (Path(__file__).parent / "data/chopin_prelude_op28_no4_reading.musicxml").read_bytes()
+    cadence = AnnotationList.model_validate({"annotations": [{"type": "cadence", "at": {"measure": 2, "beat": 1}, "label": "HC"}]})
+    engraving = render(prelude, cadence, key=True, preview_pages=2)
+    assert engraving.page_count == 2 and engraving.key_drawn
+    assert [svg.count('class="page-key"') for svg in engraving.preview.svgs] == [svg.count('class="page-key"') for svg in engraving.svgs] == [0, 1]
 
 
 def test_one_page_render_has_one_key_shared_by_preview_and_download(chopin, chopin_annotations):
     engraving = render(chopin, chopin_annotations, measures=(1, 8), key=True)
     assert engraving.page_count == 1 and engraving.key_drawn
     assert engraving.preview.svgs[0].count('class="page-key"') == engraving.svgs[0].count('class="page-key"') == 1
-
-
-def test_page_key_names_each_job_once_whichever_forms_are_drawn(chopin, chopin_annotations):
-    engraving = render(chopin, chopin_annotations, key=True)
-    drawn = {form for svg in engraving.svgs for form in re.findall(r">(tonic|pre-dom\.|dominant|T|PD|D)</text>", svg)}
-    assert {"tonic", "T"} <= drawn
-    assert "the chord’s job: tonic (T), pre-dominant (pre-dom., PD), dominant (D)" in _key_text(engraving.svgs[-1])
-    one_form = _key_text(render(chopin, chopin_annotations, measures=(1, 8), key=True).svgs[0])
-    assert "the chord’s job: tonic, pre-dominant (pre-dom.), dominant" in one_form
 
 
 def test_page_key_names_shaded_bars(chopin, chopin_annotations):

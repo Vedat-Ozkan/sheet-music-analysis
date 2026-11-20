@@ -778,10 +778,10 @@ def card_caption(measures: tuple[int, int] | None, view: str, piano: bool) -> st
     return f"Analysis of {bars}{VIEW_NAMES[view]}" + (", piano reduction" if piano else "")
 
 
-KEY_ON_PAGE = ("The page has a guide to the marks at its foot (on the first page in the card, at the end of the last page "
-               "in the PDF). It names the marks and codes drawn around the numerals: the label for the key, the chord's job, "
-               "cadence labels, non-chord-tone and part-writing codes, phrase and alternative-reading brackets, arrows, "
-               "callouts, instrument cues and shaded bars, so do not define those again. It does not explain Roman "
+KEY_ON_PAGE = ("The page has a guide to the marks at its foot (under the last page the card shows, at the end of the last page "
+               "in the PDF). It names the marks and codes drawn around the numerals: cadence labels, non-chord-tone and "
+               "part-writing codes, alternative-reading brackets, callouts, instrument cues and shaded bars, so do "
+               "not define those again. It does not explain Roman "
                "numerals, figures or inversions: for a student, still explain each numeral the first time it appears. Say "
                "what each numbered callout is about and explain the reasoning behind the labels.")
 
@@ -908,7 +908,7 @@ async def render_analysis(
         left_out.append(NOTHING_DRAWN.format(score_id=score_id))
     else:
         left_out.append(callouts_text(engraving.callouts))
-        if engraving.key_drawn:
+        if engraving.preview.key_drawn:
             left_out.append(KEY_ON_PAGE)
     if shaded:
         left_out.append(SHADED_ON_PAGE.format(bars=", ".join(map(str, shaded))))
