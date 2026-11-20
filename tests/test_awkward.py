@@ -311,22 +311,17 @@ def test_one_chord_alternative_is_drawn(name):
 def test_every_system_holds_the_bars_chosen_for_it(name, excerpt, monkeypatch):
     data, index = load(name)
     numbers = [measure.number for measure in index.measures if measure.number > 0]
-    chosen, choose, balance = [], annotate._breaks, annotate._balance_systems
+    chosen, choose = [], annotate._breaks
 
     def watched_choice(widths, *args):
         starts = choose(widths, *args)
         chosen.append([end - start for start, end in zip([0, *starts], [*starts, len(widths)])])
         return starts
 
-    def watched_balance(toolkit, *args):
-        balance(toolkit, *args)
-        if chosen:
-            chosen.append([len(system.measures) for system in PageLayout(toolkit.renderToSVG(1), index).systems])
-
     monkeypatch.setattr(annotate, "_breaks", watched_choice)
-    monkeypatch.setattr(annotate, "_balance_systems", watched_balance)
-    render(data, AnnotationList.model_validate({"annotations": []}), measures=(numbers[0], numbers[min(7, len(numbers) - 1)]) if excerpt else None)
-    assert not chosen or chosen[0] == chosen[1], name
+    engraving = render(data, AnnotationList.model_validate({"annotations": []}), measures=(numbers[0], numbers[min(7, len(numbers) - 1)]) if excerpt else None)
+    drawn = [len(re.findall(r'class="measure"', system)) for svg in engraving.svgs for system in svg.split('class="system"')[1:]]
+    assert not chosen or chosen[0] == drawn, name
 
 
 @score_ids

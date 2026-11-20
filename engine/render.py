@@ -132,11 +132,12 @@ class Engraving:
     svgs: list[str]
     preview_svgs: list[str] | None = field(default=None, kw_only=True)
     key_drawn: bool = field(default=False, kw_only=True)
+    preview_key_drawn: bool = field(default=False, kw_only=True)
     callouts: list[int] = field(default_factory=list, kw_only=True)
 
     @property
     def preview(self) -> Engraving:
-        return replace(self, svgs=self.preview_svgs, preview_svgs=None) if self.preview_svgs else self
+        return replace(self, svgs=self.preview_svgs, preview_svgs=None, key_drawn=self.preview_key_drawn) if self.preview_svgs else self
 
     @property
     def page_count(self) -> int:

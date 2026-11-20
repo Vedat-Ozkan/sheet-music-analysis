@@ -172,9 +172,10 @@ def render(
     preview_key = page_key.draw(shown, shown[-1], page_key.cues_on(shown) if piano else [], page_key.SCREEN_SIZE)
     preview = [*pages[: len(shown) - 1], shown[-1].to_svg(), *pages[len(shown) :]]
     if len(drawn) == len(shown):
-        return Engraving(preview, preview_svgs=preview, key_drawn=preview_key, callouts=callouts)
+        return Engraving(preview, preview_svgs=preview, key_drawn=preview_key, preview_key_drawn=preview_key, callouts=callouts)
     key_drawn = page_key.draw(drawn, drawn[-1], page_key.cues_on(drawn) if piano else [])
-    return Engraving([*pages[:-1], drawn[-1].to_svg()], preview_svgs=preview, key_drawn=key_drawn, callouts=callouts)
+    return Engraving([*pages[:-1], drawn[-1].to_svg()], preview_svgs=preview, key_drawn=key_drawn, preview_key_drawn=preview_key,
+                     callouts=callouts)
 
 
 def _make_room_for_checks(toolkit, relayout, index, ties, results) -> None:
@@ -358,10 +359,9 @@ def _reserve_bracket_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
         if isinstance(mark, Phrase):
             first, last = index.measure(mark.start.measure).index, index.measure(mark.end.measure).last_index
             above |= {segment.id for measure in index.measures for segment in measure.segments if first <= segment.index <= last}
-        elif isinstance(mark, Callout):
-            above.add(index.measure(mark.at.measure).segments[0].id)
-        elif isinstance(mark, Cadence) or isinstance(mark, Harmony) and mark.function:
-            below.add(index.measure(mark.at.measure).segments[0].id)
+        elif isinstance(mark, (Callout, Cadence)) or isinstance(mark, Harmony) and mark.function:
+            measure = index.measure(mark.at.measure)
+            (above if isinstance(mark, Callout) else below).add(measure.segment_at(measure.offset_of(mark.at.beat)).id)
     for segments, staff, place, lines in ((above, 1, "above", "-"), (below, bottom_staff, "below", "-<lb/>-")):
         for segment in segments:
             added.setdefault(segment, []).append(f'<dir staff="{staff}" tstamp="1" place="{place}" type="analysis-room">{lines}</dir>')

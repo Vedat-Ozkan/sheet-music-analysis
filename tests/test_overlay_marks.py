@@ -554,6 +554,13 @@ def test_page_key_is_at_the_end_of_the_preview_and_the_end_of_the_last_download_
     assert _key_sizes(engraving.svgs[-1]) == {str(overlay.LABEL_SIZE), str(round(overlay.LABEL_SIZE * 0.9))}
 
 
+def test_a_preview_whose_pages_have_nothing_to_explain_has_no_key_though_the_download_has(chopin):
+    marks = AnnotationList.model_validate({"annotations": [{"type": "cadence", "at": {"measure": 34, "beat": 1}, "label": "HC"}]})
+    engraving = render(chopin, marks, key=True, preview_pages=2)
+    assert engraving.key_drawn and not engraving.preview.key_drawn
+    assert not any('class="page-key"' in svg for svg in engraving.preview.svgs[:2]) and 'class="page-key"' in engraving.svgs[-1]
+
+
 def test_a_piece_no_longer_than_the_preview_has_one_key_at_its_end():
     prelude = (Path(__file__).parent / "data/chopin_prelude_op28_no4_reading.musicxml").read_bytes()
     cadence = AnnotationList.model_validate({"annotations": [{"type": "cadence", "at": {"measure": 2, "beat": 1}, "label": "HC"}]})

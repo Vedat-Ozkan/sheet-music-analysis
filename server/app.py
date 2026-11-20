@@ -908,7 +908,7 @@ async def render_analysis(
         left_out.append(NOTHING_DRAWN.format(score_id=score_id))
     else:
         left_out.append(callouts_text(engraving.callouts))
-        if engraving.key_drawn:
+        if engraving.preview.key_drawn:
             left_out.append(KEY_ON_PAGE)
     if shaded:
         left_out.append(SHADED_ON_PAGE.format(bars=", ".join(map(str, shaded))))
