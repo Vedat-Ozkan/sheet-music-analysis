@@ -1,0 +1,161 @@
+import asyncio
+import copy
+import io
+import json
+import xml.etree.ElementTree as ET
+import zipfile
+from pathlib import Path
+
+import pytest
+
+from engine import correct, from_notes
+from engine.render import load_toolkit
+from engine.score import ScoreIndex
+from server import app
+
+DATA = Path(__file__).parent / "data"
+PAGES = [(DATA / f"careful/dvorak-silhouette-1-page{number}.n1").read_text() for number in (1, 2, 3)]
+QUICK_READING = DATA / "chopin_prelude_op28_no4_reading.musicxml"
+SIGNS_DISAGREE_WITH_PITCHES = {
+    "grieg-op38-7-scan-reading-verovio-crashed-chord.musicxml",
+    "choral-songs-02-invalid-page-1.mxl",
+    "choral-songs-02-invalid-page-3.mxl",
+    "schubert_die_stadt_audiveris.musicxml",
+    "ravel-oiseaux-tristes-scan-verovio-crashed-beam-setting0.mxl",
+    "mozart-k545-1-homr-reading-clef-change.musicxml",
+}
+
+
+def text_of(result):
+    return next(item.text for item in result.content if item.type == "text")
+
+
+def notes_of(bar):
+    return [note for note in bar.findall("note") if note.find("pitch") is not None]
+
+
+def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    app.store.put("scores/QUICK1", QUICK_READING.read_bytes())
+    offer = text_of(app.pdf_card_result({"score_id": "QUICK1", "pages": 3, "scan": True, "measures": "1 to 25", "bars": 25,
+                                         "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf"))
+    assert app.careful_warning(3) in offer
+    assert "uses a lot of your plan's usage allowance" in offer and "This piece has 3 pages. Shall I go ahead?" in offer
+    assert "careful_reading" in offer and "If the user says no" in offer
+    typeset = text_of(app.pdf_card_result({"score_id": "QUICK1", "pages": 3, "scan": False, "measures": "1 to 25", "bars": 25,
+                                           "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf"))
+    assert "careful" not in typeset
+
+    refused = asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": "QUICK1"}))
+    assert refused.is_error
+    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 3}).encode())
+    steps = text_of(asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": "QUICK1"})))
+    assert f"{app.PUBLIC_BASE_URL}/kit/$f" in steps and "kit/reader.md" in steps and "page N of 3" in steps
+    assert "time signature 2/2" in steps and "1 sharps" in steps
+
+    result = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": PAGES}))
+    assert not result.is_error
+    code = text_of(result).split("score_id: ")[1].split()[0]
+    score = app.store.get(f"scores/{code}")
+    index = ScoreIndex(load_toolkit(score).getMEI())
+    assert [measure.number for measure in index.measures] == list(range(54))
+    assert [(measure.number, measure.key_signature) for measure in index.measures if measure.number in (0, 6, 48)] == [(0, "4s"), (6, "5f"), (48, "4s")]
+    bars = ET.fromstring(score).find("part").findall("measure")
+    printed_sharps = [(note.findtext("pitch/step"), note.findtext("accidental")) for note in notes_of(bars[4]) if note.find("accidental") is not None]
+    assert printed_sharps == [("B", "sharp"), ("B", "sharp")]
+    assert len(ET.fromstring(score).findall(".//slur[@type='start']")) == len(ET.fromstring(score).findall(".//slur[@type='stop']")) == 14
+    assert len(ET.fromstring(score).findall(".//staccato")) == 7
+
+    draft = asyncio.run(app.mcp.call_tool("draft_analysis", {"score_id": code}))
+    assert not draft.is_error
+
+
+def test_a_page_that_cannot_be_built_comes_back_with_what_to_fix(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 3}).encode())
+    broken = PAGES[0].replace("1.1: 2 (G#3+G#4", "1.1: 4 (G#3+G#4", 1)
+    assert broken != PAGES[0]
+    result = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": [broken, *PAGES[1:]]}))
+    assert result.is_error
+    assert "Bar 0, voice 1.1 adds up to 1" in text_of(result) and "call use_careful_reading again" in text_of(result)
+    voice_line = next(line for line in PAGES[1].splitlines() if line.startswith("1.1:"))
+    entries = voice_line.split()
+    first_note = next(position for position, entry in enumerate(entries) if position and not entry.isdigit())
+    entries[first_note] = "(" + entries[first_note]
+    unclosed = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": [PAGES[1].replace(voice_line, " ".join(entries), 1)]}))
+    assert unclosed.is_error and "never ends" in text_of(unclosed)
+
+
+def test_pages_with_different_units_join_into_one_numbered_score():
+    joined = from_notes.join_pages(PAGES)
+    assert joined.splitlines()[0] == "N1 div=8 ts=6/8 ks=4s"
+    bars = [line for line in joined.splitlines() if line.startswith("m")]
+    assert [line.split()[0] for line in bars] == [f"m{number}" for number in range(54)]
+    assert [line for line in bars if "ks=" in line or "ts=" in line] == ["m6 len=24 ks=5f", "m48 len=4 ks=4s"]
+    assert bars[17] == "m17 len=24"
+
+
+def test_words_are_written_under_the_notes_they_are_sung_on():
+    score = ET.fromstring(from_notes.score_from_notes((DATA / "careful/schubert-kraehe-voice-opening.n1").read_text()))
+    sung = [(note.findtext("lyric/syllabic"), note.findtext("lyric/text")) for note in score.iter("note") if note.find("lyric") is not None]
+    assert sung[-6:] == [("single", "Um"), ("single", "mein"), ("single", "Haupt"), ("begin", "ge"), ("middle", "flo"), ("end", "gen.")]
+    words = [word for line in (DATA / "careful/schubert-kraehe-voice-opening.n1").read_text().splitlines() if line.startswith("1.1w:") for word in line.split()[1:] if word != "_"]
+    assert len(sung) == len(words)
+
+
+def test_a_clef_change_is_written_where_it_is_printed():
+    page = PAGES[0].replace("2.1: 2 r", "2.1: clef=F 2 r", 1).replace("m6 len=12 ks=5f\n1.1:", "m6 len=12 ks=5f\n1.1: clef=G", 1)
+    lower = next(line for line in page.splitlines()[page.splitlines().index("m6 len=12 ks=5f"):] if line.startswith("2.1:"))
+    page = page.replace(lower, lower.replace("2.1: ", "2.1: clef=G ", 1), 1)
+    bars = ET.fromstring(from_notes.score_from_notes(page)).find("part").findall("measure")
+    changes = [(bar.get("number"), clef.get("number"), clef.findtext("sign")) for bar in bars[1:] for clef in bar.findall("attributes/clef")]
+    assert changes == [("6", "2", "G")]
+
+
+def test_a_corrected_bar_keeps_its_accidental_signs():
+    before = QUICK_READING.read_bytes()
+    lines = correct.bars_from_musicxml(before, 18).splitlines()
+    replacement = "\n".join(lines[:2] + ["1.1: 12 D5 C5 8 E5 E4 A4 36 F#4 12 A4"] + [line for line in lines if line.startswith("2.")])
+    after = correct.replace_bars(before, replacement)
+
+    def lower_staff_signs(score):
+        bar = ET.fromstring(score).find("part").findall("measure")[17]
+        return [(note.findtext("pitch/step"), note.findtext("pitch/octave"), note.findtext("accidental")) for note in notes_of(bar) if note.findtext("staff") == "2"]
+
+    assert any(sign for _, _, sign in lower_staff_signs(before))
+    assert lower_staff_signs(after) == lower_staff_signs(before)
+
+
+def scores_in_test_data():
+    return [path for pattern in ("*.musicxml", "*.mxl") for path in sorted(DATA.rglob(pattern)) if path.name not in SIGNS_DISAGREE_WITH_PITCHES]
+
+
+@pytest.mark.parametrize("path", scores_in_test_data(), ids=lambda path: path.name)
+def test_the_accidental_rule_never_adds_or_changes_a_printed_sign(path):
+    data = path.read_bytes()
+    if data[:2] == b"PK":
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            data = archive.read(next(name for name in archive.namelist() if not name.startswith("META-INF") and name.endswith(("xml", "musicxml"))))
+    root = ET.fromstring(data)
+    for part in root.findall("part"):
+        if part.find(".//transpose") is not None:
+            continue
+        fifths = 0
+        for bar in part.findall("measure"):
+            if bar.find("attributes/key/fifths") is not None:
+                fifths = int(bar.findtext("attributes/key/fifths"))
+            sounded = False
+            key_changes_inside = False
+            for element in bar:
+                key_changes_inside = key_changes_inside or (sounded and element.tag == "attributes" and element.find("key") is not None)
+                sounded = sounded or element.tag == "note"
+            if key_changes_inside or bar.find("attributes/key[@number]") is not None:
+                continue
+            rewritten = copy.deepcopy(bar)
+            for note in rewritten.findall("note"):
+                for sign in note.findall("accidental"):
+                    note.remove(sign)
+            correct._write_accidentals(rewritten, fifths)
+            for printed, ours in zip(notes_of(bar), notes_of(rewritten)):
+                if ours.find("accidental") is not None:
+                    assert printed.findtext("accidental") == ours.findtext("accidental"), (part.get("id"), bar.get("number"), printed.findtext("pitch/step"))

@@ -1,0 +1,132 @@
+from __future__ import annotations
+
+import math
+import re
+import xml.etree.ElementTree as ET
+from fractions import Fraction
+
+from engine import notes
+from engine.correct import replace_bars
+from engine.score import Measure
+
+REST_TYPES = ("whole", "half", "quarter", "eighth", "16th", "32nd", "64th", "128th")
+DIVISIONS = 32
+HEADER = re.compile(notes.VERSION + r" div=(?P<div>[1-9]\d*) ts=(?P<meter>\S*) ks=(?P<key>\S+)")
+BAR_LINE = re.compile(r"m\d+ len=(?P<length>\d+)(?P<changes>(?: (?:ts|ks)=\S+)*)")
+
+
+def score_from_notes(text: str) -> bytes:
+    index = notes.decode(text)
+    staves = max((event.staff for measure in index.measures for event in measure.events), default=1)
+    return replace_bars(_empty_score(index.measures, staves), _with_every_staff(text, staves))
+
+
+def join_pages(pages: list[str]) -> str:
+    read = []
+    for number, text in enumerate(pages, 1):
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        head = HEADER.fullmatch(lines[0]) if lines else None
+        if not head:
+            raise notes.NotesError(f'Page {number}: the note list must start with a "{notes.VERSION} div=… ts=… ks=…" line')
+        read.append((number, int(head["div"]), head["meter"], head["key"], lines[1:]))
+    div = math.lcm(*(page[1] for page in read))
+    meter, key = read[0][2], read[0][3]
+    joined = [f"{notes.VERSION} div={div} ts={meter} ks={key}"]
+    bar = None
+    for number, own, page_meter, page_key, lines in read:
+        scale = div // own
+        opening = {"ts": page_meter, "ks": page_key}
+        for line in lines:
+            label, _, body = line.partition(":")
+            if line.startswith("m"):
+                found = BAR_LINE.fullmatch(line)
+                if not found:
+                    raise notes.NotesError(f"Page {number}: a bar line looks like 'm3 len=96', not {line!r}")
+                bar = int(line.split()[0][1:]) if bar is None else bar + 1
+                changes = opening | dict(part.split("=", 1) for part in found["changes"].split())
+                opening = {}
+                line = f"m{bar} len={int(found['length']) * scale}"
+                if changes.get("ts", meter) != meter:
+                    meter = changes["ts"]
+                    line += f" ts={meter}"
+                if changes.get("ks", key) != key:
+                    key = changes["ks"]
+                    line += f" ks={key}"
+            elif label != "x" and not notes.WORDS_LABEL.fullmatch(label):
+                line = f"{label}: " + " ".join(str(int(entry) * scale) if entry.isdigit() else entry for entry in body.split())
+            joined.append(line)
+    return "\n".join(joined)
+
+
+def _empty_score(measures: list[Measure], staves: int) -> bytes:
+    root = ET.Element("score-partwise", version="4.0")
+    ET.SubElement(ET.SubElement(ET.SubElement(root, "part-list"), "score-part", id="P1"), "part-name")
+    part = ET.SubElement(root, "part", id="P1")
+    meter = key = None
+    for measure in measures:
+        full = Fraction(4 * int(measure.meter.split("/")[0]), int(measure.meter.split("/")[1])) if measure.meter else measure.length
+        bar = ET.SubElement(part, "measure", number=str(measure.number))
+        if measure.length != full:
+            bar.set("implicit", "yes")
+        if part[0] is bar or measure.meter != meter or measure.key_signature != key:
+            attributes = ET.SubElement(bar, "attributes")
+            if part[0] is bar:
+                ET.SubElement(attributes, "divisions").text = str(DIVISIONS)
+            if measure.key_signature != key:
+                key = measure.key_signature
+                ET.SubElement(ET.SubElement(attributes, "key"), "fifths").text = str(_fifths(key))
+            if measure.meter != meter and measure.meter:
+                meter = measure.meter
+                time = ET.SubElement(attributes, "time")
+                ET.SubElement(time, "beats").text, ET.SubElement(time, "beat-type").text = meter.split("/")
+            if part[0] is bar:
+                ET.SubElement(attributes, "staves").text = str(staves)
+                for staff in range(1, staves + 1):
+                    sign, line, _ = notes.CLEFS["F" if staff == staves > 1 else "G"]
+                    clef = ET.SubElement(attributes, "clef", number=str(staff))
+                    ET.SubElement(clef, "sign").text, ET.SubElement(clef, "line").text = sign, str(line)
+        for staff in range(1, staves + 1):
+            if staff > 1:
+                ET.SubElement(ET.SubElement(bar, "backup"), "duration").text = str(int(measure.length * DIVISIONS))
+            for kind, length in [(None, measure.length)] if measure.length == full else _rests(measure):
+                note = ET.SubElement(bar, "note")
+                ET.SubElement(note, "rest", {} if kind else {"measure": "yes"})
+                ET.SubElement(note, "duration").text = str(int(length * DIVISIONS))
+                ET.SubElement(note, "voice").text = str(staff)
+                if kind:
+                    ET.SubElement(note, "type").text = kind
+                ET.SubElement(note, "staff").text = str(staff)
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _fifths(key: str) -> int:
+    return 0 if key in ("0", "") else int(key[:-1]) * (1 if key.endswith("s") else -1)
+
+
+def _rests(measure: Measure) -> list[tuple[str, Fraction]]:
+    rests, left = [], measure.length
+    for power, kind in enumerate(REST_TYPES):
+        length = Fraction(4, 2**power)
+        while left >= length:
+            rests.append((kind, length))
+            left -= length
+    if left or not rests:
+        raise notes.NotesError(f"Bar {measure.number}: len= gives a length no bar can have")
+    return rests
+
+
+def _with_every_staff(text: str, staves: int) -> str:
+    lines, written, length = [], set(range(1, staves + 1)), ""
+
+    def fill():
+        lines.extend(f"{staff}.1: {length} r" for staff in range(1, staves + 1) if staff not in written)
+
+    for line in filter(None, map(str.strip, text.splitlines())):
+        if line.startswith("m") and lines:
+            fill()
+            written, length = set(), line.split("len=", 1)[1].split()[0]
+        elif line[0].isdigit() and not notes.WORDS_LABEL.fullmatch(line.partition(":")[0]):
+            written.add(int(line.split(".", 1)[0]))
+        lines.append(line)
+    fill()
+    return "\n".join(lines)

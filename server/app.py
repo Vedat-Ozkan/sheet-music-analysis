@@ -47,7 +47,7 @@ from pydantic import BaseModel, ConfigDict
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from engine import correct, draft, read_ahead, verovio_workers
+from engine import correct, draft, from_notes, read_ahead, verovio_workers
 from engine import notes as note_list
 from engine import read_pdf as pdf_reader
 from engine import check_analysis, ledger, part_writing, reduce
@@ -1379,8 +1379,73 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
         image_url, pdf_url = await in_turn(lambda: (publish(image, "png"), publish(pdf, "pdf")))
     log("read_pdf_work", pages=reading["pages"], scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached),
         passes=passes, bars=bars, bars_shaded=len(uneven))
-    return {"score_id": score_id, "pages": reading["pages"], "measures": measures, "bars": bars, "notice": notice, "image_url": image_url,
+    if reading["scan"]:
+        await anyio.to_thread.run_sync(store.put, scan_key(score_id), json.dumps({"pages": reading["pages"]}).encode())
+    return {"score_id": score_id, "pages": reading["pages"], "scan": reading["scan"], "measures": measures, "bars": bars, "notice": notice, "image_url": image_url,
             "pdf_url": pdf_url, "more_pages": more_pages, "shaded_bars": uneven, "page_images": [base64.b64encode(png).decode() for png in pages]}
+
+
+CAREFUL_WARNING = ("Reading this scan carefully takes about 5 minutes a page and uses a lot of your plan's usage allowance. "
+                   "As a guide, a 10-page piece can use most of a five-hour allowance on a standard paid plan. "
+                   "This piece has {pages}. Shall I go ahead?")
+CAREFUL_OFFER = (
+    "This PDF is a scan, and the reading in the card is a quick one that makes many mistakes on scans. If you can run "
+    "code in a sandbox and start helper agents (subagents) in this chat, do not analyse yet: tell the user in one "
+    "sentence that the card shows a quick reading and that you can read the scan carefully yourself instead, then "
+    "say this, in these words: \"{warning}\" Then stop and wait for the answer. If the user says yes, call "
+    "careful_reading with this score_id and follow what it returns. If the user says no, or if you cannot run code "
+    "or start helpers here, use the quick reading as follows. "
+)
+CAREFUL_STEPS = (
+    "Careful reading of the user's scan ({pages}). Do these steps in order, in your code sandbox.\n"
+    "1. The file: you need the user's PDF in the sandbox. If the user attached it to this chat, it is already "
+    "there. If it is not there, ask the user to attach the same PDF to the chat and wait for it.\n"
+    "2. The kit: in a working folder, download the three kit files into a folder named kit:\n"
+    "   mkdir -p kit && for f in {files}; do {download}; done\n"
+    "   The tool needs Python 3 with numpy, scipy, cv2 and pypdfium2; for any that is missing run "
+    "pip install numpy scipy opencv-python-headless pypdfium2.\n"
+    "3. The pages: python3 kit/notetool.py pages THE_PDF pages   writes pages/page1.png, pages/page2.png and so "
+    "on. Use only the first {count} of them.\n"
+    "4. One reader for each page: start a separate helper (a subagent) for each page, all at the same time if you "
+    "can. {helpers} Tell each helper: \"Read kit/reader.md and do exactly what it says. Your page is "
+    "pages/pageN.png, page N of {count}. Write your result to pageN.n1. {hint}\" Do not read the pages yourself "
+    "if you can start helpers. If you cannot start helpers at all, tell the user so plainly, then read the pages "
+    "yourself, one at a time, following kit/reader.md for each. Do not search the web for the piece and do not "
+    "use what you remember of the music: only what is printed counts.\n"
+    "5. Hand in: when every page file exists, call use_careful_reading with this score_id ({score_id}) and with "
+    "pages set to the full text of page1.n1, page2.n1 and so on, in order and unchanged. It returns a new "
+    "score_id for the careful reading."
+)
+HELPER_SETTINGS = {"claude": "Give each helper the Sonnet model at medium effort.",
+                   "other": "Give each helper your highest thinking setting."}
+KIT = HERE.parent / "kit"
+KIT_FILES = ("notetool.py", "tool.md", "reader.md")
+KIT_ELSEWHERE = os.environ.get("KIT_ELSEWHERE", "").rstrip("/")
+NOT_A_SCAN = ("A careful reading is offered only for a scanned PDF that read_pdf or read_fetched_pdf has read, with the "
+              "score_id it returned.")
+
+
+def scan_key(score_id: str) -> str:
+    return f"scores/{clean_id(score_id)}.scan"
+
+
+def page_count(pages: int) -> str:
+    return "1 page" if pages == 1 else f"{pages} pages"
+
+
+def careful_warning(pages: int) -> str:
+    return CAREFUL_WARNING.format(pages=page_count(pages))
+
+
+def signatures_found(score: bytes) -> str:
+    index = ScoreIndex(load_toolkit(score).getMEI())
+    keys = [index.key_signature or "0"]
+    for measure in index.measures:
+        if measure.key_signature and measure.key_signature != keys[-1]:
+            keys.append(measure.key_signature)
+    spoken = [("no sharps or flats" if key == "0" else f"{key[:-1]} {'sharps' if key.endswith('s') else 'flats'}") for key in keys]
+    return (f"An automatic reader found the time signature {index.meter} at the start of the piece, and these key "
+            f"signatures in order through the piece: {', then '.join(spoken)}.")
 
 
 def doubtful_reading(card: dict) -> str:
@@ -1401,7 +1466,8 @@ def pdf_card_result(card: dict, tool: str) -> CallToolResult:
         f"The card shows the user {shown}. "
         f"The score has measures {card['measures']}.\n"
         f"{doubtful_reading(card)}"
-        "Go straight on to the analysis without asking the user to check the reading: call draft_analysis with this "
+        + (CAREFUL_OFFER.format(warning=careful_warning(card["pages"])) if card.get("scan") else "")
+        + "Go straight on to the analysis without asking the user to check the reading: call draft_analysis with this "
         "score_id now and continue exactly as for an attached MusicXML file, drawing it with render_analysis. "
         "Bars shaded in the reading stay shaded on the drawn page. "
         f"The card does not show this note, so in your reply with the analysis pass on this note about the reading, briefly: \"{card['notice']}\""
@@ -1448,7 +1514,7 @@ async def read_fetched_pdf(ctx: Context, pdf_id: str) -> CallToolResult:
 
 
 CLAUDE_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis", "play",
-                "draft_from_notes", "send_suggestion"}
+                "draft_from_notes", "send_suggestion", "careful_reading", "use_careful_reading"}
 CLAUDE_ONLY_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "play", "draft_from_notes"}
 NO_NOTE_LIST = (
     "No note list: draft_from_notes needs the compact note list (starting 'N1 div=') that the Sheet Music Analysis "
@@ -1903,6 +1969,69 @@ async def correct_bars(
     )
 
 
+@mcp.tool(
+    title="Start a careful reading of a scan",
+    description=(
+        "Use this only after read_pdf or read_fetched_pdf has read a scanned PDF and the user has said yes to the "
+        "usage warning from its result. Returns the steps for reading the scan carefully with your own helpers, "
+        "one page each, and handing the result in with use_careful_reading."
+    ),
+    annotations=read_only("Start a careful reading of a scan"),
+)
+@observed
+async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
+    source = platform(ctx)
+    scan = await anyio.to_thread.run_sync(store.get, scan_key(score_id))
+    if scan is None:
+        log("careful_reading", platform=source, error="ScoreError")
+        return error_result(NOT_A_SCAN)
+    pages = json.loads(scan)["pages"]
+    try:
+        score, _ = await resolve_score(None, score_id, source)
+    except ScoreError as error:
+        log("careful_reading", platform=source, error=type(error).__name__)
+        return error_result(str(error))
+    hint = await in_turn(signatures_found, score)
+    addresses = [f"{PUBLIC_BASE_URL}/kit", *([KIT_ELSEWHERE] if KIT_ELSEWHERE else [])]
+    log("careful_reading", platform=source, pages=pages)
+    return CallToolResult(content=[TextContent(type="text", text=CAREFUL_STEPS.format(
+        pages=page_count(pages), count=pages, score_id=clean_id(score_id), files=" ".join(KIT_FILES), hint=hint,
+        download=" || ".join(f"curl -fsSL {address}/$f -o kit/$f" for address in addresses),
+        helpers=HELPER_SETTINGS["claude" if source == "claude" else "other"]))])
+
+
+@mcp.tool(
+    title="Use a careful reading",
+    description=(
+        "Use this at the end of the steps careful_reading returned: hands in the pages your helpers read, one note "
+        "list (starting 'N1 div=') for each page, in order. Builds the score from them and returns a new score_id; "
+        "then call draft_analysis with it and continue as for a MusicXML file."
+    ),
+    annotations=read_only("Use a careful reading"),
+)
+@observed
+async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> CallToolResult:
+    source = platform(ctx)
+    if await anyio.to_thread.run_sync(store.get, scan_key(score_id)) is None:
+        log("use_careful_reading", platform=source, error="ScoreError")
+        return error_result(NOT_A_SCAN)
+    try:
+        with stage("parse"):
+            score = await in_turn(lambda: from_notes.score_from_notes(from_notes.join_pages(pages)))
+            bars = await in_turn(lambda: [measure.number for measure in ScoreIndex(load_toolkit(score).getMEI()).measures])
+    except UserError as error:
+        log("use_careful_reading", platform=source, error=type(error).__name__, reason=str(error), pages=len(pages), outcome="user_error")
+        return error_result("Fix the page this is about and call use_careful_reading again with every page: " + str(error))
+    code = secrets.token_hex(8).upper()
+    await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)
+    log("use_careful_reading", platform=source, pages=len(pages), bars=len(bars), chars_in=sum(map(len, pages)))
+    return CallToolResult(content=[TextContent(type="text", text=(
+        f"score_id: {code}\nThe careful reading is stored: measures {bars[0]} to {bars[-1]}. Call draft_analysis with "
+        "this score_id now and continue exactly as for an attached MusicXML file, drawing it with render_analysis. In "
+        "your reply with the analysis, tell the user in one sentence that the page shows your careful reading of "
+        "their scan and that it can still contain mistakes, so they should check it against their copy."))])
+
+
 LINK_NOT_A_SCORE = (
     "The link gave something other than a MusicXML file or a PDF, usually a web page: a sign-in page when the file is "
     "not shared publicly, or a page about the file rather than the file itself. Ask the user to share the file so "
@@ -2028,6 +2157,14 @@ async def files(request: Request) -> Response:
         "Content-Security-Policy": "sandbox",
         "X-Content-Type-Options": "nosniff",
     })
+
+
+@mcp.custom_route("/kit/{name}", methods=["GET"])
+async def kit(request: Request) -> Response:
+    name = request.path_params["name"]
+    if name not in KIT_FILES:
+        return Response("No such file.", status_code=404)
+    return Response((KIT / name).read_bytes(), media_type="text/plain; charset=utf-8", headers={"X-Content-Type-Options": "nosniff"})
 
 
 UPLOAD_HEADERS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS",
