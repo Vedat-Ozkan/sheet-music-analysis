@@ -344,8 +344,6 @@ def _reserve_bracket_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
             staff, place = region.staff, "above"
         elif isinstance(region, Alternative):
             staff, place = bottom_staff, "below"
-        elif isinstance(region, Phrase):
-            staff, place = 1, "above"
         else:
             continue
         first, last = index.measure(region.start.measure).index, index.measure(region.end.measure).last_index
@@ -355,15 +353,18 @@ def _reserve_bracket_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
                     added.setdefault(segment.id, []).append(
                         f'<dir staff="{staff}" tstamp="1" place="{place}" type="analysis-room">{escape(region.label or "-")}<lb/>-</dir>'
                     )
+    above, below = set(), set()
     for mark in annotations.annotations:
-        if isinstance(mark, Callout):
-            staff, place = 1, "above"
+        if isinstance(mark, Phrase):
+            first, last = index.measure(mark.start.measure).index, index.measure(mark.end.measure).last_index
+            above |= {segment.id for measure in index.measures for segment in measure.segments if first <= segment.index <= last}
+        elif isinstance(mark, Callout):
+            above.add(index.measure(mark.at.measure).segments[0].id)
         elif isinstance(mark, Cadence) or isinstance(mark, Harmony) and mark.function:
-            staff, place = bottom_staff, "below"
-        else:
-            continue
-        segment = index.measure(mark.at.measure).segments[0]
-        added.setdefault(segment.id, []).append(f'<dir staff="{staff}" tstamp="1" place="{place}" type="analysis-room">-</dir>')
+            below.add(index.measure(mark.at.measure).segments[0].id)
+    for segments, staff, place, lines in ((above, 1, "above", "-"), (below, bottom_staff, "below", "-<lb/>-")):
+        for segment in segments:
+            added.setdefault(segment, []).append(f'<dir staff="{staff}" tstamp="1" place="{place}" type="analysis-room">{lines}</dir>')
     if not added:
         return
     for measure_id, dirs in added.items():
