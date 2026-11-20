@@ -3148,6 +3148,46 @@ Full suite with the PDF reader (sma.8) on the finished branch, which includes en
 
 **After review.** The first version passed the secret as `proxy-key:latest`. With no instance kept warm, each cold start reads `latest`, so adding a secret version would have changed the key production enforces at once, and a failed Worker step would have refused every call; rolling back would not have helped, since later revisions read `latest` too. Versions are now pinned and one script sets all three places. The first version also gave back the pages after a crash (see Give-back).
 
+### 179. Five reading checks from three user PDFs: empty bars, empty staves, guitar fingering, default part names, a warning on doubtful reads (2026-11-19, branch `reading-checks`, nothing released)
+
+Numbered 179 because 169 to 178 are taken on unmerged branches (`homr-staging`, `privacy-page-sent-record`).
+
+**Problem.** Three PDFs users sent on 15 November (a one-staff snare part, a guitar part with tablature staves, a classical guitar piece with right-hand fingering) showed five faults in our own clean-up of the reader's output:
+- A bar the reader left with nothing in it was never shaded (Padrino bar 21, a bar of harmonics the reader missed): the uneven-bar check skipped bars with no notes or rests.
+- Staves read with no notes at all were kept (Bond: the two tablature staves became two empty parts, pages 1-5 instead of 1-3).
+- Right-hand fingering "p" was drawn as the dynamic p (Padrino: 10 of 11 dynamics), and fingering words ("a m i m", "m 1") were drawn as text.
+- A part with no printed name was labelled "Voice", the reader's default for one staff ("NoName" for three or more). The snare part's heading "Snare Drum" (read as "Snare Dmm", filed as a lyricist credit) was not used.
+- A reading with most bars shaded went straight on to the analysis with no warning (Bond: 31 of 52 bars).
+
+**What changed** (`engine/read_pdf.py`, `server/app.py`).
+- **Empty bars are shaded** when a part has nothing at all in the bar (no note, rest or skip) and some part has music in that bar or later. Bars empty in every part at the very end are not shaded.
+- **Parts with no notes are dropped** in `clean()`: a part with no pitched or unpitched note anywhere (rests only, or nothing) is removed, unless every part is like that.
+- **Right-hand fingering.** A fingering mark is a word made only of the letters p, i, m, a (and "1" for i, spaces, dots, commas) that is not a dynamic other than p ("pp", "mp" and the like stay). If at least 3 word marks other than a lone "p" are fingering marks, those words, every dynamic that is a single p, and lyrics of the same letters are removed. Only word marks count towards the 3, because lyrics of French songs match, and a lone "p" does not, because OCR also reads real dynamics as words.
+- **Default part names.** A part named "Voice" or "NoName" takes the one instrument the first page's heading names (from music21's list of 112 instrument names; a single word must match exactly, a longer name may differ in its later words by OCR, at least 80% alike), but only when the score has a single part; otherwise it gets no name. With several parts a heading such as "Ave Maria for Voice and Guitar" would name the singer's part "Guitar". Its abbreviation is removed. A two-staff part keeps the reader's "Piano": in the benchmark readings it was a piano every time.
+- **Doubtful reads.** When at least half the bars are shaded, the PDF card's reply text (shared by ChatGPT's `read_pdf` and Claude's `read_fetched_pdf`/`choose_score` paths, all through `pdf_card_result`) tells the chat to open its reply with: "Much of this reading is doubtful: N of its M bars are shaded because their beats don't add up, notes are missing, or notes that should line up don't. The analysis may be wrong in those bars." It still goes straight on. Card results cached before this change have no bar count and get no warning.
+
+**Evidence before building.**
+- Empty bars: in the 80 cached benchmark readings, 23 bars were empty in a part that has notes elsewhere. 19 could be matched to the reference by part and bar number: all 19 have printed content there (18 with notes, 1 a whole-bar rest). 4 are in readings with extra parts the reference lacks and were not checked.
+- Fingering gate: over 25,204 cached readings (15,370 raw reader outputs and 9,834 cleaned readings, `spike/omr/speed/cache`), 0 have even one such word mark; Padrino has 5. A case-insensitive version would have hit 234 readings ("M", "II"), so the letters must be lower case.
+- Note-less parts: in 9,830 cleaned run readings, 251 parts in 229 readings have rests only and none has a part with nothing; Bond has 2. The two rests-only parts checked against the reference (Erlkönig, Lang "Traumbild") are extra parts the reader invented beside real ones.
+- Heading names: over the 382 distinct first-page headings in the cache, only "Snare Dmm" names an instrument in a reading with a default-named part. False matches with looser matching ("As recorded by" as Recorder, "Ave Maria" as Marimba) are why single words must match exactly.
+- Threshold: 77 production reads since 1 November with a bar count (`read_pdf_work` logs) have a median of 27% bars shaded and no natural gap. At half, 28 of the 77 would carry the warning (23 of them scans); at a third, 34; at a quarter, 42. Half was chosen because "more than half of the bars" is the point where the reading is mostly unreliable, and lower lines would warn on most scans.
+
+**Effect.**
+- The three user PDFs, read locally with the sma.8 reader: Padrino shaded bars 8, 12, 17 → 8, 12, 17, 21; dynamics 10 p + ff → ff only; words → "atempo" only; label "Voice" → none. Bond: 4 parts → 2, 5 pages → 3, labels "Voice" → none, shaded 30 → 31 of 52 bars (bar 52, where the reader missed the lower guitar's whole note), and the reply now opens with the warning. Snare: label "Voice" → "Snare Drum"; nothing else changed. Pages looked at full size against the originals.
+- `tools/diff_check.py --base origin/main pdfwarn`: 80 inputs, 14 changed, each by adding exactly the empty bars above (Beethoven "Gottes Macht" ms and scan go from 0 to 1 shaded bar). It runs on readings already cleaned, so it does not show the `clean()` changes.
+- On the same 80 cleaned readings, `clean()`'s new part steps drop 1 part (an invented rests-only part in Erlkönig, ly) and blank 99 "Voice" labels.
+
+**Known and left.**
+- A one-staff part whose printed label really is "Voice" cannot be told apart from the reader's default and now gets no label. Many benchmark songs print "Voice" or "Singstimme"; the reader labelled their voice parts "Voice" either way.
+- A part silent through the whole of what was read (a tacet part, or a voice that enters after the pages read) is dropped with the invented ones.
+- With the fingering gate met, real p dynamics in that score are dropped too.
+- The shaded-bar note still says the beats don't add up or notes don't line up; for an empty bar that is true but not specific.
+
+**Checks.** New `tests/test_user_pdfs.py` (5 tests) reads the three PDFs from `tests/data/users/`, which `.gitignore` keeps out of the repo (copyrighted user files, kept only on the owner's machines); the tests skip when the folder or the reader is missing, as in CI. With the reader: 5 passed. Without the folder: 5 skipped. Nothing else globs into subfolders of `tests/data`. `tests/test_awkward.py`: 317 passed. Full suite with the reader (`-n 8`): 1590 passed, 4 skipped (the 4 need ring codes).
+
+**Review.** A second agent (Sonnet) reviewed the branch. Two points were fixed: a heading that names an accompaniment ("Ave Maria for Voice and Guitar") would have named the singer's part "Guitar", so names now come from the heading only in one-part scores; and "pp", "mp" and "m." matched the fingering letters, so dynamics other than a lone p no longer count towards the gate or get removed. Its worry that multi-bar rests would be shaded does not hold: the reader writes each later bar of a multi-bar rest as a whole-bar rest (snare bars 60 to 63). After the fixes: the 5 user-PDF tests and 317 awkward tests pass.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
