@@ -3289,7 +3289,7 @@ Three tests pinned the old layout and were changed: the reference picture and th
 
 **Checks.** `tests/test_overlay_marks.py`, `tests/test_awkward.py`, `tests/test_host_render.py`, `tests/test_check_display.py`, `tests/test_annotate.py`: 491 passed, 4 skipped, 2 expected failures (the two known scores). `tools/engraving_check.py` on the nine example analyses: 0 overlapping labels, 0 tight, 0 collisions with the music. `tools/diff_check.py --base main render`: every item changed, as intended; looked at full size before and after: the Lindenbaum and the Chopin nocturne (whole, first two pages) and the Bach chorale. The other items were checked by the two tools above only.
 
-Full suite before the arrow entry was removed: 1,604 passed, 30 skipped (the reader tests, user PDFs, ring codes), 2 expected failures, 0 failed.
+Full suite on the final code, after the review fixes: 1,605 passed, 30 skipped (the reader tests, user PDFs, ring codes), 2 expected failures, 0 failed.
 
 **Review by another model (Opus, read-only, on the code of the branch).** It compared main and the branch on about 17 scores, whole and as excerpts: the same bars in the same order everywhere, no system past the right edge, the same page counts, and the final systems equal to the breaks chosen. Confirmed and fixed:
 - Room for a numbered point, a cadence or a chord's job was always reserved in the first part of a bar. Where a repeat sign splits a bar and the second part starts a new system, the room went to the system above the mark. It now goes to the part the mark is in, as the room for numerals already did. On the chorale BWV 84.5 with marks on every bar's last beat, the clear strip between the two systems grew from 29 to 52 px; no collision was seen before the fix.
