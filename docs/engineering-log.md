@@ -3281,11 +3281,13 @@ Heights are the sum of the page heights at 1,400 px wide. The two scores that st
 
 Three tests pinned the old layout and were changed: the reference picture and the picture hash for the Chopin excerpt were made again, and the bound on the student-check page (no more than 1.25 times the normal page) is now 1.3, because the normal Bach page became shorter (1,285 to 1,225) while the check page stayed the same (1,551 to 1,543).
 
-**The guide.** Three entries are gone at the owner's word (the key, the chord's job, a phrase), and the numbered point reads "see below". The text the chat is given no longer says the guide covers those three. The page therefore no longer explains T, PD, D or "pre-dom."; the chat's reply has to. Four ways of separating the entries were drawn for the owner to choose from (`guide-separator-options.png`); the dots are unchanged until then.
+**The guide.** Four entries are gone at the owner's word (the key, the chord's job, a phrase, where a note moves), and the numbered point reads "see below". The text the chat is given no longer says the guide covers those four. The page therefore no longer explains T, PD, D or "pre-dom."; the chat's reply has to. Four ways of separating the entries (`guide-separator-options.png`) and four wordings of the "not part of the chord" entry (`guide-wording-options.png`) were drawn for the owner to choose from; both are unchanged until then.
 
 **Checks.** `tests/test_overlay_marks.py`, `tests/test_awkward.py`, `tests/test_host_render.py`, `tests/test_check_display.py`, `tests/test_annotate.py`: 491 passed, 4 skipped, 2 expected failures (the two known scores). `tools/engraving_check.py` on the nine example analyses: 0 overlapping labels, 0 tight, 0 collisions with the music. `tools/diff_check.py --base main render`: every item changed, as intended; looked at full size before and after: the Lindenbaum and the Chopin nocturne (whole, first two pages) and the Bach chorale. The other items were checked by the two tools above only.
 
-**NOT RUN:** the full suite after these changes; a real Claude or ChatGPT chat; a review by another model; pieces with more than four staves at the new gap, looked at by eye. Files: `/home/kema/omr-reader-test-2026-11-07/guide-at-preview-end`.
+Full suite before the arrow entry was removed: 1,604 passed, 30 skipped (the reader tests, user PDFs, ring codes), 2 expected failures, 0 failed.
+
+**NOT RUN:** the full suite after the arrow entry was removed (run: the five test files above); a real Claude or ChatGPT chat; a review by another model; pieces with more than four staves at the new gap, looked at by eye. Files: `/home/kema/omr-reader-test-2026-11-07/guide-at-preview-end`.
 
 ## Checking against teachers' prose
 

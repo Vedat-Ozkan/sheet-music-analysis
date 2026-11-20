@@ -521,11 +521,11 @@ def test_page_key_is_off_by_default(chopin, chopin_annotations):
 
 def test_page_key_names_exactly_the_marks_on_the_page(chopin, chopin_annotations):
     key = _key_text(render(chopin, chopin_annotations, measures=(1, 8), key=True).svgs[-1])
-    for said in ("passing note", "neighbour note", "appoggiatura", "perfect authentic cadence", "where a note moves", "see below"):
+    for said in ("passing note", "neighbour note", "appoggiatura", "perfect authentic cadence", "see below"):
         assert said in key, said
     for unused in ("suspension", "half cadence", "part-writing", "another reading", "built on", "misread", "who plays"):
         assert unused not in key, unused
-    for left_out in ("the key", "the chord’s job", "tonic", "a phrase"):
+    for left_out in ("the key", "the chord’s job", "tonic", "a phrase", "where a note moves"):
         assert left_out not in key, left_out
 
 

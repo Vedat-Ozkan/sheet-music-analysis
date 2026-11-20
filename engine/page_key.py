@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
 from engine import part_writing, piano, text, tint
-from engine.overlay import ARROW, ERROR, INK, LABEL_PAD, LABEL_SIZE, LINE, NUMERAL_SIZE, S, Box, PageLayout
+from engine.overlay import ERROR, INK, LABEL_PAD, LABEL_SIZE, LINE, NUMERAL_SIZE, S, Box, PageLayout
 
 PRINT_SIZE = LABEL_SIZE
 SCREEN_SIZE = NUMERAL_SIZE
@@ -57,8 +57,6 @@ def entries(shown: set[tuple[str, str]], cues: list[str] = ()) -> list[Entry]:
     if "nct" in found:
         result.append(Entry("nct", "not part of the chord",
                             codes=[(code, words) for code, words in NCT_WORDS.items() if code in found["nct"]]))
-    if "arrow" in found:
-        result.append(Entry("arrow", "where a note moves"))
     if "fault" in found:
         known = fault_words()
         result.append(Entry("fault", "red marks are part-writing faults",
@@ -191,8 +189,6 @@ def _sample(layout: PageLayout, kind: str, box: Box, size: float) -> None:
         layout._add("ellipse", cx=round(box.cx), cy=round(mid), rx=round(150 * scale), ry=round(120 * scale), fill="none", stroke=INK, stroke_width=LINE)
     elif kind == "fault":
         layout._add("ellipse", cx=round(box.cx), cy=round(mid), rx=round(150 * scale), ry=round(120 * scale), fill="none", stroke=ERROR, stroke_width=30)
-    elif kind == "arrow":
-        layout._line_or_arrow(x0, mid, x1, mid, head=True, colour=ARROW)
     elif kind == "callout":
         layout._add("circle", cx=round(box.cx), cy=round(mid), r=round(170 * scale), fill=INK)
         layout._text(box.cx, mid + size * 0.3, "1", size * 0.9, bold=True, fill="#ffffff", anchor="middle")
