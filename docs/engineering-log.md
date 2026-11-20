@@ -3298,7 +3298,21 @@ Full suite on the final code, after the review fixes: 1,605 passed, 30 skipped (
 
 Not changed: a preview of zero pages would now raise an error where it drew nothing before; nothing asks for that.
 
-**NOT RUN:** a review of the review fixes by another model; pieces with more than four staves at the new gap, looked at by eye.
+**In real chats on staging (2026-11-20, one chat each, the whole Chopin nocturne op. 9 no. 2 as MusicXML).** Staging ran this branch: revision 00129-k9t on ChatGPT's address, 00153-wem on the address of Claude's test connector; the server's log lines show each chat's calls on its revision.
+
+| | ChatGPT | Claude |
+|---|---|---|
+| Picture in the card | first two of six pages, guide at the bottom | first two of six pages, guide at the bottom |
+| Bars to a system on those pages | 2 in each of six systems | 3, 2, 2, 3, 2, 2 |
+| Guide | "PAC perfect authentic cadence", "IAC imperfect authentic cadence", numbered point "see below", wide gaps | the same, plus "another reading a teacher would accept" and "PT passing tone, APP appoggiatura" |
+| Numbered points in the reply | four, matching "see below" | six, matching |
+| Marks the guide no longer explains | none drawn (no chord jobs, no phrases) | phrase brackets drawn, and the reply explains them; no chord jobs drawn |
+
+No lone bar on a system, no marks of two systems meeting, on the four pages looked at. Claude's reply says "passing note (PT)" where the guide says "passing tone"; the reply's wording is the chat's own. Neither chat drew chord jobs, so whether a reply explains T, PD and D without the guide was not seen. A screenshot of the card inside either chat could not be taken (the screenshot tool timed out with the card in view); the pictures were fetched from the server instead, and in Claude the cards loaded without an error note.
+
+**With the PDF reader switched on** (the suites above were run without it, which skips about 20 tests that read real PDFs; the owner's side agent pointed this out): 1,623 passed, 11 skipped, 2 expected failures, 1 failed. The failure is `tests/test_server_process.py::test_with_a_proxy_key_set_only_requests_that_carry_it_are_served`, a test that starts a server and does not touch the drawing code; the machine's load was about 28 at the time. Run again alone it passed, and so did its whole file. Every test that reads a real PDF ran and passed. A full run with the reader ending in 0 failed is NOT RUN for this branch.
+
+**NOT RUN:** a review of the review fixes by another model; pieces with more than four staves at the new gap, looked at by eye; a chat that draws chord jobs; a screenshot of the card inside a chat.
 
 ## Checking against teachers' prose
 
