@@ -140,6 +140,7 @@ VARIANTS = {
     "rm-small0-grace": ([SWITCH + "smallHeads=true", "org.audiveris.omr.sig.relation.ChordGraceRelation.xGapMax=4.0"], "", SMA8),
     "rm-grace": (["org.audiveris.omr.sig.relation.ChordGraceRelation.xGapMax=4.0"], "", SMA8),
     "rm-combo": ([SWITCH + "tremolos=true", SWITCH + "fingerings=true", SWITCH + "pluckings=true", "org.audiveris.omr.sig.relation.ChordGraceRelation.xGapMax=4.0"], "", SMA8),
+    "rm-final": ([SWITCH + "tremolos=true", SWITCH + "fingerings=true", "org.audiveris.omr.sig.relation.ChordGraceRelation.xGapMax=4.0"], "", SMA8),
 }
 SETS = ["bench", "bench-heldout", "bench-heldout2", "bench-heldout3", "bench-real"]
 

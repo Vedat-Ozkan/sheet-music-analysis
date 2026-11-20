@@ -3199,7 +3199,7 @@ Numbered 180 because 169 to 179 are taken on unmerged branches (`homr-staging`, 
 - Snare drum: none of the flams were read. Setting 0 has small note heads off, and the flams sit further from their main note than `ChordGraceRelation.xGapMax` (2.5) allows.
 
 **What changed** (`engine/read_pdf.py`).
-- Both settings now switch on `tremolos`, `fingerings` and `pluckings`, and allow grace notes up to 4.0 from their main note.
+- Both settings now switch on `tremolos` and `fingerings`, and allow grace notes up to 4.0 from their main note. The fingering numbers the reader finds are taken out of our MusicXML (see "After merging with entry 179" below).
 - **Thin beams.** When the reader reports that it could not measure the beam height (`No reliable beam height`, or a beam quorum under 100%) and no reading was good enough (at most 3 doubted bars, no failure), both settings are read again with `beamMinFraction=0.2` and the best of the four readings is kept. Scans are not reread (see the users' PDFs below). Setting the lower limit for every score instead squashed the snare part's 4-bar rest into 1 bar, so it is a reread only.
 - `READER` is now `...-page-size-marks-thin-beams`, so earlier cached readings are not reused.
 - Tablature detection (`sixStringTablatures`, `fourStringTablatures`) was tried and left off: it turned the snare and Padrino readings into "no music" and did not help Bond.
@@ -3223,7 +3223,7 @@ Numbered 180 because 169 to 179 are taken on unmerged branches (`homr-staging`, 
 
 **The three user PDFs**, read on this PC with nothing else running, plain → all kept:
 - Snare: 3 false tuplets → 13 rolls and no tuplets; bar 1 is a full bar again. Flams: still 0.
-- Padrino: *ff* gone, the bar-11 triplet gone (4 tuplets → 3), 28 fingerings found. The 10 false *p* marks from the thumb letter remain; the reader's plucking detector does not take them, so entry 179's clean-up is still needed.
+- Padrino: *ff* gone (it was the "rit." misread), the bar-11 triplet gone (4 tuplets → 3), 28 fingerings found. The 10 false *p* marks from the thumb letter remain without entry 179's clean-up.
 - Bond: 30 → 6 shaded bars through the reread (76 s → 79 s for the whole read; the reread itself is in both).
 - Time: the switches did not change reading times on the user PDFs (snare 19 s, Padrino 15 s either way). The reread adds a second round of reading, roughly doubling the reading time, only on PDFs where the beam height was not measured and no reading was good enough: 6 of 83 benchmark PDFs.
 
@@ -3234,11 +3234,19 @@ Numbered 180 because 169 to 179 are taken on unmerged branches (`homr-staging`, 
 - So scans are no longer reread. All 6 benchmark rereads were digital, so the benchmark totals above are unchanged. On the users' PDFs this leaves 376 s of extra reading (6%) for the same 3 gains.
 - Cost: about 200 PDFs a month at the current rate; at an assumed production speed of half this PC's, about 1,900 extra instance-seconds a month, about US$0.11 at list price ($0.000058 an instance-second), inside the free tier. A reread PDF waits longer for its answer: Bond took 132 s here against about 90 s without the reread.
 
+**After merging with entry 179.** With both branches together, two of entry 179's tests failed:
+- Padrino had its 10 false *p* marks back. The plucking detector (`pluckings`) wrote most right-hand letters as `<pluck>` marks, so too few were left as text for entry 179's clean-up (it needs 3). Counting plucks instead does not work: the plucking detector made up 116 plucks in 39 of the 83 benchmark scores (none of their reference files has one), and counting them would have removed real *p* marks in 15 of them.
+- Checked by a second agent (Opus) and again here: on Padrino the fingering detector alone removes the dot, the triplet, the *ff* and, with entry 179's clean-up, all 10 false *p* marks; the plucking detector fixes nothing. So `pluckings` is off again.
+- The fingering detector also invents marks: on the 46 benchmark PDFs drawn from a reference file it found 125 fingering numbers where the references have 104, about 75 of them in pieces with none. Today's output has no fingering, so we now take all `<fingering>` out of the MusicXML we give users; the reader still uses them to avoid reading them as dots.
+- Benchmark with `pluckings` off (this PC and pc2): notes and grace notes exactly as in the table's last row; doubted bars 614 against 610 only because entry 179 now shades empty bars (scored with the same code, both runs give 614). The fingering detector, not the plucking one, also loses 2 real *p* marks in Mayer's quartet (ly, bar 5 of two parts).
+- The test for the "much of this reading is doubtful" warning used Bond, which the reread now reads well (8 doubted bars of 52); it now uses the Parry scan already in `tests/data` (12 of 16).
+- Left: entry 179's clean-up fires on Padrino with exactly 3 letters left as text (the fingering detector reads some "i" as "1"), so another guitar edition could fall below it.
+
 **Known and left.** Flams in single-staff drum parts; harmonics (diamond note heads), which would need work inside the reader itself.
 
 **Review** (a different model, Sonnet). Three small faults fixed: the first reading of each round now runs at normal priority and the others at low priority (it was only the very first); no reread starts after the read's deadline; the benchmark keeps the reader's facts on failed readings. The rerun of the whole benchmark after these fixes gave the same totals. Two points were left: the trigger was broad and the Cloud Run cost unmeasured. Both are answered by the users' PDFs above; the trigger still rereads some digital PDFs for no gain (3 of 6).
 
-**Checks.** New `tests/test_read_user_pdfs.py` (3 tests: rolls, fingering, thin beams) reads the user PDFs from the git-ignored `tests/data/users/` and skips without them. With the reader: 3 passed; `tests/test_awkward.py` 317 passed. `tools/diff_check.py --base origin/main pdfwarn`: 0 of 80 changed, as expected, because it starts from readings already made. Full suite with the reader, after the review fixes and the scan condition: 1588 passed, 4 skipped; `tests/test_read_pdf.py`, `tests/test_read_user_pdfs.py` and `tests/test_awkward.py` together 430 passed.
+**Checks.** New `tests/test_read_user_pdfs.py` (3 tests: rolls, fingering, thin beams) reads the user PDFs from the git-ignored `tests/data/users/` and skips without them. With the reader: 3 passed; `tests/test_awkward.py` 317 passed. `tools/diff_check.py --base origin/main pdfwarn`: 0 of 80 changed, as expected, because it starts from readings already made. Full suite with the reader, after the review fixes and the scan condition: 1588 passed, 4 skipped. After merging with entry 179 and switching `pluckings` off: `tests/test_read_pdf.py`, `tests/test_read_user_pdfs.py`, `tests/test_user_pdfs.py` and `tests/test_awkward.py` 435 passed; `diff_check` pdfwarn 0 of 80 changed; full suite 1593 passed, 4 skipped.
 
 ## Checking against teachers' prose
 

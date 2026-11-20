@@ -11,6 +11,7 @@ from server import app
 
 AUDIVERIS = os.environ.get("AUDIVERIS", "/opt/audiveris/bin/Audiveris")
 USERS = Path(__file__).parent / "data" / "users"
+PARRY = Path(__file__).parent / "data" / "parry-who-can-dwell-false-movement-scan.pdf"
 ATTACHED = {"pdf_file": {"download_url": "https://example.com/score.pdf", "file_id": "file-1"}}
 READINGS = {}
 
@@ -37,8 +38,9 @@ def test_a_bar_the_reader_left_empty_is_shaded():
 
 def test_guitar_fingering_letters_are_not_read_as_dynamics_or_words():
     root = ET.fromstring(reading("padrino-classical-guitar.pdf").musicxml)
-    assert [[mark.tag for mark in dynamics] for dynamics in root.iter("dynamics")] == [["ff"]]
+    assert list(root.iter("dynamics")) == []
     assert [words.text for words in root.iter("words")] == ["atempo"]
+    assert list(root.iter("fingering")) == [] and list(root.iter("pluck")) == []
 
 
 def test_an_unlabelled_part_has_no_name_and_a_heading_instrument_names_it():
@@ -54,14 +56,17 @@ def test_tab_staves_with_no_notes_are_left_out():
 
 
 def test_a_mostly_doubtful_reading_opens_the_reply_with_a_warning(monkeypatch, tmp_path):
-    bond = reading("bond-theme-guitar-tab.pdf")
+    if not os.path.exists(AUDIVERIS):
+        pytest.skip("Audiveris is not installed; set AUDIVERIS")
+    scan = PARRY.read_bytes()
+    parry = pdf_reader.read_pdf(scan, AUDIVERIS)
 
     async def download(url):
-        return (USERS / "bond-theme-guitar-tab.pdf").read_bytes()
+        return scan
 
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
     monkeypatch.setattr(app, "download", download)
-    monkeypatch.setattr(app.pdf_reader, "read_pdf", lambda data: bond)
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", lambda data: parry)
 
     async def call():
         async with Client(app.mcp) as client:
@@ -70,5 +75,5 @@ def test_a_mostly_doubtful_reading_opens_the_reply_with_a_warning(monkeypatch, t
     result = anyio.run(call)
     text = " ".join(part.text for part in result.content if part.type == "text")
     shaded = len(result.structured_content["shaded_bars"])
-    assert f'Open your reply with this warning, before anything else: "Much of this reading is doubtful: {shaded} of its 52 bars' in text
+    assert f'Open your reply with this warning, before anything else: "Much of this reading is doubtful: {shaded} of its 16 bars' in text
     assert text.index("Much of this reading is doubtful") < text.index("Go straight on to the analysis")

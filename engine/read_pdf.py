@@ -66,14 +66,14 @@ _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
 _BASE = ["-option", _SWITCH + "indentations=false",
          "-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0",
          "-option", "org.audiveris.omr.sig.inter.AbstractTimeInter.optionalTimes=6/4, 7/8, 8/8",
-         "-option", _SWITCH + "tremolos=true", "-option", _SWITCH + "fingerings=true", "-option", _SWITCH + "pluckings=true",
+         "-option", _SWITCH + "tremolos=true", "-option", _SWITCH + "fingerings=true",
          "-option", "org.audiveris.omr.sig.relation.ChordGraceRelation.xGapMax=4.0"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_BASE, _BASE + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
 THIN_BEAM_SETTINGS = [setting + ["-option", "org.audiveris.omr.sheet.ScaleBuilder.beamMinFraction=0.2"]
                       for setting in SETTINGS]
 _LELAND = ["-option", "org.audiveris.omr.ui.symbol.MusicFont.defaultMusicFamily=Leland"]
-READER = "5.11.0-sma.8-best2-tuplet-rests-eight-leland-ocr-r9-page-size-marks-thin-beams"
+READER = "5.11.0-sma.8-best2-tuplet-rests-eight-leland-ocr-r9-page-size-marks-thin-beams-fingering"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
@@ -856,6 +856,7 @@ def clean(mxl: bytes) -> bytes:
         for measure, direction in unclosed + list(open_lines.values()):
             measure.remove(direction)
     _share_numbers_of_split_bars(root)
+    _drop_fingering(root)
     _drop_right_hand_fingering(root)
     _keep_meaningful_text(root)
     _lyrics_to_directions(root)
@@ -897,6 +898,18 @@ def _instruments_named(text: str) -> set[str]:
                                   and difflib.SequenceMatcher(None, " ".join(seen), name.lower()).ratio() >= 0.8):
                 found.add(name)
     return found
+
+
+def _drop_fingering(root: ET.Element) -> None:
+    for note in root.iter("note"):
+        for notations in note.findall("notations"):
+            for technical in notations.findall("technical"):
+                for fingering in technical.findall("fingering"):
+                    technical.remove(fingering)
+                if len(technical) == 0:
+                    notations.remove(technical)
+            if len(notations) == 0:
+                note.remove(notations)
 
 
 def _drop_right_hand_fingering(root: ET.Element) -> None:
