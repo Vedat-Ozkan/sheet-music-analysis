@@ -3160,7 +3160,7 @@ Numbered 180 because 169 to 179 are taken on unmerged branches (`homr-staging`, 
 
 **What changed** (`engine/read_pdf.py`).
 - Both settings now switch on `tremolos`, `fingerings` and `pluckings`, and allow grace notes up to 4.0 from their main note.
-- **Thin beams.** When the reader reports that it could not measure the beam height (`No reliable beam height`, or a beam quorum under 100%) and no reading was good enough (at most 3 doubted bars, no failure), both settings are read again with `beamMinFraction=0.2` and the best of the four readings is kept. Setting the lower limit for every score instead squashed the snare part's 4-bar rest into 1 bar, so it is a reread only.
+- **Thin beams.** When the reader reports that it could not measure the beam height (`No reliable beam height`, or a beam quorum under 100%) and no reading was good enough (at most 3 doubted bars, no failure), both settings are read again with `beamMinFraction=0.2` and the best of the four readings is kept. Scans are not reread (see the users' PDFs below). Setting the lower limit for every score instead squashed the snare part's 4-bar rest into 1 bar, so it is a reread only.
 - `READER` is now `...-page-size-marks-thin-beams`, so earlier cached readings are not reused.
 - Tablature detection (`sixStringTablatures`, `fourStringTablatures`) was tried and left off: it turned the snare and Padrino readings into "no music" and did not help Bond.
 
@@ -3187,11 +3187,18 @@ Numbered 180 because 169 to 179 are taken on unmerged branches (`homr-staging`, 
 - Bond: 30 → 6 shaded bars through the reread (76 s → 79 s for the whole read; the reread itself is in both).
 - Time: the switches did not change reading times on the user PDFs (snare 19 s, Padrino 15 s either way). The reread adds a second round of reading, roughly doubling the reading time, only on PDFs where the beam height was not measured and no reading was good enough: 6 of 83 benchmark PDFs.
 
+**The reread on real users' PDFs.** All 79 PDFs kept in production (9 to 20 November, 47 of them scans, including the 6 failed ones) were read with this branch on this PC, four at a time, and the reread ones again with the reread switched off:
+- The reread ran on 15 of 79 (19%, against 6 of 83 on the benchmark) and added 1,334 s to 6,687 s of reading (20%).
+- 9 of the 15 were scans: none had fewer doubted bars, 3 failed anyway (scan too small), and they took 958 s of the 1,334.
+- 6 were digital: 3 improved (Bond 30 → 6 doubted bars, two others 8 → 4 and 8 → 5), 3 did not change.
+- So scans are no longer reread. All 6 benchmark rereads were digital, so the benchmark totals above are unchanged. On the users' PDFs this leaves 376 s of extra reading (6%) for the same 3 gains.
+- Cost: about 200 PDFs a month at the current rate; at an assumed production speed of half this PC's, about 1,900 extra instance-seconds a month, about US$0.11 at list price ($0.000058 an instance-second), inside the free tier. A reread PDF waits longer for its answer: Bond took 132 s here against about 90 s without the reread.
+
 **Known and left.** Flams in single-staff drum parts; harmonics (diamond note heads), which would need work inside the reader itself.
 
-**Review** (a different model, Sonnet). Three small faults fixed: the first reading of each round now runs at normal priority and the others at low priority (it was only the very first); no reread starts after the read's deadline; the benchmark keeps the reader's facts on failed readings. The rerun of the whole benchmark after these fixes gave the same totals. Two points left: the trigger for the reread is broad (4 of its 6 rereads changed nothing), and its Cloud Run cost has to be measured on real users' PDFs before any deploy.
+**Review** (a different model, Sonnet). Three small faults fixed: the first reading of each round now runs at normal priority and the others at low priority (it was only the very first); no reread starts after the read's deadline; the benchmark keeps the reader's facts on failed readings. The rerun of the whole benchmark after these fixes gave the same totals. Two points were left: the trigger was broad and the Cloud Run cost unmeasured. Both are answered by the users' PDFs above; the trigger still rereads some digital PDFs for no gain (3 of 6).
 
-**Checks.** New `tests/test_read_user_pdfs.py` (3 tests: rolls, fingering, thin beams) reads the user PDFs from the git-ignored `tests/data/users/` and skips without them. With the reader: 3 passed; `tests/test_awkward.py` 317 passed. `tools/diff_check.py --base origin/main pdfwarn`: 0 of 80 changed, as expected, because it starts from readings already made. Full suite with the reader, after the review fixes: 1588 passed, 4 skipped.
+**Checks.** New `tests/test_read_user_pdfs.py` (3 tests: rolls, fingering, thin beams) reads the user PDFs from the git-ignored `tests/data/users/` and skips without them. With the reader: 3 passed; `tests/test_awkward.py` 317 passed. `tools/diff_check.py --base origin/main pdfwarn`: 0 of 80 changed, as expected, because it starts from readings already made. Full suite with the reader, after the review fixes and the scan condition: 1588 passed, 4 skipped; `tests/test_read_pdf.py`, `tests/test_read_user_pdfs.py` and `tests/test_awkward.py` together 430 passed.
 
 ## Checking against teachers' prose
 

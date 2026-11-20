@@ -488,7 +488,7 @@ def _read_with_every_setting(data: bytes, audiveris: str, raw, pages: int, scan:
                              deadline: float) -> PdfReading:
     raw = raw or audiveris_read
     results = _read_settings(data, audiveris, raw, leland, deadline, range(len(SETTINGS)))
-    if _beams_unmeasured(results) and time.monotonic() < deadline:
+    if not scan and _beams_unmeasured(results) and time.monotonic() < deadline:
         results += _read_settings(data, audiveris, raw, leland, deadline,
                                   range(len(SETTINGS), 2 * len(SETTINGS)))
     passes = [record for record, _ in results]
