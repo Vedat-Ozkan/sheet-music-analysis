@@ -25,6 +25,8 @@ PRODUCTION_SIGNATURE = "afee6f19bde32f7d"
 DPI = "org.audiveris.omr.image.ImageLoading.pdfResolution="
 STUBS = "org.audiveris.omr.sheet.Book.processAllStubsInParallel=true"
 SYSTEMS = "org.audiveris.omr.ui.action.AdvancedTopics.processSystemsInParallel=true"
+SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
+SMA8 = "/home/kema/projects/sheet-music-plugin/spike/omr/speed/installs/sma8/bin/Audiveris"
 PATCHED = "/tmp/claude-1000/-home-kema-projects/e7eb6523-6727-4e40-ab68-cd8b0116ddd2/scratchpad/"
 VARIANTS = {
     "production": ([], ""),
@@ -125,6 +127,19 @@ VARIANTS = {
     "pitch32-pc2": ([], "", PATCHED + "aud-pitch32/bin/Audiveris"),
     "pitch32-here": ([], "", PATCHED + "aud-pitch32/bin/Audiveris"),
     "heads-beams-systems": ([SYSTEMS], "", PATCHED + "aud-fast/bin/Audiveris"),
+    "rm-base": ([], "", SMA8),
+    "rm-retry": ([], "", SMA8),
+    "rm-tremolos": ([SWITCH + "tremolos=true"], "", SMA8),
+    "rm-tabs": ([SWITCH + "sixStringTablatures=true", SWITCH + "fourStringTablatures=true"], "", SMA8),
+    "rm-fingerings": ([SWITCH + "fingerings=true", SWITCH + "pluckings=true"], "", SMA8),
+    "rm-beams": (["org.audiveris.omr.sheet.ScaleBuilder.beamMinFraction=0.2"], "", SMA8),
+    "rm-tab6": ([SWITCH + "sixStringTablatures=true"], "", SMA8),
+    "rm-tab4": ([SWITCH + "fourStringTablatures=true"], "", SMA8),
+    "rm-beams3": (["org.audiveris.omr.sheet.ScaleBuilder.beamMinFraction=0.3"], "", SMA8),
+    "rm-small0": ([SWITCH + "smallHeads=true"], "", SMA8),
+    "rm-small0-grace": ([SWITCH + "smallHeads=true", "org.audiveris.omr.sig.relation.ChordGraceRelation.xGapMax=4.0"], "", SMA8),
+    "rm-grace": (["org.audiveris.omr.sig.relation.ChordGraceRelation.xGapMax=4.0"], "", SMA8),
+    "rm-combo": ([SWITCH + "tremolos=true", SWITCH + "fingerings=true", SWITCH + "pluckings=true", "org.audiveris.omr.sig.relation.ChordGraceRelation.xGapMax=4.0"], "", SMA8),
 }
 SETS = ["bench", "bench-heldout", "bench-heldout2", "bench-heldout3", "bench-real"]
 
