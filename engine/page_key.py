@@ -11,11 +11,11 @@ PRINT_SIZE = LABEL_SIZE
 SCREEN_SIZE = NUMERAL_SIZE
 LINE_STEP = 1.5
 GAP = 900
-DOT = "·"
+BETWEEN = "\u2003"
 SAMPLE = 1.6
 
-NCT_WORDS = {"PT": "passing note", "NT": "neighbour note", "SUS": "suspension", "APP": "appoggiatura", "ET": "escape tone",
-             "RET": "retardation", "ANT": "anticipation", "PED": "pedal note"}
+NCT_WORDS = {"PT": "passing tone", "NT": "neighbour tone", "SUS": "suspension", "APP": "appoggiatura", "ET": "escape tone",
+             "RET": "retardation", "ANT": "anticipation", "PED": "pedal tone"}
 CADENCE_WORDS = {"PAC": "perfect authentic cadence", "IAC": "imperfect authentic cadence", "HC": "half cadence", "DC": "deceptive cadence"}
 CUE_WORDS = {piano.TUTTI: "the whole orchestra", piano.STRINGS_CUE: "the strings"}
 
@@ -55,8 +55,7 @@ def entries(shown: set[tuple[str, str]], cues: list[str] = ()) -> list[Entry]:
     if "alternative" in found:
         result.append(Entry("alternative", "another reading a teacher would accept"))
     if "nct" in found:
-        result.append(Entry("nct", "not part of the chord",
-                            codes=[(code, words) for code, words in NCT_WORDS.items() if code in found["nct"]]))
+        result.append(Entry("nct", "", codes=[(code, words) for code, words in NCT_WORDS.items() if code in found["nct"]]))
     if "fault" in found:
         known = fault_words()
         result.append(Entry("fault", "red marks are part-writing faults",
@@ -98,7 +97,7 @@ def draw(layouts: list[PageLayout], layout: PageLayout, cues: list[str] = (), si
     y = max([box.bottom for box in last.content + last.words] + [last.staff_bottom]) + GAP
     pen = _Pen(layout, left, right, y, size)
     for number, entry in enumerate(pieces):
-        lead = [] if number == 0 else [("text", DOT, INK)]
+        lead = [] if number == 0 else [("text", BETWEEN, INK)]
         if entry.sample:
             head = lead + [("sample", entry.sample, INK)]
             head += [("text", entry.meaning + (":" if entry.codes else ""), INK)] if entry.meaning else []
@@ -146,7 +145,7 @@ class _Pen:
         space = text.width(" ", self.size)
         if self.x > self.left and self.x + self._span(parts) > self.right:
             self._break()
-            if parts[0] == ("text", DOT, INK):
+            if parts[0] == ("text", BETWEEN, INK):
                 parts = parts[1:]
         for kind, string, colour in parts:
             if self.x > self.left:

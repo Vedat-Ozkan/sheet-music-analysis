@@ -496,10 +496,10 @@ def _key_entries(svg: str) -> list[str]:
         lines.setdefault(y, []).append(string)
     found: list[list[str]] = []
     for words in lines.values():
-        assert words[0] != page_key.DOT and words[-1] != page_key.DOT, words
+        assert words[0] != page_key.BETWEEN and words[-1] != page_key.BETWEEN, words
         segments = [[]]
         for word in words:
-            if word == page_key.DOT:
+            if word == page_key.BETWEEN:
                 assert segments[-1], words
                 segments.append([])
             else:
@@ -521,11 +521,11 @@ def test_page_key_is_off_by_default(chopin, chopin_annotations):
 
 def test_page_key_names_exactly_the_marks_on_the_page(chopin, chopin_annotations):
     key = _key_text(render(chopin, chopin_annotations, measures=(1, 8), key=True).svgs[-1])
-    for said in ("passing note", "neighbour note", "appoggiatura", "perfect authentic cadence", "see below"):
+    for said in ("PT passing tone, NT neighbour tone, APP appoggiatura", "perfect authentic cadence", "see below"):
         assert said in key, said
     for unused in ("suspension", "half cadence", "part-writing", "another reading", "built on", "misread", "who plays"):
         assert unused not in key, unused
-    for left_out in ("the key", "the chord’s job", "tonic", "a phrase", "where a note moves"):
+    for left_out in ("the key", "the chord’s job", "tonic", "a phrase", "where a note moves", "not part of the chord"):
         assert left_out not in key, left_out
 
 

@@ -3281,7 +3281,11 @@ Heights are the sum of the page heights at 1,400 px wide. The two scores that st
 
 Three tests pinned the old layout and were changed: the reference picture and the picture hash for the Chopin excerpt were made again, and the bound on the student-check page (no more than 1.25 times the normal page) is now 1.3, because the normal Bach page became shorter (1,285 to 1,225) while the check page stayed the same (1,551 to 1,543).
 
-**The guide.** Four entries are gone at the owner's word (the key, the chord's job, a phrase, where a note moves), and the numbered point reads "see below". The text the chat is given no longer says the guide covers those four. The page therefore no longer explains T, PD, D or "pre-dom."; the chat's reply has to. Four ways of separating the entries (`guide-separator-options.png`) and four wordings of the "not part of the chord" entry (`guide-wording-options.png`) were drawn for the owner to choose from; both are unchanged until then.
+**The guide.** All of these are the owner's choices, made from pictures of real pages:
+- Four entries are gone: the key, the chord's job, a phrase, where a note moves. The text the chat is given no longer says the guide covers them. The page therefore no longer explains T, PD, D or "pre-dom."; the chat's reply has to.
+- The numbered point reads "see below".
+- The circled-note entry is the circle and then the codes used on those pages, with no heading: "PT passing tone, NT neighbour tone, APP appoggiatura". "Tone" replaces "note" for PT, NT and PED, to match the letters; the site's table of marks says the same now (not published).
+- Entries are separated by a wide gap instead of a dot, which had read as one more sign next to the colons. Four separators and four wordings were drawn for the choice.
 
 **Checks.** `tests/test_overlay_marks.py`, `tests/test_awkward.py`, `tests/test_host_render.py`, `tests/test_check_display.py`, `tests/test_annotate.py`: 491 passed, 4 skipped, 2 expected failures (the two known scores). `tools/engraving_check.py` on the nine example analyses: 0 overlapping labels, 0 tight, 0 collisions with the music. `tools/diff_check.py --base main render`: every item changed, as intended; looked at full size before and after: the Lindenbaum and the Chopin nocturne (whole, first two pages) and the Bach chorale. The other items were checked by the two tools above only.
 

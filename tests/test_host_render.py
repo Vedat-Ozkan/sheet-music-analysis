@@ -250,7 +250,7 @@ def test_server_card_has_the_key_under_its_last_page_and_the_pdf_on_its_last(cho
     pages = [page.extract_text() for page in PdfReader(io.BytesIO(asyncio.run(run()))).pages]
     assert pictured == [[False, True], [False, True]]
     assert len(pages) > 2
-    assert [number for number, text in enumerate(pages) if 'passing note' in text] == [len(pages) - 1]
+    assert [number for number, text in enumerate(pages) if 'passing tone' in text] == [len(pages) - 1]
 
 
 def test_server_piano_worksheet_has_no_key(tmp_path, monkeypatch):
