@@ -36,6 +36,7 @@ def cached_raw(cache: Path, sig: str, slots: threading.Semaphore, calls: list):
                     mxl.write_bytes(got.mxl)
                 else:
                     out = {"timeout": True} if got.facts["outcome"] == "timeout" else {"error": got.facts["outcome"]}
+                out["facts"] = got.facts
                 out["seconds"] = round(time.monotonic() - t0, 1)
                 meta.write_text(json.dumps(out))
             calls.append((setting, out["seconds"], False))
@@ -43,30 +44,31 @@ def cached_raw(cache: Path, sig: str, slots: threading.Semaphore, calls: list):
             out = json.loads(meta.read_text())
             calls.append((setting, out["seconds"], True))
         if "error" in out or out.get("timeout"):
-            return reader.RawReading(None, [], {"outcome": "timeout" if out.get("timeout") else "no music"})
-        return reader.RawReading(mxl.read_bytes(), out["skipped"], {"outcome": "done"})
+            return reader.RawReading(None, [], {**out.get("facts", {}), "outcome": "timeout" if out.get("timeout") else "no music"})
+        return reader.RawReading(mxl.read_bytes(), out["skipped"], out.get("facts", {"outcome": "done"}))
 
     return raw
 
 
 def production_raw(raw):
     from engine import read_pdf as reader
-    decided, stops = threading.Event(), []
+    decided, stops = collections.defaultdict(threading.Event), collections.defaultdict(list)
 
     def raw_(data, audiveris, setting, leland, deadline, stop):
-        if setting == 0:
+        first, round_ = setting % len(reader.SETTINGS) == 0, setting // len(reader.SETTINGS)
+        if first:
             try:
                 got = raw(data, audiveris, setting, leland, deadline, stop)
                 if got.mxl is not None:
                     try:
-                        stops.append(len(reader._problem_spots(reader.clean(got.mxl), timing=False)[0]) <= reader.RETRY_ABOVE)
+                        stops[round_].append(len(reader._problem_spots(reader.clean(got.mxl), timing=False)[0]) <= reader.RETRY_ABOVE)
                     except Exception:  # noqa: BLE001
                         pass
                 return got
             finally:
-                decided.set()
-        decided.wait()
-        if any(stops):
+                decided[round_].set()
+        decided[round_].wait()
+        if any(stops[round_]):
             return reader.RawReading(None, [], {"outcome": "cancelled"})
         return raw(data, audiveris, setting, leland, deadline, stop)
 

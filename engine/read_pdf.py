@@ -65,11 +65,15 @@ _LENGTH = {"whole": 4, "half": 2, "quarter": 1, "eighth": Fraction(1, 2),
 _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
 _BASE = ["-option", _SWITCH + "indentations=false",
          "-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0",
-         "-option", "org.audiveris.omr.sig.inter.AbstractTimeInter.optionalTimes=6/4, 7/8, 8/8"]
+         "-option", "org.audiveris.omr.sig.inter.AbstractTimeInter.optionalTimes=6/4, 7/8, 8/8",
+         "-option", _SWITCH + "tremolos=true", "-option", _SWITCH + "fingerings=true",
+         "-option", "org.audiveris.omr.sig.relation.ChordGraceRelation.xGapMax=4.0"]
 _SMALL = ["-option", _SWITCH + "smallHeads=true", "-option", _SWITCH + "smallBeams=true"]
 SETTINGS = [_BASE, _BASE + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"]]
+THIN_BEAM_SETTINGS = [setting + ["-option", "org.audiveris.omr.sheet.ScaleBuilder.beamMinFraction=0.2"]
+                      for setting in SETTINGS]
 _LELAND = ["-option", "org.audiveris.omr.ui.symbol.MusicFont.defaultMusicFamily=Leland"]
-READER = "5.11.0-sma.8-best2-tuplet-rests-eight-leland-ocr-r9-page-size"
+READER = "5.11.0-sma.8-best2-tuplet-rests-eight-leland-ocr-r9-page-size-marks-thin-beams-fingering"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
@@ -494,19 +498,10 @@ def scan_staff_spacing(data: bytes, drawn_interlines: list[int]) -> float | None
 def _read_with_every_setting(data: bytes, audiveris: str, raw, pages: int, scan: bool, leland: bool,
                              deadline: float) -> PdfReading:
     raw = raw or audiveris_read
-    stop = threading.Event()
-    with ThreadPoolExecutor(len(SETTINGS)) as pool:
-        second = min(deadline, time.monotonic() + SECOND_PASS_SECONDS)
-        futures = [pool.submit(contextvars.copy_context().run, _read, data, audiveris, setting, leland,
-                               deadline if setting == 0 else second, raw, stop)
-                   for setting in range(len(SETTINGS))]
-        try:
-            first = futures[0].result()
-            if first[1] is not None and not first[1][1] and len(first[1][2]) <= RETRY_ABOVE:
-                stop.set()
-            results = [first, *(future.result() for future in futures[1:])]
-        finally:
-            stop.set()
+    results = _read_settings(data, audiveris, raw, leland, deadline, range(len(SETTINGS)))
+    if not scan and _beams_unmeasured(results) and time.monotonic() < deadline:
+        results += _read_settings(data, audiveris, raw, leland, deadline,
+                                  range(len(SETTINGS), 2 * len(SETTINGS)))
     passes = [record for record, _ in results]
     readings = [reading for _, reading in results if reading is not None]
     if not readings:
@@ -521,6 +516,31 @@ def _read_with_every_setting(data: bytes, audiveris: str, raw, pages: int, scan:
         except Exception:
             log.exception("PDF reading repair %s failed", repair.__name__)
     return PdfReading(musicxml, pages, scan, skipped, passes)
+
+
+def _read_settings(data: bytes, audiveris: str, raw, leland: bool, deadline: float, settings: range) -> list:
+    stop = threading.Event()
+    with ThreadPoolExecutor(len(settings)) as pool:
+        second = min(deadline, time.monotonic() + SECOND_PASS_SECONDS)
+        futures = [pool.submit(contextvars.copy_context().run, _read, data, audiveris, setting, leland,
+                               deadline if setting == settings[0] else second, raw, stop)
+                   for setting in settings]
+        try:
+            first = futures[0].result()
+            if _good_enough(first[1]):
+                stop.set()
+            return [first, *(future.result() for future in futures[1:])]
+        finally:
+            stop.set()
+
+
+def _good_enough(reading) -> bool:
+    return reading is not None and not reading[1] and len(reading[2]) <= RETRY_ABOVE
+
+
+def _beams_unmeasured(results: list) -> bool:
+    return (any(record.get("beam_unmeasured") for record, _ in results)
+            and not any(_good_enough(reading) for _, reading in results))
 
 
 _TEMPO_NUMBER = re.compile(r"=\s*\d|\bca\.?\s*\d")
@@ -607,7 +627,7 @@ def _read(data: bytes, audiveris: str, setting: int, leland: bool, deadline: flo
 
 
 def audiveris_options(setting: int, leland: bool) -> list[str]:
-    return SETTINGS[setting] + (_LELAND if leland else [])
+    return (SETTINGS + THIN_BEAM_SETTINGS)[setting] + (_LELAND if leland else [])
 
 
 def audiveris_read(data: bytes, audiveris: str, setting: int, leland: bool, deadline: float,
@@ -750,7 +770,7 @@ STEP = re.compile(r"StepMonitoring\s+\d+\s+\|\s+([A-Z_]+)\s*$")
 
 def run(audiveris: str, options: list[str], setting: int, source: Path, work: str, env: dict, deadline: float,
         stop: threading.Event) -> AudiverisRun:
-    command = ([] if setting == 0 else ["nice", "-n", "19"]) + [
+    command = ([] if setting % len(SETTINGS) == 0 else ["nice", "-n", "19"]) + [
         audiveris, "-batch", *options, "-export", "-output", work, str(source)]
     output_path = Path(work) / f"audiveris-{source.suffix[1:]}.txt"
     steps: Counter = Counter()
@@ -796,6 +816,8 @@ def audiveris_facts(run_: AudiverisRun) -> dict:
             "images": re.findall(r"Loaded image #\d+ (\d+x\d+)", output),
             "interlines": [int(value) for value in re.findall(r"interline\(\d+,(\d+),\d+\)", output)],
             "too_close_interlines": [int(value) for value in re.findall(r"too low interline value of (\d+)", output)],
+            "beam_unmeasured": "No reliable beam height" in output or any(
+                int(share) < 100 for share in re.findall(r"Beam measured height.* at (\d+)% of needed quorum", output)),
             "pages_done": len(re.findall(r"\|\s+PAGE\s*$", output, re.M)),
             "invalid_pages": output.count("flagged as invalid"),
             "problems": sorted(problems), "step_seconds": run_.step_seconds}
@@ -834,6 +856,7 @@ def clean(mxl: bytes) -> bytes:
         for measure, direction in unclosed + list(open_lines.values()):
             measure.remove(direction)
     _share_numbers_of_split_bars(root)
+    _drop_fingering(root)
     _drop_right_hand_fingering(root)
     _keep_meaningful_text(root)
     _lyrics_to_directions(root)
@@ -875,6 +898,18 @@ def _instruments_named(text: str) -> set[str]:
                                   and difflib.SequenceMatcher(None, " ".join(seen), name.lower()).ratio() >= 0.8):
                 found.add(name)
     return found
+
+
+def _drop_fingering(root: ET.Element) -> None:
+    for note in root.iter("note"):
+        for notations in note.findall("notations"):
+            for technical in notations.findall("technical"):
+                for fingering in technical.findall("fingering"):
+                    technical.remove(fingering)
+                if len(technical) == 0:
+                    notations.remove(technical)
+            if len(notations) == 0:
+                note.remove(notations)
 
 
 def _drop_right_hand_fingering(root: ET.Element) -> None:

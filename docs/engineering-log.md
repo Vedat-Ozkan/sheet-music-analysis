@@ -3188,6 +3188,66 @@ Numbered 179 because 169 to 178 are taken on unmerged branches (`homr-staging`, 
 
 **Review.** A second agent (Sonnet) reviewed the branch. Two points were fixed: a heading that names an accompaniment ("Ave Maria for Voice and Guitar") would have named the singer's part "Guitar", so names now come from the heading only in one-part scores; and "pp", "mp" and "m." matched the fingering letters, so dynamics other than a lone p no longer count towards the gate or get removed. Its worry that multi-bar rests would be shaded does not hold: the reader writes each later bar of a multi-bar rest as a whole-bar rest (snare bars 60 to 63). After the fixes: the 5 user-PDF tests and 317 awkward tests pass.
 
+### 180. Rolls, guitar fingering and grace notes switched on in the reader; a reread with thin beams (2026-11-19, branch `read-marks`, nothing released)
+
+Numbered 180 because 169 to 179 are taken on unmerged branches (`homr-staging`, `privacy-page-sent-record`, `reading-checks`).
+
+**Problem.** The three user PDFs of 15 November (entry 179) also showed four faults in the reader's own settings:
+- Snare drum: three-stroke rolls (slashes on the stem) were read as a "3" tuplet, so bar 1 became a pickup and every bar number after it was one off. The reader's roll detector (`tremolos`) is off by default.
+- Padrino (classical guitar): the left-hand fingering "2" was read as a dot, which made a triplet up in bar 11, and "rit." near fingering came out as *ff*. The fingering detectors (`fingerings`, `pluckings`) are off by default.
+- Bond (guitar with tablature): every eighth and sixteenth note came out as a quarter note (30 of 52 bars shaded). The beams are thinner than the reader accepts (`beamMinFraction` 0.45), and its log says it could not measure the beam height.
+- Snare drum: none of the flams were read. Setting 0 has small note heads off, and the flams sit further from their main note than `ChordGraceRelation.xGapMax` (2.5) allows.
+
+**What changed** (`engine/read_pdf.py`).
+- Both settings now switch on `tremolos` and `fingerings`, and allow grace notes up to 4.0 from their main note. The fingering numbers the reader finds are taken out of our MusicXML (see "After merging with entry 179" below).
+- **Thin beams.** When the reader reports that it could not measure the beam height (`No reliable beam height`, or a beam quorum under 100%) and no reading was good enough (at most 3 doubted bars, no failure), both settings are read again with `beamMinFraction=0.2` and the best of the four readings is kept. Scans are not reread (see the users' PDFs below). Setting the lower limit for every score instead squashed the snare part's 4-bar rest into 1 bar, so it is a reread only.
+- `READER` is now `...-page-size-marks-thin-beams`, so earlier cached readings are not reused.
+- Tablature detection (`sixStringTablatures`, `fourStringTablatures`) was tried and left off: it turned the snare and Padrino readings into "no music" and did not help Bond.
+
+**Measured** on the 83-PDF benchmark (`spike/omr/speed/variants.py bench`, sets bench, bench-heldout 1 to 3 and bench-real), each change against a plain run made in the same way (this PC and pc1, `BENCH_TIME_SCALE` 4). Totals over all PDFs:
+
+| Change | Notes with the right pitch | Right pitch and timing | Shaded bars | Grace notes found / made up |
+|---|---|---|---|---|
+| Plain sma.8, no reread (scale 3, this PC only) | 64,960 | 60,072 | 613 | 213 / 8 |
+| Thin-beam reread | 64,948 | 60,103 | 609 | 213 / 8 |
+| + rolls | no change | no change | no change | no change |
+| + fingering | 64,948 | 60,086 | 610 | 213 / 8 |
+| + grace notes to 4.0 | 64,969 | 60,117 | 609 | 229 / 13 |
+| Small heads in setting 0 + grace to 4.0 (rejected) | 64,508 | 59,635 | 646 | 446 / 60 |
+| **All kept, together** | **64,969** | **60,100** | **610** | **229 / 13** |
+
+- The reread ran on 6 of the 83 PDFs (7%) and changed the kept reading on 2: Bach's C major prelude (ms) gains 21 notes with the right timing and loses 12 with the right pitch; Mayer's quartet (ly) gains 10. On the other 4 (Bach's prelude ly, Chopin's E minor prelude vr, Schubert's "Erlkönig" ly, Berg's "Nacht" ms) the first reading stayed best, so the reread only cost time.
+- Fingering costs 17 notes with the right timing and 1 shaded bar, from one bar in each of two pieces: in the Mozart K. 545 scan a fingered run loses a note to a rest, and in Schubert's "Die Stadt" one bar of 32nd notes becomes a tuplet. The owner chose to keep it because it fixes a real user's guitar reading.
+- The benchmark has no rolls, so `tremolos` changes nothing there.
+- Small heads in setting 0 found the snare's flams but lost 440 notes and made up 52 grace notes across the benchmark, so the flams stay unread.
+
+**The three user PDFs**, read on this PC with nothing else running, plain → all kept:
+- Snare: 3 false tuplets → 13 rolls and no tuplets; bar 1 is a full bar again. Flams: still 0.
+- Padrino: *ff* gone (it was the "rit." misread), the bar-11 triplet gone (4 tuplets → 3), 28 fingerings found. The 10 false *p* marks from the thumb letter remain without entry 179's clean-up.
+- Bond: 30 → 6 shaded bars through the reread (76 s → 79 s for the whole read; the reread itself is in both).
+- Time: the switches did not change reading times on the user PDFs (snare 19 s, Padrino 15 s either way). The reread adds a second round of reading, roughly doubling the reading time, only on PDFs where the beam height was not measured and no reading was good enough: 6 of 83 benchmark PDFs.
+
+**The reread on real users' PDFs.** All 79 PDFs kept in production (9 to 20 November, 47 of them scans, including the 6 failed ones) were read with this branch on this PC, four at a time, and the reread ones again with the reread switched off:
+- The reread ran on 15 of 79 (19%, against 6 of 83 on the benchmark) and added 1,334 s to 6,687 s of reading (20%).
+- 9 of the 15 were scans: none had fewer doubted bars, 3 failed anyway (scan too small), and they took 958 s of the 1,334.
+- 6 were digital: 3 improved (Bond 30 → 6 doubted bars, two others 8 → 4 and 8 → 5), 3 did not change.
+- So scans are no longer reread. All 6 benchmark rereads were digital, so the benchmark totals above are unchanged. On the users' PDFs this leaves 376 s of extra reading (6%) for the same 3 gains.
+- Cost: about 200 PDFs a month at the current rate; at an assumed production speed of half this PC's, about 1,900 extra instance-seconds a month, about US$0.11 at list price ($0.000058 an instance-second), inside the free tier. A reread PDF waits longer for its answer: Bond took 132 s here against about 90 s without the reread.
+
+**After merging with entry 179.** With both branches together, two of entry 179's tests failed:
+- Padrino had its 10 false *p* marks back. The plucking detector (`pluckings`) wrote most right-hand letters as `<pluck>` marks, so too few were left as text for entry 179's clean-up (it needs 3). Counting plucks instead does not work: the plucking detector made up 116 plucks in 39 of the 83 benchmark scores (none of their reference files has one), and counting them would have removed real *p* marks in 15 of them.
+- Checked by a second agent (Opus) and again here: on Padrino the fingering detector alone removes the dot, the triplet, the *ff* and, with entry 179's clean-up, all 10 false *p* marks; the plucking detector fixes nothing. So `pluckings` is off again.
+- The fingering detector also invents marks: on the 46 benchmark PDFs drawn from a reference file it found 125 fingering numbers where the references have 104, about 75 of them in pieces with none. Today's output has no fingering, so we now take all `<fingering>` out of the MusicXML we give users; the reader still uses them to avoid reading them as dots.
+- Benchmark with `pluckings` off (this PC and pc2): notes and grace notes exactly as in the table's last row; doubted bars 614 against 610 only because entry 179 now shades empty bars (scored with the same code, both runs give 614). The fingering detector, not the plucking one, also loses 2 real *p* marks in Mayer's quartet (ly, bar 5 of two parts).
+- The test for the "much of this reading is doubtful" warning used Bond, which the reread now reads well (8 doubted bars of 52); it now uses the Parry scan already in `tests/data` (12 of 16).
+- Left: entry 179's clean-up fires on Padrino with exactly 3 letters left as text (the fingering detector reads some "i" as "1"), so another guitar edition could fall below it.
+
+**Known and left.** Flams in single-staff drum parts; harmonics (diamond note heads), which would need work inside the reader itself.
+
+**Review** (a different model, Sonnet). Three small faults fixed: the first reading of each round now runs at normal priority and the others at low priority (it was only the very first); no reread starts after the read's deadline; the benchmark keeps the reader's facts on failed readings. The rerun of the whole benchmark after these fixes gave the same totals. Two points were left: the trigger was broad and the Cloud Run cost unmeasured. Both are answered by the users' PDFs above; the trigger still rereads some digital PDFs for no gain (3 of 6).
+
+**Checks.** New `tests/test_read_user_pdfs.py` (3 tests: rolls, fingering, thin beams) reads the user PDFs from the git-ignored `tests/data/users/` and skips without them. With the reader: 3 passed; `tests/test_awkward.py` 317 passed. `tools/diff_check.py --base origin/main pdfwarn`: 0 of 80 changed, as expected, because it starts from readings already made. Full suite with the reader, after the review fixes and the scan condition: 1588 passed, 4 skipped. After merging with entry 179 and switching `pluckings` off: `tests/test_read_pdf.py`, `tests/test_read_user_pdfs.py`, `tests/test_user_pdfs.py` and `tests/test_awkward.py` 435 passed; `diff_check` pdfwarn 0 of 80 changed; full suite 1593 passed, 4 skipped.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
