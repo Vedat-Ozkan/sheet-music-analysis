@@ -3291,7 +3291,14 @@ Three tests pinned the old layout and were changed: the reference picture and th
 
 Full suite before the arrow entry was removed: 1,604 passed, 30 skipped (the reader tests, user PDFs, ring codes), 2 expected failures, 0 failed.
 
-**NOT RUN:** the full suite after the arrow entry was removed (run: the five test files above); a real Claude or ChatGPT chat; a review by another model; pieces with more than four staves at the new gap, looked at by eye. Files: `/home/kema/omr-reader-test-2026-11-07/guide-at-preview-end`.
+**Review by another model (Opus, read-only, on the code of the branch).** It compared main and the branch on about 17 scores, whole and as excerpts: the same bars in the same order everywhere, no system past the right edge, the same page counts, and the final systems equal to the breaks chosen. Confirmed and fixed:
+- Room for a numbered point, a cadence or a chord's job was always reserved in the first part of a bar. Where a repeat sign splits a bar and the second part starts a new system, the room went to the system above the mark. It now goes to the part the mark is in, as the room for numerals already did. On the chorale BWV 84.5 with marks on every bar's last beat, the clear strip between the two systems grew from 29 to 52 px; no collision was seen before the fix.
+- With the shorter guide it is more likely that the pages in the chat picture have nothing to explain while a later page does. The chat was then told of a guide the picture does not show. It is now told only when the picture has one.
+- The test that every system holds the bars chosen for it looked at the layout straight after the choosing step; it now reads the systems off the final pages. It still watches the internal step that chooses, to learn what was chosen; 8 of its 26 cases fail on main's layout code.
+
+Not changed: a preview of zero pages would now raise an error where it drew nothing before; nothing asks for that.
+
+**NOT RUN:** a review of the review fixes by another model; pieces with more than four staves at the new gap, looked at by eye.
 
 ## Checking against teachers' prose
 
