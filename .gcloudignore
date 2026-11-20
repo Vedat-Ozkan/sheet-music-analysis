@@ -6,6 +6,7 @@
 !/uv.lock
 !/engine/
 !/server/
+!/kit/
 !/skill/
 /skill/*
 !/skill/SKILL.md
