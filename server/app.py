@@ -1389,12 +1389,13 @@ CAREFUL_WARNING = ("Reading this scan carefully takes about 5 minutes a page and
                    "As a guide, a 10-page piece can use most of a five-hour allowance on a standard paid plan. "
                    "This piece has {pages}. Shall I go ahead?")
 CAREFUL_OFFER = (
-    "This PDF is a scan, and the reading in the card is a quick one that makes many mistakes on scans. If you can run "
-    "code in a sandbox and start helper agents (subagents) in this chat, do not analyse yet: tell the user in one "
-    "sentence that the card shows a quick reading and that you can read the scan carefully yourself instead, then "
-    "say this, in these words: \"{warning}\" Then stop and wait for the answer. If the user says yes, call "
-    "careful_reading with this score_id and follow what it returns. If the user says no, or if you cannot run code "
-    "or start helpers here, use the quick reading as follows. "
+    "Ask before analysing: this PDF is a scan, and the reading in the card is a quick one that makes many mistakes "
+    "on scans. In this reply, tell the user in one sentence that the card shows a quick reading and that you can "
+    "read the scan carefully yourself instead, then say this, in these words: \"{warning}\" Then end your reply and "
+    "wait for the answer; do not call draft_analysis yet. The careful reading uses your code sandbox and helper "
+    "agents (subagents); the user's yes to this question is their request to start them. Skip the question only if "
+    "this chat has no code sandbox at all. If the user says yes, call careful_reading with this score_id and follow "
+    "what it returns. If the user says no, or you skipped the question, use the quick reading as follows. "
 )
 CAREFUL_STEPS = (
     "Careful reading of the user's scan ({pages}). Do these steps in order, in your code sandbox.\n"
