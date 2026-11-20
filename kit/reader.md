@@ -62,4 +62,4 @@ On a page after the first, the time signature is usually not printed again. Use 
 
 ## What to deliver
 
-Write the complete transcription, in N1 only (no commentary inside the file), to the file you were told to write. Then reply with: whether the tool's staves and bar lines were right, the number of bars you wrote per system, and a short list of the spots you were least sure of. Before you reply, run the tool's `check` on your file one last time and fix what it reports.
+Write the complete transcription, in N1 only (no commentary inside the file), to the file you were told to write. If your page has no music on it at all (a title page, a page of text), write only the two words `NO MUSIC` to that file and say so in your reply. Then reply with: whether the tool's staves and bar lines were right, the number of bars you wrote per system, and a short list of the spots you were least sure of. Before you reply, run the tool's `check` on your file one last time and fix what it reports.

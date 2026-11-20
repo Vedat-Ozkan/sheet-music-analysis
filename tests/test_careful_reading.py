@@ -77,7 +77,15 @@ def test_a_page_that_cannot_be_built_comes_back_with_what_to_fix(tmp_path, monke
     assert broken != PAGES[0]
     result = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": [broken, *PAGES[1:]]}))
     assert result.is_error
-    assert "Bar 0, voice 1.1 adds up to 1" in text_of(result) and "call use_careful_reading again" in text_of(result)
+    assert "Page 1: Bar 0, voice 1.1 adds up to 1" in text_of(result) and "call use_careful_reading again" in text_of(result)
+    second = PAGES[1].replace("m1 len=24", "m1 len=20", 1)
+    wrong_second = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": [PAGES[0], second, PAGES[2]]}))
+    assert wrong_second.is_error and "Page 2: Bar " in text_of(wrong_second)
+    for pages, reason in (([], "No pages"), ([PAGES[0]] * 4, "This scan has 3 pages"),
+                          ([PAGES[0].replace("\n2.1: ", "\n40.1: ")], "Staves are numbered 1 to 32"),
+                          ([PAGES[0].replace(" len=", " len=99999", 1)], "longer than 64 quarter notes")):
+        refused = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": pages}))
+        assert refused.is_error and reason in text_of(refused), text_of(refused)
     voice_line = next(line for line in PAGES[1].splitlines() if line.startswith("1.1:"))
     entries = voice_line.split()
     first_note = next(position for position, entry in enumerate(entries) if position and not entry.isdigit())
@@ -101,6 +109,25 @@ def test_words_are_written_under_the_notes_they_are_sung_on():
     assert sung[-6:] == [("single", "Um"), ("single", "mein"), ("single", "Haupt"), ("begin", "ge"), ("middle", "flo"), ("end", "gen.")]
     words = [word for line in (DATA / "careful/schubert-kraehe-voice-opening.n1").read_text().splitlines() if line.startswith("1.1w:") for word in line.split()[1:] if word != "_"]
     assert len(sung) == len(words)
+
+
+def test_words_in_two_voices_keep_their_own_hyphens():
+    page = "N1 div=1 ts=2/4 ks=0\nm1 len=2\n1.1: 2 C5\n1.1w: Hal-\n2.1: 2 C3\n2.1w: la\nm2 len=2\n1.1: 2 D5\n1.1w: lo\n2.1: 2 D3\n2.1w: la"
+    score = ET.fromstring(from_notes.score_from_notes(page))
+    sung = {(note.findtext("staff"), note.findtext("lyric/text")): note.findtext("lyric/syllabic") for note in score.iter("note") if note.find("lyric") is not None}
+    assert sung == {("1", "Hal"): "begin", ("1", "lo"): "end", ("2", "la"): "single"}
+
+
+def test_a_later_page_without_a_time_signature_keeps_the_one_before():
+    later = PAGES[1].replace("ts=6/8", "ts=", 1)
+    assert later != PAGES[1]
+    assert from_notes.join_pages([PAGES[0], later]) == from_notes.join_pages(PAGES[:2])
+
+
+def test_a_clef_written_after_the_last_note_is_refused_with_where_to_put_it():
+    voice_line = next(line for line in PAGES[0].splitlines() if line.startswith("2.1:"))
+    with pytest.raises(correct.CorrectionError, match="clef=F is written after the last note"):
+        from_notes.score_from_notes(PAGES[0].replace(voice_line, voice_line + " clef=F", 1))
 
 
 def test_a_clef_change_is_written_where_it_is_printed():

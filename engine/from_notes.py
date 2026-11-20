@@ -7,17 +7,41 @@ from fractions import Fraction
 
 from engine import notes
 from engine.correct import replace_bars
+from engine.errors import UserError
 from engine.score import Measure
 
 REST_TYPES = ("whole", "half", "quarter", "eighth", "16th", "32nd", "64th", "128th")
 DIVISIONS = 32
+MAX_STAVES = 32
+MAX_VOICES = 8
+MAX_BARS = 1000
+MAX_BAR_LENGTH = 64
 HEADER = re.compile(notes.VERSION + r" div=(?P<div>[1-9]\d*) ts=(?P<meter>\S*) ks=(?P<key>\S+)")
 BAR_LINE = re.compile(r"m\d+ len=(?P<length>\d+)(?P<changes>(?: (?:ts|ks)=\S+)*)")
 
 
+def score_from_pages(pages: list[str]) -> bytes:
+    if not pages:
+        raise notes.NotesError("No pages were handed in")
+    for number, page in enumerate(pages, 1):
+        try:
+            score_from_notes(page)
+        except UserError as error:
+            raise notes.NotesError(f"Page {number}: {error}") from error
+    return score_from_notes(join_pages(pages))
+
+
 def score_from_notes(text: str) -> bytes:
     index = notes.decode(text)
-    staves = max((event.staff for measure in index.measures for event in measure.events), default=1)
+    events = [event for measure in index.measures for event in measure.events]
+    staves = max((event.staff for event in events), default=1)
+    if staves > MAX_STAVES or max((event.layer for event in events), default=1) > MAX_VOICES:
+        raise notes.NotesError(f"Staves are numbered 1 to {MAX_STAVES} from the top and voices 1 to {MAX_VOICES}")
+    if len(index.measures) > MAX_BARS:
+        raise notes.NotesError(f"The note list has {len(index.measures)} bars; at most {MAX_BARS} can be built")
+    for measure in index.measures:
+        if measure.length > MAX_BAR_LENGTH:
+            raise notes.NotesError(f"Bar {measure.number}: len= makes this bar longer than {MAX_BAR_LENGTH} quarter notes")
     return replace_bars(_empty_score(index.measures, staves), _with_every_staff(text, staves))
 
 
@@ -35,7 +59,7 @@ def join_pages(pages: list[str]) -> str:
     bar = None
     for number, own, page_meter, page_key, lines in read:
         scale = div // own
-        opening = {"ts": page_meter, "ks": page_key}
+        opening = {"ts": page_meter or meter, "ks": page_key}
         for line in lines:
             label, _, body = line.partition(":")
             if line.startswith("m"):

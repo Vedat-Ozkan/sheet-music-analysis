@@ -1414,7 +1414,8 @@ CAREFUL_STEPS = (
     "yourself, one at a time, following kit/reader.md for each. Do not search the web for the piece and do not "
     "use what you remember of the music: only what is printed counts.\n"
     "5. Hand in: when every page file exists, call use_careful_reading with this score_id ({score_id}) and with "
-    "pages set to the full text of page1.n1, page2.n1 and so on, in order and unchanged. It returns a new "
+    "pages set to the full text of page1.n1, page2.n1 and so on, in order and unchanged, leaving out any page whose "
+    "helper wrote NO MUSIC. It returns a new "
     "score_id for the careful reading."
 )
 HELPER_SETTINGS = {"claude": "Give each helper the Sonnet model at medium effort.",
@@ -2013,12 +2014,16 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
 @observed
 async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> CallToolResult:
     source = platform(ctx)
-    if await anyio.to_thread.run_sync(store.get, scan_key(score_id)) is None:
+    scan = await anyio.to_thread.run_sync(store.get, scan_key(score_id))
+    if scan is None:
         log("use_careful_reading", platform=source, error="ScoreError")
         return error_result(NOT_A_SCAN)
+    if len(pages) > json.loads(scan)["pages"]:
+        log("use_careful_reading", platform=source, error="ScoreError", pages=len(pages), outcome="user_error")
+        return error_result(f"This scan has {page_count(json.loads(scan)['pages'])}; hand in one note list for each page, not {len(pages)}.")
     try:
         with stage("parse"):
-            score = await in_turn(lambda: from_notes.score_from_notes(from_notes.join_pages(pages)))
+            score = await in_turn(lambda: from_notes.score_from_pages(pages))
             bars = await in_turn(lambda: [measure.number for measure in ScoreIndex(load_toolkit(score).getMEI()).measures])
     except UserError as error:
         log("use_careful_reading", platform=source, error=type(error).__name__, reason=str(error), pages=len(pages), outcome="user_error")

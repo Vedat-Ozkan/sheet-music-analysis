@@ -3706,7 +3706,25 @@ Claude's cards showed "There was a problem displaying content" in this test. Tha
 
 Usage, roughly: Claude's meter for the weekly limit went from 76% to 79% over the chat on the owner's plan; the five-hour meter was already high from other use and is no measure.
 
-**NOT RUN:** a second run of either chat; a piece longer than three pages, a song or a user's own scan through the connector; a lower plan or the free tier of either product; the cards of this flow in Claude; why ChatGPT's cards looked blank in screenshots; a Claude user who has allowed our address in their settings; photos that are not PDFs (still refused as not a PDF); a review of the branch by another model; the five reader tests with the reader build main expects. Files: `connector-chat-tests` in `round11-reader-vs-quick`.
+*Review by another model (Opus, read-only, on the code of the branch).* It found no wrong output in the existing correction route. Confirmed by running them, and fixed:
+- One short line from a chat could hold the server for a long time: a bar of 40,000 quarter notes took 21 s, a staff numbered 3000 did not finish in 40 s, and this work holds the limiter other users' work waits on. A hand-in is now refused at once when a bar is longer than 64 quarter notes, a staff is numbered above 32, a voice above 8, or the piece has more than 1,000 bars (2,000 bars took 4.1 s and the time grows faster than the bar count), and when it has more pages than the scan.
+- A split word ran across voices: with words in two voices, the second voice's syllable was written as the end of the first voice's word. The state is kept per voice now.
+- An empty list of pages crashed with an error that is not a user error. It is refused with a message.
+- A build error named a bar in the joined numbering and no page, though the chat is told to fix "the page this is about". Each page is now built by itself first (0.1 s a page), so the message is "Page 2: Bar 5, …" in the numbers the page's helper wrote.
+- `clef=` after the last note of a voice was dropped without a word. A clef printed at the end of a bar is exactly what the Dvořák scan has at bar 7. It is refused with where to write it instead.
+- A later page whose first line gave no time signature switched the time signature off for the rest of the piece. It now keeps the one before.
+- A page with no music had no rule. The page instructions say to write `NO MUSIC`, and the hand-in step says to leave such a page out.
+
+Not changed:
+- A words line is refused when only some notes of a chord are tied to the next chord. The measuring tool's `check` counts the same way, so a helper is told before it hands in. Rare in sung parts.
+- A slur a chat writes into a corrected bar can get the number of a slur that passes over that bar from outside. Corrected bars carried no slurs before this branch, and the careful route starts from an empty score. Not run.
+- The reviewer expected ChatGPT's sandbox to have no internet; in the real chat above it downloaded the kit from our server.
+
+Two points are the owner's to decide and are not built:
+- `use_careful_reading` stores a new score and is not counted against any daily limit; anyone holding a scan's id can call it again and again. (ChatGPT called it twice in the test.)
+- The offer is server text, so on a production deploy it reaches ChatGPT users before OpenAI has approved the two new tools, and it reaches Claude users at once, which the owner has ruled out for now. A deploy needs a switch for where the offer is made.
+
+**NOT RUN:** a second run of either chat; a real chat after the review fixes (the chats above ran the code before them); a piece longer than three pages, a song or a user's own scan through the connector; a scan with a title page; a lower plan or the free tier of either product; the cards of this flow in Claude; why ChatGPT's cards looked blank in screenshots; a Claude user who has allowed our address in their settings; photos that are not PDFs (still refused as not a PDF); the full suite after the review fixes (run: the careful-reading, correction, note-list and server-process tests, 188 passed); the five reader tests with the reader build main expects. Files: `connector-chat-tests` in `round11-reader-vs-quick`.
 
 ## Checking against teachers' prose
 

@@ -179,6 +179,9 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                 clef = ""
                 if not grace:
                     total += duration
+            if clef:
+                raise CorrectionError(f"Bar {current}, voice {label}: clef={clef} is written after the last note; write it "
+                                      "in the next bar, before the first note it applies to")
             held[staff, voice, "before"] = held.get((staff, voice), False)
             held[staff, voice] = _held_after(groups, held[staff, voice, "before"])
             replacements[current][(staff, voice)] = (total, groups)
@@ -362,7 +365,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                             _write_marks(notations, group, open_slurs.setdefault((staff, voice), []), slur_numbers_taken,
                                          f"Bar {owners[number].number}, voice {staff}.{voice}")
                     if group.word and not chord:
-                        lyrics.append((note, group.word))
+                        lyrics.append(((staff, voice), note, group.word))
                     content.append(note)
                     voice_notes.append(note)
             run = []
@@ -488,14 +491,14 @@ def _write_accidentals(bar: ET.Element, fifths: int) -> None:
         altered[place] = alter
 
 
-def _write_lyrics(lyrics: list[tuple[ET.Element, str]]) -> None:
-    inside_word = False
-    for note, word in lyrics:
+def _write_lyrics(lyrics: list[tuple[tuple[int, int], ET.Element, str]]) -> None:
+    inside_word = {}
+    for voice, note, word in lyrics:
         goes_on = word.endswith("-") and len(word) > 1
         lyric = ET.SubElement(note, "lyric", number="1")
-        ET.SubElement(lyric, "syllabic").text = {(False, False): "single", (False, True): "begin", (True, True): "middle", (True, False): "end"}[inside_word, goes_on]
+        ET.SubElement(lyric, "syllabic").text = {(False, False): "single", (False, True): "begin", (True, True): "middle", (True, False): "end"}[inside_word.get(voice, False), goes_on]
         ET.SubElement(lyric, "text").text = word[:-1] if goes_on else word
-        inside_word = goes_on
+        inside_word[voice] = goes_on
 
 
 def _beam_voice(voice_notes, measure, segment, divisions):
