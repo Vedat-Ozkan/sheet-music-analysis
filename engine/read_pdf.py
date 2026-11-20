@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import contextvars
 import copy
+import difflib
+import inspect
 import io
 import logging
 import math
@@ -22,6 +24,7 @@ from itertools import combinations
 from pathlib import Path
 
 import pikepdf
+from music21 import instrument
 
 from engine import text, tint, verovio_workers
 from engine.errors import UserError
@@ -53,6 +56,9 @@ CHECK = "This is what I read from your PDF; check it against your copy before I 
 SCAN_WARNING = "Scanned pages often have reading mistakes, so please check carefully."
 SLURS_LEFT_OUT = "Slurs are not read, because they are often misread from PDFs."
 SHOWN = 4
+DEFAULT_PART_NAMES = {"Voice", "NoName"}
+INSTRUMENT_NAMES = sorted({kind().instrumentName for _, kind in inspect.getmembers(instrument, inspect.isclass)
+                           if issubclass(kind, instrument.Instrument) and kind().instrumentName} - DEFAULT_PART_NAMES)
 DOUBLE_BARS = {"light-light", "light-heavy", "heavy-light", "heavy-heavy"}
 _LENGTH = {"whole": 4, "half": 2, "quarter": 1, "eighth": Fraction(1, 2),
            "16th": Fraction(1, 4), "32nd": Fraction(1, 8), "64th": Fraction(1, 16)}
@@ -132,6 +138,7 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
     timing_errors = set()
     inferred = False
     columns = defaultdict(list)
+    empty, last_filled = [], 0
     for part_index, part in enumerate(ET.fromstring(score).iter("part")):
         divisions, full = 1, None
         part_bars, guessed = [], False
@@ -172,6 +179,9 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
             voices = {(staff_of[voice], voice, gap.get(voice, 0)): length for voice, length in voices.items()}
             if voices:
                 part_bars.append((position, number_at.get(position), full, voices))
+                last_filled = max(last_filled, position)
+            else:
+                empty.append((position, number_at.get(position)))
         common = Counter(length for *_, voices in part_bars if (length := max(voices.values())) > 0).most_common(1)
         if common and not any(full for _, _, full, _ in part_bars):
             inferred = True
@@ -196,6 +206,7 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
         if longest > full + TOLERANCE or overlapping or (short and not (first or completes or halves)):
             if number is not None and number not in uneven:
                 uneven.append(number)
+    uneven += [number for position, number in empty if position <= last_filled and number is not None]
     timing_errors.update(number_at[position] for position, notes in columns.items()
                          if position in number_at and _columns_disagree(notes))
     return sorted(set(uneven) | (timing_errors if timing else set())), inferred
@@ -536,6 +547,8 @@ _TEMPO_NUMBER = re.compile(r"=\s*\d|\bca\.?\s*\d")
 _OCTAVE_TEXT = re.compile(r"(8|15)\s*[v0o]?(a|b|ma|mb)?[\s,.'\"_|—–-]*$", re.IGNORECASE)
 _ROMAN_NUMERAL = re.compile(r"[ivIV]+[o+]?[\d()/ivIVo+]*$")
 _EXPRESSION = re.compile(r"(?:de)?cresc|dim|rit|rall|dolce|espr|legato|sempre|poco", re.IGNORECASE)
+_RIGHT_HAND = re.compile(r"(?=.*[pima])[pima1][pima1\s.,]*$")
+RIGHT_HAND_MARKS = 3
 _DYNAMIC = re.compile(r"(?:p{1,4}|f{1,4}|mp|mf|fp|sf|sfz|sfp|fz|rf|rfz)\.?$", re.IGNORECASE)
 
 
@@ -812,6 +825,8 @@ def audiveris_facts(run_: AudiverisRun) -> dict:
 
 def clean(mxl: bytes) -> bytes:
     root = _archived_score(mxl)
+    _drop_noteless_parts(root)
+    _name_default_parts(root)
     for note in root.iter("note"):
         if note.find("chord") is not None:
             for beam in note.findall("beam"):
@@ -841,9 +856,68 @@ def clean(mxl: bytes) -> bytes:
         for measure, direction in unclosed + list(open_lines.values()):
             measure.remove(direction)
     _share_numbers_of_split_bars(root)
+    _drop_right_hand_fingering(root)
     _keep_meaningful_text(root)
     _lyrics_to_directions(root)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _drop_noteless_parts(root: ET.Element) -> None:
+    noteless = [part for part in root.findall("part") if all(note.find("rest") is not None for note in part.iter("note"))]
+    if len(noteless) == len(root.findall("part")):
+        return
+    part_list = root.find("part-list")
+    for part in noteless:
+        root.remove(part)
+        part_list.remove(part_list.find(f"score-part[@id='{part.get('id')}']"))
+
+
+def _name_default_parts(root: ET.Element) -> None:
+    listed = root.findall("part-list/score-part")
+    unnamed = [part for part in listed if part.findtext("part-name") in DEFAULT_PART_NAMES]
+    if not unnamed:
+        return
+    heading = " / ".join(" ".join(words.text or "" for words in credit.findall("credit-words"))
+                         for credit in root.findall("credit") if credit.get("page", "1") == "1")
+    named = _instruments_named(heading) if len(listed) == 1 else set()
+    for part in unnamed:
+        part.find("part-name").text = next(iter(named)) if len(named) == 1 else ""
+        for abbreviation in part.findall("part-abbreviation"):
+            part.remove(abbreviation)
+
+
+def _instruments_named(text: str) -> set[str]:
+    words = re.findall(r"[^\W\d_]+", text.lower())
+    found = set()
+    for name in INSTRUMENT_NAMES:
+        wanted = name.lower().split()
+        for start in range(len(words) - len(wanted) + 1):
+            seen = words[start:start + len(wanted)]
+            if seen == wanted or (len(wanted) > 1 and seen[0] == wanted[0]
+                                  and difflib.SequenceMatcher(None, " ".join(seen), name.lower()).ratio() >= 0.8):
+                found.add(name)
+    return found
+
+
+def _drop_right_hand_fingering(root: ET.Element) -> None:
+    marks = [(kind, words) for kind in root.iter("direction-type") for words in kind.findall("words")
+             if _right_hand((words.text or "").strip())]
+    if sum((words.text or "").strip() != "p" for _, words in marks) < RIGHT_HAND_MARKS:
+        return
+    for kind, words in marks:
+        kind.remove(words)
+    for parent in root.iter():
+        for dynamics in parent.findall("dynamics"):
+            if [child.tag for child in dynamics] == ["p"]:
+                parent.remove(dynamics)
+    for note in root.iter("note"):
+        for lyric in note.findall("lyric"):
+            if _right_hand((lyric.findtext("text") or "").strip().lower()):
+                note.remove(lyric)
+
+
+def _right_hand(text: str) -> bool:
+    return bool(_RIGHT_HAND.match(text)) and (text == "p" or not _DYNAMIC.match(text))
 
 
 def _share_numbers_of_split_bars(root: ET.Element) -> None:
