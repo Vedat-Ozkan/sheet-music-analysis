@@ -521,11 +521,12 @@ def test_page_key_is_off_by_default(chopin, chopin_annotations):
 
 def test_page_key_names_exactly_the_marks_on_the_page(chopin, chopin_annotations):
     key = _key_text(render(chopin, chopin_annotations, measures=(1, 8), key=True).svgs[-1])
-    for said in ("passing note", "neighbour note", "appoggiatura", "perfect authentic cadence", "the chord’s job",
-                 "where a note moves", "a phrase", "see that number"):
+    for said in ("passing note", "neighbour note", "appoggiatura", "perfect authentic cadence", "where a note moves", "see below"):
         assert said in key, said
     for unused in ("suspension", "half cadence", "part-writing", "another reading", "built on", "misread", "who plays"):
         assert unused not in key, unused
+    for left_out in ("the key", "the chord’s job", "tonic", "a phrase"):
+        assert left_out not in key, left_out
 
 
 def test_page_key_names_exactly_the_part_writing_codes_drawn():
@@ -565,15 +566,6 @@ def test_one_page_render_has_one_key_shared_by_preview_and_download(chopin, chop
     engraving = render(chopin, chopin_annotations, measures=(1, 8), key=True)
     assert engraving.page_count == 1 and engraving.key_drawn
     assert engraving.preview.svgs[0].count('class="page-key"') == engraving.svgs[0].count('class="page-key"') == 1
-
-
-def test_page_key_names_each_job_once_whichever_forms_are_drawn(chopin, chopin_annotations):
-    engraving = render(chopin, chopin_annotations, key=True)
-    drawn = {form for svg in engraving.svgs for form in re.findall(r">(tonic|pre-dom\.|dominant|T|PD|D)</text>", svg)}
-    assert {"tonic", "T"} <= drawn
-    assert "the chord’s job: tonic (T), pre-dominant (pre-dom., PD), dominant (D)" in _key_text(engraving.svgs[-1])
-    one_form = _key_text(render(chopin, chopin_annotations, measures=(1, 8), key=True).svgs[0])
-    assert "the chord’s job: tonic, pre-dominant (pre-dom.), dominant" in one_form
 
 
 def test_page_key_names_shaded_bars(chopin, chopin_annotations):

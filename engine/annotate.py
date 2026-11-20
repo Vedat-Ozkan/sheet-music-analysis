@@ -24,7 +24,7 @@ ANNOTATED_OPTIONS = {
     "svgBoundingBoxes": True,
     "svgAdditionalAttribute": ["staff@n", "fermata@staff", "dynam@staff"],
     "adjustPageHeight": True,
-    "spacingSystem": 26,
+    "spacingSystem": 16,
     "pageMarginTop": 230,
     "pageMarginBottom": 260,
 }
@@ -344,6 +344,8 @@ def _reserve_bracket_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
             staff, place = region.staff, "above"
         elif isinstance(region, Alternative):
             staff, place = bottom_staff, "below"
+        elif isinstance(region, Phrase):
+            staff, place = 1, "above"
         else:
             continue
         first, last = index.measure(region.start.measure).index, index.measure(region.end.measure).last_index
@@ -353,6 +355,15 @@ def _reserve_bracket_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
                     added.setdefault(segment.id, []).append(
                         f'<dir staff="{staff}" tstamp="1" place="{place}" type="analysis-room">{escape(region.label or "-")}<lb/>-</dir>'
                     )
+    for mark in annotations.annotations:
+        if isinstance(mark, Callout):
+            staff, place = 1, "above"
+        elif isinstance(mark, Cadence) or isinstance(mark, Harmony) and mark.function:
+            staff, place = bottom_staff, "below"
+        else:
+            continue
+        segment = index.measure(mark.at.measure).segments[0]
+        added.setdefault(segment.id, []).append(f'<dir staff="{staff}" tstamp="1" place="{place}" type="analysis-room">-</dir>')
     if not added:
         return
     for measure_id, dirs in added.items():
@@ -399,25 +410,25 @@ def _balance_systems(toolkit, index: ScoreIndex, measures: tuple[int, int] | Non
         0.0 if number.get(id) in good else 40.0 if number.get(id) in bad or not first_bar[position] else 6.0
         for position, (id, _) in enumerate(bars)
     ]
-    starts = _breaks([width for _, width in bars], line, penalty, opening)
+    starts = _breaks([width for _, width in bars], line, penalty, opening, opening if measures else 0.0)
     mei = re.sub(r"<(sb|pb)\b[^>]*/>", "", toolkit.getMEI())
     for position in starts:
         start = mei.index(f'xml:id="{bars[position][0]}"')
         start = mei.rindex("<measure", 0, start)
         mei = mei[:start] + "<sb />" + mei[start:]
-    toolkit.setOptions({"breaks": "smart", "breaksSmartSb": 0.3, "minLastJustification": 0})
+    toolkit.setOptions({"breaks": "smart" if measures else "line", "breaksSmartSb": 0.3, "minLastJustification": 0})
     toolkit.loadData(mei)
     if measures:
         toolkit.select({"measureRange": index.measure_range(*measures)})
     toolkit.redoLayout()
 
 
-def _breaks(widths: list[float], line: float, penalty: list[float], opening: float = 0.0) -> list[int]:
+def _breaks(widths: list[float], line: float, penalty: list[float], opening: float = 0.0, first_opening: float = 0.0) -> list[int]:
     count = len(widths)
     best: list[tuple[float, int]] = [(0.0, -1)] + [(math.inf, -1)] * count
     for end in range(1, count + 1):
         for begin in range(end - 1, -1, -1):
-            width = sum(widths[begin:end]) + (opening if begin else 0.0)
+            width = sum(widths[begin:end]) + (opening if begin else first_opening)
             if width > line and end - begin > 1:
                 break
             fill = width / line

@@ -36,6 +36,7 @@ SCORES = {
     "additive-and-mixed-meters": DATA / "awkward" / "additive-and-mixed-meters.musicxml",
 }
 KNOWN: dict[tuple[str, str], str] = {}
+HALF_A_STAFF = 24
 
 score_ids = pytest.mark.parametrize("name", list(SCORES))
 
@@ -300,6 +301,27 @@ def test_one_chord_alternative_is_drawn(name):
     alternative = {"type": "alternative", "start": {"measure": bars[0], "beat": 1}, "end": {"measure": bars[0], "beat": 1}, "label": "V"}
     svg = render(data, AnnotationList.model_validate({"annotations": harmonies + [alternative]}), measures=(bars[0], bars[-1])).svgs[0]
     assert 'stroke-dasharray="1 70"' in svg and ">V<" in svg
+
+
+@score_ids
+def test_marks_of_neighbouring_systems_leave_a_clear_strip_between_them(name):
+    data, index = load(name)
+    bars = [measure for measure in index.measures if measure.number > 0][:16]
+    marks = [{"type": "harmony", "at": {"measure": bar.number, "beat": 1}, "label": "V", "function": "D", **({"key": "C"} if not number else {})}
+             for number, bar in enumerate(bars)]
+    for start in range(0, len(bars), 4):
+        phrase = bars[start : start + 4]
+        marks += [{"type": "phrase", "start": {"measure": phrase[0].number}, "end": {"measure": phrase[-1].number}, "label": "a"},
+                  {"type": "cadence", "at": {"measure": phrase[-1].number, "beat": 1}, "label": "PAC"},
+                  {"type": "callout", "at": {"measure": phrase[0].number, "beat": 1}, "number": start // 4 + 1}]
+    engraving = render(data, AnnotationList.model_validate({"annotations": marks}), measures=(bars[0].number, bars[-1].number))
+    for svg in engraving.svgs:
+        page = Engraving([svg])._raster(1, 1400)
+        inked = [bool(ImageChops.difference(page.crop((0, row, page.width, row + 1)), Image.new("RGB", (page.width, 1), "#ffffff")).getbbox())
+                 for row in range(page.height)]
+        first, last = inked.index(True), len(inked) - inked[::-1].index(True)
+        strips = [len(run) for run in "".join(" x"[row] for row in inked[first:last]).split("x") if len(run) >= HALF_A_STAFF]
+        assert len(strips) >= svg.count('class="system"') - 1, (name, strips, svg.count('class="system"'))
 
 
 @score_ids
