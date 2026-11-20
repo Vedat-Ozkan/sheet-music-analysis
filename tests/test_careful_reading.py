@@ -41,6 +41,7 @@ def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_pa
                                          "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf"))
     assert app.careful_warning(3) in offer
     assert "uses a lot of your plan's usage allowance" in offer and "This piece has 3 pages. Shall I go ahead?" in offer
+    assert "download and run a small measuring script from Sheet Music Analysis" in offer
     assert "careful_reading" in offer and "If the user says no" in offer
     typeset = text_of(app.pdf_card_result({"score_id": "QUICK1", "pages": 3, "scan": False, "measures": "1 to 25", "bars": 25,
                                            "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf"))
@@ -92,6 +93,17 @@ def test_a_page_that_cannot_be_built_comes_back_with_what_to_fix(tmp_path, monke
     entries[first_note] = "(" + entries[first_note]
     unclosed = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": [PAGES[1].replace(voice_line, " ".join(entries), 1)]}))
     assert unclosed.is_error and "never ends" in text_of(unclosed)
+
+
+def test_a_hand_in_counts_as_a_draft_and_is_refused_at_the_daily_limit(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 3}).encode())
+    assert not asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": PAGES})).is_error
+    usage = next((tmp_path / "usage").glob("*.json"))
+    assert json.loads(usage.read_text())["draft"] == 1
+    usage.write_text(json.dumps({"draft": app.DAILY_LIMITS["draft"]}))
+    refused = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": PAGES}))
+    assert refused.is_error and text_of(refused) == app.LIMIT_MESSAGE
 
 
 def test_pages_with_different_units_join_into_one_numbered_score():
