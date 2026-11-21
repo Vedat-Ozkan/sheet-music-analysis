@@ -43,3 +43,9 @@ Outputs:
 3. Owner, 2026-11-21: accept the gap. Deploy with the next release; ChatGPT cannot mark a lettered bar until OpenAI approves.
 4. Fixed: any repeated printed name names the whole score by count, decided from the file's numbers only.
 5. Fixed: `current_bars` counts by position; name resolution is `leave_out_rejected`'s `prepare` step and uses no redraw round; `piano.reduce` takes the caller's `ScoreIndex`. Not done: passing the server's index into `render` (one more read remains).
+
+## Second review of 2026-11-21 (Opus, cold, of 3f85ec3)
+
+1. Fixed: a range wholly inside a gap in the printed numbers (print 1, 2, 5, 6; "3-4") said "Measures 5-2 run backwards"; when both ends move inward and cross, the first end is reported as not existing. A range typed backwards is reported with the names as typed.
+2. Fixed: render_analysis's caption and log gave the range as asked ("4-9"), not as drawn ("4-5").
+3. For the PDF pickup fix (next branch): a pickup the file numbers 1 followed by a whole bar also numbered 1 is named "1", "1a", and "1" then means the pickup. `_number_unmarked_pickup` only shifts labels "1", "2"; `range_start` still adds the pickup by internal number.

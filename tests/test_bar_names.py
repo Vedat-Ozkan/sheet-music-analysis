@@ -7,7 +7,7 @@ from mcp.client.client import Client
 
 from engine import correct
 from engine.render import load_toolkit
-from engine.score import MEI, XML_ID, ScoreIndex
+from engine.score import MEI, XML_ID, PositionError, ScoreIndex
 from server import app
 
 ATTRIBUTES = ("<attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time>"
@@ -174,8 +174,22 @@ def test_a_range_running_past_the_last_bar_stops_at_it(ending):
     text = text_of(call("draft_analysis", {"score_id": ending, "measure_range": "4-9"}))
     assert re.findall(r"^m(\S+)", text.split("\nNOTES", 1)[1], re.M) == ["4", "5"]
     assert call("play", {"score_id": ending, "measure_range": "4-9"}).structured_content["measures"] == [4, 5]
+    annotations = {"annotations": [{"type": "harmony", "at": {"measure": 4, "beat": 1}, "label": "I", "key": "C"}]}
+    drawn = call("render_analysis", {"score_id": ending, "annotations": annotations, "measure_range": "4-9"})
+    assert drawn.structured_content["caption"].startswith("Analysis of bars 4–5"), drawn.structured_content["caption"]
     assert "Measure 9 does not exist" in text_of(call("play", {"score_id": ending, "measure_range": "9"}))
     assert "Measure 5a does not exist" in text_of(call("play", {"score_id": ending, "measure_range": "4-5a"}))
+
+
+def test_a_range_inside_a_gap_in_the_printed_numbers_does_not_exist():
+    gap = ScoreIndex(load_toolkit(score([("1", ATTRIBUTES + note("C")), ("2", note("D")), ("5", note("E")), ("6", note("F"))])).getMEI())
+    for asked in (("3", "3"), ("3", "4")):
+        with pytest.raises(PositionError, match="Measure 3 does not exist; the score has measures 1 to 6"):
+            gap.numbers(asked)
+    assert [gap.name_of(number) for number in gap.numbers(("2", "4"))] == ["2", "2"]
+    assert [gap.name_of(number) for number in gap.numbers(("3", "6"))] == ["5", "6"]
+    with pytest.raises(PositionError, match="Measures 6-3 run backwards"):
+        gap.numbers(("6", "3"))
 
 
 def two_parts(bars: list[tuple[str, str, str]]) -> bytes:

@@ -872,7 +872,8 @@ async def render_analysis(
     except UserError as error:
         log("render_analysis", platform=source, error=type(error).__name__)
         return error_result(str(error))
-    measure_range = f"{named[0]}-{named[1]}" if named else "all"
+    drawn = (index.name_of(measures[0]), index.name_of(measures[1])) if measures else None
+    measure_range = f"{drawn[0]}-{drawn[1]}" if drawn else "all"
     musicxml, export_warning = None, None
     try:
         with stage("export"):
@@ -910,7 +911,7 @@ async def render_analysis(
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
         view=view, measure_range=measure_range, left_out=asked - len(annotations.annotations) or None)
     shaded = [index.measure(bar).printed for bar in shaded]
-    structured_content = {**links, "caption": card_caption(named, view, piano), "shaded_bars": shaded}
+    structured_content = {**links, "caption": card_caption(drawn, view, piano), "shaded_bars": shaded}
     if not asked:
         left_out.append(NOTHING_DRAWN.format(score_id=score_id))
     else:

@@ -462,9 +462,12 @@ class ScoreIndex:
     def numbers(self, names: tuple[str, str] | None) -> tuple[int, int] | None:
         if names is None:
             return None
-        first, last = self._range_end(names[0], first=True), self._range_end(names[1], first=False)
+        asked = [str(name).strip().lower() for name in names]
+        first, last = self._range_end(asked[0], first=True), self._range_end(asked[1], first=False)
+        if first.number > last.number and first.name != asked[0] and last.name != asked[1]:
+            self.bar(asked[0])
         if first.number > last.number:
-            raise PositionError(f"Measures {first.name}-{last.name} run backwards; give the first bar first, e.g. {last.name}-{first.name}")
+            raise PositionError(f"Measures {asked[0]}-{asked[1]} run backwards; give the first bar first, e.g. {asked[1]}-{asked[0]}")
         return first.number, last.number
 
     def _range_end(self, name: str, *, first: bool) -> Measure:
