@@ -39,7 +39,7 @@ gcloud run services update-traffic sheet-music-analysis --region us-central1 --p
 
 Put the revision's own suffix in place of `<previous-revision>` (it looks like `00064-tcs`); the command does nothing useful until you do.
 
-Only a revision whose image is still in the registry can start. `server/deploy.sh` tags each production image `prod-<revision>` (as the git tag), and tagged images are never cleaned up; untagged ones are, so revisions deployed before 2026-11-20 other than `00065-fjv` cannot be rolled back to. Check with `gcloud artifacts docker images list us-central1-docker.pkg.dev/sheet-music-analysis/sheet-music-analysis/server --include-tags`.
+Only a revision whose image is still in the registry can start. `server/deploy.sh` tags each production image `prod-<revision>` (as the git tag) and keeps that tag on the newest three only; tagged images are never cleaned up, untagged ones are, so the last three production revisions can always be rolled back to, so revisions deployed before 2026-11-20 other than `00065-fjv` cannot be rolled back to. Check with `gcloud artifacts docker images list us-central1-docker.pkg.dev/sheet-music-analysis/sheet-music-analysis/server --include-tags`.
 
 Traffic stays pinned to that revision: the next deploy gets none until `gcloud run services update-traffic sheet-music-analysis --region us-central1 --project sheet-music-analysis --to-latest` is run.
 

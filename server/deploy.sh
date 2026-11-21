@@ -101,5 +101,7 @@ if [ "$STAGE" = production ]; then
   git tag "prod-${REVISION#$SERVICE-}"
   git push -q origin "prod-${REVISION#$SERVICE-}"
   gcloud artifacts docker tags add "$DIGEST" "$IMAGE:prod-${REVISION#$SERVICE-}"
+  gcloud artifacts docker tags list "$IMAGE" --filter='tag~/prod-' --format='value(tag.basename())' \
+    | sort -r | tail -n +4 | while read -r old; do gcloud artifacts docker tags delete "$IMAGE:$old" --quiet; done
 fi
 echo "Connector URL: ${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}"
