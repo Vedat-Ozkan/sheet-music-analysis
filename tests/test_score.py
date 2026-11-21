@@ -104,6 +104,34 @@ def test_a_voice_written_twice_in_one_bar_becomes_two_voices():
     assert sorted((event.pitch, event.onset) for event in events) == [("C5", 0), ("E4", 0)]
 
 
+def note(step: str, octave: int, voice: int) -> str:
+    return f'<note><pitch><step>{step}</step><octave>{octave}</octave></pitch><duration>4</duration><voice>{voice}</voice><type>whole</type></note>'
+
+
+def test_a_voice_keeps_its_number_in_a_bar_where_the_voice_above_rests():
+    score = f'''<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0"><part-list><score-part id="P1"><part-name>P</part-name></score-part></part-list>
+<part id="P1"><measure number="1"><attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time>
+<clef><sign>G</sign><line>2</line></clef></attributes>{note("C", 5, 1)}<backup><duration>4</duration></backup>{note("E", 4, 2)}</measure>
+<measure number="2">{note("F", 4, 2)}</measure></part></score-partwise>'''.encode()
+    index = ScoreIndex(load_toolkit(score).getMEI())
+    assert {(event.pitch, event.layer) for event in index.measures[1].events} == {("F4", 2)}
+
+
+def test_a_key_change_shared_by_all_parts_is_read_in_concert_pitch_when_the_top_part_transposes():
+    clarinet = '<transpose><diatonic>-1</diatonic><chromatic>-2</chromatic></transpose>'
+    def part(id, written, clef, transpose=""):
+        return (f'<part id="{id}"><measure number="1"><attributes><divisions>1</divisions><key><fifths>{written[0]}</fifths></key>'
+                f'<time><beats>4</beats><beat-type>4</beat-type></time><clef>{clef}</clef>{transpose}</attributes>{note("C", 4, 1)}</measure>'
+                f'<measure number="2"><attributes><key><fifths>{written[1]}</fifths></key></attributes>{note("D", 4, 1)}</measure></part>')
+    score = ('<?xml version="1.0" encoding="UTF-8"?><score-partwise version="4.0"><part-list>'
+             '<score-part id="P1"><part-name>Clarinet in Bb</part-name></score-part><score-part id="P2"><part-name>Cello</part-name></score-part></part-list>'
+             + part("P1", (2, 3), "<sign>G</sign><line>2</line>", clarinet) + part("P2", (0, 1), "<sign>F</sign><line>4</line>")
+             + '</score-partwise>').encode()
+    index = ScoreIndex(load_toolkit(score).getMEI())
+    assert [measure.key_signature for measure in index.measures] == ["0", "1s"]
+
+
 def mxl(container: str | None, score: bytes) -> bytes:
     data = io.BytesIO()
     with zipfile.ZipFile(data, "w") as archive:

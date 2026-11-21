@@ -144,6 +144,18 @@ def in_range(number: int, first: int | None, last: int | None) -> bool:
     return (first is None or number >= first or (first == 1 and number == 0)) and (last is None or number <= last)
 
 
+def _fifths_of(semitones: int, steps: str | None) -> int:
+    return 7 * semitones - 12 * int(steps) if steps is not None else (7 * semitones + 6) % 12 - 6
+
+
+def _shifted(signature: str | None, fifths: int) -> str | None:
+    if not signature or not fifths:
+        return signature
+    written = 0 if signature == "0" else int(signature[:-1]) * (1 if signature[-1] == "s" else -1)
+    concert = written + fifths
+    return "0" if concert == 0 else f"{abs(concert)}{'s' if concert > 0 else 'f'}"
+
+
 def transpose(pitch: str, semitones: int) -> str:
     diatonic = round(semitones * 7 / 12)
     accidental = pitch[1:].rstrip("0123456789")
@@ -187,6 +199,7 @@ class ScoreIndex:
         self.renumbered = False
         self._ppq: dict[int, int] = {}
         self._transposition: dict[int, int] = {}
+        self._written_fifths: dict[int, int] = {}
         self._beat_length = Fraction(1)
         self._bar_length: Fraction | None = None
         self._meter_is_a_sum = False
@@ -237,11 +250,17 @@ class ScoreIndex:
                 self._ppq[staff] = int(staff_def.get("ppq"))
             if staff_def.get("trans.semi") is not None:
                 self._transposition[staff] = int(staff_def.get("trans.semi"))
+                self._written_fifths[staff] = _fifths_of(int(staff_def.get("trans.semi")), staff_def.get("trans.diat"))
         self._read_meter(element)
-        concert = [element.find(f"{MEI}keySig")] + [staff_def.find(f"{MEI}keySig") for staff_def in element.iter(f"{MEI}staffDef")
-                                                   if int(staff_def.get("n", "1")) not in self._transposition]
-        key = next((found for found in concert if found is not None), element.find(f".//{MEI}keySig"))
-        signature = key.get("sig") if key is not None else element.get("keysig") or element.get("key.sig")
+        concert = [staff_def.find(f"{MEI}keySig") for staff_def in element.iter(f"{MEI}staffDef")
+                   if int(staff_def.get("n", "1")) not in self._transposition]
+        key = next((found for found in concert if found is not None), None)
+        signature = key.get("sig") if key is not None else None
+        if signature is None and (shared := element.find(f"{MEI}keySig")) is not None:
+            signature = _shifted(shared.get("sig"), self._written_fifths.get(1, 0))
+        if signature is None:
+            key = element.find(f".//{MEI}keySig")
+            signature = key.get("sig") if key is not None else element.get("keysig") or element.get("key.sig")
         if signature:
             self._key_signature = signature
             self.key_signature = self.key_signature or signature
@@ -293,9 +312,10 @@ class ScoreIndex:
         if not incomplete:
             measure.declared_length = full
         for staff in element.findall(f"{MEI}staff"):
+            number = int(staff.get("n", "1"))
             for position, layer in enumerate(staff.findall(f"{MEI}layer"), start=1):
-                self._layer = position
-                self._read_layer(layer, measure, int(staff.get("n", "1")), Fraction(0))
+                self._layer = int(layer.get("n")) if layer.get("n", "").isdigit() else position
+                self._read_layer(layer, measure, number, Fraction(0))
         if self._meter_is_a_sum and full is not None and abs(measure.content_length - full) <= TOLERANCE:
             incomplete = False
             measure.declared_length = full

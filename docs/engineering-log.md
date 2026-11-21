@@ -3293,6 +3293,16 @@ Run of 2026-10-03, Opus review, 19 pieces with a readable source, 431 claims:
 
 Modal and colouristic music is now the largest group, and Ravel is the one piece where Opus did not improve on Sonnet. That is the next area to work on.
 
+### 187. A voice keeps its number from bar to bar; a key change shared by all parts is read in concert pitch (2026-11-20, branch `engine-identity`, nothing released)
+
+Two findings of the 2026-11-20 cold review.
+
+**Voices were numbered by their place in each bar.** `ScoreIndex` numbered a staff's voices 1, 2, 3 in the order they appear in that bar. When a voice rested for a bar, or the file wrote the voices in a different order, a different voice took its number: an alto joined the soprano's line in the part-writing checks, and the note list sent to the chat gave one line two names across bars. A check over the 813 score files we hold (tests/data, the evaluation and survey scores, the engraving set, the reading truths) counted the bars where one place in the bar holds different voices of the file: 171 files (21%), 3,081 staff-bars, including readings of PDFs (Haydn "She never told her love", Lang "Auf der Reise") and 17 files in `tests/data`. The voice number is now the file's own (MEI `layer/@n`, which Verovio takes from MusicXML `<voice>`). On four affected files 28 to 258 bars change in the note list, every one only in voice names (for example the left hand of a MuseScore piano score is "2.5", as the file says, where it was "2.1"); no bar's notes are grouped differently. Corrections now write a voice back under the file's number when the file uses it on that staff, so a corrected bar does not take the numbers of the bars around it; a voice the file never had keeps the old `staff * 1000 + voice`. A first attempt that numbered each staff's voices 1, 2, … by how often they appear was dropped: a correction that adds or removes a voice could renumber bars nobody touched. `tools/diff_check.py all`: nothing changed in the typed, part-writing, PDF warning, export or render inputs, whose scores have no such bars.
+
+**A key change in a score whose top part transposes was read in the written key.** Verovio writes a key change that all parts share once for the whole score, in the top part's written key, so a B-flat clarinet over a cello changing to G major was read as A major, and that key went into the note list, the student check and the key description. The concert key of a part's own key signature was already preferred; now the shared one is moved by the top part's transposition (from `trans.diat` and `trans.semi`). The same check found no file among the 813, and no score in the music21 corpus, with a transposing top part and a key change (Dvořák 9 ii has a key change, but its top part is the flute), so this affects rare files. The engraved page still shows the cello with the clarinet's key signature at such a change: Verovio's import, not changed here.
+
+Not done here: bar numbers. 86 of the 813 files are renumbered from 1 because a bar is not counted in print (`X1`, lettered or repeated numbers); on them 60% of bars disagree with the printed numbers, and the drawn page shows a third numbering. That needs the owner's choice.
+
 ## Reproducing
 
 ```bash
