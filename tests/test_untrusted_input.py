@@ -95,7 +95,7 @@ def test_a_reversed_bar_range_is_refused(tmp_path, monkeypatch):
             return await client.call_tool("render_analysis", {"score_id": "ABC", "measure_range": "8-1", "annotations": {"annotations": []}})
 
     result = asyncio.run(call())
-    assert result.is_error and "start at the lower bar" in result.content[0].text
+    assert result.is_error and "run backwards; give the first bar first, e.g. 1-8" in result.content[0].text
 
 
 def test_an_attachment_that_cannot_be_downloaded_gets_a_plain_answer_and_logs_the_status(site, only_public_paths, capsys):
