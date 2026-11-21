@@ -336,6 +336,7 @@ class ScoreIndex:
             meter=self._meter,
             key_signature=self._key_signature,
             label=label,
+            name=element.get("n", "") if element.get("label") is not None else "",
         )
         full = self._bar_length
         if not incomplete:
@@ -425,18 +426,18 @@ class ScoreIndex:
         if any(later < earlier for earlier, later in zip(numbers, numbers[1:])):
             self.named_by_count = True
             for measure in self.measures:
-                measure.name = str(measure.number)
+                measure.name = measure.name or str(measure.number)
             return
         base, extra = None, 0
         for measure in self.measures:
             if _whole(measure.label) and (base is None or int(measure.label) > base):
                 base, extra = int(measure.label), 0
-                measure.name = str(base)
+                measure.name = measure.name or str(base)
             elif base is None:
-                measure.name = str(measure.number)
+                measure.name = measure.name or str(measure.number)
             else:
                 extra += 1
-                measure.name = f"{base}{_letters(extra)}"
+                measure.name = measure.name or f"{base}{_letters(extra)}"
 
     @property
     def name_span(self) -> str:

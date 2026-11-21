@@ -223,7 +223,8 @@ def local_toolkit() -> verovio.toolkit:
 new_toolkit: Callable[[], verovio.toolkit] = local_toolkit
 
 
-def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False, labelled_bars: Collection[int] = ()) -> verovio.toolkit:
+def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False, labelled_bars: Collection[int] = (),
+                 bar_names: dict[int, str] | None = None) -> verovio.toolkit:
     toolkit = new_toolkit()
     toolkit.setOptions({**VEROVIO_OPTIONS, **(options or {})})
     text = xml_text(_musicxml(score))
@@ -232,14 +233,15 @@ def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool
     loaded = toolkit.loadData(_importable(text))
     if not loaded:
         raise ScoreError(UNREADABLE)
-    _tidy(toolkit, _readable_names(score), keep_pedals, labelled_bars)
+    _tidy(toolkit, _readable_names(score), keep_pedals, labelled_bars, bar_names)
     if len(set(re.findall(r'<staffDef\b[^>]*\bn="(\d+)"', toolkit.getMEI()))) <= LARGE_SCORE_STAVES:
         toolkit.setOptions({"systemDivider": "none"})
         toolkit.redoLayout()
     return toolkit
 
 
-def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool, labelled_bars: Collection[int]) -> None:
+def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool, labelled_bars: Collection[int],
+          bar_names: dict[int, str] | None) -> None:
     mei = toolkit.getMEI()
     patched = _number_unmarked_pickup(mei)
     rests = _rest_bars(patched)
@@ -298,7 +300,7 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool, la
     patched = _spread_ties(patched)
     patched = _slurs_to_chords(patched)
     patched = _clefs_before_barlines(patched)
-    patched = _name_drawn_bars(patched)
+    patched = _name_drawn_bars(patched, bar_names)
     patched = _unbeam_noteless(patched)
     if patched != mei:
         toolkit.loadData(patched)
@@ -355,8 +357,9 @@ def _count_ahead_in_drawn_bars(mei: str) -> str:
     return re.sub(r"<measure\b.*?</measure>", redrawn, mei, flags=re.S)
 
 
-def _name_drawn_bars(mei: str) -> str:
-    named = {segment.id: measure.name for measure in ScoreIndex(mei).measures for segment in measure.segments}
+def _name_drawn_bars(mei: str, bar_names: dict[int, str] | None) -> str:
+    named = {segment.id: (bar_names or {}).get(measure.number, measure.name)
+             for measure in ScoreIndex(mei).measures for segment in measure.segments}
 
     def renamed(match: re.Match) -> str:
         opening = match.group(0)

@@ -149,3 +149,40 @@ def test_a_rest_after_a_pickup_the_file_numbers_1_is_split_only_for_a_bar_inside
     assert [measure.name for measure in index.measures] == ["0", "1", "2", "3", "4", "5"]
     assert names(rests, [index.bar("4").number]) == ["0", "1", "2", "3", "4", "5"]
     assert names(rests, [index.bar("5").number]) == ["0", "1", "2", "5"]
+
+
+def two_parts(bars: list[tuple[str, str, str]]) -> bytes:
+    parts = "".join(
+        f'<part id="P{part}">' + "".join(f'<measure number="{number}"{extra}>{content}</measure>'
+                                       for number, extra, content in bars) + "</part>"
+        for part in (1, 2))
+    return ('<?xml version="1.0" encoding="UTF-8"?><score-partwise version="4.0"><part-list>'
+            '<score-part id="P1"><part-name>Violin</part-name></score-part>'
+            '<score-part id="P2"><part-name>Violoncello</part-name></score-part></part-list>'
+            + parts + "</score-partwise>").encode()
+
+
+ENSEMBLE = two_parts([
+    ("1", "", ATTRIBUTES + note("C")), ("2", "", note("D", 3, "half").replace("</type>", "</type><dot/>")
+                                         + '<barline location="right"><repeat direction="backward"/></barline>'),
+    ("X1", ' implicit="yes"', '<barline location="left"><repeat direction="forward"/></barline>' + note("E", 1, "quarter")),
+    ("3", "", '<barline location="left"><ending number="1" type="start"/></barline>' + note("F")
+     + '<barline location="right"><ending number="1" type="stop"/><repeat direction="backward"/></barline>'),
+    ("X2", "", '<barline location="left"><ending number="2" type="start"/></barline>' + note("G")
+     + '<barline location="right"><ending number="2" type="discontinue"/></barline>'),
+    ("4", "", note("A")), ("5", "", note("B")),
+])
+
+
+@pytest.mark.parametrize("passage", [None, ("3a", "5")])
+def test_a_piano_reduction_keeps_the_bars_and_draws_their_printed_names(passage):
+    from engine.annotate import _piano_version
+    from engine.annotations import AnnotationList
+
+    original = ScoreIndex(load_toolkit(ENSEMBLE).getMEI())
+    assert [(m.name, len(m.segments)) for m in original.measures] == [("1", 1), ("2", 2), ("3", 1), ("3a", 1), ("4", 1), ("5", 1)]
+    measures = original.numbers(passage)
+    reduced, _, bar_names = _piano_version(ENSEMBLE, AnnotationList(annotations=[]), measures)
+    page = ScoreIndex(load_toolkit(reduced, bar_names=bar_names).getMEI())
+    shown = original.measures[original.measures.index(original.measure(measures[0])):] if measures else original.measures
+    assert [(m.number, m.name, m.length) for m in page.measures] == [(m.number, m.name, m.length) for m in shown]

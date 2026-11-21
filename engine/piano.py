@@ -12,7 +12,8 @@ from music21 import chord, clef, tie, converter, dynamics, expressions, instrume
 from music21.common.numberTools import opFrac
 from music21.musicxml.m21ToXml import GeneralObjectExporter
 
-from engine.score import beat_length
+from engine.render import load_toolkit
+from engine.score import ScoreIndex, beat_length
 
 ABBREVIATIONS = {
     "Piccolo": "Picc.", "Flute": "Fl.", "Oboe": "Ob.", "EnglishHorn": "Cor. ingl.", "Clarinet": "Cl.",
@@ -30,10 +31,16 @@ SPAN = 14
 HIGHEST_LEFT_HAND = 64
 
 def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[int, Fraction, str, Fraction]] = ()) -> bytes:
-    parts = _parts(score, measures)
-    kept: dict[int, list[tuple[float, pitch.Pitch, float]]] = {}
+    index = ScoreIndex(load_toolkit(score).getMEI())
+    owners = {segment.index: (measure, segment.start, following.start if following else None)
+              for measure in index.measures
+              for segment, following in zip(measure.segments, measure.segments[1:] + [None])}
+    first = index.range_start(measures[0]).index if measures else 1
+    last = index.measure(measures[1]).last_index if measures else max(owners)
+    parts = _parts(score, (first, last))
+    kept: dict[int, list[tuple[Fraction, pitch.Pitch, float]]] = {}
     for number, offset, name, length in keep:
-        kept.setdefault(number, []).append((float(offset), _m21_pitch(name), float(length)))
+        kept.setdefault(number, []).append((offset, _m21_pitch(name), float(length)))
     reference = next((p for p in parts.values() if p.family in STRINGS), next(iter(parts.values())))
     signature = reference.measures[0].keySignature or reference.measures[0].getContextByClass(key.KeySignature)
     flat_key = signature is not None and signature.sharps < 0
@@ -42,8 +49,11 @@ def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[
     carried: dict = {}
     for number, ref in enumerate(reference.measures):
         bar = {name: part.measures[number] for name, part in parts.items()}
+        owner, start, end = owners[first + number]
+        here = [(float(offset - start), found, length) for offset, found, length in kept.get(owner.number, [])
+                if start <= offset and (end is None or offset < end)]
         right, left, previous_cue, previous_lead, carried = _reduce_bar(
-            bar, parts, ref, kept.get(ref.number, []), flat_key, previous_cue, previous_lead, number == 0, carried
+            bar, parts, ref, owner.number, here, flat_key, previous_cue, previous_lead, number == 0, carried
         )
         right_hand.append(right)
         left_hand.append(left)
@@ -93,7 +103,7 @@ def _family(part: stream.Part, inst: instrument.Instrument) -> str:
     return family
 
 
-def _parts(score: bytes, measures: tuple[int, int] | None) -> dict[str, _Part]:
+def _parts(score: bytes, positions: tuple[int, int]) -> dict[str, _Part]:
     suffix = ".mxl" if score[:2] == b"PK" else ".musicxml"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as file:
         file.write(score)
@@ -101,7 +111,7 @@ def _parts(score: bytes, measures: tuple[int, int] | None) -> dict[str, _Part]:
         parsed = converter.parse(file.name, format="musicxml")
     finally:
         os.unlink(file.name)
-    excerpt = parsed.measures(*measures) if measures else parsed
+    excerpt = parsed.measures(positions[0] - 1, positions[1], indicesNotNumbers=True)
     excerpt = excerpt.toSoundingPitch()
     found = [(part, part.getInstrument()) for part in excerpt.parts if part.flatten().pitches]
     families = [_family(part, inst) for part, inst in found]
@@ -418,7 +428,7 @@ def _staff(target: stream.Measure, voices: list[stream.Voice], length: float) ->
         target.insert(0, voice)
 
 
-def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, first, carried):
+def _reduce_bar(bar, parts, ref, number, kept, flat_key, previous_cue, previous_lead, first, carried):
     counts = {n: len(_attacks(m)) for n, m in bar.items()}
     playing = [n for n in bar if counts[n]]
     best = max(counts, key=lambda n: (counts[n], sum(p.ps for p in bar[n].pitches) / max(len(bar[n].pitches), 1)))
@@ -488,7 +498,9 @@ def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, fi
     written = _thin([n for n in written if n.hand == "R"]) + _thin([n for n in written if n.hand == "L"])
 
     beat = _beat(ref)
-    right, left = stream.Measure(number=ref.number), stream.Measure(number=ref.number)
+    right, left = stream.Measure(number=number), stream.Measure(number=number)
+    for hand in (right, left):
+        hand.paddingLeft, hand.paddingRight = ref.paddingLeft, ref.paddingRight
     upper = stream.Voice()
     staves = {}
     for hand in "RL":

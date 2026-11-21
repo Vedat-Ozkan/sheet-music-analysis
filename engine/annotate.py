@@ -129,11 +129,12 @@ def render(
     preview_pages: int = 1,
 ) -> Engraving:
     check_range(measures)
+    bar_names = None
     if piano:
-        score, annotations = _piano_version(score, annotations, measures)
+        score, annotations, bar_names = _piano_version(score, annotations, measures)
     labelled_bars = {place.measure for annotation in annotations.annotations for place in vars(annotation).values() if hasattr(place, "measure")}
     labelled_bars |= {label.measure for label in student_labels or []} | set(shaded_bars or [])
-    toolkit = load_toolkit(score, ANNOTATED_OPTIONS, labelled_bars=labelled_bars)
+    toolkit = load_toolkit(score, ANNOTATED_OPTIONS, labelled_bars=labelled_bars, bar_names=bar_names)
     index = ScoreIndex(toolkit.getMEI())
     shaded_bars = [number for number in shaded_bars or [] if any(measure.number == number for measure in index.measures)]
     check(annotations, index)
@@ -254,7 +255,7 @@ def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role
     return None
 
 
-def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[int, int] | None) -> tuple[bytes, AnnotationList]:
+def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[int, int] | None) -> tuple[bytes, AnnotationList, dict[int, str]]:
     from engine import piano as piano_reduction
 
     original = ScoreIndex(load_toolkit(score).getMEI())
@@ -280,7 +281,7 @@ def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[in
         elif isinstance(annotation, Region) and annotation.staff:
             annotation = annotation.model_copy(update={"staff": None})
         pointed.append(annotation)
-    return reduced, annotations.model_copy(update={"annotations": pointed})
+    return reduced, annotations.model_copy(update={"annotations": pointed}), {m.number: m.name for m in original.measures}
 
 
 def _note_refs(annotation) -> list[NoteRef]:
