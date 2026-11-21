@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -148,6 +149,11 @@ def musicxml_meter(time: ET.Element | None) -> tuple[int, int] | None:
 
 def _whole(label: str) -> bool:
     return label.lstrip("-").isdigit()
+
+
+def _printed_number(name: str) -> int | None:
+    digits = re.match(r"\d+", name)
+    return int(digits.group(0)) if digits else None
 
 
 def _letters(count: int) -> str:
@@ -423,21 +429,25 @@ class ScoreIndex:
 
     def _name_bars(self) -> None:
         numbers = [int(measure.label) for measure in self.measures if _whole(measure.label)]
-        if any(later < earlier for earlier, later in zip(numbers, numbers[1:])):
+        names = self._printed_names() if all(earlier <= later for earlier, later in zip(numbers, numbers[1:])) else []
+        if len(set(names)) < len(self.measures):
             self.named_by_count = True
-            for measure in self.measures:
-                measure.name = measure.name or str(measure.number)
-            return
-        base, extra = None, 0
+            names = [str(measure.number) for measure in self.measures]
+        for measure, name in zip(self.measures, names):
+            measure.name = measure.name or name
+
+    def _printed_names(self) -> list[str]:
+        names, base, extra = [], None, 0
         for measure in self.measures:
             if _whole(measure.label) and (base is None or int(measure.label) > base):
                 base, extra = int(measure.label), 0
-                measure.name = measure.name or str(base)
+                names.append(str(base))
             elif base is None:
-                measure.name = measure.name or str(measure.number)
+                names.append(str(measure.number))
             else:
                 extra += 1
-                measure.name = measure.name or f"{base}{_letters(extra)}"
+                names.append(f"{base}{_letters(extra)}")
+        return names
 
     @property
     def name_span(self) -> str:
@@ -452,10 +462,20 @@ class ScoreIndex:
     def numbers(self, names: tuple[str, str] | None) -> tuple[int, int] | None:
         if names is None:
             return None
-        first, last = self.bar(names[0]), self.bar(names[1])
+        first, last = self._range_end(names[0], first=True), self._range_end(names[1], first=False)
         if first.number > last.number:
             raise PositionError(f"Measures {first.name}-{last.name} run backwards; give the first bar first, e.g. {last.name}-{first.name}")
         return first.number, last.number
+
+    def _range_end(self, name: str, *, first: bool) -> Measure:
+        wanted = str(name).strip().lower()
+        if wanted in self._by_name or not wanted.isdigit():
+            return self.bar(wanted)
+        printed = [measure for measure in self.measures if _printed_number(measure.name) is not None]
+        inside = [measure for measure in printed if (_printed_number(measure.name) >= int(wanted)) == first]
+        if not inside:
+            return self.bar(wanted)
+        return inside[0] if first else inside[-1]
 
     def name_of(self, number: int) -> str:
         return self.measure(number).name

@@ -377,7 +377,7 @@ def _name_drawn_bars(mei: str, bar_names: dict[int, str] | None) -> str:
 
 def _number_unmarked_pickup(mei: str) -> str:
     measures = ScoreIndex(mei).measures
-    if len(measures) < 2 or measures[0].number != 1 or measures[1].number != 2 or not measures[0].meter:
+    if len(measures) < 2 or measures[0].label != "1" or measures[1].label != "2" or not measures[0].meter:
         return mei
     first = measures[0]
     count, unit = first.meter.split("/")

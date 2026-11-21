@@ -151,6 +151,33 @@ def test_a_rest_after_a_pickup_the_file_numbers_1_is_split_only_for_a_bar_inside
     assert names(rests, [index.bar("5").number]) == ["0", "1", "2", "5"]
 
 
+def test_a_pickup_the_file_numbers_1_is_named_0_when_a_later_bar_is_uncounted():
+    pickup = score([
+        ("1", ATTRIBUTES + note("G", 1, "quarter")), ("2", note("C")),
+        ("3", '<barline location="left"><ending number="1" type="start"/></barline>' + note("E")
+         + '<barline location="right"><ending number="1" type="stop"/><repeat direction="backward"/></barline>'),
+        ("X1", '<barline location="left"><ending number="2" type="start"/></barline>' + note("F")
+         + '<barline location="right"><ending number="2" type="discontinue"/></barline>'),
+        ("4", note("C", 3, "half").replace("</type>", "</type><dot/>")),
+    ])
+    assert [m.name for m in ScoreIndex(load_toolkit(pickup).getMEI()).measures] == ["0", "1", "2", "2a", "3"]
+
+
+def test_an_unnumbered_opening_bar_that_would_repeat_a_later_name_is_named_by_count():
+    opening = score([("X1", ATTRIBUTES + note("C")), ("1", note("D")), ("2", note("E"))])
+    index = ScoreIndex(load_toolkit(opening).getMEI())
+    assert index.named_by_count
+    assert [m.name for m in index.measures] == ["1", "2", "3"]
+
+
+def test_a_range_running_past_the_last_bar_stops_at_it(ending):
+    text = text_of(call("draft_analysis", {"score_id": ending, "measure_range": "4-9"}))
+    assert re.findall(r"^m(\S+)", text.split("\nNOTES", 1)[1], re.M) == ["4", "5"]
+    assert call("play", {"score_id": ending, "measure_range": "4-9"}).structured_content["measures"] == [4, 5]
+    assert "Measure 9 does not exist" in text_of(call("play", {"score_id": ending, "measure_range": "9"}))
+    assert "Measure 5a does not exist" in text_of(call("play", {"score_id": ending, "measure_range": "4-5a"}))
+
+
 def two_parts(bars: list[tuple[str, str, str]]) -> bytes:
     parts = "".join(
         f'<part id="P{part}">' + "".join(f'<measure number="{number}"{extra}>{content}</measure>'

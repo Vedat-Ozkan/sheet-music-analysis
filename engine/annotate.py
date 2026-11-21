@@ -100,20 +100,34 @@ def check(annotations: AnnotationList, index: ScoreIndex) -> None:
         raise AnnotationError(problems, rejected)
 
 
-def leave_out_rejected(draw: Callable[[AnnotationList], Drawn], annotations: AnnotationList) -> tuple[Drawn, AnnotationList, list[str]]:
+def leave_out_rejected(draw: Callable[[AnnotationList], Drawn], annotations: AnnotationList,
+                       prepare: Callable[[AnnotationList], AnnotationList] = lambda given: given,
+                       ) -> tuple[Drawn, AnnotationList, list[str]]:
     numbers, left_out, rounds = list(range(len(annotations.annotations))), [], 2
+
+    def leave_out(error: AnnotationError) -> None:
+        nonlocal annotations, numbers
+        if not error.rejected:
+            raise error
+        left_out.extend(re.sub(r"^annotations\[(\d+)\]", lambda match: f"annotations[{numbers[int(match[1])]}]", problem)
+                        for problem in error.problems)
+        kept = [position for position in range(len(numbers)) if position not in error.rejected]
+        annotations = annotations.model_copy(update={"annotations": [annotations.annotations[i] for i in kept]})
+        numbers = [numbers[i] for i in kept]
+
     while True:
         try:
-            return draw(annotations), annotations, left_out
+            prepared = prepare(annotations)
         except AnnotationError as error:
-            if not error.rejected or not rounds:
+            leave_out(error)
+            continue
+        try:
+            return draw(prepared), prepared, left_out
+        except AnnotationError as error:
+            if not rounds:
                 raise
             rounds -= 1
-            left_out += [re.sub(r"^annotations\[(\d+)\]", lambda match: f"annotations[{numbers[int(match[1])]}]", problem)
-                         for problem in error.problems]
-            kept = [position for position in range(len(numbers)) if position not in error.rejected]
-            annotations = annotations.model_copy(update={"annotations": [annotations.annotations[i] for i in kept]})
-            numbers = [numbers[i] for i in kept]
+            leave_out(error)
 
 
 def render(
@@ -263,7 +277,7 @@ def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[in
     refs = [ref for a in annotations.annotations for ref in _note_refs(a)]
     found = [original.find_note(**ref.model_dump()) for ref in refs]
     keep = [(ref.measure, event.onset, event.pitch, event.duration) for ref, event in zip(refs, found)]
-    reduced = piano_reduction.reduce(score, measures, keep)
+    reduced = piano_reduction.reduce(score, measures, keep, original)
     index = ScoreIndex(load_toolkit(reduced).getMEI())
     moved = {}
     for ref, event in zip(refs, found):

@@ -812,10 +812,9 @@ async def shaded_bars(score_id: str) -> list[int]:
 async def draw(score: bytes, annotations: AnnotationList, index: ScoreIndex, measures: tuple[int, int] | None, view: str,
                piano: bool, shaded: list[int]):
     engraving, annotations, problems = await in_turn(
-        lambda: leave_out_rejected(lambda kept: render(score, by_number(kept, index), measures=measures, view=view, piano=piano,
+        lambda: leave_out_rejected(lambda kept: render(score, kept, measures=measures, view=view, piano=piano,
                                                        shaded_bars=shaded, key=True, preview_pages=CARD_PAGES),
-                                     annotations))
-    annotations = by_number(annotations, index)
+                                     annotations, lambda given: by_number(given, index)))
     left_out = ["Left out, for the reason on each line (fix them and call again to add them; numbers refer to your "
                 "list):\n" + "\n".join(problems)] if problems else []
     return engraving, annotations, left_out
@@ -1834,9 +1833,9 @@ async def current_bars(score: bytes | None, replacement_bars: str, part: str | N
 
     def bars() -> tuple[str, str, str]:
         index = marked_index(score)
-        given = sorted({index.bar(name).number for name in names})
-        first, last = given[0], min(given[-1], given[0] + 3)
-        return index.name_of(first), index.name_of(last), note_list.encode(index, first, last)
+        given = sorted({index.measures.index(index.bar(name)) for name in names})
+        first, last = index.measures[given[0]], index.measures[min(given[-1], given[0] + 3)]
+        return first.name, last.name, note_list.encode(index, first.number, last.number)
 
     try:
         first, last, text = await in_turn(bars)

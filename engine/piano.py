@@ -30,8 +30,9 @@ LOWEST_RIGHT_HAND = 55
 SPAN = 14
 HIGHEST_LEFT_HAND = 64
 
-def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[int, Fraction, str, Fraction]] = ()) -> bytes:
-    index = ScoreIndex(load_toolkit(score).getMEI())
+def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[int, Fraction, str, Fraction]] = (),
+           index: ScoreIndex | None = None) -> bytes:
+    index = index or ScoreIndex(load_toolkit(score).getMEI())
     owners = {segment.index: (measure, segment.start, following.start if following else None)
               for measure in index.measures
               for segment, following in zip(measure.segments, measure.segments[1:] + [None])}
