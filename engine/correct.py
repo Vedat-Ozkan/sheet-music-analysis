@@ -196,6 +196,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
     owners = {segment.index: m for m in index.measures for segment in m.segments}
     _drop_crossings(selected, set(replacements))
     pending_voices = {}
+    written_voices = {(e.staff, e.layer) for m in index.measures for e in m.events}
     divisions = math.lcm(div, *[int(e.text) for e in selected.findall("measure/attributes/divisions")])
     if selected.find("measure/attributes/divisions") is None:
         first = selected.find("measure")
@@ -288,7 +289,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                         pending[pitch] = note
                     for kind in ties:
                         ET.SubElement(note, "tie", type=kind)
-                    ET.SubElement(note, "voice").text = str(staff * 1000 + voice)
+                    ET.SubElement(note, "voice").text = str(voice if (staff, voice) in written_voices else staff * 1000 + voice)
                     d = Duration(duration if not grace else Fraction(1, 2))
                     if d.type == "complex":
                         raise CorrectionError(f"Bar {number}: duration {duration} needs tied notes")
