@@ -300,6 +300,7 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool, la
     patched = _slurs_to_chords(patched)
     patched = _clefs_before_barlines(patched)
     patched = _number_unmarked_pickup(patched)
+    patched = _number_bars_as_counted(patched)
     patched = _unbeam_noteless(patched)
     if patched != mei:
         toolkit.loadData(patched)
@@ -341,6 +342,26 @@ def _count_ahead_in_drawn_bars(mei: str) -> str:
         return re.sub(r'tstamp2="(\d+)m\+', ahead, match.group(0))
 
     return re.sub(r"<measure\b.*?</measure>", redrawn, mei, flags=re.S)
+
+
+def _number_bars_as_counted(mei: str) -> str:
+    index = ScoreIndex(mei)
+    if not index.renumbered:
+        return mei
+    counted = {segment.id: measure.number for measure in index.measures for segment in measure.segments}
+
+    def renumbered(match: re.Match) -> str:
+        opening = match.group(0)
+        identity = re.search(r'xml:id="([^"]+)"', opening)
+        if not identity or identity.group(1) not in counted:
+            return opening
+        written = re.search(r'\bn="([^"]*)"', opening)
+        number = f'n="{counted[identity.group(1)]}"'
+        if written is None:
+            return opening.replace("<measure", f"<measure {number}", 1)
+        return opening.replace(written.group(0), f'{number} label="{written.group(1)}"', 1)
+
+    return re.sub(r"<measure\b[^>]*>", renumbered, mei)
 
 
 def _number_unmarked_pickup(mei: str) -> str:

@@ -299,6 +299,8 @@ class ScoreIndex:
         self._drawn_position[self._position] = self._drawn_bars
         self._read_meter(element)
         label = element.get("n", "")
+        if element.get("label") not in (None, label):
+            self.renumbered = True
         numbered = label.lstrip("-").isdigit()
         incomplete = element.get("metcon") == "false"
         previous = self.measures[-1] if self.measures else None

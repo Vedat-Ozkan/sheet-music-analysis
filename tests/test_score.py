@@ -1,6 +1,7 @@
 from fractions import Fraction
 
 import io
+import re
 import zipfile
 
 import pytest
@@ -141,6 +142,19 @@ def test_a_solo_transposing_part_is_read_in_concert_pitch_before_and_after_a_key
              f'<measure number="2"><attributes><key><fifths>4</fifths></key></attributes>{note("D", 5, 1)}</measure></part></score-partwise>').encode()
     index = ScoreIndex(load_toolkit(score).getMEI())
     assert [measure.key_signature for measure in index.measures] == ["0", "2s"]
+
+
+def test_a_second_ending_the_file_leaves_uncounted_is_counted_and_drawn_with_the_same_number():
+    bars = "".join(f'<measure number="{label}">{attributes}{note("C", 5, 1)}</measure>' for label, attributes in [
+        ("1", '<attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>'),
+        ("2", '<barline location="left"><ending number="1" type="start"/></barline>'),
+        ("X1", '<barline location="left"><ending number="2" type="start"/></barline>'), ("3", ""), ("4", "")])
+    score = ('<?xml version="1.0" encoding="UTF-8"?><score-partwise version="4.0"><part-list><score-part id="P1"><part-name>P</part-name>'
+             f'</score-part></part-list><part id="P1">{bars}</part></score-partwise>').encode()
+    mei = load_toolkit(score).getMEI()
+    index = ScoreIndex(mei)
+    assert [measure.number for measure in index.measures] == [1, 2, 3, 4, 5] and index.renumbered
+    assert re.findall(r'<measure\b[^>]*?\bn="(\d+)"', mei) == ["1", "2", "3", "4", "5"]
 
 
 def mxl(container: str | None, score: bytes) -> bytes:
