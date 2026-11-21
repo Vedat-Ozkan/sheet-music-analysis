@@ -251,3 +251,13 @@ def test_with_a_proxy_key_set_only_requests_that_carry_it_are_served(tmp_path):
     assert "draft_analysis" in {tool["name"] for tool in listed["result"]["tools"]}
     assert health.status == 200
 
+
+def test_while_the_key_changes_the_previous_key_is_served_too(tmp_path):
+    with running_server(tmp_path, PROXY_KEY="the new key", PROXY_KEY_PREVIOUS="the old key") as changing:
+        old = json.loads(as_client(changing, "Claude-User", "tools/list", {}, **{"X-Proxy-Key": "the old key"}))
+        new = json.loads(as_client(changing, "Claude-User", "tools/list", {}, **{"X-Proxy-Key": "the new key"}))
+        with pytest.raises(urllib.error.HTTPError) as other:
+            as_client(changing, "Claude-User", "tools/list", {}, **{"X-Proxy-Key": "another key"})
+    assert "draft_analysis" in {tool["name"] for tool in old["result"]["tools"]} & {tool["name"] for tool in new["result"]["tools"]}
+    assert other.value.code == 403
+

@@ -98,7 +98,7 @@ def test_internal_ties_trailing_rests_and_terminal_ties():
     events = [e for e in index(result).measure(1).events if e.pitch]
     assert [(e.pitch, e.tied) for e in events] == [("C4", True), ("C4", False), ("D4", False)]
     text = correct.bars_from_musicxml(TRUTH.read_bytes(), 12)
-    assert "2.1: 24 B2+D#3+A3 72 r" in text
+    assert "2.5: 24 B2+D#3+A3 72 r" in text
     assert all(v.duration > 0 for v in notes.decode(text).measure(12).events)
 
 

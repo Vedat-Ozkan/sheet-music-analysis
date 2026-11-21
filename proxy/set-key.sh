@@ -13,16 +13,27 @@ if ! gcloud secrets describe proxy-key --project "$PROJECT" >/dev/null 2>&1; the
   gcloud secrets create proxy-key --project "$PROJECT" --replication-policy=automatic
 fi
 gcloud secrets add-iam-policy-binding proxy-key --project "$PROJECT" --member="serviceAccount:$ACCOUNT" --role=roles/secretmanager.secretAccessor >/dev/null
+PREVIOUS=$(gcloud secrets versions list proxy-key --project "$PROJECT" --filter=state:enabled --sort-by=~createTime --limit=1 --format='value(name)')
+PREVIOUS=${PREVIOUS##*/}
 VERSION=$(printf %s "$KEY" | gcloud secrets versions add proxy-key --project "$PROJECT" --data-file=- --format='value(name)')
 VERSION=${VERSION##*/}
+BOTH="PROXY_KEY=proxy-key:$VERSION${PREVIOUS:+,PROXY_KEY_PREVIOUS=proxy-key:$PREVIOUS}"
+if [ -n "$PREVIOUS" ]; then
+  BACK=(--update-secrets="PROXY_KEY=proxy-key:$PREVIOUS" --remove-secrets=PROXY_KEY_PREVIOUS)
+else
+  BACK=(--remove-secrets=PROXY_KEY)
+fi
 
-trap 'gcloud secrets versions disable "$VERSION" --secret proxy-key --project "$PROJECT" >/dev/null; echo "The Worker was not updated. Key version $VERSION is switched off again; nothing has changed." >&2' ERR
+trap 'gcloud secrets versions disable "$VERSION" --secret proxy-key --project "$PROJECT" >/dev/null; echo "The server was not given key version $VERSION. It is switched off again; nothing has changed." >&2' ERR
+gcloud run services update "$SERVICE" --project "$PROJECT" --region "$REGION" --update-secrets="$BOTH"
+
+trap 'if gcloud run services update "$SERVICE" --project "$PROJECT" --region "$REGION" "${BACK[@]}"; then gcloud secrets versions disable "$VERSION" --secret proxy-key --project "$PROJECT" >/dev/null; echo "The Worker was not updated. The server is back on what it accepted before, and version $VERSION is switched off." >&2; else echo "The Worker was not updated, and putting the server back failed too. Both keys still work; leave version $VERSION switched on and run: gcloud run services update $SERVICE --region $REGION ${BACK[*]}" >&2; fi' ERR
 npx wrangler@4 deploy -c proxy/wrangler.jsonc
 printf %s "$KEY" | npx wrangler@4 secret put PROXY_KEY -c proxy/wrangler.jsonc
 trap - ERR
 
-if ! gcloud run services update "$SERVICE" --project "$PROJECT" --region "$REGION" --update-secrets="PROXY_KEY=proxy-key:$VERSION"; then
-  echo "The Worker sends key version $VERSION but the server was not given it. Run this script again." >&2
+if [ -n "$PREVIOUS" ] && ! gcloud run services update "$SERVICE" --project "$PROJECT" --region "$REGION" --remove-secrets=PROXY_KEY_PREVIOUS; then
+  echo "The Worker and the server hold key version $VERSION, but the server still accepts version $PREVIOUS too. Run: gcloud run services update $SERVICE --region $REGION --remove-secrets=PROXY_KEY_PREVIOUS" >&2
   exit 1
 fi
 echo "The Worker and the server both hold key version $VERSION."
