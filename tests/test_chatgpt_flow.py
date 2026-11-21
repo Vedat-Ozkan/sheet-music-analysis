@@ -113,6 +113,34 @@ def test_a_pdf_that_cannot_be_read_says_what_to_try_next(server, monkeypatch):
     assert server.get(f"failed/{hashlib.sha256(PDF).hexdigest()}.pdf") == PDF
 
 
+def test_a_pdf_that_cannot_be_read_is_not_read_or_charged_again_when_sent_again(server, monkeypatch):
+    reads = []
+
+    def unreadable(data):
+        reads.append(data)
+        raise pdf_reader.ReadError("No music could be read from this PDF", [{"setting": 0, "outcome": "no music"}])
+
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable)
+    first = call("read_pdf", ATTACHED)
+    pages = charged(server, "pdf_page")
+    again = call("read_pdf", ATTACHED)
+    assert len(reads) == 1 and charged(server, "pdf_page") == pages
+    assert text_of(again) == text_of(first) and report_of(again) == report_of(first)
+
+
+def test_a_pdf_whose_reading_took_too_long_is_read_again_when_sent_again(server, monkeypatch):
+    reads = []
+
+    def too_slow(data):
+        reads.append(data)
+        raise pdf_reader.ReadTimedOut("Reading this PDF took too long", [{"setting": 0, "outcome": "timeout"}])
+
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", too_slow)
+    call("read_pdf", ATTACHED)
+    call("read_pdf", ATTACHED)
+    assert len(reads) == 2
+
+
 def test_a_scan_too_small_to_read_tells_the_user_in_the_card_too(server, monkeypatch):
     too_small = pdf_reader.SCAN_TOO_SMALL.format("3 pixels", pdf_reader.SHARP_SCAN_INTERLINE)
     def unreadable(data):

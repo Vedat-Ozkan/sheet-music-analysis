@@ -87,6 +87,10 @@ class ScanTooSmall(ReadError):
     pass
 
 
+class ReadTimedOut(ReadError):
+    pass
+
+
 @dataclass
 class PdfReading:
     musicxml: bytes
@@ -506,7 +510,7 @@ def _read_with_every_setting(data: bytes, audiveris: str, raw, pages: int, scan:
     readings = [reading for _, reading in results if reading is not None]
     if not readings:
         timed_out = any(record["outcome"] == "timeout" for record in passes)
-        raise ReadError("Reading this PDF took too long" if timed_out else NOTHING_READ, passes)
+        raise ReadTimedOut("Reading this PDF took too long", passes) if timed_out else ReadError(NOTHING_READ, passes)
     counts = [_pitched_notes(reading[0]) for reading in readings]
     complete = [reading for reading, count in zip(readings, counts) if count >= MIN_NOTES * max(counts)]
     musicxml, skipped, _ = min(complete, key=lambda reading: (len(reading[1]), len(reading[2])))

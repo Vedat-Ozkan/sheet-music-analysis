@@ -76,7 +76,7 @@ HELD_CARD_URIS = {"ui://sheet-music-analysis/card-v2.html": "Analysis card",
 PLAYER_URI = "ui://sheet-music-analysis/player-v3.html"
 UPLOAD_CARD_URI = "ui://sheet-music-analysis/upload-card-v1.html"
 CONNECTOR_URL = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
-PROXY_KEY = os.environ.get("PROXY_KEY", "")
+PROXY_KEYS = [key.encode() for key in (os.environ.get("PROXY_KEY"), os.environ.get("PROXY_KEY_PREVIOUS")) if key]
 CLAUDE_UI_DOMAIN = hashlib.sha256(CONNECTOR_URL.encode()).hexdigest()[:32] + ".claudemcpcontent.com"
 HERE = Path(__file__).parent
 
@@ -279,9 +279,9 @@ def only_through_the_proxy(app):
     refusal = Response(f"This address is not public; use {CONNECTOR_URL}", status_code=403)
 
     async def checking_the_key(scope, receive, send):
-        if PROXY_KEY and scope["type"] == "http" and scope["path"] != "/health":
+        if PROXY_KEYS and scope["type"] == "http" and scope["path"] != "/health":
             sent = dict(scope["headers"]).get(b"x-proxy-key", b"")
-            if not hmac.compare_digest(sent, PROXY_KEY.encode()):
+            if not any([hmac.compare_digest(sent, key) for key in PROXY_KEYS]):
                 return await refusal(scope, receive, send)
         return await app(scope, receive, send)
 
@@ -1099,6 +1099,10 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
         card = json.loads(card)
         log(tool, platform=source, pages=card["pages"], cached="card")
         return pdf_card_result(card, tool)
+    failed = json.loads(await anyio.to_thread.run_sync(store.get, failure_of(card_key)) or b"{}")
+    if (unread := failed.get("unread")) and unread["final"]:
+        log(tool, platform=source, outcome="user_error", error=failed["error"], reference=unread["reference"], cached="unread")
+        return unread_result(unread, source)
     person, arrived_at = caller(), time.time()
     starter_wait = STARTER_WAIT if source != "claude" else SAME_FILE_WAIT
     while True:
@@ -1249,10 +1253,20 @@ async def wait_for_other_machine(card_key: str, since: float, source: str, tool:
                 else:
                     log(tool, platform=source, other_machine=True, outcome=found.get("outcome"),
                         **({"busy": True} if found["error"] == "busy" else {"error": found["error"]}))
-                return busy() if found["error"] == "busy" else failure(found["text"], found.get("report"))
+                if found["error"] == "busy":
+                    return busy()
+                return unread_result(found["unread"], source) if "unread" in found else failure(found["text"], found.get("report"))
             await anyio.sleep(POLL_SECONDS)
     log(tool, platform=source, reading=True, other_machine=True)
     return still_reading(since, tool)
+
+
+def unread_result(unread: dict, source: str) -> CallToolResult:
+    if source == "claude":
+        return error_result(unread["reason"] + pdf_reader.NEXT_STEP)
+    return failure(UNREAD_PDF + unread["reason"] + pdf_reader.NEXT_STEP + CARD_SHOWS_PROBLEM,
+                   {"text": f"{unread['reason']}." if unread["too_small"] else UNREAD_PDF_FOR_CARD,
+                    "reference": unread["reference"]})
 
 
 async def pdf_work(data: bytes, digest: str, source: str, card_key: str,
@@ -1272,19 +1286,18 @@ async def pdf_work(data: bytes, digest: str, source: str, card_key: str,
 
 async def pdf_outcome(data: bytes, digest: str, source: str, card_key: str, details: dict,
                       timings: dict, started: float, arrived: bool, person: str | None) -> tuple[dict | CallToolResult, dict]:
+    unread = None
     try:
         result = await read_pdf_card(data, digest, source, arrived, person)
         if isinstance(result, dict):
             await anyio.to_thread.run_sync(store.put, card_key, json.dumps(result).encode())
         outcome = "ok" if isinstance(result, dict) else "limit" if details.get("limit") else "busy" if details.get("busy") else "user_error"
     except pdf_reader.ReadError as error:
-        message = str(error)
-        details.update(error=type(error).__name__, passes=error.passes or None, reason=message,
+        details.update(error=type(error).__name__, passes=error.passes or None, reason=str(error),
                        reference=secrets.token_hex(4))
-        result = (failure(UNREAD_PDF + message + pdf_reader.NEXT_STEP + CARD_SHOWS_PROBLEM,
-                          {"text": f"{message}." if isinstance(error, pdf_reader.ScanTooSmall) else UNREAD_PDF_FOR_CARD,
-                           "reference": details["reference"]})
-                  if source != "claude" else error_result(message + pdf_reader.NEXT_STEP))
+        unread = {"reason": str(error), "too_small": isinstance(error, pdf_reader.ScanTooSmall),
+                  "reference": details["reference"], "final": not isinstance(error, pdf_reader.ReadTimedOut)}
+        result = unread_result(unread, source)
         outcome = "user_error"
     except Exception as error:
         if isinstance(error, verovio_workers.VerovioFailed):
@@ -1300,7 +1313,8 @@ async def pdf_outcome(data: bytes, digest: str, source: str, card_key: str, deta
             details["failed_copy_lost"] = True
     if not isinstance(result, dict):
         failed = {"at": time.time(), "error": details.get("error", outcome), "outcome": outcome,
-                  "text": result.content[0].text, "report": (result.meta or {}).get("report")}
+                  "text": result.content[0].text, "report": (result.meta or {}).get("report"),
+                  **({"unread": unread} if unread else {})}
         await anyio.to_thread.run_sync(store.put, failure_of(card_key), json.dumps(failed).encode())
     timings["total"] = round((time.perf_counter() - started) * 1000)
     details["outcome"] = outcome

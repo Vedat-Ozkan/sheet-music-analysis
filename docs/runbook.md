@@ -39,6 +39,8 @@ gcloud run services update-traffic sheet-music-analysis --region us-central1 --p
 
 Put the revision's own suffix in place of `<previous-revision>` (it looks like `00064-tcs`); the command does nothing useful until you do.
 
+Only a revision whose image is still in the registry can start. `server/deploy.sh` tags each production image `prod-<revision>` (as the git tag), and tagged images are never cleaned up; untagged ones are, so revisions deployed before 2026-11-20 other than `00065-fjv` cannot be rolled back to. Check with `gcloud artifacts docker images list us-central1-docker.pkg.dev/sheet-music-analysis/sheet-music-analysis/server --include-tags`.
+
 Traffic stays pinned to that revision: the next deploy gets none until `gcloud run services update-traffic sheet-music-analysis --region us-central1 --project sheet-music-analysis --to-latest` is run.
 
 ## After a deploy
@@ -60,7 +62,7 @@ Production's own run.app address is public, and the limit of uploads per interne
 
 The key is held in three places that must agree: a version of the Secret Manager secret `proxy-key`, the Worker secret `PROXY_KEY`, and the version number the serving Cloud Run revision is pinned to.
 
-`proxy/set-key.sh sheet-music-analysis` makes a new random key and sets all three, in that order: it adds a secret version, deploys the Worker from this checkout with the key, then points the service at that version (a new revision with the same image, not tagged `prod-*`). The key is never printed. If the Worker step fails, the script switches the new version off again and nothing has changed. `server/deploy.sh` pins every production deploy to the newest version that is switched on, and refuses to deploy production when there is none.
+`proxy/set-key.sh sheet-music-analysis` makes a new random key and sets all three without refusing any call. It adds a secret version, gives the service both the new version (`PROXY_KEY`) and the one before it (`PROXY_KEY_PREVIOUS`), deploys the Worker from this checkout with the new key, then removes the old one from the service. Each service step is a new revision with the same image, not tagged `prod-*`. The key is never printed. If the service or Worker step fails, the script puts the service back on the old key, switches the new version off, and nothing has changed. `server/deploy.sh` pins every production deploy to the newest version that is switched on, and refuses to deploy production when there is none.
 
 Turning it on for the first time, from a checkout of `main` that has the Worker change:
 
@@ -70,7 +72,7 @@ Turning it on for the first time, from a checkout of `main` that has the Worker 
 
 If every call starts failing with 403, the copies differ: run `proxy/set-key.sh sheet-music-analysis` again, which sets all three afresh. Rolling back helps only to a revision from before the key was first turned on.
 
-Changing the key later is the same script. Calls are refused for the short time between its Worker step and its last step, because the serving revision still holds the old key.
+Changing the key later is the same script. It needs a serving revision whose server knows `PROXY_KEY_PREVIOUS` (log 186); on an older one, calls are refused from its Worker step until its last step.
 
 ## Release history
 
