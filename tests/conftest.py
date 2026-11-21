@@ -34,7 +34,7 @@ def main_checkout() -> Path:
 
 
 MAIN = main_checkout()
-BORROWED = ["out/engraving", "spike/omr/truth"]
+BORROWED = ["out/engraving", "spike/omr/truth", "tests/data/users"]
 
 
 def _borrow() -> None:
