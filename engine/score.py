@@ -64,6 +64,8 @@ class Measure:
     meter: str = ""
     key_signature: str = ""
     declared_length: Fraction | None = None
+    label: str = ""
+    name: str = ""
     events: list[Event] = field(default_factory=list)
     segments: list[Segment] = field(default_factory=list)
     marks: list[Mark] = field(default_factory=list)
@@ -138,6 +140,18 @@ def musicxml_meter(time: ET.Element | None) -> tuple[int, int] | None:
     if time is None:
         return None
     return read_meter(zip((beats.text for beats in time.findall("beats")), (unit.text for unit in time.findall("beat-type"))))
+
+
+def _whole(label: str) -> bool:
+    return label.lstrip("-").isdigit()
+
+
+def _letters(count: int) -> str:
+    letters = ""
+    while count:
+        count, rest = divmod(count - 1, 26)
+        letters = chr(ord("a") + rest) + letters
+    return letters
 
 
 def in_range(number: int, first: int | None, last: int | None) -> bool:
@@ -219,17 +233,21 @@ class ScoreIndex:
             for event in measure.events:
                 event.tied = event.tied or event.id in self._tie_starts
         self._renumber_if_needed()
+        self._name_bars()
         self._finish()
 
     @classmethod
     def from_measures(cls, measures: list[Measure], meter: str, key_signature: str) -> ScoreIndex:
         index = cls.__new__(cls)
         index.measures, index.meter, index.key_signature, index.renumbered = measures, meter, key_signature, False
+        for measure in measures:
+            measure.name = measure.name or str(measure.number)
         index._finish()
         return index
 
     def _finish(self) -> None:
         self._by_number = {measure.number: measure for measure in self.measures}
+        self._by_name = {measure.name: measure for measure in self.measures}
         self._by_segment = {segment.id: (measure, segment) for measure in self.measures for segment in measure.segments}
 
     @property
@@ -311,6 +329,7 @@ class ScoreIndex:
             beat_length=self._beat_length,
             meter=self._meter,
             key_signature=self._key_signature,
+            label=label,
         )
         full = self._bar_length
         if not incomplete:
@@ -351,7 +370,8 @@ class ScoreIndex:
             self._position += 1
             self._drawn_position[self._position] = self._drawn_bars
             self.measures.append(Measure(f"{measure.id}-{following}", measure.number + following, self._position, self._beat_length,
-                                         self._meter, self._key_signature, full))
+                                         self._meter, self._key_signature, full,
+                                         label=str(measure.number + following) if numbered else ""))
 
     def _read_layer(self, element: ET.Element, measure: Measure, staff: int, cursor: Fraction) -> Fraction:
         ppq = self._ppq.get(staff) or next(iter(self._ppq.values()), 1)
@@ -393,6 +413,29 @@ class ScoreIndex:
             for event in measure.events:
                 event.measure = number
             number += 1
+
+    def _name_bars(self) -> None:
+        numbers = [int(measure.label) for measure in self.measures if _whole(measure.label)]
+        if any(later < earlier for earlier, later in zip(numbers, numbers[1:])):
+            for measure in self.measures:
+                measure.name = str(measure.number)
+            return
+        base, extra = None, 0
+        for measure in self.measures:
+            if _whole(measure.label) and (base is None or int(measure.label) > base):
+                base, extra = int(measure.label), 0
+                measure.name = str(base)
+            elif base is None:
+                measure.name = str(measure.number)
+            else:
+                extra += 1
+                measure.name = f"{base}{_letters(extra)}"
+
+    def bar(self, name: str | int) -> Measure:
+        wanted = str(name).strip()
+        if wanted not in self._by_name:
+            raise PositionError(f"Measure {wanted} does not exist; the score has measures {self.measures[0].name} to {self.measures[-1].name}")
+        return self._by_name[wanted]
 
     def measure(self, number: int) -> Measure:
         if number not in self._by_number:
