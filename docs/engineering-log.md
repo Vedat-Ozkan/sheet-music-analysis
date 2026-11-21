@@ -4,19 +4,25 @@ A record of the problems met while building this tool, what was done about each,
 
 **The tool:** a plugin for Claude and ChatGPT that reads a score (MusicXML or PDF) and returns it engraved with a harmonic analysis drawn on it (Roman numerals, cadences, phrases, non-chord tones, voice leading) and a written commentary. The chat model analyses from a beat-by-beat table of the notes, our code checks part-writing and the numerals against the notes, and our engine places every label on the engraved page. Until entry 124 a graph neural network (AnalysisGNN) drafted the analysis and the chat model reviewed it; entry 143 removed it from the server. Most numbers below measure that draft-then-review pipeline.
 
-## At a glance
+Entries are numbered when they are written, on whatever branch the work is on, and land here when that branch is merged. A number missing below belongs to a branch not merged yet (159-160, 169-178 and 181-187 on 2026-11-21); entry 60a is a second entry written the same day as 60.
 
-The first two bullets describe the tool today. The rest are the October results of the draft-then-review pipeline.
+## Now
 
 - **Today's accuracy, by chord.** On 36 pieces that two experts each analysed chord by chord (1,327 bars), our analysis matches an expert's key, chord and bass on 0.694 of the expert's chords, against 0.697 for one expert against the other: 99% of the experts' figure (entries 122 and 131).
 - **Everything that touches the score runs on our server.** In ChatGPT the user attaches the score; in Claude they choose the file in a card that sends it to the server, or paste a link (entries 132 and 134). The server reads MusicXML and PDFs, makes the note table and draws the analysis; nothing runs in Claude's code sandbox.
+- **What the accuracy figure does not cover.** The 36 pieces start from digital scores (MusicXML), so mistakes in reading a PDF are not part of it. How well PDFs are read is measured separately, bar by bar against reference scores (the PDF reading entries, e.g. 166 and 180).
+
+## Earlier results: the October draft-then-review pipeline (retired)
+
+These measured a neural draft reviewed by the chat model, the way the tool worked until entry 124; entry 143 removed the draft from the server. They are kept as a record, not as figures for the tool today.
+
 - **The review stage raises agreement with experts on 11 of 12 scored pieces.** Weighted by length across 12 pieces (1,158 bars), the share of the music where key, chord and bass all match the human analyst rose from 0.54 to 0.71, and the share with the right key from 0.81 to 0.89. The largest gains were Schumann (0.61 to 0.92), Haydn (0.42 to 0.72) and Beethoven Op. 2 No. 1 (0.47 to 0.73).
 - **Checked on 30 pieces the draft model never saw in training.** Several of the 12 pieces were in the draft model's training data. On the same held-out passages the draft alone scores 0.48, and the review lifts it to 0.67 (+0.19), improving 26 of 30 pieces (challenges 58 and 66; first reported as 0.44 → 0.61 before the scorer fixes of challenge 66).
 - **Checked against what teachers actually wrote.** Against published analyses of 19 pieces (textbook chapters, exam-board teaching notes, articles and dissertations), our analysis agrees with 63% of 431 checkable claims, partly agrees with 26%, and disagrees with 4%, on the judge's first marking, which is lenient (a second marking of the same analysis gives 4 to 18 points less; challenge 9). Every disagreement was read by hand and sorted into areas to improve.
 - **Measured which chat model to use.** Over the full 23-piece set, Opus 5.5 at medium effort beat Sonnet 5.5 as the reviewer: full agreement with expert labels 0.66 → 0.71, agreement with teachers' claims 52% → 63%, at 36% more cost and 25% less model time.
 - **Found and fixed a silent failure in the neural model's output.** The model names each key's tonic but not its mode, so every minor key was read as major. Recovering the mode from the chords lifted key accuracy on minor-key pieces from 0.00 to 0.92 (Chopin Prelude No. 20), 0.27 to 0.79 (Beethoven Op. 2 No. 1) and 0.20 to 0.89 (Tchaikovsky).
 - **Measured how far experts agree with each other, by style.** Across 151 independent pairs of expert analyses (10,684 bars, weighted by bars), experts agree on key, chord and bass for 0.71 of the music: 0.87 on Bach chorales, 0.79 on Mozart sonatas, 0.59-0.65 on Chopin mazurkas and Beethoven sonatas (0.69 without the chorales). On the chord's role (same function family, inversion aside) they agree on 0.91. Scored against the same other experts each expert is scored against, our reviewed analysis agrees on the chord's role 0.86 of the time, against the experts' 0.80 (6 pieces; challenge 66). On 30 unseen pieces our *full* agreement is 0.67, about 0.04 below the expert level.
-- **Robust across 31 scores and four centuries.** Monteverdi to Schoenberg, choirs, quartets, songs, piano, transposing instruments: every score passes reading, engraving, drafting and rendering.
+- **Robust across 31 scores and four centuries (October).** Monteverdi to Schoenberg, choirs, quartets, songs, piano, transposing instruments: every score passed reading, engraving, drafting and rendering. Not re-run since the draft was retired.
 
 ## Results against human analysts
 
@@ -1082,7 +1088,7 @@ On the held-out sample the review adds 0.17 (95% interval 0.11 to 0.24) and impr
 
 **Cost.** $22.49 on the API key, then the account ran out of credit and the remaining passages ran on the subscription (their estimated cost is also in `out/api-spend.jsonl`, so the ledger overstates API spending for this day by about $30).
 
-### 60. Error messages kept out of the logs (2026-10-24)
+### 60a. Error messages kept out of the logs (2026-10-24)
 
 An error's message can quote what the user sent (a part name, a note, an id), and six log lines in `server/app.py` still wrote it in full, against the privacy page. They now log only the error's kind (for example `ScoreError`); the user still gets the full message in the reply. This was built on 2026-10-13 on the usage-log branch, which never merged because the observability work replaced the rest of it. Tests: 175 server-path tests pass. Goes live with the next deploy.
 
