@@ -17,7 +17,6 @@ import json
 import re
 import urllib.parse
 from collections import Counter
-from fractions import Fraction
 from itertools import combinations
 from pathlib import Path
 

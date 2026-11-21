@@ -597,7 +597,6 @@ class PageLayout:
                 cursor = box.right + 0.4 * NUMERAL_SIZE
             key = key_at_start[system_index]
             deepest = 0.0
-            drawn: list[tuple[Harmony, float, float, float, float]] = []
             for position, (centre, harmony) in enumerate(labels):
                 chunks, total = notation.numeral(harmony.label, harmony.key or key, style, NUMERAL_SIZE)
                 x = centre - text.root_centre(chunks)

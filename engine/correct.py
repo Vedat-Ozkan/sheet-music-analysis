@@ -619,8 +619,8 @@ def _join_ties(part: ET.Element, replaced: set[int]) -> None:
                 waiting = waiting[1:]
             for note in waiting:
                 _remove_tie(note, "start")
-        for notes in stops.values():
-            for note in notes:
+        for stopping in stops.values():
+            for note in stopping:
                 _remove_tie(note, "stop")
 
 

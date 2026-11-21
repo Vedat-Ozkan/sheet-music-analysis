@@ -1,7 +1,6 @@
 import math
 import re
 from dataclasses import asdict
-from xml.sax.saxutils import escape
 
 from engine import check_analysis, notation, text
 from engine.annotations import AnnotationList, Position

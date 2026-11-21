@@ -20,6 +20,20 @@ jobs:
           python-version: "3.11"
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libcairo2
       - run: uv sync --frozen --group server --group dev
+      - run: uvx ruff@0.14.5 check
+      - name: A changed plugin folder is a fresh build with a new version
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch -q --depth=1 origin "${{ github.base_ref }}"
+          if ! git diff --quiet FETCH_HEAD -- dist/; then
+            cp -r dist /tmp/dist-in-pr
+            .venv/bin/python tools/build_skill.py
+            diff -r /tmp/dist-in-pr dist
+            if git diff --quiet FETCH_HEAD -- plugin/.claude-plugin/plugin.json; then
+              echo "dist/ changed, so this is a plugin release: bump the version in plugin/.claude-plugin/plugin.json" >&2
+              exit 1
+            fi
+          fi
       - run: .venv/bin/python -m playwright install --with-deps --only-shell chromium
       - uses: actions/cache@v4
         id: audiveris

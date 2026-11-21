@@ -280,11 +280,11 @@ HELDOUT_CHORALES = {"riemenschneider004": "bwv86.6", "riemenschneider010": "bwv3
 
 def _heldout() -> list[Piece]:
     found = []
-    for corpus, stems in HELDOUT_DCML.items():
-        repository = {"mozart_sonatas": "mozart_piano_sonatas"}.get(corpus, corpus)
+    for collection, stems in HELDOUT_DCML.items():
+        repository = {"mozart_sonatas": "mozart_piano_sonatas"}.get(collection, collection)
         for stem in stems:
             found.append(Piece(
-                f"heldout-{corpus}-{stem}", f"{corpus.replace('_', ' ')} {stem}", DCML + f"{corpus}/{urllib.parse.quote(stem)}.musicxml",
+                f"heldout-{collection}-{stem}", f"{collection.replace('_', ' ')} {stem}", DCML + f"{collection}/{urllib.parse.quote(stem)}.musicxml",
                 f"https://raw.githubusercontent.com/DCMLab/{repository}/main/harmonies/{urllib.parse.quote(stem)}.harmonies.tsv", fix="harmony",
             ))  # fmt: skip
     for folder in HELDOUT_ROME:
