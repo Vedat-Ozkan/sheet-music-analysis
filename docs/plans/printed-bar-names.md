@@ -29,3 +29,10 @@ Outputs:
 - Across the corpus: every bar has a unique name; names equal the file's numbers wherever the file's numbers only go up; the drawn page's numbers equal the names.
 - Round trip: a draft names "16a", and render_analysis given "16a" draws in that bar.
 - Old clients: an integer `measure` still works and means the printed number.
+
+## Status
+
+- Step 1 (cfe7865) is done: `Measure.label` holds the file's number and `Measure.name` the printed name; `ScoreIndex.bar(name)` looks a bar up by name; `render._name_drawn_bars` writes the names into MEI `n`, so the page draws them (Chopin Mazurka BI 16 No. 2: the second ending is "16a" and the next bar is drawn 17, as printed).
+- Next, the outputs that still print `measure.number`: reduce.py 66 and 83, notes.py 54, harmony.py 154, performance.py 164, read_pdf.py 264 (preview numbers), correct.py 340 and 552, app.py 709 and read_pdf_card's range, part-writing and student-check messages, PositionError in `ScoreIndex.measure`, draft.py.
+- Then the inputs: the `Position.measure` and `RangeEnd.measure` schema (`int | str`, resolved by name at the server before drawing), `parse_measures` (names in ranges), correct.py and notes.py "m16a" lines, comparison.py's `MEASURE_LINE` for student analyses.
+- Then a corpus check, the skill and tool texts, and the log entry.
