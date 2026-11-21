@@ -78,16 +78,13 @@ MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
 class ReadError(UserError):
-    def __init__(self, message: str, passes: list[dict] | None = None):
+    def __init__(self, message: str, passes: list[dict] | None = None, *, lasting: bool = False):
         super().__init__(message)
         self.passes = passes or []
+        self.lasting = lasting
 
 
 class ScanTooSmall(ReadError):
-    pass
-
-
-class ReadTimedOut(ReadError):
     pass
 
 
@@ -326,7 +323,7 @@ def open_pdf(data: bytes) -> pikepdf.Pdf:
     try:
         return pikepdf.open(io.BytesIO(data))
     except pikepdf.PdfError as error:
-        raise ReadError("This file could not be opened as a PDF") from error
+        raise ReadError("This file could not be opened as a PDF", lasting=True) from error
 
 
 def unread_pages(read: int, total: int) -> str:
@@ -478,7 +475,8 @@ def _explained(error: ReadError, scan: bool, *attempts: tuple[bytes, list[dict]]
     spacing = min((value for value in spacings if value), default=None)
     if spacing is None or spacing >= SHARP_SCAN_INTERLINE:
         return error
-    return ScanTooSmall(SCAN_TOO_SMALL.format(_pixels(max(1, round(spacing))), SHARP_SCAN_INTERLINE), error.passes)
+    return ScanTooSmall(SCAN_TOO_SMALL.format(_pixels(max(1, round(spacing))), SHARP_SCAN_INTERLINE), error.passes,
+                        lasting=error.lasting)
 
 
 def _pixels(count: int) -> str:
@@ -510,7 +508,8 @@ def _read_with_every_setting(data: bytes, audiveris: str, raw, pages: int, scan:
     readings = [reading for _, reading in results if reading is not None]
     if not readings:
         timed_out = any(record["outcome"] == "timeout" for record in passes)
-        raise ReadTimedOut("Reading this PDF took too long", passes) if timed_out else ReadError(NOTHING_READ, passes)
+        found_nothing = bool(passes) and all(record["outcome"] == "no music" and record.get("exit_code") == 0 for record in passes)
+        raise ReadError("Reading this PDF took too long" if timed_out else NOTHING_READ, passes, lasting=found_nothing)
     counts = [_pitched_notes(reading[0]) for reading in readings]
     complete = [reading for reading, count in zip(readings, counts) if count >= MIN_NOTES * max(counts)]
     musicxml, skipped, _ = min(complete, key=lambda reading: (len(reading[1]), len(reading[2])))

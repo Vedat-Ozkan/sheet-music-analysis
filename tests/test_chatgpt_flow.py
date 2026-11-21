@@ -118,7 +118,8 @@ def test_a_pdf_that_cannot_be_read_is_not_read_or_charged_again_when_sent_again(
 
     def unreadable(data):
         reads.append(data)
-        raise pdf_reader.ReadError("No music could be read from this PDF", [{"setting": 0, "outcome": "no music"}])
+        raise pdf_reader.ReadError("No music could be read from this PDF", [{"setting": 0, "outcome": "no music", "exit_code": 0}],
+                                   lasting=True)
 
     monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable)
     first = call("read_pdf", ATTACHED)
@@ -128,12 +129,12 @@ def test_a_pdf_that_cannot_be_read_is_not_read_or_charged_again_when_sent_again(
     assert text_of(again) == text_of(first) and report_of(again) == report_of(first)
 
 
-def test_a_pdf_whose_reading_took_too_long_is_read_again_when_sent_again(server, monkeypatch):
+def test_a_pdf_whose_reading_failed_for_a_passing_reason_is_read_again_when_sent_again(server, monkeypatch):
     reads = []
 
     def too_slow(data):
         reads.append(data)
-        raise pdf_reader.ReadTimedOut("Reading this PDF took too long", [{"setting": 0, "outcome": "timeout"}])
+        raise pdf_reader.ReadError("Reading this PDF took too long", [{"setting": 0, "outcome": "timeout"}])
 
     monkeypatch.setattr(app.pdf_reader, "read_pdf", too_slow)
     call("read_pdf", ATTACHED)

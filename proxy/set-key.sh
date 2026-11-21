@@ -27,7 +27,7 @@ fi
 trap 'gcloud secrets versions disable "$VERSION" --secret proxy-key --project "$PROJECT" >/dev/null; echo "The server was not given key version $VERSION. It is switched off again; nothing has changed." >&2' ERR
 gcloud run services update "$SERVICE" --project "$PROJECT" --region "$REGION" --update-secrets="$BOTH"
 
-trap 'gcloud run services update "$SERVICE" --project "$PROJECT" --region "$REGION" "${BACK[@]}"; gcloud secrets versions disable "$VERSION" --secret proxy-key --project "$PROJECT" >/dev/null; echo "The Worker was not updated. The server is back on what it accepted before, and version $VERSION is switched off." >&2' ERR
+trap 'if gcloud run services update "$SERVICE" --project "$PROJECT" --region "$REGION" "${BACK[@]}"; then gcloud secrets versions disable "$VERSION" --secret proxy-key --project "$PROJECT" >/dev/null; echo "The Worker was not updated. The server is back on what it accepted before, and version $VERSION is switched off." >&2; else echo "The Worker was not updated, and putting the server back failed too. Both keys still work; leave version $VERSION switched on and run: gcloud run services update $SERVICE --region $REGION ${BACK[*]}" >&2; fi' ERR
 npx wrangler@4 deploy -c proxy/wrangler.jsonc
 printf %s "$KEY" | npx wrangler@4 secret put PROXY_KEY -c proxy/wrangler.jsonc
 trap - ERR

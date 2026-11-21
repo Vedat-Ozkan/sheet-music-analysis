@@ -229,7 +229,7 @@ def test_an_unread_pdf_on_the_other_machine_shows_its_card_and_stays_a_user_erro
     slow_reader(monkeypatch, tmp_path, 0)
 
     def unreadable(data):
-        raise pdf_reader.ReadTimedOut("Reading this PDF took too long", [{"setting": 0, "outcome": "timeout"}])
+        raise pdf_reader.ReadError("Reading this PDF took too long", [{"setting": 0, "outcome": "timeout"}])
 
     monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable)
 

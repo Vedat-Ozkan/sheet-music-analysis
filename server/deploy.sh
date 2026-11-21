@@ -27,7 +27,7 @@ else
     echo "production deploys only from a clean checkout of origin/main; commit, push and let CI pass first" >&2
     exit 1
   fi
-  CI=$(gh run list --branch main --commit "$(git rev-parse HEAD)" --workflow tests --json conclusion --jq '.[0].conclusion')
+  CI=$(gh run list --branch main --commit "$(git rev-parse HEAD)" --workflow tests --json conclusion --jq '.[0].conclusion // empty')
   if [ "$CI" != success ]; then
     echo "CI has not passed on $(git rev-parse --short HEAD) (${CI:-no run yet}); production waits for it" >&2
     exit 1
@@ -98,8 +98,8 @@ gcloud run deploy "$RUN_SERVICE" --image="$DIGEST" --region="$REGION" \
   --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL@CONNECTOR_URL=${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}$LIMITS"
 if [ "$STAGE" = production ]; then
   REVISION=$(gcloud run services describe "$RUN_SERVICE" --region="$REGION" --format='value(status.latestReadyRevisionName)')
-  gcloud artifacts docker tags add "$DIGEST" "$IMAGE:prod-${REVISION#$SERVICE-}"
   git tag "prod-${REVISION#$SERVICE-}"
   git push -q origin "prod-${REVISION#$SERVICE-}"
+  gcloud artifacts docker tags add "$DIGEST" "$IMAGE:prod-${REVISION#$SERVICE-}"
 fi
 echo "Connector URL: ${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}"

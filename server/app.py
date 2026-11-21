@@ -1296,7 +1296,7 @@ async def pdf_outcome(data: bytes, digest: str, source: str, card_key: str, deta
         details.update(error=type(error).__name__, passes=error.passes or None, reason=str(error),
                        reference=secrets.token_hex(4))
         unread = {"reason": str(error), "too_small": isinstance(error, pdf_reader.ScanTooSmall),
-                  "reference": details["reference"], "final": not isinstance(error, pdf_reader.ReadTimedOut)}
+                  "reference": details["reference"], "final": error.lasting}
         result = unread_result(unread, source)
         outcome = "user_error"
     except Exception as error:
