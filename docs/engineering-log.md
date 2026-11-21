@@ -3360,7 +3360,9 @@ No lone bar on a system, no marks of two systems meeting, on the four pages look
 
 **Looked at:** the chat picture and the last Letter page of the nocturne (bars 33 to 37 on two lines, guide at the foot).
 
-**NOT RUN:** the full suite; a review by another model.
+**Full suite with the PDF reader on:** 1,663 passed, 11 skipped (user files kept off this machine), 2 expected failures, 0 failed.
+
+**NOT RUN:** a review by another model.
 
 ## Checking against teachers' prose
 
