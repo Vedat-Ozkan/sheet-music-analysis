@@ -13,6 +13,7 @@ LINE_STEP = 1.5
 GAP = 900
 BETWEEN = "\u2003"
 SAMPLE = 1.6
+DESCENT = 0.25
 
 NCT_WORDS = {"PT": "passing tone", "NT": "neighbour tone", "SUS": "suspension", "APP": "appoggiatura", "ET": "escape tone",
              "RET": "retardation", "ANT": "anticipation", "PED": "pedal tone"}
@@ -84,18 +85,37 @@ def cues_on(layouts: list[PageLayout]) -> list[str]:
     return found
 
 
-def draw(layouts: list[PageLayout], layout: PageLayout, cues: list[str] = (), size: float = PRINT_SIZE) -> bool:
-    shown = set().union(*(page.shown for page in layouts))
-    pieces = entries(shown, cues)
+def draw(layouts: list[PageLayout], layout: PageLayout, cues: list[str] = (), size: float = PRINT_SIZE, foot: float | None = None) -> bool:
+    pieces = entries(set().union(*(page.shown for page in layouts)), cues)
     if not pieces:
         return False
     over = layout.over
     layout.over = ET.SubElement(over, f"{S}g", {"class": "page-key"})
     left = min(system.left for system in layout.systems)
     right = max(system.right for system in layout.systems)
-    last = layout.systems[-1]
-    y = max([box.bottom for box in last.content + last.words] + [last.staff_bottom]) + GAP
+    if foot is None:
+        last = layout.systems[-1]
+        y = max([box.bottom for box in last.content + last.words] + [last.staff_bottom]) + GAP
+    else:
+        y = _sheet_bottom(layout) - foot - height(layouts, left, right, cues, size) + size
     pen = _Pen(layout, left, right, y, size)
+    _write(pen, pieces)
+    layout.over = over
+    if foot is None:
+        _grow_page(layout, pen.y + size)
+    return True
+
+
+def height(layouts: list[PageLayout], left: float, right: float, cues: list[str] = (), size: float = PRINT_SIZE) -> float:
+    pieces = entries(set().union(*(page.shown for page in layouts)), cues)
+    if not pieces:
+        return 0.0
+    pen = _Pen(None, left, right, 0.0, size)
+    _write(pen, pieces)
+    return pen.y + DESCENT * size + size
+
+
+def _write(pen: _Pen, pieces: list[Entry]) -> None:
     for number, entry in enumerate(pieces):
         lead = [] if number == 0 else [("text", BETWEEN, INK)]
         if entry.sample:
@@ -105,9 +125,6 @@ def draw(layouts: list[PageLayout], layout: PageLayout, cues: list[str] = (), si
             said = f"{entry.noun} = {entry.meaning}" if entry.noun else entry.meaning
             head = lead + ([("text", said + (":" if entry.codes else ""), INK)] if said else [])
         pen.keep([head + _code_piece(entry, 0)] + [_code_piece(entry, position) for position in range(1, len(entry.codes))])
-    layout.over = over
-    _grow_page(layout, pen.y + size)
-    return True
 
 
 def _code_piece(entry: Entry, position: int) -> list[tuple[str, str, str]]:
@@ -124,7 +141,7 @@ def _code_piece(entry: Entry, position: int) -> list[tuple[str, str, str]]:
 
 
 class _Pen:
-    def __init__(self, layout: PageLayout, left: float, right: float, y: float, size: float):
+    def __init__(self, layout: PageLayout | None, left: float, right: float, y: float, size: float):
         self.layout, self.left, self.right, self.x, self.y, self.size = layout, left, right, left, y, size
 
     def keep(self, pieces: list[list[tuple[str, str, str]]]) -> None:
@@ -163,6 +180,8 @@ class _Pen:
 
     def _draw(self, kind: str, string: str, colour: str) -> float:
         layout, x, y, size = self.layout, self.x, self.y, self.size
+        if layout is None:
+            return x + self._width(kind, string)
         if kind == "sample":
             _sample(layout, string, Box(x, y - size * 0.7, SAMPLE * size, size * 0.8), size)
             return x + SAMPLE * size
@@ -196,10 +215,19 @@ def _sample(layout: PageLayout, kind: str, box: Box, size: float) -> None:
                     fill=tint.FLAG_BAR, fill_opacity=tint.FLAG_OPACITY)
 
 
-def _grow_page(layout: PageLayout, bottom: float) -> None:
+def _sheet(layout: PageLayout) -> tuple[ET.Element, float, tuple[float, float, float, float]]:
     inner = layout.root.find(f"{S}svg")
     top = float(re.search(r"translate\([-\d.]+,\s*([-\d.]+)", layout.canvas.get("transform")).group(1))
-    x, y, w, h = map(float, inner.get("viewBox").split())
+    return inner, top, tuple(map(float, inner.get("viewBox").split()))
+
+
+def _sheet_bottom(layout: PageLayout) -> float:
+    _, top, (_, _, _, h) = _sheet(layout)
+    return h - top
+
+
+def _grow_page(layout: PageLayout, bottom: float) -> None:
+    inner, top, (x, y, w, h) = _sheet(layout)
     needed = top + bottom + 400
     if needed <= h:
         return

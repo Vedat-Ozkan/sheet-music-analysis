@@ -10,7 +10,7 @@ from engine import notation, slurs, tint
 from engine.errors import UserError
 from engine.annotations import Alternative, AnnotationList, Cadence, Callout, Harmony, NoteRef, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
-from engine.render import VEROVIO_OPTIONS, Engraving, check_range, incoming_ties, load_toolkit, shorten_ties
+from engine.render import PAPER, VEROVIO_OPTIONS, Engraving, check_range, incoming_ties, load_toolkit, shorten_ties
 from engine.score import PositionError, ScoreIndex
 
 if TYPE_CHECKING:
@@ -18,7 +18,19 @@ if TYPE_CHECKING:
 
 Drawn = TypeVar("Drawn")
 ONE_PAGE_HEIGHT = 60000
+UNIT = 10
+PAGE_HEIGHT = round(VEROVIO_OPTIONS["pageWidth"] * PAPER[1] / PAPER[0])
+SIDE_MARGIN = 50
+PRINT_MARGIN = 130
+PRINT_RIGHT_MARGIN = 70
+FOOT_MARGIN = 70
+KEY_GAP = 40
+PRINT_OPTIONS = {"pageHeight": PAGE_HEIGHT, "pageMarginTop": PRINT_MARGIN, "pageMarginRight": PRINT_RIGHT_MARGIN, "adjustPageHeight": False,
+                 "justifyVertically": True, "justificationBraceGroup": 0.15, "justificationStaff": 0.4}
 ONE_PAGE_BARS = 32
+THIN_LINE = 0.67
+MOST_SQUEEZE = 1.12
+SQUEEZE_COST = 2.75
 
 ANNOTATED_OPTIONS = {
     "svgBoundingBoxes": True,
@@ -147,36 +159,55 @@ def render(
 
     slurs.untangle(toolkit, relayout)
     _move_text_off_stems(toolkit, relayout)
-    drawn = None
-    if results is not None:
-        _make_room_for_checks(toolkit, relayout, index, ties, results)
-    else:
-        drawn = _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role)
-    if not drawn:
-        drawn = []
+    def draw_pages() -> list[PageLayout]:
+        layouts = []
         for page in range(1, toolkit.getPageCount() + 1):
             layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
             if results is None:
                 layout.draw(annotations, view, role)
             else:
                 check_display.draw(layout, results, page == toolkit.getPageCount())
-            drawn.append(layout)
+            layouts.append(layout)
+        return layouts
+
+    drawn = None
+    if results is not None:
+        _make_room_for_checks(toolkit, relayout, index, ties, results)
+    else:
+        drawn = _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role)
+    drawn = drawn or draw_pages()
     for layout in drawn:
         tint.flag_bars(layout, index, shaded_bars)
     pages = [layout.to_svg() for layout in drawn]
     callouts = sorted({int(number) for layout in drawn for kind, number in layout.shown if kind == "callout"})
-    if not key or results is not None:
-        return Engraving(pages, callouts=callouts)
+    with_key = key and results is None
+
+    def print_pages() -> list[str]:
+        cues = page_key.cues_on(drawn) if with_key and piano else []
+        left = min(system.left for layout in drawn for system in layout.systems)
+        right = max(system.right for layout in drawn for system in layout.systems) - (PRINT_RIGHT_MARGIN - SIDE_MARGIN) * UNIT
+        guide = page_key.height(drawn, left, right, cues) if with_key else 0.0
+        toolkit.setOptions({**PRINT_OPTIONS, "pageMarginBottom": round(FOOT_MARGIN + guide / UNIT + KEY_GAP) if guide else PRINT_MARGIN})
+        toolkit.redoLayout()
+        printed = draw_pages()
+        for layout in printed:
+            tint.flag_bars(layout, index, shaded_bars)
+        if guide:
+            page_key.draw(printed, printed[-1], cues, foot=FOOT_MARGIN * UNIT)
+        return [layout.to_svg() for layout in printed]
+
+    if not with_key:
+        return Engraving(pages, print_pages=print_pages if results is None else None, callouts=callouts)
     from engine import page_key
     shown = drawn[:preview_pages]
     preview_key = page_key.draw(shown, shown[-1], page_key.cues_on(shown) if piano else [], page_key.SCREEN_SIZE)
     preview = [*pages[: len(shown) - 1], shown[-1].to_svg(), *pages[len(shown) :]]
     if len(drawn) == len(shown):
-        return Engraving(preview, preview_svgs=preview, key_drawn=preview_key, preview_key_drawn=preview_key, callouts=callouts)
+        return Engraving(preview, preview_svgs=preview, print_pages=print_pages, key_drawn=preview_key, preview_key_drawn=preview_key,
+                         callouts=callouts)
     key_drawn = page_key.draw(drawn, drawn[-1], page_key.cues_on(drawn) if piano else [])
-    return Engraving([*pages[:-1], drawn[-1].to_svg()], preview_svgs=preview, key_drawn=key_drawn, preview_key_drawn=preview_key,
-                     callouts=callouts)
-
+    return Engraving([*pages[:-1], drawn[-1].to_svg()], preview_svgs=preview, print_pages=print_pages, key_drawn=key_drawn,
+                     preview_key_drawn=preview_key, callouts=callouts)
 
 def _make_room_for_checks(toolkit, relayout, index, ties, results) -> None:
     from engine import check_display
@@ -411,8 +442,10 @@ def _balance_systems(toolkit, index: ScoreIndex, measures: tuple[int, int] | Non
         0.0 if number.get(id) in good else 40.0 if number.get(id) in bad or not first_bar[position] else 6.0
         for position, (id, _) in enumerate(bars)
     ]
-    starts = _breaks([width for _, width in bars], line, penalty, opening, opening if measures else 0.0)
     mei = re.sub(r"<(sb|pb)\b[^>]*/>", "", toolkit.getMEI())
+    worded = {found.group(1) for found in re.finditer(r'<measure\b[^>]*xml:id="([^"]+)"(?:(?!</measure>).)*?<verse\b', mei, flags=re.S)}
+    rigid = {position for position, (id, _) in enumerate(bars) if id in worded}
+    starts = _breaks([width for _, width in bars], line, penalty, opening, opening if measures else 0.0, rigid)
     for position in starts:
         start = mei.index(f'xml:id="{bars[position][0]}"')
         start = mei.rindex("<measure", 0, start)
@@ -424,16 +457,32 @@ def _balance_systems(toolkit, index: ScoreIndex, measures: tuple[int, int] | Non
     toolkit.redoLayout()
 
 
-def _breaks(widths: list[float], line: float, penalty: list[float], opening: float = 0.0, first_opening: float = 0.0) -> list[int]:
+def _breaks(widths: list[float], line: float, penalty: list[float], opening: float = 0.0, first_opening: float = 0.0,
+            rigid: set[int] = frozenset()) -> list[int]:
+    starts = _cheapest_breaks(widths, line, penalty, opening, first_opening, set(), rigid)
+    lone = _lone_bars(widths, starts, line, opening, first_opening)
+    if not lone - rigid:
+        return starts
+    squeezed = _cheapest_breaks(widths, line, penalty, opening, first_opening, lone - rigid, rigid)
+    return squeezed if len(_lone_bars(widths, squeezed, line, opening, first_opening)) < len(lone) else starts
+
+
+def _cheapest_breaks(widths: list[float], line: float, penalty: list[float], opening: float, first_opening: float,
+                     squeezable: set[int], rigid: set[int]) -> list[int]:
     count = len(widths)
     best: list[tuple[float, int]] = [(0.0, -1)] + [(math.inf, -1)] * count
     for end in range(1, count + 1):
         for begin in range(end - 1, -1, -1):
             width = sum(widths[begin:end]) + (opening if begin else first_opening)
-            if width > line and end - begin > 1:
+            if width > line * MOST_SQUEEZE and end - begin > 1:
                 break
             fill = width / line
-            shortfall = 2 * max(0.0, 0.75 - fill) if end == count else 1 - fill
+            if fill > 1 and end - begin > 1:
+                if not squeezable.intersection(range(begin, end)) or rigid.intersection(range(begin, end)):
+                    continue
+                shortfall = SQUEEZE_COST * (fill - 1)
+            else:
+                shortfall = 2 * max(0.0, 0.75 - fill) if end == count else 1 - fill
             cost = best[begin][0] + 100 * shortfall**2 + 10 + (penalty[begin] if begin else 0)
             if cost < best[end][0]:
                 best[end] = (cost, begin)
@@ -443,3 +492,10 @@ def _breaks(widths: list[float], line: float, penalty: list[float], opening: flo
         if end:
             starts.append(end)
     return sorted(starts)
+
+
+def _lone_bars(widths: list[float], starts: list[int], line: float, opening: float, first_opening: float) -> set[int]:
+    return {
+        begin for begin, end in zip([0, *starts], starts)
+        if end - begin == 1 and widths[begin] + (opening if begin else first_opening) < THIN_LINE * line
+    }

@@ -1,3 +1,4 @@
+import io
 import re
 import xml.etree.ElementTree as ET
 from fractions import Fraction
@@ -6,7 +7,7 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageChops
 
-from engine import annotate, correct, notes, piano, reduce
+from engine import annotate, correct, notes, page_key, piano, reduce
 from engine.annotate import render
 from engine.annotations import Alternative, AnnotationList
 from engine.check_analysis import ClarificationNeeded, from_musicxml, from_text, student_labels
@@ -14,7 +15,7 @@ from engine.check_analysis import as_text as student_check
 from engine.export import _document, export_musicxml
 from engine.part_writing import applies, as_text, check
 from engine.performance import marked_index, perform
-from engine.overlay import PageLayout
+from engine.overlay import PageLayout, S
 from engine.read_pdf import problem_spots
 from engine.render import Engraving, load_toolkit
 from engine.score import ScoreIndex
@@ -322,6 +323,61 @@ def test_every_system_holds_the_bars_chosen_for_it(name, excerpt, monkeypatch):
     engraving = render(data, AnnotationList.model_validate({"annotations": []}), measures=(numbers[0], numbers[min(7, len(numbers) - 1)]) if excerpt else None)
     drawn = [len(re.findall(r'class="measure"', system)) for svg in engraving.svgs for system in svg.split('class="system"')[1:]]
     assert not chosen or chosen[0] == drawn, name
+
+
+@score_ids
+def test_a_bar_stands_alone_on_a_thin_line_only_when_no_neighbour_fits_beside_it(name, monkeypatch):
+    data, _ = load(name)
+    choices, choose = [], annotate._breaks
+
+    def watched_choice(widths, line, penalty, opening=0.0, first_opening=0.0, rigid=frozenset()):
+        starts = choose(widths, line, penalty, opening, first_opening, rigid)
+        choices.append((widths, line, opening, first_opening, rigid, starts))
+        return starts
+
+    monkeypatch.setattr(annotate, "_breaks", watched_choice)
+    render(data, AnnotationList.model_validate({"annotations": []}))
+    for widths, line, opening, first_opening, rigid, starts in choices:
+        for bar in annotate._lone_bars(widths, starts, line, opening, first_opening):
+            for pair in ((bar - 1, bar), (bar, bar + 1)):
+                if 0 <= pair[0] and pair[1] < len(widths) and not rigid.intersection(pair):
+                    shared = widths[pair[0]] + widths[pair[1]] + (opening if pair[0] else first_opening)
+                    assert shared > annotate.MOST_SQUEEZE * line, (name, bar)
+
+
+@score_ids
+@pytest.mark.parametrize("excerpt", [False, True], ids=["whole", "excerpt"])
+def test_every_page_of_the_pdf_is_a_letter_sheet_with_the_guide_at_its_foot(name, excerpt, monkeypatch):
+    from pypdf import PdfReader
+
+    pages, draw = [], page_key.draw
+
+    def watch(layouts, layout, cues=(), size=page_key.PRINT_SIZE, foot=None):
+        if foot is not None:
+            pages.extend(layouts)
+        return draw(layouts, layout, cues, size, foot)
+
+    monkeypatch.setattr(page_key, "draw", watch)
+
+    data, index = load(name)
+    numbers = [measure.number for measure in index.measures if measure.number > 0]
+    marks = AnnotationList.model_validate({"annotations": [{"type": "cadence", "at": {"measure": numbers[0], "beat": 1}, "label": "PAC"}]})
+    engraving = render(data, marks, measures=(numbers[0], numbers[min(7, len(numbers) - 1)]) if excerpt else None, key=True)
+    sheets = PdfReader(io.BytesIO(engraving.pdf())).pages
+    assert {(round(float(sheet.mediabox.width)), round(float(sheet.mediabox.height))) for sheet in sheets} == {(612, 792)}, name
+    assert len(pages) == len(sheets), name
+    foot = annotate.FOOT_MARGIN * annotate.UNIT
+    for number, layout in enumerate(pages):
+        _, _, width, height = map(float, layout.root.find(f"{S}svg").get("viewBox").split())
+        assert height / width == pytest.approx(11 / 8.5, abs=0.001), (name, number)
+        bottom = page_key._sheet_bottom(layout)
+        lowest = max(system.bottom() for system in layout.systems)
+        guide = [float(text.get("y")) for group in layout.root.iter(f"{S}g") if group.get("class") == "page-key" for text in group.iter(f"{S}text")]
+        assert bool(guide) == (number == len(pages) - 1), (name, number)
+        assert lowest <= bottom - foot, (name, number)
+        if guide:
+            assert bottom - foot - page_key.PRINT_SIZE <= max(guide) <= bottom - foot, (name, number)
+            assert lowest <= min(guide) - page_key.PRINT_SIZE, (name, number)
 
 
 @score_ids
