@@ -116,7 +116,7 @@ def as_text(mei: str, index: ScoreIndex, first: int | None = None, last: int | N
         who = ("right hand" if staff == upper else "left hand") if keyboard else f"{name} (staff {staff})" if name else f"staff {staff}"
         place, other = SIDE_NAMES[side]
         switch = "switch to tenor or treble clef" if clef == "bass" and not keyboard and side == "above" else other[clef]
-        lines.append(f"Bars {start}–{end}, {who}: notes sit {place.format(clef=clef)}; "
+        lines.append(f"Bars {index.name_of(start)}–{index.name_of(end)}, {who}: notes sit {place.format(clef=clef)}; "
                      f"many editions {switch} here.")
     return ("LEDGER LINES (the clef is the user's; do not change it. Mention each line below once in your reply.)\n"
             + "\n".join(lines))

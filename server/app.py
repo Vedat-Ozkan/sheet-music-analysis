@@ -51,7 +51,7 @@ from engine import correct, draft, read_ahead, verovio_workers
 from engine import notes as note_list
 from engine import read_pdf as pdf_reader
 from engine import check_analysis, ledger, part_writing, reduce
-from engine.annotate import AnnotationError, leave_out_rejected, render
+from engine.annotate import AnnotationError, by_number, leave_out_rejected, render
 from engine.performance import marked_index, performance_text, unclear_tempos
 from engine.annotations import AnnotationList, view_named
 from engine.errors import UserError
@@ -673,7 +673,8 @@ DRAW_STEP = (
     "harmony, voice_leading or form), show the page and write the commentary.\n"
 )
 GUIDE_RULES = (
-    "Positions: `measure` is the printed number (a pickup is 0); `beat` is 1-based in the unit given above; "
+    "Positions: `measure` is the bar as the NOTES table names it: its printed number, or a name like \"16a\" for a "
+    "bar the printed copy does not number (a pickup is 0); `beat` is 1-based in the unit given above; "
     "`pitch` is like \"Eb4\" at sounding pitch; `staff` 1 is the top staff.\n\n"
     "If there is a PART-WRITING CHECK section (chorale-style scores only), your first reply must include one "
     "sentence offering to check the voice leading, even when it also asks which bars to analyse; draw nothing from it "
@@ -699,14 +700,14 @@ NOTES_GUIDE = (
 METHOD = "## Method" + SKILL_RULES
 
 
-def make_draft(score: bytes, code: str, measures: tuple[int, int] | None, student_analysis: str | None = None) -> str:
+def make_draft(score: bytes, code: str, named: tuple[str, str] | None, student_analysis: str | None = None) -> str:
     with stage("parse"):
         mei = load_toolkit(score).getMEI()
         index = ScoreIndex(mei)
     with stage("build"):
-        first, last = measures or (None, None)
+        first, last = index.numbers(named) or (None, None)
         unit = index.measure(first or index.measures[-1].number).beat_length
-        numbers = f"{index.measures[0].number} to {index.measures[-1].number}"
+        numbers = index.name_span
         sections = [
             ("part_writing", lambda: part_writing.as_text(index, None, first, last)),
             ("ledger", lambda: ledger.as_text(mei, index, first, last)),
@@ -773,8 +774,8 @@ NOTHING_DRAWN = (
 VIEW_NAMES = {"all": "", "harmony": ", harmony only", "voice_leading": ", voice leading only", "form": ", form only"}
 
 
-def card_caption(measures: tuple[int, int] | None, view: str, piano: bool) -> str:
-    bars = f"bars {measures[0]}–{measures[1]}" if measures and measures[0] != measures[1] else f"bar {measures[0]}" if measures else "the whole score"
+def card_caption(named: tuple[str, str] | None, view: str, piano: bool) -> str:
+    bars = f"bars {named[0]}–{named[1]}" if named and named[0] != named[1] else f"bar {named[0]}" if named else "the whole score"
     return f"Analysis of {bars}{VIEW_NAMES[view]}" + (", piano reduction" if piano else "")
 
 
@@ -808,12 +809,13 @@ async def shaded_bars(score_id: str) -> list[int]:
     return json.loads(await anyio.to_thread.run_sync(store.get, shaded_key(score_id)) or b"[]")
 
 
-async def draw(score: bytes, annotations: AnnotationList, measures: tuple[int, int] | None, view: str, piano: bool,
-               shaded: list[int]):
+async def draw(score: bytes, annotations: AnnotationList, index: ScoreIndex, measures: tuple[int, int] | None, view: str,
+               piano: bool, shaded: list[int]):
     engraving, annotations, problems = await in_turn(
-        lambda: leave_out_rejected(lambda kept: render(score, kept, measures=measures, view=view, piano=piano,
+        lambda: leave_out_rejected(lambda kept: render(score, by_number(kept, index), measures=measures, view=view, piano=piano,
                                                        shaded_bars=shaded, key=True, preview_pages=CARD_PAGES),
                                      annotations))
+    annotations = by_number(annotations, index)
     left_out = ["Left out, for the reason on each line (fix them and call again to add them; numbers refer to your "
                 "list):\n" + "\n".join(problems)] if problems else []
     return engraving, annotations, left_out
@@ -825,7 +827,9 @@ async def draw(score: bytes, annotations: AnnotationList, measures: tuple[int, i
     description=(
         "Use this after draft_analysis, once you have reviewed the draft, to draw your analysis on the engraved "
         "score. Takes the score_id and your annotation list and returns the page as an image plus PNG, PDF and MusicXML "
-        "links, shown to the user in a card. If a position does not exist in the score, the error lists each "
+        "links, shown to the user in a card. A bar is its printed number or, for a bar the printed copy does not number "
+        "(such as a second-time ending), the name the draft gives it, such as \"16a\"; measure_range takes the same, "
+        "e.g. \"16a-20\". If a position does not exist in the score, the error lists each "
         "problem so you can fix the list and call again. Draw the whole stretch the user asked for in one call, "
         "even a whole piece, so they get one PDF; analyse a long piece passage by passage first. view is one of all, harmony, voice_leading, form. "
         "Set annotations.style to abrsm (letter inversions, Ib, Vc) when the user mentions ABRSM, figured_bass when they ask "
@@ -852,21 +856,24 @@ async def render_analysis(
     asked = len(annotations.annotations)
     try:
         score, _ = await resolve_score(None, score_id, source)
-        measures = parse_measures(measure_range)
+        named = parse_measures(measure_range)
         view = view_named(view)
+        with stage("parse"):
+            index = await in_turn(lambda: ScoreIndex(load_toolkit(score).getMEI()))
+        measures = index.numbers(named)
         shaded = [bar for bar in await shaded_bars(score_id) if not measures or measures[0] <= bar <= measures[1]]
         if not await take("render", source):
             log("limit", tool="render_analysis", platform=source)
             return error_result(LIMIT_MESSAGE)
         with stage("render"):
-            engraving, annotations, left_out = await draw(score, annotations, measures, view, piano, shaded)
+            engraving, annotations, left_out = await draw(score, annotations, index, measures, view, piano, shaded)
     except AnnotationError as error:
         log("render_analysis", platform=source, problems=len(error.problems))
         return error_result("Fix these annotations and call again:\n" + "\n".join(error.problems))
     except UserError as error:
         log("render_analysis", platform=source, error=type(error).__name__)
         return error_result(str(error))
-    measure_range = f"{measures[0]}-{measures[1]}" if measures else "all"
+    measure_range = f"{named[0]}-{named[1]}" if named else "all"
     musicxml, export_warning = None, None
     try:
         with stage("export"):
@@ -903,7 +910,8 @@ async def render_analysis(
                   "Tell the user to open the PDF for the rest." if engraving.page_count > CARD_PAGES else "")
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
         view=view, measure_range=measure_range, left_out=asked - len(annotations.annotations) or None)
-    structured_content = {**links, "caption": card_caption(measures, view, piano), "shaded_bars": shaded}
+    shaded = [index.measure(bar).printed for bar in shaded]
+    structured_content = {**links, "caption": card_caption(named, view, piano), "shaded_bars": shaded}
     if not asked:
         left_out.append(NOTHING_DRAWN.format(score_id=score_id))
     else:
@@ -1369,13 +1377,14 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
 
     def render():
         spots = pdf_reader.problem_spots(score)
-        numbers = [measure.number for measure in ScoreIndex(load_toolkit(score).getMEI()).measures]
+        index = ScoreIndex(load_toolkit(score).getMEI())
+        named = ([index.measure(bar).printed for bar in spots[0]], spots[1])
         return (pdf_reader.preview(score, spots=spots), engrave(score),
-                pdf_reader.notice(score, reading["scan"], reading["skipped"], spots, reading.get("low_resolution", False), opening=READING_SHOWN) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
-                f"{numbers[0]} to {numbers[-1]}", len(numbers), spots[0])
+                pdf_reader.notice(score, reading["scan"], reading["skipped"], named, reading.get("low_resolution", False), opening=READING_SHOWN) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
+                index.name_span, len(index.measures), spots[0], named[0])
 
     with stage("render"):
-        shaded, engraving, notice, measures, bars, uneven = await in_turn(render)
+        shaded, engraving, notice, measures, bars, uneven, uneven_named = await in_turn(render)
     await anyio.to_thread.run_sync(store.put, shaded_key(score_id), json.dumps(uneven).encode())
     more_pages = shaded.page_count > CARD_PAGES
     if more_pages:
@@ -1394,7 +1403,7 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
     log("read_pdf_work", pages=reading["pages"], scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached),
         passes=passes, bars=bars, bars_shaded=len(uneven))
     return {"score_id": score_id, "pages": reading["pages"], "measures": measures, "bars": bars, "notice": notice, "image_url": image_url,
-            "pdf_url": pdf_url, "more_pages": more_pages, "shaded_bars": uneven, "page_images": [base64.b64encode(png).decode() for png in pages]}
+            "pdf_url": pdf_url, "more_pages": more_pages, "shaded_bars": uneven_named, "page_images": [base64.b64encode(png).decode() for png in pages]}
 
 
 def doubtful_reading(card: dict) -> str:
@@ -1571,7 +1580,7 @@ SITE = "https://sheetmusicanalysis.com"
     description=(
         "Shows the user a small piano player in the chat, with play, pause and a seek bar. Use it when the user "
         "wants to hear the passage or score. Pass the score_id that choose_score, fetch_score, read_fetched_pdf or "
-        "correct_bars gave and the bars to play as measure_range, e.g. \"1-8\" (\"all\" plays the whole score). It plays the "
+        "correct_bars gave and the bars to play as measure_range, e.g. \"1-8\" or \"16a-20\" (\"all\" plays the whole score). It plays the "
         "score's tempo, dynamics, pedal marks and ornaments. tempo, in quarter notes per minute, is only for a tempo "
         "word whose speed play says is unclear: ask the user, then pass their answer. play_id and notes are only for "
         "older versions of the Sheet Music Analysis plugin (1.8.0 and earlier); in a new chat use score_id."
@@ -1585,8 +1594,9 @@ async def play(ctx: Context, score_id: str | None = None, measure_range: str = "
     try:
         if score_id:
             score, _ = await resolve_score(None, score_id, source)
-            measures = parse_measures(measure_range)
+            named = parse_measures(measure_range)
             index = await in_turn(marked_index, score)
+            measures = index.numbers(named)
         else:
             measures = None
             if play_id and (stored := await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(play_id)}.notes")):
@@ -1616,9 +1626,9 @@ async def play(ctx: Context, score_id: str | None = None, measure_range: str = "
     )
 
 
-def played_bars(index, measures: tuple[int, int] | None) -> list[int]:
-    first, last = index.measures[0].number, index.measures[-1].number
-    return [max(first, measures[0]), min(last, measures[1])] if measures else [first, last]
+def played_bars(index, measures: tuple[int, int] | None) -> list[int | str]:
+    first, last = measures or (index.measures[0].number, index.measures[-1].number)
+    return [index.measure(first).printed, index.measure(last).printed]
 
 
 apps.add_html_resource(
@@ -1779,13 +1789,13 @@ async def draft_analysis(
     measure_range: str = "all",
     student_analysis: str | None = None,
 ) -> CallToolResult:
-    """measure_range limits the table, e.g. "1-8"; the default "all" returns the whole piece."""
+    """measure_range limits the table, e.g. "1-8" or "16a-20"; the default "all" returns the whole piece."""
     source = platform(ctx)
     started = time.time()
     code = None
     try:
         score, given = await resolve_score(score_file, score_id, source)
-        measures = parse_measures(measure_range)
+        named = parse_measures(measure_range)
         if student_analysis and student_analysis.strip().lower() != "score":
             await in_turn(check_analysis.from_text, student_analysis)
         if not await take("draft", source):
@@ -1803,7 +1813,7 @@ async def draft_analysis(
                 code = secrets.token_hex(8).upper()
                 await remember_sent(person, score, code)
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)
-        text = await in_turn(make_draft, score, code, measures, student_analysis)
+        text = await in_turn(make_draft, score, code, named, student_analysis)
     except check_analysis.ClarificationNeeded as error:
         kept = f"\nThe score is saved as score_id: {code}. Call again with it and the user's answer." if code else ""
         return error_result(QUESTION_FOR_USER + error.question + kept)
@@ -1818,12 +1828,18 @@ async def draft_analysis(
 
 
 async def current_bars(score: bytes | None, replacement_bars: str, part: str | None) -> str:
-    bars = sorted({int(number) for number in re.findall(r"^\s*m(\d+)\b", replacement_bars, re.M)})
-    if score is None or not bars or part is not None:
+    names = re.findall(r"^\s*m(\d+[a-z]*)\b", replacement_bars, re.M | re.I)
+    if score is None or not names or part is not None:
         return ""
-    first, last = bars[0], min(bars[-1], bars[0] + 3)
+
+    def bars() -> tuple[str, str, str]:
+        index = marked_index(score)
+        given = sorted({index.bar(name).number for name in names})
+        first, last = given[0], min(given[-1], given[0] + 3)
+        return index.name_of(first), index.name_of(last), note_list.encode(index, first, last)
+
     try:
-        text = await in_turn(lambda: note_list.encode(marked_index(score), first, last))
+        first, last, text = await in_turn(bars)
     except Exception as error:
         log("correct_bars", current_bars_error=type(error).__name__)
         return ""
@@ -1835,7 +1851,7 @@ CORRECT_BARS_DESCRIPTION = (
     "you can see is misread when you are confident what it should be. Pass its score_id and replacement_bars "
     "in N1 format, replacing every voice of each listed bar and including every staff. Example:\n"
     "N1 div=24 ts=4/4 ks=0\nm3 len=96\n1.1: 24 C4 D4 48 E4\n"
-    "div is units per quarter note; m3 is printed bar 3; len is its length in those units. "
+    "div is units per quarter note; m3 is printed bar 3 (m16a is the bar the draft names 16a); len is its length in those units. "
     "Each staff.voice line uses numbers to set the duration for following tokens, + for chords, r for rests, "
     "g for grace notes (u for slashed ones) and ~ for ties to the next note; pitches are sounding pitches (e.g. F#4, Bb3). "
     "Every voice must explicitly fill the existing bar, including rests. A bar line may also carry ts= or ks= where the meter or key signature changes. Header and bar-line key/meter do not change the score. "

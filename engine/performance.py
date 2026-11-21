@@ -140,7 +140,7 @@ def _playing_order(index: ScoreIndex, root: ET.Element) -> list[Measure] | None:
     return played or None
 
 
-def unclear_tempos(index: ScoreIndex, measures: tuple[int, int] | None = None) -> list[tuple[int, str]]:
+def unclear_tempos(index: ScoreIndex, measures: tuple[int, int] | None = None) -> list[tuple[str, str]]:
     tempos = [(measure, mark) for measure in index.measures for mark in measure.marks if mark.kind == "tempo"]
     if measures:
         chosen = _chosen(index, measures)
@@ -150,7 +150,7 @@ def unclear_tempos(index: ScoreIndex, measures: tuple[int, int] | None = None) -
         before = [(measure, mark) for measure, mark in tempos if position[id(measure)] < first][-1:]
         replaced = any(measure is chosen[0] and mark.offset == 0 for measure, mark in inside)
         tempos = ([] if replaced else before) + inside
-    return [(measure.number, mark.value) for measure, mark in tempos if mark.value in TEMPO_WORDS]
+    return [(measure.name, mark.value) for measure, mark in tempos if mark.value in TEMPO_WORDS]
 
 
 def perform(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: float | None = None) -> tuple[list[Note], list[tuple[float, int]], float]:
@@ -161,7 +161,7 @@ def perform(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: f
             try:
                 return float(value)
             except ValueError:
-                raise UserError(f"Bar {measure.number} is marked {value!r}; give the tempo in quarter notes per minute "
+                raise UserError(f"Bar {measure.name} is marked {value!r}; give the tempo in quarter notes per minute "
                                  f"or as one of {', '.join(TEMPO_WORDS)}") from None
         return tempo or TEMPO_WORDS[value] * float(measure.beat_length)
 

@@ -262,7 +262,7 @@ def number_bars(layout: PageLayout, index: ScoreIndex) -> float | None:
         if geometry is None or measure.number < 2:
             continue
         system = layout.systems[geometry.system]
-        string = str(measure.number)
+        string = measure.name
         width, height = text.width(string, BAR_NUMBER_SIZE), BAR_NUMBER_SIZE
         top = min(box.y for box in geometry.lines)
         spots = [(geometry.x0 + 60, top - 90 - rise) for rise in range(0, 2400, 100)]

@@ -151,7 +151,7 @@ def mismatches(annotations: list[dict], index: ScoreIndex) -> list[str]:
             continue
         heard = {pc % 12 for group in groups for pc, _ in group}
         lowest = {min(group)[0] % 12 for group in groups}
-        where = f"m{measure.number} b{float(item['at'].get('beat', 1)):g} {label} (in {key})"
+        where = f"m{measure.name} b{float(item['at'].get('beat', 1)):g} {label} (in {key})"
         missing = [NAMES[pc] for pc in sorted(named.tones) if pc not in heard]
         if named.seventh is not None and named.seventh not in heard:
             found.append(f"{where}: its seventh, {NAMES[named.seventh]}, never sounds while this chord lasts")

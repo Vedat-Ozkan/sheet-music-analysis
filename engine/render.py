@@ -24,7 +24,7 @@ from PIL import Image, ImageChops
 
 from engine.errors import UserError
 from engine.reduce import midi
-from engine.score import TOLERANCE, PositionError, ScoreIndex
+from engine.score import TOLERANCE, Measure, PositionError, ScoreIndex
 from engine.text import FONT_DIR, FONT_FILES, MAIN as TEXT_FONT
 
 if TYPE_CHECKING:
@@ -115,16 +115,13 @@ class ScoreError(UserError):
 UNREADABLE = "This file looks like MusicXML but its music could not be read"
 
 
-def parse_measures(measure_range: str | None) -> tuple[int, int] | None:
+def parse_measures(measure_range: str | None) -> tuple[str, str] | None:
     if not measure_range or measure_range.strip().lower() == "all":
         return None
-    match = re.fullmatch(r"\s*(\d+)\s*(?:[-\u2013\u2014]\s*(\d+)\s*)?", measure_range)
+    match = re.fullmatch(r"\s*(\d+[a-z]*)\s*(?:[-\u2013\u2014]\s*(\d+[a-z]*)\s*)?", measure_range.lower())
     if not match:
-        raise ScoreError('measure_range must look like "1-8" or "5", or be "all"')
-    first, last = int(match[1]), int(match[2] or match[1])
-    if first > last:
-        raise ScoreError(f'measure_range must start at the lower bar, e.g. "{last}-{first}"')
-    return first, last
+        raise ScoreError('measure_range must look like "1-8", "5" or "16a-20", or be "all"')
+    return match[1], match[2] or match[1]
 
 
 @dataclass
@@ -244,7 +241,9 @@ def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool
 
 def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool, labelled_bars: Collection[int]) -> None:
     mei = toolkit.getMEI()
-    patched = re.sub(r"<measure\b(?:(?!</measure>).)*?<multiRest\b.*?</measure>", lambda m: _multi_rest(m, labelled_bars), mei, flags=re.S)
+    patched = _number_unmarked_pickup(mei)
+    rests = _rest_bars(patched)
+    patched = re.sub(r"<measure\b(?:(?!</measure>).)*?<multiRest\b.*?</measure>", lambda m: _multi_rest(m, rests, labelled_bars), patched, flags=re.S)
     patched = _count_ahead_in_drawn_bars(patched)
     for part, name in names.items():
         patched = re.sub(rf'(<staffDef\b[^>]*xml:id="{re.escape(part)}"[^>]*>\s*<label\b[^>]*>)[^<]*', lambda m: m.group(1) + escape(name), patched)
@@ -299,28 +298,40 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool, la
     patched = _spread_ties(patched)
     patched = _slurs_to_chords(patched)
     patched = _clefs_before_barlines(patched)
-    patched = _number_unmarked_pickup(patched)
     patched = _name_drawn_bars(patched)
     patched = _unbeam_noteless(patched)
     if patched != mei:
         toolkit.loadData(patched)
 
 
-def _multi_rest(match: re.Match, labelled_bars: Collection[int]) -> str:
+def _rest_bars(mei: str) -> dict[str, list[Measure]]:
+    if "<multiRest" not in mei:
+        return {}
+    rests: dict[str, list[Measure]] = {}
+    for measure in ScoreIndex(mei).measures:
+        if rests and measure.id.startswith(f"{last.id}-"):
+            rests[last.id].append(measure)
+        else:
+            last = measure
+            rests[measure.id] = [measure]
+    return rests
+
+
+def _multi_rest(match: re.Match, rests: dict[str, list[Measure]], labelled_bars: Collection[int]) -> str:
     measure = match.group(0)
     opening = measure[: measure.index(">") + 1]
-    number = re.search(r'\bn="(\d+)"', opening)
-    if not number:
+    identity = re.search(r'xml:id="([^"]+)"', opening)
+    bars = rests.get(identity.group(1)) if identity else None
+    if not bars:
         return measure
-    count = int(re.search(r'<multiRest\b[^>]*\bnum="(\d+)"', measure).group(1))
-    first = int(number.group(1))
-    if count > 1 and not any(first < bar < first + count for bar in labelled_bars):
+    if len(bars) > 1 and not any(bar.number in labelled_bars for bar in bars[1:]):
         return measure
     right = re.search(r'\sright="[^"]*"', opening)
-    if right and count > 1:
+    if right and len(bars) > 1:
         measure = measure.replace(opening, opening.replace(right.group(0), ""), 1)
     staves = "".join(f'<staff n="{n}"><layer n="1"><mRest /></layer></staff>' for n in re.findall(r'<staff\b[^>]*\bn="(\d+)"', measure))
-    copies = [f'<measure n="{first + k}"{right.group(0) if right and k == count - 1 else ""}>{staves}</measure>' for k in range(1, count)]
+    copies = [f'<measure xml:id="{bar.id}" n="{bar.name}"{right.group(0) if right and bar is bars[-1] else ""}>{staves}</measure>'
+              for bar in bars[1:]]
     return re.sub(r"<multiRest\b[^>]*/>", "<mRest />", measure) + "".join(copies)
 
 

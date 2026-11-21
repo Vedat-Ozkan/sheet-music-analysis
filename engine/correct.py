@@ -84,7 +84,7 @@ def _bars_from_index(selected, index, first, last=None):
     for line in text.splitlines():
         if line.startswith("m"):
             finish()
-            measure = index.measure(int(line.split()[0][1:]))
+            measure = index.bar(line.split()[0][1:])
             seen = set()
         elif ":" in line:
             staff, voice = map(int, line.split(":")[0].split("."))
@@ -116,28 +116,29 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
             if not line or line.startswith("x:"):
                 continue
             if line.startswith("m"):
-                current = int(line.split()[0][1:])
+                bar = index.bar(line.split()[0][1:])
+                current, name = bar.number, bar.name
                 if current in replacements:
-                    raise CorrectionError(f"Bar {current} is repeated")
+                    raise CorrectionError(f"Bar {name} is repeated")
                 replacements[current] = {}
             else:
                 label, body = line.split(":", 1)
                 staff, voice = map(int, label.split("."))
                 if staff <= 0 or voice <= 0 or (staff, voice) in replacements[current]:
-                    raise CorrectionError(f"Bar {current}: invalid or repeated voice {label}")
+                    raise CorrectionError(f"Bar {name}: invalid or repeated voice {label}")
                 duration, total, groups = Fraction(0), Fraction(0), []
                 for token in body.split():
                     if token.isdigit():
                         duration = Fraction(int(token), div)
                         if duration <= 0:
-                            raise CorrectionError(f"Bar {current}: duration must be positive")
+                            raise CorrectionError(f"Bar {name}: duration must be positive")
                         continue
                     grace = token[0] if token.startswith(("g", "u")) else False
                     names = token[1:] if grace else token
                     if not grace and duration <= 0:
-                        raise CorrectionError(f"Bar {current}: note/rest has no duration")
+                        raise CorrectionError(f"Bar {name}: note/rest has no duration")
                     if names != "r" and any(not re.fullmatch(r"[A-G](?:#+|b+)?[0-9]~?", n) for n in names.split("+")):
-                        raise CorrectionError(f"Bar {current}: invalid pitch {names!r}")
+                        raise CorrectionError(f"Bar {name}: invalid pitch {names!r}")
                     if grace and names == "r":
                         raise CorrectionError("Grace rests are not supported")
                     groups.append((names, Fraction(0) if grace else duration, grace))
@@ -148,9 +149,10 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
         unchanged = set()
         for number, voices in replacements.items():
             original = index.measure(number)
+            name = original.name
             canonical = _bars_from_index(selected, index, number)
-            supplied = decoded.measure(number)
-            reference = notes.decode(canonical).measure(number)
+            supplied = decoded.bar(name)
+            reference = notes.decode(canonical).bar(name)
             def signature(bar):
                 return [(e.staff, e.layer, e.onset, e.duration, e.pitch, e.grace, e.tied, e.attack) for e in bar.events]
             canonical_voices = {line.split(":", 1)[0] for line in canonical.splitlines() if ":" in line}
@@ -162,23 +164,23 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                 timed = False
                 for element in selected.findall("measure")[segment.index - 1]:
                     if timed and element.tag == "attributes" and any(child.tag != "divisions" for child in element):
-                        raise CorrectionError(f"Bar {number}: mid-bar attributes cannot be corrected")
+                        raise CorrectionError(f"Bar {name}: mid-bar attributes cannot be corrected")
                     timed = timed or element.tag in {"note", "backup", "forward"}
             if set(s for s, _ in voices) != set(range(1, staves + 1)):
-                raise CorrectionError(f"Bar {number}: include all {staves} staves")
+                raise CorrectionError(f"Bar {name}: include all {staves} staves")
             as_read = _durations(canonical)
             for label, (total, groups) in voices.items():
                 if total != original.length:
-                    raise CorrectionError(f"Bar {number}, voice {label[0]}.{label[1]} adds up to {total}; expected {original.length} quarter notes")
+                    raise CorrectionError(f"Bar {name}, voice {label[0]}.{label[1]} adds up to {total}; expected {original.length} quarter notes")
                 for _, duration, grace in groups:
                     written = Duration(duration)
                     if not grace and duration not in as_read and (written.type == "inexpressible"
                                       or any(t.durationNormal.type != written.type for t in written.tuplets)):
                         raise CorrectionError(
-                            f"Bar {number}: a duration of {duration * div} at div={div} cannot be written as one note; use plain "
+                            f"Bar {name}: a duration of {duration * div} at div={div} cannot be written as one note; use plain "
                             "or dotted note values, notes of a simple tuplet such as a triplet, or tied notes")
-            if decoded.measure(number).length != original.length:
-                raise CorrectionError(f"Bar {number}: len must match the existing bar length")
+            if supplied.length != original.length:
+                raise CorrectionError(f"Bar {name}: len must match the existing bar length")
     except CorrectionError:
         raise
     except ZeroDivisionError as error:
@@ -292,7 +294,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                     ET.SubElement(note, "voice").text = str(voice if (staff, voice) in written_voices else staff * 1000 + voice)
                     d = Duration(duration if not grace else Fraction(1, 2))
                     if d.type == "complex":
-                        raise CorrectionError(f"Bar {number}: duration {duration} needs tied notes")
+                        raise CorrectionError(f"Bar {owners[number].name}: duration {duration} needs tied notes")
                     ET.SubElement(note, "type").text = d.type
                     for _ in range(d.dots):
                         ET.SubElement(note, "dot")
@@ -337,7 +339,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
         if timing(original) != timing(after.measure(original.number)):
             raise CorrectionError("Divisions normalization would change untouched bars' imported timing")
         if (following is None or following.number not in changed_numbers) and ties(original) != ties(after.measure(original.number)):
-            raise CorrectionError(f"Bar {original.number}: the correction would change ties in this untouched bar")
+            raise CorrectionError(f"Bar {original.name}: the correction would change ties in this untouched bar")
     return result
 
 
@@ -396,10 +398,10 @@ def _beam_voice(voice_notes, measure, segment, divisions):
 
 @dataclass
 class CorrectionReview:
-    changed_bars: list[int]
+    changed_bars: list[int | str]
     ranges: list[tuple[int, int]]
     engravings: list[Engraving]
-    notes: dict[int, str]
+    notes: dict[int | str, str]
 
 
 def review_correction(before: bytes, after: bytes, *, part: str | None = None) -> CorrectionReview:
@@ -417,12 +419,13 @@ def review_correction(before: bytes, after: bytes, *, part: str | None = None) -
         if other is selected:
             break
         above += max((int(s.text) for s in other.iterfind("measure/attributes/staves")), default=1)
-    changed, descriptions, marked = [], {}, set()
+    changed, printed, descriptions, marked = [], [], {}, set()
     for original, corrected in zip(old.measures, new.measures):
         if events(original) == events(corrected) and original.length == corrected.length:
             continue
         changed.append(corrected.number)
-        descriptions[corrected.number] = _change_note(original, corrected)
+        printed.append(corrected.printed)
+        descriptions[corrected.printed] = _change_note(original, corrected)
         marked |= {(corrected.number, e.staff + above, e.onset, e.duration, e.pitch, e.tied, e.grace)
                    for e in _changed_events(original, corrected)}
     ranges = []
@@ -431,7 +434,7 @@ def review_correction(before: bytes, after: bytes, *, part: str | None = None) -
             ranges[-1] = (ranges[-1][0], number)
         else:
             ranges.append((number, number))
-    return CorrectionReview(changed, ranges, [_engrave_marked(after, bounds, marked) for bounds in ranges], descriptions)
+    return CorrectionReview(printed, ranges, [_engrave_marked(after, bounds, marked) for bounds in ranges], descriptions)
 
 
 def _changed_events(old_bar, new_bar):
@@ -549,7 +552,7 @@ def _change_note(before, after):
     if before.length != after.length:
         changes.append("the bar length changed")
     text = "; ".join(dict.fromkeys(changes)) or "the notes changed"
-    return f"Bar {after.number}: {text}."
+    return f"Bar {after.name}: {text}."
 
 
 def _segment_replacements(index, replacements):

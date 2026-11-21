@@ -334,7 +334,7 @@ def as_text(index: ScoreIndex, chords=None, first: int | None = None, last: int 
         if not es:
             return None
         e = es[0]
-        return json.dumps({"measure": e.measure, "beat": index.measure(e.measure).beat_of(e.onset), "staff": e.staff, "pitch": e.pitch}, separators=(",", ":"))
+        return json.dumps({"measure": index.measure(e.measure).printed, "beat": index.measure(e.measure).beat_of(e.onset), "staff": e.staff, "pitch": e.pitch}, separators=(",", ":"))
 
     def pitch_of(pos, voice):
         return midi(at[pos][voice][0].pitch) if at[pos].get(voice) else None
@@ -386,9 +386,9 @@ def as_text(index: ScoreIndex, chords=None, first: int | None = None, last: int 
                 if word and word not in labels:
                     labels.append(word)
     for n, (pos, (findings, drawn, at_note)) in enumerate(sorted(spots.items()), 1):
-        lines.append(f"{n}. m{pos[0]} b{pos[1]:g}, callout at {at_note}")
+        lines.append(f"{n}. m{index.name_of(pos[0])} b{pos[1]:g}, callout at {at_note}")
         for f in findings:
-            where = " to ".join(f"m{b} b{beat:g}" for b, beat in zip(f.bars, f.beats))
+            where = " to ".join(f"m{index.name_of(b)} b{beat:g}" for b, beat in zip(f.bars, f.beats))
             lines.append(f"   {f.rule.replace('_', ' ')} {'+'.join(names[v] for v in f.voices)} {where}: {f.why}")
         for (kind, refs), labels in drawn.items():
             for word in labels or [None]:

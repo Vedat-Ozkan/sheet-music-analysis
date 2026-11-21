@@ -37,6 +37,23 @@ class AnnotationError(UserError):
         self.rejected = rejected or set()
 
 
+def by_number(annotations: AnnotationList, index: ScoreIndex) -> AnnotationList:
+    problems, rejected, numbered = [], set(), []
+    for number, annotation in enumerate(annotations.annotations):
+        places = {}
+        for name, place in vars(annotation).items():
+            if hasattr(place, "measure"):
+                try:
+                    places[name] = place.model_copy(update={"measure": index.bar(place.measure).number})
+                except PositionError as error:
+                    problems.append(f"annotations[{number}] ({annotation.type}): {error}")
+                    rejected.add(number)
+        numbered.append(annotation.model_copy(update=places))
+    if problems:
+        raise AnnotationError(problems, rejected)
+    return annotations.model_copy(update={"annotations": numbered})
+
+
 def check(annotations: AnnotationList, index: ScoreIndex) -> None:
     problems, rejected = [], set()
     key = None
@@ -47,7 +64,7 @@ def check(annotations: AnnotationList, index: ScoreIndex) -> None:
             try:
                 notation.numeral(harmony.label, key, annotations.style, 440)
             except ValueError as error:
-                problems.append(f"harmony at measure {harmony.at.measure} beat {harmony.at.beat}: {error}")
+                problems.append(f"harmony at measure {index.name_of(harmony.at.measure)} beat {harmony.at.beat}: {error}")
                 rejected.add(number)
     for number, annotation in enumerate(annotations.annotations):
         try:

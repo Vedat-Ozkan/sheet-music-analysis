@@ -227,12 +227,13 @@ def _key_note(pairs):
     return f'the tool hears this in {_key_name(tool_key)}: {pairs_text}.'
 
 
-def _span(start, end):
+def _span(index, start, end):
+    first, last = index.name_of(start["measure"]), index.name_of(end["measure"])
     if start == end:
-        return f'Bar {start["measure"]}, beat {start["beat"]:g}'
+        return f'Bar {first}, beat {start["beat"]:g}'
     if start['measure'] == end['measure']:
-        return f'Bar {start["measure"]}, beats {start["beat"]:g}–{end["beat"]:g}'
-    return f'Bar {start["measure"]} beat {start["beat"]:g} to bar {end["measure"]} beat {end["beat"]:g}'
+        return f'Bar {first}, beats {start["beat"]:g}–{end["beat"]:g}'
+    return f'Bar {first} beat {start["beat"]:g} to bar {last} beat {end["beat"]:g}'
 
 
 def _wrap(string, width):
@@ -336,7 +337,7 @@ def draw(layout, results, last_page=True):
             if not isinstance(note, str):
                 note = _key_note(note)
             at = _badge(layout, system.left, y - 110, number_, color).right + 110
-            for line in _wrap(f'{_span(start, end)}: {note}', system.right - at):
+            for line in _wrap(f'{_span(layout.index, start, end)}: {note}', system.right - at):
                 layout._text(at, y, line, SIZE)
                 bottom = y + 140
                 y += NOTE_LINE

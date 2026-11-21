@@ -19,6 +19,7 @@ MARK = re.compile(
 MAX_CHARS = 200_000
 METER = re.compile(r"(?:[1-9]\d*/[1-9]\d*)?")
 KEY = re.compile(r"0|[1-7][sf]")
+BAR_NAME = re.compile(r"\d+[a-zA-Z]*")
 
 
 class NotesError(UserError):
@@ -51,7 +52,7 @@ def encode(index: ScoreIndex, first: int | None = None, last: int | None = None)
     meter, key = index.meter, index.key_signature or "0"
     lines = [f"{VERSION} div={div} ts={meter} ks={key}" + (" orn=upper" if index.ornaments_from_above else "")]
     for measure in measures:
-        header = f"m{measure.number} len={_units(measure.length, div)}"
+        header = f"m{measure.name} len={_units(measure.length, div)}"
         if measure.meter and measure.meter != meter:
             meter = measure.meter
             header += f" ts={meter}"
@@ -156,7 +157,7 @@ def decode(text: str) -> ScoreIndex:
         for number, line in numbered[1:]:
             if line.startswith("m"):
                 parts = line.split()
-                if not all("=" in part for part in parts[1:]) or not parts[0][1:].isdigit():
+                if not all("=" in part for part in parts[1:]) or not BAR_NAME.fullmatch(parts[0][1:]):
                     raise NotesError(f"Line {number}: a bar line looks like 'm3 len=96', not {line!r}")
                 fields = dict(part.split("=", 1) for part in parts[1:])
                 if "len" not in fields:
@@ -166,8 +167,9 @@ def decode(text: str) -> ScoreIndex:
                 _check_signatures(current_meter, current_key)
                 measure = Measure(
                     id=f"m{len(measures) + 1}",
-                    number=int(parts[0][1:]),
+                    number=len(measures) + 1,
                     index=len(measures) + 1,
+                    name=parts[0][1:].lower(),
                     beat_length=beat_length(*map(int, current_meter.split("/"))) if current_meter else Fraction(1),
                     meter=current_meter,
                     key_signature=current_key,
@@ -194,9 +196,20 @@ def decode(text: str) -> ScoreIndex:
         raise NotesError(f"The note list could not be read: {error}") from error
     if not measures:
         raise NotesError("The note list has no measures")
+    _number_by_name(measures)
     index = ScoreIndex.from_measures(measures, meter, key)
     index.ornaments_from_above = settings.get("orn") == "upper"
     return index
+
+
+def _number_by_name(measures: list[Measure]) -> None:
+    named = [int(measure.name) if measure.name.isdigit() else None for measure in measures]
+    if None in named or any(later <= earlier for earlier, later in zip(named, named[1:])):
+        named = [position - (measures[0].name == "0") for position in range(1, len(measures) + 1)]
+    for measure, number in zip(measures, named):
+        measure.number = number
+        for event in measure.events:
+            event.measure = number
 
 
 def _read_voice(tokens: list[str], measure: Measure, staff: int, layer: int, div: int) -> None:

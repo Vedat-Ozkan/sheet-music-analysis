@@ -75,6 +75,10 @@ class Measure:
             self.segments = [Segment(self.id, self.index, Fraction(0))]
 
     @property
+    def printed(self) -> int | str:
+        return int(self.name) if _whole(self.name) else self.name
+
+    @property
     def last_index(self) -> int:
         return self.segments[-1].index
 
@@ -97,7 +101,7 @@ class Measure:
                 offset = nearest
         if offset < 0 or (self.length and offset >= self.length):
             beats = float(self.length / self.beat_length)
-            raise PositionError(f"Measure {self.number} has no beat {beat}; its beats run from 1 up to {1 + beats:g}")
+            raise PositionError(f"Measure {self.name} has no beat {beat}; its beats run from 1 up to {1 + beats:g}")
         return offset
 
     def beat_of(self, offset: Fraction) -> float:
@@ -211,6 +215,7 @@ class ScoreIndex:
         self.meter = ""
         self.key_signature = ""
         self.renumbered = False
+        self.named_by_count = False
         self._ppq: dict[int, int] = {}
         self._transposition: dict[int, int] = {}
         self._written_fifths: dict[int, int] = {}
@@ -240,6 +245,7 @@ class ScoreIndex:
     def from_measures(cls, measures: list[Measure], meter: str, key_signature: str) -> ScoreIndex:
         index = cls.__new__(cls)
         index.measures, index.meter, index.key_signature, index.renumbered = measures, meter, key_signature, False
+        index.named_by_count = False
         for measure in measures:
             measure.name = measure.name or str(measure.number)
         index._finish()
@@ -316,8 +322,8 @@ class ScoreIndex:
         self._drawn_bars += 1
         self._drawn_position[self._position] = self._drawn_bars
         self._read_meter(element)
-        label = element.get("n", "")
-        if element.get("label") not in (None, label):
+        label = element.get("label", element.get("n", ""))
+        if label != element.get("n", ""):
             self.renumbered = True
         numbered = label.lstrip("-").isdigit()
         incomplete = element.get("metcon") == "false"
@@ -417,6 +423,7 @@ class ScoreIndex:
     def _name_bars(self) -> None:
         numbers = [int(measure.label) for measure in self.measures if _whole(measure.label)]
         if any(later < earlier for earlier, later in zip(numbers, numbers[1:])):
+            self.named_by_count = True
             for measure in self.measures:
                 measure.name = str(measure.number)
             return
@@ -431,16 +438,30 @@ class ScoreIndex:
                 extra += 1
                 measure.name = f"{base}{_letters(extra)}"
 
+    @property
+    def name_span(self) -> str:
+        return f"{self.measures[0].name} to {self.measures[-1].name}"
+
     def bar(self, name: str | int) -> Measure:
-        wanted = str(name).strip()
+        wanted = str(name).strip().lower()
         if wanted not in self._by_name:
-            raise PositionError(f"Measure {wanted} does not exist; the score has measures {self.measures[0].name} to {self.measures[-1].name}")
+            raise PositionError(f"Measure {wanted} does not exist; the score has measures {self.name_span}")
         return self._by_name[wanted]
+
+    def numbers(self, names: tuple[str, str] | None) -> tuple[int, int] | None:
+        if names is None:
+            return None
+        first, last = self.bar(names[0]), self.bar(names[1])
+        if first.number > last.number:
+            raise PositionError(f"Measures {first.name}-{last.name} run backwards; give the first bar first, e.g. {last.name}-{first.name}")
+        return first.number, last.number
+
+    def name_of(self, number: int) -> str:
+        return self.measure(number).name
 
     def measure(self, number: int) -> Measure:
         if number not in self._by_number:
-            first, last = self.measures[0].number, self.measures[-1].number
-            raise PositionError(f"Measure {number} does not exist; the score has measures {first} to {last}")
+            raise PositionError(f"Measure {number} does not exist; the score has measures {self.name_span}")
         return self._by_number[number]
 
     def range_start(self, first: int, *, include_pickup: bool = True) -> Measure:
@@ -468,6 +489,6 @@ class ScoreIndex:
             return matches[0]
         if here:
             found = ", ".join(f"{event.pitch} (staff {event.staff})" for event in here)
-            raise PositionError(f"No note matches staff={staff} pitch={pitch} at measure {measure} beat {beat}; notes there: {found}")
+            raise PositionError(f"No note matches staff={staff} pitch={pitch} at measure {bar.name} beat {beat}; notes there: {found}")
         beats = sorted({round(bar.beat_of(event.onset), 3) for event in notes})
-        raise PositionError(f"No note starts at measure {measure} beat {beat}; notes start at beats {beats}")
+        raise PositionError(f"No note starts at measure {bar.name} beat {beat}; notes start at beats {beats}")
