@@ -371,6 +371,18 @@ def test_no_reading_reports_why_each_setting_failed():
     assert [p["problems"] for p in caught.value.passes] == [["StepException", "no staff lines found"]] * len(SETTINGS)
 
 
+@pytest.mark.parametrize("exit_code, lasting", [(0, True), (137, False)])
+def test_finding_no_music_is_lasting_only_when_every_pass_exited_cleanly(exit_code, lasting):
+    scan = (Path(__file__).parent / 'data/pdf_warnings/kinkel_trennung_scan.pdf').read_bytes()
+
+    def raw(data, audiveris, setting, leland, deadline, stop):
+        return RawReading(None, [], {"outcome": "no music", "exit_code": exit_code if setting == 0 else 0})
+
+    with pytest.raises(ReadError) as caught:
+        read_pdf(scan, raw=raw)
+    assert caught.value.lasting is lasting
+
+
 def test_the_reasons_logged_for_a_failed_page_carry_no_text_from_it():
     output = ("WARN  [score]  Book 2044 | Error processing stub org.audiveris.omr.step.StepException: "
               "Sonata in C by A Composer\nSheet score#1 flagged as invalid.\n")

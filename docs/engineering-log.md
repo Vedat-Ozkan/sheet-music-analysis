@@ -3293,6 +3293,20 @@ Run of 2026-10-03, Opus review, 19 pieces with a readable source, 431 claims:
 
 Modal and colouristic music is now the largest group, and Ravel is the one piece where Opus did not improve on Sonnet. That is the next area to work on.
 
+### 186. An unreadable PDF is not read again, the proxy key changes without refusing calls, production images are kept for rollback, deploys wait for CI (2026-11-20, branch `server-fixes`, nothing released)
+
+Four findings of the 2026-11-20 cold review, each checked against the code or the registry first.
+
+**Unreadable PDFs were read again.** A PDF the reader could not read was read in full again on every resend (up to 480 s of reading each time) and charged again: a score and up to eight shared pages. The record of the failure (`scores/pdf-failed-…`, keyed by the reader version like the readings themselves) was only looked at by a second machine waiting on the same read. Now the record keeps the reason, and a resend of a PDF whose reading failed for a reason that will not change gets the same answer and the same reference straight away, with nothing read or charged. Lasting means: the file is not a PDF, or every reading pass exited cleanly and found no music (also when that is then explained as a scan too small to read). Anything else is read again: a timeout, a pass that crashed or was killed (an out-of-memory kill also ends as "no music", but with a non-zero exit code), or output the engine could not use, because those can come from a busy instance. The answer is rebuilt for the platform asking, so a ChatGPT failure no longer reaches Claude with ChatGPT's card wording; that also fixes the wait on another machine, which returned the stored text as it was. A new `READER` label still starts afresh, as it does for readings.
+
+**Changing the proxy key refused every call for a while.** `proxy/set-key.sh` gave the Worker the new key before the service, so production answered 403 until the new revision was live, and for good if the last step failed. The server now also accepts `PROXY_KEY_PREVIOUS`; the script gives the service both keys first, then the Worker the new one, then removes the old one from the service. If the service or Worker step fails it puts the service back and switches the new version off. NOT RUN: the script acts on production.
+
+**The rollback image was already gone.** Production images were pushed only as `:latest`, so the previous one became untagged at each production deploy, and the registry deletes untagged images beyond the five newest `server` versions, which staging builds share. On 2026-11-20 the image of `00064-tcs`, the rollback named in the release record, and of `00063-qcs` were already deleted: production had no revision to roll back to. The live image is now tagged `prod-00065-fjv` by hand, and `server/deploy.sh` tags each new production image `prod-<revision>`, the same name as the git tag. Tagged images are never deleted by the policy; the deploy keeps the `prod-` tag on the newest three production images only, so older ones become untagged and are cleaned up. The registry held 3.2 GB (about US$0.27 a month above the free 0.5 GB); on 2026-11-21, with the owner's OK, the four old tagged images nothing used (`rollback-00024`, `rollback-00027`, `verovio-workers`, `verovio-baseline`) were deleted.
+
+**Production deploys did not check CI.** The script checked for a clean checkout of `origin/main` while the runbook and CLAUDE.md said it also waited for CI. It now asks GitHub for the `tests` run on that commit and refuses unless it passed.
+
+Tests: a resent unreadable PDF is read once and charged once with the same answer; a timed-out one is read twice; a server with both keys serves either and refuses a third. The waiting-on-another-machine test now uses a timed-out reading, since a final failure no longer starts a second read.
+
 ### 187. A voice keeps its number from bar to bar; a key change shared by all parts is read in concert pitch (2026-11-20, branch `engine-identity`, nothing released)
 
 Two findings of the 2026-11-20 cold review.
