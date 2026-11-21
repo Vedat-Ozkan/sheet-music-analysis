@@ -3293,6 +3293,15 @@ Run of 2026-10-03, Opus review, 19 pieces with a readable source, 431 claims:
 
 Modal and colouristic music is now the largest group, and Ravel is the one piece where Opus did not improve on Sonnet. That is the next area to work on.
 
+### 188. The headline figure's source is committed; the README's stale facts are fixed and checked (2026-11-20, branch `process-gates`, nothing released)
+
+From the 2026-11-20 cold review.
+
+- **The 99% had no source in git.** The README, site and listing quote 0.694 against 0.697 on 36 pieces, but `eval/results/README.md` said the file behind it was "not copied here". `ladder-multi-opus-medium-multi-alone-table.json` is now in `eval/results/` (219 KB; per piece only scores and counts, no expert labels, so the licence rule for that folder holds), and the README links it.
+- **The README was out of date.** It said 23 evaluation pieces with twelve labelled (the code has 25 and 13), named the deleted `skill/scripts/read_pdf.py` as a place the OCR data is pinned (it is `Dockerfile.base` and the CI workflow), pointed local PDF tests at the stock Audiveris build (which gives wrong results for five of them), and gave a bare `pytest` as the test command, which is slow and skips the PDF tests without saying so. All four are corrected. A new test in `tests/test_site_facts.py` fails when the README names a file under one of the repository's folders that does not exist; on the old README it finds `skill/scripts/read_pdf.py`.
+- **main was not protected.** Anyone, an agent included, could push to `main` without CI. The protection (CI check `test` required, also for admins, no force pushes) is in a script for the owner to run; this session was not allowed to change repository settings. The production deploy's own CI check is on branch `server-fixes` (log 186).
+- **Not changed: the user files.** `tests/conftest.py` turns a missing git-ignored fixture into a skip, and the PDFs that crashed for users are git-ignored on purpose (they are users' files), so CI never runs them. Running them in CI needs the private bucket and a credential in GitHub; that is the owner's call.
+
 ## Reproducing
 
 ```bash

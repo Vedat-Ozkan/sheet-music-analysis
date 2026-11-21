@@ -24,7 +24,7 @@ Scored on 36 pieces that two independent experts each analysed chord by chord (B
 | Ours against an expert | **0.694** | 0.885 |
 | One expert against the other | 0.697 | 0.907 |
 
-Ours is 99% of the experts' figure at the strict level (0.6939 / 0.6974), with ours minus experts +0.012 (95% bootstrap interval over pieces −0.027 to +0.052). Precision, the share of our chords an expert agrees with, is 0.720. Scored by duration instead, the strict level is 0.74 for us against 0.70. How the test was run, in plain words: [`site/method.html`](site/method.html).
+Ours is 99% of the experts' figure at the strict level (0.6939 / 0.6974), with ours minus experts +0.012 (95% bootstrap interval over pieces −0.027 to +0.052). Precision, the share of our chords an expert agrees with, is 0.720. Scored by duration instead, the strict level is 0.74 for us against 0.70. How the test was run, in plain words: [`site/method.html`](site/method.html). The scores behind these figures, piece by piece: [`eval/results/ladder-multi-opus-medium-multi-alone-table.json`](eval/results/ladder-multi-opus-medium-multi-alone-table.json), read as described in [`eval/results/README.md`](eval/results/README.md).
 
 Where the two experts disagree, matching either one earns us half credit and earns the pair nothing, so the comparison favours us a little on Beethoven and the mazurkas. Measured with Claude Opus; ChatGPT has not been measured this way.
 
@@ -67,7 +67,7 @@ This project would not exist without [AnalysisGNN](https://github.com/manoskary/
 | `site/`, `wrangler.jsonc` | The website at sheetmusicanalysis.com: landing page, how-to-use, privacy and terms, plus the clef icons the server reports to chat hosts. Static files served by Cloudflare; publish with `npx wrangler@4 deploy`. `site/.assetsignore` keeps local `.uuid` files off the site. `site/piano/` holds the chat player's piano samples; it is not in git, so run `uv run --with soundfile python tools/piano_samples.py` before publishing. |
 | `openai-plugin/` | The ChatGPT listing package: `plugin.json` (listing text, icon, review test cases), `mcp.json` (the server address) and icons. Upload it zipped at platform.openai.com/plugins: `cd openai-plugin && zip -r ../out/sheet-music-analysis-openai.zip plugin.json mcp.json assets`. Bump `version` with each upload. |
 | `proxy/` | A Cloudflare Worker that serves the Cloud Run server at mcp.sheetmusicanalysis.com, the address given to Claude and ChatGPT. Publish with `npx wrangler@4 deploy -c proxy/wrangler.jsonc`. |
-| `engine/read_pdf.py`, `engine/triplets.py` | Reading a PDF: Audiveris from our fork (https://github.com/Vedat-Ozkan/audiveris, release `5.11.0-sma.8`, AGPL-3.0; never delete a release, publish a new one), two readings with different settings started together (the second at low priority with its own time budget, stopped when the first is clean), keeping the one with fewest bars that don't add up; a PDF over 8 pages has its first 8 read (log 86), then cleaning and inferring triplets printed without a "3" (log 35). Audiveris reads text such as tempo words only with Tesseract's English data, `eng.traineddata` from https://github.com/tesseract-ocr/tessdata (Apache-2.0, pinned in `Dockerfile.base` and `skill/scripts/read_pdf.py`), in a `tessdata` folder beside its `bin` folder. |
+| `engine/read_pdf.py`, `engine/triplets.py` | Reading a PDF: Audiveris from our fork (https://github.com/Vedat-Ozkan/audiveris, release `5.11.0-sma.8`, AGPL-3.0; never delete a release, publish a new one), two readings with different settings started together (the second at low priority with its own time budget, stopped when the first is clean), keeping the one with fewest bars that don't add up; a PDF over 8 pages has its first 8 read (log 86), then cleaning and inferring triplets printed without a "3" (log 35). Audiveris reads text such as tempo words only with Tesseract's English data, `eng.traineddata` from https://github.com/tesseract-ocr/tessdata (Apache-2.0, pinned in `Dockerfile.base` and `.github/workflows/test.yml`), in a `tessdata` folder beside its `bin` folder. |
 | `engine/correct.py` | Replaces misread bars of a reading with corrected bars in the `engine/notes.py` text form, for fixing a PDF reading in the chat. Used by the server's `correct_bars`. |
 | `engine/part_writing.py`, `engine/check_analysis.py`, `engine/comparison.py`, `engine/notation.py`, `engine/export.py` | Voice-leading checks for chorale-style scores (the PART-WRITING CHECK in the `draft_analysis` reply); reading a student's numerals and testing each against the notes of its beat (the STUDENT CHECK), and comparing two analyses (`comparison.py`, shared with `eval/`); ABRSM and figured-bass label text; writing the numerals into the user's MusicXML as bass lyrics. All used by the skill and the server. |
 | `spike/omr/bench/` | PDF reading benchmark: 23 pieces, 57 PDFs (MuseScore, LilyPond, Verovio, scans), scored at the engine's level by kind of mistake; `bench-heldout*` are unseen sets. Only the scripts are committed: `build.py` rebuilds the pieces and PDFs (some music21 encodings' licences are unverified, so they are not redistributed). |
@@ -80,8 +80,10 @@ This project would not exist without [AnalysisGNN](https://github.com/manoskary/
 ```bash
 uv sync --python 3.11
 .venv/bin/python -m playwright install --only-shell chromium
-.venv/bin/python -m pytest
+.venv/bin/python -m pytest -q -rs -n auto
 ```
+
+The PDF tests run only when `AUDIVERIS` points at the launcher of the reader build CI downloads (our fork's `5.11.0-sma.8`, see `.github/workflows/test.yml`); without it they are skipped, and the stock Audiveris release gives wrong results for five of them.
 
 Render the example to `out/`:
 
@@ -106,7 +108,7 @@ open('out/example.pdf', 'wb').write(page.pdf())
 
 Runs 31 scores through reading, the note table, the note list, engraving, the draft model and rendering: Bach chorales, Classical and Romantic quartets, songs and piano music from the music21 corpus, and impressionist and early twentieth-century piano music (Ravel, Debussy, Satie, Scriabin, Rachmaninoff, Prokofiev, Schoenberg) downloaded on first use into `out/`. The downloaded transcriptions are for local testing and are not committed. Results go to `out/robustness/report.json`.
 
-Two PDFs in `tests/data` also run through Audiveris and then the same stages, with slurs left out as in the server's default reading. Set `AUDIVERIS` to its launcher (locally, `AUDIVERIS=spike/omr/tools/audiveris-deb/x/opt/audiveris/bin/Audiveris`, with `eng.traineddata` in `spike/omr/tools/audiveris-deb/x/opt/audiveris/tessdata`); when it is unavailable, these cases report `NOT RUN`. The report includes page counts, scan detection, skipped pages and the reading notice.
+Two PDFs in `tests/data` also run through Audiveris and then the same stages, with slurs left out as in the server's default reading. Set `AUDIVERIS` to its launcher (the fork's build, as in Setup, with `eng.traineddata` in a `tessdata` folder beside its `bin` folder); when it is unavailable, these cases report `NOT RUN`. The report includes page counts, scan detection, skipped pages and the reading notice.
 
 ## Engraving check
 
@@ -125,7 +127,7 @@ Draws nine analysed passages, from a Bach chorale to Dvořák's full orchestra, 
 .venv/bin/python -m eval.judge                                 # compare with what a teacher wrote about each piece
 ```
 
-`eval/pieces.py` lists 23 pieces from Bach to Ravel, each paired with a published human analysis (how they were chosen is in `reports/Scores with published analyses.md`). Twelve have a chord-by-chord reading by a human analyst that a script can compare against; the rest have prose only. Scores, labels and results are kept in `out/eval/` and are not committed. The review and judge steps call `claude -p`. With `ANTHROPIC_API_KEY` in `.env` (not committed) they bill to that API key, and each run's cost is added to `out/api-spend.jsonl`; without it they use the account Claude Code is signed in with.
+`eval/pieces.py` lists 25 pieces from Bach to Ravel, each paired with a published human analysis (how they were chosen is in `reports/Scores with published analyses.md`). Thirteen have a chord-by-chord reading by a human analyst that a script can compare against; the rest have prose only. Scores, labels and results are kept in `out/eval/` and are not committed. The review and judge steps call `claude -p`. With `ANTHROPIC_API_KEY` in `.env` (not committed) they bill to that API key, and each run's cost is added to `out/api-spend.jsonl`; without it they use the account Claude Code is signed in with.
 
 Results, and the problems met along the way, are written up in `docs/engineering-log.md`.
 
