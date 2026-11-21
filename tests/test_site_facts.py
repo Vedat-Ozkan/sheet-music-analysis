@@ -39,3 +39,9 @@ def test_no_stale_wording(name):
     text = page(name).lower()
     for stale in ("two days", "function colours", "a few minutes"):
         assert stale not in text
+
+
+def test_every_repository_file_the_readme_names_exists():
+    readme = (ROOT / "README.md").read_text()
+    named = set(re.findall(r"`((?:\.github|docs|engine|eval|plugin|proxy|server|site|skill|tests|tools)/[\w./-]+\.\w+)`", readme))
+    assert named and not sorted(path for path in named if not (ROOT / path).exists())

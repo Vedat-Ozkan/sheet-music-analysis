@@ -122,7 +122,7 @@ def render(
     check(annotations, index)
     results = None
     if student_labels is not None:
-        from engine import check_analysis, check_display
+        from engine import check_display
         results = check_display.compare(student_labels, annotations.model_dump(exclude_none=True), index)
         annotations = check_display.reserve(results)
     ties = incoming_ties(toolkit, index, measures[0]) if measures else set()

@@ -57,3 +57,9 @@ default-groups = ["dev", "server"]
 addopts = "--dist loadgroup"
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.ruff]
+extend-exclude = ["spike", "vendor", "analysisgnn", "out"]
+
+[tool.ruff.lint]
+select = ["F"]

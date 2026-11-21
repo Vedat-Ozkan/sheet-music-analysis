@@ -16,7 +16,7 @@ from PIL import Image
 from engine import tint
 from engine.overlay import Box, PageLayout
 from engine.performance import marked_index
-from engine.read_pdf import MOST_DRAWN_PIXELS, drawn_pixels, enlarged_for_interline, file_facts, is_scan, page_width_height, without_oversize_pages, text_meaning, PREVIEW_OPTIONS, SETTINGS, AudiverisRun, PdfReading, RawReading, ReadError, ScanTooSmall, audiveris_facts, audiveris_options, audiveris_read, clean, join_movements, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
+from engine.read_pdf import MOST_DRAWN_PIXELS, drawn_pixels, enlarged_for_interline, file_facts, is_scan, page_width_height, without_oversize_pages, text_meaning, PREVIEW_OPTIONS, SETTINGS, AudiverisRun, RawReading, ReadError, ScanTooSmall, audiveris_facts, audiveris_options, audiveris_read, clean, join_movements, notice, number_bars, open_pdf, preview, problem_spots, _problem_spots, read_pdf, uses_leland, without_slurs
 from engine.render import engrave, load_toolkit, noteless_beams
 from engine.score import ScoreIndex
 from engine.triplets import infer_triplets

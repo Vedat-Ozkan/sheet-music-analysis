@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import xml.etree.ElementTree as ET
 from fractions import Fraction
 
 from music21 import key as m21key
