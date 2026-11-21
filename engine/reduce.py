@@ -65,7 +65,10 @@ def as_text(index: ScoreIndex, first: int | None = None, last: int | None = None
         f"one beat = {_beat(shown)}.",
         f"The score has measures {index.measures[0].number} to {index.measures[-1].number}"
         + (" (0 is a pickup; its beat 1 is its first note)." if index.measures[0].number == 0 else ".")
-        + (" The file's own bar numbers repeat, so bars are counted here in order." if index.renumbered else ""),
+        + (" Bars are counted here in order, and the drawn pages show the same numbers, but the file numbers some bars"
+           " differently (a second-time ending, a bar split by a repeat sign, or a repeated number), so after such a bar"
+           " these numbers can run ahead of the user's printed copy; say so if the user gives printed bar numbers."
+           if index.renumbered else ""),
         "Each row: beat | lowest note | pitch classes sounding, low to high | notes per staff as pitch@beat-where-it-starts.",
         "",
     ]
