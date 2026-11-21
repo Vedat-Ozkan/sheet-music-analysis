@@ -259,8 +259,10 @@ class ScoreIndex:
         if signature is None and (shared := element.find(f"{MEI}keySig")) is not None:
             signature = _shifted(shared.get("sig"), self._written_fifths.get(1, 0))
         if signature is None:
-            key = element.find(f".//{MEI}keySig")
-            signature = key.get("sig") if key is not None else element.get("keysig") or element.get("key.sig")
+            written = next(((int(staff_def.get("n", "1")), found) for staff_def in element.iter(f"{MEI}staffDef")
+                            if (found := staff_def.find(f"{MEI}keySig")) is not None), None)
+            signature = (_shifted(written[1].get("sig"), self._written_fifths.get(written[0], 0)) if written
+                         else element.get("keysig") or element.get("key.sig"))
         if signature:
             self._key_signature = signature
             self.key_signature = self.key_signature or signature

@@ -132,6 +132,17 @@ def test_a_key_change_shared_by_all_parts_is_read_in_concert_pitch_when_the_top_
     assert [measure.key_signature for measure in index.measures] == ["0", "1s"]
 
 
+def test_a_solo_transposing_part_is_read_in_concert_pitch_before_and_after_a_key_change():
+    clarinet = '<transpose><diatonic>-1</diatonic><chromatic>-2</chromatic></transpose>'
+    score = ('<?xml version="1.0" encoding="UTF-8"?><score-partwise version="4.0"><part-list>'
+             '<score-part id="P1"><part-name>Clarinet in Bb</part-name></score-part></part-list>'
+             '<part id="P1"><measure number="1"><attributes><divisions>1</divisions><key><fifths>2</fifths></key>'
+             f'<time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef>{clarinet}</attributes>{note("C", 5, 1)}</measure>'
+             f'<measure number="2"><attributes><key><fifths>4</fifths></key></attributes>{note("D", 5, 1)}</measure></part></score-partwise>').encode()
+    index = ScoreIndex(load_toolkit(score).getMEI())
+    assert [measure.key_signature for measure in index.measures] == ["0", "2s"]
+
+
 def mxl(container: str | None, score: bytes) -> bytes:
     data = io.BytesIO()
     with zipfile.ZipFile(data, "w") as archive:
