@@ -11,7 +11,7 @@ from music21 import meter
 from music21 import roman
 
 from engine.reduce import midi
-from engine.score import ScoreIndex, beat_length
+from engine.score import BEAT_DENOMINATOR, ScoreIndex, beat_length
 
 FUNCTIONS = {"1": "T", "3": "T", "6": "T", "2": "PD", "4": "PD", "5": "D", "7": "D"}
 MEASURE_LINE = re.compile(r"^m(\d+)(var\d+)?([a-z])?(?:-(\d+))?\s*(?:=\s*m(\d+)(?:-(\d+))?)?\s*(.*)$")
@@ -184,7 +184,7 @@ class Timeline:
             if measure is None:
                 missing += 1
                 continue
-            inside = max(Fraction(0), (Fraction(label.beat).limit_denominator(96) - 1) * measure.beat_length)
+            inside = max(Fraction(0), (Fraction(label.beat).limit_denominator(BEAT_DENOMINATOR) - 1) * measure.beat_length)
             placed.append((self.starts[label.measure] + min(inside, measure.length), sounding(label.key, label.figure)))
         placed.sort(key=lambda item: item[0])
         ends = [start for start, _ in placed[1:]] + [self.total]

@@ -10,7 +10,7 @@ from music21 import meter as m21meter
 from engine.comparison import beat_ratio
 from engine.performance import performance_midi
 from engine.render import check_range, load_toolkit
-from engine.score import STEPS, TOLERANCE, ScoreIndex
+from engine.score import BEAT_DENOMINATOR, STEPS, TOLERANCE, ScoreIndex
 
 _SUPERSCRIPTS = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹', '0123456789')
 
@@ -183,7 +183,7 @@ def export_romantext(original: bytes, analysis: dict, measures: tuple[int, int] 
             continue
         if key is None:
             return None
-        beat = Fraction(annotation['at'].get('beat', 1)).limit_denominator(96)
+        beat = Fraction(annotation['at'].get('beat', 1)).limit_denominator(BEAT_DENOMINATOR)
         measure = index.measure(number)
         if measure.is_pickup:
             full = index.measure(1).length

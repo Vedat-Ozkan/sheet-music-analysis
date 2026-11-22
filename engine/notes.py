@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 
 from engine.errors import UserError
-from engine.score import Event, Mark, Measure, ScoreIndex, beat_length, parse_meter
+from engine.score import POSITION_DENOMINATOR, Event, Mark, Measure, ScoreIndex, beat_length, parse_meter
 
 VERSION = "N1"
 ORNAMENTS = ("tr", "mu", "ml", "tu", "tl")
@@ -88,13 +88,13 @@ def _read_marks(tokens: list[str], measure: Measure) -> None:
         if not match:
             raise ValueError(f"unknown mark {token!r}")
         found = match.groupdict()
-        at = Fraction(next(found[f"at{n}"] for n in range(1, 6) if found[f"at{n}"])).limit_denominator(960)
+        at = Fraction(next(found[f"at{n}"] for n in range(1, 6) if found[f"at{n}"])).limit_denominator(POSITION_DENOMINATOR)
         if found["pedal"]:
             measure.marks.append(Mark("pedal", at, "down" if found["pedal"] == "Pd" else "up"))
         elif found["tempo"]:
             measure.marks.append(Mark("tempo", at, found["tempo"]))
         elif found["hairpin"]:
-            measure.marks.append(Mark("hairpin", at, found["hairpin"], Fraction(found["length"]).limit_denominator(960)))
+            measure.marks.append(Mark("hairpin", at, found["hairpin"], Fraction(found["length"]).limit_denominator(POSITION_DENOMINATOR)))
         elif found["ornament"]:
             measure.marks.append(Mark("ornament", at, found["ornament"], pitch=found["pitch"], upper=found["upper"] or "", lower=found["lower"] or ""))
         else:

@@ -18,6 +18,8 @@ SEMITONES = (0, 2, 4, 5, 7, 9, 11)
 STEPS = dict(zip(LETTERS, SEMITONES))
 SIGN_ALTERATION = {"#": 1, "♯": 1, "b": -1, "♭": -1, "-": -1}
 TOLERANCE = Fraction(1, 96)
+BEAT_DENOMINATOR = 96
+POSITION_DENOMINATOR = 960
 
 
 class PositionError(UserError):
@@ -110,7 +112,7 @@ class Measure:
         return next(segment for segment in reversed(self.segments) if segment.start <= offset or segment is self.segments[0])
 
     def offset_of(self, beat: float) -> Fraction:
-        offset = (Fraction(beat).limit_denominator(96) - 1) * self.beat_length
+        offset = (Fraction(beat).limit_denominator(BEAT_DENOMINATOR) - 1) * self.beat_length
         if round(beat, 2) == beat:
             nearest = min((event.onset for event in self.events), key=lambda onset: abs(onset - offset), default=offset)
             if abs(nearest - offset) <= self.beat_length / 200:
@@ -131,11 +133,11 @@ class Measure:
         return float(1 + (offset - segment.start) * self.beat_unit / 4)
 
     def offset_at_tstamp(self, segment: Segment, tstamp: str) -> Fraction:
-        return segment.start + max(Fraction(tstamp).limit_denominator(960) - 1, Fraction(0)) * 4 / self.beat_unit
+        return segment.start + max(Fraction(tstamp).limit_denominator(POSITION_DENOMINATOR) - 1, Fraction(0)) * 4 / self.beat_unit
 
     @property
     def beat_count(self) -> int:
-        return int(self.length / self.beat_length + Fraction(95, 96)) if self.length else 0
+        return int(self.length / self.beat_length + 1 - TOLERANCE) if self.length else 0
 
 
 def alteration(signs: str) -> int:
