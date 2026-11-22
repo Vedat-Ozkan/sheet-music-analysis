@@ -213,14 +213,13 @@ def test_a_worksheet_is_drawn_through_the_workers_when_it_is_first_downloaded(se
         assert response.status == 200 and response.read().startswith(b"%PDF")
 
 
-def test_a_request_that_arrives_while_two_draw_waits_for_a_worker_and_is_then_drawn(server_process):
+def test_three_drawings_sent_together_to_the_server_are_all_drawn(server_process):
     url, process = server_process
     finished = {}
 
     async def draw(name, score_id):
         async with Client(f"{url}/mcp") as client:
-            result = await client.call_tool("render_analysis", {"score_id": score_id, "annotations": NO_MARKS})
-        finished[name] = result, time.monotonic()
+            finished[name] = await client.call_tool("render_analysis", {"score_id": score_id, "annotations": NO_MARKS})
 
     async def three():
         async with anyio.create_task_group() as group:
@@ -230,8 +229,8 @@ def test_a_request_that_arrives_while_two_draw_waits_for_a_worker_and_is_then_dr
             group.start_soon(draw, "third", "CHORALE")
 
     anyio.run(three)
-    assert all(not result.is_error and "shown in a card" in text_of(result) for result, _ in finished.values())
-    assert finished["third"][1] > min(finished["first"][1], finished["second"][1])
+    assert len(finished) == 3
+    assert all(not result.is_error and "shown in a card" in text_of(result) for result in finished.values())
 
 
 @contextmanager
@@ -279,6 +278,26 @@ def test_a_request_whose_turn_does_not_come_gets_the_busy_answer(pool, store, mo
     assert not call("render_analysis", {"score_id": "CHORALE", "annotations": NO_MARKS}).is_error
     assert len(pool.free) == 2 and not pool.queue
 
+
+def test_a_third_request_while_two_ballades_draw_gets_the_busy_answer(pool, store, monkeypatch):
+    monkeypatch.setattr(app, "DRAWING_WAIT", 1)
+    finished = {}
+
+    async def draw(name, score_id):
+        async with Client(app.mcp) as client:
+            finished[name] = await client.call_tool("render_analysis", {"score_id": score_id, "annotations": NO_MARKS})
+
+    async def three():
+        async with anyio.create_task_group() as group:
+            group.start_soon(draw, "first", "BALLADE")
+            group.start_soon(draw, "second", "BALLADE")
+            await anyio.sleep(2)
+            group.start_soon(draw, "third", "CHORALE")
+
+    anyio.run(three)
+    assert finished["third"].is_error and text_of(finished["third"]) == app.BUSY_MESSAGE
+    assert not finished["first"].is_error and not finished["second"].is_error
+    assert len(pool.free) == 2 and not pool.queue
 
 @pytest.mark.parametrize("go_wrong", [lambda: render.engrave(CRASH), lambda: render.new_toolkit().renderToSVG("first")],
                          ids=["crash", "method error"])
