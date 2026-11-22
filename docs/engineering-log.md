@@ -3376,6 +3376,25 @@ Two faults found on the way, both fixed at the root. (1) Step 1 wrote names into
 
 **Checks.** Targeted tests with the PDF reader on the last commit of the Opus session: 883 passed. Full suite of the base with the lint fix (fd01cef) on a home PC plus the two machine-bound files here: 1,618 passed, 4 skipped, 0 failed. Full suite of `rules-identical-copies` here: 1,618 passed, 4 skipped, 0 failed. Full suite of this branch before it was put on top of `rules-identical-copies` (cf71bff), on a home PC plus the two machine-bound files here: 1,662 passed, 4 skipped, 0 failed. The combined branch has had the tests of the touched areas (116 passed) and lint; its own full-suite run is NOT yet read.
 
+### 193. Second group of rules written once: beat positions, sharps and flats in names, two rounding limits, note-list labels (2026-11-22, branch `rules-second-batch`, nothing released)
+
+**Why.** Continues entry 190. Each of these was written in several places that could drift apart.
+
+**Merged with no change in output.**
+- A position inside a bar is turned into the drawing library's beat number, and back, by one pair of `Measure` methods (three copies before, in drawing and in playback). A bar with no meter counts in quarters everywhere; playback used to fall back to the score's meter, which never differed on the test scores.
+- One function turns a key or note name into a pitch class, and one counts its sharps and flats. They replace three copies of the note-letter table and about ten separate counts of "#" and "b".
+- The two rounding limits for a beat (96) and for a position (960) have names; they were bare numbers in seven places.
+- A bar line ("m12") and a voice label ("1.2") in a note list are read by one pair of functions. The correction code had looser copies, but it only ever sees text the strict reader has already accepted, so nothing reachable changes.
+- `tools/diff_check.py --base one-rule-one-place all`: no changed item in any area (typed 191, part-writing 80, PDF warnings 80, export 6, drawing 28).
+
+**Changed on purpose.** A key written with a real sharp or flat sign was read without it: "F♯" as F, "B♭" as B. The shared function reads "#", "b", "-", "♯" and "♭". A new test covers five such keys; it fails on the old code.
+
+**New check.** One test runs the engine's own Roman-numeral reader and the second reader used for scoring over all 1,847 key-and-label pairs in use and fails on any disagreement outside two listed ones: the engine drops 9ths, 11ths and 13ths (47 pairs), and the second reader misreads "bIII" in a minor key (1 pair; in B♭ minor it gives C major where D♭ major is meant). The misreading occurs 16 times, all in one old trial, and fixing it would change no stored score, so it is listed, not fixed. 146 labels neither reader reads and 371 chord symbols only the second reader reads are outside the test.
+
+**Found and not changed.** Three copies of note-name-to-key-number disagree on negative octaves ("C-1"). The comparison code rounds a beat to twelfths and a length to sixteenths where the engine uses 96; the evaluation scripts use 48. The pitch check in the correction code is stricter than the note-list reader's.
+
+**Checks.** Tests of the touched modules pass; lint passes. Full suite on a home PC plus the two machine-bound files here: 1,668 passed, 4 skipped, 0 failed (e38a944).
+
 ## Reproducing
 
 ```bash
