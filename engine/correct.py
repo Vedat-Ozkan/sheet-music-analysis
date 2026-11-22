@@ -84,10 +84,10 @@ def _bars_from_index(selected, index, first, last=None):
     for line in text.splitlines():
         if line.startswith("m"):
             finish()
-            measure = index.bar(line.split()[0][1:])
+            measure = index.bar(notes.bar_line_name(line))
             seen = set()
         elif ":" in line:
-            staff, voice = map(int, line.split(":")[0].split("."))
+            staff, voice = notes.voice_label(line.split(":")[0])
             seen.add(staff)
             events = [e for e in measure.events if e.staff == staff and e.layer == voice and e.pitch]
             end = max((e.onset + e.duration for e in events), default=Fraction(0))
@@ -116,14 +116,14 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
             if not line or line.startswith("x:"):
                 continue
             if line.startswith("m"):
-                bar = index.bar(line.split()[0][1:])
+                bar = index.bar(notes.bar_line_name(line))
                 current, name = bar.number, bar.name
                 if current in replacements:
                     raise CorrectionError(f"Bar {name} is repeated")
                 replacements[current] = {}
             else:
                 label, body = line.split(":", 1)
-                staff, voice = map(int, label.split("."))
+                staff, voice = notes.voice_label(label)
                 if staff <= 0 or voice <= 0 or (staff, voice) in replacements[current]:
                     raise CorrectionError(f"Bar {name}: invalid or repeated voice {label}")
                 duration, total, groups = Fraction(0), Fraction(0), []

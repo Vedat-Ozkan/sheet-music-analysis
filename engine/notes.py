@@ -20,10 +20,23 @@ MAX_CHARS = 200_000
 METER = re.compile(r"(?:[1-9]\d*/[1-9]\d*)?")
 KEY = re.compile(r"0|[1-7][sf]")
 BAR_NAME = re.compile(r"\d+[a-zA-Z]*")
+VOICE_LABEL = re.compile(r"\d+\.\d+")
 
 
 class NotesError(UserError):
     pass
+
+
+def bar_line_name(line: str) -> str | None:
+    name = line.split()[0][1:]
+    return name if BAR_NAME.fullmatch(name) else None
+
+
+def voice_label(label: str) -> tuple[int, int] | None:
+    if not VOICE_LABEL.fullmatch(label):
+        return None
+    staff, layer = label.split(".")
+    return int(staff), int(layer)
 
 
 def _check_signatures(meter: str, key: str) -> None:
@@ -151,7 +164,7 @@ def decode(text: str) -> ScoreIndex:
         for number, line in numbered[1:]:
             if line.startswith("m"):
                 parts = line.split()
-                if not all("=" in part for part in parts[1:]) or not BAR_NAME.fullmatch(parts[0][1:]):
+                if not all("=" in part for part in parts[1:]) or bar_line_name(line) is None:
                     raise NotesError(f"Line {number}: a bar line looks like 'm3 len=96', not {line!r}")
                 fields = dict(part.split("=", 1) for part in parts[1:])
                 if "len" not in fields:
@@ -178,9 +191,9 @@ def decode(text: str) -> ScoreIndex:
                 if not measures:
                     raise NotesError(f"Line {number}: a voice line needs a bar line like 'm3 len=96' before it")
                 voice, _, body = line.partition(":")
-                if not re.fullmatch(r"\d+\.\d+", voice):
+                if (labelled := voice_label(voice)) is None:
                     raise NotesError(f"Line {number}: expected 'staff.voice: tokens', e.g. '1.1: 24 C4'")
-                staff, layer = (int(part) for part in voice.split("."))
+                staff, layer = labelled
                 _read_voice(body.split(), measures[-1], staff, layer, div)
         for measure in measures:
             measure.events.sort(key=lambda event: (event.onset, event.staff))
