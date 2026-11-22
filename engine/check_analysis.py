@@ -13,7 +13,7 @@ from music21 import roman
 from engine.errors import UserError
 from engine.comparison import Label, from_annotations, matches, sounding
 from engine.reduce import midi
-from engine.score import Measure, PositionError, ScoreIndex, beat_length, musicxml_meter
+from engine.score import Measure, PositionError, ScoreIndex, beat_length, fifths_of_signature, musicxml_meter
 
 KEY_NAME = r"[A-Ga-g][#b♯♭-]*(?:\s+(?:major|minor|maj|min))?"
 ROMAN = re.compile(r"[#b-]*(?:VII|III|VI|IV|II|V|I|vii|iii|vi|iv|ii|v|i)(?:o|ø|\+)?M?(?:753|53|65|64|43|42|13|11|9|7|6|2)?")
@@ -98,7 +98,7 @@ def _placed(index: ScoreIndex, label: Label) -> Label:
 
 def _signature_key(measure: Measure) -> str:
     signature = measure.key_signature
-    sharps = int(signature[:-1]) * (1 if signature.endswith('s') else -1) if signature[:-1] else 0
+    sharps = fifths_of_signature(signature)
     return m21key.KeySignature(sharps).asKey('major').tonic.name.replace('-', 'b')
 
 

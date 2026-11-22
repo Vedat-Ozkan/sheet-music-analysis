@@ -26,6 +26,7 @@ from analysisgnn.models.analysis import ContinualAnalysisGNN  # noqa: E402
 from analysisgnn.utils.chord_representations import available_representations  # noqa: E402
 
 from engine import notes as note_list  # noqa: E402
+from engine.score import fifths_of_signature  # noqa: E402
 
 SKIP = {"romanNumeral"}
 DOUBLE_SOFTMAXED = {"quality", "inversion", "degree1", "degree2"}
@@ -38,9 +39,6 @@ def undo_softmax(output: torch.Tensor) -> torch.Tensor:
     return (logs + (1 - logs.sum(-1, keepdim=True)) / output.shape[-1]).clamp(0, 1).float()
 
 
-FIFTHS = {"f": -1, "s": 1}
-
-
 def score_from_notes(text: str):
     index = note_list.decode(text)
     div = index.ppq
@@ -51,7 +49,7 @@ def score_from_notes(text: str):
     for measure in index.measures:
         if measure.key_signature != signature:
             signature = measure.key_signature
-            fifths = 0 if signature in ("", "0") else int(signature[:-1]) * FIFTHS.get(signature[-1], 0)
+            fifths = fifths_of_signature(signature)
             part.add(pt.score.KeySignature(fifths, "major"), start)
         if measure.meter and measure.meter != meter:
             meter = measure.meter

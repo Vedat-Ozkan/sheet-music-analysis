@@ -176,12 +176,20 @@ def _fifths_of(semitones: int, steps: str | None) -> int:
     return 7 * semitones - 12 * int(steps) if steps is not None else (7 * semitones + 6) % 12 - 6
 
 
+def fifths_of_signature(signature: str) -> int:
+    if signature in ("", "0"):
+        return 0
+    return int(signature[:-1]) * (1 if signature[-1] == "s" else -1)
+
+
+def signature_of_fifths(fifths: int) -> str:
+    return "0" if fifths == 0 else f"{abs(fifths)}{'s' if fifths > 0 else 'f'}"
+
+
 def _shifted(signature: str | None, fifths: int) -> str | None:
     if not signature or not fifths:
         return signature
-    written = 0 if signature == "0" else int(signature[:-1]) * (1 if signature[-1] == "s" else -1)
-    concert = written + fifths
-    return "0" if concert == 0 else f"{abs(concert)}{'s' if concert > 0 else 'f'}"
+    return signature_of_fifths(fifths_of_signature(signature) + fifths)
 
 
 def transpose(pitch: str, semitones: int) -> str:
