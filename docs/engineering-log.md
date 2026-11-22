@@ -3444,6 +3444,32 @@ Two faults found on the way, both fixed at the root. (1) Step 1 wrote names into
 
 **Checks.** Tests of the touched modules pass; lint passes. Full suite on a home PC plus the two machine-bound files here: 1,668 passed, 4 skipped, 0 failed (e38a944).
 
+### 194. The piano version: no part labels, only lengths a musician writes, and a plain refusal where it cannot be faithful (2026-11-22, branch `piano-opening-signatures`, nothing released)
+
+**No part labels (owner's decision).** The piano version wrote a cue above the staff whenever the instruments playing changed: "Tutti", "Vl. I", and on PDF readings "V I, V II", which reads like Roman numerals. They are gone on every score, with the line of the page's guide that explained them and the two places on the site that described them. The staff name at the left ("Piano") stays. The description of `render_analysis` no longer mentions cues; ChatGPT shows the old wording until its next approved update. On the Mozart 41 test page the only drawn elements that changed are the five cue texts. The site's example picture is redrawn.
+
+**Lengths it could not write.** Entry 191 left three faults of one kind. Causes as found:
+- A gap one triplet eighth long was written as a sixteenth rest, a 64th rest and 1/48 of a quarter, because rests came only in plain sizes; the library's own notation step then cut the next note into 12:7 and 7:8 groups (Brahms, *Frühlingstrost*, bars 1-6).
+- A tied note of 2 + 1.75 quarters was merged into one triple-dotted half, because notes were cut only at beats (Mayer, bar 4).
+- Every bar was written at the reference part's length, capped at the time signature. Notes past that were moved by the library into the next bar, on top of its music, while the other hand stayed short. With no time signature the library re-barred as 4/4 and failed (choral page 3, bars 46-49).
+
+**Fix.** One splitter turns a stretch of time into rests, and a note that cannot be written whole into tied pieces: plain lengths where both ends lie on the plain grid, otherwise triplet, quintuplet or septuplet lengths inside one quarter; notes may be dotted, at most twice. A bar is as long as the longest part's notes and rests in it. The library's all-in-one notation step is no longer run; the steps still needed (accidentals, beams, tuplet brackets, splitting compound lengths) are run one by one, and the two that did damage (re-barring, merging tuplet rests) are not. `_beat` is unchanged, and for rests on the plain grid the old and new splitter give the same pieces on all 19,892 spans tried.
+
+**Numbers.** `tools/piano_check.py` (new, kept for the next change) draws 213 ranges over the test scores and checks each written length: three or more dots or no note value, a tuplet ratio the source never uses, or a tuplet run that does not start and end on the plain grid. Before the fix, after it, and after the refusals below:
+- ranges that fail: 2, 1, 0;
+- ranges refused with a message: 0, 0, 4 (all the *Die Stadt* reading);
+- ranges with such a length that is not also in the source bar: 28 (47 bars), 6 (8 bars), 5 (7 bars); the 5 left are damaged readings, none from the splitter;
+- ranges where the two hands disagree on a bar's length: 49 (87 bars), 0, 0.
+Of the 213 ranges 127 are written identically and 86 differ: 58 because a bar is now written at its real length (over-full or misaligned readings, and one real 23-quarter cadenza bar in a Chopin nocturne whose left hand used to stop at 6), 21 in how notes and rests are split, 4 in notation marks only, 2 where a note stays in its own over-full bar instead of moving to the next, and 1 drawn that failed before. The worker read every kind and at least one item of each, not all 86.
+
+**Refused instead of drawn wrong.** In the *Die Stadt* reading the voice part has 39 bars and the piano part 40. The piano version pairs parts by position, so such a score is out of step from the missing bar on. Of 57 cached readings with several parts, 3 have parts with different bars (also Faisst Op. 18 No. 2 and Hensel Op. 7 No. 1, where three of six parts lack bar 4): before this change, ranges after the missing bar were drawn silently out of step, and the whole piece failed. Leaving the broken part out was considered and rejected as the same fault as the dropped parts of entry 191. The piano version now answers "A piano version can't be made for this score: its parts don't line up bar for bar, which happens when a PDF was read badly. The full score can still be drawn." A second refusal names a bar whose lengths cannot be written even after splitting; no known input reaches it, so it has no end-to-end test. Both are ordinary refusals, charged like the other refusals from drawing.
+
+**Two beaming faults.** A tune chord reduced to its top note lost its beam, so groups that start on a chord were drawn with flags (Chopin Ballade, bars 36-38; 36 other ranges change in beam marks only). In a beat that holds tuplets, each tuplet group is now beamed on its own; before, one beam ran over two triplets in 6/4 (four Brahms ranges change, nothing else; the Ballade's plain eighths keep the half-bar grouping the owner chose).
+
+**Not fixed.** Giving every part of a reading the same bars belongs to the reading step and is not started. Thirteen bars are longer than their time signature only because of a rest; all are in readings or in fixtures built to imitate one. Brahms bars 5-6 are still crowded with stacked rests and dynamics. One test file crashes the drawing library natively and is skipped by the check.
+
+**Checks.** `tools/diff_check.py --base one-rule-one-place render`: 28 inputs, 1 changed (Mozart 41 piano, the labels). New end-to-end tests fail before each fix and pass after. Lint passes. Full suite on a home PC plus the two machine-bound files here: 1,676 passed, 4 skipped, 0 failed (1e30ced).
+
 ## Reproducing
 
 ```bash
