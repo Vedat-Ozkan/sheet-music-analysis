@@ -860,7 +860,8 @@ async def render_analysis(
         with stage("parse"):
             index = await in_turn(lambda: ScoreIndex(load_toolkit(score).getMEI()))
         measures = index.numbers(named)
-        shaded = [bar for bar in await shaded_bars(score_id) if not measures or measures[0] <= bar <= measures[1]]
+        chosen = {measure.number for measure in index.select(*(measures or (None, None)), include_pickup=False)}
+        shaded = [bar for bar in await shaded_bars(score_id) if bar in chosen]
         if not await take("render", source):
             log("limit", tool="render_analysis", platform=source)
             return error_result(LIMIT_MESSAGE)

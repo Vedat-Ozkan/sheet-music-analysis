@@ -14,7 +14,7 @@ from pathlib import Path
 from engine import notes as note_list
 from engine.annotations import AnnotationList
 from engine.comparison import FUNCTIONS
-from engine.score import Measure, ScoreIndex, in_range
+from engine.score import Measure, ScoreIndex
 
 ROOT = Path(__file__).parent.parent
 ANALYSISGNN_PYTHON = os.environ.get("ANALYSISGNN_PYTHON", str(ROOT / ".venv-agnn/bin/python"))
@@ -89,6 +89,7 @@ class Draft:
     phrase_ends: list[Mark]
     pedals: list[Mark]
     non_chord_tones: list[Mark]
+    index: ScoreIndex
 
 
 class _Worker:
@@ -421,6 +422,7 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
         phrase_ends=marks("phrase") if "phrase" in tasks else [],
         pedals=marks("organ_point", per_note=True) if "organ_point" in tasks else [],
         non_chord_tones=marks("tpc_in_label", per_note=True, positive=lambda label: label == "0") if "tpc_in_label" in tasks else [],
+        index=index,
     )
 
 
@@ -433,8 +435,7 @@ def draft_from_notes(text: str, model: str = "analysisgnn") -> Draft:
 
 
 def as_text(result: Draft, first: int | None = None, last: int | None = None, alternatives: bool = False) -> str:
-    def wanted(measure: int) -> bool:
-        return in_range(measure, first, last)
+    chosen = {measure.number for measure in result.index.select(first, last)}
 
     lines = [
         f"Draft analysis from {result.model}. The model's full chord labels are exactly right only about half",
@@ -444,7 +445,7 @@ def as_text(result: Draft, first: int | None = None, last: int | None = None, al
         + (" | or: the model's runner-up where it is a close call" if alternatives else ""),
     ]
     for chord in result.chords:
-        if wanted(chord.measure):
+        if chord.measure in chosen:
             lines.append(
                 f"m{chord.measure} b{round(chord.beat, 2):g} | {chord.key} | {chord.label} | {chord.confidence:.2f} | {chord.beats:g} | "
                 f"{chord.bass} | {' '.join(chord.pitches)} | {' '.join(chord.melody)}"
@@ -456,19 +457,18 @@ def as_text(result: Draft, first: int | None = None, last: int | None = None, al
         ("PEDAL POINTS", result.pedals, lambda m: f"m{m.measure} b{round(m.beat, 2):g} {m.pitch} staff {m.staff} ({m.confidence:.2f})"),
         ("POSSIBLE NON-CHORD TONES", result.non_chord_tones, lambda m: f"m{m.measure} b{round(m.beat, 2):g} {m.pitch} staff {m.staff}"),
     ):
-        shown = [show(item) for item in items if wanted(item.measure)]
+        shown = [show(item) for item in items if item.measure in chosen]
         lines += ["", f"{title}: " + ("; ".join(shown) if shown else "none found")]
     return "\n".join(lines)
 
 
 def as_annotations(result: Draft, first: int | None = None, last: int | None = None, functions: bool = False) -> AnnotationList:
-    def wanted(measure: int) -> bool:
-        return in_range(measure, first, last)
+    chosen = {measure.number for measure in result.index.select(first, last)}
 
     items: list[dict] = []
     key = None
     for chord in result.chords:
-        if not wanted(chord.measure):
+        if chord.measure not in chosen:
             continue
         item = {"type": "harmony", "at": {"measure": chord.measure, "beat": chord.beat}, "label": chord.label}
         if functions and chord.function:
@@ -477,10 +477,10 @@ def as_annotations(result: Draft, first: int | None = None, last: int | None = N
             item["key"] = key = chord.key
         items.append(item)
     for cadence in result.cadences:
-        if wanted(cadence.measure):
+        if cadence.measure in chosen:
             items.append({"type": "cadence", "at": {"measure": cadence.measure, "beat": cadence.beat}, "label": cadence.label})
     for tone in result.non_chord_tones:
-        if wanted(tone.measure):
+        if tone.measure in chosen:
             note = {"measure": tone.measure, "beat": tone.beat, "staff": tone.staff, "pitch": tone.pitch}
             items.append({"type": "nct", "note": note, "label": "NCT"})
     return AnnotationList.model_validate({"annotations": items})

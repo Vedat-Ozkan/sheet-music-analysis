@@ -822,7 +822,7 @@ def _repair_broken_ties(mei: str) -> str:
 
 
 def incoming_ties(toolkit: verovio.toolkit, index: ScoreIndex, first: int, *, include_pickup: bool = True) -> set[str]:
-    start = index.range_start(first, include_pickup=include_pickup).index
+    start = index.select(first, include_pickup=include_pickup)[0].index
     earlier = {e.id for m in index.measures if m.last_index < start for e in m.events}
     return {
         tie for tie, note in re.findall(r'<tie\b[^>]*xml:id="([^"]+)"[^>]*startid="#([^"]+)"', toolkit.getMEI()) if note in earlier

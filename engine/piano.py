@@ -36,7 +36,7 @@ def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[
     owners = {segment.index: (measure, segment.start, following.start if following else None)
               for measure in index.measures
               for segment, following in zip(measure.segments, measure.segments[1:] + [None])}
-    first = index.range_start(measures[0]).index if measures else 1
+    first = index.select(*measures)[0].index if measures else 1
     last = index.measure(measures[1]).last_index if measures else max(owners)
     parts = _parts(score, (first, last))
     kept: dict[int, list[tuple[Fraction, pitch.Pitch, float]]] = {}

@@ -325,7 +325,8 @@ def as_text(index: ScoreIndex, chords=None, first: int | None = None, last: int 
     if not applies(index):
         return ""
     voices, _, rows = _table(index)
-    found = [f for f in check(index, chords) if all((first is None or bar >= first) and (last is None or bar <= last) for bar in f.bars)]
+    chosen = {measure.number for measure in index.select(first, last, include_pickup=False)}
+    found = [f for f in check(index, chords) if all(bar in chosen for bar in f.bars)]
     names = _names(voices)
     at = {pos: row for pos, row in rows}
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from itertools import groupby
 
-from engine.score import LETTERS, MEI, XML_ID, ScoreIndex, _pitch, in_range
+from engine.score import LETTERS, MEI, XML_ID, ScoreIndex, _pitch
 
 LEDGER_LINES = 3
 MIN_BARS = 2
@@ -70,9 +70,7 @@ def passages(mei: str, index: ScoreIndex, first: int | None = None, last: int | 
     for staff in staves:
         heavy: dict[int, str] = {}
         clef_of: dict[int, str] = {}
-        for measure in index.measures:
-            if not in_range(measure.number, first, last):
-                continue
+        for measure in index.select(first, last):
             sides = []
             for event in measure.events:
                 if event.staff != staff or event.pitch is None or event.grace:

@@ -41,13 +41,7 @@ class Voice:
 
 
 def encode(index: ScoreIndex, first: int | None = None, last: int | None = None) -> str:
-    measures = index.measures
-    if first is not None or last is not None:
-        start = measures.index(index.measure(first if first is not None else measures[0].number))
-        end = measures.index(index.measure(last if last is not None else measures[-1].number))
-        if start == 1 and measures[0].number == 0:
-            start = 0
-        measures = measures[start : end + 1]
+    measures = index.select(first, last)
     div = index.ppq
     meter, key = index.meter, index.key_signature or "0"
     lines = [f"{VERSION} div={div} ts={meter} ks={key}" + (" orn=upper" if index.ornaments_from_above else "")]

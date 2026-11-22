@@ -347,8 +347,7 @@ def _beam_voice(voice_notes, measure, segment, divisions):
     length = measure.length
     signature = meter.TimeSignature(measure.meter or f"{length.numerator}/{4 * length.denominator}")
     offset = next(s.start for s in measure.segments if s.index == segment)
-    if measure.number == 0:
-        offset += Fraction(signature.barDuration.quarterLength) - measure.length
+    offset += measure.pickup_padding
     run, start, ratio = [], offset, None
 
     def finish():

@@ -165,8 +165,7 @@ def render(
         toolkit.select({"measureRange": index.measure_range(*measures)})
     toolkit.redoLayout()
     _balance_systems(toolkit, index, measures, annotations)
-    first, last = measures or (index.measures[0].number, index.measures[-1].number)
-    bars = sum(1 for measure in index.measures if first <= measure.number <= last and measure.number > 0)
+    bars = sum(1 for measure in index.select(*(measures or (None, None))) if not measure.is_pickup)
     if not measures or bars > ONE_PAGE_BARS:
         toolkit.setOptions({"pageHeight": VEROVIO_OPTIONS["pageHeight"]})
         toolkit.redoLayout()

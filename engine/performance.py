@@ -143,7 +143,7 @@ def _playing_order(index: ScoreIndex, root: ET.Element) -> list[Measure] | None:
 def unclear_tempos(index: ScoreIndex, measures: tuple[int, int] | None = None) -> list[tuple[str, str]]:
     tempos = [(measure, mark) for measure in index.measures for mark in measure.marks if mark.kind == "tempo"]
     if measures:
-        chosen = _chosen(index, measures)
+        chosen = index.select(*measures)
         position = {id(measure): number for number, measure in enumerate(index.measures)}
         first, last = position[id(chosen[0])], position[id(chosen[-1])]
         inside = [(measure, mark) for measure, mark in tempos if first <= position[id(measure)] <= last]
@@ -205,7 +205,7 @@ def perform(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: f
 
     window = (0.0, max((note.end for note in performed), default=0.0))
     if measures:
-        chosen = _chosen(index, measures)
+        chosen = index.select(*measures)
         ids = {id(measure) for measure in chosen}
         kept = [note.start for note, measure in notes if id(measure) in ids]
         window = (min(kept, default=clock.ms(float(starts[id(chosen[0])]))), clock.ms(float(starts[id(chosen[-1])] + chosen[-1].length)))
@@ -234,14 +234,6 @@ def _bar_starts(index: ScoreIndex) -> dict[int, Fraction]:
         starts[id(measure)] = position
         position += measure.length
     return starts
-
-
-def _chosen(index: ScoreIndex, measures: tuple[int, int]) -> list[Measure]:
-    first, last = index.measure(measures[0]), index.measure(measures[1])
-    start, end = index.measures.index(first), index.measures.index(last)
-    if measures[0] == 1 and start > 0 and index.measures[start - 1].number == 0:
-        start -= 1
-    return index.measures[start : end + 1]
 
 
 class _Clock:

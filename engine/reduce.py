@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fractions import Fraction
 
-from engine.score import Event, Measure, ScoreIndex, in_range
+from engine.score import Event, Measure, ScoreIndex
 
 STEPS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 SIGNATURES = {"f": "flat", "s": "sharp"}
@@ -58,7 +58,7 @@ def _onsets(measure: Measure, events: list[Event]) -> str:
 
 
 def as_text(index: ScoreIndex, first: int | None = None, last: int | None = None) -> str:
-    measures = [m for m in index.measures if in_range(m.number, first, last)]
+    measures = index.select(first, last)
     shown = measures[0] if measures else index.measures[0]
     lines = [
         f"Key signature: {describe_key_signature(shown.key_signature or index.key_signature)}. Meter: {shown.meter or index.meter or 'unknown'}; "

@@ -67,6 +67,8 @@ class Measure:
     declared_length: Fraction | None = None
     label: str = ""
     name: str = ""
+    full_length: Fraction | None = None
+    is_pickup: bool = False
     events: list[Event] = field(default_factory=list)
     segments: list[Segment] = field(default_factory=list)
     marks: list[Mark] = field(default_factory=list)
@@ -90,6 +92,10 @@ class Measure:
     @property
     def length(self) -> Fraction:
         return self.declared_length if self.declared_length is not None else self.content_length
+
+    @property
+    def pickup_padding(self) -> Fraction:
+        return self.full_length - self.length if self.is_pickup and self.full_length is not None else Fraction(0)
 
     def segment_at(self, offset: Fraction) -> Segment:
         return next(segment for segment in reversed(self.segments) if segment.start <= offset or segment is self.segments[0])
@@ -171,10 +177,6 @@ def _letters(count: int) -> str:
         count, rest = divmod(count - 1, 26)
         letters = chr(ord("a") + rest) + letters
     return letters
-
-
-def in_range(number: int, first: int | None, last: int | None) -> bool:
-    return (first is None or number >= first or (first == 1 and number == 0)) and (last is None or number <= last)
 
 
 def _fifths_of(semitones: int, steps: str | None) -> int:
@@ -275,6 +277,7 @@ class ScoreIndex:
         return index
 
     def _finish(self) -> None:
+        self.measures[0].is_pickup = self.measures[0].number == 0
         self._by_number = {measure.number: measure for measure in self.measures}
         self._by_name = {measure.name: measure for measure in self.measures}
         self._by_segment = {segment.id: (measure, segment) for measure in self.measures for segment in measure.segments}
@@ -360,6 +363,7 @@ class ScoreIndex:
             key_signature=self._key_signature,
             label=label,
             name=element.get("n", "") if element.get("label") is not None else "",
+            full_length=self._bar_length,
         )
         full = self._bar_length
         if not incomplete:
@@ -401,7 +405,7 @@ class ScoreIndex:
             self._drawn_position[self._position] = self._drawn_bars
             self.measures.append(Measure(f"{measure.id}-{following}", measure.number + following, self._position, self._beat_length,
                                          self._meter, self._key_signature, full,
-                                         label=str(measure.number + following) if numbered else ""))
+                                         label=str(measure.number + following) if numbered else "", full_length=full))
 
     def _read_layer(self, element: ET.Element, measure: Measure, staff: int, cursor: Fraction) -> Fraction:
         ppq = self._ppq.get(staff) or next(iter(self._ppq.values()), 1)
@@ -505,16 +509,16 @@ class ScoreIndex:
             raise PositionError(f"Measure {number} does not exist; the score has measures {self.name_span}")
         return self._by_number[number]
 
-    def range_start(self, first: int, *, include_pickup: bool = True) -> Measure:
-        start = self.measure(first)
-        position = self.measures.index(start)
-        if include_pickup and first == 1 and position > 0 and self.measures[position - 1].number == 0:
-            return self.measures[position - 1]
-        return start
+    def select(self, first: int | None = None, last: int | None = None, *, include_pickup: bool = True) -> list[Measure]:
+        start = self.measures.index(self.measure(first)) if first is not None else 0
+        end = self.measures.index(self.measure(last)) if last is not None else len(self.measures) - 1
+        if include_pickup and first == 1 and start == 1 and self.measures[0].is_pickup:
+            start = 0
+        return self.measures[start : end + 1]
 
     def measure_range(self, first: int, last: int, *, include_pickup: bool = True) -> str:
-        start = self.range_start(first, include_pickup=include_pickup)
-        return f"{self._drawn_position[start.index]}-{self._drawn_position[self.measure(last).last_index]}"
+        chosen = self.select(first, last, include_pickup=include_pickup)
+        return f"{self._drawn_position[chosen[0].index]}-{self._drawn_position[chosen[-1].last_index]}"
 
     def find_note(self, measure: int, beat: float, staff: int | None = None, pitch: str | None = None) -> Event:
         bar = self.measure(measure)
