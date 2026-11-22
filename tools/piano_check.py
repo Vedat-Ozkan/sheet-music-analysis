@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
+import tempfile
 from collections import Counter
 from fractions import Fraction
 from multiprocessing import Pool
@@ -22,12 +24,25 @@ source bar also has is counted apart.
 
 
 def scores() -> list[Path]:
-    return sorted(p for p in DATA.rglob("*") if p.suffix in (".musicxml", ".mxl", ".xml") and not SKIP & set(p.parts))
+    return sorted(p for p in DATA.rglob("*") if p.name.removesuffix(".gz").endswith((".musicxml", ".mxl", ".xml"))
+                  and not SKIP & set(p.parts))
+
+
+def _data(path: Path) -> bytes:
+    return gzip.decompress(path.read_bytes()) if path.suffix == ".gz" else path.read_bytes()
+
+
+def _parse(path: Path):
+    from music21 import converter
+    with tempfile.NamedTemporaryFile(suffix=Path(path.name.removesuffix(".gz")).suffix) as file:
+        file.write(_data(path))
+        file.flush()
+        return converter.parse(file.name)
 
 
 def ranges(path: Path) -> list[tuple[int, int]]:
-    from music21 import converter, stream
-    bars = list(converter.parse(path).parts[0].getElementsByClass(stream.Measure))
+    from music21 import stream
+    bars = list(_parse(path).parts[0].getElementsByClass(stream.Measure))
     numbers = [bar.number for bar in bars]
     n = len(numbers)
     found = [(numbers[0], numbers[min(3, n - 1)]), (numbers[n // 2], numbers[min(n // 2 + 3, n - 1)]), (numbers[max(n - 4, 0)], numbers[-1])]
@@ -78,14 +93,14 @@ def check(job: tuple[str, int, int]) -> tuple[str, dict]:
     piano.reduce = lambda *args, **kwargs: written.append(reduce(*args, **kwargs)) or written[-1]
     result: dict = {}
     try:
-        annotate.render(Path(path).read_bytes(), AnnotationList(annotations=[]), (first, last), piano=True)
+        annotate.render(_data(Path(path)), AnnotationList(annotations=[]), (first, last), piano=True)
     except Exception as error:
         if type(error).__name__ == "PianoError":
             result["refused"] = str(error)
         else:
             result["error"] = f"{type(error).__name__}: {str(error)[:150]}"
     if written:
-        source = converter.parse(path)
+        source = _parse(Path(path))
         allowed = {(t.numberNotesActual, t.numberNotesNormal) for e in source.recurse().notesAndRests for t in e.duration.tuplets} | {(3, 2)}
         ours = faults(converter.parse(written[0], format="musicxml"), allowed)
         theirs = faults(source.measures(first, last), allowed)

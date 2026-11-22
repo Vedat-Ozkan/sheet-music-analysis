@@ -130,7 +130,9 @@ class _Part:
         self.keys = [m.keySignature or m.getContextByClass(key.KeySignature) for m in self.measures]
         self.times = [m.timeSignature or m.getContextByClass(meter.TimeSignature) for m in self.measures]
         self.bar_lengths = [m.barDuration.quarterLength for m in self.measures]
-        self.ends = [max((opFrac(e.getOffsetInHierarchy(m) + e.quarterLength) for e in m.recurse().notesAndRests if not e.duration.isGrace), default=0)
+        self.ends = [max((m.barDuration.quarterLength if e.isRest and e.fullMeasure in (True, "always")
+                          else opFrac(e.getOffsetInHierarchy(m) + e.quarterLength)
+                          for e in m.recurse().notesAndRests if not e.duration.isGrace), default=0)
                      for m in self.measures]
         self.name, self.family = name, family
 

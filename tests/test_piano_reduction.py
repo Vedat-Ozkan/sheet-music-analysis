@@ -294,6 +294,19 @@ def test_a_reading_whose_first_system_became_extra_parts_still_gets_no_piano_ver
     assert str(refused.value) == piano.PARTS_DO_NOT_LINE_UP
 
 
+def test_a_whole_bar_rest_makes_a_piano_bar_as_long_as_its_time_signature_not_its_written_length():
+    from engine.read_pdf import clean
+    from tests.test_read_pdf import zipped
+
+    kept_out_of_the_repo = Path(__file__).parent / "data/users/clara_schumann_polonaise_3_scan_reading.musicxml.gz"
+    if not kept_out_of_the_repo.exists():
+        pytest.skip("this reading is not in the public repo")
+    reading = gzip.decompress(kept_out_of_the_repo.read_bytes())
+    reduced = _parse(piano.reduce(clean(zipped(reading)), (45, 45)))
+    for hand in reduced.parts:
+        assert [float(bar.duration.quarterLength) for bar in hand.getElementsByClass(stream.Measure)] == [3.0]
+
+
 def test_a_tune_that_starts_its_beamed_groups_on_chords_keeps_its_beams():
     data = (Path(__file__).parent / "data/chopin_ballade_op23_pdmx.mxl").read_bytes()
     right = _bars(_parse(piano.reduce(data, (36, 38))))[0]

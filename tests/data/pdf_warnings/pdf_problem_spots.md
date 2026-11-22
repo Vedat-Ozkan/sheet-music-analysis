@@ -41,3 +41,7 @@ Uneven-parts fixture (2026-11-22):
   Source: https://github.com/OpenScore/Lieder/tree/main/scores/Faisst,_Clara_Mathilda/4_Lieder,_Op.18/2_Lied_der_Nacht/
   Licence: CC0 1.0 (OpenScore)
   SHA256 (uncompressed): `b35b61a5bd94d9a1207a4ad88768eb66cafa0b342f82d9fc615f54b1b651ab43`.
+- `clara_schumann_polonaise_3_scan_reading.musicxml.gz` (NOT in this repo: kept in the git-ignored `tests/data/users`, because the licence of the encoding it was read from is not verified; its test is skipped where the file is absent): gzip of the unchanged `bench/cache/runs/results-final--clara-schumann-polonaise-3--scan.musicxml` (read from the synthetic scan of the MuseScore engraving). Bar 45 ends with a whole-bar rest written after the bar's notes.
+  Source: https://github.com/cuthbertLab/music21/tree/master/music21/corpus/schumann_clara/polonaise_op1n3.mxl
+  Licence: work public domain; encoding from the music21 corpus, whose per-file licences are not uniform (not individually verified).
+  SHA256 (uncompressed): `4b34ed2c07b3e6c6ead0f2e33c9d7c9010f5609b181aa1d839ef79be5c8739b3`.
