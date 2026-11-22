@@ -299,6 +299,27 @@ def test_a_third_request_while_two_ballades_draw_gets_the_busy_answer(pool, stor
     assert not finished["first"].is_error and not finished["second"].is_error
     assert len(pool.free) == 2 and not pool.queue
 
+def test_a_worksheet_opened_while_every_worker_stays_taken_gets_the_busy_answer(pool, store, monkeypatch, capsys):
+    from starlette.requests import Request
+
+    store.put("scores/NOCTURNE", NOCTURNE)
+    drawn = call("render_analysis", {"score_id": "NOCTURNE", "annotations": NOCTURNE_MARKS, "measure_range": "1-8"})
+    name = drawn.structured_content["worksheet_url"].rsplit("/", 1)[1]
+
+    def opened():
+        return anyio.run(app.files, Request({"type": "http", "method": "GET", "path_params": {"name": name}, "headers": []}))
+
+    monkeypatch.setattr(app, "DRAWING_WAIT", 1)
+    taken = [pool.take(1), pool.take(1)]
+    refused = opened()
+    for worker in taken:
+        pool.give_back(worker)
+    assert refused.status_code == 503 and refused.headers["Retry-After"] == "60"
+    assert refused.body == b"The service is busy right now. Please try again in a minute."
+    assert [line for line in logged(capsys) if line.get("event") == "worksheet"] == [{"event": "worksheet", "outcome": "busy"}]
+    made = opened()
+    assert made.status_code == 200 and made.body.startswith(b"%PDF")
+
 @pytest.mark.parametrize("go_wrong", [lambda: render.engrave(CRASH), lambda: render.new_toolkit().renderToSVG("first")],
                          ids=["crash", "method error"])
 def test_a_crash_and_a_drawing_method_error_are_one_failure_and_the_next_request_is_drawn(pool, go_wrong):

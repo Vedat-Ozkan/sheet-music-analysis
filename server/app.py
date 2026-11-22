@@ -2054,6 +2054,10 @@ async def files(request: Request) -> Response:
                     try:
                         async with verovio_request(DRAWING_WAIT):
                             data = await in_turn(make_worksheet, name)
+                    except verovio_workers.WorkersBusy:
+                        log("worksheet", outcome="busy")
+                        return Response("The service is busy right now. Please try again in a minute.",
+                                        status_code=503, headers={"Retry-After": "60"})
                     except Exception as error:
                         log("worksheet", error=type(error).__name__, stack_trace=traceback.format_exc())
                         return Response("This worksheet could not be made; the analysis PDF is unaffected.",
