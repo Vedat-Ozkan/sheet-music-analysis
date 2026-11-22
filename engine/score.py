@@ -93,6 +93,10 @@ class Measure:
         return self.declared_length if self.declared_length is not None else self.content_length
 
     @property
+    def is_short(self) -> bool:
+        return self.full_length is not None and 0 < self.content_length < self.full_length - TOLERANCE
+
+    @property
     def is_pickup(self) -> bool:
         return self.index == 1 and self.number == 0
 
@@ -443,7 +447,7 @@ class ScoreIndex:
             return
         self.renumbered = True
         first = self.measures[0]
-        number = 0 if first.declared_length is None and len(self.measures) > 1 else 1
+        number = 0 if first.declared_length is None and first.is_short else 1
         for measure in self.measures:
             measure.number = number
             for event in measure.events:

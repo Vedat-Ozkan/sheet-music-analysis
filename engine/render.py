@@ -378,14 +378,10 @@ def _name_drawn_bars(mei: str, bar_names: dict[int, str] | None) -> str:
 
 def _number_unmarked_pickup(mei: str) -> str:
     measures = ScoreIndex(mei).measures
-    if len(measures) < 2 or measures[0].label != "1" or measures[1].label != "2" or not measures[0].meter:
+    if len(measures) < 2 or measures[0].label != "1" or measures[1].label != "2" or not measures[0].is_short:
         return mei
     first = measures[0]
-    count, unit = first.meter.split("/")
-    full = Fraction(int(count) * 4, int(unit))
-    if not Fraction(0) < first.content_length < full - TOLERANCE:
-        return mei
-    completed_at_the_end = abs(first.content_length + measures[-1].content_length - full) <= TOLERANCE
+    completed_at_the_end = abs(first.content_length + measures[-1].content_length - first.full_length) <= TOLERANCE
     lengths = {}
     for event in first.events:
         lengths[event.staff] = max(lengths.get(event.staff, Fraction(0)), event.onset + event.duration)

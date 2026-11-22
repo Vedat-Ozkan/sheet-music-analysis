@@ -227,3 +227,13 @@ def test_a_piano_reduction_keeps_the_bars_and_draws_their_printed_names(passage)
     page = ScoreIndex(load_toolkit(reduced, bar_names=bar_names).getMEI())
     shown = original.measures[original.measures.index(original.measure(measures[0])):] if measures else original.measures
     assert [(m.number, m.name, m.length) for m in page.measures] == [(m.number, m.name, m.length) for m in shown]
+
+
+@pytest.mark.parametrize("opening", [
+    ATTRIBUTES + note("C") + note("D", 1, "quarter"),
+    ATTRIBUTES,
+    ATTRIBUTES.replace("<time><beats>4</beats><beat-type>4</beat-type></time>", "") + note("G", 1, "quarter"),
+], ids=["overlong", "empty", "no meter"])
+def test_an_incomplete_first_bar_that_is_not_shorter_than_a_bar_is_not_bar_0(opening):
+    bars = score([("1", opening), ("1", note("C")), ("2", note("D"))]).replace(b'<measure number="1">', b'<measure number="1" implicit="yes">', 1)
+    assert [m.number for m in ScoreIndex(load_toolkit(bars).getMEI()).measures] == [1, 2, 3]
