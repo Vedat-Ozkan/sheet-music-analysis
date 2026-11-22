@@ -46,6 +46,7 @@ def _read(score: bytes, part: str | None):
     for p in isolated.findall("part"):
         if p.get("id") != selected.get("id"):
             isolated.remove(p)
+    _drop_absent_parts(isolated.find("part-list"), selected.get("id"))
     index = ScoreIndex(load_toolkit(ET.tostring(isolated)).getMEI())
     bars = selected.findall("measure")
     if [s.index for m in index.measures for s in m.segments] != list(range(1, len(bars) + 1)):
@@ -53,6 +54,27 @@ def _read(score: bytes, part: str | None):
     if selected.find(".//transpose") is not None:
         raise CorrectionError("Corrections of transposed parts are not supported")
     return root, selected, index
+
+
+def _drop_absent_parts(part_list: ET.Element | None, kept: str) -> None:
+    if part_list is None:
+        return
+    for entry in list(part_list):
+        if entry.tag == "score-part" and entry.get("id") != kept:
+            part_list.remove(entry)
+    open_groups: list[tuple[ET.Element, bool]] = []
+    empty: list[ET.Element] = []
+    for entry in list(part_list):
+        if entry.tag == "score-part":
+            open_groups = [(group, True) for group, _ in open_groups]
+        elif entry.tag == "part-group" and entry.get("type") == "start":
+            open_groups.append((entry, False))
+        elif entry.tag == "part-group" and open_groups:
+            group, filled = open_groups.pop()
+            if not filled:
+                empty += [group, entry]
+    for entry in empty:
+        part_list.remove(entry)
 
 
 def bars_from_musicxml(score: bytes, first: int, last: int | None = None, *, part: str | None = None) -> str:
@@ -76,7 +98,7 @@ def _bars_from_index(selected, index, first, last=None):
     seen = set()
 
     def finish():
-        if measure is not None:
+        if measure is not None and measure.length:
             for staff in range(1, staves + 1):
                 if staff not in seen:
                     lines.append(f"{staff}.1: {int(measure.length * div)} r")
@@ -96,6 +118,37 @@ def _bars_from_index(selected, index, first, last=None):
         lines.append(line)
     finish()
     return "\n".join(lines)
+
+
+def _read_voice(body: str, div: int, name: str) -> tuple[Fraction, list]:
+    duration, total, groups = Fraction(0), Fraction(0), []
+    for token in body.split():
+        if token.isdigit():
+            duration = Fraction(int(token), div)
+            if duration <= 0:
+                raise CorrectionError(f"Bar {name}: duration must be positive")
+            continue
+        grace = token[0] if token.startswith(("g", "u")) else False
+        names = token[1:] if grace else token
+        if not grace and duration <= 0:
+            raise CorrectionError(f"Bar {name}: note/rest has no duration")
+        if names != "r" and any(not re.fullmatch(r"[A-G](?:#+|b+)?[0-9]~?", n) for n in names.split("+")):
+            raise CorrectionError(f"Bar {name}: invalid pitch {names!r}")
+        if grace and names == "r":
+            raise CorrectionError("Grace rests are not supported")
+        groups.append((names, Fraction(0) if grace else duration, grace))
+        if not grace:
+            total += duration
+    return total, groups
+
+
+def _handed_out_voices(canonical: str, div: int, name: str) -> dict[tuple[int, int], tuple[Fraction, list]]:
+    voices = {}
+    for line in canonical.splitlines():
+        if ":" in line and not line.startswith("x:"):
+            label, body = line.split(":", 1)
+            voices[notes.voice_label(label)] = _read_voice(body, div, name)
+    return voices
 
 
 def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> bytes:
@@ -126,24 +179,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                 staff, voice = notes.voice_label(label)
                 if staff <= 0 or voice <= 0 or (staff, voice) in replacements[current]:
                     raise CorrectionError(f"Bar {name}: invalid or repeated voice {label}")
-                duration, total, groups = Fraction(0), Fraction(0), []
-                for token in body.split():
-                    if token.isdigit():
-                        duration = Fraction(int(token), div)
-                        if duration <= 0:
-                            raise CorrectionError(f"Bar {name}: duration must be positive")
-                        continue
-                    grace = token[0] if token.startswith(("g", "u")) else False
-                    names = token[1:] if grace else token
-                    if not grace and duration <= 0:
-                        raise CorrectionError(f"Bar {name}: note/rest has no duration")
-                    if names != "r" and any(not re.fullmatch(r"[A-G](?:#+|b+)?[0-9]~?", n) for n in names.split("+")):
-                        raise CorrectionError(f"Bar {name}: invalid pitch {names!r}")
-                    if grace and names == "r":
-                        raise CorrectionError("Grace rests are not supported")
-                    groups.append((names, Fraction(0) if grace else duration, grace))
-                    if not grace:
-                        total += duration
+                total, groups = _read_voice(body, div, name)
                 replacements[current][(staff, voice)] = (total, groups)
         staves = max([int(e.text) for e in selected.findall("measure/attributes/staves")] or [1])
         unchanged = set()
@@ -169,7 +205,10 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
             if set(s for s, _ in voices) != set(range(1, staves + 1)):
                 raise CorrectionError(f"Bar {name}: include all {staves} staves")
             as_read = _durations(canonical)
+            handed_out = _handed_out_voices(canonical, index.ppq, name)
             for label, (total, groups) in voices.items():
+                if handed_out.get(label) == (total, groups):
+                    continue
                 if total != original.length:
                     raise CorrectionError(f"Bar {name}, voice {label[0]}.{label[1]} adds up to {total}; expected {original.length} quarter notes")
                 for _, duration, grace in groups:
@@ -244,11 +283,13 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
         if len(bar) and bar[-1].tag == "barline" and bar[-1].get("location", "right") == "right":
             insertion -= 1
         content = []
-        for position, ((staff, voice), (length, groups)) in enumerate(sorted(replacements[number].items())):
-            if position:
+        previous_length = None
+        for (staff, voice), (length, groups) in sorted(replacements[number].items()):
+            if previous_length is not None:
                 backup = ET.Element("backup")
-                ET.SubElement(backup, "duration").text = str(int(length * divisions))
+                ET.SubElement(backup, "duration").text = str(int(previous_length * divisions))
                 content.append(backup)
+            previous_length = length
             pending = pending_voices.setdefault((owners[number].number, staff, voice), {})
             voice_notes = []
             expanded = []
@@ -560,9 +601,9 @@ def _segment_replacements(index, replacements):
         measure = index.measure(number)
         segments = measure.segments
         for i, segment in enumerate(segments):
-            end = segments[i + 1].start if i + 1 < len(segments) else measure.length
             result[segment.index] = {}
-            for label, (_, groups) in voices.items():
+            for label, (total, groups) in voices.items():
+                end = segments[i + 1].start if i + 1 < len(segments) else max(measure.length, total)
                 cursor = Fraction(0)
                 pieces = []
                 for names, duration, grace in groups:

@@ -207,3 +207,11 @@ def test_review_is_trimmed_to_the_music_and_backs_only_the_changed_notes():
     assert svg.count('fill="#FDD478"') == 3
     image = Image.open(io.BytesIO(review.engravings[0].png()))
     assert image.width < 700
+
+
+def test_server_correct_leaves_a_voice_longer_than_the_bar_alone(tmp_path, monkeypatch):
+    score = (ROOT / 'tests/data/correct_voice_longer_than_bar.musicxml').read_bytes()
+    handed_out = correct.bars_from_musicxml(score, 6, part='P2')
+    result = call(tmp_path, monkeypatch, score, replacement_bars=handed_out.replace('1.2: 4 r 3 D#4 1 E4', '1.2: 4 r 3 D#4 1 F4'), part='P2')
+    assert not result.is_error, result.content[0].text
+    assert result.structured_content['changed_bars'] == [6]
