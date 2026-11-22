@@ -43,7 +43,7 @@ def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[
     for number, offset, name, length in keep:
         kept.setdefault(number, []).append((offset, _m21_pitch(name), float(length)))
     reference = next((p for p in parts.values() if p.family in STRINGS), next(iter(parts.values())))
-    signature = reference.measures[0].keySignature or reference.measures[0].getContextByClass(key.KeySignature)
+    signature = reference.keys[0]
     flat_key = signature is not None and signature.sharps < 0
     right_hand, left_hand = stream.Part(), stream.Part()
     previous_cue = previous_lead = None
@@ -54,7 +54,8 @@ def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[
         here = [(float(offset - start), found, length) for offset, found, length in kept.get(owner.number, [])
                 if start <= offset and (end is None or offset < end)]
         right, left, previous_cue, previous_lead, carried = _reduce_bar(
-            bar, parts, ref, owner.number, here, flat_key, previous_cue, previous_lead, number == 0, carried
+            bar, parts, ref, (reference.keys[number], reference.times[number], reference.bar_lengths[number]),
+            owner.number, here, flat_key, previous_cue, previous_lead, number == 0, carried
         )
         right_hand.append(right)
         left_hand.append(left)
@@ -89,6 +90,9 @@ def _edge_tie(comes_in: bool, goes_out: bool):
 class _Part:
     def __init__(self, part: stream.Part, name: str, family: str, abbreviation: str, number: str):
         self.measures = list(part.getElementsByClass(stream.Measure))
+        self.keys = [m.keySignature or m.getContextByClass(key.KeySignature) for m in self.measures]
+        self.times = [m.timeSignature or m.getContextByClass(meter.TimeSignature) for m in self.measures]
+        self.bar_lengths = [m.barDuration.quarterLength for m in self.measures]
         self.name, self.family, self.abbreviation, self.number = name, family, abbreviation, number
 
 
@@ -176,8 +180,7 @@ def _respell(p: pitch.Pitch, flat_key: bool) -> pitch.Pitch:
     return q
 
 
-def _beat(ref: stream.Measure) -> float:
-    signature = ref.timeSignature or ref.getContextByClass(meter.TimeSignature)
+def _beat(signature: meter.TimeSignature | None) -> float:
     if signature is None:
         return 1.0
     if signature.denominator == 8 and signature.numerator % 3 == 0:
@@ -430,7 +433,7 @@ def _staff(target: stream.Measure, voices: list[stream.Voice], length: float) ->
         target.insert(0, voice)
 
 
-def _reduce_bar(bar, parts, ref, number, kept, flat_key, previous_cue, previous_lead, first, carried):
+def _reduce_bar(bar, parts, ref, context, number, kept, flat_key, previous_cue, previous_lead, first, carried):
     counts = {n: len(_attacks(m)) for n, m in bar.items()}
     playing = [n for n in bar if counts[n]]
     best = max(counts, key=lambda n: (counts[n], sum(p.ps for p in bar[n].pitches) / max(len(bar[n].pitches), 1)))
@@ -464,7 +467,8 @@ def _reduce_bar(bar, parts, ref, number, kept, flat_key, previous_cue, previous_
     def tune_at(time: float) -> float | None:
         return next((e.pitch.ps for e in sounding if e.offset <= time < e.offset + e.quarterLength), None)
 
-    length = opFrac(min(ref.duration.quarterLength, ref.barDuration.quarterLength))
+    signature_key, signature_time, bar_length = context
+    length = opFrac(min(ref.duration.quarterLength, bar_length))
     in_tune = {(opFrac(e.offset), e.pitch.ps) for e in sounding}
     notes = [n for name in bar for n in _sounding(bar[name], name) if not (name == best and (n.start, n.ps) in in_tune)]
     doubled = {(opFrac(e.offset), e.pitch.pitchClass) for e in sounding}
@@ -499,7 +503,7 @@ def _reduce_bar(bar, parts, ref, number, kept, flat_key, previous_cue, previous_
     _hands(written, tune_at, tune)
     written = _thin([n for n in written if n.hand == "R"]) + _thin([n for n in written if n.hand == "L"])
 
-    beat = _beat(ref)
+    beat = _beat(signature_time)
     right, left = stream.Measure(number=number), stream.Measure(number=number)
     for hand in (right, left):
         hand.paddingLeft, hand.paddingRight = ref.paddingLeft, ref.paddingRight
@@ -537,7 +541,7 @@ def _reduce_bar(bar, parts, ref, number, kept, flat_key, previous_cue, previous_
     if first:
         right.insert(0, clef.TrebleClef())
         left.insert(0, clef.BassClef())
-        signatures = [ref.keySignature or ref.getContextByClass(key.KeySignature), ref.timeSignature or ref.getContextByClass(meter.TimeSignature)]
+        signatures = [signature_key, signature_time]
     for m in (right, left):
         for found in signatures:
             if found is not None:

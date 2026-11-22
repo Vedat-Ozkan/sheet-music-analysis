@@ -1,9 +1,10 @@
+import gc
 import tempfile
 from functools import lru_cache
 from pathlib import Path
 
 import pytest
-from music21 import converter, stream
+from music21 import converter, key, meter, stream
 
 from engine import piano
 from tools.robustness import CORPUS
@@ -164,3 +165,19 @@ def test_a_range_in_which_no_part_sounds_is_the_same_bars_of_rests():
     hands = list(reduced.parts)
     assert len(hands) == 2
     assert all(len(hand.getElementsByClass(stream.Measure)) == 1 and not hand.flatten().notes for hand in hands)
+
+
+def test_the_opening_signatures_are_written_when_the_parsed_score_is_collected_before_the_bars_are_read(monkeypatch):
+    score = (Path(__file__).parent / "data/part_writing_motion.musicxml").read_bytes()
+    original = piano._parts
+
+    def collected(data, positions):
+        parts = original(data, positions)
+        gc.collect()
+        return parts
+
+    monkeypatch.setattr(piano, "_parts", collected)
+    reduced = converter.parse(piano.reduce(score, (3, 6)), format="musicxml")
+    for hand in reduced.parts:
+        first = hand.getElementsByClass(stream.Measure)[0]
+        assert first.getElementsByClass(meter.TimeSignature) and first.getElementsByClass(key.KeySignature)
