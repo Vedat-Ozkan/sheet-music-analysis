@@ -699,7 +699,7 @@ def _append_movement(joined: ET.Element, movement: ET.Element) -> None:
             silent = [other for other in silent if other is not target]
         target.extend(part.findall("measure"))
     for part in silent:
-        part.extend(_silent_bar(bar) for bar in bars_beside)
+        part.extend(_silent_bar(bar, *state) for bar, state in zip(bars_beside, _in_force(bars_beside)))
 
 
 def _longest_part(score: ET.Element) -> list[ET.Element]:
@@ -720,19 +720,29 @@ def _new_part(joined: ET.Element, movement: ET.Element, part: ET.Element, bars_b
     named = next(entry for entry in movement.iter("score-part") if entry.get("id") == part.get("id"))
     ET.SubElement(listed, "part-name").text = named.findtext("part-name")
     added = ET.SubElement(joined, "part", id=part_id)
-    added.extend(_silent_bar(bar) for bar in bars_before)
+    added.extend(_silent_bar(bar, *state) for bar, state in zip(bars_before, _in_force(bars_before)))
     added.find("measure/attributes").extend(
         copy.deepcopy(element) for element in part.findall("measure[1]/attributes/*") if element.tag in ("staves", "clef"))
     return added
 
 
-def _silent_bar(beside: ET.Element) -> ET.Element:
+def _in_force(bars: list[ET.Element], divisions: int | None = None) -> list[tuple[int | None, tuple[int, int] | None]]:
+    states, meter = [], None
+    for bar in bars:
+        divisions = int(bar.findtext("attributes/divisions") or divisions or 0) or None
+        meter = musicxml_meter(bar.find("attributes/time")) or meter
+        states.append((divisions, meter))
+    return states
+
+
+def _silent_bar(beside: ET.Element, divisions: int | None, meter: tuple[int, int] | None) -> ET.Element:
     bar = ET.Element("measure", number=beside.get("number"))
     attributes = ET.SubElement(bar, "attributes")
     attributes.extend(copy.deepcopy(element) for element in beside.findall("attributes/*") if element.tag in ("divisions", "key", "time"))
     rest = ET.SubElement(bar, "note")
     ET.SubElement(rest, "rest", measure="yes")
-    ET.SubElement(rest, "duration").text = str(_bar_length(beside))
+    length = bar_length(*meter) * divisions if divisions and meter else None
+    ET.SubElement(rest, "duration").text = str(length if length is not None and length.denominator == 1 else _bar_length(beside))
     return bar
 
 
@@ -880,25 +890,26 @@ def _fill_absent_bars(root: ET.Element) -> None:
                 or [bar.get("number") for bar in bars] != [bar.get("number") for bar in beside if bar.get("number") in own]):
             continue
         filled = []
-        unit, beside_unit = _opening_divisions(part), _opening_divisions(others[0])
-        for bar in others[0].findall("measure"):
-            beside_unit = int(bar.findtext("attributes/divisions") or beside_unit or 0) or None
+        unit = _opening_divisions(part)
+        reference = others[0].findall("measure")
+        for bar, (beside_unit, meter) in zip(reference, _in_force(reference, _opening_divisions(others[0]))):
             if bar.get("number") in own:
                 filled.append(own[bar.get("number")])
                 unit = int(filled[-1].findtext("attributes/divisions") or unit or 0) or None
             elif bar.get("number") in held:
                 if unit is None or beside_unit is None:
                     break
-                filled.append(_silent_bar_in_unit(bar, unit, beside_unit, None if filled else part.find("measure/attributes/clef")))
+                filled.append(_silent_bar_in_unit(bar, unit, beside_unit, meter, None if filled else part.find("measure/attributes/clef")))
         else:
             for bar in bars:
                 part.remove(bar)
             part.extend(filled)
 
 
-def _silent_bar_in_unit(beside: ET.Element, unit: int, beside_unit: int, clef: ET.Element | None) -> ET.Element:
-    bar = _silent_bar(beside)
-    bar.find("note/duration").text = str(_bar_length(beside) * unit // beside_unit)
+def _silent_bar_in_unit(beside: ET.Element, unit: int, beside_unit: int, meter: tuple[int, int] | None,
+                        clef: ET.Element | None) -> ET.Element:
+    bar = _silent_bar(beside, beside_unit, meter)
+    bar.find("note/duration").text = str(int(bar.findtext("note/duration")) * unit // beside_unit)
     attributes = bar.find("attributes")
     for divisions in attributes.findall("divisions"):
         attributes.remove(divisions)

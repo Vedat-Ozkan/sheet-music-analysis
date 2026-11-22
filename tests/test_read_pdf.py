@@ -272,6 +272,8 @@ def test_clean_gives_a_part_the_first_bar_the_reader_left_out_as_a_silent_bar():
     assert [bar.get("number") for bar in voice.iter("measure")] == [bar.get("number") for bar in piano.iter("measure")]
     assert voice.find("measure").find("note/rest").get("measure") == "yes"
     assert voice.find("measure").find("note/pitch") is None
+    first = voice.find("measure")
+    assert Fraction(int(first.findtext("note/duration")), int(first.findtext("attributes/divisions"))) == 3
     measures = ScoreIndex(load_toolkit(score).getMEI()).measures
     assert {event.staff for measure in measures for event in measure.events} == {1, 2, 3}
     assert [(event.onset, event.pitch) for event in measures[5].events if event.staff == 1 and event.pitch] == [(Fraction(11, 4), "G4")]
