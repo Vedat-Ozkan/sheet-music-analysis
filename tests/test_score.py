@@ -193,3 +193,20 @@ def test_a_score_with_no_bars_has_an_empty_index():
     mei = ('<mei xmlns="http://www.music-encoding.org/ns/mei"><music><body><mdiv><score>'
            '<scoreDef meter.count="4" meter.unit="4"/><section/></score></mdiv></body></music></mei>')
     assert ScoreIndex(mei).measures == []
+
+
+@pytest.mark.parametrize("name", ["ave_maria_variant0.mxl", "ave_maria_variant1.mxl", "kinkel_trennung_variant0.mxl"])
+def test_a_score_that_changes_its_time_unit_mid_part_is_timed_by_the_new_unit(name):
+    from pathlib import Path
+
+    from engine import correct
+
+    path = next((Path(__file__).parent / "data").rglob(name))
+    _, part, index = correct._read(path.read_bytes(), "P1")
+    divisions = None
+    for bar, measure in zip(part.findall("measure"), index.measures):
+        divisions = int(bar.findtext("attributes/divisions") or divisions)
+        written = {Fraction(note.findtext("duration")) / divisions for note in bar.findall("note")
+                   if note.find("grace") is None and note.findtext("duration")}
+        read = {event.duration for event in measure.events if event.duration}
+        assert not read or read == written, (name, measure.number)
