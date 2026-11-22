@@ -515,7 +515,7 @@ def _reduce_bar(bar, parts, ref, context, number, kept, flat_key, previous_lead,
         if element.isChord:
             top = max(element.pitches, key=lambda p: p.ps)
             single = note.Note(top, quarterLength=element.quarterLength)
-            single.tie = element.getTie(top)
+            single.tie, single.beams = element.getTie(top), element.beams
             single.offset = element.offset
             element = single
         melody.append(element)

@@ -267,3 +267,11 @@ def test_a_reading_whose_parts_hold_different_bars_gets_no_piano_version():
             render(data, AnnotationList(annotations=[]), measures=bars, piano=True)
         assert str(refused.value) == piano.PARTS_DO_NOT_LINE_UP
     assert render(data, AnnotationList(annotations=[]), measures=(2, 5)).page_count == 1
+
+
+def test_a_tune_that_starts_its_beamed_groups_on_chords_keeps_its_beams():
+    data = (Path(__file__).parent / "data/chopin_ballade_op23_pdmx.mxl").read_bytes()
+    right = _bars(_parse(piano.reduce(data, (36, 38))))[0]
+    for bar in right:
+        eighths = [e for v in bar.voices or [bar] for e in v.notes if e.duration.type == "eighth" and e.offset in (1.0, 1.5, 2.0, 2.5, 4.0, 4.5, 5.0, 5.5)]
+        assert eighths and all(e.beams.beamsList for e in eighths), bar.number
