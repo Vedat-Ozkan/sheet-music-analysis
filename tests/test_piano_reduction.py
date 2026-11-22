@@ -156,3 +156,11 @@ def test_no_note_of_the_original_is_lost(name, first, last):
 def test_a_bar_whose_part_runs_past_its_time_signature_is_written_at_the_signatures_length():
     _, reduced = _both("weber-concertino", 1, 10)
     assert [float(m.quarterLength) for m in reduced.parts[0].getElementsByClass(stream.Measure)] == [3.0] * 10
+
+
+def test_a_range_in_which_no_part_sounds_is_the_same_bars_of_rests():
+    score = (Path(__file__).parent / "data/part_writing_motion.musicxml").read_bytes()
+    reduced = converter.parse(piano.reduce(score, (24, 24)), format="musicxml")
+    hands = list(reduced.parts)
+    assert len(hands) == 2
+    assert all(len(hand.getElementsByClass(stream.Measure)) == 1 and not hand.flatten().notes for hand in hands)

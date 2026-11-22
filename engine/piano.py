@@ -114,7 +114,8 @@ def _parts(score: bytes, positions: tuple[int, int]) -> dict[str, _Part]:
         os.unlink(file.name)
     excerpt = parsed.measures(positions[0] - 1, positions[1], indicesNotNumbers=True)
     excerpt = excerpt.toSoundingPitch()
-    found = [(part, part.getInstrument()) for part in excerpt.parts if part.flatten().pitches]
+    every_part = [(part, part.getInstrument()) for part in excerpt.parts]
+    found = [(part, inst) for part, inst in every_part if part.flatten().pitches] or every_part
     families = [_family(part, inst) for part, inst in found]
     parts, seen = {}, {}
     for (part, inst), family in zip(found, families):
