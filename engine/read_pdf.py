@@ -30,7 +30,7 @@ from engine import text, tint, verovio_workers
 from engine.errors import UserError
 from engine.overlay import S, Box, PageLayout
 from engine.render import Engraving, ScoreError, load_toolkit
-from engine.score import TOLERANCE, ScoreIndex, bar_length, musicxml_meter
+from engine.score import NOTE_TYPE_LENGTH, TOLERANCE, ScoreIndex, bar_length, musicxml_meter
 from engine.triplets import infer_triplets
 from engine.tuplet_rests import infer_tuplet_rests
 
@@ -60,8 +60,6 @@ DEFAULT_PART_NAMES = {"Voice", "NoName"}
 INSTRUMENT_NAMES = sorted({kind().instrumentName for _, kind in inspect.getmembers(instrument, inspect.isclass)
                            if issubclass(kind, instrument.Instrument) and kind().instrumentName} - DEFAULT_PART_NAMES)
 DOUBLE_BARS = {"light-light", "light-heavy", "heavy-light", "heavy-heavy"}
-_LENGTH = {"whole": 4, "half": 2, "quarter": 1, "eighth": Fraction(1, 2),
-           "16th": Fraction(1, 4), "32nd": Fraction(1, 8), "64th": Fraction(1, 16)}
 _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
 _BASE = ["-option", _SWITCH + "indentations=false",
          "-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0",
@@ -157,7 +155,7 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
                 if (element.tag == "note" and element.find("pitch") is not None
                         and element.find("grace") is None and element.find("time-modification") is None
                         and element.findtext("duration")):
-                    expected = _LENGTH.get(element.findtext("type"))
+                    expected = NOTE_TYPE_LENGTH.get(element.findtext("type"))
                     if expected is not None:
                         expected *= 2 - Fraction(1, 2 ** len(element.findall("dot")))
                         if abs(Fraction(element.findtext("duration")) / divisions - expected) > TOLERANCE:

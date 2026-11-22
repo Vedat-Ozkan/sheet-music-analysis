@@ -117,6 +117,10 @@ def normalise_pitch(pitch: str) -> str:
     return pitch[0].upper() + pitch[1:].replace("-", "b")
 
 
+NOTE_TYPE_LENGTH = {"whole": 4, "half": 2, "quarter": 1, "eighth": Fraction(1, 2),
+                    "16th": Fraction(1, 4), "32nd": Fraction(1, 8), "64th": Fraction(1, 16)}
+
+
 def beat_length(count: int, unit: int) -> Fraction:
     if unit == 8 and count > 3 and count % 3 == 0:
         return Fraction(3, 2)
