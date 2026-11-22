@@ -3376,6 +3376,31 @@ Two faults found on the way, both fixed at the root. (1) Step 1 wrote names into
 
 **Checks.** Targeted tests with the PDF reader on the last commit of the Opus session: 883 passed. Full suite of the base with the lint fix (fd01cef) on a home PC plus the two machine-bound files here: 1,618 passed, 4 skipped, 0 failed. Full suite of `rules-identical-copies` here: 1,618 passed, 4 skipped, 0 failed. Full suite of this branch before it was put on top of `rules-identical-copies` (cf71bff), on a home PC plus the two machine-bound files here: 1,662 passed, 4 skipped, 0 failed. The combined branch has had the tests of the touched areas (116 passed) and lint; its own full-suite run is NOT yet read.
 
+### 192. Each drawing request has a drawing process to itself; the others wait in line (2026-11-22, branch `drawing-queue`, nothing released)
+
+**Why.** The server keeps two processes that draw scores. Requests used to share them, so two large drawings and a small one all slowed each other, and nothing told a caller the server was full. The owner's design: one process per request, a first-come wait, a busy answer when the wait runs out, one error type, and a third process if memory allows.
+
+**What changed.**
+- A request takes one drawing process for its whole length and gives it back at the end. Requests that find both taken wait in arrival order: tool calls and the worksheet download up to 60 s, a PDF reading up to 480 s. When the wait runs out the caller gets the busy answer and the call is logged as busy.
+- A request takes its drawing process before it takes the single score-work slot, so a request holding the slot can never be waiting for a process.
+- An error raised inside the drawing library is now the same error type as a crashed drawing process.
+- The worksheet download answered "This worksheet could not be made" when it could not get a process; it now answers 503 with "The service is busy right now. Please try again in a minute." (owner's decision).
+
+**Timing.** The same script on the old and the new code, drawing the Chopin Ballade through the server's own path, two runs each. One alone: 18.6 and 18.2 s before, 18.6 and 18.5 s after. Three at once: 39.9 / 47.8 / 55.5 s before, 29.1 / 36.9 / 54.9 s after (second runs within 1 s of these). The first two finish about 11 s sooner; the last is unchanged.
+
+**No third process.** Measured here, not on Cloud Run: one drawing process holds 27 MB idle, 78 MB after the Ballade and up to 436 MB after the largest test score (Mozart 41), and keeps it until it is replaced. The whole server with two processes holds 1,225 MB after two Mozart 41s, with three 1,675 MB. A PDF reading peaks at 2.1 to 2.4 GB in the same container and the draft model at 1.0 GB. The service has 4 GiB; the worst case with two processes is already about 4.8 GB, so a third is not added.
+
+**A test that failed at random, two causes.**
+- In the server: a request without the proxy key was refused before its body was read. Closing a connection with unread data makes Linux send a reset, and the caller can lose the refusal that was already on its way. With a 2 MB body sent after the headers, 13 of 20 refusals were cut off. The body is now read before refusing, for at most 3 s, so a caller without the key cannot hold a request slot by sending slowly (review finding: the first fix read without limit; a body that never ended was never answered). Real users come through the proxy, which sends the key, and were not affected.
+- In the tests: the helper that starts a server picked a free port, released it and let the server take it later. Under load another test's server took it in between, and the test talked to the wrong server. The helper also never stopped a server whose test failed (38 left running were found and stopped). It now checks that its own process is listening, tries again on another port, and always stops the server.
+- The unchanged test under load (14 test processes at once): 4 of 42 runs failed before, 2 of 350 with the server fix alone, 0 of 420 with both.
+
+**Tests.** A third request sent while two Ballades draw gets the busy answer (fails on the old code, which draws it). Requests that find both processes taken are drawn in arrival order. A worksheet opened while every process stays taken gets the busy answer. One older test claimed to prove the wait but passed on the old code; the single score-work slot delays a third request either way, so it could not be made to prove it. It is renamed for what it checks (three drawings sent together are all drawn).
+
+**Left for the owner.** The busy answer still speaks of "reading another PDF", also for a drawing call. A call that only plays a passage still takes a drawing process. A PDF reading may wait up to 480 s for one.
+
+**Checks.** `tools/diff_check.py --base one-rule-one-place render`: 28 inputs, none changed (this area draws without the server's processes, so it shows only that the drawing code is untouched). The 19 server and worker test files: 289 passed. Lint passes. Full suite with the PDF reader, here: 1,671 passed, 4 skipped, 0 failed.
+
 ### 193. Second group of rules written once: beat positions, sharps and flats in names, two rounding limits, note-list labels (2026-11-22, branch `rules-second-batch`, nothing released)
 
 **Why.** Continues entry 190. Each of these was written in several places that could drift apart.
