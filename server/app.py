@@ -77,6 +77,7 @@ PLAYER_URI = "ui://sheet-music-analysis/player-v3.html"
 UPLOAD_CARD_URI = "ui://sheet-music-analysis/upload-card-v1.html"
 CONNECTOR_URL = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
 PROXY_KEYS = [key.encode() for key in (os.environ.get("PROXY_KEY"), os.environ.get("PROXY_KEY_PREVIOUS")) if key]
+REFUSED_BODY_SECONDS = 3
 CLAUDE_UI_DOMAIN = hashlib.sha256(CONNECTOR_URL.encode()).hexdigest()[:32] + ".claudemcpcontent.com"
 HERE = Path(__file__).parent
 
@@ -284,8 +285,9 @@ def only_through_the_proxy(app):
         if PROXY_KEYS and scope["type"] == "http" and scope["path"] != "/health":
             sent = dict(scope["headers"]).get(b"x-proxy-key", b"")
             if not any([hmac.compare_digest(sent, key) for key in PROXY_KEYS]):
-                while (await receive()).get("more_body"):
-                    pass
+                with anyio.move_on_after(REFUSED_BODY_SECONDS):
+                    while (await receive()).get("more_body"):
+                        pass
                 return await refusal(scope, receive, send)
         return await app(scope, receive, send)
 

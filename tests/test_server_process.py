@@ -14,6 +14,8 @@ from pathlib import Path
 import pytest
 from mcp.client.client import Client
 
+from server import app
+
 
 NOCTURNE = Path(__file__).parent / "data" / "chopin_nocturne_op9_no2.mxl"
 
@@ -290,6 +292,22 @@ def test_a_request_without_the_key_gets_the_whole_refusal_while_its_body_is_stil
     with running_server(tmp_path, PROXY_KEY="the key of this test") as (locked, _):
         answers = [refused(int(locked.rsplit(":", 1)[1])) for _ in range(10)]
     assert all(answer.startswith("HTTP/1.1 403") and "mcp.sheetmusicanalysis.com" in answer for answer in answers)
+
+
+def test_a_request_without_the_key_whose_body_never_ends_is_refused_after_a_short_wait_and_holds_no_one_up(tmp_path):
+    with running_server(tmp_path, PROXY_KEY="the key of this test") as (locked, _):
+        with socket.create_connection(("127.0.0.1", int(locked.rsplit(":", 1)[1])), timeout=30) as stalled:
+            stalled.sendall(b"POST /mcp HTTP/1.1\r\nHost: x\r\nConnection: close\r\nContent-Length: 10000000\r\n\r\nxx")
+            started = time.monotonic()
+            listed = json.loads(as_client(locked, "Claude-User", "tools/list", {}, **{"X-Proxy-Key": "the key of this test"}))
+            served = time.monotonic() - started
+            answer = b""
+            while part := stalled.recv(4096):
+                answer += part
+            refused = time.monotonic() - started
+    assert "draft_analysis" in {tool["name"] for tool in listed["result"]["tools"]}
+    assert served < refused
+    assert answer.startswith(b"HTTP/1.1 403") and refused < app.REFUSED_BODY_SECONDS + 5
 
 
 def test_while_the_key_changes_the_previous_key_is_served_too(tmp_path):
