@@ -310,11 +310,12 @@ def _rest_bars(mei: str) -> dict[str, list[Measure]]:
     if "<multiRest" not in mei:
         return {}
     rests: dict[str, list[Measure]] = {}
+    first = None
     for measure in ScoreIndex(mei).measures:
-        if rests and measure.id.startswith(f"{last.id}-"):
-            rests[last.id].append(measure)
+        if first is not None and measure.id.startswith(f"{first.id}-"):
+            rests[first.id].append(measure)
         else:
-            last = measure
+            first = measure
             rests[measure.id] = [measure]
     return rests
 
