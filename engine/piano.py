@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import math
 import os
 import tempfile
 from bisect import bisect_left, bisect_right
@@ -8,8 +9,9 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from fractions import Fraction
 
-from music21 import chord, clef, tie, converter, dynamics, instrument, key, layout, meter, note, pitch, stream
+from music21 import chord, clef, tie, converter, duration, dynamics, instrument, key, layout, meter, note, pitch, stream
 from music21.common.numberTools import opFrac
+from music21.stream import makeNotation
 from music21.musicxml.m21ToXml import GeneralObjectExporter
 
 from engine.render import load_toolkit
@@ -25,6 +27,8 @@ BASS = {"Violoncello", "Contrabass", "Bassoon", "Contrabassoon", "Tuba", "Trombo
 LOWEST_RIGHT_HAND = 55
 SPAN = 14
 HIGHEST_LEFT_HAND = 64
+PLAIN = (1.0, 0.5, 0.25, 0.125, 0.0625, 0.03125)
+TUPLETS = (Fraction(2, 3), Fraction(4, 5), Fraction(4, 7))
 
 def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[int, Fraction, str, Fraction]] = (),
            index: ScoreIndex | None = None) -> bytes:
@@ -46,11 +50,12 @@ def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[
     carried: dict = {}
     for number, ref in enumerate(reference.measures):
         bar = {name: part.measures[number] for name, part in parts.items()}
+        length = max(part.ends[number] for part in parts.values()) or reference.bar_lengths[number]
         owner, start, end = owners[first + number]
         here = [(float(offset - start), found, length) for offset, found, length in kept.get(owner.number, [])
                 if start <= offset and (end is None or offset < end)]
         right, left, previous_lead, carried = _reduce_bar(
-            bar, parts, ref, (reference.keys[number], reference.times[number], reference.bar_lengths[number]),
+            bar, parts, ref, (reference.keys[number], reference.times[number], length),
             owner.number, here, flat_key, previous_lead, number == 0, carried
         )
         right_hand.append(right)
@@ -59,7 +64,25 @@ def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[
         _pair_ties(hand)
     out = stream.Score([right_hand, left_hand])
     out.insert(0, layout.StaffGroup([right_hand, left_hand], symbol="brace", name="Piano"))
-    return GeneralObjectExporter(out).parse()
+    for hand in (right_hand, left_hand):
+        _notate(hand)
+    exporter = GeneralObjectExporter(out)
+    exporter.makeNotation = False
+    return exporter.parse()
+
+
+def _notate(hand: stream.Part) -> None:
+    if not hand.streamStatus.accidentals:
+        makeNotation.makeAccidentalsInMeasureStream(hand)
+    for measure in hand.getElementsByClass(stream.Measure):
+        measure.flattenUnnecessaryVoices(inPlace=True)
+    if not hand.streamStatus.beams:
+        makeNotation.makeBeams(hand, inPlace=True)
+    for measure in hand.getElementsByClass(stream.Measure):
+        for written in (measure, *measure.voices):
+            if not written.streamStatus.tuplets:
+                makeNotation.makeTupletBrackets(written, inPlace=True)
+    hand.splitAtDurations(recurse=True)
 
 
 def _pair_ties(part: stream.Part) -> None:
@@ -89,6 +112,8 @@ class _Part:
         self.keys = [m.keySignature or m.getContextByClass(key.KeySignature) for m in self.measures]
         self.times = [m.timeSignature or m.getContextByClass(meter.TimeSignature) for m in self.measures]
         self.bar_lengths = [m.barDuration.quarterLength for m in self.measures]
+        self.ends = [max((opFrac(e.getOffsetInHierarchy(m) + e.quarterLength) for e in m.recurse().notesAndRests if not e.duration.isGrace), default=0)
+                     for m in self.measures]
         self.name, self.family = name, family
 
 
@@ -336,24 +361,54 @@ def _hands(notes: list[_Note], tune_at: Callable[[float], float | None], one_rig
         n.hand = h
 
 
-def _rest_lengths(start: float, end: float, beat: float, length: float) -> list[float]:
+def _lengths(start: float, end: float, beat: float, length: float, note: bool = False) -> list[float]:
     pieces, t = [], start
     while t < end:
-        if t == 0 and end == length:
+        if t == 0 and end == length and not note:
             size = length
-        elif t % beat == 0 and t + beat <= end:
-            size = max(s for s in (beat * 2**k for k in range(4)) if t % s == 0 and t + s <= end)
+        elif _on(t, beat) and t + beat <= end:
+            whole = [beat * 2**k * dots for k in range(4) for dots in ((1, 1.5) if note else (1,))]
+            size = max(s for s in whole if _on(t, s) and t + s <= end)
         else:
             limit = min(end, (t // beat + 1) * beat)
-            within = t - (t // beat) * beat
-            sizes = [s for s in (1.0, 0.5, 0.25, 0.125, 0.0625) if s < beat and within % s == 0 and t + s <= limit]
+            sizes = _sizes(t, limit, beat, note)
             size = sizes[0] if sizes else limit - t
         pieces.append(opFrac(size))
         t = opFrac(t + size)
     return pieces
 
 
-def _note_spans(start: float, end: float, beat: float) -> list[tuple[float, float]]:
+def _sizes(t: float, limit: float, beat: float, note: bool) -> list[float]:
+    t = Fraction(t)
+    within = t % Fraction(beat)
+    for factor in (1, *TUPLETS):
+        bound = limit if factor == 1 else min(limit, t // 1 + 1)
+        smallest = Fraction(PLAIN[-1]) * factor
+        if not (_on(t, smallest) and _on(bound, smallest)):
+            continue
+        units = [Fraction(s) * factor for s in PLAIN if Fraction(s) * factor < beat]
+        dotted = (1.5, 1) if note and factor == 1 else (1,)
+        sizes = [opFrac(unit * dots) for unit in units for dots in dotted]
+        return [size for size in sizes if _on(within, size) and t + size <= bound]
+    return []
+
+
+def _on(time: float, grid: float) -> bool:
+    return Fraction(time) % Fraction(grid) == 0
+
+
+def _writable(start: float, end: float) -> bool:
+    written = duration.Duration(opFrac(end - start))
+    if written.type in ("inexpressible", "complex", "zero") or written.dots > 2:
+        return False
+    if not written.tuplets:
+        return True
+    group = Fraction(duration.convertTypeToQuarterLength(written.type)) * written.tuplets[0].numberNotesNormal
+    one_group = Fraction(start) // group == math.ceil(Fraction(end) / group) - 1
+    return one_group and all(Fraction(t.numberNotesNormal, t.numberNotesActual) in TUPLETS for t in written.tuplets)
+
+
+def _note_spans(start: float, end: float, beat: float, length: float) -> list[tuple[float, float]]:
     cuts = [start]
     first = opFrac((start // beat + 1) * beat)
     if start % beat and first < end:
@@ -361,7 +416,13 @@ def _note_spans(start: float, end: float, beat: float) -> list[tuple[float, floa
     last = opFrac(end // beat * beat)
     if beat == 1.5 and end % beat and cuts[-1] < last:
         cuts.append(last)
-    return list(zip(cuts, cuts[1:] + [end]))
+    spans = []
+    for c, d in zip(cuts, cuts[1:] + [end]):
+        sizes = [opFrac(d - c)] if _writable(c, d) else _lengths(c, d, beat, length, note=True)
+        for size in sizes:
+            spans.append((c, opFrac(c + size)))
+            c = opFrac(c + size)
+    return spans
 
 
 def _voice(notes: list[_Note], length: float, beat: float, flat_key: bool) -> stream.Voice:
@@ -370,20 +431,23 @@ def _voice(notes: list[_Note], length: float, beat: float, flat_key: bool) -> st
     for a, b in zip(times, times[1:]):
         here = [n for n in notes if n.start <= a and n.end >= b]
         if not here:
-            t = a
-            for size in _rest_lengths(a, b, beat, length):
-                voice.insert(t, note.Rest(quarterLength=size))
-                t = opFrac(t + size)
+            _rests(voice, a, b, beat, length)
             continue
         here.sort(key=lambda n: n.ps)
         pitches = [_respell(n.pitch, flat_key) for n in here]
-        for c, d in _note_spans(a, b, beat):
+        for c, d in _note_spans(a, b, beat, length):
             element = chord.Chord(pitches, quarterLength=d - c) if len(pitches) > 1 else note.Note(pitches[0], quarterLength=d - c)
             for n, written in zip(here, element.notes if element.isChord else [element]):
                 written.tie = _edge_tie(n.start < c or n.comes_in, n.end > d or n.goes_out)
             voice.insert(c, element)
     _beam(voice, beat)
     return voice
+
+
+def _rests(voice: stream.Voice, start: float, end: float, beat: float, length: float) -> None:
+    for size in _lengths(start, end, beat, length):
+        voice.insert(start, note.Rest(quarterLength=size))
+        start = opFrac(start + size)
 
 
 def _staff(target: stream.Measure, voices: list[stream.Voice], length: float) -> None:
@@ -440,8 +504,7 @@ def _reduce_bar(bar, parts, ref, context, number, kept, flat_key, previous_lead,
     def tune_at(time: float) -> float | None:
         return next((e.pitch.ps for e in sounding if e.offset <= time < e.offset + e.quarterLength), None)
 
-    signature_key, signature_time, bar_length = context
-    length = opFrac(min(ref.duration.quarterLength, bar_length))
+    signature_key, signature_time, length = context
     in_tune = {(opFrac(e.offset), e.pitch.ps) for e in sounding}
     notes = [n for name in bar for n in _sounding(bar[name], name) if not (name == best and (n.start, n.ps) in in_tune)]
     doubled = {(opFrac(e.offset), e.pitch.pitchClass) for e in sounding}
@@ -488,6 +551,7 @@ def _reduce_bar(bar, parts, ref, context, number, kept, flat_key, previous_lead,
     if tune:
         for element in melody:
             upper.insert(element.offset, element)
+        _rests(upper, opFrac(upper.highestTime), length, beat, length)
         staves["R"] = [upper] + staves["R"]
     _staff(right, staves["R"], length)
     _staff(left, staves["L"], length)

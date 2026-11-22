@@ -1,5 +1,7 @@
 import gc
 import tempfile
+import xml.etree.ElementTree as ET
+from fractions import Fraction
 from functools import lru_cache
 from pathlib import Path
 
@@ -197,3 +199,59 @@ def test_the_piano_version_names_no_instruments(path, first, last):
 
     engraving = render((Path(__file__).parent / "data" / path).read_bytes(), AnnotationList(annotations=[]), measures=(first, last), piano=True)
     assert not any('class="dir"' in svg for svg in engraving.svgs)
+
+
+def _bars(score):
+    return [list(part.getElementsByClass(stream.Measure)) for part in score.parts]
+
+
+@pytest.mark.parametrize("path, first, last", [("triplet_brahms_fruhlingstrost.musicxml", 1, 6), ("triplet_mayer.musicxml", 1, 4)])
+def test_the_piano_version_writes_only_lengths_a_musician_writes(path, first, last):
+    data = (Path(__file__).parent / "data" / path).read_bytes()
+    ratios = {(t.numberNotesActual, t.numberNotesNormal) for e in _parse(data).recurse().notesAndRests for t in e.duration.tuplets}
+    grid = Fraction(1, 32)
+    for hand in _bars(_parse(piano.reduce(data, (first, last)))):
+        for bar in hand:
+            for voice in bar.voices or [bar]:
+                group = []
+                for element in [*voice.notesAndRests, None]:
+                    written = element.duration if element is not None else None
+                    if written is not None and not (element.isRest and element.fullMeasure in (True, "always")):
+                        assert written.dots <= 2 and written.type not in ("inexpressible", "complex"), (bar.number, element)
+                    kind = [(t.numberNotesActual, t.numberNotesNormal) for t in written.tuplets] if written is not None else []
+                    assert set(kind) <= ratios, (bar.number, element, kind)
+                    if group and kind != group[0][0]:
+                        start, end = Fraction(group[0][1].offset), Fraction(group[-1][1].offset) + Fraction(group[-1][1].quarterLength)
+                        assert start % grid == 0 and end % grid == 0, (bar.number, start, end)
+                        group = []
+                    if kind:
+                        group.append((kind, element))
+
+
+@pytest.mark.parametrize("path, first, last", [("triplet_mayer.musicxml", 1, 4), ("movements/choral-songs-02-invalid-page-3.mxl", 46, 49),
+                                               ("triplet_brahms_fruhlingstrost.musicxml", 37, 40), ("chopin_nocturne_op9_no2_pdmx.mxl", 31, 34)])
+def test_both_hands_are_as_long_as_the_longest_part_of_each_bar(path, first, last):
+    data = (Path(__file__).parent / "data" / path).read_bytes()
+    source = _bars(_parse(data).measures(first, last))
+    longest = [max(max((e.offset + e.quarterLength for e in bar.recurse().notesAndRests), default=0) for bar in bars) for bars in zip(*source)]
+    for hand in _written_lengths(piano.reduce(data, (first, last))):
+        assert hand == longest
+
+
+def _written_lengths(xml: bytes) -> list[list[Fraction]]:
+    hands = []
+    for part in ET.fromstring(xml).iter("part"):
+        lengths, divisions = [], 1
+        for bar in part.iter("measure"):
+            divisions = int(bar.findtext("attributes/divisions") or divisions)
+            time = end = 0
+            for child in bar:
+                step = int(child.findtext("duration") or 0)
+                if child.tag == "backup":
+                    time -= step
+                elif child.tag == "forward" or (child.tag == "note" and child.find("chord") is None):
+                    time += step
+                end = max(end, time)
+            lengths.append(Fraction(end, divisions))
+        hands.append(lengths)
+    return hands
