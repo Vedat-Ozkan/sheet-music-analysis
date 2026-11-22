@@ -169,8 +169,8 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
                 timed = element.tag == "forward" or (element.tag == "note" and element.find("chord") is None)
                 if timed and element.find("grace") is None and element.findtext("duration"):
                     voice = element.findtext("voice", "1")
-                    length = Fraction(round(float(element.findtext("duration"))), divisions)
-                    cursor += Fraction(element.findtext("duration")) / divisions
+                    length = Fraction(element.findtext("duration")) / divisions
+                    cursor += length
                     if element.tag == "forward" and voices.get(voice, 0) == gap.get(voice, 0):
                         gap[voice] = gap.get(voice, 0) + length
                     voices[voice] = voices.get(voice, 0) + length
