@@ -1,6 +1,6 @@
 """Hand every bar of every part of every score out through correct_bars and send it back, unchanged and with one pitch changed.
 
-    python tools/correct_corpus_check.py [--workers N] [--only SUBSTRING] [--out FILE.jsonl] [--timeout SECONDS]
+    python tools/correct_corpus_check.py [--workers N] [--only SUBSTRING] [--out FILE.jsonl] [--timeout SECONDS] [--clean]
 
 Set CORRECT_ENGINE_ROOT to a folder holding another copy of engine/ to check that copy instead.
 Scores: tests/data (this tree and the main checkout, for git-ignored ones) and the cached final PDF readings in the main
@@ -48,6 +48,20 @@ def scores() -> list[Path]:
     return list(found.values())
 
 
+def read_score(path: Path, cleaned: bool) -> bytes:
+    data = path.read_bytes()
+    if not cleaned:
+        return data
+    from engine.read_pdf import clean
+
+    if data[:2] != b"PK":
+        sink = io.BytesIO()
+        with zipfile.ZipFile(sink, "w") as archive:
+            archive.writestr("score.xml", data)
+        data = sink.getvalue()
+    return clean(data)
+
+
 def part_ids(score: bytes) -> list[str]:
     if score[:2] == b"PK":
         with zipfile.ZipFile(io.BytesIO(score)) as archive:
@@ -87,7 +101,7 @@ def voices_of(bar, with_ties: bool = False) -> dict[tuple[int, int], list]:
     return voices
 
 
-def check_part(path: Path, part: str, verify: bool) -> dict:
+def check_part(path: Path, part: str, verify: bool, cleaned: bool = False) -> dict:
     from engine import correct, notes
     from engine.errors import UserError
 
@@ -109,8 +123,8 @@ def check_part(path: Path, part: str, verify: bool) -> dict:
         return Cached(mei_cache[data])
 
     correct.load_toolkit = cached_load
-    score = path.read_bytes()
     try:
+        score = read_score(path, cleaned)
         _, selected, index = correct._read(score, part)
     except Exception as error:
         return {"unopenable": f"{type(error).__name__}: {blank(str(error))[:160]}"}
@@ -201,20 +215,28 @@ def main() -> None:
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--verify-untouched", action="store_true")
     parser.add_argument("--one", nargs=2, metavar=("FILE", "PART"))
+    parser.add_argument("--clean", action="store_true", help="pass each score through engine.read_pdf.clean first, as production does")
     args = parser.parse_args()
     if args.one:
-        record = check_part(Path(args.one[0]), args.one[1], args.verify_untouched)
+        record = check_part(Path(args.one[0]), args.one[1], args.verify_untouched, args.clean)
         print("RESULT " + json.dumps(record, default=dict))
         return
-    queue = [(path, part) for path in scores() if args.only in str(path) for part in part_ids(path.read_bytes())]
+    queue = []
+    results: dict[str, dict[str, dict]] = {}
+    for path in scores():
+        if args.only not in str(path):
+            continue
+        try:
+            queue += [(path, part) for part in part_ids(read_score(path, args.clean))]
+        except Exception as error:
+            results[str(path)] = {"-": {"unopenable": f"{type(error).__name__}: {error}"}}
     out = Path(args.out)
     out.write_text("")
-    results: dict[str, dict[str, dict]] = {}
     running: list[tuple[subprocess.Popen, Path, str, float]] = []
     while queue or running:
         while queue and len(running) < args.workers:
             path, part = queue.pop(0)
-            command = [sys.executable, __file__, "--one", str(path), part] + (["--verify-untouched"] if args.verify_untouched else [])
+            command = [sys.executable, __file__, "--one", str(path), part] + (["--verify-untouched"] if args.verify_untouched else []) + (["--clean"] if args.clean else [])
             running.append((subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True), path, part, time.time()))
         time.sleep(0.5)
         for entry in list(running):

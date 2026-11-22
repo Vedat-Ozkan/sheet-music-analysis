@@ -1,6 +1,6 @@
 """Which scores change their time unit (divisions) in mid-part, and how many bars hold a voice that runs past the bar's length.
 
-    python tools/time_unit_corpus_check.py [--workers N] [--only SUBSTRING] [--timeout SECONDS] [--out FILE.jsonl]
+    python tools/time_unit_corpus_check.py [--workers N] [--only SUBSTRING] [--timeout SECONDS] [--out FILE.jsonl] [--clean]
 
 Scores are the ones tools/correct_corpus_check.py uses. Per file: the distinct divisions values of each part, and for the whole
 score as the index reads it, the number of bars in which some voice's notes or rests end after the meter's bar length.
@@ -33,11 +33,11 @@ def musicxml_root(data: bytes) -> ET.Element:
     return ET.fromstring(data)
 
 
-def check_file(path: Path) -> dict:
+def check_file(path: Path, cleaned: bool = False) -> dict:
     from engine.render import load_toolkit
     from engine.score import TOLERANCE, ScoreIndex
 
-    data = path.read_bytes()
+    data = shared.read_score(path, cleaned)
     root = musicxml_root(data)
     changing = {}
     for part in root.findall("part"):
@@ -68,9 +68,14 @@ def main() -> None:
     parser.add_argument("--timeout", type=int, default=600)
     parser.add_argument("--out", default="time_unit_corpus_check.jsonl")
     parser.add_argument("--one")
+    parser.add_argument("--clean", action="store_true")
     args = parser.parse_args()
     if args.one:
-        print("RESULT " + json.dumps(check_file(Path(args.one))))
+        try:
+            record = check_file(Path(args.one), args.clean)
+        except Exception as error:
+            record = {"failed": f"{type(error).__name__}: {error}"}
+        print("RESULT " + json.dumps(record))
         return
     queue = [path for path in shared.scores() if args.only in str(path)]
     out = Path(args.out)
@@ -80,7 +85,7 @@ def main() -> None:
     while queue or running:
         while queue and len(running) < args.workers:
             path = queue.pop(0)
-            running.append((subprocess.Popen([sys.executable, __file__, "--one", str(path)], stdout=subprocess.PIPE,
+            running.append((subprocess.Popen([sys.executable, __file__, "--one", str(path)] + (["--clean"] if args.clean else []), stdout=subprocess.PIPE,
                                              stderr=subprocess.DEVNULL, text=True), path, time.time()))
         time.sleep(0.3)
         for entry in list(running):
