@@ -322,8 +322,9 @@ class ScoreIndex:
         return self._by_segment[id]
 
     def _read_definitions(self, element: ET.Element) -> None:
-        if element.get("ppq"):
-            self._ppq = dict.fromkeys(self._ppq, int(element.get("ppq")))
+        if element.get("ppq") and self._ppq:
+            first_part_unit = self._ppq[min(self._ppq)]
+            self._ppq = {staff: int(element.get("ppq")) if unit == first_part_unit else unit for staff, unit in self._ppq.items()}
         for staff_def in element.iter(f"{MEI}staffDef"):
             staff = int(staff_def.get("n", "1"))
             if staff_def.get("ppq"):
