@@ -284,6 +284,8 @@ def only_through_the_proxy(app):
         if PROXY_KEYS and scope["type"] == "http" and scope["path"] != "/health":
             sent = dict(scope["headers"]).get(b"x-proxy-key", b"")
             if not any([hmac.compare_digest(sent, key) for key in PROXY_KEYS]):
+                while (await receive()).get("more_body"):
+                    pass
                 return await refusal(scope, receive, send)
         return await app(scope, receive, send)
 

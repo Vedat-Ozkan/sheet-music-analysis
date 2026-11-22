@@ -23,8 +23,18 @@ def store(tmp_path_factory):
     return tmp_path_factory.mktemp("store")
 
 
-@contextmanager
-def running_server(store, **settings):
+def listening_ports(pid):
+    sockets = set()
+    for fd in Path(f"/proc/{pid}/fd").iterdir():
+        try:
+            sockets.add(os.readlink(fd))
+        except OSError:
+            pass
+    rows = [line.split() for line in Path("/proc/net/tcp").read_text().splitlines()[1:]]
+    return {int(row[1].split(":")[1], 16) for row in rows if row[3] == "0A" and f"socket:[{row[9]}]" in sockets}
+
+
+def started_server(store, settings):
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
@@ -32,21 +42,34 @@ def running_server(store, **settings):
     env.pop("BUCKET", None)
     env.pop("K_SERVICE", None)
     process = subprocess.Popen([sys.executable, "-m", "server.app"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    url = f"http://127.0.0.1:{port}"
-    for _ in range(120):
-        try:
-            urllib.request.urlopen(f"{url}/health", timeout=1)
+    for _ in range(480):
+        if process.poll() is not None:
+            return None
+        if port in listening_ports(process.pid):
+            return port, process
+        time.sleep(0.25)
+    process.kill()
+    raise TimeoutError("the server did not start listening within 120 s")
+
+
+@contextmanager
+def running_server(store, **settings):
+    for _ in range(3):
+        if started := started_server(store, settings):
             break
-        except OSError:
-            time.sleep(0.25)
-    yield url
-    process.terminate()
-    process.wait(10)
+    else:
+        raise RuntimeError("the server could not take a free port three times")
+    port, process = started
+    try:
+        yield f"http://127.0.0.1:{port}", process
+    finally:
+        process.terminate()
+        process.wait(10)
 
 
 @pytest.fixture(scope="module")
 def server(store):
-    with running_server(store) as url:
+    with running_server(store) as (url, _):
         yield url
 
 
@@ -237,7 +260,7 @@ def test_health_still_answers(server):
 
 
 def test_with_a_proxy_key_set_only_requests_that_carry_it_are_served(tmp_path):
-    with running_server(tmp_path, PROXY_KEY="the key of this test") as locked:
+    with running_server(tmp_path, PROXY_KEY="the key of this test") as (locked, _):
         with pytest.raises(urllib.error.HTTPError) as no_key:
             as_client(locked, "Claude-User", "tools/list", {})
         with pytest.raises(urllib.error.HTTPError) as wrong_key:
@@ -252,8 +275,25 @@ def test_with_a_proxy_key_set_only_requests_that_carry_it_are_served(tmp_path):
     assert health.status == 200
 
 
+def test_a_request_without_the_key_gets_the_whole_refusal_while_its_body_is_still_arriving(tmp_path):
+    size = 2_000_000
+
+    def refused(port):
+        with socket.create_connection(("127.0.0.1", port), timeout=10) as connection:
+            connection.sendall(f"POST /mcp HTTP/1.1\r\nHost: x\r\nConnection: close\r\nContent-Length: {size}\r\n\r\n".encode())
+            connection.sendall(b"x" * size)
+            answer = b""
+            while part := connection.recv(4096):
+                answer += part
+            return answer.decode()
+
+    with running_server(tmp_path, PROXY_KEY="the key of this test") as (locked, _):
+        answers = [refused(int(locked.rsplit(":", 1)[1])) for _ in range(10)]
+    assert all(answer.startswith("HTTP/1.1 403") and "mcp.sheetmusicanalysis.com" in answer for answer in answers)
+
+
 def test_while_the_key_changes_the_previous_key_is_served_too(tmp_path):
-    with running_server(tmp_path, PROXY_KEY="the new key", PROXY_KEY_PREVIOUS="the old key") as changing:
+    with running_server(tmp_path, PROXY_KEY="the new key", PROXY_KEY_PREVIOUS="the old key") as (changing, _):
         old = json.loads(as_client(changing, "Claude-User", "tools/list", {}, **{"X-Proxy-Key": "the old key"}))
         new = json.loads(as_client(changing, "Claude-User", "tools/list", {}, **{"X-Proxy-Key": "the new key"}))
         with pytest.raises(urllib.error.HTTPError) as other:

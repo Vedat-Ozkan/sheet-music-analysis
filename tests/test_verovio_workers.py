@@ -2,9 +2,7 @@ import asyncio
 import hashlib
 import json
 import os
-import socket
 import subprocess
-import sys
 import time
 import urllib.request
 from contextlib import contextmanager
@@ -17,6 +15,7 @@ from mcp.client.client import Client
 from engine import read_pdf as pdf_reader
 from engine import render, verovio_workers
 from server import app
+from tests.test_server_process import running_server
 
 DATA = Path(__file__).parent / "data"
 CRASH = (DATA / "verovio-crashes" / "mozart-k545-1-homr-reading-clef-change.musicxml").read_bytes()
@@ -144,28 +143,13 @@ def test_a_pdf_is_read_with_audiveris_and_drawn_through_the_workers(pool, store,
 
 @pytest.fixture(scope="module")
 def server_process(tmp_path_factory):
-    with socket.socket() as probe:
-        probe.bind(("127.0.0.1", 0))
-        port = probe.getsockname()[1]
     folder = tmp_path_factory.mktemp("store")
     (folder / "scores").mkdir()
     (folder / "scores" / "CRASH").write_bytes(CRASH)
     (folder / "scores" / "CHORALE").write_bytes(CHORALE)
     (folder / "scores" / "NOCTURNE").write_bytes(NOCTURNE)
-    env = {**os.environ, "PORT": str(port), "DATA_DIR": str(folder)}
-    env.pop("BUCKET", None)
-    env.pop("K_SERVICE", None)
-    process = subprocess.Popen([sys.executable, "-m", "server.app"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    url = f"http://127.0.0.1:{port}"
-    for _ in range(120):
-        try:
-            urllib.request.urlopen(f"{url}/health", timeout=1)
-            break
-        except OSError:
-            time.sleep(0.25)
-    yield url, process
-    process.terminate()
-    process.wait(10)
+    with running_server(folder) as started:
+        yield started
 
 
 def workers_of(process):
