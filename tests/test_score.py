@@ -187,3 +187,9 @@ def test_a_huge_mxl_container_is_refused_before_it_is_unpacked():
 def test_an_empty_duration_does_not_stop_the_score_loading():
     score = one_bar("", "C4").replace(b"<duration>4</duration>", b"<duration/>")
     assert load_toolkit(score).getMEI()
+
+
+def test_a_score_with_no_bars_has_an_empty_index():
+    mei = ('<mei xmlns="http://www.music-encoding.org/ns/mei"><music><body><mdiv><score>'
+           '<scoreDef meter.count="4" meter.unit="4"/><section/></score></mdiv></body></music></mei>')
+    assert ScoreIndex(mei).measures == []

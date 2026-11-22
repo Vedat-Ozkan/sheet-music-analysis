@@ -68,7 +68,6 @@ class Measure:
     label: str = ""
     name: str = ""
     full_length: Fraction | None = None
-    is_pickup: bool = False
     events: list[Event] = field(default_factory=list)
     segments: list[Segment] = field(default_factory=list)
     marks: list[Mark] = field(default_factory=list)
@@ -92,6 +91,10 @@ class Measure:
     @property
     def length(self) -> Fraction:
         return self.declared_length if self.declared_length is not None else self.content_length
+
+    @property
+    def is_pickup(self) -> bool:
+        return self.index == 1 and self.number == 0
 
     @property
     def pickup_padding(self) -> Fraction:
@@ -277,7 +280,6 @@ class ScoreIndex:
         return index
 
     def _finish(self) -> None:
-        self.measures[0].is_pickup = self.measures[0].number == 0
         self._by_number = {measure.number: measure for measure in self.measures}
         self._by_name = {measure.name: measure for measure in self.measures}
         self._by_segment = {segment.id: (measure, segment) for measure in self.measures for segment in measure.segments}
