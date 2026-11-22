@@ -207,9 +207,10 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
             as_read = _durations(canonical)
             handed_out = _handed_out_voices(canonical, index.ppq, name)
             for label, (total, groups) in voices.items():
-                if handed_out.get(label) == (total, groups):
+                handed = handed_out.get(label)
+                if handed == (total, groups):
                     continue
-                if total != original.length:
+                if total != original.length and not (handed and total == handed[0]):
                     raise CorrectionError(f"Bar {name}, voice {label[0]}.{label[1]} adds up to {total}; expected {original.length} quarter notes")
                 for _, duration, grace in groups:
                     written = Duration(duration)
