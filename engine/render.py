@@ -233,17 +233,17 @@ def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool
     loaded = toolkit.loadData(_importable(text))
     if not loaded:
         raise ScoreError(UNREADABLE)
-    _tidy(toolkit, _readable_names(score), keep_pedals, labelled_bars, bar_names)
+    _tidy(toolkit, text, _readable_names(score), keep_pedals, labelled_bars, bar_names)
     if len(set(re.findall(r'<staffDef\b[^>]*\bn="(\d+)"', toolkit.getMEI()))) <= LARGE_SCORE_STAVES:
         toolkit.setOptions({"systemDivider": "none"})
         toolkit.redoLayout()
     return toolkit
 
 
-def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool, labelled_bars: Collection[int],
+def _tidy(toolkit: verovio.toolkit, musicxml: str, names: dict[str, str], keep_pedals: bool, labelled_bars: Collection[int],
           bar_names: dict[int, str] | None) -> None:
     mei = toolkit.getMEI()
-    patched = _number_unmarked_pickup(mei)
+    patched = _opening_bar(mei, musicxml)
     rests = _rest_bars(patched)
     patched = re.sub(r"<measure\b(?:(?!</measure>).)*?<multiRest\b.*?</measure>", lambda m: _multi_rest(m, rests, labelled_bars), patched, flags=re.S)
     patched = _count_ahead_in_drawn_bars(patched)
@@ -374,6 +374,19 @@ def _name_drawn_bars(mei: str, bar_names: dict[int, str] | None) -> str:
         return opening.replace(written.group(0), f'n="{name}" label="{written.group(1)}"', 1)
 
     return re.sub(r"<measure\b[^>]*>", renamed, mei)
+
+
+def written_by_the_pdf_reader(musicxml: str) -> bool:
+    return "<software>Audiveris" in musicxml
+
+
+def _opening_bar(mei: str, musicxml: str) -> str:
+    if not written_by_the_pdf_reader(musicxml):
+        return _number_unmarked_pickup(mei)
+    opening = re.search(r"<measure\b[^>]*>", mei)
+    if opening is None or 'implicit="yes"' in re.search(r"<measure\s[^>]*>", musicxml).group(0):
+        return mei
+    return mei.replace(opening.group(0), opening.group(0).replace(' metcon="false"', ""), 1)
 
 
 def _number_unmarked_pickup(mei: str) -> str:

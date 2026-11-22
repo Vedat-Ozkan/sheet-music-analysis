@@ -465,8 +465,10 @@ class ScoreIndex:
 
     def _printed_names(self) -> list[str]:
         names, base, extra = [], None, 0
-        for measure in self.measures:
-            if _whole(measure.label) and (base is None or int(measure.label) > base):
+        for measure, following in zip(self.measures, self.measures[1:] + [None]):
+            if measure.is_pickup and following is not None and measure.label == following.label:
+                names.append("0")
+            elif _whole(measure.label) and (base is None or int(measure.label) > base):
                 base, extra = int(measure.label), 0
                 names.append(str(base))
             elif base is None:

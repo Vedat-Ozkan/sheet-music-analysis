@@ -48,4 +48,4 @@ Outputs:
 
 1. Fixed: a range wholly inside a gap in the printed numbers (print 1, 2, 5, 6; "3-4") said "Measures 5-2 run backwards"; when both ends move inward and cross, the first end is reported as not existing. A range typed backwards is reported with the names as typed.
 2. Fixed: render_analysis's caption and log gave the range as asked ("4-9"), not as drawn ("4-5").
-3. For the PDF pickup fix (next branch): a pickup the file numbers 1 followed by a whole bar also numbered 1 is named "1", "1a", and "1" then means the pickup. `_number_unmarked_pickup` only shifts labels "1", "2"; `range_start` still adds the pickup by internal number.
+3. Fixed on one-rule-one-place: a pickup the file numbers 1 followed by a whole bar also numbered 1 was named "1", "1a", and "1" then meant the pickup; now they are "0" and "1". `_number_unmarked_pickup` only shifts labels "1", "2"; `range_start` still adds the pickup by internal number.

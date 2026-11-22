@@ -199,8 +199,8 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
         short = longest < full - TOLERANCE and not guessed
         neighbours = [bars[j] for j in (i - 1, i + 1) if 0 <= j < len(bars) and bars[j][0] != position]
         halves = any(abs(longest + max(other[3].values()) - full) <= TOLERANCE for other in neighbours)
-        first, last = position == 1, position == max(bar[0] for bar in bars)
-        pickup = max(bars[0][3].values()) if max(bars[0][3].values()) < bars[0][2] else Fraction(0)
+        first, last = position == 1 and measures[0].is_pickup, position == max(bar[0] for bar in bars)
+        pickup = max(bars[0][3].values()) if measures[0].is_pickup and max(bars[0][3].values()) < bars[0][2] else Fraction(0)
         completes = last and abs(pickup + longest - full) <= TOLERANCE
         if longest > full + TOLERANCE or overlapping or (short and not (first or completes or halves)):
             if number is not None and number not in uneven:
