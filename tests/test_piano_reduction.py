@@ -1,4 +1,5 @@
 import gc
+import gzip
 import tempfile
 import xml.etree.ElementTree as ET
 from fractions import Fraction
@@ -267,6 +268,30 @@ def test_a_reading_whose_parts_hold_different_bars_gets_no_piano_version():
             render(data, AnnotationList(annotations=[]), measures=bars, piano=True)
         assert str(refused.value) == piano.PARTS_DO_NOT_LINE_UP
     assert render(data, AnnotationList(annotations=[]), measures=(2, 5)).page_count == 1
+
+
+def test_the_piano_version_of_a_reading_given_its_missing_first_bar_keeps_every_part_in_step():
+    from engine.read_pdf import clean
+    from tests.test_read_pdf import zipped
+
+    score = clean(zipped((Path(__file__).parent / "data/pdf_warnings/schubert_die_stadt_audiveris.musicxml").read_bytes()))
+    source, reduced = _parse(score).toSoundingPitch(), _parse(piano.reduce(score, (6, 8)))
+    def attacks(parts):
+        return {(onset, ps) for part in parts for onset, _, ps, _ in _notes(part, 7)}
+    assert attacks(reduced.parts) == attacks(source.parts)
+    assert (0.0, 67.0) in attacks(source.parts[:1])
+
+
+def test_a_reading_whose_first_system_became_extra_parts_still_gets_no_piano_version():
+    from engine.annotate import render
+    from engine.annotations import AnnotationList
+    from engine.read_pdf import clean
+    from tests.test_read_pdf import zipped
+
+    reading = gzip.decompress((Path(__file__).parent / "data/pdf_warnings/faisst_lied_der_nacht_audiveris.musicxml.gz").read_bytes())
+    with pytest.raises(piano.PianoError) as refused:
+        render(clean(zipped(reading)), AnnotationList(annotations=[]), measures=(5, 8), piano=True)
+    assert str(refused.value) == piano.PARTS_DO_NOT_LINE_UP
 
 
 def test_a_tune_that_starts_its_beamed_groups_on_chords_keeps_its_beams():

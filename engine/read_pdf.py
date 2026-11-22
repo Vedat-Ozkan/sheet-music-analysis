@@ -59,6 +59,7 @@ SHOWN = 4
 DEFAULT_PART_NAMES = {"Voice", "NoName"}
 INSTRUMENT_NAMES = sorted({kind().instrumentName for _, kind in inspect.getmembers(instrument, inspect.isclass)
                            if issubclass(kind, instrument.Instrument) and kind().instrumentName} - DEFAULT_PART_NAMES)
+SAME_BAR_WIDTH = 0.02
 DOUBLE_BARS = {"light-light", "light-heavy", "heavy-light", "heavy-heavy"}
 _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
 _BASE = ["-option", _SWITCH + "indentations=false",
@@ -828,6 +829,7 @@ def clean(mxl: bytes) -> bytes:
     root = _archived_score(mxl)
     _drop_noteless_parts(root)
     _name_default_parts(root)
+    _fill_absent_bars(root)
     for note in root.iter("note"):
         if note.find("chord") is not None:
             for beam in note.findall("beam"):
@@ -862,6 +864,70 @@ def clean(mxl: bytes) -> bytes:
     _keep_meaningful_text(root)
     _lyrics_to_directions(root)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _fill_absent_bars(root: ET.Element) -> None:
+    parts = root.findall("part")
+    for part in parts:
+        others = [other for other in parts if other is not part]
+        if not others:
+            return
+        held = set.intersection(*({bar.get("number") for bar in other.findall("measure")} for other in others))
+        beside = [bar for bar in others[0].findall("measure") if bar.get("number") in held]
+        bars = part.findall("measure")
+        own = {bar.get("number"): bar for bar in bars}
+        if (len(own) < len(bars) or not held - own.keys() or not _same_columns(own, others)
+                or [bar.get("number") for bar in bars] != [bar.get("number") for bar in beside if bar.get("number") in own]):
+            continue
+        filled = []
+        unit, beside_unit = _opening_divisions(part), _opening_divisions(others[0])
+        for bar in others[0].findall("measure"):
+            beside_unit = int(bar.findtext("attributes/divisions") or beside_unit or 0) or None
+            if bar.get("number") in own:
+                filled.append(own[bar.get("number")])
+                unit = int(filled[-1].findtext("attributes/divisions") or unit or 0) or None
+            elif bar.get("number") in held:
+                if unit is None or beside_unit is None:
+                    break
+                filled.append(_silent_bar_in_unit(bar, unit, beside_unit, None if filled else part.find("measure/attributes/clef")))
+        else:
+            for bar in bars:
+                part.remove(bar)
+            part.extend(filled)
+
+
+def _silent_bar_in_unit(beside: ET.Element, unit: int, beside_unit: int, clef: ET.Element | None) -> ET.Element:
+    bar = _silent_bar(beside)
+    bar.find("note/duration").text = str(_bar_length(beside) * unit // beside_unit)
+    attributes = bar.find("attributes")
+    for divisions in attributes.findall("divisions"):
+        attributes.remove(divisions)
+    attributes.insert(0, ET.Element("divisions"))
+    attributes[0].text = str(unit)
+    if clef is not None:
+        attributes.append(copy.deepcopy(clef))
+    return bar
+
+
+def _same_columns(own: dict[str, ET.Element], others: list[ET.Element]) -> bool:
+    pairs = [(float(own[bar.get("number")].get("width")), float(bar.get("width"))) for other in others for bar in other.findall("measure")
+             if bar.get("number") in own and bar.get("width") and own[bar.get("number")].get("width")]
+    return bool(pairs) and all(abs(width - other) <= SAME_BAR_WIDTH * other for width, other in pairs)
+
+
+def _opening_divisions(part: ET.Element) -> int | None:
+    opening = []
+    for bar in part.findall("measure"):
+        if bar.find("attributes/divisions") is not None:
+            break
+        opening.append(bar)
+    if not opening:
+        return int(part.findtext("measure/attributes/divisions"))
+    units = {Fraction(note.findtext("duration")) / NOTE_TYPE_LENGTH[note.findtext("type")]
+             for bar in opening for note in bar.iter("note")
+             if note.findtext("type") in NOTE_TYPE_LENGTH and note.findtext("duration") and note.find("dot") is None
+             and note.find("time-modification") is None and note.find("grace") is None}
+    return int(units.pop()) if len(units) == 1 and next(iter(units)).denominator == 1 else None
 
 
 def _drop_noteless_parts(root: ET.Element) -> None:
