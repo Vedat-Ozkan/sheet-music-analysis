@@ -172,15 +172,17 @@ store = BucketStore(BUCKET) if BUCKET else LocalStore(Path(os.environ.get("DATA_
 counter_lock = asyncio.Lock()
 pdf_lock = asyncio.Lock()
 score_work = anyio.CapacityLimiter(1)
+DRAWING_WAIT = 60
 
 
 async def in_turn(function, *args):
+    await anyio.to_thread.run_sync(verovio_workers.claim)
     return await anyio.to_thread.run_sync(function, *args, limiter=score_work)
 
 
 @asynccontextmanager
-async def verovio_request():
-    request = verovio_workers.Request()
+async def verovio_request(wait: float):
+    request = verovio_workers.Request(wait)
     token = verovio_workers.current.set(request)
     try:
         yield
@@ -348,8 +350,11 @@ def observed(fn):
         result = None
         try:
             with trace.use_span(span, end_on_exit=False):
-                async with verovio_request():
+                async with verovio_request(DRAWING_WAIT):
                     result = await fn(ctx, *args, **kwargs)
+        except verovio_workers.WorkersBusy:
+            call["busy"] = True
+            result = busy()
         except Exception:
             call["outcome"] = "server_error"
             call["stack_trace"] = traceback.format_exc()
@@ -1286,7 +1291,7 @@ async def pdf_work(data: bytes, digest: str, source: str, card_key: str,
     draft.timings.set(timings)
     started = time.perf_counter()
     try:
-        async with verovio_request():
+        async with verovio_request(pdf_reader.TIMEOUT):
             return await pdf_outcome(data, digest, source, card_key, details, timings, started, arrived, person)
     finally:
         reads_held.pop(card_key, None)
@@ -1308,6 +1313,10 @@ async def pdf_outcome(data: bytes, digest: str, source: str, card_key: str, deta
                   "reference": details["reference"], "final": error.lasting}
         result = unread_result(unread, source)
         outcome = "user_error"
+    except verovio_workers.WorkersBusy:
+        details["busy"] = True
+        result = busy()
+        outcome = "busy"
     except Exception as error:
         if isinstance(error, verovio_workers.VerovioFailed):
             details["verovio"] = error.reason
@@ -2039,7 +2048,7 @@ async def files(request: Request) -> Response:
                 data = await anyio.to_thread.run_sync(store.get, f"files/{name}")
                 if data is None:
                     try:
-                        async with verovio_request():
+                        async with verovio_request(DRAWING_WAIT):
                             data = await in_turn(make_worksheet, name)
                     except Exception as error:
                         log("worksheet", error=type(error).__name__, stack_trace=traceback.format_exc())
