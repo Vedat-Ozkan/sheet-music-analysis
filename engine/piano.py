@@ -14,9 +14,14 @@ from music21.common.numberTools import opFrac
 from music21.stream import makeNotation
 from music21.musicxml.m21ToXml import GeneralObjectExporter
 
+from engine.errors import UserError
 from engine.render import load_toolkit
 from engine.score import ScoreIndex, beat_length
 
+PARTS_DO_NOT_LINE_UP = ("A piano version can't be made for this score: its parts don't line up bar for bar, "
+                        "which happens when a PDF was read badly. The full score can still be drawn.")
+UNWRITABLE_BAR = ("A piano version can't be made for bars {first}-{last}: bar {name} was read with note lengths "
+                  "that can't be written. Try other bars, or correct that bar first.")
 FAMILIES = {
     "Piccolo", "Flute", "Oboe", "EnglishHorn", "Clarinet", "BassClarinet", "Bassoon", "Contrabassoon", "Horn", "Trumpet",
     "Trombone", "BassTrombone", "Tuba", "Timpani", "Harp", "Violin", "Viola", "Violoncello", "Contrabass",
@@ -29,6 +34,10 @@ SPAN = 14
 HIGHEST_LEFT_HAND = 64
 PLAIN = (1.0, 0.5, 0.25, 0.125, 0.0625, 0.03125)
 TUPLETS = (Fraction(2, 3), Fraction(4, 5), Fraction(4, 7))
+
+class PianoError(UserError):
+    pass
+
 
 def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[int, Fraction, str, Fraction]] = (),
            index: ScoreIndex | None = None) -> bytes:
@@ -66,9 +75,18 @@ def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[
     out.insert(0, layout.StaffGroup([right_hand, left_hand], symbol="brace", name="Piano"))
     for hand in (right_hand, left_hand):
         _notate(hand)
+        bar = _unwritable_bar(hand)
+        if bar is not None:
+            span = (index.name_of(owners[first][0].number), index.name_of(owners[last][0].number))
+            raise PianoError(UNWRITABLE_BAR.format(first=span[0], last=span[1], name=index.name_of(bar)))
     exporter = GeneralObjectExporter(out)
     exporter.makeNotation = False
     return exporter.parse()
+
+
+def _unwritable_bar(hand: stream.Part) -> int | None:
+    return next((measure.number for measure in hand.getElementsByClass(stream.Measure) for element in measure.recurse().notesAndRests
+                 if element.duration.type == "inexpressible" or (element.duration.type == "complex" and not element.isRest)), None)
 
 
 def _notate(hand: stream.Part) -> None:
@@ -137,6 +155,8 @@ def _parts(score: bytes, positions: tuple[int, int]) -> dict[str, _Part]:
         parsed = converter.parse(file.name, format="musicxml")
     finally:
         os.unlink(file.name)
+    if len({tuple(m.number for m in part.getElementsByClass(stream.Measure)) for part in parsed.parts}) > 1:
+        raise PianoError(PARTS_DO_NOT_LINE_UP)
     excerpt = parsed.measures(positions[0] - 1, positions[1], indicesNotNumbers=True)
     excerpt = excerpt.toSoundingPitch()
     every_part = [(part, part.getInstrument()) for part in excerpt.parts]

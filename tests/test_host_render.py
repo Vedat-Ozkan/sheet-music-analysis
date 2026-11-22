@@ -273,6 +273,14 @@ def test_server_piano_worksheet_has_no_key(tmp_path, monkeypatch):
     assert 'the key' not in files['worksheet']
 
 
+def test_server_refuses_a_piano_version_of_a_reading_whose_parts_hold_different_bars(tmp_path, monkeypatch):
+    from engine.piano import PARTS_DO_NOT_LINE_UP
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/STADT', (ROOT / 'tests/data/pdf_warnings/schubert_die_stadt_audiveris.musicxml').read_bytes())
+    result = asyncio.run(app.render_analysis(None, 'STADT', AnnotationList(annotations=[]), measure_range='2-5', piano=True))
+    assert result.is_error and result.content[0].text == PARTS_DO_NOT_LINE_UP
+
+
 @pytest.mark.parametrize('view, measure_range', [('form', '1-8'), ('all', '20-24')])
 def test_server_mentions_the_guide_only_when_one_is_drawn(chopin, chopin_annotations, tmp_path, monkeypatch, view, measure_range):
     monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))

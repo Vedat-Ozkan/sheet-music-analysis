@@ -255,3 +255,15 @@ def _written_lengths(xml: bytes) -> list[list[Fraction]]:
             lengths.append(Fraction(end, divisions))
         hands.append(lengths)
     return hands
+
+
+def test_a_reading_whose_parts_hold_different_bars_gets_no_piano_version():
+    from engine.annotate import render
+    from engine.annotations import AnnotationList
+
+    data = (Path(__file__).parent / "data/pdf_warnings/schubert_die_stadt_audiveris.musicxml").read_bytes()
+    for bars in ((2, 5), (10, 13)):
+        with pytest.raises(piano.PianoError) as refused:
+            render(data, AnnotationList(annotations=[]), measures=bars, piano=True)
+        assert str(refused.value) == piano.PARTS_DO_NOT_LINE_UP
+    assert render(data, AnnotationList(annotations=[]), measures=(2, 5)).page_count == 1
