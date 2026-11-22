@@ -4,7 +4,7 @@ import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
-from engine import part_writing, piano, text, tint
+from engine import part_writing, text, tint
 from engine.overlay import ARROW, ERROR, FUNCTION_NAMES, INK, LABEL_PAD, LABEL_SIZE, LINE, NUMERAL_SIZE, S, Box, PageLayout
 
 PRINT_SIZE = LABEL_SIZE
@@ -18,11 +18,6 @@ NCT_WORDS = {"PT": "passing note", "NT": "neighbour note", "SUS": "suspension", 
              "RET": "retardation", "ANT": "anticipation", "PED": "pedal note"}
 CADENCE_WORDS = {"PAC": "perfect authentic cadence", "IAC": "imperfect authentic cadence", "HC": "half cadence", "DC": "deceptive cadence"}
 FUNCTION_WORDS = {"T": "tonic", "PD": "pre-dominant", "D": "dominant"}
-CUE_WORDS = {piano.TUTTI: "the whole orchestra", piano.STRINGS_CUE: "the strings"}
-
-
-def _spaced(name: str) -> str:
-    return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", name).lower()
 
 
 def fault_words() -> dict[str, str]:
@@ -30,10 +25,6 @@ def fault_words() -> dict[str, str]:
     for rule, code in part_writing.LABELS.items():
         words.setdefault(code, []).append(rule.replace("_", " "))
     return {code: " or ".join(names) for code, names in words.items()}
-
-
-def cue_words() -> dict[str, str]:
-    return {**{code: _spaced(family) for family, code in piano.ABBREVIATIONS.items()}, **CUE_WORDS}
 
 
 @dataclass
@@ -46,7 +37,7 @@ class Entry:
     boxed: bool = False
 
 
-def entries(shown: set[tuple[str, str]], cues: list[str] = ()) -> list[Entry]:
+def entries(shown: set[tuple[str, str]]) -> list[Entry]:
     found: dict[str, list[str]] = {}
     for kind, code in sorted(shown):
         found.setdefault(kind, []).append(code)
@@ -79,29 +70,14 @@ def entries(shown: set[tuple[str, str]], cues: list[str] = ()) -> list[Entry]:
         result.append(Entry("region", "a passage named by what it is built on"))
     if "callout" in found:
         result.append(Entry("callout", "see that number in the reply"))
-    if cues:
-        known = cue_words()
-        result.append(Entry("", "who plays it in the original", "names above the staff",
-                            codes=[(cue, known[cue]) for cue in dict.fromkeys(cues) if cue in known]))
     if "shaded" in found:
         result.append(Entry("shaded", "may be misread from the PDF; check it against the original"))
     return result
 
 
-def cues_on(layouts: list[PageLayout]) -> list[str]:
-    known = cue_words()
-    found = []
-    for layout in layouts:
-        for group in layout.root.iter(f"{S}g"):
-            if group.get("class") == "dir":
-                said = "".join(group.itertext()).strip()
-                found += [cue for cue in (re.sub(r" (I|II|III|IV)$", "", part) for part in said.split(", ")) if cue in known]
-    return found
-
-
-def draw(layouts: list[PageLayout], layout: PageLayout, cues: list[str] = (), size: float = PRINT_SIZE) -> bool:
+def draw(layouts: list[PageLayout], layout: PageLayout, size: float = PRINT_SIZE) -> bool:
     shown = set().union(*(page.shown for page in layouts))
-    pieces = entries(shown, cues)
+    pieces = entries(shown)
     if not pieces:
         return False
     over = layout.over

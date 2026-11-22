@@ -791,7 +791,7 @@ def card_caption(named: tuple[str, str] | None, view: str, piano: bool) -> str:
 KEY_ON_PAGE = ("The page has a guide to the marks at its foot (on the first page in the card, at the end of the last page "
                "in the PDF). It names the marks and codes drawn around the numerals: the label for the key, the chord's job, "
                "cadence labels, non-chord-tone and part-writing codes, phrase and alternative-reading brackets, arrows, "
-               "callouts, instrument cues and shaded bars, so do not define those again. It does not explain Roman "
+               "callouts and shaded bars, so do not define those again. It does not explain Roman "
                "numerals, figures or inversions: for a student, still explain each numeral the first time it appears. Say "
                "what each numbered callout is about and explain the reasoning behind the labels.")
 
@@ -844,8 +844,8 @@ async def draw(score: bytes, annotations: AnnotationList, index: ScoreIndex, mea
         "for figured bass, otherwise leave it out. "
         "Offer the MusicXML link once per conversation, not after every render: it downloads a file for "
         "MuseScore, Sibelius or Dorico; the result also lists the card's other downloads (Blank worksheet, MIDI, Analysis as text) to mention once. "
-        "piano=true draws the same annotation list (written for the original score) on a two-staff piano reduction "
-        "with instrument cues. For a score with more than four staves (an orchestra, band or large ensemble), draw the original first, then offer the user "
+        "piano=true draws the same annotation list (written for the original score) on a two-staff piano reduction. "
+        "For a score with more than four staves (an orchestra, band or large ensemble), draw the original first, then offer the user "
         "the piano reduction once; call again with piano=true only if they accept."
     ),
     annotations=read_only("Draw the analysis on the score"),

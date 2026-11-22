@@ -188,3 +188,12 @@ def test_a_score_whose_parts_share_a_name_is_drawn_with_the_notes_of_all_its_par
     written = _parse(data).measures(1, 4).toSoundingPitch().flatten().pitches
     reduced = _parse(piano.reduce(data, (1, 4))).flatten().pitches
     assert (min(p.ps for p in reduced), max(p.ps for p in reduced)) == (min(p.ps for p in written), max(p.ps for p in written))
+
+
+@pytest.mark.parametrize("path, first, last", [("piano/mozart-41.mxl", 1, 12), ("triplet_brahms_fruhlingstrost.musicxml", 1, 12)])
+def test_the_piano_version_names_no_instruments(path, first, last):
+    from engine.annotate import render
+    from engine.annotations import AnnotationList
+
+    engraving = render((Path(__file__).parent / "data" / path).read_bytes(), AnnotationList(annotations=[]), measures=(first, last), piano=True)
+    assert not any('class="dir"' in svg for svg in engraving.svgs)

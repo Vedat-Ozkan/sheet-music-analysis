@@ -269,8 +269,8 @@ def test_server_piano_worksheet_has_no_key(tmp_path, monkeypatch):
         return files
 
     files = asyncio.run(run())
-    assert 'who plays it' in files['pdf']
-    assert 'who plays it' not in files['worksheet'] and 'the key' not in files['worksheet']
+    assert 'the key' in files['pdf']
+    assert 'the key' not in files['worksheet']
 
 
 @pytest.mark.parametrize('view, measure_range', [('form', '1-8'), ('all', '20-24')])

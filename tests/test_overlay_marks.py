@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from engine import overlay, page_key, part_writing, piano, text
+from engine import overlay, page_key, part_writing, text
 from engine.annotate import render
 from engine.annotations import AnnotationList
 from engine.overlay import ARROW, ERROR, NUMERAL_SIZE, PageLayout
@@ -575,4 +575,3 @@ def test_page_key_names_shaded_bars(chopin, chopin_annotations):
 def test_page_key_has_words_for_every_code_the_engine_draws():
     assert set(page_key.NCT_WORDS) == set(overlay.NCT_NAMES.values())
     assert set(page_key.fault_words()) == set(part_writing.LABELS.values())
-    assert set(page_key.CUE_WORDS) | set(piano.ABBREVIATIONS.values()) <= set(page_key.cue_words())
