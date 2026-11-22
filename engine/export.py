@@ -9,9 +9,8 @@ from music21 import meter as m21meter
 
 from engine.comparison import beat_ratio
 from engine.performance import performance_midi
-from engine.reduce import STEPS
 from engine.render import check_range, load_toolkit
-from engine.score import ScoreIndex, TOLERANCE
+from engine.score import STEPS, TOLERANCE, ScoreIndex
 
 _SUPERSCRIPTS = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹', '0123456789')
 

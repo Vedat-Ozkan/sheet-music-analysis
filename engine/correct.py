@@ -17,7 +17,7 @@ from engine import notes, tint
 from engine.errors import UserError
 from engine.overlay import Box, PageLayout
 from engine.render import Engraving, incoming_ties, load_toolkit, shorten_ties
-from engine.score import ScoreIndex
+from engine.score import ScoreIndex, alteration
 
 
 class CorrectionError(UserError):
@@ -281,7 +281,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                         match = re.fullmatch(r"([A-G])([#b]*)([0-9])", pitch)
                         p = ET.SubElement(note, "pitch")
                         ET.SubElement(p, "step").text = match[1]
-                        ET.SubElement(p, "alter").text = str(match[2].count("#") - match[2].count("b"))
+                        ET.SubElement(p, "alter").text = str(alteration(match[2]))
                         ET.SubElement(p, "octave").text = match[3]
                     if not grace:
                         ET.SubElement(note, "duration").text = str(int(duration * divisions))

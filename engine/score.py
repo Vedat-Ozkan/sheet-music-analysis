@@ -15,6 +15,8 @@ ACCIDENTALS = {"f": "b", "s": "#", "ff": "bb", "ss": "##", "x": "##", "n": ""}
 CONTAINERS = {"beam", "tuplet", "bTrem", "fTrem", "graceGrp"}
 LETTERS = "CDEFGAB"
 SEMITONES = (0, 2, 4, 5, 7, 9, 11)
+STEPS = dict(zip(LETTERS, SEMITONES))
+SIGN_ALTERATION = {"#": 1, "♯": 1, "b": -1, "♭": -1, "-": -1}
 TOLERANCE = Fraction(1, 96)
 
 
@@ -136,6 +138,14 @@ class Measure:
         return int(self.length / self.beat_length + Fraction(95, 96)) if self.length else 0
 
 
+def alteration(signs: str) -> int:
+    return sum(SIGN_ALTERATION.get(sign, 0) for sign in signs)
+
+
+def pitch_class(name: str) -> int:
+    return (STEPS[name[0].upper()] + alteration(name[1:])) % 12
+
+
 def normalise_pitch(pitch: str) -> str:
     return pitch[0].upper() + pitch[1:].replace("-", "b")
 
@@ -221,7 +231,7 @@ def transpose(pitch: str, semitones: int) -> str:
     accidental = pitch[1:].rstrip("0123456789")
     octave = int(pitch[1 + len(accidental) :])
     step = LETTERS.index(pitch[0])
-    sounding = SEMITONES[step] + accidental.count("#") - accidental.count("b") + 12 * octave + semitones
+    sounding = SEMITONES[step] + alteration(accidental) + 12 * octave + semitones
     new_octave, new_step = divmod(step + 7 * octave + diatonic, 7)
     alter = sounding - (SEMITONES[new_step] + 12 * new_octave)
     return f"{LETTERS[new_step]}{'#' * alter if alter > 0 else 'b' * -alter}{new_octave}"

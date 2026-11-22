@@ -2,16 +2,15 @@ from __future__ import annotations
 
 from fractions import Fraction
 
-from engine.score import Event, Measure, ScoreIndex
+from engine.score import STEPS, Event, Measure, ScoreIndex, alteration
 
-STEPS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 SIGNATURES = {"f": "flat", "s": "sharp"}
 
 
 def midi(pitch: str) -> int:
     accidental = pitch[1:].rstrip("0123456789-")
     octave = int(pitch[1 + len(accidental) :])
-    return STEPS[pitch[0]] + accidental.count("#") - accidental.count("b") + 12 * (octave + 1)
+    return STEPS[pitch[0]] + alteration(accidental) + 12 * (octave + 1)
 
 
 def describe_key_signature(signature: str) -> str:

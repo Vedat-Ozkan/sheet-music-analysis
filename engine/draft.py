@@ -14,7 +14,7 @@ from pathlib import Path
 from engine import notes as note_list
 from engine.annotations import AnnotationList
 from engine.comparison import FUNCTIONS
-from engine.score import Measure, ScoreIndex
+from engine.score import STEPS, Measure, ScoreIndex, alteration, pitch_class
 
 ROOT = Path(__file__).parent.parent
 ANALYSISGNN_PYTHON = os.environ.get("ANALYSISGNN_PYTHON", str(ROOT / ".venv-agnn/bin/python"))
@@ -46,7 +46,6 @@ AUGMENTED_SIXTHS = {
 TRIAD_FIGURES = ["", "6", "64", "64"]
 SEVENTH_FIGURES = ["7", "65", "43", "42"]
 DIATONIC_LOWERCASE = {"major": {"2", "3", "6", "7"}, "minor": {"1", "2", "4"}}
-STEPS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 MINOR_STEPS = {"3": 3, "6": 8, "7": 10}
 MAJOR_STEPS = {"3": 4, "6": 9, "7": 11}
 
@@ -199,7 +198,7 @@ def numeral_with_inversion(rn: str, inversion: int) -> str:
 
 def _midi(pitch: str) -> int:
     accidental = pitch[1:-1] if pitch[-2] != "-" else pitch[1:-2]
-    return STEPS[pitch[0]] + accidental.count("#") - accidental.count("b") + 12 * (int(pitch[len(accidental) + 1 :]) + 1)
+    return STEPS[pitch[0]] + alteration(accidental) + 12 * (int(pitch[len(accidental) + 1 :]) + 1)
 
 
 def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
@@ -286,7 +285,7 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
             spans.append((key, [position]))
 
     def cadential_split(local_key: str, positions: list) -> int:
-        tonic = (STEPS[local_key[0]] + local_key.count("#") - local_key.count("-")) % 12
+        tonic = pitch_class(local_key)
         def sounding(position):
             measure = index.measures[position[0] - 1]
             return [e for e in measure.events if e.pitch and not e.grace and e.onset <= position[1] < e.onset + e.duration]
@@ -332,7 +331,7 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
             quality = best("quality", onsets[positions[0]][0])[0]
             return 2 if quality in ("minor triad", "minor seventh chord") else -2 if quality in ("major triad", "major seventh chord") else 0
         if degree in MINOR_STEPS:
-            tonic = STEPS[local_key[0]] + local_key.count("#") - local_key.count("-")
+            tonic = pitch_class(local_key)
             heard = {_midi(e.pitch) % 12 for p in positions for e in index.measures[p[0] - 1].events if e.onset == p[1] and e.pitch}
             as_minor, as_major = (tonic + MINOR_STEPS[degree]) % 12 in heard, (tonic + MAJOR_STEPS[degree]) % 12 in heard
             return as_minor - as_major

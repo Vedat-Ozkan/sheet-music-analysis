@@ -10,7 +10,7 @@ from fractions import Fraction
 
 from engine.errors import UserError
 from engine.render import load_toolkit
-from engine.score import LETTERS, MEI, SEMITONES, XML_ID, Event, Mark, Measure, ScoreIndex
+from engine.score import LETTERS, MEI, SEMITONES, STEPS, XML_ID, Event, Mark, Measure, ScoreIndex, alteration
 
 LEVELS = {"ppp": 30, "pp": 42, "p": 55, "mp": 66, "mf": 78, "f": 92, "ff": 105, "fff": 118}
 ACCENTS = {"sf": 20, "sfz": 20, "sffz": 24, "fz": 18, "rf": 14, "rfz": 16, "z": 16}
@@ -255,7 +255,7 @@ class _Clock:
 def _midi(pitch: str) -> int:
     accidental = pitch[1:].rstrip("0123456789")
     octave = int(pitch[1 + len(accidental) :])
-    return 12 * (octave + 1) + SEMITONES[LETTERS.index(pitch[0])] + accidental.count("#") - accidental.count("b")
+    return 12 * (octave + 1) + STEPS[pitch[0]] + alteration(accidental)
 
 
 def _notes(index: ScoreIndex, starts: dict[int, Fraction], clock: _Clock) -> tuple[list[tuple[Note, Measure]], dict[str, Note]]:
@@ -354,7 +354,7 @@ def _starts_ornaments_above(root: ET.Element) -> bool:
 
 def _spelled(pitch: str) -> tuple[str, int, int]:
     accidental = pitch[1:].rstrip("0123456789")
-    return pitch[0], int(pitch[1 + len(accidental) :]), accidental.count("#") - accidental.count("b")
+    return pitch[0], int(pitch[1 + len(accidental) :]), alteration(accidental)
 
 
 def _neighbour(event: Event, measure: Measure, direction: int, printed: str, key: dict[str, int]) -> int:
