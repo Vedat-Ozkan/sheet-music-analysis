@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 
 from engine.errors import UserError
-from engine.score import Event, Mark, Measure, ScoreIndex, beat_length
+from engine.score import Event, Mark, Measure, ScoreIndex, beat_length, parse_meter
 
 VERSION = "N1"
 ORNAMENTS = ("tr", "mu", "ml", "tu", "tl")
@@ -170,7 +170,7 @@ def decode(text: str) -> ScoreIndex:
                     number=len(measures) + 1,
                     index=len(measures) + 1,
                     name=parts[0][1:].lower(),
-                    beat_length=beat_length(*map(int, current_meter.split("/"))) if current_meter else Fraction(1),
+                    beat_length=beat_length(*parse_meter(current_meter)) if current_meter else Fraction(1),
                     meter=current_meter,
                     key_signature=current_key,
                 )

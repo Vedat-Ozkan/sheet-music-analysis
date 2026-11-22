@@ -10,7 +10,7 @@ from fractions import Fraction
 
 from engine.errors import UserError
 from engine.render import load_toolkit
-from engine.score import LETTERS, MEI, SEMITONES, XML_ID, Event, Mark, Measure, ScoreIndex
+from engine.score import LETTERS, MEI, SEMITONES, XML_ID, Event, Mark, Measure, ScoreIndex, parse_meter
 
 LEVELS = {"ppp": 30, "pp": 42, "p": 55, "mp": 66, "mf": 78, "f": 92, "ff": 105, "fff": 118}
 ACCENTS = {"sf": 20, "sfz": 20, "sffz": 24, "fz": 18, "rf": 14, "rfz": 16, "z": 16}
@@ -73,7 +73,7 @@ def marked_index(score: bytes) -> ScoreIndex:
 
     def place(bar_id: str, tstamp: str) -> tuple[Measure, Fraction]:
         measure, segment = index.locate_segment(bar_id)
-        unit = int((measure.meter or index.meter or "4/4").split("/")[1])
+        unit = parse_meter(measure.meter or index.meter or "4/4")[1]
         return measure, segment.start + max(Fraction(tstamp).limit_denominator(960) - 1, Fraction(0)) * 4 / unit
 
     for score_def in root.iter(f"{MEI}scoreDef"):

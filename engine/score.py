@@ -145,6 +145,11 @@ def read_meter(signatures: Iterable[tuple[str | None, str | None]]) -> tuple[int
     return sum(count * shared_unit // unit for count, unit in read), shared_unit
 
 
+def parse_meter(text: str) -> tuple[int, int]:
+    count, unit = text.split("/")
+    return int(count), int(unit)
+
+
 def musicxml_meter(time: ET.Element | None) -> tuple[int, int] | None:
     if time is None:
         return None
