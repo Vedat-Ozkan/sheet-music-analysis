@@ -125,7 +125,7 @@ def _parts(score: bytes, positions: tuple[int, int]) -> dict[str, _Part]:
     for (part, inst), family in zip(found, families):
         if isinstance(inst, instrument.UnpitchedPercussion):
             continue
-        name = part.id or str(len(parts))
+        name = str(len(parts))
         abbreviation = ABBREVIATIONS.get(family) or inst.instrumentAbbreviation or part.partName or "Instr."
         number = ""
         if families.count(family) > 1:

@@ -181,3 +181,10 @@ def test_the_opening_signatures_are_written_when_the_parsed_score_is_collected_b
     for hand in reduced.parts:
         first = hand.getElementsByClass(stream.Measure)[0]
         assert first.getElementsByClass(meter.TimeSignature) and first.getElementsByClass(key.KeySignature)
+
+
+def test_a_score_whose_parts_share_a_name_is_drawn_with_the_notes_of_all_its_parts():
+    data = (Path(__file__).parent / "data/triplet_mayer.musicxml").read_bytes()
+    written = _parse(data).measures(1, 4).toSoundingPitch().flatten().pitches
+    reduced = _parse(piano.reduce(data, (1, 4))).flatten().pitches
+    assert (min(p.ps for p in reduced), max(p.ps for p in reduced)) == (min(p.ps for p in written), max(p.ps for p in written))
