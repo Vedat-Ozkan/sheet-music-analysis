@@ -275,3 +275,18 @@ def test_a_tune_that_starts_its_beamed_groups_on_chords_keeps_its_beams():
     for bar in right:
         eighths = [e for v in bar.voices or [bar] for e in v.notes if e.duration.type == "eighth" and e.offset in (1.0, 1.5, 2.0, 2.5, 4.0, 4.5, 5.0, 5.5)]
         assert eighths and all(e.beams.beamsList for e in eighths), bar.number
+
+
+def test_each_triplet_is_beamed_on_its_own_in_a_6_4_bar():
+    data = (Path(__file__).parent / "data/triplet_brahms_fruhlingstrost.musicxml").read_bytes()
+    for hand in _bars(_parse(piano.reduce(data, (1, 4)))):
+        for bar in hand:
+            for voice in bar.voices or [bar]:
+                run = []
+                for element in voice.notes:
+                    kinds = [b.type for b in element.beams.beamsList[:1]]
+                    if kinds and element.duration.tuplets:
+                        run.append(Fraction(element.offset))
+                        if kinds == ["stop"]:
+                            assert len({start // 1 for start in run}) == 1, (bar.number, run)
+                            run = []

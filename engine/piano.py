@@ -211,9 +211,12 @@ def _beat(signature: meter.TimeSignature | None) -> float:
 
 
 def _beam(voice: stream.Stream, beat: float) -> None:
-    groups: dict[int, list] = {}
+    beat_of = lambda element: int(float(element.offset) / beat + 1e-6)
+    with_tuplets = {beat_of(element) for element in voice.notesAndRests if element.duration.tuplets}
+    groups: dict[tuple[int, ...], list] = {}
     for element in voice.notesAndRests:
-        groups.setdefault(int(float(element.offset) / beat + 1e-6), []).append(element)
+        key = (beat_of(element), int(Fraction(element.offset) // _beam_span(element, beat))) if beat_of(element) in with_tuplets else (beat_of(element),)
+        groups.setdefault(key, []).append(element)
     for group in groups.values():
         run = []
         for element in group + [None]:
@@ -229,6 +232,13 @@ def _beam(voice: stream.Stream, beat: float) -> None:
                     else:
                         x.beams.append(kind)
             run = []
+
+
+def _beam_span(element, beat: float) -> Fraction:
+    written = element.duration
+    group = Fraction(duration.convertTypeToQuarterLength(written.type)) * written.tuplets[0].numberNotesNormal if written.tuplets else 0
+    pulse = Fraction(beat) if beat <= 1.5 else 1
+    return max(group, pulse)
 
 
 @dataclass(eq=False)
