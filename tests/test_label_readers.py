@@ -1,8 +1,6 @@
 import re
 from pathlib import Path
 
-import pytest
-
 from engine import comparison, harmony
 
 PAIRS = [tuple(line.split("\t")) for line in (Path(__file__).parent / "data" / "label_pairs_in_use.tsv").read_text().splitlines()]
@@ -23,9 +21,13 @@ def readings(key: str, label: str):
     return (ours.tones, ours.bass), (theirs.tones, theirs.bass) if theirs else None
 
 
-@pytest.mark.parametrize("key, label", PAIRS)
-def test_both_readers_agree_outside_the_intended_differences(key, label):
-    ours, theirs = readings(key, label)
-    assert theirs is not None
-    if ours != theirs:
-        assert intended_difference(key, label), f"{key}: {label}"
+def test_both_readers_agree_outside_the_intended_differences():
+    unreadable, unintended = [], []
+    for key, label in PAIRS:
+        ours, theirs = readings(key, label)
+        if theirs is None:
+            unreadable.append(f"{key}: {label}")
+        elif ours != theirs and not intended_difference(key, label):
+            unintended.append(f"{key}: {label}")
+    assert not unreadable, f"music21 cannot read {len(unreadable)}: {unreadable}"
+    assert not unintended, f"readers disagree on {len(unintended)}: {unintended}"
