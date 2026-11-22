@@ -122,6 +122,16 @@ class Measure:
         return float(offset / self.beat_length + 1)
 
     @property
+    def beat_unit(self) -> int:
+        return parse_meter(self.meter)[1] if self.meter else 4
+
+    def tstamp_of(self, segment: Segment, offset: Fraction) -> float:
+        return float(1 + (offset - segment.start) * self.beat_unit / 4)
+
+    def offset_at_tstamp(self, segment: Segment, tstamp: str) -> Fraction:
+        return segment.start + max(Fraction(tstamp).limit_denominator(960) - 1, Fraction(0)) * 4 / self.beat_unit
+
+    @property
     def beat_count(self) -> int:
         return int(self.length / self.beat_length + Fraction(95, 96)) if self.length else 0
 

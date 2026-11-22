@@ -11,7 +11,7 @@ from engine.errors import UserError
 from engine.annotations import Alternative, AnnotationList, Cadence, Callout, Harmony, NoteRef, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
 from engine.render import VEROVIO_OPTIONS, Engraving, check_range, incoming_ties, load_toolkit, shorten_ties
-from engine.score import PositionError, ScoreIndex, parse_meter
+from engine.score import PositionError, ScoreIndex
 
 if TYPE_CHECKING:
     from engine.comparison import Label
@@ -244,8 +244,7 @@ def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role
             for event, place, short, first in layout.code_room:
                 measure = index.measure(event.measure)
                 segment = next(segment for segment in measure.segments if segment.id == event.segment)
-                unit = parse_meter(measure.meter)[1] if measure.meter else 4
-                need = (segment.id, f"{float(1 + (event.onset - segment.start) * unit / 4):g}", event.staff, place)
+                need = (segment.id, f"{measure.tstamp_of(segment, event.onset):g}", event.staff, place)
                 need = gaps.setdefault((segment.id, event.staff if place == "below" else event.staff - 1), need)
                 more = short if need in lines else first
                 needs[need] = max(needs.get(need, 0), more)
@@ -341,10 +340,8 @@ def _reserve_numeral_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
         measure = index.measure(harmony.at.measure)
         offset = measure.offset_of(harmony.at.beat)
         segment = measure.segment_at(offset)
-        unit = parse_meter(measure.meter)[1] if measure.meter else 4
-        tstamp = 1 + (offset - segment.start) * unit / 4
         added.setdefault(segment.id, []).append(
-            f'<harm staff="{bottom_staff}" tstamp="{float(tstamp):g}" place="below">{escape(label)}\u00a0\u00a0</harm>'
+            f'<harm staff="{bottom_staff}" tstamp="{measure.tstamp_of(segment, offset):g}" place="below">{escape(label)}\u00a0\u00a0</harm>'
         )
     if not added:
         return
