@@ -492,6 +492,36 @@ def test_analysis_card_keeps_a_result_from_the_host_when_chatgpt_updates_its_glo
         expect(card.locator(element)).to_be_visible()
 
 
+CHATGPT_GLOBALS = """(wrapper) => {
+    window.openai.toolOutput = null;
+    window.openai.toolResponseMetadata = wrapper;
+    for (const name of ["safeArea", "displayMode", "theme", "maxWidth", "toolResponseMetadata"])
+        window.dispatchEvent(new CustomEvent("openai:set_globals", { detail: { globals: { [name]: window.openai[name] } } }));
+}"""
+CHATGPT_WRAPPER = {"io.modelcontextprotocol/serverInfo": {"name": "sheet-music-analysis"},
+                   "call_tool_result": {"content": [], "structuredContent": {}, "_meta": {}}}
+
+
+def test_reading_card_keeps_its_problem_report_through_chatgpt_globals_updates(page, server):
+    card = open_card(page, server, "card.html", openai=True)
+    deliver(page, {}, REPORT)
+    expect(card.get_by_text(REPORT["report"]["text"])).to_be_visible()
+    card_frame(page).evaluate(CHATGPT_GLOBALS, CHATGPT_WRAPPER)
+    page.wait_for_timeout(300)
+    expect(card.get_by_text(REPORT["report"]["text"])).to_be_visible()
+    expect(card.get_by_role("button", name="Send this problem to us")).to_be_visible()
+
+
+def test_analysis_card_keeps_its_picture_and_rating_through_chatgpt_globals_updates(page, server):
+    card = open_card(page, server, "card.html", openai=True)
+    deliver(page, links(server), {"ask_for_rating": True})
+    expect(card.locator("#rating")).to_be_visible()
+    card_frame(page).evaluate(CHATGPT_GLOBALS, CHATGPT_WRAPPER)
+    page.wait_for_timeout(300)
+    for element in ("#caption", "#open-page", "#actions", "#rating", "#suggest"):
+        expect(card.locator(element)).to_be_visible()
+
+
 def test_analysis_card_reports_its_size_once_however_often_chatgpt_updates_its_globals(page, server):
     page.add_init_script("if (window !== window.top) window.openai = { toolOutput: %s };" % json.dumps(links(server)))
     card = open_card(page, server, "card.html")

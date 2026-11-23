@@ -261,7 +261,7 @@
   function showFromOpenAI() {
     show(window.openai.toolOutput, window.openai.toolResponseMetadata);
   }
-  const hasOpenAIResult = () => Boolean(window.openai && (window.openai.toolOutput || window.openai.toolResponseMetadata));
+  const hasOpenAIResult = () => Boolean(window.openai && window.openai.toolOutput);
   if (hasOpenAIResult()) showFromOpenAI();
   window.addEventListener("openai:set_globals", () => {
     applyTheme(window.openai);
