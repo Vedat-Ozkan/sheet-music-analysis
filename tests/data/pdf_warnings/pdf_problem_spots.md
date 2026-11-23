@@ -45,3 +45,4 @@ Uneven-parts fixture (2026-11-22):
   Source: https://github.com/cuthbertLab/music21/tree/master/music21/corpus/schumann_clara/polonaise_op1n3.mxl
   Licence: work public domain; encoding from the music21 corpus, whose per-file licences are not uniform (not individually verified).
   SHA256 (uncompressed): `4b34ed2c07b3e6c6ead0f2e33c9d7c9010f5609b181aa1d839ef79be5c8739b3`.
+- `whole_bar_rest_after_notes.musicxml`: the shape of that bar 45 in a file of its own, so CI checks the rule: one piano part on two staves in 3/4, bar 1 with three quarters above and a half and a quarter below, then a whole-bar rest (no voice, not printed) of 4 quarters written after the notes; bar 2 plain. Constructed valid MusicXML, not an OMR output. SHA256: `607ae441992ebccf421eecc1621c3421c06d4a21dafe4f81ccfaad047a87f9b9`.

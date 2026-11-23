@@ -307,6 +307,16 @@ def test_a_whole_bar_rest_makes_a_piano_bar_as_long_as_its_time_signature_not_it
         assert [float(bar.duration.quarterLength) for bar in hand.getElementsByClass(stream.Measure)] == [3.0]
 
 
+def test_a_whole_bar_rest_written_too_long_after_the_notes_leaves_the_piano_bar_its_time_signature_length():
+    from engine.read_pdf import clean
+    from tests.test_read_pdf import zipped
+
+    constructed = (Path(__file__).parent / "data/pdf_warnings/whole_bar_rest_after_notes.musicxml").read_bytes()
+    reduced = _parse(piano.reduce(clean(zipped(constructed)), (1, 2)))
+    for hand in reduced.parts:
+        assert [float(bar.duration.quarterLength) for bar in hand.getElementsByClass(stream.Measure)] == [3.0, 3.0]
+
+
 def test_a_tune_that_starts_its_beamed_groups_on_chords_keeps_its_beams():
     data = (Path(__file__).parent / "data/chopin_ballade_op23_pdmx.mxl").read_bytes()
     right = _bars(_parse(piano.reduce(data, (36, 38))))[0]
