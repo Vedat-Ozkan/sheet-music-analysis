@@ -342,7 +342,7 @@ def as_text(index: ScoreIndex, chords=None, first: int | None = None, last: int 
 
     lines = [
         "PART-WRITING CHECK (strict classroom rules, not verdicts on the composer; this is a chorale-style score). Your "
-        "first reply must include one sentence offering this check, even when it also asks which bars to analyse; "
+        "first reply must include one sentence offering this check; "
         "draw it only if the user wants it. One callout per numbered spot, at the "
         "first note given, explaining every finding listed there. Under each spot, draw each 'draw' line as one "
         "voice_leading annotation: kind line, arrow, ring or bracket, with its from_note, to_note (not for a ring), direction (when given) and "

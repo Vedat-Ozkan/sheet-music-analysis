@@ -292,6 +292,8 @@ def test_a_whole_score_draft_gives_its_instructions_before_the_method_and_the_no
     guide = text.split("HOW TO ANALYSE THIS SCORE", 1)[1]
     assert guide.index("I have the notes and am working out the harmony now") < guide.index("Analyse from the NOTES table")
     assert "Now I'm drawing the analysis on the score." in guide and "not for each passage" in guide
+    assert "ask which bars they want" not in text and "asks which bars" not in text
+    assert "do not stop to ask which bars" in text
 
 
 def test_the_worksheet_is_made_when_first_opened_and_the_other_downloads_with_the_drawing(server):
