@@ -56,7 +56,7 @@ def test_typed_comparison_page(name):
     assert page.page_count == 1
     height = Image.open(io.BytesIO(page.png())).height
     assert Image.open(io.BytesIO(page.png())).width == 1400
-    assert height < 1.25 * normal_height(name)
+    assert height < 1.3 * normal_height(name)
     svg = ET.fromstring(page.svgs[0])
     overlay = next(g for g in svg.iter() if g.get('class') == 'analysis-over')
     strings = [t.text for t in overlay.iter() if t.tag.endswith('text')]
@@ -193,7 +193,7 @@ def test_default_comparison_disabled_bytes(chopin, chopin_annotations):
     assert hashlib.sha256(page.png()).hexdigest() == PNG_HASH
 
 
-PNG_HASH = '45fe8e5df2691b83b91d80169312db9ab83f4d29725a04f69b3afbb6441e02e7'
+PNG_HASH = '6c6dba864f0dc1d95e61db886bed981fd8e4eebd6db08a951bda79fd6e6e9dc2'
 
 
 def test_coloured_marks_print_in_colour_not_black():
