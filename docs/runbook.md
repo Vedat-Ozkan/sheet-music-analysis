@@ -85,4 +85,4 @@ Changing the key later is the same script. It needs a serving revision whose ser
 
 ## Release history
 
-Each release has an entry in `docs/engineering-log.md` with its pull requests, commit, revision and rollback target (entries 145, 149, 152, 156 and 158), and a `prod-*` tag.
+Each release has an entry in `docs/engineering-log.md` with its pull requests, commit, revision and rollback target (entries 145, 149, 152, 156, 158 and 203), and a `prod-*` tag.
