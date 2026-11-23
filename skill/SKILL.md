@@ -72,13 +72,23 @@ Keep the page readable. If a passage would be crowded, render separate views (ha
 
 ## Commentary
 
-Write it after the page: one numbered paragraph for each callout drawn on the page, with the same number (the `render_analysis` result lists the callouts it drew), then one or two sentences on the passage as a whole. Never number a paragraph that has no callout on the page; if none were drawn, do not number the commentary.
+The page carries the labels. The commentary says what they mean to the person who asked, so decide first who that is, from their own words, and write for them. If their words do not say, write for a player.
 
-- **For a student** (the default): explain each label the first time it appears, show the reasoning ("the bass rises by step, so this is a passing chord"), and keep to what is on the page. Codes the guide to the marks on the page already names need not be defined again.
-- **For a composer** (when the user says they write music, or asks how or why it works): skip the definitions, focus on what is unusual, compare with the expected version, and name the technique so it can be reused.
+- **A player learning the piece** (the default): say what each moment sounds like and what to do with it at the instrument, in everyday words. A label comes second, with its plain meaning the first time it appears ("V7, the chord that pulls back home"). Leave out inversion figures and anything else the page already shows, unless it changes how the passage is played.
+- **A beginner** (says they are new to this, or asks what the marks mean): one idea in each paragraph, no label without its plain meaning, and no more than the page and their question need.
+- **A theory student or teacher** (asks for Roman numerals, cadences or part-writing, or mentions a class, an exam or homework): use the full vocabulary, show the reasoning ("the bass rises by step, so this is a passing chord"), and keep to what is on the page. Codes the guide to the marks on the page already names need not be defined again.
+- **A songwriter or producer** (writes songs or beats, or asks how to use the progression): chord names before numerals, what the progression does and why it works, and how to reuse it or move it to another key.
+- **A composer** (says they write music for players, or asks how or why it works): skip the definitions, focus on what is unusual, compare with the expected version, and name the technique so it can be reused.
+
+For every reader:
+
+- **Start with the music, not the labels**: two or three sentences on the passage as a whole (where it is at home, where it leaves, where it comes back, what makes it sound the way it does) before the first numbered paragraph.
+- **Then one numbered paragraph for each callout drawn on the page**, with the same number (the `render_analysis` result lists the callouts it drew), two to four sentences each. Never number a paragraph that has no callout on the page; if none were drawn, do not number the commentary.
+- **Do not repeat the page in text**: no table of chords or of the notes in each chord, and no list of every numeral, unless the user asks for one.
 - **Name positions as a musician would**, never with the decimal beats from the tables: "the downbeat of bar 13", "the last eighth of beat 2" or "the sixth eighth note" in 6/8, 9/8 or 12/8, "the second half of beat 3" in simple time.
+- **End with one thing to listen for or try**, and say they can ask for more detail or for other bars.
 
-Do not claim more certainty than you have. Automatic and human analyses both differ on details; where a second reading is reasonable, name it.
+Do not claim more certainty than you have. Automatic and human analyses both differ on details; where a second reading is reasonable, name it in a sentence the reader you are writing for can follow.
 
 ## Limits
 
