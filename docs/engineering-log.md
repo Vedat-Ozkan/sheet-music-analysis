@@ -4042,6 +4042,31 @@ Of the 213 ranges 127 are written identically and 86 differ: 58 because a bar is
 
 **Not fixed.** The piano version rebuilds the score and carries no chord symbols. On a melody with words under it, or a lead sheet, our numerals below the staff are drawn on the sung words (15 of 17 numerals on one such test piece; none on songs with piano or on chorales, 823 numerals over 58 scores with words): the row of numerals is placed from the staff and its notes and does not see the words. Two ways to fix it were drawn for the owner; not decided. Not run: real chats with the new table.
 
+### 200. Every card in ChatGPT came up empty on staging; the card emptied itself, and ChatGPT was running a stored copy of it (2026-11-23, branch `chord-symbols`, nothing released)
+
+**Problem.** In every ChatGPT chat on staging on 22 and 23 November the card was an empty dark panel: no picture, no caption, no buttons. The tool answers were complete and the browser fetched the picture each time. Production (revision 00065-fjv) was not affected.
+
+**Cause 1, the card.** The change of 14 November that hides an old reading under a status line (189411f) made the card hide everything on any update that carries no picture. In ChatGPT today the result does not arrive in `window.openai.toolOutput`, which stays empty; it arrives as a `ui/notifications/tool-result` message. ChatGPT also sends about ten `openai:set_globals` updates in the first 50 ms (safe area, display mode, theme, width) and more later, none with a result. The card took each one as an update without a picture and emptied itself, about 25 ms after it had drawn the page. The same handler set the picture's address again on every update, which could reload it in a loop; a tab froze that way. Production's card returns early on an update without a picture, so it never did this.
+
+**Cause 2, why the fixes seemed not to work.** ChatGPT keeps its own copy of an app's tool list and card pages. The development app on staging went on running the page of 14 November whatever staging served. Three signs, all from staging's request log: no chat ever asked for the tool list; a card page that reports each of its steps to the server was served (19,051 bytes) and not one report arrived, while a card still fetched its picture; and that picture was requested 6 ms after the page was, too soon for the new page to have reached the browser. After one press of "Refresh tools" on the development app (ChatGPT settings, Integrations, Plugins, the app), the reporting page ran and both cards showed in two new chats and in a reopened one.
+
+**A false trail, about two hours.** Before finding cause 2 I took the blank cards for a fault that came in with some commit and deployed seven older versions and two experiments to staging, one chat each, to find it. The results split cleanly by commit (4 shown, 7 blank) and I narrowed the "fault" to nine commits that only touch the engine. It was chance: the stored page sometimes survives when no update follows the result quickly. A second chat on a version that had "shown" came back blank, and its first chat was blank when reopened. The second run was the Opus session's suggestion and should have been my first step: one chat per version is not a measurement when the outcome can vary. Its byte-for-byte comparisons of what the server sends (identical between "showing" and "blank" versions) were pointing the same way.
+
+**Fix** (server/card.html, three commits):
+- 6f5f0e4: the picture's address is set only when it changes, so nothing reloads in a loop.
+- 6f69a51: an update without a picture empties the card only when it carries a status line, which is the one case 189411f was written for (an old reading under "Still reading your PDF").
+- 3ff88b5: a `set_globals` update is acted on only when `window.openai.toolOutput` holds a result. Before this, each such update also reset the "Send this problem to us" block and the rating flag from ChatGPT's own wrapper object, so a failed call's report block vanished 25 ms after it was drawn.
+
+A fourth change (report the card's size again after the host answers `ui/initialize`) was written on the theory that ChatGPT ignores size reports sent before that answer. The reporting page showed otherwise: the frame took the page's height 0.1 to 0.5 s after the picture loaded, and in two of three cards ChatGPT never answered `ui/initialize` at all. The change was taken out.
+
+**Checks.** tests/test_cards_browser.py runs the card in a real browser against a stand-in host: 31 tests before, 37 now. The new ones replay what the reporting page recorded in ChatGPT (result by message; then updates with no tool output and ChatGPT's wrapper object as metadata) and require the picture, caption, buttons, rating row and problem report to stay. As the Opus session reported them: two of the three update sequences fail on 6f5f0e4's card, and the problem-report test fails on 6f69a51's; the picture-and-rating test passes on both and only guards against a regression. Full suite with the PDF reader on 3ff88b5: 1,809 passed, 4 skipped, 0 failed.
+
+**In real chats.** Two new chats and one reopened chat on staging with 6f69a51 plus the withdrawn size change plus the reporting code: both cards shown each time, with their buttons. **NOT RUN:** 3ff88b5 itself in a real chat (it needs another press of "Refresh tools", which is the owner's to allow); a failed call's report block in a real chat.
+
+**What this means for a release.** `main` carries the card of 14 November. A production deploy from it would have been harmless at first, because the published app runs the copy OpenAI approved, and then every ChatGPT user's cards would have gone blank when the next submission was approved. The line now carries the corrected card. The rule for staging is in CLAUDE.md: after a staging deploy that changes a tool or a card, press "Refresh tools" on the development app before judging anything in a chat.
+
+**Not fixed.** `use_careful_reading` and `correct_bars` are announced as read-only and repeatable, and both store a new score on each call. Found while comparing tool lists; not the cause of anything above.
+
 ## Reproducing
 
 ```bash
