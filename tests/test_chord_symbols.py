@@ -83,3 +83,18 @@ def test_a_symbol_of_kind_none_prints_its_text_and_never_the_placeholder_root(st
 def test_typed_numerals_stay_off_the_page_and_unparsed_labels_print_as_typed(name, shown):
     score = (DATA / f"check_analysis/{name}.musicxml").read_bytes()
     assert [symbol for svg in pdf_reader.preview(score).svgs for symbol in printed_symbols(svg)] == shown
+
+
+def test_our_numeral_spacers_are_not_read_as_chord_symbols():
+    from engine.annotate import _reserve_numeral_room
+    from engine.render import load_toolkit
+    from engine.score import ScoreIndex
+
+    toolkit = load_toolkit(LEAD_SHEET)
+    index = ScoreIndex(toolkit.getMEI())
+    printed = [measure.chord_symbols for measure in index.measures]
+    _reserve_numeral_room(toolkit, index, AnnotationList.model_validate({"annotations": [
+        {"type": "harmony", "at": {"measure": 2, "beat": 2}, "label": "Ger65", "key": "G"},
+        {"type": "harmony", "at": {"measure": 3, "beat": 3}, "label": "Cad64"}]}))
+    assert 'type="analysis-room"' in toolkit.getMEI()
+    assert [measure.chord_symbols for measure in ScoreIndex(toolkit.getMEI()).measures] == printed

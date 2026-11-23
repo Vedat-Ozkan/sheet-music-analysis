@@ -410,7 +410,7 @@ class ScoreIndex:
             measure.declared_length = full
         for tie in element.findall(f"{MEI}tie"):
             self._tie_starts.add((tie.get("startid") or "").lstrip("#"))
-        for harm in element.findall(f"{MEI}harm"):
+        for harm in (harm for harm in element.findall(f"{MEI}harm") if harm.get("type") != "analysis-room"):
             symbol = "".join(harm.itertext()).strip().replace("♭", "b").replace("♯", "#")
             at = measure.offset_at_tstamp(measure.segments[0], harm.get("tstamp", "1"))
             if CHORD_SYMBOL.match(symbol) and (at, symbol) not in measure.chord_symbols:
