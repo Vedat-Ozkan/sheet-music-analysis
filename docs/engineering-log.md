@@ -4067,6 +4067,39 @@ A fourth change (report the card's size again after the host answers `ui/initial
 
 **Not fixed.** `use_careful_reading` and `correct_bars` are announced as read-only and repeatable, and both store a new score on each call. Found while comparing tool lists; not the cause of anything above.
 
+### 201. The owner's decisions of 23 November put on the branch and tried in real chats: the whole piece by default, sentences instead of tables, a question Claude skipped, tools announced as writes (2026-11-23, branch `reply-tone`, nothing released)
+
+**Decisions.** After seeing replies from both products before and after the new commentary guidance, the owner approved it ("much better i like it") and decided: when the user names no bars, both products analyse the whole piece; the careful reading stays offered on every scan; `correct_bars` and `use_careful_reading` stop being announced as read-only at the next release; and a standing yes to press "Refresh tools" on the development app and to switch connectors for staging tests (written into `CLAUDE.md`).
+
+**What a whole piece costs us.** Production logs of the last 30 days hold 193 drawings. Drawing a whole piece took no longer than drawing a named range: median 10.1 s against 14.2 s in ChatGPT (73 and 64 drawings), 6.9 s against 9.4 s in Claude (20 and 35). ChatGPT already asked for the whole piece in 94 of 195 drafts. All drawing in the month came to about 47 minutes of server time. The cost falls on the user's side: the notes of a 262-bar piece (Chopin's first Ballade) are 108,000 characters, of a 74-bar rag 33,000.
+
+**Changes.** `skill/SKILL.md`: step 3 asks for the whole piece when no bars are named (it said "up to the first 8 bars"); a very long piece whose notes come back refused is asked for in stretches of about 60 bars; one drawing for the whole stretch unless the notes say the score is too large to draw in one call (the server already says so above 2,000 staff-bars); in a long stretch about one callout for every 16 to 24 bars and no more than eight; "write sentences, not tables". The last three came from the review by another model (Opus), which also listed the tools below.
+
+**ChatGPT on staging, real chats** (thinking effort medium, after "Refresh tools"; files in the private folder `staging-proof`):
+
+| Chat | Cards | Bars analysed | "Which bars?" | Table | Words |
+|---|---|---|---|---|---|
+| Satie, MusicXML | shown | all 47 | no | no | 412 |
+| "Danny Boy", MusicXML | shown | all 17 | no | no | 567 |
+| Chopin Op. 28 No. 4, PDF | analysis shown; reading card without its picture (see below) | all 25 | no | no | 547 |
+| A PDF with no music, twice | problem text and "Send this problem to us" shown, still there after 60 s and after reloading the chat | | | | |
+
+Under the earlier wording ("no table of chords") 3 of 6 replies still had a table; under "sentences, not tables" 0 of 3. The failed-read chat is the real-chat check that entry 200 listed as not run.
+
+**The stored copy can lag behind "Refresh tools".** The first failed-read chat, 7 minutes after the Refresh, was still drawn by the diagnostic page of entry 200 (79 of its reports arrived). The analysis cards of the two chats before it, both cards of the chat 80 seconds after it and the repeat 7 minutes later sent none. So one card address can go on running the old page for some minutes after a Refresh.
+
+**Claude on staging: the careful-reading question was skipped.** A two-page scan in a claude.ai chat (Sonnet, medium, the published plugin's skill loaded, connector on the staging address; the server log confirms the calls reached staging). The read result carried the offer and "do not call draft_analysis yet". Claude called `draft_analysis` six seconds later and analysed the quick reading; its thinking step was titled "Weighing an in-result instruction against the skill's guidance". The skill's step 2 said "Go straight on to the analysis with the score_id it returned, without asking the user to check the reading first", in the published plugin and on the branch alike, and no branch had changed it when the offer was built. Step 2 now says that a question in the read result is asked first, in the result's words. One chat; the fixed skill cannot run in the Claude app before a plugin release.
+
+Asked for directly in the same chat, the careful reading worked: Claude explained the download, the helpers and the cost and asked once more, fetched the kit from GitHub (staging answered 403 to its sandbox), read the script before running it, started one helper for each page, and handed in 14 bars 9.5 minutes after the yes. The page with the analysis showed in the chat. The reading was not checked note by note this time.
+
+**Tools announced as writes.** OpenAI's guidelines ask for `readOnlyHint` false for "persisting artifacts, starting stateful jobs". `correct_bars` and `use_careful_reading` store a new score on every call and are now announced so. By the same wording `render_analysis`, `choose_score`, `fetch_score`, `draft_from_notes` and the two PDF readers are writes as well (new files or ids on each call, or a reading job), and `draft_analysis` with a file is borderline. They are unchanged: the owner decides. A scratch build that announced all of them as writes was tried twice in ChatGPT after a Refresh (ChatGPT fetched the tool list at that moment): no confirmation box in either chat under the app's default permission, "Allow low-risk tools". A user who has chosen "Allow read-only tools" would be asked before each of them; that was not tried.
+
+**Staging only: a reading card without its picture.** Staging has two addresses on one store (ChatGPT's, and the tagged one Claude's connector uses), and a finished reading is kept with the full address of its picture. A PDF first read through one address shows a broken picture in the other product's card, which may load only from its own address. Production has one address.
+
+**Checks.** Full suite with the reader on ab02f8c: 1,809 passed, 4 skipped (no ring codes), 0 failed.
+
+**NOT RUN.** The new commentary guidance and the corrected step 2 in the Claude app itself (both need a plugin release); a long piece (over 100 bars) with no bars named, in either product; a ChatGPT user on "Allow read-only tools"; a second Claude chat for the skipped question.
+
 ## Reproducing
 
 ```bash
