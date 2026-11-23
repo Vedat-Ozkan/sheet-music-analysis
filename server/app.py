@@ -85,6 +85,10 @@ def read_only(title: str) -> ToolAnnotations:
     return ToolAnnotations(title=title, read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False)
 
 
+def stores(title: str, open_world: bool = False) -> ToolAnnotations:
+    return ToolAnnotations(title=title, read_only_hint=False, destructive_hint=False, idempotent_hint=False, open_world_hint=open_world)
+
+
 class LocalStore:
     def __init__(self, folder: Path):
         self.folder = folder
@@ -848,7 +852,7 @@ async def draw(score: bytes, annotations: AnnotationList, index: ScoreIndex, mea
         "For a score with more than four staves (an orchestra, band or large ensemble), draw the original first, then offer the user "
         "the piano reduction once; call again with piano=true only if they accept."
     ),
-    annotations=read_only("Draw the analysis on the score"),
+    annotations=stores("Draw the analysis on the score"),
     meta={"openai/outputTemplate": CARD_URI},
 )
 @observed
@@ -967,8 +971,7 @@ async def rating_is_due(ctx: Context) -> bool:
     visibility=["app"],
     title="Rate an analysis",
     description="Records the user's thumbs up or down from the analysis card.",
-    annotations=ToolAnnotations(title="Rate an analysis", read_only_hint=False, destructive_hint=False,
-                                idempotent_hint=False, open_world_hint=False),
+    annotations=stores("Rate an analysis"),
 )
 @observed
 async def rate_analysis(ctx: Context, helpful: bool) -> CallToolResult:
@@ -981,8 +984,7 @@ async def rate_analysis(ctx: Context, helpful: bool) -> CallToolResult:
     visibility=["app"],
     title="Report a problem",
     description="Records that the user sent us the problem shown in the card, by its reference.",
-    annotations=ToolAnnotations(title="Report a problem", read_only_hint=False, destructive_hint=False,
-                                idempotent_hint=False, open_world_hint=False),
+    annotations=stores("Report a problem"),
 )
 @observed
 async def report_problem(ctx: Context, reference: str) -> CallToolResult:
@@ -1000,8 +1002,7 @@ SUGGESTION_LENGTH = 1000
     visibility=["app"],
     title="Send a suggestion",
     description="Records a suggestion the user typed into the card.",
-    annotations=ToolAnnotations(title="Send a suggestion", read_only_hint=False, destructive_hint=False,
-                                idempotent_hint=False, open_world_hint=False),
+    annotations=stores("Send a suggestion"),
 )
 @observed
 async def send_suggestion(ctx: Context, text: str) -> CallToolResult:
@@ -1083,7 +1084,7 @@ claiming = asyncio.Lock()
         f"score_id and continue as for a MusicXML file. Only the first {pdf_reader.READ_PAGES} pages are read. "
         "Slurs are not read, because they are often misread from PDFs; if the user asks for slurs, tell them so."
     ),
-    annotations=read_only("Read a PDF of sheet music"),
+    annotations=stores("Read a PDF of sheet music"),
     meta={"openai/outputTemplate": PDF_CARD_URI, "openai/fileParams": ["pdf_file"]},
 )
 @observed
@@ -1543,7 +1544,7 @@ def pdf_card_result(card: dict, tool: str, source: str) -> CallToolResult:
         f"reply with the analysis. Only the first {pdf_reader.READ_PAGES} pages are read. "
         "Slurs are not read, because they are often misread from PDFs; if the user asks for slurs, tell them so."
     ),
-    annotations=read_only("Read a chosen PDF of sheet music"),
+    annotations=stores("Read a chosen PDF of sheet music"),
 )
 @observed
 async def read_fetched_pdf(ctx: Context, pdf_id: str) -> CallToolResult:
@@ -1765,7 +1766,7 @@ ATTACHED_FILE_SENTENCE = (
         "id the file will be kept under; end your reply, and when the user's next message says they have chosen it, "
         "use that id as the result says. If the user gives a link to the score instead, call fetch_score with it."
     ),
-    annotations=read_only("Choose a score file"),
+    annotations=stores("Choose a score file"),
 )
 @observed
 async def choose_score(ctx: Context) -> CallToolResult:
@@ -1832,7 +1833,7 @@ CLAUDE_SCORE_INPUT_HELP = (
         "choose_score so the user can choose their score file. Drafts a harmonic analysis from that note list, passed "
         "unchanged as `notes`, and returns the draft with a play_id for play."
     ),
-    annotations=read_only("Draft a harmonic analysis from a note list"),
+    annotations=stores("Draft a harmonic analysis from a note list"),
 )
 @observed
 async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | None = None) -> CallToolResult:
@@ -1870,7 +1871,7 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
 @mcp.tool(
     title="Draft a harmonic analysis",
     description=DRAFT_ANALYSIS_USE + SCORE_INPUT_HELP,
-    annotations=read_only("Draft a harmonic analysis"),
+    annotations=stores("Draft a harmonic analysis"),
     meta={"openai/fileParams": ["score_file"]},
 )
 @observed
@@ -1958,8 +1959,7 @@ CORRECT_BARS_DESCRIPTION = (
 @mcp.tool(
     title="Correct misread bars",
     description=CORRECT_BARS_DESCRIPTION,
-    annotations=ToolAnnotations(title="Correct misread bars", read_only_hint=False, destructive_hint=False,
-                                idempotent_hint=False, open_world_hint=False),
+    annotations=stores("Correct misread bars"),
 )
 @observed
 async def correct_bars(
@@ -2065,8 +2065,7 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
         "list (starting 'N1 div=') for each page, in order. Builds the score from them and returns a new score_id; "
         "then call draft_analysis with it and continue as for a MusicXML file."
     ),
-    annotations=ToolAnnotations(title="Use a careful reading", read_only_hint=False, destructive_hint=False,
-                                idempotent_hint=False, open_world_hint=False),
+    annotations=stores("Use a careful reading"),
 )
 @observed
 async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> CallToolResult:
@@ -2143,8 +2142,7 @@ def link_host(url: str) -> str:
         "downloaded; the result says what to tell the user. Without a link, call choose_score instead. Never download, open or search for the score "
         "yourself (no web search, no code sandbox): only this server fetches it, from a link the user gave."
     ),
-    annotations=ToolAnnotations(title="Open a score from a link", read_only_hint=True, destructive_hint=False,
-                                idempotent_hint=True, open_world_hint=True),
+    annotations=stores("Open a score from a link", open_world=True),
 )
 @observed
 async def fetch_score(ctx: Context, url: str) -> CallToolResult:

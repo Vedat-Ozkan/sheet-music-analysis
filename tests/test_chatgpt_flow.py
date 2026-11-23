@@ -511,6 +511,13 @@ def test_limits_and_mistakes_the_model_can_fix_offer_no_report(server, monkeypat
     assert limited.is_error and app.LIMIT_MESSAGE in text_of(limited) and report_of(limited) is None
 
 
+def test_only_the_tools_that_store_nothing_are_announced_as_read_only():
+    tools = anyio.run(app.mcp.list_tools)
+    assert {tool.name for tool in tools if tool.annotations.read_only_hint} == {"play", "careful_reading"}
+    assert {tool.name for tool in tools if tool.annotations.open_world_hint} == {"fetch_score"}
+    assert not any(tool.annotations.destructive_hint for tool in tools)
+
+
 def test_only_the_card_can_send_a_report_and_only_a_reference(server):
     async def go():
         async with Client(app.mcp) as client:
