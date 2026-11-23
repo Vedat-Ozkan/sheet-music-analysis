@@ -505,8 +505,24 @@ def _importable(text: str) -> str:
     except ET.ParseError:
         return text
     segments = [segment for segment in root.iter() if segment.find("note") is not None]
-    changed = [_start_orphan_chords_in(segment) | _separate_voices_in(segment) for segment in segments]
+    changed = [_start_orphan_chords_in(segment) | _separate_voices_in(segment) | _printed_harmonies_in(segment) for segment in segments]
     return ET.tostring(root, encoding="unicode") if any(changed) else text
+
+
+def _printed_harmonies_in(segment: ET.Element) -> bool:
+    changed = False
+    for harmony in segment.findall("harmony"):
+        kind = harmony.find("kind")
+        printed = kind.get("text", "").strip() if kind is not None and kind.text == "none" else None
+        if harmony.find("numeral") is not None or printed == "":
+            segment.remove(harmony)
+            changed = True
+        elif printed and harmony.find("root/root-step") is not None:
+            for extra in harmony.findall("root/root-alter") + harmony.findall("bass") + harmony.findall("degree"):
+                (harmony.find("root") if extra.tag == "root-alter" else harmony).remove(extra)
+            harmony.find("root/root-step").text = printed
+            changed = True
+    return changed
 
 
 def _start_orphan_chords_in(segment: ET.Element) -> bool:

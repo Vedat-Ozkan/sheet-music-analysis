@@ -64,3 +64,22 @@ def test_the_draft_lists_the_printed_chord_symbols_with_their_beats(store):
 def test_a_score_without_chord_symbols_gets_no_word_about_them(store):
     text = draft(NOCTURNE, "NOCTURNE1")
     assert reduce.CHORD_SYMBOLS not in text and "| chord symbol" not in text
+
+
+def test_a_symbol_of_kind_none_prints_its_text_and_never_the_placeholder_root(store):
+    harmonies = re.findall(r"<harmony>.*?</harmony>", LEAD_SHEET.decode())
+    no_chord = LEAD_SHEET.decode().replace(harmonies[1], '<harmony><root><root-step>C</root-step></root><kind text="N.C.">none</kind></harmony>', 1)
+    no_chord = no_chord.replace(harmonies[2], '<harmony><root><root-step>C</root-step></root><kind text="">none</kind></harmony>', 1).encode()
+    expected = ["G", "N.C.", *PRINTED[3:]]
+    assert [symbol for svg in render(no_chord, AnnotationList(annotations=[])).svgs for symbol in printed_symbols(svg)] == expected
+    assert [symbol for svg in pdf_reader.preview(no_chord).svgs for symbol in printed_symbols(svg)] == expected
+    assert re.findall(r"chord symbol (\S+)@\d", draft(no_chord, "NOCHORD1").split("\nNOTES (", 1)[1]) == expected
+
+
+@pytest.mark.parametrize("name, shown", [
+    ("musescore-roman", ["N6", "Ger65", "Fr43"]),
+    ("musescore-mixed", ["N.C.", "Cmaj7", "Am", "H7", "C(add9)", "C7sus4", "Verse", "N.C.", "Cmaj7", "Am", "C"]),
+])
+def test_typed_numerals_stay_off_the_page_and_unparsed_labels_print_as_typed(name, shown):
+    score = (DATA / f"check_analysis/{name}.musicxml").read_bytes()
+    assert [symbol for svg in pdf_reader.preview(score).svgs for symbol in printed_symbols(svg)] == shown
