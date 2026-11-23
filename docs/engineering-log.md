@@ -4306,11 +4306,13 @@ PR #43 merged to `main` as `247754f` (entries 170, 173 and 182 to 202; with it #
 
 **First time with the proxy key** (entry 168, runbook "Only the proxy may call production"). `proxy/set-key.sh` switched on Secret Manager, made key version 1, gave it to the service and redeployed the Worker with it; then the server deploy began checking it. Afterwards a request straight to the run.app address answers 403, and one through `mcp.sheetmusicanalysis.com` does not (400 for an empty request); `/health` answers 200.
 
-**Setting.** `CAREFUL_READING=claude`: the careful reading of scans is offered in Claude. ChatGPT gets the offer after OpenAI approves the two new tools (package 1.5.0, not yet submitted); until then ChatGPT keeps its stored tool list and card page (entry 202).
+**Setting.** `CAREFUL_READING=claude`: the careful reading of scans is offered in Claude. ChatGPT gets the offer once OpenAI lists the two new tools as published (entry 202).
 
 **After the deploy.** Clean start (`server imported`, the start-up probe at the first attempt); the only warning lines are the release script's own two test requests and an outside client asking for sign-in pages we do not have (404). One real read through the public address, as the Claude card does it (upload card, file sent, `read_fetched_pdf`): Chopin's Prelude Op. 28 No. 4 from Mutopia, read fresh in 42 s, 26 bars. The request log shows `POST /read-work` answering 200 after 41.5 s, so the read ran inside a request of its own with the proxy key, which staging could not show (it has no key). The kit's files answer 200 from our address and from the pinned GitHub address.
 
 **Site.** Published from the same commit: the privacy page (entry 170), the sample scan for OpenAI's reviewer (`samples/kinkel-trennung-scan.pdf`), and the pages changed since the last publish.
+
+**ChatGPT, the same evening.** OpenAI no longer holds tool changes for a new version: it scans the server's tools itself, or on "Rescan" in its portal, and a tool that passes its automated checks is published at once; the ZIP version carries only the listing text, the reviewer's test cases and the release notes (`CLAUDE.md` and the runbook are corrected). The owner pressed Rescan and submitted package 1.5.0; by 22:04 UTC the portal showed version 1.5.0 as the published one and all nine tools ChatGPT is given, the two new ones included, as published with no findings.
 
 **NOT RUN.** A real chat in ChatGPT or Claude on production after the deploy; the careful reading on production; a read whose own request lands on the other instance; the rollback command.
 

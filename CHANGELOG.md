@@ -4,7 +4,7 @@ What changed for users, newest first. Numbers in brackets are entries in `docs/e
 
 ## 2026-11-23: server 00067-4r6
 
-Claude plugin unchanged (1.10.3). ChatGPT app 1.5.0 prepared, not yet submitted; until OpenAI approves it, ChatGPT keeps the 1.4.0 tool list and the careful reading of scans is offered in Claude only.
+Claude plugin unchanged (1.10.3). ChatGPT app 1.5.0, published the same day.
 
 - Time signatures written as a sum, such as 3+2/8, are read correctly; scores saved as UTF-16 are accepted [167] (#30).
 - In PDF readings, a bar split by a repeat sign or double bar line keeps one bar number [166] (#29).
