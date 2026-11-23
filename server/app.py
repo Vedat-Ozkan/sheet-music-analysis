@@ -1958,7 +1958,8 @@ CORRECT_BARS_DESCRIPTION = (
 @mcp.tool(
     title="Correct misread bars",
     description=CORRECT_BARS_DESCRIPTION,
-    annotations=read_only("Correct misread bars"),
+    annotations=ToolAnnotations(title="Correct misread bars", read_only_hint=False, destructive_hint=False,
+                                idempotent_hint=False, open_world_hint=False),
 )
 @observed
 async def correct_bars(
@@ -2064,7 +2065,8 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
         "list (starting 'N1 div=') for each page, in order. Builds the score from them and returns a new score_id; "
         "then call draft_analysis with it and continue as for a MusicXML file."
     ),
-    annotations=read_only("Use a careful reading"),
+    annotations=ToolAnnotations(title="Use a careful reading", read_only_hint=False, destructive_hint=False,
+                                idempotent_hint=False, open_world_hint=False),
 )
 @observed
 async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> CallToolResult:
