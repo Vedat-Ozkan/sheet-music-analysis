@@ -478,6 +478,28 @@ def test_reading_card_status_after_a_reading_hides_the_old_reading_in_chatgpt(pa
         expect(card.locator(element)).to_be_hidden()
 
 
+def test_analysis_card_keeps_a_result_from_the_host_when_chatgpt_updates_its_globals_without_one(page, server):
+    card = open_card(page, server, "card.html", openai=True)
+    deliver(page, links(server))
+    expect(card.locator("#open-page")).to_be_visible()
+    card_frame(page).evaluate("window.dispatchEvent(new Event('openai:set_globals'))")
+    for element in ("#caption", "#open-page", "#actions", "#more", "#suggest"):
+        expect(card.locator(element)).to_be_visible()
+
+
+def test_analysis_card_reports_its_size_once_however_often_chatgpt_updates_its_globals(page, server):
+    page.add_init_script("if (window !== window.top) window.openai = { toolOutput: %s };" % json.dumps(links(server)))
+    card = open_card(page, server, "card.html")
+    expect(card.locator("#open-page")).to_be_visible()
+    page.wait_for_function("received.filter((m) => m.method === 'ui/notifications/size-changed').at(-1).params.height > 200")
+    page.wait_for_timeout(500)
+    settled = len(sent(page, "ui/notifications/size-changed"))
+    for _ in range(5):
+        card_frame(page).evaluate("window.dispatchEvent(new Event('openai:set_globals'))")
+    page.wait_for_timeout(500)
+    assert len(sent(page, "ui/notifications/size-changed")) == settled
+
+
 def test_reading_card_shows_the_status_chatgpt_opens_it_with(page, server):
     page.add_init_script("if (window !== window.top) window.openai = { toolOutput: { status: %s } };" % json.dumps(STILL_READING))
     card = open_card(page, server, "card.html")
