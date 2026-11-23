@@ -13,12 +13,12 @@ from music21 import roman
 from engine.errors import UserError
 from engine.comparison import Label, from_annotations, matches, sounding
 from engine.reduce import midi
-from engine.score import Measure, PositionError, ScoreIndex, beat_length, musicxml_meter
+from engine.score import Measure, PositionError, ScoreIndex, beat_length, fifths_of_signature, musicxml_meter
 
 KEY_NAME = r"[A-Ga-g][#b♯♭-]*(?:\s+(?:major|minor|maj|min))?"
 ROMAN = re.compile(r"[#b-]*(?:VII|III|VI|IV|II|V|I|vii|iii|vi|iv|ii|v|i)(?:o|ø|\+)?M?(?:753|53|65|64|43|42|13|11|9|7|6|2)?")
 TOKEN = re.compile(
-    rf"(?P<bar>\b(?:bar|measure|m\.?)\s*(\d+)(?:\.(\d+(?:\.\d+)?))?)"
+    rf"(?P<bar>\b(?:bar|measure|m\.?)\s*(\d+(?:[a-z]\b)?)(?:\.(\d+(?:\.\d+)?))?)"
     rf"|(?P<beat>\b(?:beat|b\.?)\s*(\d+(?:\.\d+)?))"
     rf"|(?P<key>\b(?:key\s*:?|in)\s*({KEY_NAME})\s*:?)"
     rf"|(?P<shortkey>{KEY_NAME}\s*:)"
@@ -79,12 +79,11 @@ def _figure(text: str, key: str) -> str:
     return figure
 
 
-def _measure(index: ScoreIndex, number: int, figure: str) -> Measure:
+def _measure(index: ScoreIndex, number: int | str, figure: str) -> Measure:
     try:
-        return index.measure(number)
+        return index.bar(number) if isinstance(number, str) else index.measure(number)
     except PositionError as error:
-        first, last = index.measures[0].number, index.measures[-1].number
-        raise ClarificationNeeded(str(error), f'The score has bars {first} to {last}. Which bar did you mean for {figure}?') from error
+        raise ClarificationNeeded(str(error), f'The score has bars {index.name_span}. Which bar did you mean for {figure}?') from error
 
 
 def _placed(index: ScoreIndex, label: Label) -> Label:
@@ -94,12 +93,12 @@ def _placed(index: ScoreIndex, label: Label) -> Label:
     except PositionError as error:
         beats = round(float(measure.length / measure.beat_length), 2)
         meter = f' ({measure.meter} time)' if measure.meter else ''
-        raise ClarificationNeeded(str(error), f'Bar {label.measure} has {beats:g} beat{"" if beats == 1 else "s"}{meter}, so there is no beat {label.beat:g}. Which beat did you mean for {label.figure}?') from error
+        raise ClarificationNeeded(str(error), f'Bar {measure.name} has {beats:g} beat{"" if beats == 1 else "s"}{meter}, so there is no beat {label.beat:g}. Which beat did you mean for {label.figure}?') from error
 
 
 def _signature_key(measure: Measure) -> str:
     signature = measure.key_signature
-    sharps = int(signature[:-1]) * (1 if signature.endswith('s') else -1) if signature[:-1] else 0
+    sharps = fifths_of_signature(signature)
     return m21key.KeySignature(sharps).asKey('major').tonic.name.replace('-', 'b')
 
 
@@ -110,11 +109,17 @@ def _finish(labels: list[Label], index: ScoreIndex | None) -> list[Label]:
             label = _placed(index, label)
         position = (label.measure, label.beat)
         if position in found and found[position] != label:
-            raise ClarificationNeeded(f"Conflicting labels at bar {label.measure} beat {round(label.beat, 2):g}", f'Which label belongs at bar {label.measure} beat {round(label.beat, 2):g}: {found[position].figure} or {label.figure}?')
+            bar = index.name_of(label.measure) if index else label.measure
+            raise ClarificationNeeded(f"Conflicting labels at bar {bar} beat {round(label.beat, 2):g}", f'Which label belongs at bar {bar} beat {round(label.beat, 2):g}: {found[position].figure} or {label.figure}?')
         found[position] = label
     if not found:
         raise UserError('No Roman numeral labels found')
-    return sorted(found.values(), key=lambda label: (label.measure, label.beat))
+    return sorted(found.values(), key=lambda label: (*_bar_order(label.measure), label.beat))
+
+
+def _bar_order(measure: int | str) -> tuple[int, str]:
+    number, letters = re.fullmatch(r"(-?\d+)([a-z]*)", str(measure)).groups()
+    return int(number), letters
 
 
 def from_text(text: str, default_key: str | None = None, index: ScoreIndex | None = None) -> list[Label]:
@@ -139,22 +144,22 @@ def from_text(text: str, default_key: str | None = None, index: ScoreIndex | Non
         raise ClarificationNeeded('Multiple unaddressed keys', 'Where does the key change occur (bar and beat)?')
     if initial_keys:
         key = next(iter(initial_keys))
-    labels, measure, beat, placed = [], None, 1.0, True
+    labels, measure, beat, placed, labelled = [], None, 1.0, True, None
     unplaced_bars = {}
     for position, token in enumerate(tokens):
         kind, value = token.lastgroup, token.group()
         if kind == 'bar':
-            address = re.search(r'(\d+)(?:\.(\d+(?:\.\d+)?))?$', value)
-            measure, beat, placed = int(address[1]), float(address[2] or 1), bool(address[2])
+            address = re.search(r'(\d+[a-z]?)(?:\.(\d+(?:\.\d+)?))?$', value, re.IGNORECASE)
+            measure, beat, placed = address[1].lower(), float(address[2] or 1), bool(address[2])
         elif kind == 'beat':
             beat, placed = float(re.search(r'\d+(?:\.\d+)?$', value)[0]), True
         elif kind in ('key', 'shortkey'):
             key = _key(re.sub(r'^(?:key\s*:?|in)\s*', '', value, flags=re.I).rstrip(':'))
         else:
             value = value.strip('()[]\"\'.!')
-            if re.fullmatch(r'\d[-–—]\d', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label':
+            if re.fullmatch(r'\d[-–—]\d', value) and labels and labelled == measure and position > 0 and tokens[position - 1].lastgroup == 'label':
                 continue
-            if re.fullmatch(r'\d+(?:/\S+)?', value) and labels and labels[-1].measure == measure and position > 0 and tokens[position - 1].lastgroup == 'label' and text[tokens[position - 1].end():token.start()].isspace():
+            if re.fullmatch(r'\d+(?:/\S+)?', value) and labels and labelled == measure and position > 0 and tokens[position - 1].lastgroup == 'label' and text[tokens[position - 1].end():token.start()].isspace():
                 previous = labels.pop()
                 labels.append(Label(previous.measure, previous.beat, previous.key, _figure(previous.figure + value, previous.key)))
                 continue
@@ -162,9 +167,11 @@ def from_text(text: str, default_key: str | None = None, index: ScoreIndex | Non
                 raise ClarificationNeeded(f"Give a bar number before {value!r}", 'Which bar and beat does each numeral belong to?')
             if beat < 1:
                 raise UserError(f"Beat must be at least 1 in bar {measure}")
-            in_key = key or (_signature_key(_measure(index, measure, value)) if index else 'C')
-            labels.append(Label(measure, beat, in_key, _figure(value, in_key)))
-            unplaced_bars.setdefault(measure, []).append(placed)
+            number = _measure(index, measure, value).number if index else int(measure) if measure.isdigit() else measure
+            in_key = key or (_signature_key(_measure(index, number, value)) if index else 'C')
+            labels.append(Label(number, beat, in_key, _figure(value, in_key)))
+            unplaced_bars.setdefault(number, []).append(placed)
+            labelled = measure
             beat, placed = beat + 1, False
     if index:
         for number, given in unplaced_bars.items():
@@ -181,8 +188,8 @@ def _check_one_per_beat(index: ScoreIndex, number: int, given: list[bool], figur
         return
     meter = f' ({measure.meter} time)' if measure.meter else ''
     raise ClarificationNeeded(
-        f'Beats not given for {len(given)} numerals in bar {number}',
-        f'Bar {number} has {beats} beat{"" if beats == 1 else "s"}{meter}. Which beat is each of {", ".join(figures)} on?')
+        f'Beats not given for {len(given)} numerals in bar {measure.name}',
+        f'Bar {measure.name} has {beats} beat{"" if beats == 1 else "s"}{meter}. Which beat is each of {", ".join(figures)} on?')
 
 
 def _xml_key(element: ET.Element) -> str:
@@ -347,7 +354,7 @@ def compare_labels(student: list[Label], reference: list[Label], index: ScoreInd
             continue
         r, s = sounding(expected.key, expected.figure), sounding(label.key, label.figure)
         if r is None or s is None:
-            raise ValueError(f"Unreadable harmony at bar {label.measure} beat {label.beat:g}")
+            raise ValueError(f"Unreadable harmony at bar {index.name_of(label.measure)} beat {label.beat:g}")
         agreement = matches(r, s)
         if not agreement['chord']:
             classification = 'different_chord'
@@ -446,7 +453,7 @@ def as_text(student: list[Label], index: ScoreIndex) -> str:
         fit, missing, other = _fit(chord, bass, heard)
         names = list(dict.fromkeys(event.pitch.rstrip('0123456789') for event in heard))
         lines.append(
-            f"m{label.measure} b{label.beat:g} | {label.key}: {label.figure} | {bass or 'rest'} | "
+            f"m{index.name_of(label.measure)} b{label.beat:g} | {label.key}: {label.figure} | {bass or 'rest'} | "
             f"{' '.join(names)} | {' '.join(pitch.name.replace('-', 'b') for pitch in chord.pitches)} | "
             f"{' '.join(missing) or '-'} | {' '.join(other) or '-'} | {fit}"
         )

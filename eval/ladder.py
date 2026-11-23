@@ -33,7 +33,7 @@ from pathlib import Path
 from engine.comparison import agreement
 from engine.reduce import midi
 from engine.render import load_toolkit
-from engine.score import ScoreIndex
+from engine.score import ScoreIndex, parse_meter
 from eval import ceiling, compare, pieces
 from eval.any_expert import folder_for
 from eval.review import passages
@@ -143,8 +143,8 @@ def dcml_marks(tsv: str, index: ScoreIndex, shift: int = 0) -> dict:
             except (KeyError, ValueError):
                 continue
             if measure is index.measures[0] and measure.declared_length is None and measure.meter:
-                count, unit = measure.meter.split("/")
-                offset -= Fraction(int(count) * 4, int(unit)) - measure.length
+                count, unit = parse_meter(measure.meter)
+                offset -= Fraction(count * 4, unit) - measure.length
         k = place[id(measure)] + shift
         if not 0 <= k < len(starts) or not 0 <= offset < starts[k][1].length:
             continue

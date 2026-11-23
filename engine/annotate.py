@@ -10,7 +10,7 @@ from engine import notation, slurs, tint
 from engine.errors import UserError
 from engine.annotations import Alternative, AnnotationList, Cadence, Callout, Harmony, NoteRef, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
-from engine.render import VEROVIO_OPTIONS, Engraving, check_range, incoming_ties, load_toolkit, shorten_ties
+from engine.render import PAPER, VEROVIO_OPTIONS, Engraving, check_range, incoming_ties, load_toolkit, shorten_ties
 from engine.score import PositionError, ScoreIndex
 
 if TYPE_CHECKING:
@@ -18,13 +18,25 @@ if TYPE_CHECKING:
 
 Drawn = TypeVar("Drawn")
 ONE_PAGE_HEIGHT = 60000
+UNIT = 10
+PAGE_HEIGHT = round(VEROVIO_OPTIONS["pageWidth"] * PAPER[1] / PAPER[0])
+SIDE_MARGIN = 50
+PRINT_MARGIN = 130
+PRINT_RIGHT_MARGIN = 70
+FOOT_MARGIN = 70
+KEY_GAP = 40
+PRINT_OPTIONS = {"pageHeight": PAGE_HEIGHT, "pageMarginTop": PRINT_MARGIN, "pageMarginRight": PRINT_RIGHT_MARGIN, "adjustPageHeight": False,
+                 "justifyVertically": True, "justificationBraceGroup": 0.15, "justificationStaff": 0.4}
 ONE_PAGE_BARS = 32
+THIN_LINE = 0.67
+MOST_SQUEEZE = 1.12
+SQUEEZE_COST = 2.75
 
 ANNOTATED_OPTIONS = {
     "svgBoundingBoxes": True,
     "svgAdditionalAttribute": ["staff@n", "fermata@staff", "dynam@staff"],
     "adjustPageHeight": True,
-    "spacingSystem": 26,
+    "spacingSystem": 16,
     "pageMarginTop": 230,
     "pageMarginBottom": 260,
 }
@@ -37,6 +49,23 @@ class AnnotationError(UserError):
         self.rejected = rejected or set()
 
 
+def by_number(annotations: AnnotationList, index: ScoreIndex) -> AnnotationList:
+    problems, rejected, numbered = [], set(), []
+    for number, annotation in enumerate(annotations.annotations):
+        places = {}
+        for name, place in vars(annotation).items():
+            if hasattr(place, "measure"):
+                try:
+                    places[name] = place.model_copy(update={"measure": index.bar(place.measure).number})
+                except PositionError as error:
+                    problems.append(f"annotations[{number}] ({annotation.type}): {error}")
+                    rejected.add(number)
+        numbered.append(annotation.model_copy(update=places))
+    if problems:
+        raise AnnotationError(problems, rejected)
+    return annotations.model_copy(update={"annotations": numbered})
+
+
 def check(annotations: AnnotationList, index: ScoreIndex) -> None:
     problems, rejected = [], set()
     key = None
@@ -47,7 +76,7 @@ def check(annotations: AnnotationList, index: ScoreIndex) -> None:
             try:
                 notation.numeral(harmony.label, key, annotations.style, 440)
             except ValueError as error:
-                problems.append(f"harmony at measure {harmony.at.measure} beat {harmony.at.beat}: {error}")
+                problems.append(f"harmony at measure {index.name_of(harmony.at.measure)} beat {harmony.at.beat}: {error}")
                 rejected.add(number)
     for number, annotation in enumerate(annotations.annotations):
         try:
@@ -83,20 +112,34 @@ def check(annotations: AnnotationList, index: ScoreIndex) -> None:
         raise AnnotationError(problems, rejected)
 
 
-def leave_out_rejected(draw: Callable[[AnnotationList], Drawn], annotations: AnnotationList) -> tuple[Drawn, AnnotationList, list[str]]:
+def leave_out_rejected(draw: Callable[[AnnotationList], Drawn], annotations: AnnotationList,
+                       prepare: Callable[[AnnotationList], AnnotationList] = lambda given: given,
+                       ) -> tuple[Drawn, AnnotationList, list[str]]:
     numbers, left_out, rounds = list(range(len(annotations.annotations))), [], 2
+
+    def leave_out(error: AnnotationError) -> None:
+        nonlocal annotations, numbers
+        if not error.rejected:
+            raise error
+        left_out.extend(re.sub(r"^annotations\[(\d+)\]", lambda match: f"annotations[{numbers[int(match[1])]}]", problem)
+                        for problem in error.problems)
+        kept = [position for position in range(len(numbers)) if position not in error.rejected]
+        annotations = annotations.model_copy(update={"annotations": [annotations.annotations[i] for i in kept]})
+        numbers = [numbers[i] for i in kept]
+
     while True:
         try:
-            return draw(annotations), annotations, left_out
+            prepared = prepare(annotations)
         except AnnotationError as error:
-            if not error.rejected or not rounds:
+            leave_out(error)
+            continue
+        try:
+            return draw(prepared), prepared, left_out
+        except AnnotationError as error:
+            if not rounds:
                 raise
             rounds -= 1
-            left_out += [re.sub(r"^annotations\[(\d+)\]", lambda match: f"annotations[{numbers[int(match[1])]}]", problem)
-                         for problem in error.problems]
-            kept = [position for position in range(len(numbers)) if position not in error.rejected]
-            annotations = annotations.model_copy(update={"annotations": [annotations.annotations[i] for i in kept]})
-            numbers = [numbers[i] for i in kept]
+            leave_out(error)
 
 
 def render(
@@ -112,11 +155,12 @@ def render(
     preview_pages: int = 1,
 ) -> Engraving:
     check_range(measures)
+    bar_names = None
     if piano:
-        score, annotations = _piano_version(score, annotations, measures)
+        score, annotations, bar_names = _piano_version(score, annotations, measures)
     labelled_bars = {place.measure for annotation in annotations.annotations for place in vars(annotation).values() if hasattr(place, "measure")}
     labelled_bars |= {label.measure for label in student_labels or []} | set(shaded_bars or [])
-    toolkit = load_toolkit(score, ANNOTATED_OPTIONS, labelled_bars=labelled_bars)
+    toolkit = load_toolkit(score, ANNOTATED_OPTIONS, labelled_bars=labelled_bars, bar_names=bar_names)
     index = ScoreIndex(toolkit.getMEI())
     shaded_bars = [number for number in shaded_bars or [] if any(measure.number == number for measure in index.measures)]
     check(annotations, index)
@@ -133,8 +177,7 @@ def render(
         toolkit.select({"measureRange": index.measure_range(*measures)})
     toolkit.redoLayout()
     _balance_systems(toolkit, index, measures, annotations)
-    first, last = measures or (index.measures[0].number, index.measures[-1].number)
-    bars = sum(1 for measure in index.measures if first <= measure.number <= last and measure.number > 0)
+    bars = sum(1 for measure in index.select(*(measures or (None, None))) if not measure.is_pickup)
     if not measures or bars > ONE_PAGE_BARS:
         toolkit.setOptions({"pageHeight": VEROVIO_OPTIONS["pageHeight"]})
         toolkit.redoLayout()
@@ -147,34 +190,54 @@ def render(
 
     slurs.untangle(toolkit, relayout)
     _move_text_off_stems(toolkit, relayout)
-    drawn = None
-    if results is not None:
-        _make_room_for_checks(toolkit, relayout, index, ties, results)
-    else:
-        drawn = _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role)
-    if not drawn:
-        drawn = []
+    def draw_pages() -> list[PageLayout]:
+        layouts = []
         for page in range(1, toolkit.getPageCount() + 1):
             layout = PageLayout(shorten_ties(toolkit.renderToSVG(page), ties), index)
             if results is None:
                 layout.draw(annotations, view, role)
             else:
                 check_display.draw(layout, results, page == toolkit.getPageCount())
-            drawn.append(layout)
+            layouts.append(layout)
+        return layouts
+
+    drawn = None
+    if results is not None:
+        _make_room_for_checks(toolkit, relayout, index, ties, results)
+    else:
+        drawn = _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role)
+    drawn = drawn or draw_pages()
     for layout in drawn:
         tint.flag_bars(layout, index, shaded_bars)
     pages = [layout.to_svg() for layout in drawn]
     callouts = sorted({int(number) for layout in drawn for kind, number in layout.shown if kind == "callout"})
-    if not key or results is not None:
-        return Engraving(pages, callouts=callouts)
+    with_key = key and results is None
+
+    def print_pages() -> list[str]:
+        left = min(system.left for layout in drawn for system in layout.systems)
+        right = max(system.right for layout in drawn for system in layout.systems) - (PRINT_RIGHT_MARGIN - SIDE_MARGIN) * UNIT
+        guide = page_key.height(drawn, left, right) if with_key else 0.0
+        toolkit.setOptions({**PRINT_OPTIONS, "pageMarginBottom": round(FOOT_MARGIN + guide / UNIT + KEY_GAP) if guide else PRINT_MARGIN})
+        toolkit.redoLayout()
+        printed = draw_pages()
+        for layout in printed:
+            tint.flag_bars(layout, index, shaded_bars)
+        if guide:
+            page_key.draw(printed, printed[-1], foot=FOOT_MARGIN * UNIT)
+        return [layout.to_svg() for layout in printed]
+
+    if not with_key:
+        return Engraving(pages, print_pages=print_pages if results is None else None, callouts=callouts)
     from engine import page_key
     shown = drawn[:preview_pages]
-    preview_key = page_key.draw(shown, drawn[0], page_key.cues_on(shown) if piano else [], page_key.SCREEN_SIZE)
-    preview = [drawn[0].to_svg(), *pages[1:]]
-    if len(drawn) == 1:
-        return Engraving(preview, preview_svgs=preview, key_drawn=preview_key, callouts=callouts)
-    key_drawn = page_key.draw(drawn, drawn[-1], page_key.cues_on(drawn) if piano else [])
-    return Engraving([*pages[:-1], drawn[-1].to_svg()], preview_svgs=preview, key_drawn=key_drawn, callouts=callouts)
+    preview_key = page_key.draw(shown, shown[-1], page_key.SCREEN_SIZE)
+    preview = [*pages[: len(shown) - 1], shown[-1].to_svg(), *pages[len(shown) :]]
+    if len(drawn) == len(shown):
+        return Engraving(preview, preview_svgs=preview, print_pages=print_pages, key_drawn=preview_key, preview_key_drawn=preview_key,
+                         callouts=callouts)
+    key_drawn = page_key.draw(drawn, drawn[-1])
+    return Engraving([*pages[:-1], drawn[-1].to_svg()], preview_svgs=preview, print_pages=print_pages, key_drawn=key_drawn,
+                     preview_key_drawn=preview_key, callouts=callouts)
 
 
 def _make_room_for_checks(toolkit, relayout, index, ties, results) -> None:
@@ -213,8 +276,7 @@ def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role
             for event, place, short, first in layout.code_room:
                 measure = index.measure(event.measure)
                 segment = next(segment for segment in measure.segments if segment.id == event.segment)
-                unit = int(measure.meter.split("/")[1]) if measure.meter else 4
-                need = (segment.id, f"{float(1 + (event.onset - segment.start) * unit / 4):g}", event.staff, place)
+                need = (segment.id, f"{measure.tstamp_of(segment, event.onset):g}", event.staff, place)
                 need = gaps.setdefault((segment.id, event.staff if place == "below" else event.staff - 1), need)
                 more = short if need in lines else first
                 needs[need] = max(needs.get(need, 0), more)
@@ -237,7 +299,7 @@ def _make_room_for_codes(toolkit, relayout, index, ties, annotations, view, role
     return None
 
 
-def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[int, int] | None) -> tuple[bytes, AnnotationList]:
+def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[int, int] | None) -> tuple[bytes, AnnotationList, dict[int, str]]:
     from engine import piano as piano_reduction
 
     original = ScoreIndex(load_toolkit(score).getMEI())
@@ -245,7 +307,7 @@ def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[in
     refs = [ref for a in annotations.annotations for ref in _note_refs(a)]
     found = [original.find_note(**ref.model_dump()) for ref in refs]
     keep = [(ref.measure, event.onset, event.pitch, event.duration) for ref, event in zip(refs, found)]
-    reduced = piano_reduction.reduce(score, measures, keep)
+    reduced = piano_reduction.reduce(score, measures, keep, original)
     index = ScoreIndex(load_toolkit(reduced).getMEI())
     moved = {}
     for ref, event in zip(refs, found):
@@ -263,7 +325,7 @@ def _piano_version(score: bytes, annotations: AnnotationList, measures: tuple[in
         elif isinstance(annotation, Region) and annotation.staff:
             annotation = annotation.model_copy(update={"staff": None})
         pointed.append(annotation)
-    return reduced, annotations.model_copy(update={"annotations": pointed})
+    return reduced, annotations.model_copy(update={"annotations": pointed}), {m.number: m.name for m in original.measures}
 
 
 def _note_refs(annotation) -> list[NoteRef]:
@@ -310,10 +372,8 @@ def _reserve_numeral_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
         measure = index.measure(harmony.at.measure)
         offset = measure.offset_of(harmony.at.beat)
         segment = measure.segment_at(offset)
-        unit = int(measure.meter.split("/")[1]) if measure.meter else 4
-        tstamp = 1 + (offset - segment.start) * unit / 4
         added.setdefault(segment.id, []).append(
-            f'<harm staff="{bottom_staff}" tstamp="{float(tstamp):g}" place="below">{escape(label)}\u00a0\u00a0</harm>'
+            f'<harm staff="{bottom_staff}" tstamp="{measure.tstamp_of(segment, offset):g}" place="below" type="analysis-room">{escape(label)}\u00a0\u00a0</harm>'
         )
     if not added:
         return
@@ -353,6 +413,17 @@ def _reserve_bracket_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
                     added.setdefault(segment.id, []).append(
                         f'<dir staff="{staff}" tstamp="1" place="{place}" type="analysis-room">{escape(region.label or "-")}<lb/>-</dir>'
                     )
+    above, below = set(), set()
+    for mark in annotations.annotations:
+        if isinstance(mark, Phrase):
+            first, last = index.measure(mark.start.measure).index, index.measure(mark.end.measure).last_index
+            above |= {segment.id for measure in index.measures for segment in measure.segments if first <= segment.index <= last}
+        elif isinstance(mark, (Callout, Cadence)) or isinstance(mark, Harmony) and mark.function:
+            measure = index.measure(mark.at.measure)
+            (above if isinstance(mark, Callout) else below).add(measure.segment_at(measure.offset_of(mark.at.beat)).id)
+    for segments, staff, place, lines in ((above, 1, "above", "-"), (below, bottom_staff, "below", "-<lb/>-")):
+        for segment in segments:
+            added.setdefault(segment, []).append(f'<dir staff="{staff}" tstamp="1" place="{place}" type="analysis-room">{lines}</dir>')
     if not added:
         return
     for measure_id, dirs in added.items():
@@ -399,29 +470,47 @@ def _balance_systems(toolkit, index: ScoreIndex, measures: tuple[int, int] | Non
         0.0 if number.get(id) in good else 40.0 if number.get(id) in bad or not first_bar[position] else 6.0
         for position, (id, _) in enumerate(bars)
     ]
-    starts = _breaks([width for _, width in bars], line, penalty, opening)
     mei = re.sub(r"<(sb|pb)\b[^>]*/>", "", toolkit.getMEI())
+    worded = {found.group(1) for found in re.finditer(r'<measure\b[^>]*xml:id="([^"]+)"(?:(?!</measure>).)*?<verse\b', mei, flags=re.S)}
+    rigid = {position for position, (id, _) in enumerate(bars) if id in worded}
+    starts = _breaks([width for _, width in bars], line, penalty, opening, opening if measures else 0.0, rigid)
     for position in starts:
         start = mei.index(f'xml:id="{bars[position][0]}"')
         start = mei.rindex("<measure", 0, start)
         mei = mei[:start] + "<sb />" + mei[start:]
-    toolkit.setOptions({"breaks": "smart", "breaksSmartSb": 0.3, "minLastJustification": 0})
+    toolkit.setOptions({"breaks": "smart" if measures else "line", "breaksSmartSb": 0.3, "minLastJustification": 0})
     toolkit.loadData(mei)
     if measures:
         toolkit.select({"measureRange": index.measure_range(*measures)})
     toolkit.redoLayout()
 
 
-def _breaks(widths: list[float], line: float, penalty: list[float], opening: float = 0.0) -> list[int]:
+def _breaks(widths: list[float], line: float, penalty: list[float], opening: float = 0.0, first_opening: float = 0.0,
+            rigid: set[int] = frozenset()) -> list[int]:
+    starts = _cheapest_breaks(widths, line, penalty, opening, first_opening, set(), rigid)
+    lone = _lone_bars(widths, starts, line, opening, first_opening)
+    if not lone - rigid:
+        return starts
+    squeezed = _cheapest_breaks(widths, line, penalty, opening, first_opening, lone - rigid, rigid)
+    return squeezed if len(_lone_bars(widths, squeezed, line, opening, first_opening)) < len(lone) else starts
+
+
+def _cheapest_breaks(widths: list[float], line: float, penalty: list[float], opening: float, first_opening: float,
+                     squeezable: set[int], rigid: set[int]) -> list[int]:
     count = len(widths)
     best: list[tuple[float, int]] = [(0.0, -1)] + [(math.inf, -1)] * count
     for end in range(1, count + 1):
         for begin in range(end - 1, -1, -1):
-            width = sum(widths[begin:end]) + (opening if begin else 0.0)
-            if width > line and end - begin > 1:
+            width = sum(widths[begin:end]) + (opening if begin else first_opening)
+            if width > line * MOST_SQUEEZE and end - begin > 1:
                 break
             fill = width / line
-            shortfall = 2 * max(0.0, 0.75 - fill) if end == count else 1 - fill
+            if fill > 1 and end - begin > 1:
+                if not squeezable.intersection(range(begin, end)) or rigid.intersection(range(begin, end)):
+                    continue
+                shortfall = SQUEEZE_COST * (fill - 1)
+            else:
+                shortfall = 2 * max(0.0, 0.75 - fill) if end == count else 1 - fill
             cost = best[begin][0] + 100 * shortfall**2 + 10 + (penalty[begin] if begin else 0)
             if cost < best[end][0]:
                 best[end] = (cost, begin)
@@ -431,3 +520,10 @@ def _breaks(widths: list[float], line: float, penalty: list[float], opening: flo
         if end:
             starts.append(end)
     return sorted(starts)
+
+
+def _lone_bars(widths: list[float], starts: list[int], line: float, opening: float, first_opening: float) -> set[int]:
+    return {
+        begin for begin, end in zip([0, *starts], starts)
+        if end - begin == 1 and widths[begin] + (opening if begin else first_opening) < THIN_LINE * line
+    }

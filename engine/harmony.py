@@ -4,9 +4,8 @@ import re
 from dataclasses import dataclass
 from fractions import Fraction
 
-from engine.score import ScoreIndex
+from engine.score import ScoreIndex, alteration, pitch_class
 
-STEPS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 NAMES = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
 MAJOR = [0, 2, 4, 5, 7, 9, 11]
 MINOR = [0, 2, 3, 5, 7, 8, 10]
@@ -32,20 +31,19 @@ class Chord:
 
 def _tonic(key: str) -> tuple[int, bool]:
     name = key.strip()
-    pc = STEPS[name[0].upper()] + name.count("#") - name[1:].count("b") - name.count("-")
-    return pc % 12, name[0].islower()
+    return pitch_class(name), name[0].islower()
 
 
 def _degree_root(numeral: str, accidental: str, tonic: int, minor: bool) -> int:
     degree = ROMAN[numeral.lower()]
     if accidental.strip("#") and accidental.replace("#", "") and not (minor and degree in (6, 7) and numeral.islower()):
-        return (tonic + MAJOR[degree - 1] - accidental.count("b") - accidental.count("-") + accidental.count("#")) % 12
+        return (tonic + MAJOR[degree - 1] + alteration(accidental)) % 12
     root = tonic + (MINOR if minor else MAJOR)[degree - 1]
     if minor and degree in (6, 7) and numeral.islower():
         root += 1
     if minor and degree in (6, 7) and numeral.islower() and accidental.startswith("#"):
         accidental = accidental[1:]
-    root += accidental.count("#") - accidental.count("b") - accidental.count("-")
+    root += alteration(accidental)
     return root % 12
 
 
@@ -151,7 +149,7 @@ def mismatches(annotations: list[dict], index: ScoreIndex) -> list[str]:
             continue
         heard = {pc % 12 for group in groups for pc, _ in group}
         lowest = {min(group)[0] % 12 for group in groups}
-        where = f"m{measure.number} b{float(item['at'].get('beat', 1)):g} {label} (in {key})"
+        where = f"m{measure.name} b{float(item['at'].get('beat', 1)):g} {label} (in {key})"
         missing = [NAMES[pc] for pc in sorted(named.tones) if pc not in heard]
         if named.seventh is not None and named.seventh not in heard:
             found.append(f"{where}: its seventh, {NAMES[named.seventh]}, never sounds while this chord lasts")

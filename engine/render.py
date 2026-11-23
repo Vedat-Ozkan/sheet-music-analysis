@@ -24,7 +24,7 @@ from PIL import Image, ImageChops
 
 from engine.errors import UserError
 from engine.reduce import midi
-from engine.score import TOLERANCE, PositionError, ScoreIndex
+from engine.score import TOLERANCE, Measure, PositionError, ScoreIndex
 from engine.text import FONT_DIR, FONT_FILES, MAIN as TEXT_FONT
 
 if TYPE_CHECKING:
@@ -42,6 +42,7 @@ def _font_config() -> str:
 
 os.environ.setdefault("FONTCONFIG_FILE", _font_config())
 
+PAPER = (8.5, 11)
 VEROVIO_OPTIONS = {
     "xmlIdChecksum": True,
     "svgViewBox": True,
@@ -115,28 +116,27 @@ class ScoreError(UserError):
 UNREADABLE = "This file looks like MusicXML but its music could not be read"
 
 
-def parse_measures(measure_range: str | None) -> tuple[int, int] | None:
+def parse_measures(measure_range: str | None) -> tuple[str, str] | None:
     if not measure_range or measure_range.strip().lower() == "all":
         return None
-    match = re.fullmatch(r"\s*(\d+)\s*(?:[-\u2013\u2014]\s*(\d+)\s*)?", measure_range)
+    match = re.fullmatch(r"\s*(\d+[a-z]*)\s*(?:[-\u2013\u2014]\s*(\d+[a-z]*)\s*)?", measure_range.lower())
     if not match:
-        raise ScoreError('measure_range must look like "1-8" or "5", or be "all"')
-    first, last = int(match[1]), int(match[2] or match[1])
-    if first > last:
-        raise ScoreError(f'measure_range must start at the lower bar, e.g. "{last}-{first}"')
-    return first, last
+        raise ScoreError('measure_range must look like "1-8", "5" or "16a-20", or be "all"')
+    return match[1], match[2] or match[1]
 
 
 @dataclass
 class Engraving:
     svgs: list[str]
     preview_svgs: list[str] | None = field(default=None, kw_only=True)
+    print_pages: Callable[[], list[str]] | None = field(default=None, kw_only=True, repr=False, compare=False)
     key_drawn: bool = field(default=False, kw_only=True)
+    preview_key_drawn: bool = field(default=False, kw_only=True)
     callouts: list[int] = field(default_factory=list, kw_only=True)
 
     @property
     def preview(self) -> Engraving:
-        return replace(self, svgs=self.preview_svgs, preview_svgs=None) if self.preview_svgs else self
+        return replace(self, svgs=self.preview_svgs, preview_svgs=None, key_drawn=self.preview_key_drawn) if self.preview_svgs else self
 
     @property
     def page_count(self) -> int:
@@ -168,7 +168,18 @@ class Engraving:
             pages[0].save(out, "PDF", save_all=True, append_images=pages[1:], resolution=254)
             return out.getvalue()
         documents = []
-        for page in range(1, self.page_count + 1):
+        printed = self.print_pages() if self.print_pages else []
+        for svg in printed:
+            x, y, w, h = map(float, re.search(r'viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"', svg).groups())
+            page_svg = svg.replace("<svg ", f'<svg width="{w:g}" height="{h:g}" ', 1)
+            if page_svg.startswith("<?xml"):
+                page_svg = page_svg[page_svg.index("?>") + 2 :]
+            sheet = (
+                f'<svg xmlns="http://www.w3.org/2000/svg" width="{PAPER[0] * 96:g}" height="{PAPER[1] * 96:g}" '
+                f'viewBox="{x:g} {y:g} {w:g} {h:g}" preserveAspectRatio="xMidYMin meet">{page_svg}</svg>'
+            )
+            documents.append(pikepdf.Pdf.open(io.BytesIO(cairosvg.svg2pdf(bytestring=sheet.encode()))))
+        for page in range(1, 0 if printed else self.page_count + 1):
             svg = self.svgs[page - 1]
             box = re.search(r'viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"', svg)
             x, y, w, h = map(float, box.groups())
@@ -226,7 +237,8 @@ def local_toolkit() -> verovio.toolkit:
 new_toolkit: Callable[[], verovio.toolkit] = local_toolkit
 
 
-def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False, labelled_bars: Collection[int] = ()) -> verovio.toolkit:
+def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False, labelled_bars: Collection[int] = (),
+                 bar_names: dict[int, str] | None = None) -> verovio.toolkit:
     toolkit = new_toolkit()
     toolkit.setOptions({**VEROVIO_OPTIONS, **(options or {})})
     text = xml_text(_musicxml(score))
@@ -235,16 +247,19 @@ def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool
     loaded = toolkit.loadData(_importable(text))
     if not loaded:
         raise ScoreError(UNREADABLE)
-    _tidy(toolkit, _readable_names(score), keep_pedals, labelled_bars)
+    _tidy(toolkit, text, _readable_names(score), keep_pedals, labelled_bars, bar_names)
     if len(set(re.findall(r'<staffDef\b[^>]*\bn="(\d+)"', toolkit.getMEI()))) <= LARGE_SCORE_STAVES:
         toolkit.setOptions({"systemDivider": "none"})
         toolkit.redoLayout()
     return toolkit
 
 
-def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool, labelled_bars: Collection[int]) -> None:
+def _tidy(toolkit: verovio.toolkit, musicxml: str, names: dict[str, str], keep_pedals: bool, labelled_bars: Collection[int],
+          bar_names: dict[int, str] | None) -> None:
     mei = toolkit.getMEI()
-    patched = re.sub(r"<measure\b(?:(?!</measure>).)*?<multiRest\b.*?</measure>", lambda m: _multi_rest(m, labelled_bars), mei, flags=re.S)
+    patched = _opening_bar(mei, musicxml)
+    rests = _rest_bars(patched)
+    patched = re.sub(r"<measure\b(?:(?!</measure>).)*?<multiRest\b.*?</measure>", lambda m: _multi_rest(m, rests, labelled_bars), patched, flags=re.S)
     patched = _count_ahead_in_drawn_bars(patched)
     for part, name in names.items():
         patched = re.sub(rf'(<staffDef\b[^>]*xml:id="{re.escape(part)}"[^>]*>\s*<label\b[^>]*>)[^<]*', lambda m: m.group(1) + escape(name), patched)
@@ -299,28 +314,41 @@ def _tidy(toolkit: verovio.toolkit, names: dict[str, str], keep_pedals: bool, la
     patched = _spread_ties(patched)
     patched = _slurs_to_chords(patched)
     patched = _clefs_before_barlines(patched)
-    patched = _number_unmarked_pickup(patched)
-    patched = _number_bars_as_counted(patched)
+    patched = _name_drawn_bars(patched, bar_names)
     patched = _unbeam_noteless(patched)
     if patched != mei:
         toolkit.loadData(patched)
 
 
-def _multi_rest(match: re.Match, labelled_bars: Collection[int]) -> str:
+def _rest_bars(mei: str) -> dict[str, list[Measure]]:
+    if "<multiRest" not in mei:
+        return {}
+    rests: dict[str, list[Measure]] = {}
+    first = None
+    for measure in ScoreIndex(mei).measures:
+        if first is not None and measure.id.startswith(f"{first.id}-"):
+            rests[first.id].append(measure)
+        else:
+            first = measure
+            rests[measure.id] = [measure]
+    return rests
+
+
+def _multi_rest(match: re.Match, rests: dict[str, list[Measure]], labelled_bars: Collection[int]) -> str:
     measure = match.group(0)
     opening = measure[: measure.index(">") + 1]
-    number = re.search(r'\bn="(\d+)"', opening)
-    if not number:
+    identity = re.search(r'xml:id="([^"]+)"', opening)
+    bars = rests.get(identity.group(1)) if identity else None
+    if not bars:
         return measure
-    count = int(re.search(r'<multiRest\b[^>]*\bnum="(\d+)"', measure).group(1))
-    first = int(number.group(1))
-    if count > 1 and not any(first < bar < first + count for bar in labelled_bars):
+    if len(bars) > 1 and not any(bar.number in labelled_bars for bar in bars[1:]):
         return measure
     right = re.search(r'\sright="[^"]*"', opening)
-    if right and count > 1:
+    if right and len(bars) > 1:
         measure = measure.replace(opening, opening.replace(right.group(0), ""), 1)
     staves = "".join(f'<staff n="{n}"><layer n="1"><mRest /></layer></staff>' for n in re.findall(r'<staff\b[^>]*\bn="(\d+)"', measure))
-    copies = [f'<measure n="{first + k}"{right.group(0) if right and k == count - 1 else ""}>{staves}</measure>' for k in range(1, count)]
+    copies = [f'<measure xml:id="{bar.id}" n="{bar.name}"{right.group(0) if right and bar is bars[-1] else ""}>{staves}</measure>'
+              for bar in bars[1:]]
     return re.sub(r"<multiRest\b[^>]*/>", "<mRest />", measure) + "".join(copies)
 
 
@@ -344,36 +372,43 @@ def _count_ahead_in_drawn_bars(mei: str) -> str:
     return re.sub(r"<measure\b.*?</measure>", redrawn, mei, flags=re.S)
 
 
-def _number_bars_as_counted(mei: str) -> str:
-    index = ScoreIndex(mei)
-    if not index.renumbered:
-        return mei
-    counted = {segment.id: measure.number for measure in index.measures for segment in measure.segments}
+def _name_drawn_bars(mei: str, bar_names: dict[int, str] | None) -> str:
+    named = {segment.id: (bar_names or {}).get(measure.number, measure.name)
+             for measure in ScoreIndex(mei).measures for segment in measure.segments}
 
-    def renumbered(match: re.Match) -> str:
+    def renamed(match: re.Match) -> str:
         opening = match.group(0)
         identity = re.search(r'xml:id="([^"]+)"', opening)
-        if not identity or identity.group(1) not in counted:
-            return opening
         written = re.search(r'\bn="([^"]*)"', opening)
-        number = f'n="{counted[identity.group(1)]}"'
+        name = named.get(identity.group(1)) if identity else None
+        if name is None or (written and written.group(1) == name):
+            return opening
         if written is None:
-            return opening.replace("<measure", f"<measure {number}", 1)
-        return opening.replace(written.group(0), f'{number} label="{written.group(1)}"', 1)
+            return opening.replace("<measure", f'<measure n="{name}"', 1)
+        return opening.replace(written.group(0), f'n="{name}" label="{written.group(1)}"', 1)
 
-    return re.sub(r"<measure\b[^>]*>", renumbered, mei)
+    return re.sub(r"<measure\b[^>]*>", renamed, mei)
+
+
+def written_by_the_pdf_reader(musicxml: str) -> bool:
+    return "<software>Audiveris" in musicxml
+
+
+def _opening_bar(mei: str, musicxml: str) -> str:
+    if not written_by_the_pdf_reader(musicxml):
+        return _number_unmarked_pickup(mei)
+    opening = re.search(r"<measure\b[^>]*>", mei)
+    if opening is None or 'implicit="yes"' in re.search(r"<measure\s[^>]*>", musicxml).group(0):
+        return mei
+    return mei.replace(opening.group(0), opening.group(0).replace(' metcon="false"', ""), 1)
 
 
 def _number_unmarked_pickup(mei: str) -> str:
     measures = ScoreIndex(mei).measures
-    if len(measures) < 2 or measures[0].number != 1 or measures[1].number != 2 or not measures[0].meter:
+    if len(measures) < 2 or measures[0].label != "1" or measures[1].label != "2" or not measures[0].is_short:
         return mei
     first = measures[0]
-    count, unit = first.meter.split("/")
-    full = Fraction(int(count) * 4, int(unit))
-    if not Fraction(0) < first.content_length < full - TOLERANCE:
-        return mei
-    completed_at_the_end = abs(first.content_length + measures[-1].content_length - full) <= TOLERANCE
+    completed_at_the_end = abs(first.content_length + measures[-1].content_length - first.full_length) <= TOLERANCE
     lengths = {}
     for event in first.events:
         lengths[event.staff] = max(lengths.get(event.staff, Fraction(0)), event.onset + event.duration)
@@ -484,8 +519,24 @@ def _importable(text: str) -> str:
     except ET.ParseError:
         return text
     segments = [segment for segment in root.iter() if segment.find("note") is not None]
-    changed = [_start_orphan_chords_in(segment) | _separate_voices_in(segment) for segment in segments]
+    changed = [_start_orphan_chords_in(segment) | _separate_voices_in(segment) | _printed_harmonies_in(segment) for segment in segments]
     return ET.tostring(root, encoding="unicode") if any(changed) else text
+
+
+def _printed_harmonies_in(segment: ET.Element) -> bool:
+    changed = False
+    for harmony in segment.findall("harmony"):
+        kind = harmony.find("kind")
+        printed = kind.get("text", "").strip() if kind is not None and kind.text == "none" else None
+        if harmony.find("numeral") is not None or printed == "":
+            segment.remove(harmony)
+            changed = True
+        elif printed and harmony.find("root/root-step") is not None:
+            for extra in harmony.findall("root/root-alter") + harmony.findall("bass") + harmony.findall("degree"):
+                (harmony.find("root") if extra.tag == "root-alter" else harmony).remove(extra)
+            harmony.find("root/root-step").text = printed
+            changed = True
+    return changed
 
 
 def _start_orphan_chords_in(segment: ET.Element) -> bool:
@@ -810,7 +861,7 @@ def _repair_broken_ties(mei: str) -> str:
 
 
 def incoming_ties(toolkit: verovio.toolkit, index: ScoreIndex, first: int, *, include_pickup: bool = True) -> set[str]:
-    start = index.range_start(first, include_pickup=include_pickup).index
+    start = index.select(first, include_pickup=include_pickup)[0].index
     earlier = {e.id for m in index.measures if m.last_index < start for e in m.events}
     return {
         tie for tie, note in re.findall(r'<tie\b[^>]*xml:id="([^"]+)"[^>]*startid="#([^"]+)"', toolkit.getMEI()) if note in earlier

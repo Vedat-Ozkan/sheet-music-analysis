@@ -325,7 +325,8 @@ def as_text(index: ScoreIndex, chords=None, first: int | None = None, last: int 
     if not applies(index):
         return ""
     voices, _, rows = _table(index)
-    found = [f for f in check(index, chords) if all((first is None or bar >= first) and (last is None or bar <= last) for bar in f.bars)]
+    chosen = {measure.number for measure in index.select(first, last, include_pickup=False)}
+    found = [f for f in check(index, chords) if all(bar in chosen for bar in f.bars)]
     names = _names(voices)
     at = {pos: row for pos, row in rows}
 
@@ -334,14 +335,14 @@ def as_text(index: ScoreIndex, chords=None, first: int | None = None, last: int 
         if not es:
             return None
         e = es[0]
-        return json.dumps({"measure": e.measure, "beat": index.measure(e.measure).beat_of(e.onset), "staff": e.staff, "pitch": e.pitch}, separators=(",", ":"))
+        return json.dumps({"measure": index.measure(e.measure).printed, "beat": index.measure(e.measure).beat_of(e.onset), "staff": e.staff, "pitch": e.pitch}, separators=(",", ":"))
 
     def pitch_of(pos, voice):
         return midi(at[pos][voice][0].pitch) if at[pos].get(voice) else None
 
     lines = [
         "PART-WRITING CHECK (strict classroom rules, not verdicts on the composer; this is a chorale-style score). Your "
-        "first reply must include one sentence offering this check, even when it also asks which bars to analyse; "
+        "first reply must include one sentence offering this check; "
         "draw it only if the user wants it. One callout per numbered spot, at the "
         "first note given, explaining every finding listed there. Under each spot, draw each 'draw' line as one "
         "voice_leading annotation: kind line, arrow, ring or bracket, with its from_note, to_note (not for a ring), direction (when given) and "
@@ -386,9 +387,9 @@ def as_text(index: ScoreIndex, chords=None, first: int | None = None, last: int 
                 if word and word not in labels:
                     labels.append(word)
     for n, (pos, (findings, drawn, at_note)) in enumerate(sorted(spots.items()), 1):
-        lines.append(f"{n}. m{pos[0]} b{pos[1]:g}, callout at {at_note}")
+        lines.append(f"{n}. m{index.name_of(pos[0])} b{pos[1]:g}, callout at {at_note}")
         for f in findings:
-            where = " to ".join(f"m{b} b{beat:g}" for b, beat in zip(f.bars, f.beats))
+            where = " to ".join(f"m{index.name_of(b)} b{beat:g}" for b, beat in zip(f.bars, f.beats))
             lines.append(f"   {f.rule.replace('_', ' ')} {'+'.join(names[v] for v in f.voices)} {where}: {f.why}")
         for (kind, refs), labels in drawn.items():
             for word in labels or [None]:

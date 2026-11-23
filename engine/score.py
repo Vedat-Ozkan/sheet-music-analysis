@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -14,7 +15,12 @@ ACCIDENTALS = {"f": "b", "s": "#", "ff": "bb", "ss": "##", "x": "##", "n": ""}
 CONTAINERS = {"beam", "tuplet", "bTrem", "fTrem", "graceGrp"}
 LETTERS = "CDEFGAB"
 SEMITONES = (0, 2, 4, 5, 7, 9, 11)
+STEPS = dict(zip(LETTERS, SEMITONES))
+SIGN_ALTERATION = {"#": 1, "♯": 1, "b": -1, "♭": -1, "-": -1}
 TOLERANCE = Fraction(1, 96)
+CHORD_SYMBOL = re.compile(r"[A-G]|N\.?C\.?$")
+BEAT_DENOMINATOR = 96
+POSITION_DENOMINATOR = 960
 
 
 class PositionError(UserError):
@@ -64,13 +70,21 @@ class Measure:
     meter: str = ""
     key_signature: str = ""
     declared_length: Fraction | None = None
+    label: str = ""
+    name: str = ""
+    full_length: Fraction | None = None
     events: list[Event] = field(default_factory=list)
     segments: list[Segment] = field(default_factory=list)
     marks: list[Mark] = field(default_factory=list)
+    chord_symbols: list[tuple[Fraction, str]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not self.segments:
             self.segments = [Segment(self.id, self.index, Fraction(0))]
+
+    @property
+    def printed(self) -> int | str:
+        return int(self.name) if _whole(self.name) else self.name
 
     @property
     def last_index(self) -> int:
@@ -84,30 +98,64 @@ class Measure:
     def length(self) -> Fraction:
         return self.declared_length if self.declared_length is not None else self.content_length
 
+    @property
+    def is_short(self) -> bool:
+        return self.full_length is not None and 0 < self.content_length < self.full_length - TOLERANCE
+
+    @property
+    def is_pickup(self) -> bool:
+        return self.index == 1 and self.number == 0
+
+    @property
+    def pickup_padding(self) -> Fraction:
+        return self.full_length - self.length if self.is_pickup and self.full_length is not None else Fraction(0)
+
     def segment_at(self, offset: Fraction) -> Segment:
         return next(segment for segment in reversed(self.segments) if segment.start <= offset or segment is self.segments[0])
 
     def offset_of(self, beat: float) -> Fraction:
-        offset = (Fraction(beat).limit_denominator(96) - 1) * self.beat_length
+        offset = (Fraction(beat).limit_denominator(BEAT_DENOMINATOR) - 1) * self.beat_length
         if round(beat, 2) == beat:
             nearest = min((event.onset for event in self.events), key=lambda onset: abs(onset - offset), default=offset)
             if abs(nearest - offset) <= self.beat_length / 200:
                 offset = nearest
         if offset < 0 or (self.length and offset >= self.length):
             beats = float(self.length / self.beat_length)
-            raise PositionError(f"Measure {self.number} has no beat {beat}; its beats run from 1 up to {1 + beats:g}")
+            raise PositionError(f"Measure {self.name} has no beat {beat}; its beats run from 1 up to {1 + beats:g}")
         return offset
 
     def beat_of(self, offset: Fraction) -> float:
         return float(offset / self.beat_length + 1)
 
     @property
+    def beat_unit(self) -> int:
+        return parse_meter(self.meter)[1] if self.meter else 4
+
+    def tstamp_of(self, segment: Segment, offset: Fraction) -> float:
+        return float(1 + (offset - segment.start) * self.beat_unit / 4)
+
+    def offset_at_tstamp(self, segment: Segment, tstamp: str) -> Fraction:
+        return segment.start + max(Fraction(tstamp).limit_denominator(POSITION_DENOMINATOR) - 1, Fraction(0)) * 4 / self.beat_unit
+
+    @property
     def beat_count(self) -> int:
-        return int(self.length / self.beat_length + Fraction(95, 96)) if self.length else 0
+        return int(self.length / self.beat_length + 1 - TOLERANCE) if self.length else 0
+
+
+def alteration(signs: str) -> int:
+    return sum(SIGN_ALTERATION.get(sign, 0) for sign in signs)
+
+
+def pitch_class(name: str) -> int:
+    return (STEPS[name[0].upper()] + alteration(name[1:])) % 12
 
 
 def normalise_pitch(pitch: str) -> str:
     return pitch[0].upper() + pitch[1:].replace("-", "b")
+
+
+NOTE_TYPE_LENGTH = {"whole": 4, "half": 2, "quarter": 1, "eighth": Fraction(1, 2),
+                    "16th": Fraction(1, 4), "32nd": Fraction(1, 8), "64th": Fraction(1, 16)}
 
 
 def beat_length(count: int, unit: int) -> Fraction:
@@ -134,26 +182,52 @@ def read_meter(signatures: Iterable[tuple[str | None, str | None]]) -> tuple[int
     return sum(count * shared_unit // unit for count, unit in read), shared_unit
 
 
+def parse_meter(text: str) -> tuple[int, int]:
+    count, unit = text.split("/")
+    return int(count), int(unit)
+
+
 def musicxml_meter(time: ET.Element | None) -> tuple[int, int] | None:
     if time is None:
         return None
     return read_meter(zip((beats.text for beats in time.findall("beats")), (unit.text for unit in time.findall("beat-type"))))
 
 
-def in_range(number: int, first: int | None, last: int | None) -> bool:
-    return (first is None or number >= first or (first == 1 and number == 0)) and (last is None or number <= last)
+def _whole(label: str) -> bool:
+    return label.lstrip("-").isdigit()
+
+
+def _printed_number(name: str) -> int | None:
+    digits = re.match(r"\d+", name)
+    return int(digits.group(0)) if digits else None
+
+
+def _letters(count: int) -> str:
+    letters = ""
+    while count:
+        count, rest = divmod(count - 1, 26)
+        letters = chr(ord("a") + rest) + letters
+    return letters
 
 
 def _fifths_of(semitones: int, steps: str | None) -> int:
     return 7 * semitones - 12 * int(steps) if steps is not None else (7 * semitones + 6) % 12 - 6
 
 
+def fifths_of_signature(signature: str) -> int:
+    if signature in ("", "0"):
+        return 0
+    return int(signature[:-1]) * (1 if signature[-1] == "s" else -1)
+
+
+def signature_of_fifths(fifths: int) -> str:
+    return "0" if fifths == 0 else f"{abs(fifths)}{'s' if fifths > 0 else 'f'}"
+
+
 def _shifted(signature: str | None, fifths: int) -> str | None:
     if not signature or not fifths:
         return signature
-    written = 0 if signature == "0" else int(signature[:-1]) * (1 if signature[-1] == "s" else -1)
-    concert = written + fifths
-    return "0" if concert == 0 else f"{abs(concert)}{'s' if concert > 0 else 'f'}"
+    return signature_of_fifths(fifths_of_signature(signature) + fifths)
 
 
 def transpose(pitch: str, semitones: int) -> str:
@@ -161,7 +235,7 @@ def transpose(pitch: str, semitones: int) -> str:
     accidental = pitch[1:].rstrip("0123456789")
     octave = int(pitch[1 + len(accidental) :])
     step = LETTERS.index(pitch[0])
-    sounding = SEMITONES[step] + accidental.count("#") - accidental.count("b") + 12 * octave + semitones
+    sounding = SEMITONES[step] + alteration(accidental) + 12 * octave + semitones
     new_octave, new_step = divmod(step + 7 * octave + diatonic, 7)
     alter = sounding - (SEMITONES[new_step] + 12 * new_octave)
     return f"{LETTERS[new_step]}{'#' * alter if alter > 0 else 'b' * -alter}{new_octave}"
@@ -197,6 +271,7 @@ class ScoreIndex:
         self.meter = ""
         self.key_signature = ""
         self.renumbered = False
+        self.named_by_count = False
         self._ppq: dict[int, int] = {}
         self._transposition: dict[int, int] = {}
         self._written_fifths: dict[int, int] = {}
@@ -219,17 +294,22 @@ class ScoreIndex:
             for event in measure.events:
                 event.tied = event.tied or event.id in self._tie_starts
         self._renumber_if_needed()
+        self._name_bars()
         self._finish()
 
     @classmethod
     def from_measures(cls, measures: list[Measure], meter: str, key_signature: str) -> ScoreIndex:
         index = cls.__new__(cls)
         index.measures, index.meter, index.key_signature, index.renumbered = measures, meter, key_signature, False
+        index.named_by_count = False
+        for measure in measures:
+            measure.name = measure.name or str(measure.number)
         index._finish()
         return index
 
     def _finish(self) -> None:
         self._by_number = {measure.number: measure for measure in self.measures}
+        self._by_name = {measure.name: measure for measure in self.measures}
         self._by_segment = {segment.id: (measure, segment) for measure in self.measures for segment in measure.segments}
 
     @property
@@ -298,8 +378,8 @@ class ScoreIndex:
         self._drawn_bars += 1
         self._drawn_position[self._position] = self._drawn_bars
         self._read_meter(element)
-        label = element.get("n", "")
-        if element.get("label") not in (None, label):
+        label = element.get("label", element.get("n", ""))
+        if label != element.get("n", ""):
             self.renumbered = True
         numbered = label.lstrip("-").isdigit()
         incomplete = element.get("metcon") == "false"
@@ -311,6 +391,9 @@ class ScoreIndex:
             beat_length=self._beat_length,
             meter=self._meter,
             key_signature=self._key_signature,
+            label=label,
+            name=element.get("n", "") if element.get("label") is not None else "",
+            full_length=self._bar_length,
         )
         full = self._bar_length
         if not incomplete:
@@ -327,6 +410,11 @@ class ScoreIndex:
             measure.declared_length = full
         for tie in element.findall(f"{MEI}tie"):
             self._tie_starts.add((tie.get("startid") or "").lstrip("#"))
+        for harm in (harm for harm in element.findall(f"{MEI}harm") if harm.get("type") != "analysis-room"):
+            symbol = "".join(harm.itertext()).strip().replace("♭", "b").replace("♯", "#")
+            at = measure.offset_at_tstamp(measure.segments[0], harm.get("tstamp", "1"))
+            if CHORD_SYMBOL.match(symbol) and (at, symbol) not in measure.chord_symbols:
+                measure.chord_symbols.append((at, symbol))
 
         continues = (
             previous is not None
@@ -344,6 +432,7 @@ class ScoreIndex:
                 event.onset += shift
                 event.measure = previous.number
             previous.events.extend(measure.events)
+            previous.chord_symbols.extend((at + shift, symbol) for at, symbol in measure.chord_symbols)
             return
         self.measures.append(measure)
         rest = element.find(f".//{MEI}multiRest")
@@ -351,7 +440,8 @@ class ScoreIndex:
             self._position += 1
             self._drawn_position[self._position] = self._drawn_bars
             self.measures.append(Measure(f"{measure.id}-{following}", measure.number + following, self._position, self._beat_length,
-                                         self._meter, self._key_signature, full))
+                                         self._meter, self._key_signature, full,
+                                         label=str(measure.number + following) if numbered else "", full_length=full))
 
     def _read_layer(self, element: ET.Element, measure: Measure, staff: int, cursor: Fraction) -> Fraction:
         ppq = self._ppq.get(staff) or next(iter(self._ppq.values()), 1)
@@ -387,29 +477,86 @@ class ScoreIndex:
             return
         self.renumbered = True
         first = self.measures[0]
-        number = 0 if first.declared_length is None and len(self.measures) > 1 else 1
+        number = 0 if first.declared_length is None and first.is_short else 1
         for measure in self.measures:
             measure.number = number
             for event in measure.events:
                 event.measure = number
             number += 1
 
+    def _name_bars(self) -> None:
+        numbers = [int(measure.label) for measure in self.measures if _whole(measure.label)]
+        names = self._printed_names() if all(earlier <= later for earlier, later in zip(numbers, numbers[1:])) else []
+        if len(set(names)) < len(self.measures):
+            self.named_by_count = True
+            names = [str(measure.number) for measure in self.measures]
+        for measure, name in zip(self.measures, names):
+            measure.name = measure.name or name
+
+    def _printed_names(self) -> list[str]:
+        names, base, extra = [], None, 0
+        for measure, following in zip(self.measures, self.measures[1:] + [None]):
+            if measure.is_pickup and following is not None and measure.label == following.label:
+                names.append("0")
+            elif _whole(measure.label) and (base is None or int(measure.label) > base):
+                base, extra = int(measure.label), 0
+                names.append(str(base))
+            elif base is None:
+                names.append(str(measure.number))
+            else:
+                extra += 1
+                names.append(f"{base}{_letters(extra)}")
+        return names
+
+    @property
+    def name_span(self) -> str:
+        return f"{self.measures[0].name} to {self.measures[-1].name}"
+
+    def bar(self, name: str | int) -> Measure:
+        wanted = str(name).strip().lower()
+        if wanted not in self._by_name:
+            raise PositionError(f"Measure {wanted} does not exist; the score has measures {self.name_span}")
+        return self._by_name[wanted]
+
+    def numbers(self, names: tuple[str, str] | None) -> tuple[int, int] | None:
+        if names is None:
+            return None
+        asked = [str(name).strip().lower() for name in names]
+        first, last = self._range_end(asked[0], first=True), self._range_end(asked[1], first=False)
+        if first.number > last.number and first.name != asked[0] and last.name != asked[1]:
+            self.bar(asked[0])
+        if first.number > last.number:
+            raise PositionError(f"Measures {asked[0]}-{asked[1]} run backwards; give the first bar first, e.g. {asked[1]}-{asked[0]}")
+        return first.number, last.number
+
+    def _range_end(self, name: str, *, first: bool) -> Measure:
+        wanted = str(name).strip().lower()
+        if wanted in self._by_name or not wanted.isdigit():
+            return self.bar(wanted)
+        printed = [measure for measure in self.measures if _printed_number(measure.name) is not None]
+        inside = [measure for measure in printed if (_printed_number(measure.name) >= int(wanted)) == first]
+        if not inside:
+            return self.bar(wanted)
+        return inside[0] if first else inside[-1]
+
+    def name_of(self, number: int) -> str:
+        return self.measure(number).name
+
     def measure(self, number: int) -> Measure:
         if number not in self._by_number:
-            first, last = self.measures[0].number, self.measures[-1].number
-            raise PositionError(f"Measure {number} does not exist; the score has measures {first} to {last}")
+            raise PositionError(f"Measure {number} does not exist; the score has measures {self.name_span}")
         return self._by_number[number]
 
-    def range_start(self, first: int, *, include_pickup: bool = True) -> Measure:
-        start = self.measure(first)
-        position = self.measures.index(start)
-        if include_pickup and first == 1 and position > 0 and self.measures[position - 1].number == 0:
-            return self.measures[position - 1]
-        return start
+    def select(self, first: int | None = None, last: int | None = None, *, include_pickup: bool = True) -> list[Measure]:
+        start = self.measures.index(self.measure(first)) if first is not None else 0
+        end = self.measures.index(self.measure(last)) if last is not None else len(self.measures) - 1
+        if include_pickup and first == 1 and start == 1 and self.measures[0].is_pickup:
+            start = 0
+        return self.measures[start : end + 1]
 
     def measure_range(self, first: int, last: int, *, include_pickup: bool = True) -> str:
-        start = self.range_start(first, include_pickup=include_pickup)
-        return f"{self._drawn_position[start.index]}-{self._drawn_position[self.measure(last).last_index]}"
+        chosen = self.select(first, last, include_pickup=include_pickup)
+        return f"{self._drawn_position[chosen[0].index]}-{self._drawn_position[chosen[-1].last_index]}"
 
     def find_note(self, measure: int, beat: float, staff: int | None = None, pitch: str | None = None) -> Event:
         bar = self.measure(measure)
@@ -425,6 +572,6 @@ class ScoreIndex:
             return matches[0]
         if here:
             found = ", ".join(f"{event.pitch} (staff {event.staff})" for event in here)
-            raise PositionError(f"No note matches staff={staff} pitch={pitch} at measure {measure} beat {beat}; notes there: {found}")
+            raise PositionError(f"No note matches staff={staff} pitch={pitch} at measure {bar.name} beat {beat}; notes there: {found}")
         beats = sorted({round(bar.beat_of(event.onset), 3) for event in notes})
-        raise PositionError(f"No note starts at measure {measure} beat {beat}; notes start at beats {beats}")
+        raise PositionError(f"No note starts at measure {bar.name} beat {beat}; notes start at beats {beats}")

@@ -11,7 +11,7 @@ from __future__ import annotations
 from fractions import Fraction
 
 from engine.harmony import LABEL, MAJOR, MINOR, NAMES, _degree_root, _tonic
-from engine.score import ScoreIndex
+from engine.score import BEAT_DENOMINATOR, ScoreIndex
 
 SHORTEST_BARS = 2
 LONGEST_RUN = 3
@@ -46,7 +46,7 @@ def _in_home(label: str, key: str, home: str) -> str:
 
 def _position(index: ScoreIndex, starts: dict[int, Fraction], at: dict) -> Fraction:
     measure = index.measure(at["measure"])
-    return starts[at["measure"]] + (Fraction(at.get("beat", 1)).limit_denominator(96) - 1) * measure.beat_length
+    return starts[at["measure"]] + (Fraction(at.get("beat", 1)).limit_denominator(BEAT_DENOMINATOR) - 1) * measure.beat_length
 
 
 def alternatives(annotations: list[dict], index: ScoreIndex) -> list[dict]:

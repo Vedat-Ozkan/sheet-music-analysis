@@ -31,3 +31,12 @@ def test_labels_are_read_as_music21_reads_them(key, label, tones, bass):
 def test_unreadable_labels_give_none():
     assert harmony.chord("C", "Gmaj7") is None
     assert harmony.chord("C", "") is None
+
+
+@pytest.mark.parametrize(
+    "written, plain",
+    [("F♯", "F#"), ("B♭", "Bb"), ("b♭", "bb"), ("e♭", "e-"), ("C♯", "C#")],
+)
+def test_keys_written_with_real_signs_read_like_plain_ones(written, plain):
+    assert names(harmony.chord(written, "V7")) == names(harmony.chord(plain, "V7"))
+    assert harmony.chord(written, "I").root == harmony.chord(plain, "I").root

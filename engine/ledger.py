@@ -3,7 +3,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from itertools import groupby
 
-from engine.score import LETTERS, MEI, XML_ID, ScoreIndex, _pitch, in_range
+from engine.score import LETTERS, MEI, XML_ID, ScoreIndex, _pitch
 
 LEDGER_LINES = 3
 MIN_BARS = 2
@@ -70,9 +70,7 @@ def passages(mei: str, index: ScoreIndex, first: int | None = None, last: int | 
     for staff in staves:
         heavy: dict[int, str] = {}
         clef_of: dict[int, str] = {}
-        for measure in index.measures:
-            if not in_range(measure.number, first, last):
-                continue
+        for measure in index.select(first, last):
             sides = []
             for event in measure.events:
                 if event.staff != staff or event.pitch is None or event.grace:
@@ -116,7 +114,7 @@ def as_text(mei: str, index: ScoreIndex, first: int | None = None, last: int | N
         who = ("right hand" if staff == upper else "left hand") if keyboard else f"{name} (staff {staff})" if name else f"staff {staff}"
         place, other = SIDE_NAMES[side]
         switch = "switch to tenor or treble clef" if clef == "bass" and not keyboard and side == "above" else other[clef]
-        lines.append(f"Bars {start}–{end}, {who}: notes sit {place.format(clef=clef)}; "
+        lines.append(f"Bars {index.name_of(start)}–{index.name_of(end)}, {who}: notes sit {place.format(clef=clef)}; "
                      f"many editions {switch} here.")
     return ("LEDGER LINES (the clef is the user's; do not change it. Mention each line below once in your reply.)\n"
             + "\n".join(lines))

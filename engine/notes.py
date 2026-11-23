@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 
 from engine.errors import UserError
-from engine.score import Event, Mark, Measure, ScoreIndex, beat_length
+from engine.score import POSITION_DENOMINATOR, Event, Mark, Measure, ScoreIndex, beat_length, parse_meter
 
 VERSION = "N1"
 ORNAMENTS = ("tr", "mu", "ml", "tu", "tl")
@@ -17,12 +17,30 @@ MARK = re.compile(
     r"|(?P<dynamic>[a-z]+)@(?P<at5>[\d.]+)"
 )
 MAX_CHARS = 200_000
+CLEFS = {"G": ("G", 2, 0), "F": ("F", 4, 0), "C": ("C", 3, 0), "T": ("C", 4, 0), "G8": ("G", 2, -1)}
+CLEF = re.compile(r"clef=(" + "|".join(CLEFS) + ")")
+WORDS_LABEL = re.compile(r"\d+\.\d+w")
+MARKED = re.compile(r"(?P<opened>\(*)(?P<sounding>.+?)(?P<signs>[.>]*)(?P<closed>\)*)")
 METER = re.compile(r"(?:[1-9]\d*/[1-9]\d*)?")
 KEY = re.compile(r"0|[1-7][sf]")
+BAR_NAME = re.compile(r"\d+[a-zA-Z]*")
+VOICE_LABEL = re.compile(r"\d+\.\d+")
 
 
 class NotesError(UserError):
     pass
+
+
+def bar_line_name(line: str) -> str | None:
+    name = line.split()[0][1:]
+    return name if BAR_NAME.fullmatch(name) else None
+
+
+def voice_label(label: str) -> tuple[int, int] | None:
+    if not VOICE_LABEL.fullmatch(label):
+        return None
+    staff, layer = label.split(".")
+    return int(staff), int(layer)
 
 
 def _check_signatures(meter: str, key: str) -> None:
@@ -39,19 +57,27 @@ class Voice:
     events: list[Event] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class Token:
+    sounding: str
+    slurs_opened: int = 0
+    slurs_closed: int = 0
+    staccato: bool = False
+    accent: bool = False
+
+
+def token(text: str) -> Token:
+    parts = MARKED.fullmatch(text)
+    return Token(parts["sounding"], len(parts["opened"]), len(parts["closed"]), "." in parts["signs"], ">" in parts["signs"])
+
+
 def encode(index: ScoreIndex, first: int | None = None, last: int | None = None) -> str:
-    measures = index.measures
-    if first is not None or last is not None:
-        start = measures.index(index.measure(first if first is not None else measures[0].number))
-        end = measures.index(index.measure(last if last is not None else measures[-1].number))
-        if start == 1 and measures[0].number == 0:
-            start = 0
-        measures = measures[start : end + 1]
+    measures = index.select(first, last)
     div = index.ppq
     meter, key = index.meter, index.key_signature or "0"
     lines = [f"{VERSION} div={div} ts={meter} ks={key}" + (" orn=upper" if index.ornaments_from_above else "")]
     for measure in measures:
-        header = f"m{measure.number} len={_units(measure.length, div)}"
+        header = f"m{measure.name} len={_units(measure.length, div)}"
         if measure.meter and measure.meter != meter:
             meter = measure.meter
             header += f" ts={meter}"
@@ -93,13 +119,13 @@ def _read_marks(tokens: list[str], measure: Measure) -> None:
         if not match:
             raise ValueError(f"unknown mark {token!r}")
         found = match.groupdict()
-        at = Fraction(next(found[f"at{n}"] for n in range(1, 6) if found[f"at{n}"])).limit_denominator(960)
+        at = Fraction(next(found[f"at{n}"] for n in range(1, 6) if found[f"at{n}"])).limit_denominator(POSITION_DENOMINATOR)
         if found["pedal"]:
             measure.marks.append(Mark("pedal", at, "down" if found["pedal"] == "Pd" else "up"))
         elif found["tempo"]:
             measure.marks.append(Mark("tempo", at, found["tempo"]))
         elif found["hairpin"]:
-            measure.marks.append(Mark("hairpin", at, found["hairpin"], Fraction(found["length"]).limit_denominator(960)))
+            measure.marks.append(Mark("hairpin", at, found["hairpin"], Fraction(found["length"]).limit_denominator(POSITION_DENOMINATOR)))
         elif found["ornament"]:
             measure.marks.append(Mark("ornament", at, found["ornament"], pitch=found["pitch"], upper=found["upper"] or "", lower=found["lower"] or ""))
         else:
@@ -156,7 +182,7 @@ def decode(text: str) -> ScoreIndex:
         for number, line in numbered[1:]:
             if line.startswith("m"):
                 parts = line.split()
-                if not all("=" in part for part in parts[1:]) or not parts[0][1:].isdigit():
+                if not all("=" in part for part in parts[1:]) or bar_line_name(line) is None:
                     raise NotesError(f"Line {number}: a bar line looks like 'm3 len=96', not {line!r}")
                 fields = dict(part.split("=", 1) for part in parts[1:])
                 if "len" not in fields:
@@ -166,9 +192,10 @@ def decode(text: str) -> ScoreIndex:
                 _check_signatures(current_meter, current_key)
                 measure = Measure(
                     id=f"m{len(measures) + 1}",
-                    number=int(parts[0][1:]),
+                    number=len(measures) + 1,
                     index=len(measures) + 1,
-                    beat_length=beat_length(*map(int, current_meter.split("/"))) if current_meter else Fraction(1),
+                    name=parts[0][1:].lower(),
+                    beat_length=beat_length(*parse_meter(current_meter)) if current_meter else Fraction(1),
                     meter=current_meter,
                     key_signature=current_key,
                 )
@@ -182,9 +209,11 @@ def decode(text: str) -> ScoreIndex:
                 if not measures:
                     raise NotesError(f"Line {number}: a voice line needs a bar line like 'm3 len=96' before it")
                 voice, _, body = line.partition(":")
-                if not re.fullmatch(r"\d+\.\d+", voice):
+                if WORDS_LABEL.fullmatch(voice):
+                    continue
+                if (labelled := voice_label(voice)) is None:
                     raise NotesError(f"Line {number}: expected 'staff.voice: tokens', e.g. '1.1: 24 C4'")
-                staff, layer = (int(part) for part in voice.split("."))
+                staff, layer = labelled
                 _read_voice(body.split(), measures[-1], staff, layer, div)
         for measure in measures:
             measure.events.sort(key=lambda event: (event.onset, event.staff))
@@ -194,30 +223,44 @@ def decode(text: str) -> ScoreIndex:
         raise NotesError(f"The note list could not be read: {error}") from error
     if not measures:
         raise NotesError("The note list has no measures")
+    _number_by_name(measures)
     index = ScoreIndex.from_measures(measures, meter, key)
     index.ornaments_from_above = settings.get("orn") == "upper"
     return index
 
 
+def _number_by_name(measures: list[Measure]) -> None:
+    named = [int(measure.name) if measure.name.isdigit() else None for measure in measures]
+    if None in named or any(later <= earlier for earlier, later in zip(named, named[1:])):
+        named = [position - (measures[0].name == "0") for position in range(1, len(measures) + 1)]
+    for measure, number in zip(measures, named):
+        measure.number = number
+        for event in measure.events:
+            event.measure = number
+
+
 def _read_voice(tokens: list[str], measure: Measure, staff: int, layer: int, div: int) -> None:
     cursor, duration = Fraction(0), Fraction(0)
-    for attack, token in enumerate(tokens):
-        if token.isdigit():
-            duration = Fraction(int(token), div)
+    for attack, written in enumerate(tokens):
+        if written.isdigit():
+            duration = Fraction(int(written), div)
             continue
-        if token == "r":
+        if CLEF.fullmatch(written):
+            continue
+        sounding = token(written).sounding
+        if sounding == "r":
             cursor += duration
             continue
-        grace = token.startswith(("g", "u"))
-        for name in token[1 if grace else 0 :].split("+"):
+        grace = sounding.startswith(("g", "u"))
+        for name in sounding[1 if grace else 0 :].split("+"):
             tied = name.endswith("~")
             pitch = name.rstrip("~")
             if pitch[0] not in "ABCDEFG" or not pitch[-1].isdigit():
-                raise ValueError(f"unknown token {token!r}")
+                raise ValueError(f"unknown token {written!r}")
             identity = f"{measure.id}-{staff}.{layer}-{len(measure.events)}"
             measure.events.append(
                 Event(identity, measure.number, staff, cursor, Fraction(0) if grace else duration, pitch, grace, layer, tied,
-                      attack=str(attack) if grace else "", slashed=token.startswith("u"))
+                      attack=str(attack) if grace else "", slashed=sounding.startswith("u"))
             )
         if not grace:
             cursor += duration

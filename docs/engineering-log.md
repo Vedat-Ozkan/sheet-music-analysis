@@ -3154,6 +3154,98 @@ Full suite with the PDF reader (sma.8) on the finished branch, which includes en
 
 **After review.** The first version passed the secret as `proxy-key:latest`. With no instance kept warm, each cold start reads `latest`, so adding a secret version would have changed the key production enforces at once, and a failed Worker step would have refused every call; rolling back would not have helped, since later revisions read `latest` too. Versions are now pinned and one script sets all three places. The first version also gave back the pages after a crash (see Give-back).
 
+### 170. The upload card's device code leaves the web address; the privacy page names the note of a file already sent (2026-11-16, branch `privacy-page-sent-record`, nothing released)
+
+From the cold review of 2026-11-14 (finding 1 of the site and listings part, confirmed by reading the code). The owner chose this form on 2026-11-16: one clause on the page, no technical detail, and the device code moved so the page need not mention it. Entry 169 is on the unmerged branch `homr-staging`.
+
+**Problem.**
+- `site/privacy.html` said "Last updated 8 November 2026" after edits on 9, 10 and 12 November.
+- The table of what we keep did not list `scores/sent-…` (entry 153): for 30 days the server can tell that one usage identifier or one device sent one particular file.
+- The upload card sent its device code in the address (`/upload?id=…&device=…`). The host's request logs keep addresses for 30 days, so a code the page describes as a two-day count key sat in those logs for 30.
+- The page said the host's request logs hold the IP address of Anthropic's or OpenAI's server, or of the browser. Six hundred request-log lines sampled on 2026-11-16 all carry Cloudflare's address.
+
+**What changed.**
+- The card sends the code in an `x-device` header. The server reads the header first and still accepts `device` in the address, so a card a client has kept from before the change is counted as the same device. The server's answer to the browser's cross-origin question allows the header. The Worker needed no change: it passes that question on to the server.
+- Privacy page: new date; the first row of the table now ends "and a note that you already sent a file, so that sending it again is not counted"; the request-logs row gives the time and web address of each request as examples of what the logs hold and says that the IP address in them is Cloudflare's.
+
+**Known and left.**
+- A card opened before the release still puts its code in the address until the client fetches the card again. The address form stays accepted until the request logs show two weeks without `device=`; then the fallback can go.
+- Request logs written before the release keep their addresses until they are 30 days old.
+- The page must be published with the server release that carries the card, not before it.
+
+**Checks.** The card in a real browser sends the header and no `device` in the address (`tests/test_cards_browser.py`, against a stand-in server). The real server's answer to the cross-origin question names the header (`tests/test_server_process.py`). A device's limit and its free second send are tested through the header; one new test sends the same file once each way and is charged once (`tests/test_score_links.py`).
+
+Full suite with the PDF reader (sma.8): 1586 passed, 4 skipped ("no ring codes"), 0 failed, before the review's changes; the three test files touched were run again after them.
+
+**After review.** A second agent found no fault in the behaviour. It found that no test asked the real server the browser's cross-origin question with the new header (added), that the first version also edited the Worker's refusal headers to no effect (taken out), and that the page's request-logs row read as a full list when the logs also hold such things as the browser's name (now "such as"). Known and left from the review: a header that is present but malformed wins over a valid code in the address, so that upload is counted without a person, as an upload with no code always was. Not checked: whether Cloudflare's own Worker logs are switched on in the dashboard; they are off in `proxy/wrangler.jsonc`.
+
+### 173. A PDF read runs inside a request of its own (2026-11-17, branch `read-in-own-request`, nothing released)
+
+**Problem.** A read runs as a background task on the instance that got the call that started it. Cloud Run gives an instance almost no processor while it has no request open. Claude's calls each wait at most 100 s, so between two calls, or when the next call reaches the other instance, the reading instance has no open request and the read crawls. Found on staging on 2026-11-16 (a four-page scan took 915 s and lost its last page; entry 169 on `homr-staging`). In production since 3 November, 3 of 87 reads had a waiting call answered by the other instance and one of them ended at the 480 s limit as "could not be read"; 21 of 79 reads take longer than the 100 s one call waits. The fault was built in on 1 November, when the second instance was added because a single instance refuses calls during a read.
+
+**Options, costed.** (1) Processor always on: Cloud Monitoring's minute samples for the last 14 days show an instance alive 23.6 hours a day (it is kept warm between calls), so billing for every alive second would cost about US$200 a month against a target of US$5. (2) One instance: what production ran until 1 November; it refuses calls while it reads. (3) Run each read inside a request of its own: nothing extra while the waiting calls reach the reading instance, and when they reach the other one, that instance is billed for their waits as it already is today; the upper bound is the whole reading time twice, about US$1.60 a month at today's volume. The owner chose (3).
+
+**What changed.** The call that claims a read no longer starts it as a background task. The server sends the PDF to its own run.app address (`POST /read-work`, with the read marker's token, the platform, the person and whether the file just arrived, all in headers, so none of them is in the address that Cloud Run logs), and the instance that receives that request reads inside it, so it holds an open request for as long as it reads. The answer carries the card or the refusal and the log details, so the calls waiting on the starting instance are answered exactly as before; calls on another instance wait on the saved card as they already did. `/read-work` serves only a caller whose token is the one in the read marker for that file, so nothing outside the server can start a read with it. `server/deploy.sh` sets `OWN_ADDRESS` (the service's project-number address, which answers for production too: `/health` gave 200) and the server sends the proxy key with the request.
+
+**When the request fails.** Refused before it starts (cannot connect, an address that is not one, or 401, 403, 404 or 429 from the door): the read runs on the instance that got the call, as before, and a warning is logged. Lost after it was taken (anything else, such as 503 when an instance dies, the 900 s limit, or an answer that is not the expected one): the caller gets our error with a reference, and the failure and the PDF are saved as for any server error. The read marker is left to run out, as it is today when a reading instance dies: the reading instance may still be at work, and freeing its marker would let the same file start a second read and be counted twice. Until the marker runs out (at most 900 s after the read began) the same file sent again gets our error at once, where today it is told the read is still going; if the read did finish, it gets the card.
+
+**Known and left.** Staging refuses the request while sign-in is required (403 from Cloud Run), so staging reads run as before unless staging is open; the warning says so on every read. A read's request takes one of the instance's two request slots; Cloud Run already takes a reading instance out of rotation while its processor is above 90% (entry of 1 November), so calls during a read reach the other instance as they do today.
+
+**After review** (a second model read the branch; it found the hand-over state sound: one turn, one count, the marker freed by the instance that reads). Fixed from it: an unexpected answer (a 200 that is not ours) or any other exception left the marker held with no failure saved and the caller with an unhandled error, now treated as lost; the token and the person were in the request's address and so in Cloud Run's request log, now in headers; a lost read freed the marker, which could have counted a file twice, now left to run out; an `OWN_ADDRESS` that is not an address is read locally instead of failing every read. Left: the reviewer's suspicion that Cloud Run may stop counting the read's request as open if the starting instance is shut down while idle, which only a run on Cloud Run can settle; `/read-work` reads the body before it checks the token, since the token is checked against the body's own marker (production refuses a caller without the proxy key first); the request can land on an instance that is already reading and be answered "busy" while the starting instance was free.
+
+**Checks.** `tests/test_read_in_own_request.py`, with a real web server in the test and only the reader replaced, as in the existing same-file tests: the read happens while its `/read-work` request is open and the call line carries the read's timings; a person's read is counted once and holds that person's turn; an unreadable PDF gives the same answer either way; 401, 403, 404, 429, a closed port and an address that is not one are read locally, with the warning; a 503 and a wrong answer are our error, logged as a server error on the call line, the PDF copy is saved, the same file sent again gets our error without a second read, and it reads once the marker has run out; `/read-work` answers 403 without the marker's token and reads nothing. Those 13 with the 23 existing tests of `tests/test_pdf_same_file.py` and `tests/test_pdf_one_person.py`: 36 passed. Full suite with our reader installed: 1597 passed, 4 skipped (no ring codes), 1 failed: `test_with_a_proxy_key_set_only_requests_that_carry_it_are_served`, which reads a refused answer's body after its test server has stopped; it passed in the full run before the review fixes and three times alone, and this branch does not touch it. **On Cloud Run** (staging opened, revision 00123-ptx from `homr-staging`, which carries this change; homr, one page at a time, max 2 instances; 2026-11-17): the eight-page Ravel *Jeux d'eau* scan, three callers polling `read_fetched_pdf` from the start. Its `/read-work` request was taken and held 233 s on the instance that got the first call. A second instance started at once, and four of the polls were answered there (`other_machine=true`) while the read went on. Pages took 21 to 29 s each, as in the tuned one-page-at-a-time trial (entry 171), with `omr` 208.6 s and `total` 232.4 s. All 8 pages and bars 1 to 56 were read; every caller got the same card at 234 s; no errors. On 2026-11-16 the same setup took 915 s for four pages and lost one. **NOT RUN:** a read whose `/read-work` request lands on the other instance (here it landed on the starting one, so the reviewer's suspicion about an idle starting instance being shut down is still open); a real chat.
+
+### 178. Can a chat model read a scan itself? Sonnet, Opus and Haiku on three piano pages (2026-11-19, no code change, nothing released)
+
+**Question.** The owner asked whether a plain chat model with image input can turn a scan into notes faithfully enough to stand in for our readers, and which model and effort setting gives the best mix of accuracy, speed and cost.
+
+**Setup.** Claude Code subagents on the subscription, each in its own folder holding only a prompt and the page cut into systems (`crops.py`, staff detection by projection). Output is the N1 note format, scored against the benchmark's truth files by aligned bars (`score.py`): a bar is right when staff, start, length and pitch of every non-grace note match; a note is right when start and pitch match. Pages: Grieg Op. 12 no. 2 page 1 (36 bars, 306 notes) and page 2 (43 bars, 325 notes, two key changes), Dvořák Op. 8 no. 1 page 1 (17 bars, 272 notes), Medtner (benchmark row 28) page 1 (15 bars, 323 notes). Every run's transcript was searched for reads outside its folder: none opened a truth file or another run's output; several Sonnet runs wrote helper scripts into the shared scratch folder and overwrote each other's.
+
+**Round one, Grieg page 1 and Dvořák page 1 together (53 bars, 578 notes), one run each.**
+
+| Reader | Bars right | Notes right | Minutes, both pages | API price, both pages |
+|---|---|---|---|---|
+| Our reader (sma.8) | 37 | 85% | about 1 | none |
+| Sonnet, images only | 25 | 74% | 3.4 | $0.59 |
+| Haiku, zoom and measure | 31 | 92% | 27.5 | $0.39 or more |
+| Sonnet low | 37 | 54% | 6.6 | $1.28 |
+| Sonnet medium | 50 | 99% | 11.6 | $2.39 |
+| Sonnet high | 52 | 100% | 16.9 | $3.15 |
+| Opus low | 50 | 99% | 9.3 | $2.93 |
+| Opus medium | 52 | 100% | 11.6 | $3.92 |
+| Opus high | 47 | 98% | 11.8 | $4.05 |
+
+"Zoom and measure" means the prompt requires cropping each bar at full size, enlarging it and measuring note heads against the staff lines with a script. Without it Sonnet guesses by pattern (25 bars); with it the same model reads 50 to 52. Sonnet low gave up on the Dvořák page. Every wrong note among the top five came from a miscounted or misapplied key signature (Opus low wrote five sharps for four; Opus high wrote six flats for five).
+
+**Round two: a key-signature check added to the prompt** (list each sharp or flat by position; after writing, a script lists every note that departs from the key and each is looked at again). Dvořák page 1 twice, Grieg page 2 and Medtner page 1 once, per setting.
+
+| Setting | Bars right of 92 | Wrong notes of 1,192 | Minutes per page | API price per page |
+|---|---|---|---|---|
+| Opus low | 83 | 8 | 4.4 | $1.38 |
+| Opus medium | 83 | 6 | 7.4 | $2.25 |
+| Sonnet medium | 83 | 2 | 11.5 | $1.98 |
+| Sonnet high | 86 | 2 | 12.0 | $1.97 |
+| Our reader, same three pages once (75 bars, 920 notes) | 39 | 300 | under 1 | none |
+
+All 16 runs wrote every key signature correctly, including both key changes on Grieg page 2 (all four settings: 43 of 43 bars, 325 of 325 notes). On the Dvořák page six of eight runs had every note right; their one imperfect bar is bar 5, where a chord with two stems can belong to either staff. On the Medtner page our reader gets 140 of 323 notes; the four settings got 317 to 323, and most of their imperfect bars differ only in which staff a note beamed across the hands was written on. Opus low reported skipping the per-bar crops, the key script or the final re-read in three of four runs and still scored as above; its second Dvořák run had 7 wrong notes.
+
+**Round three: the same pages shrunk to 1,000 pixels wide** (about 0.3 of the benchmark scan; a staff space is about 5 pixels), same prompt, the cheapest two settings, one run each.
+
+| Setting | Page | Bars right | Notes right | Minutes | API price |
+|---|---|---|---|---|---|
+| Sonnet medium | Grieg page 1 | 36 of 36 | 306 of 306 | 7.9 | $1.42 |
+| Sonnet medium | Dvořák page 1 | 16 of 17 | 272 of 272 | 10.0 | $1.66 |
+| Opus low | Grieg page 1 | 24 of 36 | 266 of 306, 42 extra | 1.9 | $0.65 |
+| Opus low | Dvořák page 1 | 15 of 17 | 268 of 272 | 4.8 | $1.32 |
+
+Sonnet medium lost nothing at the smaller size (its one imperfect Dvořák bar is again bar 5). Opus low on the Grieg page finished in under two minutes and reported writing bars 19 to 36 by analogy with earlier bars without measuring them; it also reported measuring pixels in one system of five and not running the key script. Its 40 wrong notes are in 12 bars (7, 8, 14, 16 to 18, 25, 26, 32, 34 to 36): in bars 7, 8 and 25 the pitches are right but placed at the wrong points of the bar, in bars 14, 16 and 35 the pitches are wrong (the other six were not looked at one by one). An earlier Sonnet medium run on the small Dvořák page was stopped at the owner's request before it wrote anything and was restarted from an empty folder; the row above is the restart.
+
+**Limits.** Three clean piano pieces, four pages, one or two runs per cell: the top four settings cannot be ranked on accuracy from this. Minutes were measured with 12 to 16 agents running at once and are inflated, more for the later finishers. The runs had a real shell with Python and image libraries; a chat without code execution falls back to the images-only result. Prices are the runs' token counts at API list prices (most of it cached re-reads of a growing conversation); on a subscription they come out of the user's allowance. N1 carries no slurs, dynamics, words or clefs. Grace notes are not scored.
+
+**NOT RUN:** ChatGPT or Codex; songs, choir or band scores; phone photos; scans that are blurred or skewed rather than only small; more than one page per conversation; the same method inside a real user chat through the product; test suite (no code change).
+
+**What it means.** With a forced zoom-and-measure method, Sonnet and Opus read clean piano scans far better than either of our readers, at one to two and a half dollars and four to twelve minutes a page. That cost rules out running it on our server; it could only run in the user's own chat, where the server would supply the page cut into systems and check the result. Of the two cheapest settings that work, Sonnet medium with the key check had 2 wrong notes in 1,770 over six runs; Opus low is two to three times faster but reported skipping steps in at least four of its six runs, and had 40 wrong notes on one page. Files: `~/omr-reader-test-2026-11-07/llm-read` (prompts, outputs, scorers, all three rounds).
+
 ### 179. Five reading checks from three user PDFs: empty bars, empty staves, guitar fingering, default part names, a warning on doubtful reads (2026-11-19, branch `reading-checks`, nothing released)
 
 Numbered 179 because 169 to 178 are taken on unmerged branches (`homr-staging`, `privacy-page-sent-record`).
@@ -3254,6 +3346,554 @@ Numbered 180 because 169 to 179 are taken on unmerged branches (`homr-staging`, 
 
 **Checks.** New `tests/test_read_user_pdfs.py` (3 tests: rolls, fingering, thin beams) reads the user PDFs from the git-ignored `tests/data/users/` and skips without them. With the reader: 3 passed; `tests/test_awkward.py` 317 passed. `tools/diff_check.py --base origin/main pdfwarn`: 0 of 80 changed, as expected, because it starts from readings already made. Full suite with the reader, after the review fixes and the scan condition: 1588 passed, 4 skipped. After merging with entry 179 and switching `pluckings` off: `tests/test_read_pdf.py`, `tests/test_read_user_pdfs.py`, `tests/test_user_pdfs.py` and `tests/test_awkward.py` 435 passed; `diff_check` pdfwarn 0 of 80 changed; full suite 1593 passed, 4 skipped.
 
+### 181. Two ways for a chat model to re-read a scan, tried on pages users sent (2026-11-19, no code change, nothing released)
+
+**Question.** The owner asked for two options for users, since some are on lower plans: one that is really cheap and cuts corners, and one that misses nothing; tested on several kinds of scan and above all on pages real users sent. He also asked whether the top model, given the task with no method, would find techniques that make the cheaper models faster or more accurate.
+
+**Pages.** Three benchmark pages with answer keys (Grieg Op. 12 no. 2 pages 1 and 2, Medtner row 28 page 1) and the opening 8 to 17 bars of eight pages users uploaded between 2 and 19 November: a hymn on two staves with words, a phone photo of a Chopin waltz with a shadow and pencilled numerals, a guitar piece 612 pixels wide, a flute partita, a piano medley 660 pixels wide, a phone photo of a band score (top five staves), an old print of a Liszt transcription, and a grainy scan of a choir piece with piano. The user pages are kept only in `~/omr-reader-test-2026-11-07/llm-read/round6-user-pages` (local, no repository); the other downloaded uploads were deleted after the pages were chosen.
+
+**No answer key exists for the user pages.** Each was read twice with the careful method of entry 178, by Sonnet medium and by Opus medium separately, and the two readings were compared by start and pitch of every note.
+
+| User page | Notes | Both careful readings agree on | What our reader gave the user (share of the careful reading) |
+|---|---|---|---|
+| Hymn | 108 | 108 | 100% |
+| Chopin, phone photo | 179 | 178 | 51% |
+| Guitar | 62 to 81 by how voices are written | all but one pitch | 37% |
+| Flute | 127 | 127 | 61% |
+| Piano medley | 134 | 134 | 95% |
+| Band score, phone photo | 65 | 65 | 21% |
+| Liszt, old print | 173 | 173 | 42% |
+| Choir with piano, grainy | 84 and 96 | 77 | 7% |
+
+Agreement is not proof: on the Liszt page both wrote the repeated-note shorthand (a slashed note with a 3) as plain quarter notes. The one guitar difference was looked at by eye in an enlarged crop and the Opus reading taken; the grainy page has no settled reading (the two disagree in 5 of 7 bars). Careful readings of these excerpts cost $0.36 to $1.43 (Sonnet) and $1.06 to $1.80 (Opus) at API prices and took 2 to 10 minutes.
+
+**Cheap attempt 1: correct our reader's draft, two enlarged looks per system, no measuring.** On benchmark pages (notes right): Sonnet medium 306 of 306 (Grieg 1), 271 of 272 (Dvořák), 132 of 323 (Medtner); Sonnet low 306, 268 and 314 (it ignored the limits on Medtner and took 8 minutes); the same limits without a draft: 306, 182, 132; Haiku from the draft: 306, 193 (the draft unchanged), gave up. On the user pages, as a share of the Opus careful reading (guitar and the grainy page against the Sonnet careful reading):
+
+| User page | Haiku | Sonnet low | Sonnet medium |
+|---|---|---|---|
+| Hymn | 99% | 100% | 100% |
+| Chopin, phone photo | 70% | 97% | 100% |
+| Guitar | 52% | 90% | 90% |
+| Flute | 74% | 100% | 99% |
+| Piano medley | 97% | 98% | 99% |
+| Band score, phone photo | 47% | 58% | 89% |
+| Liszt | 82% | 100% | 100% |
+| Choir with piano, grainy | 0% (gave up) | 60% | 58% |
+| API price a page | $0.01 to $0.05 | $0.16 to $0.51 | $0.26 to $0.72 |
+
+**The top model with no method.** Fable, given only the task and the format, got 272 of 272 notes on the Dvořák page in 6.7 minutes and 321 of 323 on the Medtner page in 10.0 (Sonnet medium with the entry 178 method: 10 to 11.5 minutes). What it did that the earlier method did not: fitted staff lines locally so a skewed or bent page does not shift every reading by half a step; found filled note heads with a note-head-shaped filter and printed each one's pitch letter beside it on an enlarged crop; drew a named guide line at every line and ledger position on close-ups; and measured ledger-line notes against the printed ledger lines, because engraved ledger lines are spaced wider than staff lines. A second Fable run turned its two sets of one-off scripts into one tool (`tool-pack/notetool.py`, 408 lines, and a 67-line instruction page), developed on the Dvořák and Medtner systems, a shrunk copy, and the hymn, guitar and Chopin pages. The tool labels no hollow heads or grace notes and reads no accidentals, rhythm or clefs.
+
+**Cheap and careful with the tool.** The model runs the tool, reads the labelled crops, zooms on what the tool marks uncertain, and writes. Six of these eight pages were never seen while the tool was built (Medtner was; so was Dvořák, not rerun).
+
+| Page | Notes | Haiku | Sonnet low | Sonnet medium |
+|---|---|---|---|---|
+| Grieg 1 (answer key) | 306 | 284 | 288 | 306 |
+| Grieg 2 (answer key) | 325 | 315 | 325 | 325 |
+| Medtner 1 (answer key, seen by the tool) | 323 | 224 | 316 | 322 |
+| Flute | 127 | 119 | 127 | 125 |
+| Piano medley | 134 | 123 | 129 | 131 |
+| Band score, phone photo | 53 | 49 | 52 | 53 |
+| Choir with piano, grainy | 84 | gave up | 73 | 83 |
+| Liszt | 173 | 118 | 173 | 173 |
+| All eight | 1,525 | 1,232 (81%) | 1,483 (97%) | 1,518 (99.5%) |
+| API price a page | | $0.02 to $0.14 | $0.26 to $1.50 | $0.32 to $1.52 |
+| Minutes a page | | 2 to 12 | 1.6 to 11 | 1.7 to 11 |
+
+User pages are counted against the Opus careful reading, by distinct start and pitch. Whole benchmark pages cost $0.30 to $1.52; the user rows are excerpts of two to four systems. Against the entry 178 method on the same answer-key pages, Sonnet medium with the tool cost about two thirds as much for the same notes: $1.04 and 7.0 minutes against $1.57 and 9.5 on Grieg 2, $1.52 and 10.8 minutes against $2.55 and 15.2 on Medtner (322 against 323 notes there). Sonnet low reported skipping the zooms on hollow chords on Grieg 1 and lost its 18 notes there. Haiku with the tool reads clean pages at 92 to 97% for about a tenth of the Sonnet price, and fails on the dense or degraded ones (Medtner, Liszt, the grainy scan).
+
+**Where the tool was wrong on pages it had not seen.** It found no bar lines inside the systems of the Liszt print and the flute page, missed one bar line on Grieg 1 system 4, split the band photo's five staves into three groups and found almost no note heads on the grainy scan. The models reported each of these and counted bars themselves.
+
+**Limits.** One run per cell. Up to 20 agents ran at once, so minutes are inflated. No answer key for user pages; a shared misreading by both careful readings is invisible. Excerpts, not whole user pages. All runs had a shell with Python and OpenCV.
+
+**NOT RUN:** a whole multi-page piece; ChatGPT's highest thinking setting on five of the eight pages (three were run later, see the additions below); the tool run on our server with only its labelled crops sent to a chat that cannot run code; draft and tool together; writing the result back into the product; test suite (no code change).
+
+**What it means.** With the tool, "cheap" and "careful" are the same method on different models: Haiku for about $0.05 to $0.15 a page on clean pages, Sonnet medium for about $0.30 to $1.50 a page on anything, including the phone photos. Sonnet low costs almost what Sonnet medium costs and is less careful, so it is not a third option. The tool is plain image processing, so the server could run it and hand the labelled crops to any chat; that is the step to try next, and it is reader work, so it waits for the owner. Files: `~/omr-reader-test-2026-11-07/llm-read` (`round4-quick`, `round5-open`, `round6-user-pages`, `round7-tool`, `tool-pack`).
+
+**Added the same evening: the ChatGPT side, same tool, same eight pages.** Two routes, one run per cell, all on the owner's ChatGPT subscription (no API spend, so no price; token counts are in `round8-codex`).
+
+1. Codex command line (`codex exec`, version 0.167.0, medium effort, sandbox limited to the run's folder for writing), models `gpt-6.1-sol` and `gpt-6-luna`, four runs at a time.
+2. A real ChatGPT chat in the owner's browser (model shown as "GPT-6", power "Medium"), one chat at a time: a zip with the instructions, the tool and the page was uploaded, and the chat unpacked it and ran the tool in its own code environment. Nothing ran on our server. The chat's reading was copied by hand from its reply into a file for scoring.
+
+| Page | Notes | Codex, smaller model | Codex, larger model | ChatGPT chat |
+|---|---|---|---|---|
+| Grieg 1 (answer key) | 306 | 44 | 306 | 292 |
+| Grieg 2 (answer key) | 325 | 132 | 324 | 303 |
+| Medtner 1 (answer key, seen by the tool) | 323 | 45 | 322 | 214 |
+| Flute | 127 | 27 | 127 | 94 |
+| Piano medley | 134 | 95 | 134 | 115 |
+| Band score, phone photo | 53 | wrote nothing | 53 | 52 |
+| Choir with piano, grainy | 84 | 21 | 83 | 53 |
+| Liszt | 173 | 46 | 173 | 168 |
+| All eight | 1,525 | 410 (27%) | 1,522 (99.8%) | 1,291 (85%) |
+| Minutes a page | | 0.8 to 4.0 | 1.6 to 5.2 | 2.0 to 3.9 (as the chat reports) |
+
+- The larger Codex model matched Sonnet medium with the tool (1,518) in about half the time. Its command log shows 7 to 55 close-ups a page and no read outside its own folder. On the Liszt page it wrote the repeated-note shorthand out in full (152 notes the reference does not have), which is how it sounds; the reference wrote plain quarters.
+- The smaller Codex model made almost no close-ups (0 or 1 a page) and is not usable. A first run on the flute page, before the launch line said plainly to look at the images, gave 26 of 127; with that sentence, 27.
+- The ChatGPT chat worked 2 to 4 minutes a page and stopped. Its errors: long left-hand chords of hollow heads on Grieg (the tool does not label those), one misread rest that shifted two bars on the flute page, and most bars of the two hard pages (Medtner, the grainy scan). It reported 0 checker errors on every page.
+- The launch line for both routes had one sentence the Claude runs did not have: wherever the instructions say to view an image, open it and look. Codex's event log does not record image views, so "looked" is inferred from the close-ups made, not observed.
+- I first reported the chat's High setting as locked. That was wrong: the arrow key did not move the selector and I trusted a hidden label; the owner showed it set to High. After the eight chats the plan's usage panel showed 56% of the 5-hour limit and 87% of the weekly limit left.
+
+**More runs, after midnight.**
+
+| Run | Notes right (of 1,525 unless said) | Minutes a page |
+|---|---|---|
+| Codex, larger model, low effort | 1,520 (99.7%) | 1.3 to 4.2 |
+| Codex, smaller model, high effort | 850 (56%) | 2.1 to 7.2 |
+| ChatGPT chat, Medtner page, Medium (from the table above) | 214 of 323 (66%) | 3.2 |
+| ChatGPT chat, Medtner page, firmer instruction to zoom on every doubtful head, power unknown (typed at Medium, the selector later showed High) | 220 of 323 (68%) | 7.9 |
+| ChatGPT chat, Medtner page, High, original instruction | 247 of 323 (76%) | 12.3 |
+| ChatGPT chat, grainy choir page, High (Medium: 53 of 84) | 82 of 84 (98%) | 11.8 |
+| ChatGPT chat, flute page, High (Medium: 94 of 127) | 126 of 127 (99%) | 4.8 |
+
+On the flute page the one difference at High is the last accidental of bar 8, which the chat itself named as its least certain spot; the reference there is a careful reading, not an answer key. So High lifts the chat from quick to near-careful on two of the three weak pages and not on the dense Medtner page, at 5 to 12 minutes a page.
+
+- The larger Codex model is as good at low effort as at medium, with 4 to 25 close-ups a page; the smaller one made 0 to 6 and stays unusable at high effort. No run read outside its folder.
+- All three chat runs on the Medtner page wrote four flats; the page has three. Every D came out as D flat, so every bar counted as wrong. With that corrected by hand the three runs score 71%, 72% and 81%, with wrong notes left in 8 to 10 of 15 bars.
+- Why the chat reported "0 errors" on these readings: the tool's check tests only that bars add up and that pitches fit the key signature the model itself wrote. A miscounted key signature passes, and so does any wrong note that fits the key. The first Medium reading also contains durations that are not note values (a rest 5 units long at 12 units to the quarter): the bar was made to add up, not re-read. The chat named 3 or 4 doubtful bars on a page where 14 of 15 had a wrong note.
+**The owner's subagent idea, tried in real chats (2026-11-20).** I had told the owner that the chat apps cannot start a subagent. That was wrong; I had not checked. One message with the zip attached asked the chat to start a subagent with stated settings, give it the job, and bring the result back.
+
+| Chat | What it started (as the chat described it) | Grieg, one system (51 notes) | Medtner page (323 notes) |
+|---|---|---|---|
+| ChatGPT, Plus plan, selector on High | a subagent on "GPT-6.2 Astra", High | 51, 1.7 min | 323, 7.1 min |
+| Claude, Max plan, Sonnet 5.5 Medium selected | a subagent on Sonnet, Medium | 51, about 1 min | 321, about 10 min |
+
+- Both chats showed the subagent in a side panel while it ran, and posted its notes in the same chat when it finished. Claude's chat answered at once and stayed free meanwhile.
+- On the Medtner page the ChatGPT chat itself had scored 66% at Medium and 76% at High; its subagent scored 100% in less time and counted three flats. The model a subagent runs on is not one the chat's own selector offers.
+- Not verified: the model and effort of either subagent (taken from the chat's own words); what users on free or lower plans get; whether the tool and page can reach the chat from our connector (here the zip was uploaded by hand); writing the result back into the product. One run per cell. Claude's chat said itself that it had not looked at the images and could not vouch for the subagent's reading. Files: `round10-chat-subagent`.
+
+- Not built, proposed to the owner: the check compares the written notes with the heads the tool measured and lists the bars that differ; it rejects durations that are not note values; bars where the chat reading and our reader disagree are shaded. No chat reading should replace ours without one of these.
+
+What this adds: the tool works unchanged in a real ChatGPT chat's own code environment, so the server does not have to run it for ChatGPT users. The careful option holds on the ChatGPT side only with the stronger model and enough effort; the chat at its middle setting is a quick option (93 to 98% on four pages, 74% and 86% on two, about two thirds on the two hardest). Files: `round8-codex`, `round9-chatgpt-chat` in the same folder.
+
+**Our reader against the quick reading, page by page (2026-11-20, no code change, nothing released).** The owner's question: is the quick reading (smallest Claude model with the note tool, or a ChatGPT chat at its middle setting) better than our default reader in every case, so that it should be the default? It is not. Each is ahead on about half the pages.
+
+Set-up. 29 single pages: 8 typeset pages in several engraving styles (Bach chorale and prelude, Chopin, Joplin, a Mozart quartet, Schumann, two songs), 13 scans (11 piano, 2 songs with words), and the 8 pages users sent. The 21 typeset and scanned pages have answer keys; the user pages are scored against the careful reading of entry 181, so those figures are agreement, not accuracy. Our reader: the production reader on a one-page PDF. Quick Claude: Haiku with the tool, two independent runs a page. ChatGPT: a real chat on the Plus plan at Medium, one run a page, 20 of the 29 pages (12 new, 8 from the earlier table). A note counts as right when its pitch and its place in the bar match; a run that wrote nothing scores 0.
+
+| Page | Notes | Our reader | Quick Claude, run 1 | Quick Claude, run 2 | ChatGPT chat, Medium |
+|---|---|---|---|---|---|
+| Bach chorale, four staves | 148 | 147 (99%) | 146 (99%) | 147 (99%) | 147 (99%) |
+| Bach, Prelude in C | 270 | 119 (44%) | 270 (100%) | 270 (100%) | 266 (99%) |
+| Chopin, Prelude in E minor | 604 | 578 (96%) | nothing | 272 (45%) | 492 (81%) |
+| Beethoven song, voice and piano | 174 | 174 (100%) | 174 (100%) | 174 (100%) | 164 (94%) |
+| Joplin, Maple Leaf Rag | 365 | 365 (100%) | 343 (94%) | 334 (92%) | 288 (79%) |
+| Mozart quartet | 672 | 664 (99%) | 579 (86%) | 646 (96%) | 641 (95%) |
+| Schumann piano piece | 449 | 413 (92%) | 249 (55%) | 382 (85%) | 371 (83%) |
+| Schubert song, voice and piano | 178 | 147 (83%) | 176 (99%) | 177 (99%) | 102 (57%) |
+| *Scans* | | | | | |
+| Grieg lyric piece A, page 1 | 306 | 301 (98%) | 284 (93%) | 296 (97%) | 292 (95%) |
+| Grieg lyric piece A, page 2 | 325 | 287 (88%) | 315 (97%) | 266 (82%) | 303 (93%) |
+| Grieg lyric piece B | 241 | 228 (95%) | 123 (51%) | 154 (64%) | not run |
+| Grieg lyric piece C | 252 | 165 (65%) | 125 (50%) | 34 (13%) | not run |
+| Grieg lyric piece D | 146 | 109 (75%) | 142 (97%) | 145 (99%) | 145 (99%) |
+| Dvořák piano piece | 272 | 193 (71%) | 256 (94%) | 268 (99%) | 251 (92%) |
+| Medtner piano piece | 323 | 140 (43%) | 224 (69%) | 253 (78%) | 214 (66%) |
+| Bach, Well-Tempered Clavier page | 387 | 216 (56%) | nothing | nothing | not run |
+| Beethoven piano piece | 164 | 162 (99%) | 151 (92%) | 150 (91%) | 150 (91%) |
+| Chopin, Prelude in E minor (old edition) | 604 | 576 (95%) | 412 (68%) | nothing | not run |
+| Mozart, Sonata K. 545 | 323 | 304 (94%) | 167 (52%) | 114 (35%) | 241 (75%) |
+| song 1, voice and piano | 210 | 114 (54%) | 128 (61%) | 162 (77%) | not run |
+| song 2, voice and piano | 259 | 176 (68%) | nothing | nothing | not run |
+| *Pages users sent (agreement with a careful reading)* | | | | | |
+| hymn, two staves | 101 | 101 (100%) | 100 (99%) | 101 (100%) | not run |
+| Chopin waltz | 178 | 90 (51%) | 178 (100%) | 178 (100%) | not run |
+| guitar piece, small image | 81 | 24 (30%) | 60 (74%) | 58 (72%) | not run |
+| flute part | 127 | 77 (61%) | 119 (94%) | 127 (100%) | 94 (74%) |
+| Christmas piano piece | 134 | 127 (95%) | 123 (92%) | 129 (96%) | 115 (86%) |
+| band score, five staves | 53 | 11 (21%) | 49 (92%) | 47 (89%) | 52 (98%) |
+| grainy choir and piano scan | 84 | 6 (7%) | nothing | nothing | 53 (63%) |
+| song accompaniment, repeated chords | 173 | 72 (42%) | 118 (68%) | 162 (94%) | 168 (97%) |
+
+| Group | Notes | Our reader | Quick Claude, run 1 | Quick Claude, run 2 |
+|---|---|---|---|---|
+| Typeset, 8 pages | 2,860 | 2,607 (91%) | 1,937 (68%) | 2,402 (84%) |
+| Piano scans, 11 pages | 3,343 | 2,681 (80%) | 2,199 (66%) | 1,680 (50%) |
+| Song scans, 2 pages | 469 | 290 (62%) | 128 (27%) | 162 (35%) |
+| Pages users sent, 8 | 931 | 508 (55%) | 747 (80%) | 802 (86%) |
+| All 29 | 7,603 | 6,086 (80%) | 5,011 (66%) | 5,046 (66%) |
+| Bars with every note right, of 541 | | 320 | 242 | 273 |
+
+On the 20 pages the ChatGPT chat read (5,290 notes): ChatGPT 4,549 (86%), our reader 4,396 (83%), quick Claude 3,885 and 4,359. Typeset: ChatGPT 86%, our reader 91%.
+
+- Page by page, our reader has more notes right than both quick Claude runs on 13 pages, both runs beat it on 11, and 5 are split or level. ChatGPT beats it on 9 of 20, loses on 10, level on 1.
+- The split follows how well our reader did. On the 13 pages where it has 90% or more (4,285 notes) it has 4,140 right; quick Claude has 2,851 and 2,899; ChatGPT 2,901 of 3,339 on the ten of those it read (our reader 3,235). On the 16 pages where our reader is under 90% (3,318 notes) it has 1,946; quick Claude 2,160 and 2,147; ChatGPT 1,648 of 1,951 on its ten (our reader 1,161).
+- Taking the better of the two for each page would give 89 to 90% with quick Claude and 93% with ChatGPT on its 20 pages. That needs a way to tell beforehand which reading to trust; none was tested here.
+- Quick Claude wrote nothing on 4 of 29 pages in each run, and a partial page on 4 more runs (it said so each time). The cause on six pages is the tool: on a whole page its staff tracing missed one staff of a system or missed the bar lines (Chopin prelude in both editions, the Well-Tempered Clavier page, Mozart K. 545, one Grieg page, song 2, where it also split voice and piano into separate systems). The first version of the tool then refused to label the whole page. A second copy that skips the faulty system and no longer stops after a close-up was used for the 20 later runs and for 5 reruns; 4 of the 5 reruns still wrote nothing or only one system. The ChatGPT chat got the same second copy and read the Chopin and Mozart pages anyway (81% and 75%).
+- Key signatures again: the ChatGPT chat wrote five flats for four on the rag, four for three on the Schubert song and six for five in the Dvořák piece; quick Claude wrote four sharps for six on one Grieg page in both runs. Each reported 0 errors from the tool's check.
+- Our reader's weak typeset page is the Bach prelude (44%; entry 160, on the `accuracy-trials` branch, has the same piece at 13 of 34 bars): the pitches are there, at the wrong places in the bar. Both quick readings have it at 99 to 100%.
+- Time: our reader 15 to 129 s a page (four pages at once on shared processors). Quick Claude 4 to 18 minutes for a page it finished. ChatGPT 2 to 5.6 minutes.
+- What our reader returns and the quick reading does not: words, slurs, dynamics and the doubt shading. This comparison counts notes only.
+- Two quick Claude runs installed the image library into their own working folder when it was missing; neither was asked to. Both stayed inside the folder.
+
+**NOT RUN:** the ChatGPT chat on 9 pages (6 scans and 3 user pages); a second ChatGPT run of any page; whether our reader's own doubt marks pick out the pages where a quick reading is better; the careful option (mid model) on the new pages (six were run afterwards, see the next addition); any fix to the tool's staff tracing beyond skipping the faulty system; whole pieces; test suite (no code change). Files: `round11-reader-vs-quick` in the same local folder (pages, answer keys, every reading, `compare.py`).
+
+**The careful reading on six whole pages (2026-11-20, no code change, nothing released).** The owner's follow-up question: should the careful reading be the default instead? Until now it had only been fed one system at a time (99.5% on eight pages). Here the mid Claude model at medium effort got a whole page and the second copy of the tool, one run per page, on six of the 29 pages above: three where our reader is strong and three where the tool mis-traces the page.
+
+| Page | Notes | Careful | Our reader | Quick Claude, two runs | ChatGPT | Careful, bars fully right | Our reader, bars fully right | Minutes |
+|---|---|---|---|---|---|---|---|---|
+| Rag (typeset) | 365 | 365 (100%) | 365 (100%) | 94%, 92% | 79% | 21 of 21 | 21 of 21 | 3.9 |
+| Schumann (typeset) | 449 | 426 (95%) | 413 (92%) | 55%, 85% | 83% | 27 of 30 | 26 of 30 | 7.5 |
+| Chopin (typeset) | 604 | 574 (95%) | 578 (96%) | nothing, 45% | 81% | 21 of 26 | 19 of 26 | 9.6 |
+| Mozart (scan) | 323 | 322 (100%) | 304 (94%) | 52%, 35% | 75% | 18 of 19 | 13 of 19 | 10.9 |
+| Grieg (scan) | 241 | 216 (90%) | 228 (95%) | 51%, 64% | not run | 2 of 15 | 11 of 15 | 7.0 |
+| Song, voice and piano (scan) | 259 | 223 (86%) | 176 (68%) | nothing, nothing | not run | 6 of 19 | 0 of 19 | 11.1 |
+| **Total** | 2,241 | 2,126 (95%) | 2,064 (92%) | | | 95 of 130 | 90 of 130 | |
+
+- The careful reading is level with our reader or ahead on five of the six pages and behind on one. Notes written that are not on the page: 88 against our reader's 154.
+- It finished every page. The tool mis-traced the Chopin page (first system), the Mozart page (three of six systems) and the song (four systems split into seven, no bar lines found); the careful reader read those parts from zooms. The quick reading wrote nothing on those pages in three of six runs.
+- The Grieg page shows the same false "0 errors" as before: it wrote five sharps where the page has six, so all 26 E sharps came out as E, and only 2 of 15 bars are fully right. The tool's check passed it.
+- Time is 4 to 11 minutes a page against 15 to 129 seconds for our reader, and about 160,000 to 190,000 tokens a page on the user's own plan.
+- It returns notes only. Our reader also returns words, slurs, dynamics and its doubt shading.
+
+**NOT RUN:** a second careful run of any page (one run each, so run-to-run spread is unknown); the other 23 pages, including all user pages; the careful reading in a real Claude or ChatGPT chat on whole pages; the careful reader writing dynamics, hairpins or tempo (three pages were run afterwards, see the next addition); test suite (no code change). Files: `sonnet` and `careful.py` in `round11-reader-vs-quick`.
+
+**The careful reading with marks, and on a four-page piece (2026-11-20, no code change, nothing released).** Two owner questions: can the careful reader also take in marks besides notes, and how does it do on several pages, split over one reader per page or not?
+
+*Marks.* The note format already has places for dynamics, hairpins, pedal marks and tempo, on an extra `x:` line per bar. Three of the six pages above were read again with a prompt that asks for those marks too and a tool copy whose check accepts that line (it tests spelling only; the tool measures nothing about marks). The answer key's marks come from the same route playback uses, as do our reader's. A mark counts as right when the same mark is in the same bar; every one of those was also within a beat of the key's position, except one of our reader's dynamics on the song. The scans' answer keys may follow another edition than the scanned page.
+
+| Page | Reader | Notes right | Bars fully right | Dynamics | Hairpins | Pedal | Opening tempo | Minutes |
+|---|---|---|---|---|---|---|---|---|
+| Schumann (typeset), 449 notes | careful, with marks | 421 (94%) | 25 of 30 | 4 of 6 | 6 of 8 | none in key, wrote 1 | none | 10.3 |
+| | careful, notes only (earlier) | 426 (95%) | 27 of 30 | | | | | 7.5 |
+| | our reader | 413 (92%) | 26 of 30 | 4 of 6 | 5 of 8 | none in key, wrote 1 | none | |
+| Grieg (scan), 241 notes | careful, with marks | 241 (100%) | 15 of 15 | 6 of 6 | 10 of 10 | 8 of 8 | 1 of 1 | 7.2 |
+| | careful, notes only (earlier) | 216 (90%) | 2 of 15 | | | | | 7.0 |
+| | our reader | 228 (95%) | 11 of 15 | 4 of 6 | 9 of 10 | 8 of 8 | 0 of 1 | |
+| Song (scan), 259 notes | careful, with marks | 151 (58%) | 2 of 19 | 20 of 20 | 10 of 10, wrote 11 | none | 0 of 1 | 11.1 |
+| | careful, notes only (earlier) | 223 (86%) | 6 of 19 | | | | | 11.1 |
+| | our reader | 176 (68%) | 0 of 19 | 10 of 20 | 6 of 10 | none | 0 of 1 | |
+
+- Marks over the three pages: dynamics 30 of 32 against our reader's 18, hairpins 26 of 28 against 20, pedal 8 of 8 for both.
+- Notes over the three pages: 813 of 949 with marks, 865 in the earlier notes-only runs, 817 for our reader. The whole loss is the song: its report says much of the piano part is "placeholder chords placed by head position, not a true reading", in the same 11 minutes as the notes-only run. One run each, so the cost of asking for marks cannot be told apart from run-to-run spread.
+- That spread is large: the Grieg page went from 90% (five sharps written for six) to 100% (six sharps) between two runs.
+- Slurs, staccato, accents, words and fingering have no place in the format and were not asked for.
+
+*Four pages.* The whole first movement of a Mozart sonata, a four-page scan, 73 bars, 1,270 notes. Read three ways: our reader on the PDF; one careful reader per page (page 1 is the run from the addition above; pages 2 to 4 were each told the time signature, which is printed only on page 1, and numbered their bars from 1), joined in page order; and one careful reader given all four pages.
+
+| Reading | Notes right | Notes not on the page | Bars fully right | Page 1 | Page 2 | Page 3 | Page 4 | Time |
+|---|---|---|---|---|---|---|---|---|
+| Our reader | 1,152 (90.7%) | 90 | 44 of 73 | 304 of 323 | 261 of 316 | 310 of 324 | 277 of 307 | 36 s |
+| One careful reader per page | 1,265 (99.6%) | 3 | 69 of 73 | 322 | 315 | 322 | 306 | 6 to 11 min a page, 33 min of work in all, 11 min if run side by side |
+| One careful reader, all pages | 1,238 (97.5%) | 32 | 62 of 73 | 322 | 308 | 322 | 286 | 31 min |
+
+- One reader per page is better and, run side by side, about three times faster. The single reader's loss is mostly on the last page (286 of 307 against 306).
+- The pages joined with no bar lost: 19, 18, 19 and 17 bars, the same split the single reader wrote.
+- The tool lost a staff or bar lines on three of the four pages; every reader worked round it from zooms.
+
+**NOT RUN:** a second run of anything here; marks on more than three pages or in a real chat; a piece whose key or time signature changes across a page break, or with a bar split over two pages; joining done by anything but my own script; putting the marks back into a score file (the correction step's note list carries no marks today; only the playback route does); the token count per page (the figure the harness reports is not clearly a total); test suite (no code change). Files: `marks` and `multi-page` in `round11-reader-vs-quick`.
+
+**Ways to make the careful reading better (2026-11-20, no repository code change, nothing released).** The owner's view after the results above: the careful reading may be the way forward, because better accuracy matters more than a shorter wait. Five things were tried. All tool changes are in a scratch copy of the note tool (`tool-v4-tracing`), not in the repository.
+
+*1. Does disagreement with our reader find the wrong bars? (no new readings)* On the six pieces above (183 bars), flagging every bar where the careful reading and our reader differ flags 68 bars and catches 33 of the careful reading's 37 wrong bars; 111 of the 115 unflagged bars are right. Disagreement between two careful runs catches fewer (25 of 32 wrong bars, 38 of 136 flagged). On key signatures, our reader was right on all 20 single pages, and a comparison with it would have caught all six wrong key signatures written by chat readings in these trials; but on the whole four-page Mozart scan our reader itself wrote one flat for none, so a difference has to be looked at, not settled in our reader's favour.
+
+*2. Voting (no new readings).* Keeping each note that two of three readings agree on (two careful runs and our reader) on four pieces: 2,124 of 2,219 notes against 2,130 for one careful run, so no gain in notes right; notes not on the page fall from 64 to 23, and bars fully right rise from 104 to 113 of 137. It repairs the wrong-key Grieg run (216 to 240 of 241) and hurts the song (223 to 195 of 259).
+
+*3. A referee pass (four pages, one run each).* A fresh careful reader gets the page, the first careful reading and the list of bars where our reader differs (both versions, named only A and B), and settles those bars from the image.
+
+| Page | Bars listed | Careful alone | After the referee | Minutes |
+|---|---|---|---|---|
+| Grieg (scan), the run with five sharps for six | 13 of 15 | 216 of 241 | 241 of 241 | 2.7 |
+| Chopin (typeset) | 4 of 26 | 574 of 604 | 581 of 604 | 1.1 |
+| Schumann (typeset) | 4 of 30 | 426 of 449 | 426 of 449 | 1.2 |
+| Mozart (scan), page 2 | 11 of 18 | 315 of 316 | 315 of 316 | 2.4 |
+
+1,531 to 1,563 of 1,610 notes (95.1% to 97.1%). No page got worse; on Mozart page 2 all 11 differences were our reader's mistakes and the referee kept the careful reading in every one. A fifth referee run (second Grieg page, below, 22 of 29 bars listed, 4 minutes) moved 207 to 212 of 252. Where our reader differs in most bars and the key signatures agree (the two songs and the Bach prelude below: 27 of 30, 19 of 19 and 12 of 12 bars), the pass would be a second full reading and was not run.
+
+*4. The tool's page tracing.* Three causes found and fixed, plus one found on the way:
+- A staff was dropped when it had fewer than 30% as many clean columns as the cleanest staff, which is the normal case for a busy left hand. Now a track is kept unless it overlaps a longer one.
+- The line that joins a system's staves was searched for only to the right of the first clean column of both staves; the line is at the far left. This split voice-and-piano systems apart.
+- The test that rejects note heads on a candidate bar line used a width of 0.36 to 0.5 of a staff space, less than the bar-line thickness of a bold scan (0.6 of a space on the song). It is now 0.8.
+- A staff-line point joined the first track it fitted, not the best; on a tilted staff a stray track then took over half the staff. It now joins the best fit.
+
+| 24 test pages (21 of round 11 and Mozart pages 2 to 4) | Old tool | Fixed tool |
+|---|---|---|
+| Staves traced right | 16 | 24 |
+| Bar count equal to the answer key's | 10 | 17 |
+
+No page changed for the worse. Of the seven that still differ, the two songs are short by one and two bars; the other five are over by one or two (three of them were unchanged by the fix), and in the three cases looked at the extra bar comes from a repeat sign that splits a bar. The 2 songs went from 7 and 23 bars found to 18 of 19 and 28 of 30.
+
+*5. The careful reading with the fixed tool, on four scans where our reader is weak (one run each).*
+
+| Page | Notes | Our reader | Careful, fixed tool | Bars fully right | Minutes | Earlier readings |
+|---|---|---|---|---|---|---|
+| Song 1, voice and piano | 210 | 114 (54%) | 208 (99%) | 28 of 30 | 9.1 | quick 61%, 77% |
+| Bach prelude | 387 | 216 (56%) | 378 (98%) | 7 of 12 | 10.2 | quick: nothing, twice |
+| Song 2, voice and piano | 259 | 176 (68%) | 232 (90%) | 8 of 19 | 11.0 | careful with the old tool 86% and 58% |
+| Grieg, second page | 252 | 165 (65%) | 207 (82%) | 21 of 28 | 9.4 | quick 50%, 13% |
+| **Total** | 1,108 | 671 (61%) | 1,025 (93%) | 64 of 89 (our reader 13) | | |
+
+- The Grieg page's loss was four bars where four notes, then eight, are printed in one beat each with no number over them; the reader forced twelve equal notes. With one general sentence added to the prompt (a beamed group whose printed values do not fit its beat is a tuplet, spread it evenly), a new run of that page got 241 of 252 (96%). With that run the four pages total 1,059 (96%).
+- Song 2 is the only page with runs on both tools (86% and 58% old, 90% fixed); with spread that large the fix is not shown to be the cause.
+
+**NOT RUN:** any setting twice, so none of these gains is separated from run-to-run spread except by its mechanism; the fixed tool on pages outside these 24; the referee pass or the tuplet rule on other pages; reading notes first and marks in a second pass; starting from our reader's reading; the whole chain (per-page readers, referee, join) on one multi-page piece; any of it in a real Claude or ChatGPT chat; user pages; test suite (no repository code change). Files: `improve` and `tool-v4-tracing` in `round11-reader-vs-quick`.
+
+**The whole chain on complete pieces (2026-11-20, no repository code change, nothing released).** The chain, run by a script of mine with one careful reader per step: our reader reads the PDF; each page goes to its own careful reader with the fixed tool and the tuplet sentence (later pages are told the time signature from our reader's reading and number their bars from 1); the pages are joined; a page gets a referee pass when our reader's key signature differs from the careful reader's, or when our reader differs in fewer than half of the page's bars. Two complete scanned pieces with answer keys, and two excerpts users sent (no whole user PDF is kept locally and none was fetched; these are scored by agreement with the earlier careful reading by the largest model, which is not an answer key).
+
+| Piece | Notes | Our reader | Careful, joined | After the referee | Bars fully right: ours, careful, final | Referee passes |
+|---|---|---|---|---|---|---|
+| Dvořák, 3 pages, two key changes | 952 | 651 (68.4%) | 943 (99.1%) | 943 (99.1%) | 21, 47, 47 of 53 | page 1 only (8 of 17 bars differed): kept the careful reading in all 8 |
+| Beethoven minuet, 2 pages, one key change | 631 | 602 (95.4%) | 607 (96.2%) | 612 (97.0%) | 64, 64, 68 of 74 | both pages (3 and 10 bars differed): page 1 unchanged; page 2 took our reader's version in 3 bars and wrote its own in 1 |
+| User excerpt, phone photo of a piano waltz, 17 bars | 178 | 90 (51%) | 178 (100%) | not called | 7, 17 of 17 | none (10 of 17 bars differed, same key signature) |
+| User excerpt, classical guitar, 8 bars | 62 sounding | 24 | 59 | 59 | 0, 5, 5 of 8 | called because our reader wrote one sharp for four: confirmed four sharps, changed nothing |
+
+- Notes not on the page: Dvořák 252 for our reader, 9 for the chain; Beethoven 15 and 3.
+- Both pieces joined without a lost bar (17, 19 and 18 bars; 23 and 53), and every key change was read at the right bar, including the one on Dvořák's third page, where the page starts in the old key.
+- Time per page with the fixed tool: 3.4, 4.1 and 4.4 minutes (Dvořák), 6.5 and 8.5 (Beethoven, the second page has 54 bars), 1.9 and 3.7 (the excerpts); referee passes 0.8 to 2.7 minutes. Side by side that is about 5.5 minutes for the Dvořák piece and 11 for the Beethoven, after our reader's 15 to 27 seconds.
+- The guitar excerpt is counted in sounding notes, a held note counted once, because the two readings write held notes differently (by the usual count it is 59 of 81). On the waltz the usual count is exact; the two readings differ in seven ties.
+- The fixed tool traced every staff on all seven pages; readers reported one false bar line (two sharps taken for a line, on the guitar excerpt) and two "bars" that held only a clef and key signature.
+
+**NOT RUN:** a second run of any page; a piece with a bar split across a page turn or a time-signature change; whole user pieces and an answer key for user material; a song or an ensemble score through the whole chain; the chain inside a real Claude or ChatGPT chat, where the chat itself would have to start the readers and join the pages; putting the joined reading back into a score file with our reader's words, slurs and marks; test suite (no repository code change). Files: `chain` in `round11-reader-vs-quick`.
+
+**What a careful reading costs in tokens (2026-11-20, measured from the run transcripts).** Earlier entries quoted a per-page token figure from the harness that was not a total; these are sums of the usage reported on every model call.
+
+| Run | Runs | New input | Re-read from cache | Output | Priced at published API rates |
+|---|---|---|---|---|---|
+| One page, careful reader, fixed tool | 10 | 159,000 | 2.37 million | 53,000 | US$1.17 to 1.41 (lightest page about $0.70, heaviest about $2.00) |
+| One page, careful reader, old tool | 12 | 160,000 | 2.32 million | 57,000 | $1.20 to 1.44 |
+| Referee pass | 9 | 79,000 | 0.98 million | 12,000 | $0.41 to 0.53 |
+| One reader given four pages | 1 | 857,000 | 19.8 million | 208,000 | $6.20 to 7.49 |
+
+The two prices are for the five-minute and one-hour cache-write rates. A ten-page piece with a referee pass on half its pages comes to about 2.0 million tokens of new input, 29 million re-read and 0.6 million of output, about $14 to $17. All careful and referee runs of 2026-11-20 together come to $37 to $45 at these rates; they ran on the owner's subscription, not on billed API use, and my estimates before the runs (about $7 to $10 per ten page-reads) were too low by a third to a half.
+
+Share of a five-hour allowance: no token figure is published for the plans, only that the two higher tiers give 5 and 20 times the base plan's allowance per five-hour session. One measurement: on 2026-11-20 the owner's account (the 5-times tier) hit its five-hour limit when the local sessions had used about $79 at API rates in that window, most of it on the largest model. If the allowance scales with API price, a ten-page piece is about a fifth of a five-hour allowance on that tier, about 5% on the 20-times tier, and about all of it on the base plan. One data point; how the plans weigh different models is not published, a weekly cap also applies, and a chat's own harness may use tokens differently from the test harness.
+
+**Owner decisions (2026-11-20).** The careful reading becomes the default for scans and photos when the user's plan can run it. The chat must always warn that it can use a lot of the plan's usage and must have the user's approval before starting. No referee pass as a standing step (nine passes gained 42 notes, 25 of them on the one page with a wrong key signature). Our reader's role changes to a helper for the chat's reading, supplying what the chat readers miss or cannot do, key signatures first; users with little usage can choose our reader alone. Nothing of this is built yet.
+
+**The chain in real chats (2026-11-20, no repository code change, nothing released).** One zip (the three Dvořák pages, the fixed tool, the page instructions, a join script, and a top-level instruction file) attached to a new chat in the owner's browser, with one sentence asking the chat to follow the instruction file. The instruction file tells the chat to give a fixed usage warning and wait for a yes, then start one helper per page (the mid model at medium effort on Claude, the highest thinking setting on ChatGPT), join the pages with the script and print the result. The answer key is the same as above (952 notes, 53 bars).
+
+| Chat | Warned and waited | Helpers | Notes right | Not on the page | Bars fully right | Time after the yes |
+|---|---|---|---|---|---|---|
+| Claude chat, mid model at medium | yes, word for word | 3, side by side, same model and effort | 948 (99.6%) | 5 | 51 of 53 | about 6 min |
+| ChatGPT chat, selector on Medium | yes, word for word | 3, side by side; it reported that they inherited its setting | 851 (89.4%) | 100 | 16 of 53 | 5 min 22 s |
+| ChatGPT again, page instructions also give our reader's key signatures as something to verify | yes, word for word | 3, side by side; it reported the highest setting | 930 (97.7%) | 22 | 39 of 53 | 4 min 36 s |
+| Our reader | | | 651 (68.4%) | 252 | 21 of 53 | 27 s |
+
+- Both chats did every step unprompted after the yes, including the join script and the check, and returned a file whose line and character counts matched what they printed.
+- ChatGPT's first run wrote five sharps for four on page 1 and six flats for five on pages 1 and 2; the check passed it with 0 errors. With those two signatures corrected by hand the same notes score 938 (98.5%), so the loss is the key signatures.
+- In the second run each page reader was told what our reader had found (four sharps; a change it read as no signs for two bars and then five flats; five flats on pages 2 and 3; back to four sharps) and told not to copy it but to count again where its own count differed. That fixed the opening and page 2. The reader of page 1 still wrote six flats at the change in the middle of that page (163 of 177 notes in those bars).
+- What each chat said about its helpers' model and setting is its own report and was not verified.
+
+**NOT RUN:** a second run of either chat in the same set-up; the hint in a Claude chat; ChatGPT with its selector on High; a user on a lower plan or the free tier of either product; the files coming from our connector instead of a zip the user attaches; a longer piece; test suite (no repository code change). Files: `realchat` in `round11-reader-vs-quick`.
+
+**The careful reading into the drawing step, and slurs and words (2026-11-20, scratch code only, no repository change).**
+
+*Into the drawing step.* The correction route is the only code that writes notes into a score file, so two ways were tried on the Claude chat's reading of the three Dvořák pages (948 of 952 notes).
+
+| Way | Notes right | Bars fully right | What else |
+|---|---|---|---|
+| Write the careful notes over our reader's file, bar by bar | 759 (80%) | 33 of 53 | Only 34 of 54 bars pair up with a bar of equal length in our reader's file; slurs fall from 56 to 25 and staccato from 13 to 2 in the bars written over |
+| Build an empty score with the careful reading's bars, key and time signatures, then fill every bar through the correction step | 948 (99.6%) | 51 of 53 | The draft analysis runs on it (162 marks in 4 s) and all pages draw |
+
+Found on the way:
+- **The correction step writes no accidental signs.** `replace_bars` writes each pitch's alteration but never an `<accidental>`, and the drawing shows only written signs. Changing one note in bar 4 of the Dvořák answer key took the written signs in that bar from 2 to 0, the changed note's natural included. This is the code in production (`engine/correct.py` at 3064c27), so a user's corrected bar loses its sharps, flats and naturals on the drawn page. Not fixed here; the scratch builder adds the signs after the fact.
+- **The note list carries no clefs**, so a lower staff printed in treble clef is drawn in bass clef with ledger lines.
+- A note list cannot be drawn in production today: `draft_from_notes` returns text and a player id, and `render_analysis` needs a stored score.
+
+*Slurs, staccato, accents and words.* The reader's format got scratch additions (`(` and `)` around a slur, `.` and `>` after a note, a words line under a voice line with one entry per sung note) and the tool's check counts the words against the notes and the brackets against each other (`tool-v5-marks`). One careful read each of two scans, counted per aligned bar against the answer key; a slur counts when both ends are on the right notes. Our reader's figures are from its own file for the same page.
+
+| Page | Reader | Notes | Slurs | Staccato | Accents | Words on the right note | Time |
+|---|---|---|---|---|---|---|---|
+| Dvořák page 1 (272 notes) | careful, with marks | 272 | 14 of 14 | 7 of 7 | 1 of 2, 1 not on the page | | 4.8 min |
+| | our reader | 229 | 12 of 14 | 7 of 7, 1 not on the page | 1 of 2 | | |
+| Song 2, voice and piano (287 notes, 54 syllables) | careful, with marks | 246 | 17 of 26, none wrong | 27 of 42, 2 not on the page | 17 of 18, 1 not on the page | 53 of 54 | 13.7 min |
+| | our reader | 193 | 13 of 26, 24 written | 39 of 42, 8 not on the page | 6 of 18, 5 not on the page | 29 of 54, 49 written | |
+
+- Asking for the marks did not cost notes on these two pages: the Dvořák page is unchanged at 272, the song page 246 against 244 for the earlier read without marks (same counting).
+- Our reader wrote 50 slurs on the three Dvořák pages where 34 are printed.
+- On the song page the careful reader wrote the dash-and-dot marks as staccato only and missed 15 staccato dots; our reader found more of them (39).
+- The song page cost US$2.01 at API prices and the Dvořák page US$0.83 (the earlier measure was US$1.17 to 1.41 a page without marks). One run each; the two cannot be compared with the earlier runs page for page.
+- Both readings were built into score files with the scratch builder and drawn: words under the voice staff, slurs, staccato dots and accents all appear.
+
+**NOT RUN:** a second run of either page; dynamics, hairpins and pedal together with these marks in one read; fermatas, tenuto dashes and other signs; a multi-page song; any of this in a real chat; test suite (no repository code change). Files: `words-and-slurs`, `draw` and `tool-v5-marks` in `round11-reader-vs-quick`.
+
+**The build (2026-11-20, branch `careful-reading` from main 6bd33c1; not deployed, not released).** The owner's order: build both sides, test on Claude without a release, no Claude release to production.
+
+*What a chat's sandbox can reach, asked in a real chat of each.* ChatGPT's sandbox downloaded from our site, our server's address, GitHub and the package index. Claude's sandbox was refused by its own outgoing proxy for our site and our server (403; the user would have to allow the address in their settings) and reached only GitHub and the package index. Neither chat gets a connector's files on its sandbox disk. So the kit is offered at two addresses: the server's `/kit/NAME`, and the public repository at the deployed commit (`KIT_ELSEWHERE`, set by `server/deploy.sh`). The pages come from the user's own PDF, which is in the sandbox when it is attached to the chat; a Claude user who chose the file in the card has to attach it to the chat as well.
+
+*What was built.*
+- `engine/notes.py`: a note list may carry `(` and `)` around a slur, `.` and `>` after a note, `clef=` before a note, and a words line (`1.1w:`) under a voice line. Reading a list ignores them, as before for marks it does not use.
+- `engine/correct.py`: the note writer of `replace_bars` now writes those marks, and writes accidental signs. The second is the defect found earlier today: a corrected bar lost every sharp, flat and natural on the drawn page. The rule (a sign where a note departs from the key signature or from the last sign on that line or space of its staff in the bar; none on a note that only continues a tie) was checked on every score in `tests/data`: recomputing each bar's signs gives the printed sign on 4,953 notes, a different sign on none, a sign the file lacks on 90 notes, all in six files that are reader output or marked invalid and whose pitches and signs disagree; 875 printed signs are ones the rule does not need (reminders).
+- `engine/from_notes.py`: `join_pages` puts page readings on one unit, numbers the bars through and carries key and time signatures across pages; `score_from_notes` builds an empty score with the reading's bars and fills every bar through `replace_bars`, so there is one note writer. On the four real readings from today it gives back exactly the notes and marks of the note lists (Dvořák 3 pages 943 and 948 of 952, page 1 with 14 slurs and 7 dots, the song with 54 syllables) in 0.1 to 0.3 s.
+- `server/app.py`: a scanned PDF's result now has the chat offer the careful reading with the owner's warning and wait; `careful_reading` returns the steps with what our reader found for the time signature and the key signatures; `use_careful_reading` takes the pages and stores the score; `/kit/NAME` serves the kit. A careful reading does not count against the daily limits (the quick reading before it already did).
+- `kit/`: the measuring tool with the tracing fixes, a `pages` command and the wider `check`; its guide; the page instructions made general (they no longer say what the piece is).
+
+*Checks.* New tests: `tests/test_careful_reading.py` (the offer, the two tools on the real Dvořák pages, a page that cannot be built, the join, words on a Schubert voice line, a clef change, a corrected bar keeping its signs, the accidental rule on every test score) and a kit download in `tests/test_server_process.py`. Full suite with the local reader build: 1,647 passed, 11 skipped (user files kept out of the repository; ring codes), 7 failed. Two of the seven were the tool-list tests, now updated. The other five are PDF-reading tests (a tempo word, octave lines, a narrow flat, one crashing scan, the doubtful-reading warning) and fail the same way on an untouched copy of main with the local reader build, which is older than the reader main expects. `tools/diff_check.py` has no area for the correction step; the 94 correction tests and the rule check above stand in.
+
+*On Cloud Run (staging, sign-in only, driven by a script with an identity token).* The whole server flow on the three-page Dvořák scan: our reader 134 s, the offer and the steps returned, `use_careful_reading` 1.8 s for the three pages, `draft_analysis` 1.1 s. No warnings in the startup lines. The first deploy failed because `kit` was not in the build context (`.gcloudignore`, `.dockerignore`); fixed in f7199d1.
+
+*In real chats from the connector (staging revision 00127-mnw, commit 9dcb06e, staging opened by the owner; one run each on the same scan, 54 bars, 952 notes).*
+
+Three things went wrong before a chat got through, none of them in the reading:
+- ChatGPT did not make the offer. The text said "if you can run code and start helper agents", and it took that as a condition it did not meet. The offer is now a question to the user whose yes is the request to start the helpers (9dcb06e). After that both chats asked.
+- ChatGPT's staging app still listed the four old tools until its tool list was refreshed by hand. In production this is the wait for OpenAI's approval of the two new tools.
+- `server/deploy.sh` closes staging to sign-in only on every deploy, so a deploy in the middle of a chat test cuts the chats off.
+
+| | ChatGPT (highest thinking setting) | Claude (Sonnet, medium) | Our reader |
+|---|---|---|---|
+| Asked with the warning and waited | yes, word for word | yes, word for word, plus one sentence on the alternative | |
+| Where the kit came from | our server | the public repository (our server refused, 403, three times) | |
+| Extra question to the user | none | one: its own check refused to run the downloaded script, and it stopped and asked | |
+| Pages handed in after the yes | 5.5 min | 8 min 4 s, including the wait for the answer to that question | |
+| Analysis drawn after the yes | 7 min 5 s | 12 min 20 s | |
+| Notes right | 924 of 952 | 952 of 952 | 656 of 952 |
+| Key signatures (4 sharps, 5 flats, 4 sharps) | all right | all right | |
+| Clef changes in the left hand (treble at bar 6, bass at bar 8) | bass written at bar 17, so bars 8 to 16 are drawn in the wrong clef with the right pitches | both right | |
+| Slurs with both ends right, of 34 | 8 (36 written) | 29 (39 written) | 22 (50 written) |
+| Staccato dots, of 7 | 7, and 24 that are not on the page | 7, none extra | 7, and 4 extra |
+| Accents, of 4 | 2 | 2, and 1 extra | 2 |
+
+Notes, slurs, dots and accents are counted against the answer key by `marks2.py`. The answer key does not carry the clef change back to bass at bar 8, so the clefs were checked by eye against the scan. ChatGPT called `use_careful_reading` twice with nearly the same pages; both scores were stored and the second is the one scored.
+
+What a user meets that the trials did not show:
+- In Claude the downloaded script is refused once by Claude's own check, and Claude asks the user before going on. So a Claude user answers two questions (the usage warning, then "allow the script"), a ChatGPT user one.
+- The doubtful-reading warning and the careful offer arrive in the same reply: first "27 of its 54 bars are shaded", then the offer. Both chats kept both. Whether that is the wanted wording is the owner's decision.
+- A Claude user who attached the PDF to the chat was first asked to choose it again in the card, because the connector cannot take a chat attachment. The careful reading then used the attached copy. A user who only chose the file in the card would have to attach it as well.
+- Both chats wrote the harmony analysis on the careful reading. Claude's reply said that the reading can still contain mistakes and asked the user to check it against their copy; ChatGPT's wording at that point was not kept.
+
+Claude's cards showed "There was a problem displaying content" in this test. That is the staging set-up (the revision's connector address was the plain one, not the tagged one the test connector uses), so the cards in this flow were not seen in Claude. Afterwards the test connector got its own revision with the tagged address (00151-hoy, same image, no other traffic); the finished chat's cards then load, but without their pictures, because the stored results name the pictures at the other address. In my screenshots ChatGPT's cards looked blank; not looked into.
+
+Usage, roughly: Claude's meter for the weekly limit went from 76% to 79% over the chat on the owner's plan; the five-hour meter was already high from other use and is no measure.
+
+*Review by another model (Opus, read-only, on the code of the branch).* It found no wrong output in the existing correction route. Confirmed by running them, and fixed:
+- One short line from a chat could hold the server for a long time: a bar of 40,000 quarter notes took 21 s, a staff numbered 3000 did not finish in 40 s, and this work holds the limiter other users' work waits on. A hand-in is now refused at once when a bar is longer than 64 quarter notes, a staff is numbered above 32, a voice above 8, or the piece has more than 1,000 bars (2,000 bars took 4.1 s and the time grows faster than the bar count), and when it has more pages than the scan.
+- A split word ran across voices: with words in two voices, the second voice's syllable was written as the end of the first voice's word. The state is kept per voice now.
+- An empty list of pages crashed with an error that is not a user error. It is refused with a message.
+- A build error named a bar in the joined numbering and no page, though the chat is told to fix "the page this is about". Each page is now built by itself first (0.1 s a page), so the message is "Page 2: Bar 5, …" in the numbers the page's helper wrote.
+- `clef=` after the last note of a voice was dropped without a word. A clef printed at the end of a bar is exactly what the Dvořák scan has at bar 7. It is refused with where to write it instead.
+- A later page whose first line gave no time signature switched the time signature off for the rest of the piece. It now keeps the one before.
+- A page with no music had no rule. The page instructions say to write `NO MUSIC`, and the hand-in step says to leave such a page out.
+
+Not changed:
+- A words line is refused when only some notes of a chord are tied to the next chord. The measuring tool's `check` counts the same way, so a helper is told before it hands in. Rare in sung parts.
+- A slur a chat writes into a corrected bar can get the number of a slur that passes over that bar from outside. Corrected bars carried no slurs before this branch, and the careful route starts from an empty score. Not run.
+- The reviewer expected ChatGPT's sandbox to have no internet; in the real chat above it downloaded the kit from our server.
+
+*Owner decisions after the review (2026-11-20).*
+- **Counting.** The owner asked what a hand-in costs against a regular reading. Measured on Cloud Run today (4 processors, 4 GB): our reader on the three-page scan 100 to 134 s, drawing the analysis 10 to 14 s, a hand-in 1.5 to 1.7 s, asking for the steps 0.7 to 1.0 s, a draft analysis 0.9 to 1.4 s. One hand-in is about 1/60 to 1/80 of the scan's reading, about 1/25 of one page read. The limits count whole items, and the item nearest in cost is a draft, so each hand-in now takes one from the shared daily draft number, as a corrected bar does, and is refused with the same message at the limit. A hand-in whose pages cannot be built is counted too, as a failed correction is.
+- **Claude's second question.** The warning gains one sentence, "To do it I download and run a small measuring script from Sheet Music Analysis in this chat.", and the text for the chat says the user's yes covers downloading and running it. Whether Claude then skips its own question is not known.
+- **The two warnings in one reply** (doubtful bars, then the offer) stay as they are.
+
+One point is still open and is not built: the offer is server text, so on a production deploy it reaches ChatGPT users before OpenAI has approved the two new tools, and it reaches Claude users at once, which the owner has ruled out for now. A deploy needs a switch for where the offer is made.
+
+*Full suite on the final code.* Without the PDF reader: a first run gave 1 failed, 1,639 passed, and the failing test was not captured; a second gave 1,640 passed, 0 failed (both while other checks loaded the machine). With the PDF reader (the build CI uses, sma.8): 1,659 passed, 11 skipped, 0 failed. The five PDF-reading failures reported earlier came from running with the stock reader build instead of ours; with ours they pass.
+
+**NOT RUN:** a second run of either chat; a real chat after the review fixes or with the new sentence (the chats above ran the code before them); a piece longer than three pages, a song or a user's own scan through the connector; a scan with a title page; a lower plan or the free tier of either product; the cards of this flow in Claude; why ChatGPT's cards looked blank in screenshots; a Claude user who has allowed our address in their settings; photos that are not PDFs (still refused as not a PDF); a second full run with the reader. Files: `connector-chat-tests` in `round11-reader-vs-quick`.
+
+### 182. The guide to the marks sits at the bottom of the chat picture (2026-11-20, branch `guide-at-preview-end`, nothing released)
+
+**Why.** The owner saw the guide in the middle of a drawn analysis in a real Claude chat. The chat picture is the first two pages pasted one under the other (`CARD_PAGES = 2`), and since entry 162 the guide was drawn at the foot of page 1, so on any piece longer than a page it sat between page 1 and page 2. The owner had chosen "foot of page 1" on the understanding that the picture was one page; the wish was always "at the bottom".
+
+**Change.** `engine/annotate.py` draws the picture's guide under the last page the picture shows. A piece no longer than the picture has one guide at its end, shared by the picture and the PDF, as a one-page piece already had. The PDF of a longer piece is unchanged (guide at the end of the last page). The text the chat is given and the sentence on the site's how-to page say "the bottom of the picture" now; the site is not published by this change.
+
+**Checks.** `tools/diff_check.py --base main render`: 28 inputs, 0 changed (the guide is off in the engine's default). The placement test now expects the guide on the second page of the picture; a new test draws a real two-page reading (Chopin, Prelude op. 28 no. 4) and finds one guide, on page 2, in both picture and PDF; the card test expects the same of the server. `tests/test_overlay_marks.py`, `tests/test_host_render.py` and `tests/test_awkward.py`: 424 passed, 4 skipped. Looked at full size, before and after, on Schubert's "Der Lindenbaum" with its example analysis: before, the guide sat under the third system, above the first marks; after, under the last system of the picture.
+
+**NOT RUN:** the full suite; a real Claude or ChatGPT chat with this change (staging holds another branch); a review by another model.
+
+### 183. Systems that keep the bars we chose, tighter gaps between systems, a shorter guide (2026-11-20, branch `guide-at-preview-end`, nothing released)
+
+**Why.** Looking at the Lindenbaum picture from entry 182, the owner pointed at four things: the first two systems held two bars and one bar with the notes spread far apart, the gaps between systems were much too large, the guide explained things that need no explaining, and its entries ran together.
+
+**The lone bar: root cause.** Our own step (`_balance_systems`) chooses the system breaks, then hands them to the drawing library in its `smart` mode. That mode keeps a break only when its own fit test agrees, and its fit test allows less on the first system than the bar widths we measure. For the Lindenbaum we asked for 3, 3 and 6 bars; the library refused the third bar on system 1, then kept our break before bar 4, which left bar 3 alone on a line. A check over 39 layouts (17 scores, whole and as two excerpts each) found our breaks were not kept in 14, every time starting at the first system; five of them left a system of one bar.
+
+**The fix.** A whole piece is now laid out in the library's `line` mode, which keeps exactly the breaks we set: the Lindenbaum gets 3, 3, 6. An excerpt cannot use that mode (in this version it drops the last line of an excerpt, re-checked today: 8 bars asked, 4 or 6 drawn), so it stays in `smart` mode and the step now counts the clef and key signature against the first system too, which is the allowance the library's test showed. After the change: 0 of 40 layouts lose our breaks (one more layout reaches the step). `tests/test_awkward.py` now has this check for the 13 awkward scores, whole and as an excerpt: 8 of its 26 cases fail on main's layout code, none on the branch. Drawing time is unchanged (three whole pieces, best of three: 3.15 to 3.04 s, 1.84 to 1.89 s, 0.33 to 0.33 s).
+
+**The gaps.** The gap between systems was one fixed number, 26 units (a staff is 8 units tall), set in the first commit so that cadence boxes, chord-job brackets and the next system's phrase bracket would fit. Systems with no marks got the same gap. It is now 16, and room is reserved only where those marks are drawn: one line above the top staff in a bar that a phrase covers or that has a numbered point, two lines under the bottom staff in a bar with a cadence or a chord's job, once for each bar and side however many marks it has.
+
+A first version reserved a line for every mark. It kept all marks apart, but several marks in one bar stacked their lines, and pages with marks everywhere came out taller than before: the Chopin excerpt 13%, the reference picture 14%, and the full suite failed on three tests. The amounts above were then found by trying settings against two measures on real pages: page height against main, and a new check that marks every bar of the 13 awkward scores and asks for a clear strip half a staff tall between neighbouring systems.
+
+| | Clear-strip check, scores failing of 13 | Lindenbaum bars 1 to 24 | Bach chorale | Chopin bars 1 to 8 |
+|---|---|---|---|---|
+| main (26 everywhere) | 3 | 3,720 | 2,648 | 2,053 |
+| 16 and no reserved room | 11 | 3,360 | 2,528 | 1,873 |
+| 16, a line for every mark (first version) | 0 | 3,651 | 2,664 | 2,318 |
+| 16, one line above and two below, once a bar (kept) | 2 | 3,465 | 2,605 | 2,093 |
+
+Heights are the sum of the page heights at 1,400 px wide. The two scores that still fail the check also fail it on main, and are marked as known in the test. The whole Chopin nocturne went from six pages to five.
+
+Three tests pinned the old layout and were changed: the reference picture and the picture hash for the Chopin excerpt were made again, and the bound on the student-check page (no more than 1.25 times the normal page) is now 1.3, because the normal Bach page became shorter (1,285 to 1,225) while the check page stayed the same (1,551 to 1,543).
+
+**The guide.** All of these are the owner's choices, made from pictures of real pages:
+- Four entries are gone: the key, the chord's job, a phrase, where a note moves. The text the chat is given no longer says the guide covers them. The page therefore no longer explains T, PD, D or "pre-dom."; the chat's reply has to.
+- The numbered point reads "see below".
+- The circled-note entry is the circle and then the codes used on those pages, with no heading: "PT passing tone, NT neighbour tone, APP appoggiatura". "Tone" replaces "note" for PT, NT and PED, to match the letters; the site's table of marks says the same now (not published).
+- Entries are separated by a wide gap instead of a dot, which had read as one more sign next to the colons. Four separators and four wordings were drawn for the choice.
+
+**Checks.** `tests/test_overlay_marks.py`, `tests/test_awkward.py`, `tests/test_host_render.py`, `tests/test_check_display.py`, `tests/test_annotate.py`: 491 passed, 4 skipped, 2 expected failures (the two known scores). `tools/engraving_check.py` on the nine example analyses: 0 overlapping labels, 0 tight, 0 collisions with the music. `tools/diff_check.py --base main render`: every item changed, as intended; looked at full size before and after: the Lindenbaum and the Chopin nocturne (whole, first two pages) and the Bach chorale. The other items were checked by the two tools above only.
+
+Full suite on the final code, after the review fixes: 1,605 passed, 30 skipped (the reader tests, user PDFs, ring codes), 2 expected failures, 0 failed.
+
+**Review by another model (Opus, read-only, on the code of the branch).** It compared main and the branch on about 17 scores, whole and as excerpts: the same bars in the same order everywhere, no system past the right edge, the same page counts, and the final systems equal to the breaks chosen. Confirmed and fixed:
+- Room for a numbered point, a cadence or a chord's job was always reserved in the first part of a bar. Where a repeat sign splits a bar and the second part starts a new system, the room went to the system above the mark. It now goes to the part the mark is in, as the room for numerals already did. On the chorale BWV 84.5 with marks on every bar's last beat, the clear strip between the two systems grew from 29 to 52 px; no collision was seen before the fix.
+- With the shorter guide it is more likely that the pages in the chat picture have nothing to explain while a later page does. The chat was then told of a guide the picture does not show. It is now told only when the picture has one.
+- The test that every system holds the bars chosen for it looked at the layout straight after the choosing step; it now reads the systems off the final pages. It still watches the internal step that chooses, to learn what was chosen; 8 of its 26 cases fail on main's layout code.
+
+Not changed: a preview of zero pages would now raise an error where it drew nothing before; nothing asks for that.
+
+**In real chats on staging (2026-11-20, one chat each, the whole Chopin nocturne op. 9 no. 2 as MusicXML).** Staging ran this branch: revision 00129-k9t on ChatGPT's address, 00153-wem on the address of Claude's test connector; the server's log lines show each chat's calls on its revision.
+
+| | ChatGPT | Claude |
+|---|---|---|
+| Picture in the card | first two of six pages, guide at the bottom | first two of six pages, guide at the bottom |
+| Bars to a system on those pages | 2 in each of six systems | 3, 2, 2, 3, 2, 2 |
+| Guide | "PAC perfect authentic cadence", "IAC imperfect authentic cadence", numbered point "see below", wide gaps | the same, plus "another reading a teacher would accept" and "PT passing tone, APP appoggiatura" |
+| Numbered points in the reply | four, matching "see below" | six, matching |
+| Marks the guide no longer explains | none drawn (no chord jobs, no phrases) | phrase brackets drawn, and the reply explains them; no chord jobs drawn |
+
+No lone bar on a system, no marks of two systems meeting, on the four pages looked at. Claude's reply says "passing note (PT)" where the guide says "passing tone"; the reply's wording is the chat's own. Neither chat drew chord jobs, so whether a reply explains T, PD and D without the guide was not seen. A screenshot of the card inside either chat could not be taken (the screenshot tool timed out with the card in view); the pictures were fetched from the server instead, and in Claude the cards loaded without an error note.
+
+**With the PDF reader switched on** (the suites above were run without it, which skips about 20 tests that read real PDFs; the owner's side agent pointed this out): 1,623 passed, 11 skipped, 2 expected failures, 1 failed. The failure is `tests/test_server_process.py::test_with_a_proxy_key_set_only_requests_that_carry_it_are_served`, a test that starts a server and does not touch the drawing code; the machine's load was about 28 at the time. Run again alone it passed, and so did its whole file. Every test that reads a real PDF ran and passed. A full run with the reader ending in 0 failed is NOT RUN for this branch.
+
+**NOT RUN:** a review of the review fixes by another model; pieces with more than four staves at the new gap, looked at by eye; a chat that draws chord jobs; a screenshot of the card inside a chat.
+
+### 184. Every page of the analysis PDF is a US Letter sheet (2026-11-20, branch `letter-pages` on top of `guide-at-preview-end`, nothing released)
+
+**The question.** The owner asked whether the analysis PDFs are a standard paper size and thought they were not. They were not. Four PDFs made today (two from real chats on staging, two from the careful-reading chats) had every page 210 mm wide, the width of A4, but cut off just under the last system: 198 to 230 mm tall, the last page as short as 134 mm. No two pages of a piece were the same size. The cause is the PDF step itself, which measured where the ink ended on each page and cut the page there.
+
+**Owner's decision (2026-11-20).** US Letter, 8.5 x 11 in, and the page filled: systems spread down the sheet as a printed edition does, not the old layout with blank paper under it.
+
+**What changed.**
+- The picture in the chat is laid out as before. `tools/diff_check.py --base guide-at-preview-end render`: 28 inputs, 0 changed.
+- When a PDF is asked for, the same score is laid out a second time for print: the page is Letter-shaped, its height is fixed, and the drawing library spreads the spare height, mostly between systems (`PRINT_OPTIONS` in `engine/annotate.py`). The marks and the guide are drawn again on those pages, and each page goes onto an 8.5 x 11 in sheet without any cutting. The second layout is made only when the PDF is asked for.
+- The analysis PDF and the blank worksheet go through this. The picture of a PDF reading is not a PDF and keeps its old page height.
+
+**Result on four real analyses** (Schubert's Lindenbaum, Chopin's nocturne op. 9 no. 2 whole and bars 1 to 8, Bach's chorale BWV 269): every page 612 x 792 pt. Whole pieces keep their page count (8, 6 and 2). The 8-bar excerpt, one tall picture in the chat, is two sheets in the PDF: three systems on the first, the fourth alone on the second.
+
+**Time, one local run each, drawing plus making the PDF file:** Lindenbaum 6.2 s before, 5.9 s after; the nocturne 3.6 s, 3.4 s; the chorale 0.84 s, 0.75 s. The second layout costs 0.06 to 0.38 s, and making the file is quicker because pages are no longer measured for cutting. No added compute.
+
+**A mistake on the way.** My first version made the print layout at once, inside the drawing step. Twelve tests that watch that step failed (they saw both layouts), and a thirteenth failed because I had also made the picture of a PDF reading Letter-height. Making the print layout only on request and leaving the reading picture alone fixed all thirteen.
+
+**New check.** `test_every_page_of_the_pdf_is_a_letter_sheet` in `tests/test_awkward.py`: on the 13 awkward scores, whole and as an 8-bar excerpt, every PDF page is 612 x 792 pt, a whole piece has as many sheets as the picture has pages, and the guide's words are on the last sheet. 26 cases pass. On those 13 scores no print page grew past the sheet when the guide was added.
+
+**Seen on the pages, for the owner to judge.**
+- A Letter page holds about three systems of piano music, because the staves are sized for reading on a screen.
+- A last page with few systems is not stretched to the foot of the sheet, but the gap between its systems is as wide as on the page before it (the nocturne's last page: two systems, a wide gap, the guide, blank paper below).
+- Side margins are about 5 mm, as before.
+
+**Full suite with the PDF reader on:** 1,649 passed, 11 skipped, 2 expected failures, 1 failed. The failure is again `tests/test_server_process.py::test_with_a_proxy_key_set_only_requests_that_carry_it_are_served` ("connection reset by peer"), the same test that failed once on `guide-at-preview-end` before this change. Its file run six more times: one more failure, five clean. It is unreliable and its cause is NOT investigated.
+
+**NOT RUN:** a real chat with this branch; a staging deploy; pieces with more than four staves looked at by eye; printing a page on paper.
+
+### 185. A bar alone on a thin line may share it with a neighbour; no guessing at hidden marks (2026-11-20, branch `letter-pages`, nothing released)
+
+**The question.** On the Letter pages, bar 34 of Chopin's nocturne op. 9 no. 2 (the second bar of the cadenza) stood alone on a line, stretched to the full width. Two rules were tried first and dropped before being committed: one drew the notes small when bars sat under a hidden time signature, the other hid crowded tempo numbers.
+
+**Why the rules were dropped.** A survey of 748 scores (our test data, the music21 corpus, the benchmark truth files): the small-notes rule was right on 1 file and shrank ordinary bars in 2 medieval Kyries; the tempo rule was right on 3 and removed every tempo number from 7. The same cadenza is written three different ways in our own test files, so no one signal finds it.
+
+**What MuseScore does with hidden tempo marks** (1,474 MuseScore source files compared with their MusicXML exports, and the export code read): MuseScore 4 leaves hidden tempo marks out of the export (all 820 files with hidden marks match exactly). MuseScore 2 and 3 write them as ordinary visible marks with no hidden flag (71 of 72 files). In MuseScore 3 exports, a bare number with no word was hidden by its author 1,119 times in 1,169. A rule "hide bare numbers from MuseScore 1 to 3" would have caught 90% of hidden marks and wrongly hidden 36 printed ones in 6 of 121 quartets. **Owner's decision:** keep tempo numbers exactly as the file has them, clusters included. Small notes are drawn small only when the file marks them small.
+
+**What changed** (`_breaks` in `engine/annotate.py`). The line choice runs as before. If it leaves a bar alone on a line less than two-thirds full (not the last line), it runs again, now allowing lines that contain such a bar to be up to 12% wider than the line, squeezed to fit. The second choice is kept only if fewer bars are left alone. Bars with lyrics are never squeezed: on Ave Maria the squeeze made words of three verses run together ("frau Fle-" read as one word).
+
+**Result.** On the 748 scores, two change: the nocturne (bars 33 and 34 share a line at 111% of the natural width) and Mozart K. 458, third movement (6 lone bars before, 2 after). Both looked at full size: no collisions. Every other score's lines are unchanged. `tools/diff_check.py --base HEAD render`: 28 inputs, 0 changed.
+
+**New check.** `test_a_bar_stands_alone_on_a_thin_line_only_when_no_neighbour_fits_beside_it` in `tests/test_awkward.py`, on the 13 awkward scores. With the squeeze turned off it fails on the nocturne. `tests/test_awkward.py`: 393 passed, 2 expected failures.
+
+**Not built.** Breaking a bar that is wider than a whole line across lines: none of the 712 surveyed scores that were laid out has such a bar.
+
+**Looked at:** the chat picture and the last Letter page of the nocturne (bars 33 to 37 on two lines, guide at the foot).
+
+**Full suite with the PDF reader on:** 1,663 passed, 11 skipped (user files kept off this machine), 2 expected failures, 0 failed.
+
+**NOT RUN:** a review by another model.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
@@ -3333,6 +3973,332 @@ From the 2026-11-20 cold review.
 - **More checks in CI** (owner, 2026-11-21). A lint step finds unused imports and names (`ruff check`, rules F, configured in `pyproject.toml`, `spike/` excluded); it found 10 in the product code, fixed here: seven unused imports, one unused list in the overlay, two loop variables hiding an import. A pull request that changes `dist/` must be an exact fresh build of `plugin/` and `skill/` and must change the plugin version, since a changed `dist/` on `main` is a plugin release; a pull request that leaves `dist/` alone may change the skill without releasing it. Today's `dist/` matches a fresh build.
 - **Clutter.** Six `.uuid` files that `.gitignore` already excludes were still tracked; they are untracked. The 263 scripts and notes of the 2026-11-04 reading review (1.9 MB, nothing reads them) were taken out of the tree; they stay in history up to 2953d5b. `spike/README.md` says what the folder holds. `CHANGELOG.md` now records each release back to 2026-10-01.
 - **The users' PDFs ran nowhere.** The three PDFs that crashed for users (`tests/data/users`, git-ignored as users' files) were only in two old worktrees and the private bucket `sheet-music-analysis-user-tests`, not in the main checkout, so every suite, local ones included, skipped their 8 tests. They are now in the main checkout again (also listed in its local `.git/info/exclude`), and `tests/conftest.py` borrows `tests/data/users` into worktrees like the other ignored fixtures; the 8 tests pass. CI still cannot run them: that needs the private bucket and a credential in GitHub, the owner's call.
+
+### 189. Bars are named as in the printed copy: "16a" for a bar the print does not number (2026-11-21, branch `printed-bar-names`, nothing released)
+
+**Problem.** After entry 187 the page and the chat agreed, but both used our own count, so after a second-time ending the print leaves uncounted, or a bar split by a repeat sign, every later bar was one or more higher than the user's printed copy (Chopin Mazurka BI 16 No. 2: the bar printed 17 was called 18). The owner chose printed names (plan `docs/plans/printed-bar-names.md`): a bar the print does not number is named after the bar before it plus a letter.
+
+**Change.** Step 1 (cfe7865) gave each bar a name and drew it. Now every number the chat or a page sees is the name: the note list and NOTES table (`m16a`), part-writing spots and their note references, ledger-line passages, the student check and its messages, correction notes and errors, the tempo question, captions and ranges given back, the PDF preview's bar numbers, the PDF notice, shaded bars and the play range. Inputs take names: `render_analysis` positions are `int | str` (an integer is the printed number) and are resolved to our internal numbers at the server, once per call, before drawing; an unknown name is left out with "Measure 16b does not exist; the score has measures 1 to 32". `measure_range` (draw, draft, play, worksheet) takes "16a-20"; `correct_bars` and note lists read `m16a`; typed student numerals read "m16a". Tool descriptions and the skill say so. This changes `render_analysis`'s input schema, so it ships with the next ChatGPT update and the next Claude plugin release; `dist/` was not rebuilt.
+
+Two faults found on the way, both fixed at the root. (1) Step 1 wrote names into the page's MEI `n`, and `ScoreIndex` then read the name as the file's number, so the same score gave different internal numbers from the file and from the drawn page (a file numbering two bars 5 and 5: 1, 2 from the file, 5, 6 from the page). `ScoreIndex` now reads the file's number from MEI `label` when the page renamed a bar. (2) From a review: a multi-bar rest split because a labelled bar falls inside it compared our internal numbers with the file's `n`, and its copied bars had no id, so they kept the file's numbers. The split now looks the rest's bars up by internal number, after the pickup is numbered (a file that numbers its pickup 1 was off by one), and each copy gets its bar's id and name. Two tests in `tests/test_bar_names.py` cover it; the pickup one fails on the previous code.
+
+**Checks.** A corpus check (scratchpad `bar-names/corpus.py`) over the 835 score files in `tests/data` and the main checkout's `out/eval` and `out/engraving`: 834 read (one Verovio crash file in `tests/data/verovio-crashes`, NOT RUN), 95,932 bars. Every bar has a unique name in every file; in the 738 files whose own numbers are whole and only go up, the names equal them; in every file the drawn MEI `n` equals the names, and the file's MEI and the drawn MEI give the same internal numbers and names (18 files differed before fix 2's pickup ordering, 0 after); 92 files have lettered bars (194 bars), and in each the first lettered bar is in the note list and the NOTES table, round-trips through the note list, and a harmony at that name resolves to that bar. 4 files are named by our count because their numbers start again partway (the note to the chat says so). Real examples: the mazurka's second ending is 16a and the next bar 17; Beethoven Op. 2 No. 3 iii names its split and uncounted bars 15a, 63a and 71a. A drawn page with a chord and a cadence placed at "16a" put them in the second ending (looked at full size). New tests in `tests/test_bar_names.py` build small scores inline (a second ending marked X1, a bar split by a repeat, a pickup and multi-bar rests) and go through the MCP client: the NOTES table lists m3, m3a, m4; render_analysis with "3a" draws the chord in that bar (checked in the MusicXML export) and an integer 4 in the bar printed 4; an unknown name is left out; play takes and gives back "3a"; correct_bars corrects "m3a". The mazurka stays out of the repository (its analysis collection's licence), only in the scratchpad check. `tools/diff_check.py --base engine-identity all`: nothing changed (typed 191, part-writing 80, PDF warnings 80, export 6, render 28; none of these scores has a lettered bar). `tests/test_awkward.py` passed. Full suite with the reader: 1,597 passed, 1 failed (a test expecting the old wording of the reversed-range error, updated), 11 skipped (user PDFs kept off the repository, no ring codes).
+
+**Cost.** `render_analysis` now reads the score once more to resolve names: 0.07 s for the mazurka (33 bars), 0.27 s for Beethoven Op. 2 No. 3 iii (131 bars), 1.4 s for Chopin's first Ballade (262 bars), on this PC, against 0.3 to 4 s for drawing 16 bars of the same pieces.
+
+**Piano reductions put marks in the wrong bars.** Checking that the piano page draws the names showed a larger fault. `piano.reduce` chose the passage by the file's own bar numbers, made one piano bar per bar of the file (so a bar split by a repeat became two whole bars, padded with hidden rests), and numbered them by the file again, while the annotations use our count. On four Beethoven quartets with uncounted bars (their analysis `<harmony>` taken out, which music21 cannot read; the whole movement and its second half each), before → after: Op. 18 No. 4 iv, whole: 226 piano bars for our 221, a piano bar under the same number whose pitch classes are all in the original bar in 43 bars → 221 of 221; its second half: 108 piano bars for 111, 26 → 111; Op. 18 No. 6 i, second half: 132 bars for 133, 0 → 133; Op. 127 iii, second half: 144 for 146, 0 → 146; Op. 131 i, second half: 1 → 61 of 61, and every drawn name of the whole movement was one bar off (0 → 122 right). Whole movements of Op. 18 No. 6 i and Op. 127 iii were already right. So a mark in a piano reduction of a passage from such a score landed in another bar. Now `reduce` picks the bars by their place in our bar list (music21's `indicesNotNumbers`), numbers each piano bar with our count, keeps the original bar's incompleteness (music21's padding), so the two halves of a split bar join again, and takes the notes to keep by our count and the half's offset. The page draws the source score's names: `load_toolkit` takes the names of the score a reduction came from, and `ScoreIndex` reads a bar's name from the page's `n` when the page renamed it. After: every bar of all eight passages has the same number, length and drawn name as the original, and its pitch classes are all in the original bar. A drawn piano page of Op. 18 No. 4 iv bars 38-42 with V, i and iv placed at 40, 40a and 41 puts them under the first ending, the second ending and the next bar, as on the original page (looked at full size); the next line starts at 41, as printed. A test builds a two-part score with a split bar and a second ending, whole and from "3a". The piano reduction still drops the ending brackets and repeat signs.
+
+**Review fixes (2026-11-21, a cold Opus review of the branch).** (1) A pickup the file numbers 1 was named "1" whenever the score also had an uncounted or repeated bar, so every bar read one above print (Beethoven WoO 68: the pickup was "1", the bar printed 1 was "2"). The shift that makes such a pickup 0 tested our renumbered count, which had already made the pickup 0, so it was skipped; it now tests the file's own numbers. WoO 68 now names the pickup 0, its second ending 187a and its last bar 287. (2) A `measure_range` whose end runs past the last bar failed in `draft_analysis` ("Measure 270 does not exist"), where `main` accepted it; on `main` `play` and `render_analysis` already failed. Now all three resolve a range the same way, in `ScoreIndex.numbers`: a whole number that is not a bar's name moves inward to the nearest bar of the range, so "255-270" on the 262-bar Ballade is 255 to 262; a range wholly outside the score, or a lettered name the score lacks, is still an error. (3) Bars before the first whole-numbered bar were named by our count and could repeat a later name (no real file has this). Any repeat among the printed names now names the whole score by count, the existing fallback, and that is decided from the file's numbers alone, so the file and the drawn page always agree on it. (4) Minor: the correction tool's current-notes window is chosen by position, a bar name the score lacks no longer uses one of the two redraw rounds, and a piano reduction reads the score once less. Owner's decision on the ChatGPT gap: deploy with the next release; until OpenAI approves the new schema, ChatGPT cannot place a mark in a lettered bar. Corpus check, extended with "internal bar 0 is named 0" and "the file and the drawn page agree on naming by count": 833 files read, 95,899 bars, 91 files with lettered bars (193 bars), 4 named by count, 0 problems; the Verovio crash file gives no result, NOT RUN (the earlier run's one extra file was the mazurka, since removed). New tests in `tests/test_bar_names.py`; the pickup one fails on the old code. A second cold review of these fixes found two more, both fixed: a range wholly inside a gap in the printed numbers (print 1, 2, 5, 6; "3-4") said "Measures 5-2 run backwards" (now "Measure 3 does not exist"), and the drawn card's caption gave the range as asked ("4-9") where the page showed 4-5. It also found that a pickup the file numbers 1, followed by a whole bar also numbered 1, is named "1" and "1a"; that goes with the PDF pickup fix, next.
+
+**Not changed.** The RomanText download still numbers bars by our count (owner's choice); the evaluation's RomanText reader keeps RomanText's own rule that "m16a" and "m16b" are two endings; the parked model draft table prints our count. `check_analysis.as_typed` is unused.
+
+### 190. The pickup rule and the bar-range rule are written once; PDF readings trust the reader's pickup mark (2026-11-21, branch `one-rule-one-place`, nothing released)
+
+**Why.** The cold review of 2026-11-20 found the same engine rules written several times. This entry covers the first group: which bars a range selects, whether a first bar is a pickup, and three small tables and parsers that were copied.
+
+**Merged with no change in output.** `ScoreIndex.select(first, last, include_pickup=...)` replaces five range tests (`score.in_range`, `export._in_range`, `performance._chosen`, `ScoreIndex.range_start`, the slice in `notes.encode`). `Measure.is_pickup`, `Measure.pickup_padding` and `Measure.is_short` replace the separate pickup tests in `score`, `render`, `read_pdf`, `correct` and `reduce`. One table of note-type lengths, one reader and one writer for key-signature text ("3s", "2f") and one `parse_meter` replace their copies. `tools/diff_check.py --base printed-bar-names all` showed no changed item in any area for these commits (typed 191, part-writing 80, PDF warnings 80, export 6, drawing 28).
+
+**Changed on purpose, each in its own commit.**
+- A first bar is taken for a pickup only when it is shorter than its meter's bar. Before, an incomplete first bar that was overlong or had no meter was numbered 0. Corpus of 150 files (41 uploads, 109 readings): no upload changes; one reading changes (Faisst Op. 18 No. 2, MuseScore print: its overlong first bar was bar 0, so every number was one below its name; numbers now run from 1 and match the names).
+- PDF readings trust the reader's own pickup mark. A reading is recognised by the reader's stamp in the file, which a `correct_bars` edit keeps (tested through the server). A short first bar the reader did not mark stays bar 1 and is shaded as doubtful; uploads keep the old guess. Corpus: one reading changes (Chopin Prelude Op. 28 No. 4, Schirmer scan: bar 1 is now shaded). That bar is a real pickup whose mark the reader missed, so in the one real case the shade means "pickup mark missed", not "notes misread". `correct_bars` can fill such a bar to full length but cannot declare it a pickup.
+- A pickup the file numbers 1 before a whole bar also numbered 1 was named "1" and "1a"; it is now "0" and "1".
+
+**Bugs found on the way.**
+- The doubtful-bar check rounded each note length to a whole number of the file's time units before adding up a voice, so a half-unit note counted as 0. It only showed once the first bar lost its blanket exemption. Lengths are now exact; the 80 cached readings give the same doubtful bars.
+- The piano version crashed (`StopIteration`, logged as a server error after the drawing was already counted against the daily limit) on any range in which no part plays a note, because only parts with a note in the range were kept. Over the test scores: 83 such ranges in 14 files, 30 crashed before, 0 after. Such a range is now drawn as rests in both hands.
+- `printed-bar-names` failed the lint step CI runs (a name used before it was assigned in `render._rest_bars`); fixed on that branch (fd01cef).
+- Review caught two regressions before they left the branch: a score with no bars crashed while being read, first in `ScoreIndex`, then in the new reader check. Both are fixed and tested with a no-bars file for an upload and for a reading.
+
+**Found and not fixed.**
+- The piano version loses its opening time signature at random for ranges that do not start at bar 1. Cause, confirmed by experiment: `piano._parts` cuts the bars out of the parsed score and lets the score go, and the first bar finds its time and key signature only by looking back into that score. With Python's garbage collection switched off the signature is drawn every time (bars 22-24, 23-24, 5-8 of `part_writing_motion.musicxml`); with a collection forced after the cut it is missing every time. The same look-back decides the flat or sharp spelling and the beat used for beaming. Branch `piano-opening-signatures` is prepared for the fix.
+- `correct_bars`, checked over 10,037 bars in 344 parts of 145 files (test scores and the 80 cached readings), no fix yet. (a) 307 bars in 56 files are handed out with a voice longer than the bar (382 voices, every one too long, none too short): a note that starts at or runs past the bar's end is listed in full, so as soon as the chat changes anything in that bar the untouched voice is refused ("voice 1.3 adds up to 5.5; expected 4 quarter notes"). Example: Bantock, *Ghost Road*, bar 6, a note written at the very end of the bar and 1.5 quarters long. Sent back unchanged these bars pass, because an unchanged bar is skipped before the check. (b) 536 bars in 7 files are handed out with length 0 and refused even unchanged (scores with no time signature, and one file with note lengths below one time unit). (c) 4 files that change their time unit inside a part cannot be corrected in any bar. (d) Two orchestral files (Dvořák 9 ii, Mozart 41; every part) cannot be opened: taking the other parts out leaves instrument groups with no staff in them, and the drawing library then returns nothing.
+- The part-writing check leaves the pickup out of a range starting at bar 1 while the note table and the ledger check include it (direct octaves across the pickup in BWV 418 and BWV 84.5 are dropped). The RomanText download pads a pickup by bar 1's actual length where other places use the meter's. Both wait for the owner.
+
+**Checks.** Targeted tests with the PDF reader on the last commit of the Opus session: 883 passed. Full suite of the base with the lint fix (fd01cef) on a home PC plus the two machine-bound files here: 1,618 passed, 4 skipped, 0 failed. Full suite of `rules-identical-copies` here: 1,618 passed, 4 skipped, 0 failed. Full suite of this branch before it was put on top of `rules-identical-copies` (cf71bff), on a home PC plus the two machine-bound files here: 1,662 passed, 4 skipped, 0 failed. The combined branch has had the tests of the touched areas (116 passed) and lint; its own full suite (89ad2d4), read the next morning: 1,662 passed, 4 skipped, 0 failed.
+
+### 191. The piano version always writes its opening signatures and keeps every part (2026-11-22, branch `piano-opening-signatures`, nothing released)
+
+**Problem 1: the opening time and key signature came and went.** Entry 190 left this with its cause confirmed. Looking for every case of it found four look-backs into the released score, not three: the key signature, the time signature (twice) and the bar's length. With the bar's length lost, a range could also crash instead of only losing its signature.
+
+**Fix.** Each part now reads the key signature, time signature and bar length of every one of its bars while the parsed score still exists, and the rest of the code uses those. Nothing looks back afterwards. Garbage collection is not touched.
+
+**Numbers.** 213 ranges over the test scores (from bar 1, from the middle, the last bars, and from the first signature change where a file has one), counting the time and key signatures on each drawn page. Old code with a collection forced after the cut: 128 of 213 differ from the old code with collection off, 16 of them crashes; each difference is a lost time signature, and in some a lost or changed key signature. New code, collection off or forced: 0 of 213 differ. 15 of the 213 pages have no time signature in any run, because the file itself has none (readings). Time for the piano version of three large scores (two quartet movements, Mozart 41): unchanged within 4%.
+
+**Problem 2: parts that share a name were dropped.** Found while drawing pictures for another question. The piano version stored each part under its name, and the library gives a part with a blank name its instrument's name, so same-named parts overwrote each other and only the last was kept. A four-part score whose parts are all called "Voice" came out as its bass line alone. This has been in the code since 2026-10-10 and is on production. The step that blanks default part names in PDF readings did not prevent it.
+
+**Fix.** Parts are stored under their position. Of 67 test scores, four change: Mayer (4 parts, 1 kept before, 4 after), the reading of Mozart's quartet K. 155 (4: 1, 4), and two invalid choral pages (8: 3, 8 and 10: 3, 8). No score loses a part. The quartet reading's bars 1-4 crashed before (the one surviving part gave a page numbered from 0); they are drawn now.
+
+**Not fixed, and one range that got worse.**
+- With all its parts kept, bars 46-49 of one invalid choral page now fail where they were drawn before (wrongly, from 3 of 8 parts). The file has no time signature and bars of 4, 6, 7 and 8 beats; the piano version writes such a bar as if it were four beats long.
+- The reading of Schubert's "Die Stadt", bars 2-5, fails before and after: the voice part of that reading has notes of 1/420 to 1/1680 of a quarter, which cannot be written.
+- A gap one triplet eighth long is written as a sixteenth rest, a 64th rest and a leftover of 1/48 of a quarter, because the piano version only knows plain rest lengths (Brahms, *Frühlingstrost*, bars 1-6, in any meter).
+- These three are one kind of fault, lengths the piano version cannot write, and are the next job.
+- Labels: with every part kept, a reading whose parts are all "Voice" is labelled "V I", "V II", which reads like a Roman numeral, and a string quartet is labelled as voices. Owner's decision.
+- The tune's eighth notes in the Chopin Ballade, bars 36-38, are drawn without beams. `_Part.name` is no longer used.
+
+**6/4.** The piano version's own beat length (three quarters in 6/4, against one quarter in the shared rule) is used only to group beams and split notes. In the Ballade, bars 36-41, today's grouping matches the printed beams and the shared rule's does not. No change; the owner decides whether it stays a separate rule.
+
+**Checks.** The new tests fail on the code before each fix and pass after. `tools/diff_check.py --base one-rule-one-place render`: 28 inputs, none changed. Lint passes. Piano, drawing and host-render tests: 52 passed. Full suite on a home PC plus the two machine-bound files here: 1,663 passed after the first fix (cd31bb1) and 1,664 after the second (1a5db5a), 4 skipped, 0 failed.
+
+### 192. Each drawing request has a drawing process to itself; the others wait in line (2026-11-22, branch `drawing-queue`, nothing released)
+
+**Why.** The server keeps two processes that draw scores. Requests used to share them, so two large drawings and a small one all slowed each other, and nothing told a caller the server was full. The owner's design: one process per request, a first-come wait, a busy answer when the wait runs out, one error type, and a third process if memory allows.
+
+**What changed.**
+- A request takes one drawing process for its whole length and gives it back at the end. Requests that find both taken wait in arrival order: tool calls and the worksheet download up to 60 s, a PDF reading up to 480 s. When the wait runs out the caller gets the busy answer and the call is logged as busy.
+- A request takes its drawing process before it takes the single score-work slot, so a request holding the slot can never be waiting for a process.
+- An error raised inside the drawing library is now the same error type as a crashed drawing process.
+- The worksheet download answered "This worksheet could not be made" when it could not get a process; it now answers 503 with "The service is busy right now. Please try again in a minute." (owner's decision).
+
+**Timing.** The same script on the old and the new code, drawing the Chopin Ballade through the server's own path, two runs each. One alone: 18.6 and 18.2 s before, 18.6 and 18.5 s after. Three at once: 39.9 / 47.8 / 55.5 s before, 29.1 / 36.9 / 54.9 s after (second runs within 1 s of these). The first two finish about 11 s sooner; the last is unchanged.
+
+**No third process.** Measured here, not on Cloud Run: one drawing process holds 27 MB idle, 78 MB after the Ballade and up to 436 MB after the largest test score (Mozart 41), and keeps it until it is replaced. The whole server with two processes holds 1,225 MB after two Mozart 41s, with three 1,675 MB. A PDF reading peaks at 2.1 to 2.4 GB in the same container and the draft model at 1.0 GB. The service has 4 GiB; the worst case with two processes is already about 4.8 GB, so a third is not added.
+
+**A test that failed at random, two causes.**
+- In the server: a request without the proxy key was refused before its body was read. Closing a connection with unread data makes Linux send a reset, and the caller can lose the refusal that was already on its way. With a 2 MB body sent after the headers, 13 of 20 refusals were cut off. The body is now read before refusing, for at most 3 s, so a caller without the key cannot hold a request slot by sending slowly (review finding: the first fix read without limit; a body that never ended was never answered). Real users come through the proxy, which sends the key, and were not affected.
+- In the tests: the helper that starts a server picked a free port, released it and let the server take it later. Under load another test's server took it in between, and the test talked to the wrong server. The helper also never stopped a server whose test failed (38 left running were found and stopped). It now checks that its own process is listening, tries again on another port, and always stops the server.
+- The unchanged test under load (14 test processes at once): 4 of 42 runs failed before, 2 of 350 with the server fix alone, 0 of 420 with both.
+
+**Tests.** A third request sent while two Ballades draw gets the busy answer (fails on the old code, which draws it). Requests that find both processes taken are drawn in arrival order. A worksheet opened while every process stays taken gets the busy answer. One older test claimed to prove the wait but passed on the old code; the single score-work slot delays a third request either way, so it could not be made to prove it. It is renamed for what it checks (three drawings sent together are all drawn).
+
+**Left for the owner.** The busy answer still speaks of "reading another PDF", also for a drawing call. A call that only plays a passage still takes a drawing process. A PDF reading may wait up to 480 s for one.
+
+**Checks.** `tools/diff_check.py --base one-rule-one-place render`: 28 inputs, none changed (this area draws without the server's processes, so it shows only that the drawing code is untouched). The 19 server and worker test files: 289 passed. Lint passes. Full suite with the PDF reader, here: 1,671 passed, 4 skipped, 0 failed.
+
+### 193. Second group of rules written once: beat positions, sharps and flats in names, two rounding limits, note-list labels (2026-11-22, branch `rules-second-batch`, nothing released)
+
+**Why.** Continues entry 190. Each of these was written in several places that could drift apart.
+
+**Merged with no change in output.**
+- A position inside a bar is turned into the drawing library's beat number, and back, by one pair of `Measure` methods (three copies before, in drawing and in playback). A bar with no meter counts in quarters everywhere; playback used to fall back to the score's meter, which never differed on the test scores.
+- One function turns a key or note name into a pitch class, and one counts its sharps and flats. They replace three copies of the note-letter table and about ten separate counts of "#" and "b".
+- The two rounding limits for a beat (96) and for a position (960) have names; they were bare numbers in seven places.
+- A bar line ("m12") and a voice label ("1.2") in a note list are read by one pair of functions. The correction code had looser copies, but it only ever sees text the strict reader has already accepted, so nothing reachable changes.
+- `tools/diff_check.py --base one-rule-one-place all`: no changed item in any area (typed 191, part-writing 80, PDF warnings 80, export 6, drawing 28).
+
+**Changed on purpose.** A key written with a real sharp or flat sign was read without it: "F♯" as F, "B♭" as B. The shared function reads "#", "b", "-", "♯" and "♭". A new test covers five such keys; it fails on the old code.
+
+**New check.** One test runs the engine's own Roman-numeral reader and the second reader used for scoring over all 1,847 key-and-label pairs in use and fails on any disagreement outside two listed ones: the engine drops 9ths, 11ths and 13ths (47 pairs), and the second reader misreads "bIII" in a minor key (1 pair; in B♭ minor it gives C major where D♭ major is meant). The misreading occurs 16 times, all in one old trial, and fixing it would change no stored score, so it is listed, not fixed. 146 labels neither reader reads and 371 chord symbols only the second reader reads are outside the test.
+
+**Found and not changed.** Three copies of note-name-to-key-number disagree on negative octaves ("C-1"). The comparison code rounds a beat to twelfths and a length to sixteenths where the engine uses 96; the evaluation scripts use 48. The pitch check in the correction code is stricter than the note-list reader's.
+
+**Checks.** Tests of the touched modules pass; lint passes. Full suite on a home PC plus the two machine-bound files here: 1,668 passed, 4 skipped, 0 failed (e38a944).
+
+### 194. The piano version: no part labels, only lengths a musician writes, and a plain refusal where it cannot be faithful (2026-11-22, branch `piano-opening-signatures`, nothing released)
+
+**No part labels (owner's decision).** The piano version wrote a cue above the staff whenever the instruments playing changed: "Tutti", "Vl. I", and on PDF readings "V I, V II", which reads like Roman numerals. They are gone on every score, with the line of the page's guide that explained them and the two places on the site that described them. The staff name at the left ("Piano") stays. The description of `render_analysis` no longer mentions cues; ChatGPT shows the old wording until its next approved update. On the Mozart 41 test page the only drawn elements that changed are the five cue texts. The site's example picture is redrawn.
+
+**Lengths it could not write.** Entry 191 left three faults of one kind. Causes as found:
+- A gap one triplet eighth long was written as a sixteenth rest, a 64th rest and 1/48 of a quarter, because rests came only in plain sizes; the library's own notation step then cut the next note into 12:7 and 7:8 groups (Brahms, *Frühlingstrost*, bars 1-6).
+- A tied note of 2 + 1.75 quarters was merged into one triple-dotted half, because notes were cut only at beats (Mayer, bar 4).
+- Every bar was written at the reference part's length, capped at the time signature. Notes past that were moved by the library into the next bar, on top of its music, while the other hand stayed short. With no time signature the library re-barred as 4/4 and failed (choral page 3, bars 46-49).
+
+**Fix.** One splitter turns a stretch of time into rests, and a note that cannot be written whole into tied pieces: plain lengths where both ends lie on the plain grid, otherwise triplet, quintuplet or septuplet lengths inside one quarter; notes may be dotted, at most twice. A bar is as long as the longest part's notes and rests in it. The library's all-in-one notation step is no longer run; the steps still needed (accidentals, beams, tuplet brackets, splitting compound lengths) are run one by one, and the two that did damage (re-barring, merging tuplet rests) are not. `_beat` is unchanged, and for rests on the plain grid the old and new splitter give the same pieces on all 19,892 spans tried.
+
+**Numbers.** `tools/piano_check.py` (new, kept for the next change) draws 213 ranges over the test scores and checks each written length: three or more dots or no note value, a tuplet ratio the source never uses, or a tuplet run that does not start and end on the plain grid. Before the fix, after it, and after the refusals below:
+- ranges that fail: 2, 1, 0;
+- ranges refused with a message: 0, 0, 4 (all the *Die Stadt* reading);
+- ranges with such a length that is not also in the source bar: 28 (47 bars), 6 (8 bars), 5 (7 bars); the 5 left are damaged readings, none from the splitter;
+- ranges where the two hands disagree on a bar's length: 49 (87 bars), 0, 0.
+Of the 213 ranges 127 are written identically and 86 differ: 58 because a bar is now written at its real length (over-full or misaligned readings, and one real 23-quarter cadenza bar in a Chopin nocturne whose left hand used to stop at 6), 21 in how notes and rests are split, 4 in notation marks only, 2 where a note stays in its own over-full bar instead of moving to the next, and 1 drawn that failed before. The worker read every kind and at least one item of each, not all 86.
+
+**Refused instead of drawn wrong.** In the *Die Stadt* reading the voice part has 39 bars and the piano part 40. The piano version pairs parts by position, so such a score is out of step from the missing bar on. Of 57 cached readings with several parts, 3 have parts with different bars (also Faisst Op. 18 No. 2 and Hensel Op. 7 No. 1, where three of six parts lack bar 4): before this change, ranges after the missing bar were drawn silently out of step, and the whole piece failed. Leaving the broken part out was considered and rejected as the same fault as the dropped parts of entry 191. The piano version now answers "A piano version can't be made for this score: its parts don't line up bar for bar, which happens when a PDF was read badly. The full score can still be drawn." A second refusal names a bar whose lengths cannot be written even after splitting; no known input reaches it, so it has no end-to-end test. Both are ordinary refusals, charged like the other refusals from drawing.
+
+**Two beaming faults.** A tune chord reduced to its top note lost its beam, so groups that start on a chord were drawn with flags (Chopin Ballade, bars 36-38; 36 other ranges change in beam marks only). In a beat that holds tuplets, each tuplet group is now beamed on its own; before, one beam ran over two triplets in 6/4 (four Brahms ranges change, nothing else; the Ballade's plain eighths keep the half-bar grouping the owner chose).
+
+**Not fixed.** Giving every part of a reading the same bars belongs to the reading step and is not started. Thirteen bars are longer than their time signature only because of a rest; all are in readings or in fixtures built to imitate one. Brahms bars 5-6 are still crowded with stacked rests and dynamics. One test file crashes the drawing library natively and is skipped by the check.
+
+**Checks.** `tools/diff_check.py --base one-rule-one-place render`: 28 inputs, 1 changed (Mozart 41 piano, the labels). New end-to-end tests fail before each fix and pass after. Lint passes. Full suite on a home PC plus the two machine-bound files here: 1,676 passed, 4 skipped, 0 failed (1e30ced).
+
+### 195. A PDF reading's part that lost a bar gets a bar of rest; two readings with a split first system are left as they are (2026-11-22, branch `reading-even-parts`, nothing released)
+
+**Problem.** Entry 194 found readings whose parts do not hold the same bars. The step that tidies a reading before it is stored did not repair them, so they were stored that way. Over 112 readings (the 80 cached ones and 32 reader-written files in the test data), 7 were uneven, from two different causes.
+
+**Cause 1: a bar the reader did not write.** In Schubert's *Die Stadt* the voice's first bar, a whole rest in the print, is missing from the reading. That bar would have carried the voice part's only key, time signature and time unit for bars 2-12, so the drawing library dropped the whole voice staff and the score was drawn and analysed as piano only.
+
+**Fix.** The tidy step gives such a part a bar holding a whole-bar rest, never notes. It does so only when all of this holds: every other part has a bar with that number; the part's other bars carry the same numbers in the same order; the part's bars have the same widths on the page as the other parts' bars of the same number, within 2% (across the even readings 2,887 pairs of widths agree exactly and 150 differ by at most 4 units, while a shifted part differs by 395 against 327); and the time unit at the gap is known, either stated or the same for every plain note before the part first states one. For *Die Stadt* the voice staff is back and in step with the print, the doubtful bars fall from 31 to 15, and the piano version of the stored score is made instead of refused.
+
+**A slip in the first version of the repair.** The added bar took its length from the furthest point reached in the bar beside it. In *Die Stadt* that neighbour holds a whole-bar rest the reader wrote as ten quarters in a 3/4 bar, so the added bar was ten quarters too. A bar of rest is now as long as the time signature in force where it is placed; the older rule is kept only where no time signature is in force. The same helper is used when movements are joined: in the one set of per-movement test files, 20 silent bars of one part change, each to the 4/4 in force.
+
+**Whole-bar rests with a wrong length.** The reader writes a length on every whole-bar rest, and it is often not the bar's: 1,282 of 2,179 in the tidied readings (about 800 of them in parts with no time signature in force). The tidy step carries them along unchanged. The drawing does not show it. In the piano version, where a bar is as long as its longest part since entry 194, one bar of the 2,731 in the 78 drawable tidied readings was padded with rests because of it (Clara Schumann, Polonaise No. 3, bar 45: 5.5 quarters in 3/4; the reader wrote the rest after the notes). A whole-bar rest now counts as its bar's time-signature length there. Ignoring whole-bar rests altogether was tried first and was wrong: a bar with whole-bar rests in two parts and one eighth note in the third became half a quarter long and was taken for a pickup.
+
+**Cause 2, not repaired: a first system read as extra parts.** In the Faisst (*Lied der Nacht*) and Hensel (*Nachtwanderer*) readings, the reader took the first system's three staves as three extra one-staff parts, while the real voice and piano parts hold only rests there. On the voice staff it also found an empty bar at the very start, so the first system got four bar columns for three printed bars. Every bar number from printed bar 4 on is one above the print, the voice runs one bar behind the piano within that system, and the voice notes of printed bar 3 are lost. Both sources are benchmark PDFs engraved for testing, not real editions; other engravings of the same pieces read evenly. A bar of rest would make the bar lists equal and hide a wrong first system, and folding the split system back means rebuilding what the reader got wrong from guesses, which belongs to the reader work. The rule above leaves these readings untouched (5 of the 112, all copies of these two), and the piano version keeps refusing them.
+
+**Found and not fixed.** Setting every whole-bar rest to its bar's length in the tidy step would change which bars are shaded as doubtful (1,315 to 1,307 over the readings; seven readings lose marks, two gain one each); it waits for the owner. In *Die Stadt* the piano's ten-quarter rest keeps bar 1 shaded. The test file for that bar (a reading of a Clara Schumann polonaise) comes from an encoding whose licence has not been checked, so it is kept out of the public repo, in the ignored `tests/data/users`; its test is skipped where the file is absent, which includes CI. A clef the reader restates at a system start is drawn as a courtesy clef. `tools/piano_check.py` does not read compressed test files. `tools/diff_check.py` has no area that runs the tidy step, so it could not show this change; the worker compared doubtful bars, drawn staves and the tidied file over all the readings with the old and new code instead, and only the two *Die Stadt* copies change.
+
+**Checks.** `tools/even_parts_check.py` (new) lists uneven readings. New end-to-end tests: the tidied *Die Stadt* has three staves with the voice's notes where the print has them, and its piano version keeps every part in step; the Faisst reading is left as written and still refused. Reading tests with the PDF reader: 658 passed. Lint passes. Full suite on a home PC plus the two machine-bound files here: 1,696 passed, 4 skipped, 0 failed (dfb62a2, before the two later changes; the whole line is run again in entry 196).
+
+### 196. `correct_bars` accepts back what it handed out (2026-11-22, branch `correct-bars-fixes`, nothing released)
+
+**Use.** Recorded first because it decided how far to go: in the 30 days to 2026-11-22 the tool was called by real users twice, both on 31 October, both refused. This work was started before those counts were looked at.
+
+**Problem.** `correct_bars` hands a bar out as a note list and takes a changed list back. Entry 190 listed four ways it refused its own bars. Checked again over 149 files (391 parts): 313 bars are handed out with a voice longer than the bar, 537 with length 0.
+
+**Fixed.**
+- A voice is refused for its length only when that length is neither the bar's nor the length the same voice had when handed out. Before, any change to a bar with an over-long voice was refused ("voice 1.1 adds up to 5; expected 4 quarter notes"): 308 refusals when one pitch was changed, now 0. Such a voice is written back in full; before, a voice was cut at the bar's end. A voice changed to some other wrong length is still refused.
+- A bar with no length (no time signature, rests only) is handed out without voice lines. Before, an invented "0 r" line made the tool refuse the bar even unchanged: 536 bars, now 1 (a test file with invalid note lengths, left as it is).
+- One part of a score with instrument groups can be opened. Removing the other parts left empty groups, and the drawing library returned nothing (Dvořák 9 ii and Mozart 41, every part).
+- Over all runs no accepted change lost or moved a note in an untouched voice. In about 20 accepted bars tie marks change while the notes stay; not fixed.
+
+**Tried and taken back out: a change of time unit in mid-score.** The drawing library writes a later time unit only for the first part, and the score index reads the unit only at the start, so in a raw reading that changes its unit every later bar is mis-timed (in one file, notes adding up to 8 quarters in a 4/4 bar). A first fix that applied the later unit to every staff made 15 files worse (parts with different units were dragged onto the wrong one); a narrower one improved 10 files and worsened none by its own count, but broke two existing tests about corrections in files with mid-bar unit changes, which had not been rerun. Both commits are reverted. Measured instead: after the tidy step that every stored reading passes through, none of the 149 files changes its unit and the guard that refuses such corrections fires 0 times (237 times on the raw files). So the fault cannot reach a stored reading; it remains for uploaded files that change their unit, with a second, unexplained difference in where voices start after a jump inside the bar.
+
+**Not fixed.** 133 changed bars are refused because the bar changes clef, key or time in mid-bar (deliberate). Transposed parts are refused (deliberate). A correction takes about 11 seconds a bar on a long score. The check cannot finish three long scores in its time limit, and one test file crashes the drawing library.
+
+**Checks.** `tools/correct_corpus_check.py` and `tools/time_unit_corpus_check.py` (new) hand every bar out and back, raw or through the tidy step. `tools/diff_check.py --base rules-second-batch all` on the two fixes: no changed item. New end-to-end tests fail before each fix and pass after. Lint passes. Full suite of the whole line with this branch on top, on a home PC plus the two machine-bound files here: 1,705 passed, 4 skipped, 0 failed (4f86758).
+
+### 197. The careful reading of scans joined onto the current line, with a setting for where it is offered (2026-11-22, branch `careful-on-line`, nothing released)
+
+**Use.** Why this came first: in the 30 days to 2026-11-22, 48 of 91 PDF readings by ChatGPT users were scans, and the median scan came back with 60% of its bars shaded as doubtful (28 of 48 over half). Users who got a reading and never went on to a marked page had a median of 60% of bars shaded; those who went on, 34%. Share of scans and waiting time were the same in both groups.
+
+**Problem.** The careful reading (entry 181: the user's own chat reads each page of a scan, after a usage warning and the user's yes) was built on an older main and could not be released: it conflicted with everything since entry 186, and its offer is text our server sends, so a deploy would have offered it to ChatGPT users before OpenAI had approved the two new tools, and to Claude users at once.
+
+**Joined.** `careful-reading` is merged onto the line. The careful note writer (accidentals, slurs, dots, accents, clefs, sung words) and the correction rules of entry 196 both survive: there is now one reader of a voice line, used both for what a bar was handed out as and for what comes back, so "left as handed out" also compares the marks.
+
+**The setting.** `CAREFUL_READING` names the platforms that get the offer on a scan's result: unset (the default) for none, `chatgpt`, `claude`, or both. Every deploy sets it again, so a deploy without it switches the offer off.
+- Claude, not named: the two tools are also left out of Claude's tool list.
+- ChatGPT: the two tools are always listed and always work, because OpenAI's reviewer has to see them work before approving them, and ChatGPT users cannot reach unapproved tools. The order for a release is: deploy with the setting unset, submit, set it after approval. A first version made the tools refuse where the setting was off; that would have left the reviewer with two tools that refuse, or forced the offer on before approval.
+- Where the offer was not sent, the answer of `careful_reading` itself begins with the owner's usage warning, word for word, and tells the chat to wait for the user's yes. Without this, in the time between approval and switching the offer on, only a line in the tool's description stood between a chat and a careful reading nobody had agreed to.
+
+**Pages that begin with a short bar.** Each page is checked alone, then the pages are joined. Three faults, the first from the join with the line's bar names, the others older:
+- A page whose first bar was short was renamed by the drawing library to start at bar 0, so a refusal named the wrong bar ("Measure 19 does not exist"). On page 1 a short first bar must now be written as a pickup (`m0`), and the refusal says so; a later page is checked with a bar of rest in front, which never appears in any message or count.
+- A later page that truly begins with a short bar (the rest of a bar split by the page turn, or a section's pickup that completes the bar before it) could only be handed in by calling it a pickup, and the two halves became two bars, so every later bar was named one above its printed number. When the last bar of a page and the first bar of the next add up exactly to one bar of the time signature and key in force, they are now one bar. Where they do not add up, they stay two bars, as before.
+- Sung words at such a join: words on only one half were laid onto the other half's notes and a correct hand-in was refused with a message naming no page; and a sung note tied over any page turn could not be handed in at all (one check wanted a words entry for it, the other refused the entry). The half without words is now padded, and the entry for a note tied in from the page before is dropped at the join. The reading instructions gained one sentence saying to write an entry for such a note.
+
+**Not fixed.** A slur cannot cross a page turn: the instructions tell the helper to close it at the page's last note and open it again on the next page, so one slur becomes two. A tie into a voice that the next page leaves out loses its tie mark; the notes stay. The setting is not a kill switch for ChatGPT: once the tools are approved they work whether or not the offer is on.
+
+**A guard that runs in CI.** The reading that showed the whole-bar-rest fault of entry 195 was moved out of the public repo (its source's licence is unchecked), so in CI nothing tested that fix. A small constructed file of the same shape now does; the test fails with the fix taken out (bar lengths 6 and 3 quarters where 3 and 3 are expected).
+
+**Checks.** New end-to-end tests through a real server process for the setting unset, `chatgpt`, `claude` and both (offer, tool lists, the warning in the steps), and through the page join for each case above. `tools/correct_corpus_check.py --verify-untouched` on the line's head and on this branch: 150 files, 392 parts, 11,531 bars, the two summaries and all 392 part records identical; no accepted change lost or moved a note in an untouched voice. `tools/diff_check.py --base correct-bars-fixes all`: no changed item in 385. Lint passes. Not run: real chats and a staging deploy with the joined code. Full suite: see entry 198.
+
+### 198. The method no longer tells a chat to stop and ask which bars (2026-11-22, branch `no-bars-question`, nothing released)
+
+**Problem.** The owner decided on 2026-11-07 that the analysis goes straight on once a score is given. Claude's skill said so in its steps, but step 0 of the method, which the server puts into every result of `draft_analysis` and which is all ChatGPT sees, still said: "If not, ask which bars they want, suggesting the first 8 or 16, before analysing anything."
+
+**How far it could be measured.** From the calls of the 69 ChatGPT users of the last 30 days: after the first analysis that follows a PDF reading, a marked page came within three minutes for 25 of 41 analyses that named no bars (61%) and 11 of 16 that named a range (69%). Five users' last call was an analysis with no bars named and no page after it. This neither proves nor rules out that the question lost users: the log cannot tell "no bars named" from "all", and we never see what a chat wrote.
+
+**Fix.** Step 0 now says not to stop and ask, and to analyse the bars the table holds; two other sentences that spoke of the chat asking which bars lost that clause. What each platform analyses when no bars are named is unchanged (ChatGPT the whole piece, Claude the opening). The built Claude plugin in `dist/` is not touched, so this reaches ChatGPT with the next server deploy and Claude only with a plugin release.
+
+**Checks.** The ChatGPT flow test checks the result of `draft_analysis` for the old and the new sentence; it fails before and passes after. Lint passes. Full suite of the whole line with entries 197 and 198 on top, on a home PC plus the two machine-bound files here: 1,794 passed, 4 skipped, 0 failed (fbf17ef).
+
+### 199. A score's printed chord symbols stay on the page and are given to the chat (2026-11-22, branch `chord-symbols`, nothing released)
+
+**Use.** 17 of the 123 scores stored for users in the last weeks print chord symbols: 7 of 41 attached MusicXML files (24 to 93 symbols each; three written by a service that turns recordings into sheet music) and 10 of 82 PDF readings (half of those with only one to three, possibly misread text). They belong to at most 8 of 68 ChatGPT users.
+
+**Problem.** A lead sheet prints chord symbols above the staff (E, A7, B7). Every page we drew had none of them, and the notes given to the chat had none either. In a real ChatGPT chat on a 28-bar lead sheet with 23 printed symbols, the chat told the user "your score contains only a melody, so the chord names on my annotated copy are suggested harmonizations".
+
+**Cause.** To keep crowded bars wide enough for our numerals we add hidden chord symbols below the staff and delete them again after layout (entry of 2026-10-06). The deletion removed every chord symbol on the page, the score's own included. Nobody had decided to drop them.
+
+**Fix.**
+- Our hidden spacers carry a mark of their own and only they are removed. A printed chord symbol is now printed text like any other on the page, so our marks above the staff are placed around it by the rule that already existed for words. This covers the marked page, its PDF and the card that shows a PDF reading. The plain page already kept them.
+- A symbol the file marks as "no chord" prints the text the user's copy prints ("N.C."). The drawing library ignores that text and printed the placeholder root, a plain "C". Such a symbol with no text is dropped. In the first 6,000 scores of the dataset used for checks, 12 of 573 scores with chord symbols have such symbols, 191 in all, 122 of them with no text.
+- Roman numerals a user typed into a notation program are stored in a separate form; they stay off the page and out of the notes, as before. Labels the program could not read as numerals ("Fr43", "Ger65") are stored as chord symbols and now print as typed.
+- When a score prints chord symbols, the table of notes that `draft_analysis` returns ends each row with the symbols standing at that beat, and one sentence asks the chat to relate its own labels to them and to say where its reading of the notes differs. For a score without chord symbols the result is unchanged (compared over 70 test scores: 67 identical, the 3 that differ are the 3 with chord symbols).
+- Our spacers are left out when the score is indexed. Without that, a spacer for a label that begins with a letter from A to G ("Ger65", "Cad64") was read as a printed chord symbol in one internal pass.
+
+**Checks.** `tools/chord_symbol_check.py` (new) draws every score that prints chord symbols with a full set of our marks and counts symbols that overlap one of our marks or other printed text: 747 symbols on 44 scores (the test data, one private lead sheet and 40 dataset scores), 0 overlapping our marks, 1 pair of printed symbols overlapping each other as the drawing library placed them. Eight pages looked at full size. New test file: a lead sheet of "Amazing Grace" written by hand (the tune is from 1829), with 16 chord symbols; the dataset had no tune free of a living arranger's credit. New end-to-end tests fail on the old code. `tools/diff_check.py --base no-bars-question all`: no changed item in 385 (none of its inputs prints a chord symbol). `tools/engraving_check.py` no longer leaves chord symbols out of its collisions and still reports none. Lint passes. Full suite on a home PC plus the two machine-bound files here: 1,803 passed, 4 skipped, 0 failed (273896f).
+
+**Not fixed.** The piano version rebuilds the score and carries no chord symbols. On a melody with words under it, or a lead sheet, our numerals below the staff are drawn on the sung words (15 of 17 numerals on one such test piece; none on songs with piano or on chorales, 823 numerals over 58 scores with words): the row of numerals is placed from the staff and its notes and does not see the words. Two ways to fix it were drawn for the owner; not decided. Not run: real chats with the new table.
+
+### 200. Every card in ChatGPT came up empty on staging; the card emptied itself, and ChatGPT was running a stored copy of it (2026-11-23, branch `chord-symbols`, nothing released)
+
+**Problem.** In every ChatGPT chat on staging on 22 and 23 November the card was an empty dark panel: no picture, no caption, no buttons. The tool answers were complete and the browser fetched the picture each time. Production (revision 00065-fjv) was not affected.
+
+**Cause 1, the card.** The change of 14 November that hides an old reading under a status line (189411f) made the card hide everything on any update that carries no picture. In ChatGPT today the result does not arrive in `window.openai.toolOutput`, which stays empty; it arrives as a `ui/notifications/tool-result` message. ChatGPT also sends about ten `openai:set_globals` updates in the first 50 ms (safe area, display mode, theme, width) and more later, none with a result. The card took each one as an update without a picture and emptied itself, about 25 ms after it had drawn the page. The same handler set the picture's address again on every update, which could reload it in a loop; a tab froze that way. Production's card returns early on an update without a picture, so it never did this.
+
+**Cause 2, why the fixes seemed not to work.** ChatGPT keeps its own copy of an app's tool list and card pages. The development app on staging went on running the page of 14 November whatever staging served. Three signs, all from staging's request log: no chat ever asked for the tool list; a card page that reports each of its steps to the server was served (19,051 bytes) and not one report arrived, while a card still fetched its picture; and that picture was requested 6 ms after the page was, too soon for the new page to have reached the browser. After one press of "Refresh tools" on the development app (ChatGPT settings, Integrations, Plugins, the app), the reporting page ran and both cards showed in two new chats and in a reopened one.
+
+**A false trail, about two hours.** Before finding cause 2 I took the blank cards for a fault that came in with some commit and deployed seven older versions and two experiments to staging, one chat each, to find it. The results split cleanly by commit (4 shown, 7 blank) and I narrowed the "fault" to nine commits that only touch the engine. It was chance: the stored page sometimes survives when no update follows the result quickly. A second chat on a version that had "shown" came back blank, and its first chat was blank when reopened. The second run was the Opus session's suggestion and should have been my first step: one chat per version is not a measurement when the outcome can vary. Its byte-for-byte comparisons of what the server sends (identical between "showing" and "blank" versions) were pointing the same way.
+
+**Fix** (server/card.html, three commits):
+- 6f5f0e4: the picture's address is set only when it changes, so nothing reloads in a loop.
+- 6f69a51: an update without a picture empties the card only when it carries a status line, which is the one case 189411f was written for (an old reading under "Still reading your PDF").
+- 3ff88b5: a `set_globals` update is acted on only when `window.openai.toolOutput` holds a result. Before this, each such update also reset the "Send this problem to us" block and the rating flag from ChatGPT's own wrapper object, so a failed call's report block vanished 25 ms after it was drawn.
+
+A fourth change (report the card's size again after the host answers `ui/initialize`) was written on the theory that ChatGPT ignores size reports sent before that answer. The reporting page showed otherwise: the frame took the page's height 0.1 to 0.5 s after the picture loaded, and in two of three cards ChatGPT never answered `ui/initialize` at all. The change was taken out.
+
+**Checks.** tests/test_cards_browser.py runs the card in a real browser against a stand-in host: 31 tests before, 37 now. The new ones replay what the reporting page recorded in ChatGPT (result by message; then updates with no tool output and ChatGPT's wrapper object as metadata) and require the picture, caption, buttons, rating row and problem report to stay. As the Opus session reported them: two of the three update sequences fail on 6f5f0e4's card, and the problem-report test fails on 6f69a51's; the picture-and-rating test passes on both and only guards against a regression. Full suite with the PDF reader on 3ff88b5: 1,809 passed, 4 skipped, 0 failed.
+
+**In real chats.** Two new chats and one reopened chat on staging with 6f69a51 plus the withdrawn size change plus the reporting code: both cards shown each time, with their buttons. **NOT RUN:** 3ff88b5 itself in a real chat (it needs another press of "Refresh tools", which is the owner's to allow); a failed call's report block in a real chat.
+
+**What this means for a release.** `main` carries the card of 14 November. A production deploy from it would have been harmless at first, because the published app runs the copy OpenAI approved, and then every ChatGPT user's cards would have gone blank when the next submission was approved. The line now carries the corrected card. The rule for staging is in CLAUDE.md: after a staging deploy that changes a tool or a card, press "Refresh tools" on the development app before judging anything in a chat.
+
+**Not fixed.** `use_careful_reading` and `correct_bars` are announced as read-only and repeatable, and both store a new score on each call. Found while comparing tool lists; not the cause of anything above.
+
+### 201. The owner's decisions of 23 November put on the branch and tried in real chats: the whole piece by default, sentences instead of tables, a question Claude skipped, tools announced as writes (2026-11-23, branch `reply-tone`, nothing released)
+
+**Decisions.** After seeing replies from both products before and after the new commentary guidance, the owner approved it ("much better i like it") and decided: when the user names no bars, both products analyse the whole piece; the careful reading stays offered on every scan; tools that store something stop being announced as read-only at the next release (first two, then all of them, below); and a standing yes to press "Refresh tools" on the development app and to switch connectors for staging tests (written into `CLAUDE.md`).
+
+**What a whole piece costs us.** Production logs of the last 30 days hold 193 drawings. Drawing a whole piece took no longer than drawing a named range: median 10.1 s against 14.2 s in ChatGPT (73 and 64 drawings), 6.9 s against 9.4 s in Claude (20 and 35). ChatGPT already asked for the whole piece in 94 of 195 drafts. All drawing in the month came to about 47 minutes of server time. The cost falls on the user's side: the notes of a 262-bar piece (Chopin's first Ballade) are 108,000 characters, of a 74-bar rag 33,000.
+
+**Changes.** `skill/SKILL.md`: step 3 asks for the whole piece when no bars are named (it said "up to the first 8 bars"); a very long piece whose notes come back refused is asked for in stretches of about 60 bars; one drawing for the whole stretch unless the notes say the score is too large to draw in one call (the server already says so above 2,000 staff-bars); in a long stretch about one callout for every 16 to 24 bars and no more than eight; "write sentences, not tables". The last three came from the review by another model (Opus), which also listed the tools below.
+
+**ChatGPT on staging, real chats** (thinking effort medium, after "Refresh tools"; files in the private folder `staging-proof`):
+
+| Chat | Cards | Bars analysed | "Which bars?" | Table | Words |
+|---|---|---|---|---|---|
+| Satie, MusicXML | shown | all 47 | no | no | 412 |
+| "Danny Boy", MusicXML | shown | all 17 | no | no | 567 |
+| Chopin Op. 28 No. 4, PDF | analysis shown; reading card without its picture (see below) | all 25 | no | no | 547 |
+| A PDF with no music, twice | problem text and "Send this problem to us" shown, still there after 60 s and after reloading the chat | | | | |
+
+Under the earlier wording ("no table of chords") 3 of 6 replies still had a table; under "sentences, not tables" 0 of 3. The failed-read chat is the real-chat check that entry 200 listed as not run.
+
+**The stored copy can lag behind "Refresh tools".** The first failed-read chat, 7 minutes after the Refresh, was still drawn by the diagnostic page of entry 200 (79 of its reports arrived). The analysis cards of the two chats before it, both cards of the chat 80 seconds after it and the repeat 7 minutes later sent none. So one card address can go on running the old page for some minutes after a Refresh.
+
+**Claude on staging: the careful-reading question was skipped.** A two-page scan in a claude.ai chat (Sonnet, medium, the published plugin's skill loaded, connector on the staging address; the server log confirms the calls reached staging). The read result carried the offer and "do not call draft_analysis yet". Claude called `draft_analysis` six seconds later and analysed the quick reading; its thinking step was titled "Weighing an in-result instruction against the skill's guidance". The skill's step 2 said "Go straight on to the analysis with the score_id it returned, without asking the user to check the reading first", in the published plugin and on the branch alike, and no branch had changed it when the offer was built. Step 2 now says that a question in the read result is asked first, in the result's words. The second review (Opus) found the same contradiction in the server's own texts: the scan result went on, right after the offer, with "Go straight on to the analysis ... call draft_analysis with this score_id now", and the descriptions of `read_pdf` and `read_fetched_pdf` say "go straight on without waiting for the user". With the offer the result now says only "Call draft_analysis with this score_id" for the case of a no, and both descriptions carry "unless the result tells you to ask the user a question first". One chat; the fixed skill cannot run in the Claude app before a plugin release, and the changed result text has not been in a real chat.
+
+Asked for directly in the same chat, the careful reading worked: Claude explained the download, the helpers and the cost and asked once more, fetched the kit from GitHub (staging answered 403 to its sandbox), read the script before running it, started one helper for each page, and handed in 14 bars 9.5 minutes after the yes. The page with the analysis showed in the chat. The reading was not checked note by note this time.
+
+**Tools announced as writes.** OpenAI's guidelines ask for `readOnlyHint` false for "persisting artifacts, starting stateful jobs". `correct_bars` and `use_careful_reading` store a new score on every call and are now announced so. By the same wording `render_analysis`, `choose_score`, `fetch_score`, `draft_from_notes` and the two PDF readers are writes as well (new files or ids on each call, or a reading job), and `draft_analysis` with a file is borderline. A build that announced all of them as writes was tried twice in ChatGPT after a Refresh (ChatGPT fetched the tool list at that moment): no confirmation box in either chat under the app's default permission, "Allow low-risk tools". A user who has chosen "Allow read-only tools" would be asked before each of them; that was not tried. The owner then decided to correct all of them. Only `play` and `careful_reading`, which store nothing, stay read-only; one helper, `stores()`, carries the hints, and a test over the tool list keeps the sets apart. The two PDF readers and `draft_analysis` are announced as safe to repeat (a repeat returns the kept reading or the same score), the others not. In Claude the connector page lists `correct_bars`, `draft_analysis`, `draft_from_notes` and `fetch_score` under "Read-only tools" today; where they go after the change, and whether a Claude user in manual mode is asked more often, was not tried.
+
+**Staging only: a reading card without its picture.** Staging has two addresses on one store (ChatGPT's, and the tagged one Claude's connector uses), and a finished reading is kept with the full address of its picture. A PDF first read through one address shows a broken picture in the other product's card, which may load only from its own address. Production has one address.
+
+**Checks.** Full suite with the reader on ab02f8c: 1,809 passed, 4 skipped (no ring codes), 0 failed; again on f4fdfe0, with the hint and text changes and the new tool-list test: 1,810 passed, 4 skipped, 0 failed.
+
+**NOT RUN.** The new commentary guidance and the corrected step 2 in the Claude app itself (both need a plugin release); a long piece (over 100 bars) with no bars named, in either product; a ChatGPT user on "Allow read-only tools"; a second Claude chat for the skipped question.
+
+### 202. Release preparation: four older pull requests folded into the line, and the combined branch tried on staging (2026-11-23, branch `next-release`, nothing released)
+
+**Why.** Nothing had reached production since 14 November. The owner asked for the four open pull requests to go in first, and said that server releases may reach the live Claude connector while Claude plugin releases stay paused.
+
+**What was merged into the line** (the line = entries 189 to 201, on top of main):
+- #38: `CLAUDE.md` no longer forbids naming the model an accuracy figure was measured with. No conflict.
+- #32 (entry 170): the upload card's device code in a header, and the privacy page. Conflicts only in this log and in the privacy page's date, which today's operator line had also changed; the newer date and the operator line stay.
+- #33 (entry 173): a PDF read inside a request of its own. Conflicts in `server/app.py` and `server/deploy.sh` with the proxy key pair (entry 186), the unreadable-PDF note and the careful-reading setting. The automatic part of the merge had put the line's `unread` into the pull request's new `recorded()`, where no such name exists: every unreadable PDF would have raised an error. Git reported no conflict there; the Opus session caught it by reading the result, and `recorded()` now takes the note as an argument. The read's own request carries the first proxy key.
+- #37 (entries 182, 183) and `letter-pages` (entries 184, 185): layout, guide and Letter sheets. Conflicts in `engine/annotate.py`, `engine/page_key.py` and the guide sentence in `server/app.py`, all from one cause: the line had removed the piano version's part labels (entry 194), and these branches still passed them to the guide. The arguments are gone.
+
+**How the waits fit together after #33** (read from the merged code). Only the instance that receives `/read-work` waits for a drawing process; the instance that received the chat's call only waits on that request. A read has 480 s, and the wait for a drawing process (up to 480 s more) starts after it, so read, wait and drawing can in the worst case pass the 900 s that Cloud Run, the request and the read marker all share; the caller then gets our error with a reference. Left as it is: one read runs per instance and a drawing gives its process back within seconds, so the wait after a read is short in practice.
+
+**Measured on staging (Cloud Run).**
+- The user PDF behind the hold of 20 November (five pages, guitar with tablature; its second reading pass for thin beams took about 250 s then and the user would have waited about 5.5 minutes): a fresh read through `/read-work` took 182 s in all (reader 174 s, of which the first pass 93 s). The request log shows `/read-work` answering 200 after 181 s on the instance that got the call. Production today reads the file in about 75 s without the second pass.
+- Locally, largest case (Ballade Op. 23, 25 pages): picture 34.8 s, picture and PDF 50.8 s; the second layout for Letter sheets is 2.4 s of that, the rest is writing the PDF as before. Nocturne Op. 9 No. 2: 6.7 s and 11.8 s.
+
+**What ChatGPT runs until OpenAI approves the update.** Its stored tool list and card page are production's. Production's card page (tag `prod-00065-fjv`) run against this branch's server in the browser tests: 31 of 35 pass. The 4 that fail test faults that card has in production today (it keeps the old reading under a status text, loses the problem report on ChatGPT's updates, reports its size more than once). Tool list against main: two new tools (`careful_reading`, `use_careful_reading`), nine tools no longer announced as read-only, five changed descriptions, no changed arguments, the same card address.
+
+**Review.** Each merge was read by a different model than made it (the #33 merge by Fable, the layout merges by Fable and then Opus). Opus drew PDFs for a lead sheet with chord symbols, a score with a bar named "3a", two piano versions and a whole nocturne: every sheet is 612 x 792 points and holds the same bars per line as the chat picture; no fault found. Noted, not caused by the merges and not looked into: `_balance_systems` returns early when the first layout already gives more than one page, so such a piece may never reach the `line` mode of entry 183.
+
+**Real chats on staging** (revision 00157-fcm, careful reading offered on both products, "Refresh tools" pressed 10 minutes before the first ChatGPT chat; records in the owner's private folder):
+
+| Chat | Cards | Question first | Bars | Table | Words |
+|---|---|---|---|---|---|
+| ChatGPT, two-page scan | both shown | the careful-reading offer, word for word; nothing analysed before it | all 13, after "no thanks" | no | 678 |
+| ChatGPT, The Entertainer (MusicXML, 74 bars) | shown | none | whole piece | no | 456 |
+| ChatGPT, Chopin Prelude 4 (digital PDF) | reading card broken picture, analysis shown | none | all 25 | no | 526 |
+| Claude with the published plugin, two-page scan | upload card shown, reading card broken picture, analysis shown | the careful-reading offer | 0 to 8 | no | 712 |
+
+- Claude asked the offer although the published skill still says "go straight on" (entry 201 had it skip the question): with the result text of f4fdfe0, which no longer says "go straight on" after the offer, it asked. One chat.
+- Claude with the published plugin still analyses the opening only (0 to 8), as that skill says.
+- The two broken reading-card pictures are the staging-only fault of entry 201, confirmed for both: the stored reading of the Chopin PDF holds picture links to staging's second address (stored on 20 November through Claude's test connector) and was shown through the first, and the scan's the other way round. Production has one address.
+- The PDF from the Chopin chat: two sheets, both 612 x 792 points.
+- No confirmation box in any chat.
+
+**The path OpenAI's reviewer will take** (revision 00160-dz6: the same code with the offer on for Claude only, as production will launch; two ChatGPT chats with the two-page scan):
+- Asked in the first message to "read it carefully, then analyse it", ChatGPT read the PDF, analysed the quick reading (13 bars) and offered to check the shaded bars. Only after "Yes, go ahead" did it call `careful_reading`, whose steps began with the usage warning and the question, as built for a product where no offer was made. So a reviewer case that expects the question in the first reply would not match.
+- In the order now written into `openai-plugin/plugin.json` (analyse the scan; "Please read this scan carefully instead."; "Yes, go ahead."): the second reply gave the warning word for word and started nothing; after the yes ChatGPT fetched the three kit files from our server (200 each), read both pages with two helpers and handed in 14 bars 3 minutes 19 seconds after the yes; the analysis card showed the page, and the reply says the page shows its careful reading. No confirmation box.
+
+**Checks.** Full suite with the reader on the merged code (79c4f40): 1,901 passed, 4 skipped (no ring codes), 2 expected failures, 0 failed.
+
+**NOT RUN.** The new reply guidance in the Claude app (needs a plugin release); a piece over 100 bars with no bars named; a ChatGPT user on "Allow read-only tools"; a second Claude chat for the offer; the careful reading's notes checked against the scan this time; a read whose own request lands on the other instance (the one timed read stayed on one); the #33 path on production's address with the proxy key (it has only run on staging, which has no key).
 
 ## Reproducing
 

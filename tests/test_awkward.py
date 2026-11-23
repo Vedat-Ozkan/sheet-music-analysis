@@ -1,3 +1,4 @@
+import io
 import re
 import xml.etree.ElementTree as ET
 from fractions import Fraction
@@ -6,7 +7,7 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageChops
 
-from engine import correct, notes, piano, reduce
+from engine import annotate, correct, notes, page_key, piano, reduce
 from engine.annotate import render
 from engine.annotations import Alternative, AnnotationList
 from engine.check_analysis import ClarificationNeeded, from_musicxml, from_text, student_labels
@@ -14,7 +15,7 @@ from engine.check_analysis import as_text as student_check
 from engine.export import _document, export_musicxml
 from engine.part_writing import applies, as_text, check
 from engine.performance import marked_index, perform
-from engine.overlay import PageLayout
+from engine.overlay import PageLayout, S
 from engine.read_pdf import problem_spots
 from engine.render import Engraving, load_toolkit
 from engine.score import ScoreIndex
@@ -35,7 +36,11 @@ SCORES = {
     "pdf-reading-overrun": DATA / "awkward" / "kinkel-op8-5-trennung-reading.musicxml",
     "additive-and-mixed-meters": DATA / "awkward" / "additive-and-mixed-meters.musicxml",
 }
-KNOWN: dict[tuple[str, str], str] = {}
+KNOWN: dict[tuple[str, str], str] = {
+    ("clear_strip", "grace-mixed-meter"): "with every bar marked, the marks of two systems still meet; so they did before the gaps followed the marks",
+    ("clear_strip", "key-change-tuplets"): "with every bar marked, the marks of two systems still meet; so they did before the gaps followed the marks",
+}
+HALF_A_STAFF = 24
 
 score_ids = pytest.mark.parametrize("name", list(SCORES))
 
@@ -300,6 +305,101 @@ def test_one_chord_alternative_is_drawn(name):
     alternative = {"type": "alternative", "start": {"measure": bars[0], "beat": 1}, "end": {"measure": bars[0], "beat": 1}, "label": "V"}
     svg = render(data, AnnotationList.model_validate({"annotations": harmonies + [alternative]}), measures=(bars[0], bars[-1])).svgs[0]
     assert 'stroke-dasharray="1 70"' in svg and ">V<" in svg
+
+
+@score_ids
+@pytest.mark.parametrize("excerpt", [False, True], ids=["whole", "excerpt"])
+def test_every_system_holds_the_bars_chosen_for_it(name, excerpt, monkeypatch):
+    data, index = load(name)
+    numbers = [measure.number for measure in index.measures if measure.number > 0]
+    chosen, choose = [], annotate._breaks
+
+    def watched_choice(widths, *args):
+        starts = choose(widths, *args)
+        chosen.append([end - start for start, end in zip([0, *starts], [*starts, len(widths)])])
+        return starts
+
+    monkeypatch.setattr(annotate, "_breaks", watched_choice)
+    engraving = render(data, AnnotationList.model_validate({"annotations": []}), measures=(numbers[0], numbers[min(7, len(numbers) - 1)]) if excerpt else None)
+    drawn = [len(re.findall(r'class="measure"', system)) for svg in engraving.svgs for system in svg.split('class="system"')[1:]]
+    assert not chosen or chosen[0] == drawn, name
+
+
+@score_ids
+def test_a_bar_stands_alone_on_a_thin_line_only_when_no_neighbour_fits_beside_it(name, monkeypatch):
+    data, _ = load(name)
+    choices, choose = [], annotate._breaks
+
+    def watched_choice(widths, line, penalty, opening=0.0, first_opening=0.0, rigid=frozenset()):
+        starts = choose(widths, line, penalty, opening, first_opening, rigid)
+        choices.append((widths, line, opening, first_opening, rigid, starts))
+        return starts
+
+    monkeypatch.setattr(annotate, "_breaks", watched_choice)
+    render(data, AnnotationList.model_validate({"annotations": []}))
+    for widths, line, opening, first_opening, rigid, starts in choices:
+        for bar in annotate._lone_bars(widths, starts, line, opening, first_opening):
+            for pair in ((bar - 1, bar), (bar, bar + 1)):
+                if 0 <= pair[0] and pair[1] < len(widths) and not rigid.intersection(pair):
+                    shared = widths[pair[0]] + widths[pair[1]] + (opening if pair[0] else first_opening)
+                    assert shared > annotate.MOST_SQUEEZE * line, (name, bar)
+
+
+@score_ids
+@pytest.mark.parametrize("excerpt", [False, True], ids=["whole", "excerpt"])
+def test_every_page_of_the_pdf_is_a_letter_sheet_with_the_guide_at_its_foot(name, excerpt, monkeypatch):
+    from pypdf import PdfReader
+
+    pages, draw = [], page_key.draw
+
+    def watch(layouts, layout, size=page_key.PRINT_SIZE, foot=None):
+        if foot is not None:
+            pages.extend(layouts)
+        return draw(layouts, layout, size, foot)
+
+    monkeypatch.setattr(page_key, "draw", watch)
+
+    data, index = load(name)
+    numbers = [measure.number for measure in index.measures if measure.number > 0]
+    marks = AnnotationList.model_validate({"annotations": [{"type": "cadence", "at": {"measure": numbers[0], "beat": 1}, "label": "PAC"}]})
+    engraving = render(data, marks, measures=(numbers[0], numbers[min(7, len(numbers) - 1)]) if excerpt else None, key=True)
+    sheets = PdfReader(io.BytesIO(engraving.pdf())).pages
+    assert {(round(float(sheet.mediabox.width)), round(float(sheet.mediabox.height))) for sheet in sheets} == {(612, 792)}, name
+    assert len(pages) == len(sheets), name
+    foot = annotate.FOOT_MARGIN * annotate.UNIT
+    for number, layout in enumerate(pages):
+        _, _, width, height = map(float, layout.root.find(f"{S}svg").get("viewBox").split())
+        assert height / width == pytest.approx(11 / 8.5, abs=0.001), (name, number)
+        bottom = page_key._sheet_bottom(layout)
+        lowest = max(system.bottom() for system in layout.systems)
+        guide = [float(text.get("y")) for group in layout.root.iter(f"{S}g") if group.get("class") == "page-key" for text in group.iter(f"{S}text")]
+        assert bool(guide) == (number == len(pages) - 1), (name, number)
+        assert lowest <= bottom - foot, (name, number)
+        if guide:
+            assert bottom - foot - page_key.PRINT_SIZE <= max(guide) <= bottom - foot, (name, number)
+            assert lowest <= min(guide) - page_key.PRINT_SIZE, (name, number)
+
+
+@score_ids
+def test_marks_of_neighbouring_systems_leave_a_clear_strip_between_them(name, request):
+    known(request, "clear_strip", name)
+    data, index = load(name)
+    bars = [measure for measure in index.measures if measure.number > 0][:16]
+    marks = [{"type": "harmony", "at": {"measure": bar.number, "beat": 1}, "label": "V", "function": "D", **({"key": "C"} if not number else {})}
+             for number, bar in enumerate(bars)]
+    for start in range(0, len(bars), 4):
+        phrase = bars[start : start + 4]
+        marks += [{"type": "phrase", "start": {"measure": phrase[0].number}, "end": {"measure": phrase[-1].number}, "label": "a"},
+                  {"type": "cadence", "at": {"measure": phrase[-1].number, "beat": 1}, "label": "PAC"},
+                  {"type": "callout", "at": {"measure": phrase[0].number, "beat": 1}, "number": start // 4 + 1}]
+    engraving = render(data, AnnotationList.model_validate({"annotations": marks}), measures=(bars[0].number, bars[-1].number))
+    for svg in engraving.svgs:
+        page = Engraving([svg])._raster(1, 1400)
+        inked = [bool(ImageChops.difference(page.crop((0, row, page.width, row + 1)), Image.new("RGB", (page.width, 1), "#ffffff")).getbbox())
+                 for row in range(page.height)]
+        first, last = inked.index(True), len(inked) - inked[::-1].index(True)
+        strips = [len(run) for run in "".join(" x"[row] for row in inked[first:last]).split("x") if len(run) >= HALF_A_STAFF]
+        assert len(strips) >= svg.count('class="system"') - 1, (name, strips, svg.count('class="system"'))
 
 
 @score_ids

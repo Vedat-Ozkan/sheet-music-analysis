@@ -123,7 +123,7 @@
     status.textContent = (data && data.status) || "";
     status.hidden = !status.textContent;
     if (!data || !data.image_url) {
-      for (const id of ["caption", "shading", "open-page", "actions", "more", "rating", "suggest"]) document.getElementById(id).hidden = true;
+      if (status.textContent) for (const id of ["caption", "shading", "open-page", "actions", "more", "rating", "suggest"]) document.getElementById(id).hidden = true;
       return;
     }
     document.getElementById("actions").hidden = false;
@@ -137,7 +137,7 @@
     const image = document.getElementById("page");
     image.onload = reportSize;
     image.alt = description;
-    image.src = data.image_url;
+    if (image.getAttribute("src") !== data.image_url) image.src = data.image_url;
     pageUrl = data.image_url;
     const opener = document.getElementById("open-page");
     opener.setAttribute("aria-label", "Open the page full size: " + description);
@@ -261,10 +261,11 @@
   function showFromOpenAI() {
     show(window.openai.toolOutput, window.openai.toolResponseMetadata);
   }
-  if (window.openai && (window.openai.toolOutput || window.openai.toolResponseMetadata)) showFromOpenAI();
+  const hasOpenAIResult = () => Boolean(window.openai && window.openai.toolOutput);
+  if (hasOpenAIResult()) showFromOpenAI();
   window.addEventListener("openai:set_globals", () => {
     applyTheme(window.openai);
-    if (window.openai) showFromOpenAI();
+    if (hasOpenAIResult()) showFromOpenAI();
   });
 </script>
 </body>

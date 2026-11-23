@@ -10,7 +10,7 @@ from fractions import Fraction
 
 from engine.errors import UserError
 from engine.render import load_toolkit
-from engine.score import LETTERS, MEI, SEMITONES, XML_ID, Event, Mark, Measure, ScoreIndex
+from engine.score import LETTERS, MEI, SEMITONES, STEPS, XML_ID, Event, Mark, Measure, ScoreIndex, alteration
 
 LEVELS = {"ppp": 30, "pp": 42, "p": 55, "mp": 66, "mf": 78, "f": 92, "ff": 105, "fff": 118}
 ACCENTS = {"sf": 20, "sfz": 20, "sffz": 24, "fz": 18, "rf": 14, "rfz": 16, "z": 16}
@@ -73,8 +73,7 @@ def marked_index(score: bytes) -> ScoreIndex:
 
     def place(bar_id: str, tstamp: str) -> tuple[Measure, Fraction]:
         measure, segment = index.locate_segment(bar_id)
-        unit = int((measure.meter or index.meter or "4/4").split("/")[1])
-        return measure, segment.start + max(Fraction(tstamp).limit_denominator(960) - 1, Fraction(0)) * 4 / unit
+        return measure, measure.offset_at_tstamp(segment, tstamp)
 
     for score_def in root.iter(f"{MEI}scoreDef"):
         if score_def.get("midi.bpm") and index.measures:
@@ -140,17 +139,17 @@ def _playing_order(index: ScoreIndex, root: ET.Element) -> list[Measure] | None:
     return played or None
 
 
-def unclear_tempos(index: ScoreIndex, measures: tuple[int, int] | None = None) -> list[tuple[int, str]]:
+def unclear_tempos(index: ScoreIndex, measures: tuple[int, int] | None = None) -> list[tuple[str, str]]:
     tempos = [(measure, mark) for measure in index.measures for mark in measure.marks if mark.kind == "tempo"]
     if measures:
-        chosen = _chosen(index, measures)
+        chosen = index.select(*measures)
         position = {id(measure): number for number, measure in enumerate(index.measures)}
         first, last = position[id(chosen[0])], position[id(chosen[-1])]
         inside = [(measure, mark) for measure, mark in tempos if first <= position[id(measure)] <= last]
         before = [(measure, mark) for measure, mark in tempos if position[id(measure)] < first][-1:]
         replaced = any(measure is chosen[0] and mark.offset == 0 for measure, mark in inside)
         tempos = ([] if replaced else before) + inside
-    return [(measure.number, mark.value) for measure, mark in tempos if mark.value in TEMPO_WORDS]
+    return [(measure.name, mark.value) for measure, mark in tempos if mark.value in TEMPO_WORDS]
 
 
 def perform(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: float | None = None) -> tuple[list[Note], list[tuple[float, int]], float]:
@@ -161,7 +160,7 @@ def perform(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: f
             try:
                 return float(value)
             except ValueError:
-                raise UserError(f"Bar {measure.number} is marked {value!r}; give the tempo in quarter notes per minute "
+                raise UserError(f"Bar {measure.name} is marked {value!r}; give the tempo in quarter notes per minute "
                                  f"or as one of {', '.join(TEMPO_WORDS)}") from None
         return tempo or TEMPO_WORDS[value] * float(measure.beat_length)
 
@@ -205,7 +204,7 @@ def perform(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: f
 
     window = (0.0, max((note.end for note in performed), default=0.0))
     if measures:
-        chosen = _chosen(index, measures)
+        chosen = index.select(*measures)
         ids = {id(measure) for measure in chosen}
         kept = [note.start for note, measure in notes if id(measure) in ids]
         window = (min(kept, default=clock.ms(float(starts[id(chosen[0])]))), clock.ms(float(starts[id(chosen[-1])] + chosen[-1].length)))
@@ -236,14 +235,6 @@ def _bar_starts(index: ScoreIndex) -> dict[int, Fraction]:
     return starts
 
 
-def _chosen(index: ScoreIndex, measures: tuple[int, int]) -> list[Measure]:
-    first, last = index.measure(measures[0]), index.measure(measures[1])
-    start, end = index.measures.index(first), index.measures.index(last)
-    if measures[0] == 1 and start > 0 and index.measures[start - 1].number == 0:
-        start -= 1
-    return index.measures[start : end + 1]
-
-
 class _Clock:
     def __init__(self, tempos: list[tuple[Fraction, float]]):
         self.points = [(0.0, 0.0, DEFAULT_TEMPO)]
@@ -264,7 +255,7 @@ class _Clock:
 def _midi(pitch: str) -> int:
     accidental = pitch[1:].rstrip("0123456789")
     octave = int(pitch[1 + len(accidental) :])
-    return 12 * (octave + 1) + SEMITONES[LETTERS.index(pitch[0])] + accidental.count("#") - accidental.count("b")
+    return 12 * (octave + 1) + STEPS[pitch[0]] + alteration(accidental)
 
 
 def _notes(index: ScoreIndex, starts: dict[int, Fraction], clock: _Clock) -> tuple[list[tuple[Note, Measure]], dict[str, Note]]:
@@ -363,7 +354,7 @@ def _starts_ornaments_above(root: ET.Element) -> bool:
 
 def _spelled(pitch: str) -> tuple[str, int, int]:
     accidental = pitch[1:].rstrip("0123456789")
-    return pitch[0], int(pitch[1 + len(accidental) :]), accidental.count("#") - accidental.count("b")
+    return pitch[0], int(pitch[1 + len(accidental) :]), alteration(accidental)
 
 
 def _neighbour(event: Event, measure: Measure, direction: int, printed: str, key: dict[str, int]) -> int:

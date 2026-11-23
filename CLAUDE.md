@@ -18,10 +18,11 @@ These are the owner's standing rules. Older detail is in the memory notes for th
 - After a deploy, check the new revision's startup lines and errors in the logs.
 - The published Claude plugin is `dist/sheet-music-analysis` on GitHub `main`, read by Claude's directory and by our own marketplace (`.claude-plugin/marketplace.json`): pushing a changed `dist/` is a plugin release. Ask first, rebuild it with `tools/build_skill.py` and bump the version in `plugin/.claude-plugin/plugin.json`.
 - ChatGPT holds new or changed tools until OpenAI approves them, and an update that is held keeps the old tool metadata. Keep every widget address an approved tool points to working until the update is approved.
+- ChatGPT runs its own stored copy of an app's tool list and card pages, not what the server serves at that moment. After a staging deploy that changes a tool or a card, press "Refresh tools" on the development app (ChatGPT settings, Integrations, Plugins, the app) before judging anything in a chat, wait about ten minutes (a card still ran the old page 7 minutes after a Refresh), and run a chat twice before drawing a conclusion from it. The owner has given a standing yes (2026-11-23) to pressing "Refresh tools" on the development app "sheet-music-staging" and to adding, removing or switching connectors in the owner's Claude and ChatGPT accounts when that is needed to make a test reach staging; the released apps and their settings are not covered.
 
 ## Owner decisions
 - Display, upload or UI choices: show real examples from both Claude and ChatGPT first; the owner decides.
-- Public text (site, listings, messages users see) must be clear to someone with very basic music knowledge; explain how a number was measured; no library or model names.
+- Public text (site, listings, messages users see) must be clear to someone with very basic music knowledge; explain how a number was measured; no library names.
 - Record problems, fixes and before/after numbers in `docs/engineering-log.md`, honestly.
 - Keep agent and evaluation token use low: short fresh briefs, Sonnet for routine work, test on 2-3 pieces first, ask before anything over about US$10.
 - Commit with explicit paths; never push, deploy or publish without being asked.

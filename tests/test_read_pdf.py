@@ -7,6 +7,7 @@ import threading
 import time
 import xml.etree.ElementTree as ET
 import zipfile
+from fractions import Fraction
 from pathlib import Path
 
 import pikepdf
@@ -263,6 +264,28 @@ def test_a_reading_without_a_time_signature_is_checked_against_its_most_common_b
     assert _problem_spots(score, timing=False)[0]
     assert ("No time signature was read, so bars were checked against the most common bar length. "
             "The shaded bars") in notice(score, True, [])
+
+
+def test_clean_gives_a_part_the_first_bar_the_reader_left_out_as_a_silent_bar():
+    score = clean(zipped((Path(__file__).parent / "data/pdf_warnings/schubert_die_stadt_audiveris.musicxml").read_bytes()))
+    voice, piano = ET.fromstring(score).findall("part")
+    assert [bar.get("number") for bar in voice.iter("measure")] == [bar.get("number") for bar in piano.iter("measure")]
+    assert voice.find("measure").find("note/rest").get("measure") == "yes"
+    assert voice.find("measure").find("note/pitch") is None
+    first = voice.find("measure")
+    assert Fraction(int(first.findtext("note/duration")), int(first.findtext("attributes/divisions"))) == 3
+    measures = ScoreIndex(load_toolkit(score).getMEI()).measures
+    assert {event.staff for measure in measures for event in measure.events} == {1, 2, 3}
+    assert [(event.onset, event.pitch) for event in measures[5].events if event.staff == 1 and event.pitch] == [(Fraction(11, 4), "G4")]
+    assert [event.onset for event in measures[6].events if event.staff == 1] == [0, Fraction(7, 4), 2, Fraction(11, 4)]
+
+
+def test_clean_leaves_parts_whose_bar_numbers_are_shifted_as_the_reader_wrote_them():
+    reading = gzip.decompress((Path(__file__).parent / "data/pdf_warnings/faisst_lied_der_nacht_audiveris.musicxml.gz").read_bytes())
+    def bars(xml):
+        return [[bar.get("number") for bar in part.iter("measure")] for part in ET.fromstring(xml).iter("part")]
+    assert bars(clean(zipped(reading))) == bars(reading)
+    assert len({tuple(numbers) for numbers in bars(reading)}) == 2
 
 
 def test_clean_drops_a_key_that_only_restates_the_current_one():

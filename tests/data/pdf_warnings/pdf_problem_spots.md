@@ -34,3 +34,15 @@ Source: OpenScore Lieder, Kinkel, *Trennung*, Op. 8 No. 5; CC0 1.0. The PDF is t
 - `kinkel_trennung_variant0.mxl`: SHA256 `12dfd29d76cec336f6b4776ebe205e5f074a9f7209ef1f3923ddcd73afc3b4c5`. Raw cache `c2e2cf60d8dfde0a7efb6dcd1fe863fa.mxl`.
 - `kinkel_trennung_variant1.mxl`: SHA256 `54106e8de5e6c1113aff0a3a48b7ac605f4ef16a65f27bf5909c92b9bf7bb831`. Raw cache `2a5ed050d9cfe3a0be5972d04449c5c9.mxl`.
 - `kinkel_trennung_variant2.mxl`: SHA256 `6f97d0426556bfb4487120b32bb0f567b97438fced029e1676bbad7454a666bb`. Raw cache `a8ea5e4e834df1abdb19464213a91261.mxl`.
+
+Uneven-parts fixture (2026-11-22):
+
+- `faisst_lied_der_nacht_audiveris.musicxml.gz`: gzip of the unchanged `bench/cache/runs/results-final--faisst-op18-2-lied-der-nacht--vr.musicxml` (read from the Verovio-engraved benchmark PDF `bench/pdfs/faisst-op18-2-lied-der-nacht--vr.pdf`). The reader split its first system into three extra one-staff parts, so its parts hold different bars.
+  Source: https://github.com/OpenScore/Lieder/tree/main/scores/Faisst,_Clara_Mathilda/4_Lieder,_Op.18/2_Lied_der_Nacht/
+  Licence: CC0 1.0 (OpenScore)
+  SHA256 (uncompressed): `b35b61a5bd94d9a1207a4ad88768eb66cafa0b342f82d9fc615f54b1b651ab43`.
+- `clara_schumann_polonaise_3_scan_reading.musicxml.gz` (NOT in this repo: kept in the git-ignored `tests/data/users`, because the licence of the encoding it was read from is not verified; its test is skipped where the file is absent): gzip of the unchanged `bench/cache/runs/results-final--clara-schumann-polonaise-3--scan.musicxml` (read from the synthetic scan of the MuseScore engraving). Bar 45 ends with a whole-bar rest written after the bar's notes.
+  Source: https://github.com/cuthbertLab/music21/tree/master/music21/corpus/schumann_clara/polonaise_op1n3.mxl
+  Licence: work public domain; encoding from the music21 corpus, whose per-file licences are not uniform (not individually verified).
+  SHA256 (uncompressed): `4b34ed2c07b3e6c6ead0f2e33c9d7c9010f5609b181aa1d839ef79be5c8739b3`.
+- `whole_bar_rest_after_notes.musicxml`: the shape of that bar 45 in a file of its own, so CI checks the rule: one piano part on two staves in 3/4, bar 1 with three quarters above and a half and a quarter below, then a whole-bar rest (no voice, not printed) of 4 quarters written after the notes; bar 2 plain. Constructed valid MusicXML, not an OMR output. SHA256: `607ae441992ebccf421eecc1621c3421c06d4a21dafe4f81ccfaad047a87f9b9`.

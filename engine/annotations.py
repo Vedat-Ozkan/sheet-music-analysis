@@ -13,11 +13,12 @@ Style = Literal["current", "abrsm", "figured_bass"]
 
 
 class Position(BaseModel):
-    """A moment in the score. `beat` is 1-based in the meter's beat unit (a dotted quarter in 12/8)."""
+    """A moment in the score. `measure` is the bar's printed number, or its name such as "16a" for a bar the print does
+    not number. `beat` is 1-based in the meter's beat unit (a dotted quarter in 12/8)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    measure: int
+    measure: int | str
     beat: float = 1.0
 
 
@@ -26,7 +27,7 @@ class RangeEnd(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    measure: int
+    measure: int | str
     beat: float | None = None
 
 

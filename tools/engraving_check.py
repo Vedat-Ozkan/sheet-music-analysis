@@ -150,7 +150,7 @@ def collisions(page_count: int) -> dict:
                 overlapping.append(string)
             elif any(_touches(box, other, LABEL_PAD / 2) for other in others):
                 tight.append(string)
-    music = [hit for layout in _layouts[-page_count :] for hit in music_collisions(layout.source, frozenset({"harm"}))]
+    music = [hit for layout in _layouts[-page_count :] for hit in music_collisions(layout.source)]
     return {"labels": sum(len(layout.labels) + len(layout.harmony_labels) for layout in _layouts[-page_count:]), "overlapping": overlapping, "tight": tight, "music": music}
 
 

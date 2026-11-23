@@ -22,7 +22,7 @@ elif [ "$STAGE" != production ]; then
   exit 1
 else
   git fetch -q origin main
-  if [ -n "$(git status --porcelain -- Dockerfile Dockerfile.base cloudbuild.yaml pyproject.toml uv.lock engine server skill)" ] \
+  if [ -n "$(git status --porcelain -- Dockerfile Dockerfile.base cloudbuild.yaml pyproject.toml uv.lock engine server skill kit)" ] \
     || [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
     echo "production deploys only from a clean checkout of origin/main; commit, push and let CI pass first" >&2
     exit 1
@@ -87,15 +87,17 @@ cat > /tmp/$SERVICE-sources.json <<'EOF'
 EOF
 gcloud storage buckets update "gs://${PROJECT}_cloudbuild" --lifecycle-file=/tmp/$SERVICE-sources.json
 
+OWN_ADDRESS=https://$RUN_SERVICE-$(gcloud projects describe "$PROJECT" --format='value(projectNumber)').$REGION.run.app
 if [ "$STAGE" = staging ]; then
-  PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://$RUN_SERVICE-$(gcloud projects describe "$PROJECT" --format='value(projectNumber)').$REGION.run.app}
+  PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-$OWN_ADDRESS}
 fi
 PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://mcp.sheetmusicanalysis.com}
+KIT_ELSEWHERE=https://raw.githubusercontent.com/Vedat-Ozkan/sheet-music-analysis/$(git rev-parse HEAD)/kit
 gcloud run deploy "$RUN_SERVICE" --image="$DIGEST" --region="$REGION" \
   --service-account="$ACCOUNT" "$ACCESS" "${PROXY_KEY[@]}" \
   --execution-environment=gen2 --cpu=4 --memory=4Gi --concurrency=2 --min-instances=0 --max-instances=2 --timeout=900 \
   --startup-probe=tcpSocket.port=8080,timeoutSeconds=240,periodSeconds=240,failureThreshold=3 \
-  --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL@CONNECTOR_URL=${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}$LIMITS"
+  --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL@CONNECTOR_URL=${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}@KIT_ELSEWHERE=$KIT_ELSEWHERE@CAREFUL_READING=${CAREFUL_READING:-}@OWN_ADDRESS=$OWN_ADDRESS$LIMITS"
 if [ "$STAGE" = production ]; then
   REVISION=$(gcloud run services describe "$RUN_SERVICE" --region="$REGION" --format='value(status.latestReadyRevisionName)')
   git tag "prod-${REVISION#$SERVICE-}"

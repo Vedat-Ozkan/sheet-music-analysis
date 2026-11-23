@@ -144,7 +144,7 @@ def test_a_solo_transposing_part_is_read_in_concert_pitch_before_and_after_a_key
     assert [measure.key_signature for measure in index.measures] == ["0", "2s"]
 
 
-def test_a_second_ending_the_file_leaves_uncounted_is_counted_and_drawn_with_the_same_number():
+def test_a_second_ending_the_file_leaves_uncounted_is_named_after_the_bar_before_on_the_page_too():
     bars = "".join(f'<measure number="{label}">{attributes}{note("C", 5, 1)}</measure>' for label, attributes in [
         ("1", '<attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>'),
         ("2", '<barline location="left"><ending number="1" type="start"/></barline>'),
@@ -153,8 +153,9 @@ def test_a_second_ending_the_file_leaves_uncounted_is_counted_and_drawn_with_the
              f'</score-part></part-list><part id="P1">{bars}</part></score-partwise>').encode()
     mei = load_toolkit(score).getMEI()
     index = ScoreIndex(mei)
-    assert [measure.number for measure in index.measures] == [1, 2, 3, 4, 5] and index.renumbered
-    assert re.findall(r'<measure\b[^>]*?\bn="(\d+)"', mei) == ["1", "2", "3", "4", "5"]
+    assert [measure.name for measure in index.measures] == ["1", "2", "2a", "3", "4"]
+    assert re.findall(r'<measure\b[^>]*?\bn="([^"]+)"', mei) == ["1", "2", "2a", "3", "4"]
+    assert index.bar("2a") is index.measures[2] and index.bar(3) is index.measures[3]
 
 
 def mxl(container: str | None, score: bytes) -> bytes:
@@ -186,3 +187,9 @@ def test_a_huge_mxl_container_is_refused_before_it_is_unpacked():
 def test_an_empty_duration_does_not_stop_the_score_loading():
     score = one_bar("", "C4").replace(b"<duration>4</duration>", b"<duration/>")
     assert load_toolkit(score).getMEI()
+
+
+def test_a_score_with_no_bars_has_an_empty_index():
+    mei = ('<mei xmlns="http://www.music-encoding.org/ns/mei"><music><body><mdiv><score>'
+           '<scoreDef meter.count="4" meter.unit="4"/><section/></score></mdiv></body></music></mei>')
+    assert ScoreIndex(mei).measures == []

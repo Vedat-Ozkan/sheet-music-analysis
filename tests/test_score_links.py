@@ -133,8 +133,8 @@ def test_a_file_past_the_daily_score_limit_is_refused_and_not_kept(server, site,
     async def send():
         transport = httpx.ASGITransport(app=app.mcp.streamable_http_app(stateless_http=True))
         async with httpx.AsyncClient(transport=transport, base_url="http://card") as browser:
-            return await browser.post(f"/upload?id=CARD&device={'a' * 32}", content=FILES["/public/prelude.pdf"],
-                                      headers={"Origin": "https://abc.claudemcpcontent.com"})
+            return await browser.post("/upload?id=CARD", content=FILES["/public/prelude.pdf"],
+                                      headers={"Origin": "https://abc.claudemcpcontent.com", "x-device": "a" * 32})
 
     refused = anyio.run(send)
     assert refused.status_code == 429 and refused.json() == {"error": app.UPLOAD_LIMIT_MESSAGE}
@@ -151,8 +151,8 @@ def test_one_device_gets_its_own_daily_limit_of_new_scores_and_a_file_sent_again
         server.put(f"scores/{card}.waiting", b"")
         transport = httpx.ASGITransport(app=app.mcp.streamable_http_app(stateless_http=True))
         async with httpx.AsyncClient(transport=transport, base_url="http://card") as browser:
-            return await browser.post(f"/upload?id={card}&device={device}", content=FILES[file],
-                                      headers={"Origin": "https://abc.claudemcpcontent.com"})
+            return await browser.post(f"/upload?id={card}", content=FILES[file],
+                                      headers={"Origin": "https://abc.claudemcpcontent.com", "x-device": device})
 
     first, same, new, other = (anyio.run(send, card, device, file) for card, device, file in
                                (("CARD1", "a" * 32, "/public/prelude.pdf"), ("CARD2", "a" * 32, "/public/prelude.pdf"),
@@ -161,6 +161,18 @@ def test_one_device_gets_its_own_daily_limit_of_new_scores_and_a_file_sent_again
     assert new.status_code == 429 and new.json() == {"error": app.UPLOAD_PERSON_MESSAGE}
     assert "already sent can still be analysed" in app.UPLOAD_PERSON_MESSAGE
     assert server.get("scores/CARD3") is None and charged(server, "score") == 2
+
+
+def test_a_card_that_still_puts_its_device_code_in_the_address_is_the_same_device(server):
+    async def send(card, address, headers):
+        server.put(f"scores/{card}.waiting", b"")
+        transport = httpx.ASGITransport(app=app.mcp.streamable_http_app(stateless_http=True))
+        async with httpx.AsyncClient(transport=transport, base_url="http://card") as browser:
+            return await browser.post(address, content=FILES["/public/prelude.pdf"], headers=headers)
+
+    now = anyio.run(send, "CARD1", "/upload?id=CARD1", {"x-device": "a" * 32})
+    before = anyio.run(send, "CARD2", f"/upload?id=CARD2&device={'a' * 32}", {})
+    assert now.status_code == 200 and before.status_code == 200 and charged(server, "score") == 1
 
 
 def test_an_upload_sent_without_its_length_is_stopped_at_10_mb(server):

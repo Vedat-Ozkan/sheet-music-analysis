@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import math
 import os
 import tempfile
 from bisect import bisect_left, bisect_right
@@ -8,42 +9,63 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from fractions import Fraction
 
-from music21 import chord, clef, tie, converter, dynamics, expressions, instrument, key, layout, meter, note, pitch, stream
+from music21 import chord, clef, tie, converter, duration, dynamics, instrument, key, layout, meter, note, pitch, stream
 from music21.common.numberTools import opFrac
+from music21.stream import makeNotation
 from music21.musicxml.m21ToXml import GeneralObjectExporter
 
-from engine.score import beat_length
+from engine.errors import UserError
+from engine.render import load_toolkit
+from engine.score import ScoreIndex, beat_length
 
-ABBREVIATIONS = {
-    "Piccolo": "Picc.", "Flute": "Fl.", "Oboe": "Ob.", "EnglishHorn": "Cor. ingl.", "Clarinet": "Cl.",
-    "BassClarinet": "Cl. b.", "Bassoon": "Fg.", "Contrabassoon": "Cfg.", "Horn": "Cor.", "Trumpet": "Tr.",
-    "Trombone": "Trb.", "BassTrombone": "Trb.", "Tuba": "Tuba", "Timpani": "Timp.", "Harp": "Arpa",
-    "Violin": "Vl.", "Viola": "Vla.", "Violoncello": "Vc.", "Contrabass": "Cb.",
-    "SopranoSaxophone": "S. Sax.", "AltoSaxophone": "A. Sax.", "TenorSaxophone": "T. Sax.", "BaritoneSaxophone": "Bar. Sax.",
-    "Euphonium": "Euph.", "Piano": "Pno.", "Organ": "Org.",
+PARTS_DO_NOT_LINE_UP = ("A piano version can't be made for this score: its parts don't line up bar for bar, "
+                        "which happens when a PDF was read badly. The full score can still be drawn.")
+UNWRITABLE_BAR = ("A piano version can't be made for bars {first}-{last}: bar {name} was read with note lengths "
+                  "that can't be written. Try other bars, or correct that bar first.")
+FAMILIES = {
+    "Piccolo", "Flute", "Oboe", "EnglishHorn", "Clarinet", "BassClarinet", "Bassoon", "Contrabassoon", "Horn", "Trumpet",
+    "Trombone", "BassTrombone", "Tuba", "Timpani", "Harp", "Violin", "Viola", "Violoncello", "Contrabass",
+    "SopranoSaxophone", "AltoSaxophone", "TenorSaxophone", "BaritoneSaxophone", "Euphonium", "Piano", "Organ",
 }
 STRINGS = {"Violin", "Viola", "Violoncello", "Contrabass"}
-TUTTI, STRINGS_CUE = "Tutti", "Str."
 BASS = {"Violoncello", "Contrabass", "Bassoon", "Contrabassoon", "Tuba", "Trombone", "BassTrombone", "BassClarinet", "BaritoneSaxophone"}
 LOWEST_RIGHT_HAND = 55
 SPAN = 14
 HIGHEST_LEFT_HAND = 64
+PLAIN = (1.0, 0.5, 0.25, 0.125, 0.0625, 0.03125)
+TUPLETS = (Fraction(2, 3), Fraction(4, 5), Fraction(4, 7))
 
-def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[int, Fraction, str, Fraction]] = ()) -> bytes:
-    parts = _parts(score, measures)
-    kept: dict[int, list[tuple[float, pitch.Pitch, float]]] = {}
+class PianoError(UserError):
+    pass
+
+
+def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[int, Fraction, str, Fraction]] = (),
+           index: ScoreIndex | None = None) -> bytes:
+    index = index or ScoreIndex(load_toolkit(score).getMEI())
+    owners = {segment.index: (measure, segment.start, following.start if following else None)
+              for measure in index.measures
+              for segment, following in zip(measure.segments, measure.segments[1:] + [None])}
+    first = index.select(*measures)[0].index if measures else 1
+    last = index.measure(measures[1]).last_index if measures else max(owners)
+    parts = _parts(score, (first, last))
+    kept: dict[int, list[tuple[Fraction, pitch.Pitch, float]]] = {}
     for number, offset, name, length in keep:
-        kept.setdefault(number, []).append((float(offset), _m21_pitch(name), float(length)))
+        kept.setdefault(number, []).append((offset, _m21_pitch(name), float(length)))
     reference = next((p for p in parts.values() if p.family in STRINGS), next(iter(parts.values())))
-    signature = reference.measures[0].keySignature or reference.measures[0].getContextByClass(key.KeySignature)
+    signature = reference.keys[0]
     flat_key = signature is not None and signature.sharps < 0
     right_hand, left_hand = stream.Part(), stream.Part()
-    previous_cue = previous_lead = None
+    previous_lead = None
     carried: dict = {}
     for number, ref in enumerate(reference.measures):
         bar = {name: part.measures[number] for name, part in parts.items()}
-        right, left, previous_cue, previous_lead, carried = _reduce_bar(
-            bar, parts, ref, kept.get(ref.number, []), flat_key, previous_cue, previous_lead, number == 0, carried
+        length = max(part.ends[number] for part in parts.values()) or reference.bar_lengths[number]
+        owner, start, end = owners[first + number]
+        here = [(float(offset - start), found, length) for offset, found, length in kept.get(owner.number, [])
+                if start <= offset and (end is None or offset < end)]
+        right, left, previous_lead, carried = _reduce_bar(
+            bar, parts, ref, (reference.keys[number], reference.times[number], length),
+            owner.number, here, flat_key, previous_lead, number == 0, carried
         )
         right_hand.append(right)
         left_hand.append(left)
@@ -51,7 +73,34 @@ def reduce(score: bytes, measures: tuple[int, int] | None, keep: Iterable[tuple[
         _pair_ties(hand)
     out = stream.Score([right_hand, left_hand])
     out.insert(0, layout.StaffGroup([right_hand, left_hand], symbol="brace", name="Piano"))
-    return GeneralObjectExporter(out).parse()
+    for hand in (right_hand, left_hand):
+        _notate(hand)
+        bar = _unwritable_bar(hand)
+        if bar is not None:
+            span = (index.name_of(owners[first][0].number), index.name_of(owners[last][0].number))
+            raise PianoError(UNWRITABLE_BAR.format(first=span[0], last=span[1], name=index.name_of(bar)))
+    exporter = GeneralObjectExporter(out)
+    exporter.makeNotation = False
+    return exporter.parse()
+
+
+def _unwritable_bar(hand: stream.Part) -> int | None:
+    return next((measure.number for measure in hand.getElementsByClass(stream.Measure) for element in measure.recurse().notesAndRests
+                 if element.duration.type == "inexpressible" or (element.duration.type == "complex" and not element.isRest)), None)
+
+
+def _notate(hand: stream.Part) -> None:
+    if not hand.streamStatus.accidentals:
+        makeNotation.makeAccidentalsInMeasureStream(hand)
+    for measure in hand.getElementsByClass(stream.Measure):
+        measure.flattenUnnecessaryVoices(inPlace=True)
+    if not hand.streamStatus.beams:
+        makeNotation.makeBeams(hand, inPlace=True)
+    for measure in hand.getElementsByClass(stream.Measure):
+        for written in (measure, *measure.voices):
+            if not written.streamStatus.tuplets:
+                makeNotation.makeTupletBrackets(written, inPlace=True)
+    hand.splitAtDurations(recurse=True)
 
 
 def _pair_ties(part: stream.Part) -> None:
@@ -76,14 +125,21 @@ def _edge_tie(comes_in: bool, goes_out: bool):
 
 
 class _Part:
-    def __init__(self, part: stream.Part, name: str, family: str, abbreviation: str, number: str):
+    def __init__(self, part: stream.Part, name: str, family: str):
         self.measures = list(part.getElementsByClass(stream.Measure))
-        self.name, self.family, self.abbreviation, self.number = name, family, abbreviation, number
+        self.keys = [m.keySignature or m.getContextByClass(key.KeySignature) for m in self.measures]
+        self.times = [m.timeSignature or m.getContextByClass(meter.TimeSignature) for m in self.measures]
+        self.bar_lengths = [m.barDuration.quarterLength for m in self.measures]
+        self.ends = [max((m.barDuration.quarterLength if e.isRest and e.fullMeasure in (True, "always")
+                          else opFrac(e.getOffsetInHierarchy(m) + e.quarterLength)
+                          for e in m.recurse().notesAndRests if not e.duration.isGrace), default=0)
+                     for m in self.measures]
+        self.name, self.family = name, family
 
 
 def _family(part: stream.Part, inst: instrument.Instrument) -> str:
     family = type(inst).__name__
-    if family in ABBREVIATIONS:
+    if family in FAMILIES:
         return family
     for name in (inst.instrumentName, part.partName):
         try:
@@ -93,7 +149,7 @@ def _family(part: stream.Part, inst: instrument.Instrument) -> str:
     return family
 
 
-def _parts(score: bytes, measures: tuple[int, int] | None) -> dict[str, _Part]:
+def _parts(score: bytes, positions: tuple[int, int]) -> dict[str, _Part]:
     suffix = ".mxl" if score[:2] == b"PK" else ".musicxml"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as file:
         file.write(score)
@@ -101,21 +157,19 @@ def _parts(score: bytes, measures: tuple[int, int] | None) -> dict[str, _Part]:
         parsed = converter.parse(file.name, format="musicxml")
     finally:
         os.unlink(file.name)
-    excerpt = parsed.measures(*measures) if measures else parsed
+    if len({tuple(m.number for m in part.getElementsByClass(stream.Measure)) for part in parsed.parts}) > 1:
+        raise PianoError(PARTS_DO_NOT_LINE_UP)
+    excerpt = parsed.measures(positions[0] - 1, positions[1], indicesNotNumbers=True)
     excerpt = excerpt.toSoundingPitch()
-    found = [(part, part.getInstrument()) for part in excerpt.parts if part.flatten().pitches]
+    every_part = [(part, part.getInstrument()) for part in excerpt.parts]
+    found = [(part, inst) for part, inst in every_part if part.flatten().pitches] or every_part
     families = [_family(part, inst) for part, inst in found]
-    parts, seen = {}, {}
+    parts = {}
     for (part, inst), family in zip(found, families):
         if isinstance(inst, instrument.UnpitchedPercussion):
             continue
-        name = part.id or str(len(parts))
-        abbreviation = ABBREVIATIONS.get(family) or inst.instrumentAbbreviation or part.partName or "Instr."
-        number = ""
-        if families.count(family) > 1:
-            seen[family] = seen.get(family, 0) + 1
-            number = " " + ["I", "II", "III", "IV"][min(seen[family], 4) - 1]
-        parts[name] = _Part(part, name, family, abbreviation, number)
+        name = str(len(parts))
+        parts[name] = _Part(part, name, family)
     return parts
 
 
@@ -138,23 +192,6 @@ def _similar(a: list[float], b: list[float]) -> bool:
     return len(set(a) & set(b)) >= 0.8 * max(len(a), len(b))
 
 
-def _cue(names: list[str], parts: dict[str, _Part]) -> str:
-    families = {parts[n].family for n in names} - {"Timpani"}
-    if families & STRINGS and families - STRINGS:
-        return TUTTI
-    if families <= STRINGS and len(families) > 1:
-        return STRINGS_CUE
-    cues = []
-    for family in dict.fromkeys(parts[n].family for n in names if parts[n].family != "Timpani"):
-        members = [n for n in names if parts[n].family == family]
-        everyone = [n for n in parts if parts[n].family == family]
-        if len(members) == len(everyone):
-            cues.append(parts[members[0]].abbreviation)
-        else:
-            cues += [parts[n].abbreviation + parts[n].number for n in members]
-    return ", ".join(cues)
-
-
 def _respell(p: pitch.Pitch, flat_key: bool) -> pitch.Pitch:
     if p.accidental is None or abs(p.alter) <= 2:
         return p
@@ -164,8 +201,7 @@ def _respell(p: pitch.Pitch, flat_key: bool) -> pitch.Pitch:
     return q
 
 
-def _beat(ref: stream.Measure) -> float:
-    signature = ref.timeSignature or ref.getContextByClass(meter.TimeSignature)
+def _beat(signature: meter.TimeSignature | None) -> float:
     if signature is None:
         return 1.0
     if signature.denominator == 8 and signature.numerator % 3 == 0:
@@ -177,9 +213,12 @@ def _beat(ref: stream.Measure) -> float:
 
 
 def _beam(voice: stream.Stream, beat: float) -> None:
-    groups: dict[int, list] = {}
+    beat_of = lambda element: int(float(element.offset) / beat + 1e-6)
+    with_tuplets = {beat_of(element) for element in voice.notesAndRests if element.duration.tuplets}
+    groups: dict[tuple[int, ...], list] = {}
     for element in voice.notesAndRests:
-        groups.setdefault(int(float(element.offset) / beat + 1e-6), []).append(element)
+        key = (beat_of(element), int(Fraction(element.offset) // _beam_span(element, beat))) if beat_of(element) in with_tuplets else (beat_of(element),)
+        groups.setdefault(key, []).append(element)
     for group in groups.values():
         run = []
         for element in group + [None]:
@@ -195,6 +234,13 @@ def _beam(voice: stream.Stream, beat: float) -> None:
                     else:
                         x.beams.append(kind)
             run = []
+
+
+def _beam_span(element, beat: float) -> Fraction:
+    written = element.duration
+    group = Fraction(duration.convertTypeToQuarterLength(written.type)) * written.tuplets[0].numberNotesNormal if written.tuplets else 0
+    pulse = Fraction(beat) if beat <= 1.5 else 1
+    return max(group, pulse)
 
 
 @dataclass(eq=False)
@@ -347,24 +393,54 @@ def _hands(notes: list[_Note], tune_at: Callable[[float], float | None], one_rig
         n.hand = h
 
 
-def _rest_lengths(start: float, end: float, beat: float, length: float) -> list[float]:
+def _lengths(start: float, end: float, beat: float, length: float, note: bool = False) -> list[float]:
     pieces, t = [], start
     while t < end:
-        if t == 0 and end == length:
+        if t == 0 and end == length and not note:
             size = length
-        elif t % beat == 0 and t + beat <= end:
-            size = max(s for s in (beat * 2**k for k in range(4)) if t % s == 0 and t + s <= end)
+        elif _on(t, beat) and t + beat <= end:
+            whole = [beat * 2**k * dots for k in range(4) for dots in ((1, 1.5) if note else (1,))]
+            size = max(s for s in whole if _on(t, s) and t + s <= end)
         else:
             limit = min(end, (t // beat + 1) * beat)
-            within = t - (t // beat) * beat
-            sizes = [s for s in (1.0, 0.5, 0.25, 0.125, 0.0625) if s < beat and within % s == 0 and t + s <= limit]
+            sizes = _sizes(t, limit, beat, note)
             size = sizes[0] if sizes else limit - t
         pieces.append(opFrac(size))
         t = opFrac(t + size)
     return pieces
 
 
-def _note_spans(start: float, end: float, beat: float) -> list[tuple[float, float]]:
+def _sizes(t: float, limit: float, beat: float, note: bool) -> list[float]:
+    t = Fraction(t)
+    within = t % Fraction(beat)
+    for factor in (1, *TUPLETS):
+        bound = limit if factor == 1 else min(limit, t // 1 + 1)
+        smallest = Fraction(PLAIN[-1]) * factor
+        if not (_on(t, smallest) and _on(bound, smallest)):
+            continue
+        units = [Fraction(s) * factor for s in PLAIN if Fraction(s) * factor < beat]
+        dotted = (1.5, 1) if note and factor == 1 else (1,)
+        sizes = [opFrac(unit * dots) for unit in units for dots in dotted]
+        return [size for size in sizes if _on(within, size) and t + size <= bound]
+    return []
+
+
+def _on(time: float, grid: float) -> bool:
+    return Fraction(time) % Fraction(grid) == 0
+
+
+def _writable(start: float, end: float) -> bool:
+    written = duration.Duration(opFrac(end - start))
+    if written.type in ("inexpressible", "complex", "zero") or written.dots > 2:
+        return False
+    if not written.tuplets:
+        return True
+    group = Fraction(duration.convertTypeToQuarterLength(written.type)) * written.tuplets[0].numberNotesNormal
+    one_group = Fraction(start) // group == math.ceil(Fraction(end) / group) - 1
+    return one_group and all(Fraction(t.numberNotesNormal, t.numberNotesActual) in TUPLETS for t in written.tuplets)
+
+
+def _note_spans(start: float, end: float, beat: float, length: float) -> list[tuple[float, float]]:
     cuts = [start]
     first = opFrac((start // beat + 1) * beat)
     if start % beat and first < end:
@@ -372,7 +448,13 @@ def _note_spans(start: float, end: float, beat: float) -> list[tuple[float, floa
     last = opFrac(end // beat * beat)
     if beat == 1.5 and end % beat and cuts[-1] < last:
         cuts.append(last)
-    return list(zip(cuts, cuts[1:] + [end]))
+    spans = []
+    for c, d in zip(cuts, cuts[1:] + [end]):
+        sizes = [opFrac(d - c)] if _writable(c, d) else _lengths(c, d, beat, length, note=True)
+        for size in sizes:
+            spans.append((c, opFrac(c + size)))
+            c = opFrac(c + size)
+    return spans
 
 
 def _voice(notes: list[_Note], length: float, beat: float, flat_key: bool) -> stream.Voice:
@@ -381,20 +463,23 @@ def _voice(notes: list[_Note], length: float, beat: float, flat_key: bool) -> st
     for a, b in zip(times, times[1:]):
         here = [n for n in notes if n.start <= a and n.end >= b]
         if not here:
-            t = a
-            for size in _rest_lengths(a, b, beat, length):
-                voice.insert(t, note.Rest(quarterLength=size))
-                t = opFrac(t + size)
+            _rests(voice, a, b, beat, length)
             continue
         here.sort(key=lambda n: n.ps)
         pitches = [_respell(n.pitch, flat_key) for n in here]
-        for c, d in _note_spans(a, b, beat):
+        for c, d in _note_spans(a, b, beat, length):
             element = chord.Chord(pitches, quarterLength=d - c) if len(pitches) > 1 else note.Note(pitches[0], quarterLength=d - c)
             for n, written in zip(here, element.notes if element.isChord else [element]):
                 written.tie = _edge_tie(n.start < c or n.comes_in, n.end > d or n.goes_out)
             voice.insert(c, element)
     _beam(voice, beat)
     return voice
+
+
+def _rests(voice: stream.Voice, start: float, end: float, beat: float, length: float) -> None:
+    for size in _lengths(start, end, beat, length):
+        voice.insert(start, note.Rest(quarterLength=size))
+        start = opFrac(start + size)
 
 
 def _staff(target: stream.Measure, voices: list[stream.Voice], length: float) -> None:
@@ -418,7 +503,7 @@ def _staff(target: stream.Measure, voices: list[stream.Voice], length: float) ->
         target.insert(0, voice)
 
 
-def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, first, carried):
+def _reduce_bar(bar, parts, ref, context, number, kept, flat_key, previous_lead, first, carried):
     counts = {n: len(_attacks(m)) for n, m in bar.items()}
     playing = [n for n in bar if counts[n]]
     best = max(counts, key=lambda n: (counts[n], sum(p.ps for p in bar[n].pitches) / max(len(bar[n].pitches), 1)))
@@ -435,7 +520,6 @@ def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, fi
         and (highest in group or {parts[n].family for n in group}.isdisjoint(parts[n].family for n in others))
     )
     lead = best if tune else None
-    label = _cue(group if tune else playing, parts) if playing else None
     melody = []
     for source_element in (bar[best].voices[0] if bar[best].voices else bar[best]).notesAndRests if tune else []:
         element = copy.deepcopy(source_element)
@@ -443,7 +527,7 @@ def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, fi
         if element.isChord:
             top = max(element.pitches, key=lambda p: p.ps)
             single = note.Note(top, quarterLength=element.quarterLength)
-            single.tie = element.getTie(top)
+            single.tie, single.beams = element.getTie(top), element.beams
             single.offset = element.offset
             element = single
         melody.append(element)
@@ -452,7 +536,7 @@ def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, fi
     def tune_at(time: float) -> float | None:
         return next((e.pitch.ps for e in sounding if e.offset <= time < e.offset + e.quarterLength), None)
 
-    length = opFrac(min(ref.duration.quarterLength, ref.barDuration.quarterLength))
+    signature_key, signature_time, length = context
     in_tune = {(opFrac(e.offset), e.pitch.ps) for e in sounding}
     notes = [n for name in bar for n in _sounding(bar[name], name) if not (name == best and (n.start, n.ps) in in_tune)]
     doubled = {(opFrac(e.offset), e.pitch.pitchClass) for e in sounding}
@@ -487,8 +571,10 @@ def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, fi
     _hands(written, tune_at, tune)
     written = _thin([n for n in written if n.hand == "R"]) + _thin([n for n in written if n.hand == "L"])
 
-    beat = _beat(ref)
-    right, left = stream.Measure(number=ref.number), stream.Measure(number=ref.number)
+    beat = _beat(signature_time)
+    right, left = stream.Measure(number=number), stream.Measure(number=number)
+    for hand in (right, left):
+        hand.paddingLeft, hand.paddingRight = ref.paddingLeft, ref.paddingRight
     upper = stream.Voice()
     staves = {}
     for hand in "RL":
@@ -497,6 +583,7 @@ def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, fi
     if tune:
         for element in melody:
             upper.insert(element.offset, element)
+        _rests(upper, opFrac(upper.highestTime), length, beat, length)
         staves["R"] = [upper] + staves["R"]
     _staff(right, staves["R"], length)
     _staff(left, staves["L"], length)
@@ -512,20 +599,13 @@ def _reduce_bar(bar, parts, ref, kept, flat_key, previous_cue, previous_lead, fi
     carrier = upper if tune else right
     for mark in source.recurse().getElementsByClass(dynamics.Dynamic):
         carrier.insert(mark.getOffsetInHierarchy(source), copy.deepcopy(mark))
-    if label and label != previous_cue:
-        text = expressions.TextExpression(label)
-        text.style.fontStyle = "italic"
-        text.placement = "above"
-        entry = next((e.offset for e in melody if not e.isRest), 0) if tune else 0
-        carrier.insert(entry, text)
-        previous_cue = label
     signatures = [ref.keySignature, ref.timeSignature]
     if first:
         right.insert(0, clef.TrebleClef())
         left.insert(0, clef.BassClef())
-        signatures = [ref.keySignature or ref.getContextByClass(key.KeySignature), ref.timeSignature or ref.getContextByClass(meter.TimeSignature)]
+        signatures = [signature_key, signature_time]
     for m in (right, left):
         for found in signatures:
             if found is not None:
                 m.insert(0, copy.deepcopy(found))
-    return right, left, previous_cue, lead, carry
+    return right, left, lead, carry

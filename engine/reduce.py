@@ -2,16 +2,15 @@ from __future__ import annotations
 
 from fractions import Fraction
 
-from engine.score import Event, Measure, ScoreIndex, in_range
+from engine.score import STEPS, Event, Measure, ScoreIndex, alteration
 
-STEPS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 SIGNATURES = {"f": "flat", "s": "sharp"}
 
 
 def midi(pitch: str) -> int:
     accidental = pitch[1:].rstrip("0123456789-")
     octave = int(pitch[1 + len(accidental) :])
-    return STEPS[pitch[0]] + accidental.count("#") - accidental.count("b") + 12 * (octave + 1)
+    return STEPS[pitch[0]] + alteration(accidental) + 12 * (octave + 1)
 
 
 def describe_key_signature(signature: str) -> str:
@@ -28,8 +27,10 @@ def _beat_rows(measure: Measure) -> list[str]:
         start, end = number * measure.beat_length, (number + 1) * measure.beat_length
         starting = [event for event in notes if start <= event.onset < end]
         held = [event for event in notes if event.onset < start < event.onset + event.duration]
+        printed = " ".join(f"{symbol}@{round(measure.beat_of(at), 2):g}" for at, symbol in sorted(measure.chord_symbols) if start <= at < end)
+        chord_symbols = f" | chord symbol {printed}" if printed else ""
         if not starting and not held:
-            rows.append(f"  b{number + 1} | rest")
+            rows.append(f"  b{number + 1} | rest{chord_symbols}")
             continue
         sounding = sorted(starting + held, key=lambda event: midi(event.pitch))
         classes: list[str] = []
@@ -42,7 +43,7 @@ def _beat_rows(measure: Measure) -> list[str]:
             row += f" | staff {staff}: " + _onsets(measure, [event for event in starting if event.staff == staff])
         if held:
             row += " | held: " + " ".join(event.pitch for event in sorted(held, key=lambda event: midi(event.pitch)))
-        rows.append(row)
+        rows.append(row + chord_symbols)
     return rows
 
 
@@ -58,18 +59,20 @@ def _onsets(measure: Measure, events: list[Event]) -> str:
 
 
 def as_text(index: ScoreIndex, first: int | None = None, last: int | None = None) -> str:
-    measures = [m for m in index.measures if in_range(m.number, first, last)]
+    measures = index.select(first, last)
     shown = measures[0] if measures else index.measures[0]
     lines = [
         f"Key signature: {describe_key_signature(shown.key_signature or index.key_signature)}. Meter: {shown.meter or index.meter or 'unknown'}; "
         f"one beat = {_beat(shown)}.",
-        f"The score has measures {index.measures[0].number} to {index.measures[-1].number}"
-        + (" (0 is a pickup; its beat 1 is its first note)." if index.measures[0].number == 0 else ".")
-        + (" Bars are counted here in order, and the drawn pages show the same numbers, but the file numbers some bars"
-           " differently (a second-time ending, a bar split by a repeat sign, or a repeated number), so after such a bar"
-           " these numbers can run ahead of the user's printed copy; say so if the user gives printed bar numbers."
-           if index.renumbered else ""),
+        f"The score has measures {index.name_span}"
+        + (" (0 is a pickup; its beat 1 is its first note)." if index.measures[0].name == "0" else ".")
+        + (" A bar the file does not number gets the name of the bar before it plus a letter, e.g. 16a, as in most"
+           " printed copies; the drawn pages show the same names." if any(not m.name.isdigit() for m in index.measures) else "")
+        + (" The file's bar numbers start again partway through, so bars are counted here in order from the start, and"
+           " the drawn pages show the same numbers; after the restart they run ahead of the user's printed copy, so say"
+           " so if the user gives printed bar numbers." if index.named_by_count else ""),
         "Each row: beat | lowest note | pitch classes sounding, low to high | notes per staff as pitch@beat-where-it-starts.",
+        *([CHORD_SYMBOLS] if any(measure.chord_symbols for measure in measures) else []),
         "",
     ]
     meter, key = shown.meter, shown.key_signature
@@ -80,9 +83,16 @@ def as_text(index: ScoreIndex, first: int | None = None, last: int | None = None
         if measure.key_signature != key:
             changes.append(f"key signature: {describe_key_signature(measure.key_signature)}")
         meter, key = measure.meter, measure.key_signature
-        lines.append(f"m{measure.number}" + (f" ({'; '.join(changes)})" if changes else ""))
+        lines.append(f"m{measure.name}" + (f" ({'; '.join(changes)})" if changes else ""))
         lines += _beat_rows(measure)
     return "\n".join(lines)
+
+
+CHORD_SYMBOLS = (
+    "The user's copy prints chord symbols above the staff; a row ends with them as 'chord symbol NAME@beat'. Relate "
+    "your own labels to them (for example A7 in E major is IV7), and tell the user where your reading of the notes "
+    "differs from a printed symbol."
+)
 
 
 def _beat(measure: Measure) -> str:

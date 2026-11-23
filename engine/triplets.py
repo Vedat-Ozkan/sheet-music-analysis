@@ -2,10 +2,8 @@ import itertools
 import xml.etree.ElementTree as ET
 from fractions import Fraction
 
-from engine.score import bar_length, musicxml_meter
+from engine.score import NOTE_TYPE_LENGTH, bar_length, musicxml_meter
 
-_LENGTH = {'whole': 4, 'half': 2, 'quarter': 1, 'eighth': Fraction(1, 2),
-           '16th': Fraction(1, 4), '32nd': Fraction(1, 8), '64th': Fraction(1, 16)}
 _SHORT = {'eighth', '16th', '32nd'}
 
 
@@ -44,7 +42,7 @@ def _beam(event):
 def _consistent(events, divisions):
     for event in events:
         for note in event:
-            length = _LENGTH.get(note.findtext('type'))
+            length = NOTE_TYPE_LENGTH.get(note.findtext('type'))
             factor = _factor(note)
             if length is None or factor is None:
                 return False

@@ -14,7 +14,7 @@ from pathlib import Path
 from engine import notes as note_list
 from engine.annotations import AnnotationList
 from engine.comparison import FUNCTIONS
-from engine.score import Measure, ScoreIndex, in_range
+from engine.score import STEPS, Measure, ScoreIndex, alteration, pitch_class
 
 ROOT = Path(__file__).parent.parent
 ANALYSISGNN_PYTHON = os.environ.get("ANALYSISGNN_PYTHON", str(ROOT / ".venv-agnn/bin/python"))
@@ -46,7 +46,6 @@ AUGMENTED_SIXTHS = {
 TRIAD_FIGURES = ["", "6", "64", "64"]
 SEVENTH_FIGURES = ["7", "65", "43", "42"]
 DIATONIC_LOWERCASE = {"major": {"2", "3", "6", "7"}, "minor": {"1", "2", "4"}}
-STEPS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 MINOR_STEPS = {"3": 3, "6": 8, "7": 10}
 MAJOR_STEPS = {"3": 4, "6": 9, "7": 11}
 
@@ -89,6 +88,7 @@ class Draft:
     phrase_ends: list[Mark]
     pedals: list[Mark]
     non_chord_tones: list[Mark]
+    index: ScoreIndex
 
 
 class _Worker:
@@ -198,7 +198,7 @@ def numeral_with_inversion(rn: str, inversion: int) -> str:
 
 def _midi(pitch: str) -> int:
     accidental = pitch[1:-1] if pitch[-2] != "-" else pitch[1:-2]
-    return STEPS[pitch[0]] + accidental.count("#") - accidental.count("b") + 12 * (int(pitch[len(accidental) + 1 :]) + 1)
+    return STEPS[pitch[0]] + alteration(accidental) + 12 * (int(pitch[len(accidental) + 1 :]) + 1)
 
 
 def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
@@ -285,7 +285,7 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
             spans.append((key, [position]))
 
     def cadential_split(local_key: str, positions: list) -> int:
-        tonic = (STEPS[local_key[0]] + local_key.count("#") - local_key.count("-")) % 12
+        tonic = pitch_class(local_key)
         def sounding(position):
             measure = index.measures[position[0] - 1]
             return [e for e in measure.events if e.pitch and not e.grace and e.onset <= position[1] < e.onset + e.duration]
@@ -331,7 +331,7 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
             quality = best("quality", onsets[positions[0]][0])[0]
             return 2 if quality in ("minor triad", "minor seventh chord") else -2 if quality in ("major triad", "major seventh chord") else 0
         if degree in MINOR_STEPS:
-            tonic = STEPS[local_key[0]] + local_key.count("#") - local_key.count("-")
+            tonic = pitch_class(local_key)
             heard = {_midi(e.pitch) % 12 for p in positions for e in index.measures[p[0] - 1].events if e.onset == p[1] and e.pitch}
             as_minor, as_major = (tonic + MINOR_STEPS[degree]) % 12 in heard, (tonic + MAJOR_STEPS[degree]) % 12 in heard
             return as_minor - as_major
@@ -421,6 +421,7 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
         phrase_ends=marks("phrase") if "phrase" in tasks else [],
         pedals=marks("organ_point", per_note=True) if "organ_point" in tasks else [],
         non_chord_tones=marks("tpc_in_label", per_note=True, positive=lambda label: label == "0") if "tpc_in_label" in tasks else [],
+        index=index,
     )
 
 
@@ -433,8 +434,7 @@ def draft_from_notes(text: str, model: str = "analysisgnn") -> Draft:
 
 
 def as_text(result: Draft, first: int | None = None, last: int | None = None, alternatives: bool = False) -> str:
-    def wanted(measure: int) -> bool:
-        return in_range(measure, first, last)
+    chosen = {measure.number for measure in result.index.select(first, last)}
 
     lines = [
         f"Draft analysis from {result.model}. The model's full chord labels are exactly right only about half",
@@ -444,7 +444,7 @@ def as_text(result: Draft, first: int | None = None, last: int | None = None, al
         + (" | or: the model's runner-up where it is a close call" if alternatives else ""),
     ]
     for chord in result.chords:
-        if wanted(chord.measure):
+        if chord.measure in chosen:
             lines.append(
                 f"m{chord.measure} b{round(chord.beat, 2):g} | {chord.key} | {chord.label} | {chord.confidence:.2f} | {chord.beats:g} | "
                 f"{chord.bass} | {' '.join(chord.pitches)} | {' '.join(chord.melody)}"
@@ -456,19 +456,18 @@ def as_text(result: Draft, first: int | None = None, last: int | None = None, al
         ("PEDAL POINTS", result.pedals, lambda m: f"m{m.measure} b{round(m.beat, 2):g} {m.pitch} staff {m.staff} ({m.confidence:.2f})"),
         ("POSSIBLE NON-CHORD TONES", result.non_chord_tones, lambda m: f"m{m.measure} b{round(m.beat, 2):g} {m.pitch} staff {m.staff}"),
     ):
-        shown = [show(item) for item in items if wanted(item.measure)]
+        shown = [show(item) for item in items if item.measure in chosen]
         lines += ["", f"{title}: " + ("; ".join(shown) if shown else "none found")]
     return "\n".join(lines)
 
 
 def as_annotations(result: Draft, first: int | None = None, last: int | None = None, functions: bool = False) -> AnnotationList:
-    def wanted(measure: int) -> bool:
-        return in_range(measure, first, last)
+    chosen = {measure.number for measure in result.index.select(first, last)}
 
     items: list[dict] = []
     key = None
     for chord in result.chords:
-        if not wanted(chord.measure):
+        if chord.measure not in chosen:
             continue
         item = {"type": "harmony", "at": {"measure": chord.measure, "beat": chord.beat}, "label": chord.label}
         if functions and chord.function:
@@ -477,10 +476,10 @@ def as_annotations(result: Draft, first: int | None = None, last: int | None = N
             item["key"] = key = chord.key
         items.append(item)
     for cadence in result.cadences:
-        if wanted(cadence.measure):
+        if cadence.measure in chosen:
             items.append({"type": "cadence", "at": {"measure": cadence.measure, "beat": cadence.beat}, "label": cadence.label})
     for tone in result.non_chord_tones:
-        if wanted(tone.measure):
+        if tone.measure in chosen:
             note = {"measure": tone.measure, "beat": tone.beat, "staff": tone.staff, "pitch": tone.pitch}
             items.append({"type": "nct", "note": note, "label": "NCT"})
     return AnnotationList.model_validate({"annotations": items})

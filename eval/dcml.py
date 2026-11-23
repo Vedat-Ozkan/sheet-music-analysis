@@ -6,7 +6,7 @@ from fractions import Fraction
 from music21 import key as m21key
 from music21 import roman
 
-from engine.score import ScoreIndex
+from engine.score import ScoreIndex, parse_meter
 
 LABEL = re.compile(
     r"^(?:(?P<globalkey>[A-Ga-g][#b]*)\.)?(?:(?P<localkey>[#b]*[ivIV]+)\.)?"
@@ -63,8 +63,8 @@ def to_romantext(tsv: str, index: ScoreIndex) -> str:
         else:
             measure, offset = index.measure(int(row["mn"])), Fraction(row["mn_onset"]) * 4
             if measure is index.measures[0] and measure.declared_length is None and measure.meter:
-                count, unit = measure.meter.split("/")
-                offset -= Fraction(int(count) * 4, int(unit)) - measure.length
+                count, unit = parse_meter(measure.meter)
+                offset -= Fraction(count * 4, unit) - measure.length
         if not 0 <= offset < measure.length:
             continue
         number = measure.number

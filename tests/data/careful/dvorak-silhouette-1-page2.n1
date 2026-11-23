@@ -1,0 +1,58 @@
+N1 div=8 ts=6/8 ks=5f
+m1 len=24
+1.1: gAb5+F6+Ab6 12 Ab5~+F6~+Ab6~ 8 Ab5+F6+Ab6 4 Gb5+Gb6
+2.1: 4 Db2+Db3 Ab3+Db4+F4 Ab3+Db4+F4 8 r 4 Ab3+C4+Eb4+Gb4
+m2 len=24
+1.1: gF5+Db6+F6 8 F5+Db6+F6 4 Eb5+Ab5+Eb6 12 Eb5+Ab5+Eb6
+2.1: 4 Db3 Ab3+Db4+F4 r Db3 Ab3+C4+Eb4+Gb4 r
+m3 len=24
+1.1: gDb5+Ab5+Db6 12 Db5~+Ab5~+Db6~ 8 Db5+Ab5+Db6 4 Db5+Ab5+Db6
+2.1: 4 Db3 Ab3+Db4+F4 Ab3+Db4+F4 8 r 4 Ab3+Db4+F4
+m4 len=24
+1.1: gEb5+Ab5+Eb6 8 Eb5+Ab5+Eb6 4 F5+Ab5+F6 gEb5+Ab5+Eb6 8 Eb5+Ab5+Eb6 4 Ab4+Ab5
+2.1: 4 Db3 Ab3+C4+Eb4+Gb4 r r Ab3+C4+Eb4+Gb4 r
+m5 len=24
+1.1: gDb5+Gb5+Bb5 24 Db5~+Gb5+Bb5
+2.1: 4 Db3 Ab3+Db4+F4 Ab3+Db4+F4 8 r 4 Ab3+Db4+F4
+m6 len=24
+1.1: 12 Db5+Ab5+Eb6 8 r 4 Ab5
+2.1: 4 Db3 r Ab3+Db4+F4 r Ab3+Db4+F4 r
+m7 len=24
+1.1: gEb5+C6+Eb6 12 Eb5~+C6~+Eb6~ 8 Eb5+C6+Eb6 4 Db5+Bb5+Db6
+2.1: 4 Db2+Db3 Eb3+Gb3+Ab3+C4 Eb3+Gb3+Ab3+C4 8 r 4 Eb3+Gb3+Ab3+C4
+m8 len=24
+1.1: gC5+Ab5+C6 8 C5+Ab5+C6 4 Bb4+Gb5+Bb5 12 Bb4+Gb5+Bb5
+2.1: 4 Db2+Db3 Eb3+Gb3+Ab3+C4 Eb3+Gb3+Ab3+C4 8 r 4 Eb3+Gb3+Ab3+C4
+m9 len=24
+1.1: gAb4+F5+Ab5 12 Ab4~+F5~+Ab5~ 8 Ab4+F5+Ab5 4 Ab4+F5+Ab5
+2.1: 4 Db2+Db3 Eb3+Gb3+Ab3+C4 Eb3+Gb3+Ab3+C4 8 r 4 Eb3+Gb3+Ab3+C4
+m10 len=24
+1.1: gBb4+Gb5+Bb5 8 Bb4+Gb5+Bb5 4 C5+Ab5+C6 gBb4+Gb5+Bb5 8 Bb4+Gb5+Bb5 4 Ab4+F5+Ab5
+2.1: 4 Db2+Db3 Eb3+Gb3+Ab3+C4 Eb3+Gb3+Ab3+C4 8 r 4 Eb3+Gb3+Ab3+C4
+m11 len=24
+1.1: gEb4+C5+Eb5 24 Eb4~+C5~+Eb5~
+2.1: 4 Db2+Db3 Eb3+Gb3+Ab3+C4 Eb3+Gb3+Ab3+C4 8 r 4 Eb3+Gb3+Ab3+C4
+m12 len=24
+1.1: 12 Eb4+C5+Eb5 8 r 1 Ab5 Bb5 C6 Db6
+2.1: 8 r 4 Eb3+Gb3+Ab3+C4 8 r 4 r
+m13 len=24
+1.1: gEb5+C6+Eb6 12 Eb5~+C6~+Eb6~ 8 Eb5+C6+Eb6 4 Db5+Bb5+Db6
+2.1: 4 Db2+Db3 Eb3+Gb3+Ab3+C4 Eb3+Gb3+Ab3+C4 8 r 4 Eb3+Gb3+Ab3+C4
+m14 len=24
+1.1: gC5+Ab5+C6 8 C5+Ab5+C6 4 Bb4+Gb5+Bb5 12 Bb4+Gb5+Bb5
+2.1: 4 Db2+Db3 Eb3+Gb3+Ab3+C4 Eb3+Gb3+Ab3+C4 8 r 4 Eb3+Gb3+Ab3+C4
+m15 len=24
+1.1: gAb4+F5+Ab5 12 Ab4~+F5~+Ab5~ 8 Ab4+F5+Ab5 4 Ab4+F5+Ab5
+2.1: 4 Db2+Db3 Eb3+Gb3+Ab3+C4 Eb3+Gb3+Ab3+C4 8 r 4 Eb3+Gb3+Ab3+C4
+m16 len=24
+1.1: gBb4+Gb5+Bb5 8 Bb4+Gb5+Bb5 4 C5+Ab5+C6 gBb4+Gb5+Bb5 8 Bb4+Gb5+Bb5 4 Ab4+F5+Ab5
+2.1: 4 Db2+Db3 Eb3+Gb3+Ab3+C4 Eb3+Gb3+Ab3+C4 8 r 4 Eb3+Gb3+Ab3+C4
+m17 len=24
+1.1: gEb4+C5+Eb5 24 Eb4~+C5~+Eb5~
+2.1: 4 Db2+Db3 Eb3+Gb3+Ab3+C4 Eb3+Gb3+Ab3+C4 8 r 4 Eb3+Gb3+Ab3+C4
+m18 len=24
+1.1: 8 Eb4+C5+Eb5 1 Ab4 G4 Ab4 Bb4 C5 Db5 Eb5 F5 Gb5 Ab5 Bb5 C6 Db6 Eb6 F6 Gb6
+2.1: 4 Db3 Eb3+Gb3+Ab3+C4 r 8 r 4 r
+m19 len=24
+1.1: gAb5+F6+Ab6 12 Ab5~+F6~+Ab6~ 8 Ab5+F6+Ab6 4 Gb5+Eb6+Gb6
+2.1: 4 Db2+Db3 Ab3+Db4+F4 Ab3+Db4+F4 8 r 4 Ab3+C4+Eb4+Gb4

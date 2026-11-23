@@ -2,11 +2,10 @@ import asyncio
 import hashlib
 import json
 import os
-import socket
 import subprocess
-import sys
 import time
 import urllib.request
+from contextlib import contextmanager
 from pathlib import Path
 
 import anyio
@@ -16,6 +15,7 @@ from mcp.client.client import Client
 from engine import read_pdf as pdf_reader
 from engine import render, verovio_workers
 from server import app
+from tests.test_server_process import running_server
 
 DATA = Path(__file__).parent / "data"
 CRASH = (DATA / "verovio-crashes" / "mozart-k545-1-homr-reading-clef-change.musicxml").read_bytes()
@@ -33,7 +33,8 @@ READ_PDF = pdf_reader.read_pdf
 @pytest.fixture
 def pool(monkeypatch):
     pool = verovio_workers.Pool()
-    monkeypatch.setattr(render, "new_toolkit", pool.toolkit)
+    monkeypatch.setattr(verovio_workers, "pool", pool)
+    monkeypatch.setattr(render, "new_toolkit", verovio_workers.toolkit)
     yield pool
     pool.stop()
 
@@ -95,7 +96,7 @@ def test_a_reading_that_crashes_the_drawing_is_a_server_error_and_keeps_the_pdf(
     drawn = call("render_analysis", {"score_id": "CHORALE", "annotations": NO_MARKS})
     assert not drawn.is_error
     assert len(set(before) & set(pids(pool))) == 1
-    assert [worker.bound for worker in pool.workers] == [0, 0]
+    assert len(pool.free) == 2
 
 
 def test_a_reading_the_drawing_cannot_load_is_a_server_error_not_the_users_mistake(pool, store, monkeypatch, capsys):
@@ -137,33 +138,18 @@ def test_a_pdf_is_read_with_audiveris_and_drawn_through_the_workers(pool, store,
     monkeypatch.setattr(app.pdf_reader, "read_pdf", lambda data: READ_PDF(data, AUDIVERIS))
     result = call("read_pdf", ATTACHED)
     assert not result.is_error and "score_id:" in text_of(result)
-    assert [worker.bound for worker in pool.workers] == [0, 0]
+    assert len(pool.free) == 2
 
 
 @pytest.fixture(scope="module")
 def server_process(tmp_path_factory):
-    with socket.socket() as probe:
-        probe.bind(("127.0.0.1", 0))
-        port = probe.getsockname()[1]
     folder = tmp_path_factory.mktemp("store")
     (folder / "scores").mkdir()
     (folder / "scores" / "CRASH").write_bytes(CRASH)
     (folder / "scores" / "CHORALE").write_bytes(CHORALE)
     (folder / "scores" / "NOCTURNE").write_bytes(NOCTURNE)
-    env = {**os.environ, "PORT": str(port), "DATA_DIR": str(folder)}
-    env.pop("BUCKET", None)
-    env.pop("K_SERVICE", None)
-    process = subprocess.Popen([sys.executable, "-m", "server.app"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    url = f"http://127.0.0.1:{port}"
-    for _ in range(120):
-        try:
-            urllib.request.urlopen(f"{url}/health", timeout=1)
-            break
-        except OSError:
-            time.sleep(0.25)
-    yield url, process
-    process.terminate()
-    process.wait(10)
+    with running_server(folder) as started:
+        yield started
 
 
 def workers_of(process):
@@ -198,19 +184,19 @@ def test_the_server_survives_a_score_that_crashes_the_drawing_library(server_pro
 def test_a_call_over_the_time_limit_is_stopped_and_the_next_request_gets_a_fresh_worker(pool, monkeypatch):
     before = pids(pool)
     monkeypatch.setattr(verovio_workers, "CALL_SECONDS", 0.05)
-    token = verovio_workers.current.set(verovio_workers.Request())
+    token = verovio_workers.current.set(verovio_workers.Request(app.DRAWING_WAIT))
     with pytest.raises(verovio_workers.VerovioFailed) as stopped:
         render.load_toolkit(BALLADE)
     verovio_workers.current.get().release()
     verovio_workers.current.reset(token)
     assert "took over" in stopped.value.reason
     monkeypatch.setattr(verovio_workers, "CALL_SECONDS", 120)
-    token = verovio_workers.current.set(verovio_workers.Request())
+    token = verovio_workers.current.set(verovio_workers.Request(app.DRAWING_WAIT))
     assert render.engrave(CHORALE).page_count
     verovio_workers.current.get().release()
     verovio_workers.current.reset(token)
     assert len(set(before) & set(pids(pool))) == 1
-    assert [worker.bound for worker in pool.workers] == [0, 0]
+    assert len(pool.free) == 2
 
 
 def test_a_worksheet_is_drawn_through_the_workers_when_it_is_first_downloaded(server_process):
@@ -225,3 +211,121 @@ def test_a_worksheet_is_drawn_through_the_workers_when_it_is_first_downloaded(se
     assert not drawn.is_error
     with urllib.request.urlopen(drawn.structured_content["worksheet_url"], timeout=120) as response:
         assert response.status == 200 and response.read().startswith(b"%PDF")
+
+
+def test_three_drawings_sent_together_to_the_server_are_all_drawn(server_process):
+    url, process = server_process
+    finished = {}
+
+    async def draw(name, score_id):
+        async with Client(f"{url}/mcp") as client:
+            finished[name] = await client.call_tool("render_analysis", {"score_id": score_id, "annotations": NO_MARKS})
+
+    async def three():
+        async with anyio.create_task_group() as group:
+            group.start_soon(draw, "first", "NOCTURNE")
+            group.start_soon(draw, "second", "NOCTURNE")
+            await anyio.sleep(1)
+            group.start_soon(draw, "third", "CHORALE")
+
+    anyio.run(three)
+    assert len(finished) == 3
+    assert all(not result.is_error and "shown in a card" in text_of(result) for result in finished.values())
+
+
+@contextmanager
+def drawing_request():
+    token = verovio_workers.current.set(verovio_workers.Request(app.DRAWING_WAIT))
+    try:
+        yield
+    finally:
+        verovio_workers.current.get().release()
+        verovio_workers.current.reset(token)
+
+
+def test_requests_that_find_every_worker_taken_are_drawn_in_the_order_they_came(pool, store):
+    taken = [pool.take(1), pool.take(1)]
+    finished = []
+
+    async def draw(client, name):
+        result = await client.call_tool("render_analysis", {"score_id": "CHORALE", "annotations": NO_MARKS})
+        finished.append((name, result.is_error))
+
+    async def two():
+        async with Client(app.mcp) as first, Client(app.mcp) as second:
+            async with anyio.create_task_group() as group:
+                group.start_soon(draw, first, "first")
+                await anyio.sleep(1)
+                group.start_soon(draw, second, "second")
+                await anyio.sleep(1)
+                assert finished == [] and len(pool.queue) == 2
+                pool.give_back(taken.pop())
+
+    anyio.run(two)
+    pool.give_back(taken.pop())
+    assert finished == [("first", False), ("second", False)]
+    assert len(pool.free) == 2 and not pool.queue
+
+
+def test_a_request_whose_turn_does_not_come_gets_the_busy_answer(pool, store, monkeypatch, capsys):
+    monkeypatch.setattr(app, "DRAWING_WAIT", 1)
+    taken = [pool.take(1), pool.take(1)]
+    refused = call("render_analysis", {"score_id": "CHORALE", "annotations": NO_MARKS})
+    for worker in taken:
+        pool.give_back(worker)
+    assert refused.is_error and text_of(refused) == app.BUSY_MESSAGE
+    assert [line for line in logged(capsys) if line.get("tool") == "render_analysis"][-1]["outcome"] == "busy"
+    assert not call("render_analysis", {"score_id": "CHORALE", "annotations": NO_MARKS}).is_error
+    assert len(pool.free) == 2 and not pool.queue
+
+
+def test_a_third_request_while_two_ballades_draw_gets_the_busy_answer(pool, store, monkeypatch):
+    monkeypatch.setattr(app, "DRAWING_WAIT", 1)
+    finished = {}
+
+    async def draw(name, score_id):
+        async with Client(app.mcp) as client:
+            finished[name] = await client.call_tool("render_analysis", {"score_id": score_id, "annotations": NO_MARKS})
+
+    async def three():
+        async with anyio.create_task_group() as group:
+            group.start_soon(draw, "first", "BALLADE")
+            group.start_soon(draw, "second", "BALLADE")
+            await anyio.sleep(2)
+            group.start_soon(draw, "third", "CHORALE")
+
+    anyio.run(three)
+    assert finished["third"].is_error and text_of(finished["third"]) == app.BUSY_MESSAGE
+    assert not finished["first"].is_error and not finished["second"].is_error
+    assert len(pool.free) == 2 and not pool.queue
+
+def test_a_worksheet_opened_while_every_worker_stays_taken_gets_the_busy_answer(pool, store, monkeypatch, capsys):
+    from starlette.requests import Request
+
+    store.put("scores/NOCTURNE", NOCTURNE)
+    drawn = call("render_analysis", {"score_id": "NOCTURNE", "annotations": NOCTURNE_MARKS, "measure_range": "1-8"})
+    name = drawn.structured_content["worksheet_url"].rsplit("/", 1)[1]
+
+    def opened():
+        return anyio.run(app.files, Request({"type": "http", "method": "GET", "path_params": {"name": name}, "headers": []}))
+
+    monkeypatch.setattr(app, "DRAWING_WAIT", 1)
+    taken = [pool.take(1), pool.take(1)]
+    refused = opened()
+    for worker in taken:
+        pool.give_back(worker)
+    assert refused.status_code == 503 and refused.headers["Retry-After"] == "60"
+    assert refused.body == b"The service is busy right now. Please try again in a minute."
+    assert [line for line in logged(capsys) if line.get("event") == "worksheet"] == [{"event": "worksheet", "outcome": "busy"}]
+    made = opened()
+    assert made.status_code == 200 and made.body.startswith(b"%PDF")
+
+@pytest.mark.parametrize("go_wrong", [lambda: render.engrave(CRASH), lambda: render.new_toolkit().renderToSVG("first")],
+                         ids=["crash", "method error"])
+def test_a_crash_and_a_drawing_method_error_are_one_failure_and_the_next_request_is_drawn(pool, go_wrong):
+    with drawing_request(), pytest.raises(verovio_workers.VerovioFailed) as failed:
+        go_wrong()
+    assert type(failed.value) is verovio_workers.VerovioFailed and failed.value.reason
+    with drawing_request():
+        assert render.engrave(CHORALE).page_count
+    assert len(pool.free) == 2

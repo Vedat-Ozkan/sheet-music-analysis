@@ -292,6 +292,8 @@ def test_a_whole_score_draft_gives_its_instructions_before_the_method_and_the_no
     guide = text.split("HOW TO ANALYSE THIS SCORE", 1)[1]
     assert guide.index("I have the notes and am working out the harmony now") < guide.index("Analyse from the NOTES table")
     assert "Now I'm drawing the analysis on the score." in guide and "not for each passage" in guide
+    assert "ask which bars they want" not in text and "asks which bars" not in text
+    assert "do not stop to ask which bars" in text
 
 
 def test_the_worksheet_is_made_when_first_opened_and_the_other_downloads_with_the_drawing(server):
@@ -507,6 +509,15 @@ def test_limits_and_mistakes_the_model_can_fix_offer_no_report(server, monkeypat
     monkeypatch.setitem(app.DAILY_LIMITS, "pdf_page", 0)
     limited = call("read_pdf", ATTACHED)
     assert limited.is_error and app.LIMIT_MESSAGE in text_of(limited) and report_of(limited) is None
+
+
+def test_only_the_tools_that_store_nothing_are_announced_as_read_only():
+    tools = anyio.run(app.mcp.list_tools)
+    assert {tool.name for tool in tools if tool.annotations.read_only_hint} == {"play", "careful_reading"}
+    assert {tool.name for tool in tools if tool.annotations.open_world_hint} == {"fetch_score"}
+    assert {tool.name for tool in tools if tool.annotations.idempotent_hint} == {
+        "play", "careful_reading", "read_pdf", "read_fetched_pdf", "draft_analysis"}
+    assert not any(tool.annotations.destructive_hint for tool in tools)
 
 
 def test_only_the_card_can_send_a_report_and_only_a_reference(server):

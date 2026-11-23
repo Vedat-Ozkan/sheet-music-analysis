@@ -1,0 +1,35 @@
+N1 div=24 ts=2/4 ks=3f
+m1 len=48
+1.1: 48 r
+m2 len=48
+1.1: 48 r
+m3 len=48
+1.1: 48 r
+m4 len=48
+1.1: 48 r
+m5 len=48
+1.1: 48 r
+m6 len=48
+1.1: 12 C5 B4 C5 G4
+1.1w: Ei- ne Krä- he
+m7 len=48
+1.1: 12 Bb4 Ab4 24 G4
+1.1w: war mit mir
+m8 len=48
+1.1: 12 F4 Ab4 G4 F4
+1.1w: Aus der Stadt ge-
+m9 len=48
+1.1: 12 Eb4 D4 C4 r
+1.1w: zo- _ gen,
+m10 len=48
+1.1: 12 C5 B4 C5 G4
+1.1w: ist bis heu- te
+m11 len=48
+1.1: 12 Bb4 Ab4 24 G4
+1.1w: für und für
+m12 len=48
+1.1: 12 F4 Ab4 G4 C5
+1.1w: Um mein Haupt ge-
+m13 len=48
+1.1: 24 Bb4 12 Eb4 r
+1.1w: flo- gen.

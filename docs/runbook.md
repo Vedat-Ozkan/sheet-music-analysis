@@ -28,6 +28,9 @@ server/deploy.sh sheet-music-analysis staging    # staging
 - Production deploys only from a clean checkout of `origin/main` that CI has passed; the script refuses anything else. Staging may run a branch.
 - Measure and quote any change that adds Cloud Run compute first. Never raise max instances or the daily limits without asking.
 - A change to `Dockerfile.base`, `pyproject.toml` or `uv.lock` rebuilds the base image first (a few minutes longer).
+- The careful reading of scans is offered only on the platforms the deploy names: `CAREFUL_READING=chatgpt`, `CAREFUL_READING=claude` or `CAREFUL_READING=chatgpt,claude` before `server/deploy.sh`. Every deploy sets it again, so a deploy without it switches the offer off everywhere.
+  - A platform not named gets no offer on a scan's result. Claude, not named, is not shown `careful_reading` and `use_careful_reading` at all. ChatGPT always lists both tools and they always work, so OpenAI's reviewer can run them; if a chat calls `careful_reading` where no offer was made, its steps begin with the usage warning and wait for the user's yes.
+  - For ChatGPT the order is: deploy with `CAREFUL_READING` unset, submit the update to OpenAI, and set `CAREFUL_READING=chatgpt` only after OpenAI has approved the two tools.
 
 ## Roll back
 
@@ -55,6 +58,12 @@ gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.revi
 `<new-revision>` is the suffix the deploy printed, or the first one in the `revisions list` output above.
 
 Tool calls since the deploy: `.venv/bin/python -m tools.usage_report --days 1`. Cost: `.venv/bin/python -m tools.cost_report`.
+
+A PDF read runs inside a request of its own (`POST /read-work`, sent by the server to its own run.app address, `OWN_ADDRESS`, which `server/deploy.sh` sets), so the instance that reads keeps its processor whichever instance the waiting calls reach (log 173). If that request is refused before it starts, the read runs on the instance that got the call, as it did before, and the log has a warning `read_pdf_work was not taken as a request of its own; reading here`. Staging refuses it while sign-in is required, so every staging read logs that warning unless staging is open:
+
+```bash
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="sheet-music-analysis" AND jsonPayload.message:"not taken as a request of its own"' --project sheet-music-analysis --freshness 1d
+```
 
 ## Only the proxy may call production
 

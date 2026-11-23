@@ -30,7 +30,7 @@ from engine import text, tint, verovio_workers
 from engine.errors import UserError
 from engine.overlay import S, Box, PageLayout
 from engine.render import Engraving, ScoreError, load_toolkit
-from engine.score import TOLERANCE, ScoreIndex, bar_length, musicxml_meter
+from engine.score import NOTE_TYPE_LENGTH, TOLERANCE, ScoreIndex, bar_length, musicxml_meter
 from engine.triplets import infer_triplets
 from engine.tuplet_rests import infer_tuplet_rests
 
@@ -59,9 +59,8 @@ SHOWN = 4
 DEFAULT_PART_NAMES = {"Voice", "NoName"}
 INSTRUMENT_NAMES = sorted({kind().instrumentName for _, kind in inspect.getmembers(instrument, inspect.isclass)
                            if issubclass(kind, instrument.Instrument) and kind().instrumentName} - DEFAULT_PART_NAMES)
+SAME_BAR_WIDTH = 0.02
 DOUBLE_BARS = {"light-light", "light-heavy", "heavy-light", "heavy-heavy"}
-_LENGTH = {"whole": 4, "half": 2, "quarter": 1, "eighth": Fraction(1, 2),
-           "16th": Fraction(1, 4), "32nd": Fraction(1, 8), "64th": Fraction(1, 16)}
 _SWITCH = "org.audiveris.omr.sheet.ProcessingSwitches."
 _BASE = ["-option", _SWITCH + "indentations=false",
          "-option", "org.audiveris.omr.sig.inter.RestInter.minInterChordDx=0.0",
@@ -157,7 +156,7 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
                 if (element.tag == "note" and element.find("pitch") is not None
                         and element.find("grace") is None and element.find("time-modification") is None
                         and element.findtext("duration")):
-                    expected = _LENGTH.get(element.findtext("type"))
+                    expected = NOTE_TYPE_LENGTH.get(element.findtext("type"))
                     if expected is not None:
                         expected *= 2 - Fraction(1, 2 ** len(element.findall("dot")))
                         if abs(Fraction(element.findtext("duration")) / divisions - expected) > TOLERANCE:
@@ -171,8 +170,8 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
                 timed = element.tag == "forward" or (element.tag == "note" and element.find("chord") is None)
                 if timed and element.find("grace") is None and element.findtext("duration"):
                     voice = element.findtext("voice", "1")
-                    length = Fraction(round(float(element.findtext("duration"))), divisions)
-                    cursor += Fraction(element.findtext("duration")) / divisions
+                    length = Fraction(element.findtext("duration")) / divisions
+                    cursor += length
                     if element.tag == "forward" and voices.get(voice, 0) == gap.get(voice, 0):
                         gap[voice] = gap.get(voice, 0) + length
                     voices[voice] = voices.get(voice, 0) + length
@@ -201,8 +200,8 @@ def _problem_spots(score: bytes, *, timing: bool) -> tuple[list[int], bool]:
         short = longest < full - TOLERANCE and not guessed
         neighbours = [bars[j] for j in (i - 1, i + 1) if 0 <= j < len(bars) and bars[j][0] != position]
         halves = any(abs(longest + max(other[3].values()) - full) <= TOLERANCE for other in neighbours)
-        first, last = position == 1, position == max(bar[0] for bar in bars)
-        pickup = max(bars[0][3].values()) if max(bars[0][3].values()) < bars[0][2] else Fraction(0)
+        first, last = position == 1 and measures[0].is_pickup, position == max(bar[0] for bar in bars)
+        pickup = max(bars[0][3].values()) if measures[0].is_pickup and max(bars[0][3].values()) < bars[0][2] else Fraction(0)
         completes = last and abs(pickup + longest - full) <= TOLERANCE
         if longest > full + TOLERANCE or overlapping or (short and not (first or completes or halves)):
             if number is not None and number not in uneven:
@@ -262,7 +261,7 @@ def number_bars(layout: PageLayout, index: ScoreIndex) -> float | None:
         if geometry is None or measure.number < 2:
             continue
         system = layout.systems[geometry.system]
-        string = str(measure.number)
+        string = measure.name
         width, height = text.width(string, BAR_NUMBER_SIZE), BAR_NUMBER_SIZE
         top = min(box.y for box in geometry.lines)
         spots = [(geometry.x0 + 60, top - 90 - rise) for rise in range(0, 2400, 100)]
@@ -700,7 +699,7 @@ def _append_movement(joined: ET.Element, movement: ET.Element) -> None:
             silent = [other for other in silent if other is not target]
         target.extend(part.findall("measure"))
     for part in silent:
-        part.extend(_silent_bar(bar) for bar in bars_beside)
+        part.extend(_silent_bar(bar, *state) for bar, state in zip(bars_beside, _in_force(bars_beside)))
 
 
 def _longest_part(score: ET.Element) -> list[ET.Element]:
@@ -721,19 +720,29 @@ def _new_part(joined: ET.Element, movement: ET.Element, part: ET.Element, bars_b
     named = next(entry for entry in movement.iter("score-part") if entry.get("id") == part.get("id"))
     ET.SubElement(listed, "part-name").text = named.findtext("part-name")
     added = ET.SubElement(joined, "part", id=part_id)
-    added.extend(_silent_bar(bar) for bar in bars_before)
+    added.extend(_silent_bar(bar, *state) for bar, state in zip(bars_before, _in_force(bars_before)))
     added.find("measure/attributes").extend(
         copy.deepcopy(element) for element in part.findall("measure[1]/attributes/*") if element.tag in ("staves", "clef"))
     return added
 
 
-def _silent_bar(beside: ET.Element) -> ET.Element:
+def _in_force(bars: list[ET.Element], divisions: int | None = None) -> list[tuple[int | None, tuple[int, int] | None]]:
+    states, meter = [], None
+    for bar in bars:
+        divisions = int(bar.findtext("attributes/divisions") or divisions or 0) or None
+        meter = musicxml_meter(bar.find("attributes/time")) or meter
+        states.append((divisions, meter))
+    return states
+
+
+def _silent_bar(beside: ET.Element, divisions: int | None, meter: tuple[int, int] | None) -> ET.Element:
     bar = ET.Element("measure", number=beside.get("number"))
     attributes = ET.SubElement(bar, "attributes")
     attributes.extend(copy.deepcopy(element) for element in beside.findall("attributes/*") if element.tag in ("divisions", "key", "time"))
     rest = ET.SubElement(bar, "note")
     ET.SubElement(rest, "rest", measure="yes")
-    ET.SubElement(rest, "duration").text = str(_bar_length(beside))
+    length = bar_length(*meter) * divisions if divisions and meter else None
+    ET.SubElement(rest, "duration").text = str(length if length is not None and length.denominator == 1 else _bar_length(beside))
     return bar
 
 
@@ -830,6 +839,7 @@ def clean(mxl: bytes) -> bytes:
     root = _archived_score(mxl)
     _drop_noteless_parts(root)
     _name_default_parts(root)
+    _fill_absent_bars(root)
     for note in root.iter("note"):
         if note.find("chord") is not None:
             for beam in note.findall("beam"):
@@ -864,6 +874,71 @@ def clean(mxl: bytes) -> bytes:
     _keep_meaningful_text(root)
     _lyrics_to_directions(root)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _fill_absent_bars(root: ET.Element) -> None:
+    parts = root.findall("part")
+    for part in parts:
+        others = [other for other in parts if other is not part]
+        if not others:
+            return
+        held = set.intersection(*({bar.get("number") for bar in other.findall("measure")} for other in others))
+        beside = [bar for bar in others[0].findall("measure") if bar.get("number") in held]
+        bars = part.findall("measure")
+        own = {bar.get("number"): bar for bar in bars}
+        if (len(own) < len(bars) or not held - own.keys() or not _same_columns(own, others)
+                or [bar.get("number") for bar in bars] != [bar.get("number") for bar in beside if bar.get("number") in own]):
+            continue
+        filled = []
+        unit = _opening_divisions(part)
+        reference = others[0].findall("measure")
+        for bar, (beside_unit, meter) in zip(reference, _in_force(reference, _opening_divisions(others[0]))):
+            if bar.get("number") in own:
+                filled.append(own[bar.get("number")])
+                unit = int(filled[-1].findtext("attributes/divisions") or unit or 0) or None
+            elif bar.get("number") in held:
+                if unit is None or beside_unit is None:
+                    break
+                filled.append(_silent_bar_in_unit(bar, unit, beside_unit, meter, None if filled else part.find("measure/attributes/clef")))
+        else:
+            for bar in bars:
+                part.remove(bar)
+            part.extend(filled)
+
+
+def _silent_bar_in_unit(beside: ET.Element, unit: int, beside_unit: int, meter: tuple[int, int] | None,
+                        clef: ET.Element | None) -> ET.Element:
+    bar = _silent_bar(beside, beside_unit, meter)
+    bar.find("note/duration").text = str(int(bar.findtext("note/duration")) * unit // beside_unit)
+    attributes = bar.find("attributes")
+    for divisions in attributes.findall("divisions"):
+        attributes.remove(divisions)
+    attributes.insert(0, ET.Element("divisions"))
+    attributes[0].text = str(unit)
+    if clef is not None:
+        attributes.append(copy.deepcopy(clef))
+    return bar
+
+
+def _same_columns(own: dict[str, ET.Element], others: list[ET.Element]) -> bool:
+    pairs = [(float(own[bar.get("number")].get("width")), float(bar.get("width"))) for other in others for bar in other.findall("measure")
+             if bar.get("number") in own and bar.get("width") and own[bar.get("number")].get("width")]
+    return bool(pairs) and all(abs(width - other) <= SAME_BAR_WIDTH * other for width, other in pairs)
+
+
+def _opening_divisions(part: ET.Element) -> int | None:
+    opening = []
+    for bar in part.findall("measure"):
+        if bar.find("attributes/divisions") is not None:
+            break
+        opening.append(bar)
+    if not opening:
+        return int(part.findtext("measure/attributes/divisions"))
+    units = {Fraction(note.findtext("duration")) / NOTE_TYPE_LENGTH[note.findtext("type")]
+             for bar in opening for note in bar.iter("note")
+             if note.findtext("type") in NOTE_TYPE_LENGTH and note.findtext("duration") and note.find("dot") is None
+             and note.find("time-modification") is None and note.find("grace") is None}
+    return int(units.pop()) if len(units) == 1 and next(iter(units)).denominator == 1 else None
 
 
 def _drop_noteless_parts(root: ET.Element) -> None:

@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -14,6 +15,9 @@ from pathlib import Path
 import pytest
 from mcp.client.client import Client
 
+from engine import read_pdf as pdf_reader
+from server import app
+
 
 NOCTURNE = Path(__file__).parent / "data" / "chopin_nocturne_op9_no2.mxl"
 
@@ -23,8 +27,18 @@ def store(tmp_path_factory):
     return tmp_path_factory.mktemp("store")
 
 
-@contextmanager
-def running_server(store, **settings):
+def listening_ports(pid):
+    sockets = set()
+    for fd in Path(f"/proc/{pid}/fd").iterdir():
+        try:
+            sockets.add(os.readlink(fd))
+        except OSError:
+            pass
+    rows = [line.split() for line in Path("/proc/net/tcp").read_text().splitlines()[1:]]
+    return {int(row[1].split(":")[1], 16) for row in rows if row[3] == "0A" and f"socket:[{row[9]}]" in sockets}
+
+
+def started_server(store, settings):
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
@@ -32,21 +46,34 @@ def running_server(store, **settings):
     env.pop("BUCKET", None)
     env.pop("K_SERVICE", None)
     process = subprocess.Popen([sys.executable, "-m", "server.app"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    url = f"http://127.0.0.1:{port}"
-    for _ in range(120):
-        try:
-            urllib.request.urlopen(f"{url}/health", timeout=1)
+    for _ in range(480):
+        if process.poll() is not None:
+            return None
+        if port in listening_ports(process.pid):
+            return port, process
+        time.sleep(0.25)
+    process.kill()
+    raise TimeoutError("the server did not start listening within 120 s")
+
+
+@contextmanager
+def running_server(store, **settings):
+    for _ in range(3):
+        if started := started_server(store, settings):
             break
-        except OSError:
-            time.sleep(0.25)
-    yield url
-    process.terminate()
-    process.wait(10)
+    else:
+        raise RuntimeError("the server could not take a free port three times")
+    port, process = started
+    try:
+        yield f"http://127.0.0.1:{port}", process
+    finally:
+        process.terminate()
+        process.wait(10)
 
 
 @pytest.fixture(scope="module")
 def server(store):
-    with running_server(store) as url:
+    with running_server(store) as (url, _):
         yield url
 
 
@@ -100,9 +127,70 @@ def test_claude_is_offered_the_upload_card_score_links_and_cards_on_its_own_doma
     assert card["result"]["contents"][0]["_meta"]["ui"]["domain"].endswith(".claudemcpcontent.com")
 
 
+def test_a_chat_can_download_the_careful_reading_kit(server):
+    opening = {"notetool.py": "import argparse", "tool.md": "# Reading notes with notetool.py", "reader.md": "# Read one page of scanned music"}
+    for name, first_words in opening.items():
+        assert urllib.request.urlopen(f"{server}/kit/{name}", timeout=30).read().decode().startswith(first_words)
+    with pytest.raises(urllib.error.HTTPError) as refused:
+        urllib.request.urlopen(f"{server}/kit/app.py", timeout=30)
+    assert refused.value.code == 404
+
+
+CAREFUL_PAGES = [(NOCTURNE.parent / f"careful/dvorak-silhouette-1-page{number}.n1").read_text() for number in (1, 2, 3)]
+CHATGPT, CLAUDE = "openai-mcp/1.0.0", "Claude-User"
+
+
+def read_scan(server, agent, pdf_id):
+    return json.loads(as_client(server, agent, "tools/call", {"name": "read_fetched_pdf", "arguments": {"pdf_id": pdf_id}}))["result"]
+
+
+def careful_call(server, agent, name, **arguments):
+    return json.loads(as_client(server, agent, "tools/call", {"name": name, "arguments": arguments}))["result"]
+
+
+def listed_tools(server, agent):
+    return {tool["name"] for tool in json.loads(as_client(server, agent, "tools/list", {}))["result"]["tools"]}
+
+
+@pytest.mark.parametrize("setting, offered_to", [(None, set()), ("chatgpt", {CHATGPT}), ("claude", {CLAUDE}),
+                                                 ("chatgpt,claude", {CHATGPT, CLAUDE})])
+def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_for(tmp_path, setting, offered_to):
+    pdf = (NOCTURNE.parent / "chopin-28-4-mutopia.pdf").read_bytes()
+    scores = tmp_path / "scores"
+    scores.mkdir()
+    (scores / "SCAN1.pdf").write_bytes(pdf)
+    (scores / "QUICK1N").write_bytes((NOCTURNE.parent / "chopin_prelude_op28_no4_reading.musicxml").read_bytes())
+    (scores / "QUICK1N.scan").write_text(json.dumps({"pages": 3}))
+    card = {"score_id": "QUICK1N", "pages": 3, "scan": True, "measures": "1 to 25", "bars": 25, "notice": "", "image_url": "",
+            "pdf_url": "", "page_images": []}
+    (scores / f"pdf-card-{pdf_reader.READER}-{hashlib.sha256(pdf).hexdigest()}.json").write_text(json.dumps(card))
+    with running_server(tmp_path, **({"CAREFUL_READING": setting} if setting is not None else {})) as (url, _):
+        careful_tools = {"careful_reading", "use_careful_reading"}
+        assert careful_tools <= listed_tools(url, CHATGPT)
+        assert careful_tools & listed_tools(url, CLAUDE) == (careful_tools if CLAUDE in offered_to else set())
+        for agent in (CHATGPT, CLAUDE):
+            offer = read_scan(url, agent, "SCAN1")["content"][-1]["text"]
+            if agent in offered_to:
+                assert "Shall I go ahead?" in offer and "careful_reading" in offer, agent
+            else:
+                assert "careful" not in offer.lower() and "Shall I go ahead?" not in offer, agent
+                assert "draft_analysis with this score_id now" in offer, agent
+        steps = careful_call(url, CHATGPT, "careful_reading", score_id="QUICK1N")
+        handed_in = careful_call(url, CHATGPT, "use_careful_reading", score_id="QUICK1N", pages=CAREFUL_PAGES)
+        assert not steps.get("isError") and "kit/reader.md" in steps["content"][0]["text"]
+        assert not handed_in.get("isError") and handed_in["content"][0]["text"].startswith("score_id: ")
+        warning = app.careful_warning(3)
+        if CHATGPT in offered_to:
+            assert warning not in steps["content"][0]["text"]
+        else:
+            assert steps["content"][0]["text"].startswith("Before any of these steps, ask the user")
+            assert f'"{warning}"' in steps["content"][0]["text"].split("\n", 1)[0]
+
+
 def test_chatgpt_keeps_its_tools_and_attachment_arguments(server):
     listed = {tool["name"]: tool for tool in json.loads(as_client(server, "openai-mcp/1.0.0", "tools/list", {}))["result"]["tools"]}
-    assert set(listed) == {"draft_analysis", "render_analysis", "correct_bars", "read_pdf", "rate_analysis", "report_problem", "send_suggestion"}
+    assert set(listed) == {"draft_analysis", "render_analysis", "correct_bars", "read_pdf", "rate_analysis", "report_problem", "send_suggestion",
+                           "careful_reading", "use_careful_reading"}
     assert "pdf_file" in listed["read_pdf"]["inputSchema"]["properties"]
     assert "score_file" in listed["draft_analysis"]["inputSchema"]["properties"]
 
@@ -211,9 +299,11 @@ def test_an_upload_without_a_card_id_from_this_server_is_refused(server, store):
 
 
 def test_the_upload_refuses_what_is_not_a_score_and_answers_the_browser_s_preflight(server):
-    preflight = urllib.request.Request(f"{server}/upload", method="OPTIONS")
+    preflight = urllib.request.Request(f"{server}/upload", method="OPTIONS",
+                                       headers={"Access-Control-Request-Headers": "content-type,x-device"})
     with urllib.request.urlopen(preflight, timeout=10) as response:
         assert response.status == 204 and "POST" in response.headers["Access-Control-Allow-Methods"]
+        assert response.headers["Access-Control-Allow-Headers"] == "content-type, x-device"
     page = upload(server, b"<!DOCTYPE html><html><body>Sign in</body></html>", card_id(server))
     empty = upload(server, b"", card_id(server))
     assert page[0] == 415 and page[1]["Access-Control-Allow-Origin"] == "*" and "not a MusicXML file or a PDF" in page[2]["error"]
@@ -237,7 +327,7 @@ def test_health_still_answers(server):
 
 
 def test_with_a_proxy_key_set_only_requests_that_carry_it_are_served(tmp_path):
-    with running_server(tmp_path, PROXY_KEY="the key of this test") as locked:
+    with running_server(tmp_path, PROXY_KEY="the key of this test") as (locked, _):
         with pytest.raises(urllib.error.HTTPError) as no_key:
             as_client(locked, "Claude-User", "tools/list", {})
         with pytest.raises(urllib.error.HTTPError) as wrong_key:
@@ -252,8 +342,41 @@ def test_with_a_proxy_key_set_only_requests_that_carry_it_are_served(tmp_path):
     assert health.status == 200
 
 
+def test_a_request_without_the_key_gets_the_whole_refusal_while_its_body_is_still_arriving(tmp_path):
+    size = 2_000_000
+
+    def refused(port):
+        with socket.create_connection(("127.0.0.1", port), timeout=10) as connection:
+            connection.sendall(f"POST /mcp HTTP/1.1\r\nHost: x\r\nConnection: close\r\nContent-Length: {size}\r\n\r\n".encode())
+            connection.sendall(b"x" * size)
+            answer = b""
+            while part := connection.recv(4096):
+                answer += part
+            return answer.decode()
+
+    with running_server(tmp_path, PROXY_KEY="the key of this test") as (locked, _):
+        answers = [refused(int(locked.rsplit(":", 1)[1])) for _ in range(10)]
+    assert all(answer.startswith("HTTP/1.1 403") and "mcp.sheetmusicanalysis.com" in answer for answer in answers)
+
+
+def test_a_request_without_the_key_whose_body_never_ends_is_refused_after_a_short_wait_and_holds_no_one_up(tmp_path):
+    with running_server(tmp_path, PROXY_KEY="the key of this test") as (locked, _):
+        with socket.create_connection(("127.0.0.1", int(locked.rsplit(":", 1)[1])), timeout=30) as stalled:
+            stalled.sendall(b"POST /mcp HTTP/1.1\r\nHost: x\r\nConnection: close\r\nContent-Length: 10000000\r\n\r\nxx")
+            started = time.monotonic()
+            listed = json.loads(as_client(locked, "Claude-User", "tools/list", {}, **{"X-Proxy-Key": "the key of this test"}))
+            served = time.monotonic() - started
+            answer = b""
+            while part := stalled.recv(4096):
+                answer += part
+            refused = time.monotonic() - started
+    assert "draft_analysis" in {tool["name"] for tool in listed["result"]["tools"]}
+    assert served < refused
+    assert answer.startswith(b"HTTP/1.1 403") and refused < app.REFUSED_BODY_SECONDS + 5
+
+
 def test_while_the_key_changes_the_previous_key_is_served_too(tmp_path):
-    with running_server(tmp_path, PROXY_KEY="the new key", PROXY_KEY_PREVIOUS="the old key") as changing:
+    with running_server(tmp_path, PROXY_KEY="the new key", PROXY_KEY_PREVIOUS="the old key") as (changing, _):
         old = json.loads(as_client(changing, "Claude-User", "tools/list", {}, **{"X-Proxy-Key": "the old key"}))
         new = json.loads(as_client(changing, "Claude-User", "tools/list", {}, **{"X-Proxy-Key": "the new key"}))
         with pytest.raises(urllib.error.HTTPError) as other:

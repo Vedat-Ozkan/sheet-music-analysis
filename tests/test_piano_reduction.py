@@ -1,9 +1,13 @@
+import gc
+import gzip
 import tempfile
+import xml.etree.ElementTree as ET
+from fractions import Fraction
 from functools import lru_cache
 from pathlib import Path
 
 import pytest
-from music21 import converter, stream
+from music21 import converter, key, meter, stream
 
 from engine import piano
 from tools.robustness import CORPUS
@@ -156,3 +160,181 @@ def test_no_note_of_the_original_is_lost(name, first, last):
 def test_a_bar_whose_part_runs_past_its_time_signature_is_written_at_the_signatures_length():
     _, reduced = _both("weber-concertino", 1, 10)
     assert [float(m.quarterLength) for m in reduced.parts[0].getElementsByClass(stream.Measure)] == [3.0] * 10
+
+
+def test_a_range_in_which_no_part_sounds_is_the_same_bars_of_rests():
+    score = (Path(__file__).parent / "data/part_writing_motion.musicxml").read_bytes()
+    reduced = converter.parse(piano.reduce(score, (24, 24)), format="musicxml")
+    hands = list(reduced.parts)
+    assert len(hands) == 2
+    assert all(len(hand.getElementsByClass(stream.Measure)) == 1 and not hand.flatten().notes for hand in hands)
+
+
+def test_the_opening_signatures_are_written_when_the_parsed_score_is_collected_before_the_bars_are_read(monkeypatch):
+    score = (Path(__file__).parent / "data/part_writing_motion.musicxml").read_bytes()
+    original = piano._parts
+
+    def collected(data, positions):
+        parts = original(data, positions)
+        gc.collect()
+        return parts
+
+    monkeypatch.setattr(piano, "_parts", collected)
+    reduced = converter.parse(piano.reduce(score, (3, 6)), format="musicxml")
+    for hand in reduced.parts:
+        first = hand.getElementsByClass(stream.Measure)[0]
+        assert first.getElementsByClass(meter.TimeSignature) and first.getElementsByClass(key.KeySignature)
+
+
+def test_a_score_whose_parts_share_a_name_is_drawn_with_the_notes_of_all_its_parts():
+    data = (Path(__file__).parent / "data/triplet_mayer.musicxml").read_bytes()
+    written = _parse(data).measures(1, 4).toSoundingPitch().flatten().pitches
+    reduced = _parse(piano.reduce(data, (1, 4))).flatten().pitches
+    assert (min(p.ps for p in reduced), max(p.ps for p in reduced)) == (min(p.ps for p in written), max(p.ps for p in written))
+
+
+@pytest.mark.parametrize("path, first, last", [("piano/mozart-41.mxl", 1, 12), ("triplet_brahms_fruhlingstrost.musicxml", 1, 12)])
+def test_the_piano_version_names_no_instruments(path, first, last):
+    from engine.annotate import render
+    from engine.annotations import AnnotationList
+
+    engraving = render((Path(__file__).parent / "data" / path).read_bytes(), AnnotationList(annotations=[]), measures=(first, last), piano=True)
+    assert not any('class="dir"' in svg for svg in engraving.svgs)
+
+
+def _bars(score):
+    return [list(part.getElementsByClass(stream.Measure)) for part in score.parts]
+
+
+@pytest.mark.parametrize("path, first, last", [("triplet_brahms_fruhlingstrost.musicxml", 1, 6), ("triplet_mayer.musicxml", 1, 4)])
+def test_the_piano_version_writes_only_lengths_a_musician_writes(path, first, last):
+    data = (Path(__file__).parent / "data" / path).read_bytes()
+    ratios = {(t.numberNotesActual, t.numberNotesNormal) for e in _parse(data).recurse().notesAndRests for t in e.duration.tuplets}
+    grid = Fraction(1, 32)
+    for hand in _bars(_parse(piano.reduce(data, (first, last)))):
+        for bar in hand:
+            for voice in bar.voices or [bar]:
+                group = []
+                for element in [*voice.notesAndRests, None]:
+                    written = element.duration if element is not None else None
+                    if written is not None and not (element.isRest and element.fullMeasure in (True, "always")):
+                        assert written.dots <= 2 and written.type not in ("inexpressible", "complex"), (bar.number, element)
+                    kind = [(t.numberNotesActual, t.numberNotesNormal) for t in written.tuplets] if written is not None else []
+                    assert set(kind) <= ratios, (bar.number, element, kind)
+                    if group and kind != group[0][0]:
+                        start, end = Fraction(group[0][1].offset), Fraction(group[-1][1].offset) + Fraction(group[-1][1].quarterLength)
+                        assert start % grid == 0 and end % grid == 0, (bar.number, start, end)
+                        group = []
+                    if kind:
+                        group.append((kind, element))
+
+
+@pytest.mark.parametrize("path, first, last", [("triplet_mayer.musicxml", 1, 4), ("movements/choral-songs-02-invalid-page-3.mxl", 46, 49),
+                                               ("triplet_brahms_fruhlingstrost.musicxml", 37, 40), ("chopin_nocturne_op9_no2_pdmx.mxl", 31, 34)])
+def test_both_hands_are_as_long_as_the_longest_part_of_each_bar(path, first, last):
+    data = (Path(__file__).parent / "data" / path).read_bytes()
+    source = _bars(_parse(data).measures(first, last))
+    longest = [max(max((e.offset + e.quarterLength for e in bar.recurse().notesAndRests), default=0) for bar in bars) for bars in zip(*source)]
+    for hand in _written_lengths(piano.reduce(data, (first, last))):
+        assert hand == longest
+
+
+def _written_lengths(xml: bytes) -> list[list[Fraction]]:
+    hands = []
+    for part in ET.fromstring(xml).iter("part"):
+        lengths, divisions = [], 1
+        for bar in part.iter("measure"):
+            divisions = int(bar.findtext("attributes/divisions") or divisions)
+            time = end = 0
+            for child in bar:
+                step = int(child.findtext("duration") or 0)
+                if child.tag == "backup":
+                    time -= step
+                elif child.tag == "forward" or (child.tag == "note" and child.find("chord") is None):
+                    time += step
+                end = max(end, time)
+            lengths.append(Fraction(end, divisions))
+        hands.append(lengths)
+    return hands
+
+
+def test_a_reading_whose_parts_hold_different_bars_gets_no_piano_version():
+    from engine.annotate import render
+    from engine.annotations import AnnotationList
+
+    data = (Path(__file__).parent / "data/pdf_warnings/schubert_die_stadt_audiveris.musicxml").read_bytes()
+    for bars in ((2, 5), (10, 13)):
+        with pytest.raises(piano.PianoError) as refused:
+            render(data, AnnotationList(annotations=[]), measures=bars, piano=True)
+        assert str(refused.value) == piano.PARTS_DO_NOT_LINE_UP
+    assert render(data, AnnotationList(annotations=[]), measures=(2, 5)).page_count == 1
+
+
+def test_the_piano_version_of_a_reading_given_its_missing_first_bar_keeps_every_part_in_step():
+    from engine.read_pdf import clean
+    from tests.test_read_pdf import zipped
+
+    score = clean(zipped((Path(__file__).parent / "data/pdf_warnings/schubert_die_stadt_audiveris.musicxml").read_bytes()))
+    source, reduced = _parse(score).toSoundingPitch(), _parse(piano.reduce(score, (6, 8)))
+    def attacks(parts):
+        return {(onset, ps) for part in parts for onset, _, ps, _ in _notes(part, 7)}
+    assert attacks(reduced.parts) == attacks(source.parts)
+    assert (0.0, 67.0) in attacks(source.parts[:1])
+
+
+def test_a_reading_whose_first_system_became_extra_parts_still_gets_no_piano_version():
+    from engine.annotate import render
+    from engine.annotations import AnnotationList
+    from engine.read_pdf import clean
+    from tests.test_read_pdf import zipped
+
+    reading = gzip.decompress((Path(__file__).parent / "data/pdf_warnings/faisst_lied_der_nacht_audiveris.musicxml.gz").read_bytes())
+    with pytest.raises(piano.PianoError) as refused:
+        render(clean(zipped(reading)), AnnotationList(annotations=[]), measures=(5, 8), piano=True)
+    assert str(refused.value) == piano.PARTS_DO_NOT_LINE_UP
+
+
+def test_a_whole_bar_rest_makes_a_piano_bar_as_long_as_its_time_signature_not_its_written_length():
+    from engine.read_pdf import clean
+    from tests.test_read_pdf import zipped
+
+    kept_out_of_the_repo = Path(__file__).parent / "data/users/clara_schumann_polonaise_3_scan_reading.musicxml.gz"
+    if not kept_out_of_the_repo.exists():
+        pytest.skip("this reading is not in the public repo")
+    reading = gzip.decompress(kept_out_of_the_repo.read_bytes())
+    reduced = _parse(piano.reduce(clean(zipped(reading)), (45, 45)))
+    for hand in reduced.parts:
+        assert [float(bar.duration.quarterLength) for bar in hand.getElementsByClass(stream.Measure)] == [3.0]
+
+
+def test_a_whole_bar_rest_written_too_long_after_the_notes_leaves_the_piano_bar_its_time_signature_length():
+    from engine.read_pdf import clean
+    from tests.test_read_pdf import zipped
+
+    constructed = (Path(__file__).parent / "data/pdf_warnings/whole_bar_rest_after_notes.musicxml").read_bytes()
+    reduced = _parse(piano.reduce(clean(zipped(constructed)), (1, 2)))
+    for hand in reduced.parts:
+        assert [float(bar.duration.quarterLength) for bar in hand.getElementsByClass(stream.Measure)] == [3.0, 3.0]
+
+
+def test_a_tune_that_starts_its_beamed_groups_on_chords_keeps_its_beams():
+    data = (Path(__file__).parent / "data/chopin_ballade_op23_pdmx.mxl").read_bytes()
+    right = _bars(_parse(piano.reduce(data, (36, 38))))[0]
+    for bar in right:
+        eighths = [e for v in bar.voices or [bar] for e in v.notes if e.duration.type == "eighth" and e.offset in (1.0, 1.5, 2.0, 2.5, 4.0, 4.5, 5.0, 5.5)]
+        assert eighths and all(e.beams.beamsList for e in eighths), bar.number
+
+
+def test_each_triplet_is_beamed_on_its_own_in_a_6_4_bar():
+    data = (Path(__file__).parent / "data/triplet_brahms_fruhlingstrost.musicxml").read_bytes()
+    for hand in _bars(_parse(piano.reduce(data, (1, 4)))):
+        for bar in hand:
+            for voice in bar.voices or [bar]:
+                run = []
+                for element in voice.notes:
+                    kinds = [b.type for b in element.beams.beamsList[:1]]
+                    if kinds and element.duration.tuplets:
+                        run.append(Fraction(element.offset))
+                        if kinds == ["stop"]:
+                            assert len({start // 1 for start in run}) == 1, (bar.number, run)
+                            run = []

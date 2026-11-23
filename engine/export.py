@@ -9,9 +9,8 @@ from music21 import meter as m21meter
 
 from engine.comparison import beat_ratio
 from engine.performance import performance_midi
-from engine.reduce import STEPS
 from engine.render import check_range, load_toolkit
-from engine.score import ScoreIndex, TOLERANCE
+from engine.score import BEAT_DENOMINATOR, STEPS, TOLERANCE, ScoreIndex
 
 _SUPERSCRIPTS = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹', '0123456789')
 
@@ -165,16 +164,13 @@ def export_musicxml(original: bytes, analysis: dict) -> bytes:
     return ET.tostring(root, encoding='utf-8', xml_declaration=True)
 
 
-def _in_range(measure: int, measures: tuple[int, int] | None) -> bool:
-    return measures is None or measures[0] <= measure <= measures[1] or (measure == 0 and measures[0] == 1)
-
-
 def export_romantext(original: bytes, analysis: dict, measures: tuple[int, int] | None = None) -> bytes | None:
     harmonies = sorted((a for a in analysis['annotations'] if a['type'] == 'harmony'),
                        key=lambda a: (a['at']['measure'], a['at'].get('beat', 1)))
     if not harmonies:
         return None
     index = ScoreIndex(load_toolkit(original).getMEI())
+    chosen = {measure.number for measure in index.select(*(measures or (None, None)))}
     lines, key, meter, bar = [], None, None, None
     shown = None
     for annotation in harmonies:
@@ -183,13 +179,13 @@ def export_romantext(original: bytes, analysis: dict, measures: tuple[int, int] 
             key = new_key
         number = annotation['at']['measure']
         words = annotation['label'].translate(_SUPERSCRIPTS).split()
-        if not _in_range(number, measures) or not words:
+        if number not in chosen or not words:
             continue
         if key is None:
             return None
-        beat = Fraction(annotation['at'].get('beat', 1)).limit_denominator(96)
+        beat = Fraction(annotation['at'].get('beat', 1)).limit_denominator(BEAT_DENOMINATOR)
         measure = index.measure(number)
-        if number == 0:
+        if measure.is_pickup:
             full = index.measure(1).length
             beat += (full - measure.length) / measure.beat_length
         if measure.meter:

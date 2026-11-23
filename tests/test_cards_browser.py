@@ -17,7 +17,7 @@ PDF = ROOT / "tests/data/chopin-28-4-mutopia.pdf"
 MUSICXML = ROOT / "tests/data/chopin_nocturne_op9_no2.mxl"
 PAGE_PNG = ROOT / "tests/golden/chopin_m1-8_all.png"
 UPLOAD_HEADERS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS",
-                  "Access-Control-Allow-Headers": "content-type"}
+                  "Access-Control-Allow-Headers": "content-type, x-device"}
 
 HOST = """<!doctype html><meta charset=utf-8><iframe id=f style="width:600px;height:60px;border:0"></iframe>
 <script>
@@ -90,7 +90,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers["Content-Length"]))
-        self.server.uploads.append((parse_qs(urlsplit(self.path).query), body))
+        self.server.uploads.append((parse_qs(urlsplit(self.path).query), self.headers["x-device"], body))
         if self.server.upload_reply is None:
             self.close_connection = True
             return
@@ -189,10 +189,9 @@ def test_upload_card_sends_a_pdf_and_puts_the_message_in_the_reply_box(page, upl
     expect(status).to_contain_text("If your reply box is empty, type \"I've chosen it\" and send that.")
     expect(card.locator("#status")).to_have_class("got")
     expect(card.locator("#choose")).to_be_hidden()
-    [(query, body)] = upload_server.uploads
-    device = card_frame(page).evaluate("localStorage.getItem('device')")
-    assert re.fullmatch(r"[0-9a-f]{32}", device)
-    assert query == {"id": ["ABC123"], "device": [device]}
+    [(query, device, body)] = upload_server.uploads
+    assert re.fullmatch(r"[0-9a-f]{32}", device) and device == card_frame(page).evaluate("localStorage.getItem('device')")
+    assert query == {"id": ["ABC123"]}
     assert body == PDF.read_bytes()
     [message] = sent(page, "ui/message")
     assert message["params"] == {"role": "user", "content": [{"type": "text", "text": f"I've chosen my score: {PDF.name}"}]}
@@ -476,6 +475,63 @@ def test_reading_card_status_after_a_reading_hides_the_old_reading_in_chatgpt(pa
     expect(card.get_by_text(STILL_READING)).to_be_visible()
     for element in CARD_CONTENT:
         expect(card.locator(element)).to_be_hidden()
+
+
+@pytest.mark.parametrize("update", [
+    "",
+    "window.openai.toolResponseMetadata = { ask_for_rating: true };",
+    "window.openai.toolOutput = { result: { caption: 'Analysis of the whole score' } };",
+])
+def test_analysis_card_keeps_a_result_from_the_host_when_chatgpt_updates_its_globals_without_a_picture(page, server, update):
+    card = open_card(page, server, "card.html", openai=True)
+    deliver(page, links(server))
+    expect(card.locator("#open-page")).to_be_visible()
+    card_frame(page).evaluate(update + "window.dispatchEvent(new Event('openai:set_globals'))")
+    for element in ("#caption", "#open-page", "#actions", "#more", "#suggest"):
+        expect(card.locator(element)).to_be_visible()
+
+
+CHATGPT_GLOBALS = """(wrapper) => {
+    window.openai.toolOutput = null;
+    window.openai.toolResponseMetadata = wrapper;
+    for (const name of ["safeArea", "displayMode", "theme", "maxWidth", "toolResponseMetadata"])
+        window.dispatchEvent(new CustomEvent("openai:set_globals", { detail: { globals: { [name]: window.openai[name] } } }));
+}"""
+CHATGPT_WRAPPER = {"io.modelcontextprotocol/serverInfo": {"name": "sheet-music-analysis"},
+                   "call_tool_result": {"content": [], "structuredContent": {}, "_meta": {}}}
+
+
+def test_reading_card_keeps_its_problem_report_through_chatgpt_globals_updates(page, server):
+    card = open_card(page, server, "card.html", openai=True)
+    deliver(page, {}, REPORT)
+    expect(card.get_by_text(REPORT["report"]["text"])).to_be_visible()
+    card_frame(page).evaluate(CHATGPT_GLOBALS, CHATGPT_WRAPPER)
+    page.wait_for_timeout(300)
+    expect(card.get_by_text(REPORT["report"]["text"])).to_be_visible()
+    expect(card.get_by_role("button", name="Send this problem to us")).to_be_visible()
+
+
+def test_analysis_card_keeps_its_picture_and_rating_through_chatgpt_globals_updates(page, server):
+    card = open_card(page, server, "card.html", openai=True)
+    deliver(page, links(server), {"ask_for_rating": True})
+    expect(card.locator("#rating")).to_be_visible()
+    card_frame(page).evaluate(CHATGPT_GLOBALS, CHATGPT_WRAPPER)
+    page.wait_for_timeout(300)
+    for element in ("#caption", "#open-page", "#actions", "#rating", "#suggest"):
+        expect(card.locator(element)).to_be_visible()
+
+
+def test_analysis_card_reports_its_size_once_however_often_chatgpt_updates_its_globals(page, server):
+    page.add_init_script("if (window !== window.top) window.openai = { toolOutput: %s };" % json.dumps(links(server)))
+    card = open_card(page, server, "card.html")
+    expect(card.locator("#open-page")).to_be_visible()
+    page.wait_for_function("received.filter((m) => m.method === 'ui/notifications/size-changed').at(-1).params.height > 200")
+    page.wait_for_timeout(500)
+    settled = len(sent(page, "ui/notifications/size-changed"))
+    for _ in range(5):
+        card_frame(page).evaluate("window.dispatchEvent(new Event('openai:set_globals'))")
+    page.wait_for_timeout(500)
+    assert len(sent(page, "ui/notifications/size-changed")) == settled
 
 
 def test_reading_card_shows_the_status_chatgpt_opens_it_with(page, server):
