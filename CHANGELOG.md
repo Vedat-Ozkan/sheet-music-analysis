@@ -2,9 +2,9 @@
 
 What changed for users, newest first. Numbers in brackets are entries in `docs/engineering-log.md`; #n are pull requests.
 
-## Unreleased
+## 2026-11-23: server 00067-4r6
 
-Merged on `main` after production revision 00065-fjv, not deployed.
+Claude plugin unchanged (1.10.3). ChatGPT app 1.5.0, published the same day.
 
 - Time signatures written as a sum, such as 3+2/8, are read correctly; scores saved as UTF-16 are accepted [167] (#30).
 - In PDF readings, a bar split by a repeat sign or double bar line keeps one bar number [166] (#29).
