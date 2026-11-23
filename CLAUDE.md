@@ -22,7 +22,7 @@ These are the owner's standing rules. Older detail is in the memory notes for th
 
 ## Owner decisions
 - Display, upload or UI choices: show real examples from both Claude and ChatGPT first; the owner decides.
-- Public text (site, listings, messages users see) must be clear to someone with very basic music knowledge; explain how a number was measured; no library or model names.
+- Public text (site, listings, messages users see) must be clear to someone with very basic music knowledge; explain how a number was measured; no library names.
 - Record problems, fixes and before/after numbers in `docs/engineering-log.md`, honestly.
 - Keep agent and evaluation token use low: short fresh briefs, Sonnet for routine work, test on 2-3 pieces first, ask before anything over about US$10.
 - Commit with explicit paths; never push, deploy or publish without being asked.
