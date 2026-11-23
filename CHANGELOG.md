@@ -13,6 +13,8 @@ Merged on `main` after production revision 00065-fjv, not deployed.
 - Production answers only requests that come through our proxy; draft analyses and corrections share a daily limit of 300 [168] (#31).
 - A scanned PDF can be read a second, slower way by the chat itself, page by page; the chat offers it and says how long it takes before starting [197, 201].
 - With no bars named, the whole piece is analysed without a question first; the reply is written for a player, in sentences rather than tables, and ends with one thing to listen for [198, 201].
+- The drawn page keeps the bars chosen for each line (no more single bars left alone), has tighter gaps between lines, and its guide to the marks is shorter and sits under the last page the chat shows [182, 183] (#37).
+- The PDF download is laid out for Letter paper [184, 185].
 - Chord symbols printed in a score stay on the drawn page and are given to the chat [199].
 - Bars are named as in the printed copy, such as "16a" for a bar the print does not number; a pickup bar marked by the PDF reader is trusted [189, 190].
 - A voice keeps its number from bar to bar; a key change shared by all parts is read in concert pitch [187].
