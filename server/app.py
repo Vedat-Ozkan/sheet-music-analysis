@@ -1463,7 +1463,12 @@ KIT = HERE.parent / "kit"
 KIT_FILES = ("notetool.py", "tool.md", "reader.md")
 KIT_ELSEWHERE = os.environ.get("KIT_ELSEWHERE", "").rstrip("/")
 CAREFUL_PLATFORMS = set(os.environ.get("CAREFUL_READING", "").split(","))
-CAREFUL_OFF = "The careful reading of scans is not available here. Use the quick reading: call draft_analysis with the score_id the PDF's result gave."
+CAREFUL_TOOLS = {"careful_reading", "use_careful_reading"}
+ASK_BEFORE_THE_STEPS = (
+    "Before any of these steps, ask the user, unless they have already said yes to exactly this question in this "
+    "chat. Say this to them, in these words: \"{warning}\" Then end your reply and wait; do the steps only after "
+    "their yes, and if they say no, analyse the quick reading instead with draft_analysis.\n"
+)
 NOT_A_SCAN = ("A careful reading is offered only for a scanned PDF that read_pdf or read_fetched_pdf has read, with the "
               "score_id it returned.")
 
@@ -1627,7 +1632,8 @@ class Server(MCPServer):
         result = await super()._handle_list_tools(ctx, params)
         claude = is_claude(ctx)
         if claude:
-            result.tools = [tool for tool in result.tools if tool.name in CLAUDE_TOOLS]
+            result.tools = [tool for tool in result.tools if tool.name in CLAUDE_TOOLS
+                            and (tool.name not in CAREFUL_TOOLS or "claude" in CAREFUL_PLATFORMS)]
         else:
             result.tools = [tool for tool in result.tools if tool.name not in CLAUDE_ONLY_TOOLS]
         for tool in result.tools:
@@ -2031,9 +2037,6 @@ async def correct_bars(
 @observed
 async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
     source = platform(ctx)
-    if source not in CAREFUL_PLATFORMS:
-        log("careful_reading", platform=source, error="CarefulOff")
-        return error_result(CAREFUL_OFF)
     scan = await anyio.to_thread.run_sync(store.get, scan_key(score_id))
     if scan is None:
         log("careful_reading", platform=source, error="ScoreError")
@@ -2047,7 +2050,8 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
     hint = await in_turn(signatures_found, score)
     addresses = [f"{PUBLIC_BASE_URL}/kit", *([KIT_ELSEWHERE] if KIT_ELSEWHERE else [])]
     log("careful_reading", platform=source, pages=pages)
-    return CallToolResult(content=[TextContent(type="text", text=CAREFUL_STEPS.format(
+    ask = "" if source in CAREFUL_PLATFORMS else ASK_BEFORE_THE_STEPS.format(warning=careful_warning(pages))
+    return CallToolResult(content=[TextContent(type="text", text=ask + CAREFUL_STEPS.format(
         pages=page_count(pages), count=pages, score_id=clean_id(score_id), files=" ".join(KIT_FILES), hint=hint,
         download=" || ".join(f"curl -fsSL {address}/$f -o kit/$f" for address in addresses),
         helpers=HELPER_SETTINGS["claude" if source == "claude" else "other"]))])
@@ -2065,9 +2069,6 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
 @observed
 async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> CallToolResult:
     source = platform(ctx)
-    if source not in CAREFUL_PLATFORMS:
-        log("use_careful_reading", platform=source, error="CarefulOff")
-        return error_result(CAREFUL_OFF)
     scan = await anyio.to_thread.run_sync(store.get, scan_key(score_id))
     if scan is None:
         log("use_careful_reading", platform=source, error="ScoreError")

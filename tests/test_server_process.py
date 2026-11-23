@@ -118,7 +118,7 @@ def test_claude_is_offered_the_upload_card_score_links_and_cards_on_its_own_doma
     listed = {tool["name"]: tool for tool in json.loads(as_client(server, "Claude-User", "tools/list", {}))["result"]["tools"]}
     card = json.loads(as_client(server, "Claude-User", "resources/read", {"uri": "ui://sheet-music-analysis/card-v2.html"}))
     assert set(listed) == {"choose_score", "fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis",
-                           "play", "draft_from_notes", "send_suggestion", "careful_reading", "use_careful_reading"}
+                           "play", "draft_from_notes", "send_suggestion"}
     assert "score_file" not in listed["draft_analysis"]["inputSchema"]["properties"]
     assert set(listed["play"]["inputSchema"]["properties"]) == {"score_id", "measure_range", "tempo", "play_id", "notes"}
     assert "fetch_score" in listed["draft_analysis"]["description"] and "read_fetched_pdf" in listed["correct_bars"]["description"]
@@ -148,9 +148,13 @@ def careful_call(server, agent, name, **arguments):
     return json.loads(as_client(server, agent, "tools/call", {"name": name, "arguments": arguments}))["result"]
 
 
+def listed_tools(server, agent):
+    return {tool["name"] for tool in json.loads(as_client(server, agent, "tools/list", {}))["result"]["tools"]}
+
+
 @pytest.mark.parametrize("setting, offered_to", [(None, set()), ("chatgpt", {CHATGPT}), ("claude", {CLAUDE}),
                                                  ("chatgpt,claude", {CHATGPT, CLAUDE})])
-def test_the_careful_reading_reaches_only_the_platforms_it_is_switched_on_for(tmp_path, setting, offered_to):
+def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_for(tmp_path, setting, offered_to):
     pdf = (NOCTURNE.parent / "chopin-28-4-mutopia.pdf").read_bytes()
     scores = tmp_path / "scores"
     scores.mkdir()
@@ -161,19 +165,26 @@ def test_the_careful_reading_reaches_only_the_platforms_it_is_switched_on_for(tm
             "pdf_url": "", "page_images": []}
     (scores / f"pdf-card-{pdf_reader.READER}-{hashlib.sha256(pdf).hexdigest()}.json").write_text(json.dumps(card))
     with running_server(tmp_path, **({"CAREFUL_READING": setting} if setting is not None else {})) as (url, _):
+        careful_tools = {"careful_reading", "use_careful_reading"}
+        assert careful_tools <= listed_tools(url, CHATGPT)
+        assert careful_tools & listed_tools(url, CLAUDE) == (careful_tools if CLAUDE in offered_to else set())
         for agent in (CHATGPT, CLAUDE):
             offer = read_scan(url, agent, "SCAN1")["content"][-1]["text"]
-            steps = careful_call(url, agent, "careful_reading", score_id="QUICK1N")
-            handed_in = careful_call(url, agent, "use_careful_reading", score_id="QUICK1N", pages=CAREFUL_PAGES)
             if agent in offered_to:
                 assert "Shall I go ahead?" in offer and "careful_reading" in offer, agent
-                assert not steps.get("isError") and "kit/reader.md" in steps["content"][0]["text"], agent
-                assert not handed_in.get("isError") and handed_in["content"][0]["text"].startswith("score_id: "), agent
             else:
                 assert "careful" not in offer.lower() and "Shall I go ahead?" not in offer, agent
                 assert "draft_analysis with this score_id now" in offer, agent
-                for refused in (steps, handed_in):
-                    assert refused.get("isError") and refused["content"][0]["text"] == app.CAREFUL_OFF, agent
+        steps = careful_call(url, CHATGPT, "careful_reading", score_id="QUICK1N")
+        handed_in = careful_call(url, CHATGPT, "use_careful_reading", score_id="QUICK1N", pages=CAREFUL_PAGES)
+        assert not steps.get("isError") and "kit/reader.md" in steps["content"][0]["text"]
+        assert not handed_in.get("isError") and handed_in["content"][0]["text"].startswith("score_id: ")
+        warning = app.careful_warning(3)
+        if CHATGPT in offered_to:
+            assert warning not in steps["content"][0]["text"]
+        else:
+            assert steps["content"][0]["text"].startswith("Before any of these steps, ask the user")
+            assert f'"{warning}"' in steps["content"][0]["text"].split("\n", 1)[0]
 
 
 def test_chatgpt_keeps_its_tools_and_attachment_arguments(server):
