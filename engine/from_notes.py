@@ -111,6 +111,9 @@ def _joined(pages: list[list[_Bar]], div: int, meter: str, key: str) -> list[_Ba
             if position == 0 and bars and _completes(bars[-1], bar, div, meter, key):
                 bars[-1] = _one_bar(bars[-2] if len(bars) > 1 else None, bars[-1], bar, div)
                 continue
+            if position == 0 and bars:
+                bar = replace(bar, words={label: _words_after_the_turn(bars[-1].voices.get(label), bar.voices.get(label), words, div)
+                                          for label, words in bar.words.items()})
             meter, key = bar.changes.get("ts", meter), bar.changes.get("ks", key)
             bars.append(bar)
     return bars
@@ -131,9 +134,17 @@ def _one_bar(previous: _Bar | None, before: _Bar, after: _Bar, div: int) -> _Bar
         tied_in = bool(previous and label in previous.voices and correct.ends_tied(previous.voices[label], div, False))
         tied_across = label in before.voices and correct.ends_tied(before.voices[label], div, tied_in)
         first = before.words.get(label) or _unsung(before.voices.get(label), div, tied_in)
-        second = after.words.get(label) or _unsung(after.voices.get(label), div, tied_across)
+        second = (_words_after_the_turn(before.voices.get(label), after.voices.get(label), after.words[label], div)
+                  if label in after.words else _unsung(after.voices.get(label), div, tied_across))
         words[label] = " ".join(filter(None, (first, second)))
     return _Bar(before.written_number, before.length + after.length, before.changes, voices, words, before.other + after.other)
+
+
+def _words_after_the_turn(before: str | None, after: str | None, words: str, div: int) -> str:
+    tied_in = bool(before and correct.ends_tied(before, div, False))
+    if not after or not tied_in or correct.sung_notes(after, div, True) == correct.sung_notes(after, div, False):
+        return words
+    return " ".join(words.split()[1:])
 
 
 def _unsung(body: str | None, div: int, tied_into: bool) -> str:

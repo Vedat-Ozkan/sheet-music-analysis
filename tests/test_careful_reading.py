@@ -278,3 +278,27 @@ def test_words_on_one_half_of_a_bar_split_by_the_page_turn_stay_on_their_notes(b
     score = ET.fromstring(from_notes.score_from_pages(pages))
     words = [(note.findtext("pitch/step"), note.findtext("lyric/text")) for note in score.iter("note") if note.find("pitch") is not None]
     assert words == [("C", "Ah"), *sung]
+
+
+@pytest.mark.parametrize("pages, sung", [
+    (["N1 div=4 ts=4/4 ks=0\nm1 len=16\n1.1: 8 E4 C4~\n1.1w: Ah ki",
+      "N1 div=4 ts=4/4 ks=0\nm1 len=16\n1.1: 8 C4 D4\n1.1w: _ la\nm2 len=16\n1.1: 16 G4\n1.1w: lo"],
+     [("E4", "Ah"), ("C4", "ki"), ("C4", None), ("D4", "la"), ("G4", "lo")]),
+    (["N1 div=4 ts=4/4 ks=0\nm1 len=16\n1.1: 16 C4\n1.1w: Ah\nm2 len=8\n1.1: 4 E4 D4~\n1.1w: ki ra",
+      "N1 div=4 ts=4/4 ks=0\nm1 len=8\n1.1: 4 D4 A4\n1.1w: _ la\nm2 len=16\n1.1: 16 G4\n1.1w: lo"],
+     [("C4", "Ah"), ("E4", "ki"), ("D4", "ra"), ("D4", None), ("A4", "la"), ("G4", "lo")]),
+], ids=["between-two-whole-bars", "in-a-bar-split-by-the-turn"])
+def test_a_sung_note_tied_over_the_page_turn_keeps_the_words_after_it_on_their_notes(pages, sung):
+    score = ET.fromstring(from_notes.score_from_pages(pages))
+    words = [(note.findtext("pitch/step") + note.findtext("pitch/octave"), note.findtext("lyric/text"))
+             for note in score.iter("note") if note.find("pitch") is not None]
+    assert words == sung
+    tied = [note.find("tie").get("type") for note in score.iter("note") if note.find("tie") is not None]
+    assert tied == ["start", "stop"]
+
+
+def test_a_note_tied_in_from_the_page_before_still_needs_its_words_entry_on_its_own_page():
+    pages = ["N1 div=4 ts=4/4 ks=0\nm1 len=16\n1.1: 8 E4 C4~\n1.1w: Ah ki",
+             "N1 div=4 ts=4/4 ks=0\nm1 len=16\n1.1: 8 C4 D4\n1.1w: la"]
+    with pytest.raises(notes.NotesError, match="Page 2: Bar 1, 1.1w: 1 entries for 2 sung notes"):
+        from_notes.score_from_pages(pages)
