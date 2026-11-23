@@ -7,7 +7,7 @@ import re
 import xml.etree.ElementTree as ET
 import zipfile
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from fractions import Fraction
 
 from music21 import meter, note as m21note
@@ -22,6 +22,28 @@ from engine.score import ScoreIndex, alteration
 
 class CorrectionError(UserError):
     pass
+
+
+ACCIDENTALS = {-3: "triple-flat", -2: "flat-flat", -1: "flat", 0: "natural", 1: "sharp", 2: "double-sharp", 3: "triple-sharp"}
+AFTER_ACCIDENTAL = {"time-modification", "stem", "notehead", "staff", "beam", "notations", "lyric"}
+SLUR_NUMBERS = range(1, 17)
+
+
+@dataclass(frozen=True)
+class Group:
+    names: str
+    duration: Fraction
+    grace: str | bool
+    slurs_opened: int = 0
+    slurs_closed: int = 0
+    staccato: bool = False
+    accent: bool = False
+    clef: str = ""
+    word: str = ""
+
+    def piece(self, names: str, duration: Fraction, first: bool, last: bool) -> Group:
+        return Group(names, duration, False, self.slurs_opened if first else 0, self.slurs_closed if last else 0,
+                     self.staccato and first, self.accent and first, self.clef if first else "", self.word if first else "")
 
 
 def _read(score: bytes, part: str | None):
@@ -120,25 +142,34 @@ def _bars_from_index(selected, index, first, last=None):
     return "\n".join(lines)
 
 
-def _read_voice(body: str, div: int, name: str) -> tuple[Fraction, list]:
-    duration, total, groups = Fraction(0), Fraction(0), []
-    for token in body.split():
-        if token.isdigit():
-            duration = Fraction(int(token), div)
+def _read_voice(body: str, div: int, name: str, label: str) -> tuple[Fraction, list[Group]]:
+    duration, total, groups, clef = Fraction(0), Fraction(0), [], ""
+    for written in body.split():
+        if written.isdigit():
+            duration = Fraction(int(written), div)
             if duration <= 0:
                 raise CorrectionError(f"Bar {name}: duration must be positive")
             continue
-        grace = token[0] if token.startswith(("g", "u")) else False
-        names = token[1:] if grace else token
+        if change := notes.CLEF.fullmatch(written):
+            clef = change[1]
+            continue
+        token = notes.token(written)
+        grace = token.sounding[0] if token.sounding.startswith(("g", "u")) else False
+        names = token.sounding[1:] if grace else token.sounding
         if not grace and duration <= 0:
             raise CorrectionError(f"Bar {name}: note/rest has no duration")
         if names != "r" and any(not re.fullmatch(r"[A-G](?:#+|b+)?[0-9]~?", n) for n in names.split("+")):
             raise CorrectionError(f"Bar {name}: invalid pitch {names!r}")
         if grace and names == "r":
             raise CorrectionError("Grace rests are not supported")
-        groups.append((names, Fraction(0) if grace else duration, grace))
+        groups.append(Group(names, Fraction(0) if grace else duration, grace, token.slurs_opened, token.slurs_closed,
+                            token.staccato, token.accent, clef))
+        clef = ""
         if not grace:
             total += duration
+    if clef:
+        raise CorrectionError(f"Bar {name}, voice {label}: clef={clef} is written after the last note; write it "
+                              "in the next bar, before the first note it applies to")
     return total, groups
 
 
@@ -147,7 +178,7 @@ def _handed_out_voices(canonical: str, div: int, name: str) -> dict[tuple[int, i
     for line in canonical.splitlines():
         if ":" in line and not line.startswith("x:"):
             label, body = line.split(":", 1)
-            voices[notes.voice_label(label)] = _read_voice(body, div, name)
+            voices[notes.voice_label(label)] = _read_voice(body, div, name, label)
     return voices
 
 
@@ -164,6 +195,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
         decoded = notes.decode(corrected)
         replacements = {}
         current = None
+        held = {}
         for line in corrected.strip().splitlines()[1:]:
             line = line.strip()
             if not line or line.startswith("x:"):
@@ -174,13 +206,22 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                 if current in replacements:
                     raise CorrectionError(f"Bar {name} is repeated")
                 replacements[current] = {}
-            else:
-                label, body = line.split(":", 1)
-                staff, voice = notes.voice_label(label)
-                if staff <= 0 or voice <= 0 or (staff, voice) in replacements[current]:
-                    raise CorrectionError(f"Bar {name}: invalid or repeated voice {label}")
-                total, groups = _read_voice(body, div, name)
-                replacements[current][(staff, voice)] = (total, groups)
+                continue
+            label, body = line.split(":", 1)
+            if notes.WORDS_LABEL.fullmatch(label):
+                staff, voice = notes.voice_label(label[:-1])
+                if (staff, voice) not in replacements[current]:
+                    raise CorrectionError(f"Bar {name}: the words line {label} needs its voice line {label[:-1]} before it")
+                total, groups = replacements[current][(staff, voice)]
+                replacements[current][(staff, voice)] = (total, _with_words(groups, body.split(), held.get((staff, voice, "before"), False), f"Bar {name}, {label}"))
+                continue
+            staff, voice = notes.voice_label(label)
+            if staff <= 0 or voice <= 0 or (staff, voice) in replacements[current]:
+                raise CorrectionError(f"Bar {name}: invalid or repeated voice {label}")
+            total, groups = _read_voice(body, div, name, label)
+            held[staff, voice, "before"] = held.get((staff, voice), False)
+            held[staff, voice] = _held_after(groups, held[staff, voice, "before"])
+            replacements[current][(staff, voice)] = (total, groups)
         staves = max([int(e.text) for e in selected.findall("measure/attributes/staves")] or [1])
         unchanged = set()
         for number, voices in replacements.items():
@@ -212,7 +253,8 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                     continue
                 if total != original.length and not (handed and total == handed[0]):
                     raise CorrectionError(f"Bar {name}, voice {label[0]}.{label[1]} adds up to {total}; expected {original.length} quarter notes")
-                for _, duration, grace in groups:
+                for group in groups:
+                    duration, grace = group.duration, group.grace
                     written = Duration(duration)
                     if not grace and duration not in as_read and (written.type == "inexpressible"
                                       or any(t.durationNormal.type != written.type for t in written.tuplets)):
@@ -239,6 +281,8 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
     _drop_crossings(selected, set(replacements))
     pending_voices = {}
     written_voices = {(e.staff, e.layer) for m in index.measures for e in m.events}
+    open_slurs, slur_numbers_taken = {}, set()
+    clefs, fifths, keys, lyrics = {}, 0, {}, []
     divisions = math.lcm(div, *[int(e.text) for e in selected.findall("measure/attributes/divisions")])
     if selected.find("measure/attributes/divisions") is None:
         first = selected.find("measure")
@@ -251,6 +295,11 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
     for position_in_file, bar in enumerate(selected.findall("measure"), 1):
         for element in bar:
             change = element.find("divisions") if element.tag == "attributes" else None
+            if element.tag == "attributes":
+                fifths = int(element.findtext("key/fifths", str(fifths)))
+                for clef in element.findall("clef"):
+                    clefs[int(clef.get("number", "1"))] = (clef.findtext("sign"), int(clef.findtext("line", "0")),
+                                                          int(clef.findtext("clef-octave-change", "0")))
             if change is not None:
                 old = int(change.text)
                 change.text = str(divisions)
@@ -262,6 +311,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
         number = position_in_file
         if number not in replacements:
             continue
+        keys[number] = fifths
         cursor = Fraction(0)
         for element in bar:
             if element.tag in {"direction", "harmony"}:
@@ -294,17 +344,21 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
             pending = pending_voices.setdefault((owners[number].number, staff, voice), {})
             voice_notes = []
             expanded = []
-            for names, duration, grace in groups:
-                d = Duration(duration) if not grace else None
+            for group in groups:
+                d = Duration(group.duration) if not group.grace else None
                 components = d.components if d is not None and d.type == "complex" else []
                 if components:
                     for i, component in enumerate(components):
                         split_names = "+".join(name if i == len(components) - 1 or name == "r"
-                                               else name.rstrip("~") + "~" for name in names.split("+"))
-                        expanded.append((split_names, Fraction(component.quarterLength), False))
+                                               else name.rstrip("~") + "~" for name in group.names.split("+"))
+                        expanded.append(group.piece(split_names, Fraction(component.quarterLength), i == 0, i == len(components) - 1))
                 else:
-                    expanded.append((names, duration, grace))
-            for names, duration, grace in expanded:
+                    expanded.append(group)
+            for group in expanded:
+                names, duration, grace = group.names, group.duration, group.grace
+                if group.clef and clefs.get(staff) != notes.CLEFS[group.clef]:
+                    clefs[staff] = notes.CLEFS[group.clef]
+                    content.append(_clef_change(staff, *clefs[staff]))
                 if not grace:
                     next_pitches = {name.rstrip("~") for name in names.split("+")} - {"r"}
                     for pitch in list(pending):
@@ -347,10 +401,16 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                         ET.SubElement(mod, "normal-notes").text = str(t.numberNotesNormal)
                         ET.SubElement(mod, "normal-type").text = t.durationNormal.type
                     ET.SubElement(note, "staff").text = str(staff)
-                    if ties:
+                    marked = not chord and (group.slurs_opened or group.slurs_closed or group.staccato or group.accent)
+                    if ties or marked:
                         notations = ET.SubElement(note, "notations")
                         for kind in ties:
                             ET.SubElement(notations, "tied", type=kind)
+                        if marked:
+                            _write_marks(notations, group, open_slurs.setdefault((staff, voice), []), slur_numbers_taken,
+                                         f"Bar {owners[number].number}, voice {staff}.{voice}")
+                    if group.word and not chord:
+                        lyrics.append(((staff, voice), note, group.word))
                     content.append(note)
                     voice_notes.append(note)
             run = []
@@ -369,6 +429,13 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
             _beam_voice(voice_notes, owners[number], number, divisions)
         bar[insertion:insertion] = content
     _join_ties(selected, set(replacements))
+    for (staff, voice), numbers in open_slurs.items():
+        if numbers:
+            raise CorrectionError(f"A slur starts in voice {staff}.{voice} and never ends; close it with ) after its last note")
+    bars = selected.findall("measure")
+    for number, key in keys.items():
+        _write_accidentals(bars[number - 1], key)
+    _write_lyrics(lyrics)
     result = ET.tostring(root, encoding="utf-8", xml_declaration=True)
     _, _, after = _read(result, part)
     def timing(bar):
@@ -383,6 +450,100 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
         if (following is None or following.number not in changed_numbers) and ties(original) != ties(after.measure(original.number)):
             raise CorrectionError(f"Bar {original.name}: the correction would change ties in this untouched bar")
     return result
+
+
+def _held_after(groups: list[Group], held: bool) -> bool:
+    for group in groups:
+        if not group.grace:
+            held = group.names != "r" and "~" in group.names
+    return held
+
+
+def _with_words(groups: list[Group], words: list[str], held: bool, where: str) -> list[Group]:
+    sung = []
+    for position, group in enumerate(groups):
+        if group.grace or group.names == "r":
+            held = held and bool(group.grace)
+            continue
+        if not held:
+            sung.append(position)
+        held = "~" in group.names
+    if len(words) != len(sung):
+        raise CorrectionError(f"{where}: {len(words)} entries for {len(sung)} sung notes; write one entry for each note "
+                              "that is not a rest, a grace note or the continuation of a tie, and _ where no syllable is printed")
+    result = list(groups)
+    for position, word in zip(sung, words):
+        if word != "_":
+            result[position] = replace(groups[position], word=word)
+    return result
+
+
+def _clef_change(staff: int, sign: str, line: int, octave: int) -> ET.Element:
+    attributes = ET.Element("attributes")
+    clef = ET.SubElement(attributes, "clef", number=str(staff))
+    ET.SubElement(clef, "sign").text = sign
+    ET.SubElement(clef, "line").text = str(line)
+    if octave:
+        ET.SubElement(clef, "clef-octave-change").text = str(octave)
+    return attributes
+
+
+def _write_marks(notations: ET.Element, group: Group, open_numbers: list[int], taken: set[int], where: str) -> None:
+    for _ in range(group.slurs_opened):
+        number = next((n for n in SLUR_NUMBERS if n not in taken), None)
+        if number is None:
+            raise CorrectionError(f"{where}: more than {len(SLUR_NUMBERS)} slurs are open at once")
+        taken.add(number)
+        open_numbers.append(number)
+        ET.SubElement(notations, "slur", type="start", number=str(number))
+    if group.staccato or group.accent:
+        articulations = ET.SubElement(notations, "articulations")
+        for wanted, tag in ((group.accent, "accent"), (group.staccato, "staccato")):
+            if wanted:
+                ET.SubElement(articulations, tag)
+    for _ in range(group.slurs_closed):
+        if not open_numbers:
+            raise CorrectionError(f"{where}: a slur ends here that was never started; write ( before its first note")
+        number = open_numbers.pop()
+        taken.discard(number)
+        ET.SubElement(notations, "slur", type="stop", number=str(number))
+
+
+def _write_accidentals(bar: ET.Element, fifths: int) -> None:
+    in_key = {step: 1 for step in "FCGDAEB"[:max(fifths, 0)]} | {step: -1 for step in "BEADGCF"[:max(-fifths, 0)]}
+    cursor = onset = Fraction(0)
+    sounding = []
+    for element in bar:
+        if element.tag in {"backup", "forward"}:
+            cursor += Fraction(element.findtext("duration", "0")) * (-1 if element.tag == "backup" else 1)
+        elif element.tag == "note":
+            if element.find("chord") is None:
+                onset = cursor
+                if element.find("grace") is None:
+                    cursor += Fraction(element.findtext("duration", "0"))
+            if element.find("pitch") is not None:
+                sounding.append((onset, len(sounding), element))
+    altered = {}
+    for _, _, note in sorted(sounding, key=lambda entry: entry[:2]):
+        if any(tie.get("type") == "stop" for tie in note.findall("tie")):
+            continue
+        place = (note.findtext("staff", "1"), note.findtext("pitch/step"), note.findtext("pitch/octave"))
+        alter = int(float(note.findtext("pitch/alter", "0")))
+        if alter != altered.get(place, in_key.get(place[1], 0)) and alter in ACCIDENTALS:
+            sign = ET.Element("accidental")
+            sign.text = ACCIDENTALS[alter]
+            note.insert(next((i for i, child in enumerate(note) if child.tag in AFTER_ACCIDENTAL), len(note)), sign)
+        altered[place] = alter
+
+
+def _write_lyrics(lyrics: list[tuple[tuple[int, int], ET.Element, str]]) -> None:
+    inside_word = {}
+    for voice, note, word in lyrics:
+        goes_on = word.endswith("-") and len(word) > 1
+        lyric = ET.SubElement(note, "lyric", number="1")
+        ET.SubElement(lyric, "syllabic").text = {(False, False): "single", (False, True): "begin", (True, True): "middle", (True, False): "end"}[inside_word.get(voice, False), goes_on]
+        ET.SubElement(lyric, "text").text = word[:-1] if goes_on else word
+        inside_word[voice] = goes_on
 
 
 def _beam_voice(voice_notes, measure, segment, divisions):
@@ -607,10 +768,11 @@ def _segment_replacements(index, replacements):
                 end = segments[i + 1].start if i + 1 < len(segments) else max(measure.length, total)
                 cursor = Fraction(0)
                 pieces = []
-                for names, duration, grace in groups:
-                    if grace:
+                for group in groups:
+                    names, duration = group.names, group.duration
+                    if group.grace:
                         if segment.start <= cursor < end or cursor == end == measure.length:
-                            pieces.append((names, duration, grace))
+                            pieces.append(group)
                     else:
                         left, right = max(cursor, segment.start), min(cursor + duration, end)
                         if left < right:
@@ -618,7 +780,7 @@ def _segment_replacements(index, replacements):
                                 split_names = "+".join(n.rstrip("~") + "~" for n in names.split("+"))
                             else:
                                 split_names = names
-                            pieces.append((split_names, right - left, False))
+                            pieces.append(group.piece(split_names, right - left, left == cursor, right == cursor + duration))
                         cursor += duration
                 result[segment.index][label] = (end - segment.start, pieces)
     return result

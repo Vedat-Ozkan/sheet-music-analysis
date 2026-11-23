@@ -3,5 +3,6 @@
 !uv.lock
 !engine
 !server
+!kit
 !skill/SKILL.md
 **/__pycache__

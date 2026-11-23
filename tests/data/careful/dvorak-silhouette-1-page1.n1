@@ -1,0 +1,52 @@
+N1 div=4 ts=6/8 ks=4s
+m0 len=2
+1.1: 2 (G#3+G#4
+2.1: 2 r
+m1 len=12
+1.1: 4 C#4+C#5 2 D#4+D#5 4 E4+E5 2 F#4+F#5
+2.1: 1 (C#2 G#2 C#3 E3 C#3 E3 C#3 E3 C#3 E3 C#3 G#2)
+m2 len=12
+1.1: 4 G#4+G#5 2 A4+A5 4 B4+B5 2 A4+A5)
+2.1: 1 (C#2 G#2 C#3 E3 C#3 G#2) (B1+B2 D#3 F#3 A3 F#3 D#3)
+m3 len=12
+1.1: 4 (G#4+G#5 2 F#4+F#5 4 E4+E5 2 D#4+D#5
+2.1: 1 (E2 B2 E3 G#3 E3 B2) (F#2 D#3 F#3 A3 F#3 D#3)
+m4 len=12
+1.1: 4 C#4+C#5 2 D#4+D#5 4 E4+E5 2 B#3+B#4)
+2.1: 1 (G#1+G#2 C#3 E3 G#3 E3 C#3 G#2 D#3 F#3 G#3 F#3 D#3)
+m5 len=12
+1.1: 2 C#4+C#5 r r C#4+E4+G#4+C#5+E5+G#5+C#6> r r
+2.1: 2 C#2+C#3 r r r r r
+m6 len=12 ks=5f
+1.1: 6 (F5~+Ab5~ 4 F5+Ab5 2 Eb5+Gb5
+2.1: 6 (F4~+Ab4~ 4 F4+Ab4 2 Eb4+Gb4
+m7 len=12
+1.1: 4 F5+Db5 2 Eb5+Ab4 6 Eb5+Ab4)
+2.1: 4 F4+Db4 2 Eb4+Ab3 6 Eb4+Ab3)
+m8 len=12
+1.1: 6 (F4~+Db5~ 4 F4+Db5 2 F4+Db5
+2.1: 6 (F3~+Db4~ 4 F3+Db4 2 F3+Db4
+m9 len=12
+1.1: 4 Ab4+Eb5 2 Db5+F5 4 Ab4+Eb5 2 F4+Db5
+2.1: 4 Ab3+Eb4 2 Db4+F4 4 Ab3+Eb4 2 F3+Db4
+m10 len=12
+1.1: gEb5 gAb4~ 6 Ab4~+Eb5~ 4 Ab4+Eb5) 2 Ab5
+2.1: gEb4 gAb3~ 6 Ab3~+Eb4~ 4 Ab3+Eb4) 2 r
+m11 len=12
+1.1: gF6+Ab6 gAb5~ 6 (Ab5~+F6~+Ab6~ 4 Ab5+F6+Ab6 2 Gb5+Eb6+Gb6
+2.1: 2 Db2+Db3 Ab3+Db4+F4. Ab3+Db4+F4. 4 r 2 Ab3+C4+Eb4+Gb4.
+m12 len=12
+1.1: gDb6+F6 gF5~ 4 F5+Db6+F6 2 Eb5+Ab5+Eb6 6 Eb5+Ab5+Eb6)
+2.1: 2 Db3. Ab3+Db4+F4. r Db3. Ab3+C4+Eb4+Gb4. r
+m13 len=12
+1.1: gDb6+Ab5 gDb5~ 6 (Db5~+Ab5~+Db6~ 4 Db5+Ab5+Db6 2 Db5+Ab5+Db6
+2.1: 2 Db2+Db3 Ab3+Db4+F4 Ab3+Db4+F4 4 r 2 Ab3+Db4+F4
+m14 len=12
+1.1: gEb6+Ab5 gEb5~ 4 Eb5+Ab5+Eb6 2 F5+Ab5+F6 gEb6+Ab5 gEb5~ 4 Eb5+Ab5+Eb6 2 Db5+Ab5+Db6
+2.1: 2 Db3 Ab3+C4+Eb4+Gb4 Ab3+C4+F4+Ab4 r Ab3+C4+Eb4+Gb4 Ab3+Db4+F4
+m15 len=12
+1.1: gEb6+Ab5 gEb5~ 12 Eb5~+Ab5~+Eb6~>
+2.1: 2 Db3 Ab3+C4+Eb4+Gb4 r 4 r 2 Ab3+C4+Eb4+Ab4
+m16 len=12
+1.1: 6 Eb5+Ab5+Eb6) 4 r 2 Ab5
+2.1: 2 Ab3+C4+Eb4+Gb4 r Ab3+C4+F4 Ab3+C4+F4 r Ab3+C4+Eb4
