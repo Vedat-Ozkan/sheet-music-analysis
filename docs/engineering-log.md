@@ -3989,6 +3989,40 @@ Of the 213 ranges 127 are written identically and 86 differ: 58 because a bar is
 
 **Checks.** `tools/correct_corpus_check.py` and `tools/time_unit_corpus_check.py` (new) hand every bar out and back, raw or through the tidy step. `tools/diff_check.py --base rules-second-batch all` on the two fixes: no changed item. New end-to-end tests fail before each fix and pass after. Lint passes. Full suite of the whole line with this branch on top, on a home PC plus the two machine-bound files here: 1,705 passed, 4 skipped, 0 failed (4f86758).
 
+### 197. The careful reading of scans joined onto the current line, with a setting for where it is offered (2026-11-22, branch `careful-on-line`, nothing released)
+
+**Use.** Why this came first: in the 30 days to 2026-11-22, 48 of 91 PDF readings by ChatGPT users were scans, and the median scan came back with 60% of its bars shaded as doubtful (28 of 48 over half). Users who got a reading and never went on to a marked page had a median of 60% of bars shaded; those who went on, 34%. Share of scans and waiting time were the same in both groups.
+
+**Problem.** The careful reading (entry 181: the user's own chat reads each page of a scan, after a usage warning and the user's yes) was built on an older main and could not be released: it conflicted with everything since entry 186, and its offer is text our server sends, so a deploy would have offered it to ChatGPT users before OpenAI had approved the two new tools, and to Claude users at once.
+
+**Joined.** `careful-reading` is merged onto the line. The careful note writer (accidentals, slurs, dots, accents, clefs, sung words) and the correction rules of entry 196 both survive: there is now one reader of a voice line, used both for what a bar was handed out as and for what comes back, so "left as handed out" also compares the marks.
+
+**The setting.** `CAREFUL_READING` names the platforms that get the offer on a scan's result: unset (the default) for none, `chatgpt`, `claude`, or both. Every deploy sets it again, so a deploy without it switches the offer off.
+- Claude, not named: the two tools are also left out of Claude's tool list.
+- ChatGPT: the two tools are always listed and always work, because OpenAI's reviewer has to see them work before approving them, and ChatGPT users cannot reach unapproved tools. The order for a release is: deploy with the setting unset, submit, set it after approval. A first version made the tools refuse where the setting was off; that would have left the reviewer with two tools that refuse, or forced the offer on before approval.
+- Where the offer was not sent, the answer of `careful_reading` itself begins with the owner's usage warning, word for word, and tells the chat to wait for the user's yes. Without this, in the time between approval and switching the offer on, only a line in the tool's description stood between a chat and a careful reading nobody had agreed to.
+
+**Pages that begin with a short bar.** Each page is checked alone, then the pages are joined. Three faults, the first from the join with the line's bar names, the others older:
+- A page whose first bar was short was renamed by the drawing library to start at bar 0, so a refusal named the wrong bar ("Measure 19 does not exist"). On page 1 a short first bar must now be written as a pickup (`m0`), and the refusal says so; a later page is checked with a bar of rest in front, which never appears in any message or count.
+- A later page that truly begins with a short bar (the rest of a bar split by the page turn, or a section's pickup that completes the bar before it) could only be handed in by calling it a pickup, and the two halves became two bars, so every later bar was named one above its printed number. When the last bar of a page and the first bar of the next add up exactly to one bar of the time signature and key in force, they are now one bar. Where they do not add up, they stay two bars, as before.
+- Sung words at such a join: words on only one half were laid onto the other half's notes and a correct hand-in was refused with a message naming no page; and a sung note tied over any page turn could not be handed in at all (one check wanted a words entry for it, the other refused the entry). The half without words is now padded, and the entry for a note tied in from the page before is dropped at the join. The reading instructions gained one sentence saying to write an entry for such a note.
+
+**Not fixed.** A slur cannot cross a page turn: the instructions tell the helper to close it at the page's last note and open it again on the next page, so one slur becomes two. A tie into a voice that the next page leaves out loses its tie mark; the notes stay. The setting is not a kill switch for ChatGPT: once the tools are approved they work whether or not the offer is on.
+
+**A guard that runs in CI.** The reading that showed the whole-bar-rest fault of entry 195 was moved out of the public repo (its source's licence is unchecked), so in CI nothing tested that fix. A small constructed file of the same shape now does; the test fails with the fix taken out (bar lengths 6 and 3 quarters where 3 and 3 are expected).
+
+**Checks.** New end-to-end tests through a real server process for the setting unset, `chatgpt`, `claude` and both (offer, tool lists, the warning in the steps), and through the page join for each case above. `tools/correct_corpus_check.py --verify-untouched` on the line's head and on this branch: 150 files, 392 parts, 11,531 bars, the two summaries and all 392 part records identical; no accepted change lost or moved a note in an untouched voice. `tools/diff_check.py --base correct-bars-fixes all`: no changed item in 385. Lint passes. Not run: real chats and a staging deploy with the joined code. Full suite: see entry 198.
+
+### 198. The method no longer tells a chat to stop and ask which bars (2026-11-22, branch `no-bars-question`, nothing released)
+
+**Problem.** The owner decided on 2026-11-07 that the analysis goes straight on once a score is given. Claude's skill said so in its steps, but step 0 of the method, which the server puts into every result of `draft_analysis` and which is all ChatGPT sees, still said: "If not, ask which bars they want, suggesting the first 8 or 16, before analysing anything."
+
+**How far it could be measured.** From the calls of the 69 ChatGPT users of the last 30 days: after the first analysis that follows a PDF reading, a marked page came within three minutes for 25 of 41 analyses that named no bars (61%) and 11 of 16 that named a range (69%). Five users' last call was an analysis with no bars named and no page after it. This neither proves nor rules out that the question lost users: the log cannot tell "no bars named" from "all", and we never see what a chat wrote.
+
+**Fix.** Step 0 now says not to stop and ask, and to analyse the bars the table holds; two other sentences that spoke of the chat asking which bars lost that clause. What each platform analyses when no bars are named is unchanged (ChatGPT the whole piece, Claude the opening). The built Claude plugin in `dist/` is not touched, so this reaches ChatGPT with the next server deploy and Claude only with a plugin release.
+
+**Checks.** The ChatGPT flow test checks the result of `draft_analysis` for the old and the new sentence; it fails before and passes after. Lint passes. Full suite of the whole line with entries 197 and 198 on top, on a home PC plus the two machine-bound files here: 1,794 passed, 4 skipped, 0 failed (fbf17ef).
+
 ## Reproducing
 
 ```bash
