@@ -2,6 +2,7 @@ import asyncio
 import copy
 import io
 import json
+import re
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
@@ -60,6 +61,7 @@ def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_pa
     score = app.store.get(f"scores/{code}")
     index = ScoreIndex(load_toolkit(score).getMEI())
     assert [measure.number for measure in index.measures] == list(range(54))
+    assert [measure.name for measure in index.measures[:2]] == ["0", "1"] and index.measures[0].is_pickup
     assert [(measure.number, measure.key_signature) for measure in index.measures if measure.number in (0, 6, 48)] == [(0, "4s"), (6, "5f"), (48, "4s")]
     bars = ET.fromstring(score).find("part").findall("measure")
     printed_sharps = [(note.findtext("pitch/step"), note.findtext("accidental")) for note in notes_of(bars[4]) if note.find("accidental") is not None]
@@ -81,7 +83,10 @@ def test_a_page_that_cannot_be_built_comes_back_with_what_to_fix(tmp_path, monke
     assert "Page 1: Bar 0, voice 1.1 adds up to 1" in text_of(result) and "call use_careful_reading again" in text_of(result)
     second = PAGES[1].replace("m1 len=24", "m1 len=20", 1)
     wrong_second = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": [PAGES[0], second, PAGES[2]]}))
-    assert wrong_second.is_error and "Page 2: Bar " in text_of(wrong_second)
+    assert wrong_second.is_error and "Page 2: Bar 1: len= makes the first bar shorter" in text_of(wrong_second)
+    pickup_as_bar_1 = re.sub(r"^m(\d+)", lambda bar: f"m{int(bar[1]) + 1}", PAGES[0], flags=re.M)
+    refused = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": [pickup_as_bar_1]}))
+    assert refused.is_error and "Page 1: Bar 1: len= makes the first bar shorter" in text_of(refused)
     for pages, reason in (([], "No pages"), ([PAGES[0]] * 4, "This scan has 3 pages"),
                           ([PAGES[0].replace("\n2.1: ", "\n40.1: ")], "Staves are numbered 1 to 32"),
                           ([PAGES[0].replace(" len=", " len=99999", 1)], "longer than 64 quarter notes")):

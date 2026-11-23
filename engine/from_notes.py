@@ -42,6 +42,10 @@ def score_from_notes(text: str) -> bytes:
     for measure in index.measures:
         if measure.length > MAX_BAR_LENGTH:
             raise notes.NotesError(f"Bar {measure.number}: len= makes this bar longer than {MAX_BAR_LENGTH} quarter notes")
+    first = index.measures[0] if index.measures else None
+    if first and first.number != 0 and first.length < _full_length(first):
+        raise notes.NotesError(f"Bar {first.name}: len= makes the first bar shorter than its time signature; only a "
+                               "pickup is shorter, and a pickup is written m0")
     return replace_bars(_empty_score(index.measures, staves), _with_every_staff(text, staves))
 
 
@@ -88,7 +92,7 @@ def _empty_score(measures: list[Measure], staves: int) -> bytes:
     part = ET.SubElement(root, "part", id="P1")
     meter = key = None
     for measure in measures:
-        full = Fraction(4 * int(measure.meter.split("/")[0]), int(measure.meter.split("/")[1])) if measure.meter else measure.length
+        full = _full_length(measure)
         bar = ET.SubElement(part, "measure", number=str(measure.number))
         if measure.length != full:
             bar.set("implicit", "yes")
@@ -121,6 +125,13 @@ def _empty_score(measures: list[Measure], staves: int) -> bytes:
                     ET.SubElement(note, "type").text = kind
                 ET.SubElement(note, "staff").text = str(staff)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _full_length(measure: Measure) -> Fraction:
+    if not measure.meter:
+        return measure.length
+    beats, unit = measure.meter.split("/")
+    return Fraction(4 * int(beats), int(unit))
 
 
 def _fifths(key: str) -> int:
