@@ -123,7 +123,7 @@
     status.textContent = (data && data.status) || "";
     status.hidden = !status.textContent;
     if (!data || !data.image_url) {
-      for (const id of ["caption", "shading", "open-page", "actions", "more", "rating", "suggest"]) document.getElementById(id).hidden = true;
+      if (status.textContent) for (const id of ["caption", "shading", "open-page", "actions", "more", "rating", "suggest"]) document.getElementById(id).hidden = true;
       return;
     }
     document.getElementById("actions").hidden = false;

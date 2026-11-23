@@ -478,11 +478,16 @@ def test_reading_card_status_after_a_reading_hides_the_old_reading_in_chatgpt(pa
         expect(card.locator(element)).to_be_hidden()
 
 
-def test_analysis_card_keeps_a_result_from_the_host_when_chatgpt_updates_its_globals_without_one(page, server):
+@pytest.mark.parametrize("update", [
+    "",
+    "window.openai.toolResponseMetadata = { ask_for_rating: true };",
+    "window.openai.toolOutput = { result: { caption: 'Analysis of the whole score' } };",
+])
+def test_analysis_card_keeps_a_result_from_the_host_when_chatgpt_updates_its_globals_without_a_picture(page, server, update):
     card = open_card(page, server, "card.html", openai=True)
     deliver(page, links(server))
     expect(card.locator("#open-page")).to_be_visible()
-    card_frame(page).evaluate("window.dispatchEvent(new Event('openai:set_globals'))")
+    card_frame(page).evaluate(update + "window.dispatchEvent(new Event('openai:set_globals'))")
     for element in ("#caption", "#open-page", "#actions", "#more", "#suggest"):
         expect(card.locator(element)).to_be_visible()
 
