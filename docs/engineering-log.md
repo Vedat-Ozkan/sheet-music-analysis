@@ -4257,6 +4257,49 @@ Asked for directly in the same chat, the careful reading worked: Claude explaine
 
 **NOT RUN.** The new commentary guidance and the corrected step 2 in the Claude app itself (both need a plugin release); a long piece (over 100 bars) with no bars named, in either product; a ChatGPT user on "Allow read-only tools"; a second Claude chat for the skipped question.
 
+### 202. Release preparation: four older pull requests folded into the line, and the combined branch tried on staging (2026-11-23, branch `next-release`, nothing released)
+
+**Why.** Nothing had reached production since 14 November. The owner asked for the four open pull requests to go in first, and said that server releases may reach the live Claude connector while Claude plugin releases stay paused.
+
+**What was merged into the line** (the line = entries 189 to 201, on top of main):
+- #38: `CLAUDE.md` no longer forbids naming the model an accuracy figure was measured with. No conflict.
+- #32 (entry 170): the upload card's device code in a header, and the privacy page. Conflicts only in this log and in the privacy page's date, which today's operator line had also changed; the newer date and the operator line stay.
+- #33 (entry 173): a PDF read inside a request of its own. Conflicts in `server/app.py` and `server/deploy.sh` with the proxy key pair (entry 186), the unreadable-PDF note and the careful-reading setting. The automatic part of the merge had put the line's `unread` into the pull request's new `recorded()`, where no such name exists: every unreadable PDF would have raised an error. Git reported no conflict there; the Opus session caught it by reading the result, and `recorded()` now takes the note as an argument. The read's own request carries the first proxy key.
+- #37 (entries 182, 183) and `letter-pages` (entries 184, 185): layout, guide and Letter sheets. Conflicts in `engine/annotate.py`, `engine/page_key.py` and the guide sentence in `server/app.py`, all from one cause: the line had removed the piano version's part labels (entry 194), and these branches still passed them to the guide. The arguments are gone.
+
+**How the waits fit together after #33** (read from the merged code). Only the instance that receives `/read-work` waits for a drawing process; the instance that received the chat's call only waits on that request. A read has 480 s, and the wait for a drawing process (up to 480 s more) starts after it, so read, wait and drawing can in the worst case pass the 900 s that Cloud Run, the request and the read marker all share; the caller then gets our error with a reference. Left as it is: one read runs per instance and a drawing gives its process back within seconds, so the wait after a read is short in practice.
+
+**Measured on staging (Cloud Run).**
+- The user PDF behind the hold of 20 November (five pages, guitar with tablature; its second reading pass for thin beams took about 250 s then and the user would have waited about 5.5 minutes): a fresh read through `/read-work` took 182 s in all (reader 174 s, of which the first pass 93 s). The request log shows `/read-work` answering 200 after 181 s on the instance that got the call. Production today reads the file in about 75 s without the second pass.
+- Locally, largest case (Ballade Op. 23, 25 pages): picture 34.8 s, picture and PDF 50.8 s; the second layout for Letter sheets is 2.4 s of that, the rest is writing the PDF as before. Nocturne Op. 9 No. 2: 6.7 s and 11.8 s.
+
+**What ChatGPT runs until OpenAI approves the update.** Its stored tool list and card page are production's. Production's card page (tag `prod-00065-fjv`) run against this branch's server in the browser tests: 31 of 35 pass. The 4 that fail test faults that card has in production today (it keeps the old reading under a status text, loses the problem report on ChatGPT's updates, reports its size more than once). Tool list against main: two new tools (`careful_reading`, `use_careful_reading`), nine tools no longer announced as read-only, five changed descriptions, no changed arguments, the same card address.
+
+**Review.** Each merge was read by a different model than made it (the #33 merge by Fable, the layout merges by Fable and then Opus). Opus drew PDFs for a lead sheet with chord symbols, a score with a bar named "3a", two piano versions and a whole nocturne: every sheet is 612 x 792 points and holds the same bars per line as the chat picture; no fault found. Noted, not caused by the merges and not looked into: `_balance_systems` returns early when the first layout already gives more than one page, so such a piece may never reach the `line` mode of entry 183.
+
+**Real chats on staging** (revision 00157-fcm, careful reading offered on both products, "Refresh tools" pressed 10 minutes before the first ChatGPT chat; records in the owner's private folder):
+
+| Chat | Cards | Question first | Bars | Table | Words |
+|---|---|---|---|---|---|
+| ChatGPT, two-page scan | both shown | the careful-reading offer, word for word; nothing analysed before it | all 13, after "no thanks" | no | 678 |
+| ChatGPT, The Entertainer (MusicXML, 74 bars) | shown | none | whole piece | no | 456 |
+| ChatGPT, Chopin Prelude 4 (digital PDF) | reading card broken picture, analysis shown | none | all 25 | no | 526 |
+| Claude with the published plugin, two-page scan | upload card shown, reading card broken picture, analysis shown | the careful-reading offer | 0 to 8 | no | 712 |
+
+- Claude asked the offer although the published skill still says "go straight on" (entry 201 had it skip the question): with the result text of f4fdfe0, which no longer says "go straight on" after the offer, it asked. One chat.
+- Claude with the published plugin still analyses the opening only (0 to 8), as that skill says.
+- The two broken reading-card pictures are the staging-only fault of entry 201, confirmed for both: the stored reading of the Chopin PDF holds picture links to staging's second address (stored on 20 November through Claude's test connector) and was shown through the first, and the scan's the other way round. Production has one address.
+- The PDF from the Chopin chat: two sheets, both 612 x 792 points.
+- No confirmation box in any chat.
+
+**The path OpenAI's reviewer will take** (revision 00160-dz6: the same code with the offer on for Claude only, as production will launch; two ChatGPT chats with the two-page scan):
+- Asked in the first message to "read it carefully, then analyse it", ChatGPT read the PDF, analysed the quick reading (13 bars) and offered to check the shaded bars. Only after "Yes, go ahead" did it call `careful_reading`, whose steps began with the usage warning and the question, as built for a product where no offer was made. So a reviewer case that expects the question in the first reply would not match.
+- In the order now written into `openai-plugin/plugin.json` (analyse the scan; "Please read this scan carefully instead."; "Yes, go ahead."): the second reply gave the warning word for word and started nothing; after the yes ChatGPT fetched the three kit files from our server (200 each), read both pages with two helpers and handed in 14 bars 3 minutes 19 seconds after the yes; the analysis card showed the page, and the reply says the page shows its careful reading. No confirmation box.
+
+**Checks.** Full suite with the reader on the merged code (79c4f40): 1,901 passed, 4 skipped (no ring codes), 2 expected failures, 0 failed.
+
+**NOT RUN.** The new reply guidance in the Claude app (needs a plugin release); a piece over 100 bars with no bars named; a ChatGPT user on "Allow read-only tools"; a second Claude chat for the offer; the careful reading's notes checked against the scan this time; a read whose own request lands on the other instance (the one timed read stayed on one); the #33 path on production's address with the proxy key (it has only run on staging, which has no key).
+
 ## Reproducing
 
 ```bash

@@ -105,10 +105,28 @@
               ]
             },
             {
-              "description": "Careful reading of a scanned PDF",
-              "prompt": "This is a scan. Please read it carefully, then analyse it.",
-              "tools_triggered": "read_pdf, careful_reading, use_careful_reading, draft_analysis, render_analysis",
-              "expected_behavior": "A card shows the quick reading of the two scanned pages. The reply says that reading a scan carefully takes about 5 minutes a page and uses a lot of the plan's usage allowance, and asks whether to go ahead. After a yes, ChatGPT reads each page itself over several minutes, hands its reading in, and a card shows the analysis drawn on that reading.",
+              "description": "Reading a scanned PDF (new chat)",
+              "prompt": "Can you analyse the harmony of this piece?",
+              "tools_triggered": "read_pdf, draft_analysis, render_analysis",
+              "expected_behavior": "A card shows the music read from the two scanned pages, with bars that may be misread shaded; a second card shows the analysis drawn on that reading.",
+              "file_attachment_urls": [
+                "https://sheetmusicanalysis.com/samples/kinkel-trennung-scan.pdf"
+              ]
+            },
+            {
+              "description": "Asking for the careful reading, same chat as the scanned PDF",
+              "prompt": "Please read this scan carefully instead.",
+              "tools_triggered": "careful_reading",
+              "expected_behavior": "Nothing is read yet. The reply says that reading a scan carefully takes about 5 minutes a page and uses a lot of the plan's usage allowance, that it downloads and runs a small measuring script from Sheet Music Analysis in the chat, and asks whether to go ahead.",
+              "file_attachment_urls": [
+                "https://sheetmusicanalysis.com/samples/kinkel-trennung-scan.pdf"
+              ]
+            },
+            {
+              "description": "The careful reading itself, same chat",
+              "prompt": "Yes, go ahead.",
+              "tools_triggered": "use_careful_reading, draft_analysis, render_analysis",
+              "expected_behavior": "Over about 4 to 10 minutes ChatGPT reads each of the two pages itself and hands its reading in; a card then shows the analysis drawn on that careful reading, and the reply says the page shows its careful reading.",
               "file_attachment_urls": [
                 "https://sheetmusicanalysis.com/samples/kinkel-trennung-scan.pdf"
               ]
