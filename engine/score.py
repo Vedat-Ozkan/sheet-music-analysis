@@ -18,6 +18,7 @@ SEMITONES = (0, 2, 4, 5, 7, 9, 11)
 STEPS = dict(zip(LETTERS, SEMITONES))
 SIGN_ALTERATION = {"#": 1, "♯": 1, "b": -1, "♭": -1, "-": -1}
 TOLERANCE = Fraction(1, 96)
+CHORD_SYMBOL = re.compile(r"[A-G]|N\.?C\.?$")
 BEAT_DENOMINATOR = 96
 POSITION_DENOMINATOR = 960
 
@@ -75,6 +76,7 @@ class Measure:
     events: list[Event] = field(default_factory=list)
     segments: list[Segment] = field(default_factory=list)
     marks: list[Mark] = field(default_factory=list)
+    chord_symbols: list[tuple[Fraction, str]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not self.segments:
@@ -408,6 +410,11 @@ class ScoreIndex:
             measure.declared_length = full
         for tie in element.findall(f"{MEI}tie"):
             self._tie_starts.add((tie.get("startid") or "").lstrip("#"))
+        for harm in element.findall(f"{MEI}harm"):
+            symbol = "".join(harm.itertext()).strip().replace("♭", "b").replace("♯", "#")
+            at = measure.offset_at_tstamp(measure.segments[0], harm.get("tstamp", "1"))
+            if CHORD_SYMBOL.match(symbol) and (at, symbol) not in measure.chord_symbols:
+                measure.chord_symbols.append((at, symbol))
 
         continues = (
             previous is not None
@@ -425,6 +432,7 @@ class ScoreIndex:
                 event.onset += shift
                 event.measure = previous.number
             previous.events.extend(measure.events)
+            previous.chord_symbols.extend((at + shift, symbol) for at, symbol in measure.chord_symbols)
             return
         self.measures.append(measure)
         rest = element.find(f".//{MEI}multiRest")

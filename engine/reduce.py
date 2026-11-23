@@ -27,8 +27,10 @@ def _beat_rows(measure: Measure) -> list[str]:
         start, end = number * measure.beat_length, (number + 1) * measure.beat_length
         starting = [event for event in notes if start <= event.onset < end]
         held = [event for event in notes if event.onset < start < event.onset + event.duration]
+        printed = " ".join(f"{symbol}@{round(measure.beat_of(at), 2):g}" for at, symbol in sorted(measure.chord_symbols) if start <= at < end)
+        chord_symbols = f" | chord symbol {printed}" if printed else ""
         if not starting and not held:
-            rows.append(f"  b{number + 1} | rest")
+            rows.append(f"  b{number + 1} | rest{chord_symbols}")
             continue
         sounding = sorted(starting + held, key=lambda event: midi(event.pitch))
         classes: list[str] = []
@@ -41,7 +43,7 @@ def _beat_rows(measure: Measure) -> list[str]:
             row += f" | staff {staff}: " + _onsets(measure, [event for event in starting if event.staff == staff])
         if held:
             row += " | held: " + " ".join(event.pitch for event in sorted(held, key=lambda event: midi(event.pitch)))
-        rows.append(row)
+        rows.append(row + chord_symbols)
     return rows
 
 
@@ -70,6 +72,7 @@ def as_text(index: ScoreIndex, first: int | None = None, last: int | None = None
            " the drawn pages show the same numbers; after the restart they run ahead of the user's printed copy, so say"
            " so if the user gives printed bar numbers." if index.named_by_count else ""),
         "Each row: beat | lowest note | pitch classes sounding, low to high | notes per staff as pitch@beat-where-it-starts.",
+        *([CHORD_SYMBOLS] if any(measure.chord_symbols for measure in measures) else []),
         "",
     ]
     meter, key = shown.meter, shown.key_signature
@@ -83,6 +86,13 @@ def as_text(index: ScoreIndex, first: int | None = None, last: int | None = None
         lines.append(f"m{measure.name}" + (f" ({'; '.join(changes)})" if changes else ""))
         lines += _beat_rows(measure)
     return "\n".join(lines)
+
+
+CHORD_SYMBOLS = (
+    "The user's copy prints chord symbols above the staff; a row ends with them as 'chord symbol NAME@beat'. Relate "
+    "your own labels to them (for example A7 in E major is IV7), and tell the user where your reading of the notes "
+    "differs from a printed symbol."
+)
 
 
 def _beat(measure: Measure) -> str:
