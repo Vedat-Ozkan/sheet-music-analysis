@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from engine import correct, from_notes
+from engine import correct, from_notes, notes
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 from server import app
@@ -249,3 +249,20 @@ def test_a_later_page_that_begins_with_a_short_bar_is_checked_by_its_own_bar_nam
         assert "Bar 0" not in text_of(refused) and "-1" not in text_of(refused)
     short_first_page = hand_in(["N1 div=4 ts=4/4 ks=0\nm1 len=8\n1.1: 8 F4\nm2 len=16\n1.1: 16 G4"])
     assert short_first_page.is_error and "Page 1: Bar 1: len= makes the first bar shorter" in text_of(short_first_page)
+
+
+SPLIT_AT_THE_TURN = ("N1 div=4 ts=4/4 ks=0\nm1 len=16\n1.1: 16 C4\nm2 len=8\n1.1: 8 E4{first}",
+                     "N1 div=4 ts=4/4 ks=0\nm1 len=8\n1.1: 8 F4{second}\nm2 len=16\n1.1: 16 G4")
+
+
+def test_a_slur_across_a_page_turn_is_refused_on_the_page_where_it_starts():
+    first, second = SPLIT_AT_THE_TURN
+    with pytest.raises(notes.NotesError, match="Page 1: A slur starts in voice 1.1 and never ends"):
+        from_notes.score_from_pages([first.format(first="").replace("8 E4", "8 (E4"), second.format(second="").replace("8 F4", "8 F4)")])
+
+
+def test_a_tie_into_a_voice_the_next_page_leaves_out_is_dropped():
+    first, second = SPLIT_AT_THE_TURN
+    score = ET.fromstring(from_notes.score_from_pages([first.format(first="\n1.2: 8 A3~"), second.format(second="")]))
+    tied = [note for note in score.iter("note") if note.findtext("pitch/step") == "A"]
+    assert len(tied) == 1 and tied[0].find("notations/tied") is None and tied[0].find("tie") is None

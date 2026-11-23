@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import re
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 import xml.etree.ElementTree as ET
 from fractions import Fraction
 
@@ -55,74 +55,101 @@ def _rest_bar_before(first: Measure) -> Measure:
     return replace(first, number=first.number - 1, name=str(first.number - 1), declared_length=_full_length(first), events=[])
 
 
+@dataclass
+class _Bar:
+    written_number: int
+    length: int
+    changes: dict[str, str]
+    voices: dict[str, str] = field(default_factory=dict)
+    words: dict[str, str] = field(default_factory=dict)
+    other: list[str] = field(default_factory=list)
+
+
 def join_pages(pages: list[str]) -> str:
-    read = []
-    for number, text in enumerate(pages, 1):
-        lines = [line.strip() for line in text.splitlines() if line.strip()]
-        head = HEADER.fullmatch(lines[0]) if lines else None
-        if not head:
-            raise notes.NotesError(f'Page {number}: the note list must start with a "{notes.VERSION} div=… ts=… ks=…" line')
-        read.append((number, int(head["div"]), head["meter"], head["key"], lines[1:]))
-    div = math.lcm(*(page[1] for page in read))
-    meter, key = read[0][2], read[0][3]
-    joined = [f"{notes.VERSION} div={div} ts={meter} ks={key}"]
-    bar, last_length, bar_at, voices_at, completing = None, None, 0, {}, None
+    read = [_page_heading(number, text) for number, text in enumerate(pages, 1)]
+    div = math.lcm(*(own for own, _, _, _ in read))
+    meter, key = read[0][1], read[0][2]
+    bars = _joined([_page_bars(number, lines, div // own, page_meter, page_key)
+                    for number, (own, page_meter, page_key, lines) in enumerate(read, 1)], div, meter, key)
+    return _bars_as_text(bars, div, meter, key)
 
-    def pad_voices_left_out() -> None:
-        for label, at in voices_at.items():
-            if label not in completing["voices"] and not notes.WORDS_LABEL.fullmatch(label):
-                joined[at] += f" {completing['length']} r"
 
-    for number, own, page_meter, page_key, lines in read:
-        scale = div // own
-        opening = {"ts": page_meter or meter, "ks": page_key}
-        page_opens = True
-        for line in lines:
-            label, _, body = line.partition(":")
-            if line.startswith("m"):
-                found = BAR_LINE.fullmatch(line)
-                if not found:
-                    raise notes.NotesError(f"Page {number}: a bar line looks like 'm3 len=96', not {line!r}")
-                if completing:
-                    pad_voices_left_out()
-                    completing = None
-                changes = opening | dict(part.split("=", 1) for part in found["changes"].split())
-                opening = {}
-                length = int(found["length"]) * scale
-                full = _units_in_bar(meter, div) if changes.get("ts", meter) == meter and changes.get("ks", key) == key else None
-                if page_opens and None not in (last_length, full) and last_length < full and last_length + length == full:
-                    completing = {"first_half": last_length, "length": length, "voices": set()}
-                    joined[bar_at] = joined[bar_at].replace(f" len={last_length}", f" len={full}", 1)
-                    page_opens, last_length = False, full
-                    continue
-                bar = int(line.split()[0][1:]) if bar is None else bar + 1
-                page_opens, last_length, bar_at, voices_at = False, length, len(joined), {}
-                line = f"m{bar} len={length}"
-                if changes.get("ts", meter) != meter:
-                    meter = changes["ts"]
-                    line += f" ts={meter}"
-                if changes.get("ks", key) != key:
-                    key = changes["ks"]
-                    line += f" ks={key}"
-            elif label != "x" and not notes.WORDS_LABEL.fullmatch(label):
-                body = " ".join(str(int(entry) * scale) if entry.isdigit() else entry for entry in body.split())
-                line = f"{label}: {body}"
-                if completing:
-                    completing["voices"].add(label)
-                    if label in voices_at:
-                        joined[voices_at[label]] += f" {body}"
-                        continue
-                    line = f"{label}: {completing['first_half']} r {body}"
-            elif completing and label in voices_at:
-                completing["voices"].add(label)
-                joined[voices_at[label]] += f" {body.strip()}"
+def _page_heading(number: int, text: str) -> tuple[int, str, str, list[str]]:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    head = HEADER.fullmatch(lines[0]) if lines else None
+    if not head:
+        raise notes.NotesError(f'Page {number}: the note list must start with a "{notes.VERSION} div=… ts=… ks=…" line')
+    return int(head["div"]), head["meter"], head["key"], lines[1:]
+
+
+def _page_bars(number: int, lines: list[str], scale: int, meter: str, key: str) -> list[_Bar]:
+    bars = []
+    for line in lines:
+        label, _, body = line.partition(":")
+        if line.startswith("m"):
+            found = BAR_LINE.fullmatch(line)
+            if not found:
+                raise notes.NotesError(f"Page {number}: a bar line looks like 'm3 len=96', not {line!r}")
+            opening = {"ts": meter, "ks": key} if not bars else {}
+            changes = {name: value for name, value in opening.items() if value} | dict(
+                part.split("=", 1) for part in found["changes"].split())
+            bars.append(_Bar(int(line.split()[0][1:]), int(found["length"]) * scale, changes))
+        elif not bars:
+            raise notes.NotesError(f"Page {number}: a voice line needs a bar line like 'm3 len=96' before it")
+        elif label == "x":
+            bars[-1].other.append(line)
+        elif notes.WORDS_LABEL.fullmatch(label):
+            bars[-1].words[label[:-1]] = body.strip()
+        else:
+            bars[-1].voices[label] = " ".join(str(int(entry) * scale) if entry.isdigit() else entry for entry in body.split())
+    return bars
+
+
+def _joined(pages: list[list[_Bar]], div: int, meter: str, key: str) -> list[_Bar]:
+    bars = []
+    for page in pages:
+        for position, bar in enumerate(page):
+            if position == 0 and bars and _completes(bars[-1], bar, div, meter, key):
+                bars[-1] = _one_bar(bars[-1], bar)
                 continue
-            if label != "x" and not line.startswith("m"):
-                voices_at[label] = len(joined)
-            joined.append(line)
-    if completing:
-        pad_voices_left_out()
-    return "\n".join(joined)
+            meter, key = bar.changes.get("ts", meter), bar.changes.get("ks", key)
+            bars.append(bar)
+    return bars
+
+
+def _completes(before: _Bar, after: _Bar, div: int, meter: str, key: str) -> bool:
+    full = _units_in_bar(meter, div)
+    unchanged = after.changes.get("ts", meter) == meter and after.changes.get("ks", key) == key
+    return unchanged and full is not None and before.length < full and before.length + after.length == full
+
+
+def _one_bar(before: _Bar, after: _Bar) -> _Bar:
+    labels = [*before.voices, *(label for label in after.voices if label not in before.voices)]
+    voices = {label: f"{before.voices.get(label, f'{before.length} r')} {after.voices.get(label, f'{after.length} r')}"
+              for label in labels}
+    words = {label: " ".join(filter(None, (before.words.get(label), after.words.get(label))))
+             for label in [*before.words, *(label for label in after.words if label not in before.words)]}
+    return _Bar(before.written_number, before.length + after.length, before.changes, voices, words, before.other + after.other)
+
+
+def _bars_as_text(bars: list[_Bar], div: int, meter: str, key: str) -> str:
+    lines = [f"{notes.VERSION} div={div} ts={meter} ks={key}"]
+    for number, bar in enumerate(bars, bars[0].written_number if bars else 0):
+        line = f"m{number} len={bar.length}"
+        if bar.changes.get("ts", meter) != meter:
+            meter = bar.changes["ts"]
+            line += f" ts={meter}"
+        if bar.changes.get("ks", key) != key:
+            key = bar.changes["ks"]
+            line += f" ks={key}"
+        lines.append(line)
+        for label, body in bar.voices.items():
+            lines.append(f"{label}: {body}")
+            if label in bar.words:
+                lines.append(f"{label}w: {bar.words[label]}")
+        lines.extend(f"{label}w: {body}" for label, body in bar.words.items() if label not in bar.voices)
+        lines.extend(bar.other)
+    return "\n".join(lines)
 
 
 def _empty_score(measures: list[Measure], staves: int) -> bytes:
