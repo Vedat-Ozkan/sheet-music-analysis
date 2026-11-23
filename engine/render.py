@@ -42,6 +42,7 @@ def _font_config() -> str:
 
 os.environ.setdefault("FONTCONFIG_FILE", _font_config())
 
+PAPER = (8.5, 11)
 VEROVIO_OPTIONS = {
     "xmlIdChecksum": True,
     "svgViewBox": True,
@@ -128,6 +129,7 @@ def parse_measures(measure_range: str | None) -> tuple[str, str] | None:
 class Engraving:
     svgs: list[str]
     preview_svgs: list[str] | None = field(default=None, kw_only=True)
+    print_pages: Callable[[], list[str]] | None = field(default=None, kw_only=True, repr=False, compare=False)
     key_drawn: bool = field(default=False, kw_only=True)
     preview_key_drawn: bool = field(default=False, kw_only=True)
     callouts: list[int] = field(default_factory=list, kw_only=True)
@@ -166,7 +168,18 @@ class Engraving:
             pages[0].save(out, "PDF", save_all=True, append_images=pages[1:], resolution=254)
             return out.getvalue()
         documents = []
-        for page in range(1, self.page_count + 1):
+        printed = self.print_pages() if self.print_pages else []
+        for svg in printed:
+            x, y, w, h = map(float, re.search(r'viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"', svg).groups())
+            page_svg = svg.replace("<svg ", f'<svg width="{w:g}" height="{h:g}" ', 1)
+            if page_svg.startswith("<?xml"):
+                page_svg = page_svg[page_svg.index("?>") + 2 :]
+            sheet = (
+                f'<svg xmlns="http://www.w3.org/2000/svg" width="{PAPER[0] * 96:g}" height="{PAPER[1] * 96:g}" '
+                f'viewBox="{x:g} {y:g} {w:g} {h:g}" preserveAspectRatio="xMidYMin meet">{page_svg}</svg>'
+            )
+            documents.append(pikepdf.Pdf.open(io.BytesIO(cairosvg.svg2pdf(bytestring=sheet.encode()))))
+        for page in range(1, 0 if printed else self.page_count + 1):
             svg = self.svgs[page - 1]
             box = re.search(r'viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"', svg)
             x, y, w, h = map(float, box.groups())

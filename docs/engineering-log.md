@@ -3828,6 +3828,56 @@ No lone bar on a system, no marks of two systems meeting, on the four pages look
 
 **NOT RUN:** a review of the review fixes by another model; pieces with more than four staves at the new gap, looked at by eye; a chat that draws chord jobs; a screenshot of the card inside a chat.
 
+### 184. Every page of the analysis PDF is a US Letter sheet (2026-11-20, branch `letter-pages` on top of `guide-at-preview-end`, nothing released)
+
+**The question.** The owner asked whether the analysis PDFs are a standard paper size and thought they were not. They were not. Four PDFs made today (two from real chats on staging, two from the careful-reading chats) had every page 210 mm wide, the width of A4, but cut off just under the last system: 198 to 230 mm tall, the last page as short as 134 mm. No two pages of a piece were the same size. The cause is the PDF step itself, which measured where the ink ended on each page and cut the page there.
+
+**Owner's decision (2026-11-20).** US Letter, 8.5 x 11 in, and the page filled: systems spread down the sheet as a printed edition does, not the old layout with blank paper under it.
+
+**What changed.**
+- The picture in the chat is laid out as before. `tools/diff_check.py --base guide-at-preview-end render`: 28 inputs, 0 changed.
+- When a PDF is asked for, the same score is laid out a second time for print: the page is Letter-shaped, its height is fixed, and the drawing library spreads the spare height, mostly between systems (`PRINT_OPTIONS` in `engine/annotate.py`). The marks and the guide are drawn again on those pages, and each page goes onto an 8.5 x 11 in sheet without any cutting. The second layout is made only when the PDF is asked for.
+- The analysis PDF and the blank worksheet go through this. The picture of a PDF reading is not a PDF and keeps its old page height.
+
+**Result on four real analyses** (Schubert's Lindenbaum, Chopin's nocturne op. 9 no. 2 whole and bars 1 to 8, Bach's chorale BWV 269): every page 612 x 792 pt. Whole pieces keep their page count (8, 6 and 2). The 8-bar excerpt, one tall picture in the chat, is two sheets in the PDF: three systems on the first, the fourth alone on the second.
+
+**Time, one local run each, drawing plus making the PDF file:** Lindenbaum 6.2 s before, 5.9 s after; the nocturne 3.6 s, 3.4 s; the chorale 0.84 s, 0.75 s. The second layout costs 0.06 to 0.38 s, and making the file is quicker because pages are no longer measured for cutting. No added compute.
+
+**A mistake on the way.** My first version made the print layout at once, inside the drawing step. Twelve tests that watch that step failed (they saw both layouts), and a thirteenth failed because I had also made the picture of a PDF reading Letter-height. Making the print layout only on request and leaving the reading picture alone fixed all thirteen.
+
+**New check.** `test_every_page_of_the_pdf_is_a_letter_sheet` in `tests/test_awkward.py`: on the 13 awkward scores, whole and as an 8-bar excerpt, every PDF page is 612 x 792 pt, a whole piece has as many sheets as the picture has pages, and the guide's words are on the last sheet. 26 cases pass. On those 13 scores no print page grew past the sheet when the guide was added.
+
+**Seen on the pages, for the owner to judge.**
+- A Letter page holds about three systems of piano music, because the staves are sized for reading on a screen.
+- A last page with few systems is not stretched to the foot of the sheet, but the gap between its systems is as wide as on the page before it (the nocturne's last page: two systems, a wide gap, the guide, blank paper below).
+- Side margins are about 5 mm, as before.
+
+**Full suite with the PDF reader on:** 1,649 passed, 11 skipped, 2 expected failures, 1 failed. The failure is again `tests/test_server_process.py::test_with_a_proxy_key_set_only_requests_that_carry_it_are_served` ("connection reset by peer"), the same test that failed once on `guide-at-preview-end` before this change. Its file run six more times: one more failure, five clean. It is unreliable and its cause is NOT investigated.
+
+**NOT RUN:** a real chat with this branch; a staging deploy; pieces with more than four staves looked at by eye; printing a page on paper.
+
+### 185. A bar alone on a thin line may share it with a neighbour; no guessing at hidden marks (2026-11-20, branch `letter-pages`, nothing released)
+
+**The question.** On the Letter pages, bar 34 of Chopin's nocturne op. 9 no. 2 (the second bar of the cadenza) stood alone on a line, stretched to the full width. Two rules were tried first and dropped before being committed: one drew the notes small when bars sat under a hidden time signature, the other hid crowded tempo numbers.
+
+**Why the rules were dropped.** A survey of 748 scores (our test data, the music21 corpus, the benchmark truth files): the small-notes rule was right on 1 file and shrank ordinary bars in 2 medieval Kyries; the tempo rule was right on 3 and removed every tempo number from 7. The same cadenza is written three different ways in our own test files, so no one signal finds it.
+
+**What MuseScore does with hidden tempo marks** (1,474 MuseScore source files compared with their MusicXML exports, and the export code read): MuseScore 4 leaves hidden tempo marks out of the export (all 820 files with hidden marks match exactly). MuseScore 2 and 3 write them as ordinary visible marks with no hidden flag (71 of 72 files). In MuseScore 3 exports, a bare number with no word was hidden by its author 1,119 times in 1,169. A rule "hide bare numbers from MuseScore 1 to 3" would have caught 90% of hidden marks and wrongly hidden 36 printed ones in 6 of 121 quartets. **Owner's decision:** keep tempo numbers exactly as the file has them, clusters included. Small notes are drawn small only when the file marks them small.
+
+**What changed** (`_breaks` in `engine/annotate.py`). The line choice runs as before. If it leaves a bar alone on a line less than two-thirds full (not the last line), it runs again, now allowing lines that contain such a bar to be up to 12% wider than the line, squeezed to fit. The second choice is kept only if fewer bars are left alone. Bars with lyrics are never squeezed: on Ave Maria the squeeze made words of three verses run together ("frau Fle-" read as one word).
+
+**Result.** On the 748 scores, two change: the nocturne (bars 33 and 34 share a line at 111% of the natural width) and Mozart K. 458, third movement (6 lone bars before, 2 after). Both looked at full size: no collisions. Every other score's lines are unchanged. `tools/diff_check.py --base HEAD render`: 28 inputs, 0 changed.
+
+**New check.** `test_a_bar_stands_alone_on_a_thin_line_only_when_no_neighbour_fits_beside_it` in `tests/test_awkward.py`, on the 13 awkward scores. With the squeeze turned off it fails on the nocturne. `tests/test_awkward.py`: 393 passed, 2 expected failures.
+
+**Not built.** Breaking a bar that is wider than a whole line across lines: none of the 712 surveyed scores that were laid out has such a bar.
+
+**Looked at:** the chat picture and the last Letter page of the nocturne (bars 33 to 37 on two lines, guide at the foot).
+
+**Full suite with the PDF reader on:** 1,663 passed, 11 skipped (user files kept off this machine), 2 expected failures, 0 failed.
+
+**NOT RUN:** a review by another model.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
