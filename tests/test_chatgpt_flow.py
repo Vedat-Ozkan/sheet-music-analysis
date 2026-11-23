@@ -515,6 +515,8 @@ def test_only_the_tools_that_store_nothing_are_announced_as_read_only():
     tools = anyio.run(app.mcp.list_tools)
     assert {tool.name for tool in tools if tool.annotations.read_only_hint} == {"play", "careful_reading"}
     assert {tool.name for tool in tools if tool.annotations.open_world_hint} == {"fetch_score"}
+    assert {tool.name for tool in tools if tool.annotations.idempotent_hint} == {
+        "play", "careful_reading", "read_pdf", "read_fetched_pdf", "draft_analysis"}
     assert not any(tool.annotations.destructive_hint for tool in tools)
 
 

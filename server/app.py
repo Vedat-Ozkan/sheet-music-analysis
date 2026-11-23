@@ -85,8 +85,8 @@ def read_only(title: str) -> ToolAnnotations:
     return ToolAnnotations(title=title, read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False)
 
 
-def stores(title: str, open_world: bool = False) -> ToolAnnotations:
-    return ToolAnnotations(title=title, read_only_hint=False, destructive_hint=False, idempotent_hint=False, open_world_hint=open_world)
+def stores(title: str, open_world: bool = False, again: bool = False) -> ToolAnnotations:
+    return ToolAnnotations(title=title, read_only_hint=False, destructive_hint=False, idempotent_hint=again, open_world_hint=open_world)
 
 
 class LocalStore:
@@ -1080,11 +1080,11 @@ claiming = asyncio.Lock()
     description=(
         "Use this when the user attaches a PDF of printed sheet music (born-digital or scanned) and wants it analysed. "
         "Reads the music from the PDF and shows the user the engraved result in a card, with bars that may be misread "
-        "shaded. Returns a score_id. Then go straight on without waiting for the user: call draft_analysis with that "
+        "shaded. Returns a score_id. Then, unless the result tells you to ask the user a question first, go straight on without waiting for the user: call draft_analysis with that "
         f"score_id and continue as for a MusicXML file. Only the first {pdf_reader.READ_PAGES} pages are read. "
         "Slurs are not read, because they are often misread from PDFs; if the user asks for slurs, tell them so."
     ),
-    annotations=stores("Read a PDF of sheet music"),
+    annotations=stores("Read a PDF of sheet music", again=True),
     meta={"openai/outputTemplate": PDF_CARD_URI, "openai/fileParams": ["pdf_file"]},
 )
 @observed
@@ -1515,9 +1515,10 @@ def pdf_card_result(card: dict, tool: str, source: str) -> CallToolResult:
         f"The card shows the user {shown}. "
         f"The score has measures {card['measures']}.\n"
         f"{doubtful_reading(card)}"
-        + (CAREFUL_OFFER.format(warning=careful_warning(card["pages"])) if card.get("scan") and source in CAREFUL_PLATFORMS else "")
-        + "Go straight on to the analysis without asking the user to check the reading: call draft_analysis with this "
-        "score_id now and continue exactly as for an attached MusicXML file, drawing it with render_analysis. "
+        + (CAREFUL_OFFER.format(warning=careful_warning(card["pages"])) + "Call draft_analysis with this score_id"
+           if card.get("scan") and source in CAREFUL_PLATFORMS else
+           "Go straight on to the analysis without asking the user to check the reading: call draft_analysis with this score_id now")
+        + " and continue exactly as for an attached MusicXML file, drawing it with render_analysis. "
         "Bars shaded in the reading stay shaded on the drawn page. "
         f"The card does not show this note, so in your reply with the analysis pass on this note about the reading, briefly: \"{card['notice']}\""
     )
@@ -1539,12 +1540,13 @@ def pdf_card_result(card: dict, tool: str, source: str) -> CallToolResult:
     title="Read a chosen PDF of sheet music",
     description=(
         "Use this when choose_score or fetch_score gave a pdf_id, with that pdf_id. Reads the music from the PDF and shows the "
-        "user the engraved result in a card. Returns a score_id. Then go straight on to the analysis without waiting "
-        "for the user: call draft_analysis with that score_id, and pass on the result's note about the reading in your "
+        "user the engraved result in a card. Returns a score_id. Then, unless the result tells you to ask the user a question "
+        "first, go straight on to the analysis without waiting for the user: call draft_analysis with that score_id, and "
+        "pass on the result's note about the reading in your "
         f"reply with the analysis. Only the first {pdf_reader.READ_PAGES} pages are read. "
         "Slurs are not read, because they are often misread from PDFs; if the user asks for slurs, tell them so."
     ),
-    annotations=stores("Read a chosen PDF of sheet music"),
+    annotations=stores("Read a chosen PDF of sheet music", again=True),
 )
 @observed
 async def read_fetched_pdf(ctx: Context, pdf_id: str) -> CallToolResult:
@@ -1871,7 +1873,7 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
 @mcp.tool(
     title="Draft a harmonic analysis",
     description=DRAFT_ANALYSIS_USE + SCORE_INPUT_HELP,
-    annotations=stores("Draft a harmonic analysis"),
+    annotations=stores("Draft a harmonic analysis", again=True),
     meta={"openai/fileParams": ["score_file"]},
 )
 @observed
