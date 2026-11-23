@@ -4023,6 +4023,25 @@ Of the 213 ranges 127 are written identically and 86 differ: 58 because a bar is
 
 **Checks.** The ChatGPT flow test checks the result of `draft_analysis` for the old and the new sentence; it fails before and passes after. Lint passes. Full suite of the whole line with entries 197 and 198 on top, on a home PC plus the two machine-bound files here: 1,794 passed, 4 skipped, 0 failed (fbf17ef).
 
+### 199. A score's printed chord symbols stay on the page and are given to the chat (2026-11-22, branch `chord-symbols`, nothing released)
+
+**Use.** 17 of the 123 scores stored for users in the last weeks print chord symbols: 7 of 41 attached MusicXML files (24 to 93 symbols each; three written by a service that turns recordings into sheet music) and 10 of 82 PDF readings (half of those with only one to three, possibly misread text). They belong to at most 8 of 68 ChatGPT users.
+
+**Problem.** A lead sheet prints chord symbols above the staff (E, A7, B7). Every page we drew had none of them, and the notes given to the chat had none either. In a real ChatGPT chat on a 28-bar lead sheet with 23 printed symbols, the chat told the user "your score contains only a melody, so the chord names on my annotated copy are suggested harmonizations".
+
+**Cause.** To keep crowded bars wide enough for our numerals we add hidden chord symbols below the staff and delete them again after layout (entry of 2026-10-06). The deletion removed every chord symbol on the page, the score's own included. Nobody had decided to drop them.
+
+**Fix.**
+- Our hidden spacers carry a mark of their own and only they are removed. A printed chord symbol is now printed text like any other on the page, so our marks above the staff are placed around it by the rule that already existed for words. This covers the marked page, its PDF and the card that shows a PDF reading. The plain page already kept them.
+- A symbol the file marks as "no chord" prints the text the user's copy prints ("N.C."). The drawing library ignores that text and printed the placeholder root, a plain "C". Such a symbol with no text is dropped. In the first 6,000 scores of the dataset used for checks, 12 of 573 scores with chord symbols have such symbols, 191 in all, 122 of them with no text.
+- Roman numerals a user typed into a notation program are stored in a separate form; they stay off the page and out of the notes, as before. Labels the program could not read as numerals ("Fr43", "Ger65") are stored as chord symbols and now print as typed.
+- When a score prints chord symbols, the table of notes that `draft_analysis` returns ends each row with the symbols standing at that beat, and one sentence asks the chat to relate its own labels to them and to say where its reading of the notes differs. For a score without chord symbols the result is unchanged (compared over 70 test scores: 67 identical, the 3 that differ are the 3 with chord symbols).
+- Our spacers are left out when the score is indexed. Without that, a spacer for a label that begins with a letter from A to G ("Ger65", "Cad64") was read as a printed chord symbol in one internal pass.
+
+**Checks.** `tools/chord_symbol_check.py` (new) draws every score that prints chord symbols with a full set of our marks and counts symbols that overlap one of our marks or other printed text: 747 symbols on 44 scores (the test data, one private lead sheet and 40 dataset scores), 0 overlapping our marks, 1 pair of printed symbols overlapping each other as the drawing library placed them. Eight pages looked at full size. New test file: a lead sheet of "Amazing Grace" written by hand (the tune is from 1829), with 16 chord symbols; the dataset had no tune free of a living arranger's credit. New end-to-end tests fail on the old code. `tools/diff_check.py --base no-bars-question all`: no changed item in 385 (none of its inputs prints a chord symbol). `tools/engraving_check.py` no longer leaves chord symbols out of its collisions and still reports none. Lint passes. Full suite on a home PC plus the two machine-bound files here: 1,803 passed, 4 skipped, 0 failed (273896f).
+
+**Not fixed.** The piano version rebuilds the score and carries no chord symbols. On a melody with words under it, or a lead sheet, our numerals below the staff are drawn on the sung words (15 of 17 numerals on one such test piece; none on songs with piano or on chorales, 823 numerals over 58 scores with words): the row of numerals is placed from the staff and its notes and does not see the words. Two ways to fix it were drawn for the owner; not decided. Not run: real chats with the new table.
+
 ## Reproducing
 
 ```bash
