@@ -4096,7 +4096,7 @@ Asked for directly in the same chat, the careful reading worked: Claude explaine
 
 **Staging only: a reading card without its picture.** Staging has two addresses on one store (ChatGPT's, and the tagged one Claude's connector uses), and a finished reading is kept with the full address of its picture. A PDF first read through one address shows a broken picture in the other product's card, which may load only from its own address. Production has one address.
 
-**Checks.** Full suite with the reader on ab02f8c: 1,809 passed, 4 skipped (no ring codes), 0 failed.
+**Checks.** Full suite with the reader on ab02f8c: 1,809 passed, 4 skipped (no ring codes), 0 failed; again on f4fdfe0, with the hint and text changes and the new tool-list test: 1,810 passed, 4 skipped, 0 failed.
 
 **NOT RUN.** The new commentary guidance and the corrected step 2 in the Claude app itself (both need a plugin release); a long piece (over 100 bars) with no bars named, in either product; a ChatGPT user on "Allow read-only tools"; a second Claude chat for the skipped question.
 
