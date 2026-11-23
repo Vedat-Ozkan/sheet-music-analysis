@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import re
+from dataclasses import replace
 import xml.etree.ElementTree as ET
 from fractions import Fraction
 
@@ -25,13 +26,13 @@ def score_from_pages(pages: list[str]) -> bytes:
         raise notes.NotesError("No pages were handed in")
     for number, page in enumerate(pages, 1):
         try:
-            score_from_notes(page)
+            score_from_notes(page, after_a_rest_bar=number > 1)
         except UserError as error:
             raise notes.NotesError(f"Page {number}: {error}") from error
     return score_from_notes(join_pages(pages))
 
 
-def score_from_notes(text: str) -> bytes:
+def score_from_notes(text: str, *, after_a_rest_bar: bool = False) -> bytes:
     index = notes.decode(text)
     events = [event for measure in index.measures for event in measure.events]
     staves = max((event.staff for event in events), default=1)
@@ -43,10 +44,15 @@ def score_from_notes(text: str) -> bytes:
         if measure.length > MAX_BAR_LENGTH:
             raise notes.NotesError(f"Bar {measure.number}: len= makes this bar longer than {MAX_BAR_LENGTH} quarter notes")
     first = index.measures[0] if index.measures else None
-    if first and first.number != 0 and first.length < _full_length(first):
+    if first and not after_a_rest_bar and first.number != 0 and first.length < _full_length(first):
         raise notes.NotesError(f"Bar {first.name}: len= makes the first bar shorter than its time signature; only a "
                                "pickup is shorter, and a pickup is written m0")
-    return replace_bars(_empty_score(index.measures, staves), _with_every_staff(text, staves))
+    measures = [_rest_bar_before(first), *index.measures] if first and after_a_rest_bar else index.measures
+    return replace_bars(_empty_score(measures, staves), _with_every_staff(text, staves))
+
+
+def _rest_bar_before(first: Measure) -> Measure:
+    return replace(first, number=first.number - 1, name=str(first.number - 1), declared_length=_full_length(first), events=[])
 
 
 def join_pages(pages: list[str]) -> str:
@@ -60,20 +66,38 @@ def join_pages(pages: list[str]) -> str:
     div = math.lcm(*(page[1] for page in read))
     meter, key = read[0][2], read[0][3]
     joined = [f"{notes.VERSION} div={div} ts={meter} ks={key}"]
-    bar = None
+    bar, last_length, bar_at, voices_at, completing = None, None, 0, {}, None
+
+    def pad_voices_left_out() -> None:
+        for label, at in voices_at.items():
+            if label not in completing["voices"] and not notes.WORDS_LABEL.fullmatch(label):
+                joined[at] += f" {completing['length']} r"
+
     for number, own, page_meter, page_key, lines in read:
         scale = div // own
         opening = {"ts": page_meter or meter, "ks": page_key}
+        page_opens = True
         for line in lines:
             label, _, body = line.partition(":")
             if line.startswith("m"):
                 found = BAR_LINE.fullmatch(line)
                 if not found:
                     raise notes.NotesError(f"Page {number}: a bar line looks like 'm3 len=96', not {line!r}")
-                bar = int(line.split()[0][1:]) if bar is None else bar + 1
+                if completing:
+                    pad_voices_left_out()
+                    completing = None
                 changes = opening | dict(part.split("=", 1) for part in found["changes"].split())
                 opening = {}
-                line = f"m{bar} len={int(found['length']) * scale}"
+                length = int(found["length"]) * scale
+                full = _units_in_bar(meter, div) if changes.get("ts", meter) == meter and changes.get("ks", key) == key else None
+                if page_opens and None not in (last_length, full) and last_length < full and last_length + length == full:
+                    completing = {"first_half": last_length, "length": length, "voices": set()}
+                    joined[bar_at] = joined[bar_at].replace(f" len={last_length}", f" len={full}", 1)
+                    page_opens, last_length = False, full
+                    continue
+                bar = int(line.split()[0][1:]) if bar is None else bar + 1
+                page_opens, last_length, bar_at, voices_at = False, length, len(joined), {}
+                line = f"m{bar} len={length}"
                 if changes.get("ts", meter) != meter:
                     meter = changes["ts"]
                     line += f" ts={meter}"
@@ -81,8 +105,23 @@ def join_pages(pages: list[str]) -> str:
                     key = changes["ks"]
                     line += f" ks={key}"
             elif label != "x" and not notes.WORDS_LABEL.fullmatch(label):
-                line = f"{label}: " + " ".join(str(int(entry) * scale) if entry.isdigit() else entry for entry in body.split())
+                body = " ".join(str(int(entry) * scale) if entry.isdigit() else entry for entry in body.split())
+                line = f"{label}: {body}"
+                if completing:
+                    completing["voices"].add(label)
+                    if label in voices_at:
+                        joined[voices_at[label]] += f" {body}"
+                        continue
+                    line = f"{label}: {completing['first_half']} r {body}"
+            elif completing and label in voices_at:
+                completing["voices"].add(label)
+                joined[voices_at[label]] += f" {body.strip()}"
+                continue
+            if label != "x" and not line.startswith("m"):
+                voices_at[label] = len(joined)
             joined.append(line)
+    if completing:
+        pad_voices_left_out()
     return "\n".join(joined)
 
 
@@ -93,7 +132,7 @@ def _empty_score(measures: list[Measure], staves: int) -> bytes:
     meter = key = None
     for measure in measures:
         full = _full_length(measure)
-        bar = ET.SubElement(part, "measure", number=str(measure.number))
+        bar = ET.SubElement(part, "measure", number=measure.name)
         if measure.length != full:
             bar.set("implicit", "yes")
         if part[0] is bar or measure.meter != meter or measure.key_signature != key:
@@ -125,6 +164,13 @@ def _empty_score(measures: list[Measure], staves: int) -> bytes:
                     ET.SubElement(note, "type").text = kind
                 ET.SubElement(note, "staff").text = str(staff)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _units_in_bar(meter: str, div: int) -> int | None:
+    if not meter:
+        return None
+    beats, unit = meter.split("/")
+    return 4 * int(beats) * div // int(unit)
 
 
 def _full_length(measure: Measure) -> Fraction:

@@ -2081,7 +2081,7 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
     try:
         with stage("parse"):
             score = await in_turn(lambda: from_notes.score_from_pages(pages))
-            bars = await in_turn(lambda: [measure.number for measure in ScoreIndex(load_toolkit(score).getMEI()).measures])
+            bars = await in_turn(lambda: [measure.name for measure in ScoreIndex(load_toolkit(score).getMEI()).measures])
     except UserError as error:
         log("use_careful_reading", platform=source, error=type(error).__name__, reason=str(error), pages=len(pages), outcome="user_error")
         return error_result("Fix the page this is about and call use_careful_reading again with every page: " + str(error))

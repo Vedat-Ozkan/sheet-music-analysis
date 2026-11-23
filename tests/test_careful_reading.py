@@ -88,7 +88,7 @@ def test_a_page_that_cannot_be_built_comes_back_with_what_to_fix(tmp_path, monke
     assert "Page 1: Bar 0, voice 1.1 adds up to 1" in text_of(result) and "call use_careful_reading again" in text_of(result)
     second = PAGES[1].replace("m1 len=24", "m1 len=20", 1)
     wrong_second = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": [PAGES[0], second, PAGES[2]]}))
-    assert wrong_second.is_error and "Page 2: Bar 1: len= makes the first bar shorter" in text_of(wrong_second)
+    assert wrong_second.is_error and "Page 2: Bar 1, voice 1.1 adds up to" in text_of(wrong_second)
     pickup_as_bar_1 = re.sub(r"^m(\d+)", lambda bar: f"m{int(bar[1]) + 1}", PAGES[0], flags=re.M)
     refused = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": [pickup_as_bar_1]}))
     assert refused.is_error and "Page 1: Bar 1: len= makes the first bar shorter" in text_of(refused)
@@ -208,3 +208,44 @@ def test_the_accidental_rule_never_adds_or_changes_a_printed_sign(path):
             for printed, ours in zip(notes_of(bar), notes_of(rewritten)):
                 if ours.find("accidental") is not None:
                     assert printed.findtext("accidental") == ours.findtext("accidental"), (part.get("id"), bar.get("number"), printed.findtext("pitch/step"))
+
+
+def bars_of(code):
+    return [(measure.name, measure.length, [event.pitch for event in measure.events if event.pitch])
+            for measure in ScoreIndex(load_toolkit(app.store.get(f"scores/{code}")).getMEI()).measures]
+
+
+def hand_in(pages):
+    return asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": pages}))
+
+
+@pytest.mark.parametrize("pages, bars", [
+    (["N1 div=4 ts=4/4 ks=0\nm1 len=16\n1.1: 16 C4\nm2 len=16\n1.1: 16 D4\nm3 len=8\n1.1: 8 E4",
+      "N1 div=4 ts=4/4 ks=0\nm1 len=8\n1.1: 8 F4\n1.2: 8 A3\nm2 len=16\n1.1: 16 G4\nm3 len=16\n1.1: 16 A4"],
+     [("1", 4, ["C4"]), ("2", 4, ["D4"]), ("3", 4, ["E4", "F4", "A3"]), ("4", 4, ["G4"]), ("5", 4, ["A4"])]),
+    (["N1 div=2 ts=3/4 ks=1s\nm1 len=6\n1.1: 6 G4\nm2 len=4\n1.1: 4 B4",
+      "N1 div=2 ts=3/4 ks=1s\nm1 len=2\n1.1: 2 D5\nm2 len=6\n1.1: 6 C5"],
+     [("1", 3, ["G4"]), ("2", 3, ["B4", "D5"]), ("3", 3, ["C5"])]),
+], ids=["bar-split-across-the-page-turn", "section-pickup-at-the-top-of-a-page"])
+def test_a_later_page_may_begin_with_the_rest_of_a_bar_and_the_two_halves_are_one_bar(tmp_path, monkeypatch, pages, bars):
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 2}).encode())
+    result = hand_in(pages)
+    assert not result.is_error, text_of(result)
+    code = text_of(result).split()[1]
+    assert f"measures 1 to {bars[-1][0]}." in text_of(result)
+    assert [(name, float(length), sorted(pitches)) for name, length, pitches in bars_of(code)] == [
+        (name, float(length), sorted(pitches)) for name, length, pitches in bars]
+
+
+def test_a_later_page_that_begins_with_a_short_bar_is_checked_by_its_own_bar_names(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 2}).encode())
+    first = "N1 div=4 ts=4/4 ks=0\nm1 len=16\n1.1: 16 C4\nm2 len=8\n1.1: 8 E4"
+    for second, bar in (("N1 div=4 ts=4/4 ks=0\nm1 len=8\n1.1: 4 F4\nm2 len=16\n1.1: 16 G4", "1"),
+                        ("N1 div=4 ts=4/4 ks=0\nm1 len=8\n1.1: 8 F4\nm2 len=16\n1.1: 8 G4", "2")):
+        refused = hand_in([first, second])
+        assert refused.is_error and f"Page 2: Bar {bar}, voice 1.1 adds up to" in text_of(refused), text_of(refused)
+        assert "Bar 0" not in text_of(refused) and "-1" not in text_of(refused)
+    short_first_page = hand_in(["N1 div=4 ts=4/4 ks=0\nm1 len=8\n1.1: 8 F4\nm2 len=16\n1.1: 16 G4"])
+    assert short_first_page.is_error and "Page 1: Bar 1: len= makes the first bar shorter" in text_of(short_first_page)
