@@ -227,7 +227,7 @@ def test_romantext_of_a_pickup_piece_with_a_key_change(tmp_path):
         assert [c.beat for c in chords][:3] == [4.0, 1.0, 2.0]
 
 
-def test_server_card_has_the_key_on_its_first_page_and_the_pdf_on_its_last(chopin, chopin_annotations, tmp_path, monkeypatch):
+def test_server_card_has_the_key_under_its_last_page_and_the_pdf_on_its_last(chopin, chopin_annotations, tmp_path, monkeypatch):
     from pypdf import PdfReader
     from engine.render import Engraving
     monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
@@ -248,9 +248,9 @@ def test_server_card_has_the_key_on_its_first_page_and_the_pdf_on_its_last(chopi
         return (await app.files(Request({'type': 'http', 'path_params': {'name': name}}))).body
 
     pages = [page.extract_text() for page in PdfReader(io.BytesIO(asyncio.run(run()))).pages]
-    assert pictured == [[True, False], [True, False]]
+    assert pictured == [[False, True], [False, True]]
     assert len(pages) > 2
-    assert [number for number, text in enumerate(pages) if 'passing note' in text] == [len(pages) - 1]
+    assert [number for number, text in enumerate(pages) if 'passing tone' in text] == [len(pages) - 1]
 
 
 def test_server_piano_worksheet_has_no_key(tmp_path, monkeypatch):
@@ -269,8 +269,8 @@ def test_server_piano_worksheet_has_no_key(tmp_path, monkeypatch):
         return files
 
     files = asyncio.run(run())
-    assert 'the key' in files['pdf']
-    assert 'the key' not in files['worksheet']
+    assert 'perfect authentic cadence' in files['pdf']
+    assert 'perfect authentic cadence' not in files['worksheet']
 
 
 def test_server_refuses_a_piano_version_of_a_reading_whose_parts_hold_different_bars(tmp_path, monkeypatch):

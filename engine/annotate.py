@@ -24,7 +24,7 @@ ANNOTATED_OPTIONS = {
     "svgBoundingBoxes": True,
     "svgAdditionalAttribute": ["staff@n", "fermata@staff", "dynam@staff"],
     "adjustPageHeight": True,
-    "spacingSystem": 26,
+    "spacingSystem": 16,
     "pageMarginTop": 230,
     "pageMarginBottom": 260,
 }
@@ -200,12 +200,13 @@ def render(
         return Engraving(pages, callouts=callouts)
     from engine import page_key
     shown = drawn[:preview_pages]
-    preview_key = page_key.draw(shown, drawn[0], page_key.SCREEN_SIZE)
-    preview = [drawn[0].to_svg(), *pages[1:]]
-    if len(drawn) == 1:
-        return Engraving(preview, preview_svgs=preview, key_drawn=preview_key, callouts=callouts)
+    preview_key = page_key.draw(shown, shown[-1], page_key.SCREEN_SIZE)
+    preview = [*pages[: len(shown) - 1], shown[-1].to_svg(), *pages[len(shown) :]]
+    if len(drawn) == len(shown):
+        return Engraving(preview, preview_svgs=preview, key_drawn=preview_key, preview_key_drawn=preview_key, callouts=callouts)
     key_drawn = page_key.draw(drawn, drawn[-1])
-    return Engraving([*pages[:-1], drawn[-1].to_svg()], preview_svgs=preview, key_drawn=key_drawn, callouts=callouts)
+    return Engraving([*pages[:-1], drawn[-1].to_svg()], preview_svgs=preview, key_drawn=key_drawn, preview_key_drawn=preview_key,
+                     callouts=callouts)
 
 
 def _make_room_for_checks(toolkit, relayout, index, ties, results) -> None:
@@ -381,6 +382,17 @@ def _reserve_bracket_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
                     added.setdefault(segment.id, []).append(
                         f'<dir staff="{staff}" tstamp="1" place="{place}" type="analysis-room">{escape(region.label or "-")}<lb/>-</dir>'
                     )
+    above, below = set(), set()
+    for mark in annotations.annotations:
+        if isinstance(mark, Phrase):
+            first, last = index.measure(mark.start.measure).index, index.measure(mark.end.measure).last_index
+            above |= {segment.id for measure in index.measures for segment in measure.segments if first <= segment.index <= last}
+        elif isinstance(mark, (Callout, Cadence)) or isinstance(mark, Harmony) and mark.function:
+            measure = index.measure(mark.at.measure)
+            (above if isinstance(mark, Callout) else below).add(measure.segment_at(measure.offset_of(mark.at.beat)).id)
+    for segments, staff, place, lines in ((above, 1, "above", "-"), (below, bottom_staff, "below", "-<lb/>-")):
+        for segment in segments:
+            added.setdefault(segment, []).append(f'<dir staff="{staff}" tstamp="1" place="{place}" type="analysis-room">{lines}</dir>')
     if not added:
         return
     for measure_id, dirs in added.items():
@@ -427,25 +439,25 @@ def _balance_systems(toolkit, index: ScoreIndex, measures: tuple[int, int] | Non
         0.0 if number.get(id) in good else 40.0 if number.get(id) in bad or not first_bar[position] else 6.0
         for position, (id, _) in enumerate(bars)
     ]
-    starts = _breaks([width for _, width in bars], line, penalty, opening)
+    starts = _breaks([width for _, width in bars], line, penalty, opening, opening if measures else 0.0)
     mei = re.sub(r"<(sb|pb)\b[^>]*/>", "", toolkit.getMEI())
     for position in starts:
         start = mei.index(f'xml:id="{bars[position][0]}"')
         start = mei.rindex("<measure", 0, start)
         mei = mei[:start] + "<sb />" + mei[start:]
-    toolkit.setOptions({"breaks": "smart", "breaksSmartSb": 0.3, "minLastJustification": 0})
+    toolkit.setOptions({"breaks": "smart" if measures else "line", "breaksSmartSb": 0.3, "minLastJustification": 0})
     toolkit.loadData(mei)
     if measures:
         toolkit.select({"measureRange": index.measure_range(*measures)})
     toolkit.redoLayout()
 
 
-def _breaks(widths: list[float], line: float, penalty: list[float], opening: float = 0.0) -> list[int]:
+def _breaks(widths: list[float], line: float, penalty: list[float], opening: float = 0.0, first_opening: float = 0.0) -> list[int]:
     count = len(widths)
     best: list[tuple[float, int]] = [(0.0, -1)] + [(math.inf, -1)] * count
     for end in range(1, count + 1):
         for begin in range(end - 1, -1, -1):
-            width = sum(widths[begin:end]) + (opening if begin else 0.0)
+            width = sum(widths[begin:end]) + (opening if begin else first_opening)
             if width > line and end - begin > 1:
                 break
             fill = width / line

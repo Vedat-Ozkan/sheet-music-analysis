@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageChops
 
-from engine import correct, notes, piano, reduce
+from engine import annotate, correct, notes, piano, reduce
 from engine.annotate import render
 from engine.annotations import Alternative, AnnotationList
 from engine.check_analysis import ClarificationNeeded, from_musicxml, from_text, student_labels
@@ -35,7 +35,11 @@ SCORES = {
     "pdf-reading-overrun": DATA / "awkward" / "kinkel-op8-5-trennung-reading.musicxml",
     "additive-and-mixed-meters": DATA / "awkward" / "additive-and-mixed-meters.musicxml",
 }
-KNOWN: dict[tuple[str, str], str] = {}
+KNOWN: dict[tuple[str, str], str] = {
+    ("clear_strip", "grace-mixed-meter"): "with every bar marked, the marks of two systems still meet; so they did before the gaps followed the marks",
+    ("clear_strip", "key-change-tuplets"): "with every bar marked, the marks of two systems still meet; so they did before the gaps followed the marks",
+}
+HALF_A_STAFF = 24
 
 score_ids = pytest.mark.parametrize("name", list(SCORES))
 
@@ -300,6 +304,46 @@ def test_one_chord_alternative_is_drawn(name):
     alternative = {"type": "alternative", "start": {"measure": bars[0], "beat": 1}, "end": {"measure": bars[0], "beat": 1}, "label": "V"}
     svg = render(data, AnnotationList.model_validate({"annotations": harmonies + [alternative]}), measures=(bars[0], bars[-1])).svgs[0]
     assert 'stroke-dasharray="1 70"' in svg and ">V<" in svg
+
+
+@score_ids
+@pytest.mark.parametrize("excerpt", [False, True], ids=["whole", "excerpt"])
+def test_every_system_holds_the_bars_chosen_for_it(name, excerpt, monkeypatch):
+    data, index = load(name)
+    numbers = [measure.number for measure in index.measures if measure.number > 0]
+    chosen, choose = [], annotate._breaks
+
+    def watched_choice(widths, *args):
+        starts = choose(widths, *args)
+        chosen.append([end - start for start, end in zip([0, *starts], [*starts, len(widths)])])
+        return starts
+
+    monkeypatch.setattr(annotate, "_breaks", watched_choice)
+    engraving = render(data, AnnotationList.model_validate({"annotations": []}), measures=(numbers[0], numbers[min(7, len(numbers) - 1)]) if excerpt else None)
+    drawn = [len(re.findall(r'class="measure"', system)) for svg in engraving.svgs for system in svg.split('class="system"')[1:]]
+    assert not chosen or chosen[0] == drawn, name
+
+
+@score_ids
+def test_marks_of_neighbouring_systems_leave_a_clear_strip_between_them(name, request):
+    known(request, "clear_strip", name)
+    data, index = load(name)
+    bars = [measure for measure in index.measures if measure.number > 0][:16]
+    marks = [{"type": "harmony", "at": {"measure": bar.number, "beat": 1}, "label": "V", "function": "D", **({"key": "C"} if not number else {})}
+             for number, bar in enumerate(bars)]
+    for start in range(0, len(bars), 4):
+        phrase = bars[start : start + 4]
+        marks += [{"type": "phrase", "start": {"measure": phrase[0].number}, "end": {"measure": phrase[-1].number}, "label": "a"},
+                  {"type": "cadence", "at": {"measure": phrase[-1].number, "beat": 1}, "label": "PAC"},
+                  {"type": "callout", "at": {"measure": phrase[0].number, "beat": 1}, "number": start // 4 + 1}]
+    engraving = render(data, AnnotationList.model_validate({"annotations": marks}), measures=(bars[0].number, bars[-1].number))
+    for svg in engraving.svgs:
+        page = Engraving([svg])._raster(1, 1400)
+        inked = [bool(ImageChops.difference(page.crop((0, row, page.width, row + 1)), Image.new("RGB", (page.width, 1), "#ffffff")).getbbox())
+                 for row in range(page.height)]
+        first, last = inked.index(True), len(inked) - inked[::-1].index(True)
+        strips = [len(run) for run in "".join(" x"[row] for row in inked[first:last]).split("x") if len(run) >= HALF_A_STAFF]
+        assert len(strips) >= svg.count('class="system"') - 1, (name, strips, svg.count('class="system"'))
 
 
 @score_ids

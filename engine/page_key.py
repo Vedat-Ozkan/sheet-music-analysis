@@ -5,19 +5,18 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
 from engine import part_writing, text, tint
-from engine.overlay import ARROW, ERROR, FUNCTION_NAMES, INK, LABEL_PAD, LABEL_SIZE, LINE, NUMERAL_SIZE, S, Box, PageLayout
+from engine.overlay import ERROR, INK, LABEL_PAD, LABEL_SIZE, LINE, NUMERAL_SIZE, S, Box, PageLayout
 
 PRINT_SIZE = LABEL_SIZE
 SCREEN_SIZE = NUMERAL_SIZE
 LINE_STEP = 1.5
 GAP = 900
-DOT = "·"
+BETWEEN = "\u2003"
 SAMPLE = 1.6
 
-NCT_WORDS = {"PT": "passing note", "NT": "neighbour note", "SUS": "suspension", "APP": "appoggiatura", "ET": "escape tone",
-             "RET": "retardation", "ANT": "anticipation", "PED": "pedal note"}
+NCT_WORDS = {"PT": "passing tone", "NT": "neighbour tone", "SUS": "suspension", "APP": "appoggiatura", "ET": "escape tone",
+             "RET": "retardation", "ANT": "anticipation", "PED": "pedal tone"}
 CADENCE_WORDS = {"PAC": "perfect authentic cadence", "IAC": "imperfect authentic cadence", "HC": "half cadence", "DC": "deceptive cadence"}
-FUNCTION_WORDS = {"T": "tonic", "PD": "pre-dominant", "D": "dominant"}
 
 
 def fault_words() -> dict[str, str]:
@@ -42,34 +41,20 @@ def entries(shown: set[tuple[str, str]]) -> list[Entry]:
     for kind, code in sorted(shown):
         found.setdefault(kind, []).append(code)
     result = []
-    if "key" in found:
-        result.append(Entry("", "the key (capital major, small minor)", found["key"][0]))
-    if "function" in found:
-        jobs = []
-        for letter, word in FUNCTION_WORDS.items():
-            forms = [form for form in (FUNCTION_NAMES[letter], letter) if form in found["function"] and form != word]
-            if forms or word in found["function"]:
-                jobs.append((f"{word} ({', '.join(forms)})" if forms else word, ""))
-        result.append(Entry("function", "the chord’s job", codes=jobs))
     if "cadence" in found:
         result += [Entry("", "", codes=[(code, CADENCE_WORDS[code])], boxed=True) for code in CADENCE_WORDS if code in found["cadence"]]
     if "alternative" in found:
         result.append(Entry("alternative", "another reading a teacher would accept"))
     if "nct" in found:
-        result.append(Entry("nct", "not part of the chord",
-                            codes=[(code, words) for code, words in NCT_WORDS.items() if code in found["nct"]]))
-    if "arrow" in found:
-        result.append(Entry("arrow", "where a note moves"))
+        result.append(Entry("nct", "", codes=[(code, words) for code, words in NCT_WORDS.items() if code in found["nct"]]))
     if "fault" in found:
         known = fault_words()
         result.append(Entry("fault", "red marks are part-writing faults",
                             codes=[(code, words) for code, words in known.items() if code in found["fault"]], code_colour=ERROR))
-    if "phrase" in found:
-        result.append(Entry("phrase", "a phrase"))
     if "region" in found:
         result.append(Entry("region", "a passage named by what it is built on"))
     if "callout" in found:
-        result.append(Entry("callout", "see that number in the reply"))
+        result.append(Entry("callout", "see below"))
     if "shaded" in found:
         result.append(Entry("shaded", "may be misread from the PDF; check it against the original"))
     return result
@@ -88,7 +73,7 @@ def draw(layouts: list[PageLayout], layout: PageLayout, size: float = PRINT_SIZE
     y = max([box.bottom for box in last.content + last.words] + [last.staff_bottom]) + GAP
     pen = _Pen(layout, left, right, y, size)
     for number, entry in enumerate(pieces):
-        lead = [] if number == 0 else [("text", DOT, INK)]
+        lead = [] if number == 0 else [("text", BETWEEN, INK)]
         if entry.sample:
             head = lead + [("sample", entry.sample, INK)]
             head += [("text", entry.meaning + (":" if entry.codes else ""), INK)] if entry.meaning else []
@@ -136,7 +121,7 @@ class _Pen:
         space = text.width(" ", self.size)
         if self.x > self.left and self.x + self._span(parts) > self.right:
             self._break()
-            if parts[0] == ("text", DOT, INK):
+            if parts[0] == ("text", BETWEEN, INK):
                 parts = parts[1:]
         for kind, string, colour in parts:
             if self.x > self.left:
@@ -169,13 +154,9 @@ class _Pen:
 def _sample(layout: PageLayout, kind: str, box: Box, size: float) -> None:
     scale = size / PRINT_SIZE
     x0, x1, top, bottom, mid = box.x + 30 * scale, box.right - 30 * scale, box.y, box.bottom, box.cy
-    if kind == "function":
-        layout._add("path", d=f"M{x0:.0f},{top:.0f} L{x0:.0f},{mid:.0f} L{x1:.0f},{mid:.0f} L{x1:.0f},{top:.0f}",
-                    fill="none", stroke=INK, stroke_width=LINE, stroke_linejoin="round")
-    elif kind in ("phrase", "region"):
-        dash = {"stroke_dasharray": "110 70"} if kind == "region" else {}
+    if kind == "region":
         layout._add("path", d=f"M{x0:.0f},{bottom:.0f} L{x0:.0f},{mid:.0f} L{x1:.0f},{mid:.0f} L{x1:.0f},{bottom:.0f}",
-                    fill="none", stroke=INK, stroke_width=LINE, stroke_linejoin="round", **dash)
+                    fill="none", stroke=INK, stroke_width=LINE, stroke_linejoin="round", stroke_dasharray="110 70")
     elif kind == "alternative":
         layout._add("path", d=f"M{x0:.0f},{top:.0f} L{x0:.0f},{mid:.0f} L{x1:.0f},{mid:.0f} L{x1:.0f},{top:.0f}",
                     fill="none", stroke=INK, stroke_width=LINE * 2, stroke_linejoin="round", stroke_dasharray="1 70", stroke_linecap="round")
@@ -183,8 +164,6 @@ def _sample(layout: PageLayout, kind: str, box: Box, size: float) -> None:
         layout._add("ellipse", cx=round(box.cx), cy=round(mid), rx=round(150 * scale), ry=round(120 * scale), fill="none", stroke=INK, stroke_width=LINE)
     elif kind == "fault":
         layout._add("ellipse", cx=round(box.cx), cy=round(mid), rx=round(150 * scale), ry=round(120 * scale), fill="none", stroke=ERROR, stroke_width=30)
-    elif kind == "arrow":
-        layout._line_or_arrow(x0, mid, x1, mid, head=True, colour=ARROW)
     elif kind == "callout":
         layout._add("circle", cx=round(box.cx), cy=round(mid), r=round(170 * scale), fill=INK)
         layout._text(box.cx, mid + size * 0.3, "1", size * 0.9, bold=True, fill="#ffffff", anchor="middle")

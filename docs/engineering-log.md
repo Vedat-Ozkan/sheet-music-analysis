@@ -3762,6 +3762,72 @@ One point is still open and is not built: the offer is server text, so on a prod
 
 **NOT RUN:** a second run of either chat; a real chat after the review fixes or with the new sentence (the chats above ran the code before them); a piece longer than three pages, a song or a user's own scan through the connector; a scan with a title page; a lower plan or the free tier of either product; the cards of this flow in Claude; why ChatGPT's cards looked blank in screenshots; a Claude user who has allowed our address in their settings; photos that are not PDFs (still refused as not a PDF); a second full run with the reader. Files: `connector-chat-tests` in `round11-reader-vs-quick`.
 
+### 182. The guide to the marks sits at the bottom of the chat picture (2026-11-20, branch `guide-at-preview-end`, nothing released)
+
+**Why.** The owner saw the guide in the middle of a drawn analysis in a real Claude chat. The chat picture is the first two pages pasted one under the other (`CARD_PAGES = 2`), and since entry 162 the guide was drawn at the foot of page 1, so on any piece longer than a page it sat between page 1 and page 2. The owner had chosen "foot of page 1" on the understanding that the picture was one page; the wish was always "at the bottom".
+
+**Change.** `engine/annotate.py` draws the picture's guide under the last page the picture shows. A piece no longer than the picture has one guide at its end, shared by the picture and the PDF, as a one-page piece already had. The PDF of a longer piece is unchanged (guide at the end of the last page). The text the chat is given and the sentence on the site's how-to page say "the bottom of the picture" now; the site is not published by this change.
+
+**Checks.** `tools/diff_check.py --base main render`: 28 inputs, 0 changed (the guide is off in the engine's default). The placement test now expects the guide on the second page of the picture; a new test draws a real two-page reading (Chopin, Prelude op. 28 no. 4) and finds one guide, on page 2, in both picture and PDF; the card test expects the same of the server. `tests/test_overlay_marks.py`, `tests/test_host_render.py` and `tests/test_awkward.py`: 424 passed, 4 skipped. Looked at full size, before and after, on Schubert's "Der Lindenbaum" with its example analysis: before, the guide sat under the third system, above the first marks; after, under the last system of the picture.
+
+**NOT RUN:** the full suite; a real Claude or ChatGPT chat with this change (staging holds another branch); a review by another model.
+
+### 183. Systems that keep the bars we chose, tighter gaps between systems, a shorter guide (2026-11-20, branch `guide-at-preview-end`, nothing released)
+
+**Why.** Looking at the Lindenbaum picture from entry 182, the owner pointed at four things: the first two systems held two bars and one bar with the notes spread far apart, the gaps between systems were much too large, the guide explained things that need no explaining, and its entries ran together.
+
+**The lone bar: root cause.** Our own step (`_balance_systems`) chooses the system breaks, then hands them to the drawing library in its `smart` mode. That mode keeps a break only when its own fit test agrees, and its fit test allows less on the first system than the bar widths we measure. For the Lindenbaum we asked for 3, 3 and 6 bars; the library refused the third bar on system 1, then kept our break before bar 4, which left bar 3 alone on a line. A check over 39 layouts (17 scores, whole and as two excerpts each) found our breaks were not kept in 14, every time starting at the first system; five of them left a system of one bar.
+
+**The fix.** A whole piece is now laid out in the library's `line` mode, which keeps exactly the breaks we set: the Lindenbaum gets 3, 3, 6. An excerpt cannot use that mode (in this version it drops the last line of an excerpt, re-checked today: 8 bars asked, 4 or 6 drawn), so it stays in `smart` mode and the step now counts the clef and key signature against the first system too, which is the allowance the library's test showed. After the change: 0 of 40 layouts lose our breaks (one more layout reaches the step). `tests/test_awkward.py` now has this check for the 13 awkward scores, whole and as an excerpt: 8 of its 26 cases fail on main's layout code, none on the branch. Drawing time is unchanged (three whole pieces, best of three: 3.15 to 3.04 s, 1.84 to 1.89 s, 0.33 to 0.33 s).
+
+**The gaps.** The gap between systems was one fixed number, 26 units (a staff is 8 units tall), set in the first commit so that cadence boxes, chord-job brackets and the next system's phrase bracket would fit. Systems with no marks got the same gap. It is now 16, and room is reserved only where those marks are drawn: one line above the top staff in a bar that a phrase covers or that has a numbered point, two lines under the bottom staff in a bar with a cadence or a chord's job, once for each bar and side however many marks it has.
+
+A first version reserved a line for every mark. It kept all marks apart, but several marks in one bar stacked their lines, and pages with marks everywhere came out taller than before: the Chopin excerpt 13%, the reference picture 14%, and the full suite failed on three tests. The amounts above were then found by trying settings against two measures on real pages: page height against main, and a new check that marks every bar of the 13 awkward scores and asks for a clear strip half a staff tall between neighbouring systems.
+
+| | Clear-strip check, scores failing of 13 | Lindenbaum bars 1 to 24 | Bach chorale | Chopin bars 1 to 8 |
+|---|---|---|---|---|
+| main (26 everywhere) | 3 | 3,720 | 2,648 | 2,053 |
+| 16 and no reserved room | 11 | 3,360 | 2,528 | 1,873 |
+| 16, a line for every mark (first version) | 0 | 3,651 | 2,664 | 2,318 |
+| 16, one line above and two below, once a bar (kept) | 2 | 3,465 | 2,605 | 2,093 |
+
+Heights are the sum of the page heights at 1,400 px wide. The two scores that still fail the check also fail it on main, and are marked as known in the test. The whole Chopin nocturne went from six pages to five.
+
+Three tests pinned the old layout and were changed: the reference picture and the picture hash for the Chopin excerpt were made again, and the bound on the student-check page (no more than 1.25 times the normal page) is now 1.3, because the normal Bach page became shorter (1,285 to 1,225) while the check page stayed the same (1,551 to 1,543).
+
+**The guide.** All of these are the owner's choices, made from pictures of real pages:
+- Four entries are gone: the key, the chord's job, a phrase, where a note moves. The text the chat is given no longer says the guide covers them. The page therefore no longer explains T, PD, D or "pre-dom."; the chat's reply has to.
+- The numbered point reads "see below".
+- The circled-note entry is the circle and then the codes used on those pages, with no heading: "PT passing tone, NT neighbour tone, APP appoggiatura". "Tone" replaces "note" for PT, NT and PED, to match the letters; the site's table of marks says the same now (not published).
+- Entries are separated by a wide gap instead of a dot, which had read as one more sign next to the colons. Four separators and four wordings were drawn for the choice.
+
+**Checks.** `tests/test_overlay_marks.py`, `tests/test_awkward.py`, `tests/test_host_render.py`, `tests/test_check_display.py`, `tests/test_annotate.py`: 491 passed, 4 skipped, 2 expected failures (the two known scores). `tools/engraving_check.py` on the nine example analyses: 0 overlapping labels, 0 tight, 0 collisions with the music. `tools/diff_check.py --base main render`: every item changed, as intended; looked at full size before and after: the Lindenbaum and the Chopin nocturne (whole, first two pages) and the Bach chorale. The other items were checked by the two tools above only.
+
+Full suite on the final code, after the review fixes: 1,605 passed, 30 skipped (the reader tests, user PDFs, ring codes), 2 expected failures, 0 failed.
+
+**Review by another model (Opus, read-only, on the code of the branch).** It compared main and the branch on about 17 scores, whole and as excerpts: the same bars in the same order everywhere, no system past the right edge, the same page counts, and the final systems equal to the breaks chosen. Confirmed and fixed:
+- Room for a numbered point, a cadence or a chord's job was always reserved in the first part of a bar. Where a repeat sign splits a bar and the second part starts a new system, the room went to the system above the mark. It now goes to the part the mark is in, as the room for numerals already did. On the chorale BWV 84.5 with marks on every bar's last beat, the clear strip between the two systems grew from 29 to 52 px; no collision was seen before the fix.
+- With the shorter guide it is more likely that the pages in the chat picture have nothing to explain while a later page does. The chat was then told of a guide the picture does not show. It is now told only when the picture has one.
+- The test that every system holds the bars chosen for it looked at the layout straight after the choosing step; it now reads the systems off the final pages. It still watches the internal step that chooses, to learn what was chosen; 8 of its 26 cases fail on main's layout code.
+
+Not changed: a preview of zero pages would now raise an error where it drew nothing before; nothing asks for that.
+
+**In real chats on staging (2026-11-20, one chat each, the whole Chopin nocturne op. 9 no. 2 as MusicXML).** Staging ran this branch: revision 00129-k9t on ChatGPT's address, 00153-wem on the address of Claude's test connector; the server's log lines show each chat's calls on its revision.
+
+| | ChatGPT | Claude |
+|---|---|---|
+| Picture in the card | first two of six pages, guide at the bottom | first two of six pages, guide at the bottom |
+| Bars to a system on those pages | 2 in each of six systems | 3, 2, 2, 3, 2, 2 |
+| Guide | "PAC perfect authentic cadence", "IAC imperfect authentic cadence", numbered point "see below", wide gaps | the same, plus "another reading a teacher would accept" and "PT passing tone, APP appoggiatura" |
+| Numbered points in the reply | four, matching "see below" | six, matching |
+| Marks the guide no longer explains | none drawn (no chord jobs, no phrases) | phrase brackets drawn, and the reply explains them; no chord jobs drawn |
+
+No lone bar on a system, no marks of two systems meeting, on the four pages looked at. Claude's reply says "passing note (PT)" where the guide says "passing tone"; the reply's wording is the chat's own. Neither chat drew chord jobs, so whether a reply explains T, PD and D without the guide was not seen. A screenshot of the card inside either chat could not be taken (the screenshot tool timed out with the card in view); the pictures were fetched from the server instead, and in Claude the cards loaded without an error note.
+
+**With the PDF reader switched on** (the suites above were run without it, which skips about 20 tests that read real PDFs; the owner's side agent pointed this out): 1,623 passed, 11 skipped, 2 expected failures, 1 failed. The failure is `tests/test_server_process.py::test_with_a_proxy_key_set_only_requests_that_carry_it_are_served`, a test that starts a server and does not touch the drawing code; the machine's load was about 28 at the time. Run again alone it passed, and so did its whole file. Every test that reads a real PDF ran and passed. A full run with the reader ending in 0 failed is NOT RUN for this branch.
+
+**NOT RUN:** a review of the review fixes by another model; pieces with more than four staves at the new gap, looked at by eye; a chat that draws chord jobs; a screenshot of the card inside a chat.
+
 ## Checking against teachers' prose
 
 For each piece, a second Claude model reads the published analysis (a textbook chapter, teaching notes, an article or a dissertation), lists up to 25 checkable claims it makes (keys, modulations, cadences, phrase and form boundaries, notable chords, modes), and marks whether our reviewed analysis agrees. This is a model's judgement, not a measurement, and a single run of it varies by several points (challenge 8): every claim and verdict is kept with what our analysis says, for a person to audit (`out/eval/judged/opus-medium/`; the Sonnet run is in `out/eval/judged/sonnet/`).
