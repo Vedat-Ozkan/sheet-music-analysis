@@ -94,7 +94,7 @@
     show("Sending " + file.name + "…");
     let body;
     try {
-      const response = await fetch(UPLOAD_URL + "?id=" + encodeURIComponent(await uploadId) + "&device=" + device(), { method: "POST", body: file });
+      const response = await fetch(UPLOAD_URL + "?id=" + encodeURIComponent(await uploadId), { method: "POST", body: file, headers: { "x-device": device() } });
       body = await response.json();
     } catch {
       body = { error: "The file could not be sent. Check your connection and choose it again." };

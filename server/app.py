@@ -2238,7 +2238,7 @@ async def kit(request: Request) -> Response:
 
 
 UPLOAD_HEADERS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS",
-                  "Access-Control-Allow-Headers": "content-type"}
+                  "Access-Control-Allow-Headers": "content-type, x-device"}
 
 
 def upload_refused(message: str, status: int) -> JSONResponse:
@@ -2278,7 +2278,7 @@ async def upload(request: Request) -> Response:
     if kind is None:
         log("upload", platform=source, error="not a score", score_bytes=len(data))
         return upload_refused("This is not a MusicXML file or a PDF. Choose a .mxl, .musicxml or .pdf file.", 415)
-    device = request.query_params.get("device", "")
+    device = request.headers.get("x-device") or request.query_params.get("device", "")
     person = f"device:{device}" if re.fullmatch(r"[0-9a-f]{32}", device) else None
     if not await sent_before(person, bytes(data)):
         if refused := await take_score(person, source):

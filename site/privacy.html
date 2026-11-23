@@ -39,7 +39,7 @@
   <p>Every score you send us is kept for 30 days, then deleted automatically.</p>
   <div class="table-scroll"><table>
     <tr><th>Data</th><th>Kept for</th></tr>
-    <tr><td>Your score files, the music we read from them and the pages we draw (ChatGPT and Claude)</td><td>Deleted automatically 30 days after they are stored; deletion can take up to one more day.</td></tr>
+    <tr><td>Your score files, the music we read from them, the pages we draw, and a note of which usage identifier (ChatGPT) or device (Claude) sent each file, so that sending it again is not counted and one person's PDFs are read one at a time</td><td>Deleted automatically 30 days after they are stored; deletion can take up to one more day.</td></tr>
     <tr><td>Usage identifier (ChatGPT): a pseudonymous identifier made from your ChatGPT user ID, with the calendar months in which it was used. Used to count unique and returning users.</td><td>As long as the service operates.</td></tr>
     <tr><td>Conversation identifier (ChatGPT): a pseudonymous identifier made from the conversation ID, with the number of analyses drawn in that conversation. Used to ask "Was this analysis helpful?" only once per conversation.</td><td>Deleted automatically 30 days after the conversation's last analysis; deletion can take up to one more day.</td></tr>
     <tr><td>Daily counts that keep the free service fair: how many new scores each usage identifier (ChatGPT) or device sent today, and how many files were sent today from each internet connection. A device is a random code the upload card in Claude keeps in your browser; an internet connection is counted by Cloudflare under a form of its address scrambled with a secret key, never the address itself.</td><td>Deleted automatically after 2 days.</td></tr>
@@ -48,7 +48,7 @@
     <tr><td>A problem report, if you press "Send this problem to us" (ChatGPT): the problem's reference number, with the usage identifier. Nothing from your chat is sent.</td><td>30 days, in the server logs.</td></tr>
     <tr><td>A suggestion, if you type one under "Suggest something" on a card: what you typed, with the usage identifier in ChatGPT (Claude sends none). Nothing else from your chat is sent.</td><td>30 days, in the server logs.</td></tr>
     <tr><td>Daily usage totals: numbers of analyses, pages and uploads, by platform</td><td>Kept. They contain no identifiers.</td></tr>
-    <tr><td>Our hosting provider's request logs, including the IP address the request came from. For most requests this is Anthropic's or OpenAI's server; when you choose a file with ChatGPT's file picker, it is your browser's.</td><td>30 days.</td></tr>
+    <tr><td>Our hosting provider's request logs, such as the time of each request and the web address it asked for. The IP address in them is Cloudflare's, not yours.</td><td>30 days.</td></tr>
   </table></div>
 
   <h2>How we use it</h2>
@@ -61,7 +61,7 @@
   </ul>
 
   <h2>Your rights</h2>
-  <p>You can ask what data we hold about you, or ask us to delete it, by emailing <a href="mailto:support@sheetmusicanalysis.com">support@sheetmusicanalysis.com</a>. We do not know who sent a given file, so include the date and the name of the piece. We cannot link a usage identifier to a person, so we cannot find one person's identifier on request.</p>
+  <p>You can ask what data we hold about you, or ask us to delete it, by emailing <a href="mailto:support@sheetmusicanalysis.com">support@sheetmusicanalysis.com</a>. Files are stored with a usage identifier or device code, never your name or email address, so we cannot find your files from who you are: include the date and the name of the piece. We cannot link a usage identifier to a person, so we cannot find one person's identifier on request.</p>
   <p>The service is meant for general audiences, including students under 18. It does not knowingly collect personal information from anyone.</p>
 
   <h2>Changes</h2>
