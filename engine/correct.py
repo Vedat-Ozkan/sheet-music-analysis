@@ -459,7 +459,15 @@ def _held_after(groups: list[Group], held: bool) -> bool:
     return held
 
 
-def _with_words(groups: list[Group], words: list[str], held: bool, where: str) -> list[Group]:
+def sung_notes(body: str, div: int, tied_into: bool) -> int:
+    return len(_sung_positions(_read_voice(body, div, "", "")[1], tied_into))
+
+
+def ends_tied(body: str, div: int, tied_into: bool) -> bool:
+    return _held_after(_read_voice(body, div, "", "")[1], tied_into)
+
+
+def _sung_positions(groups: list[Group], held: bool) -> list[int]:
     sung = []
     for position, group in enumerate(groups):
         if group.grace or group.names == "r":
@@ -468,6 +476,11 @@ def _with_words(groups: list[Group], words: list[str], held: bool, where: str) -
         if not held:
             sung.append(position)
         held = "~" in group.names
+    return sung
+
+
+def _with_words(groups: list[Group], words: list[str], held: bool, where: str) -> list[Group]:
+    sung = _sung_positions(groups, held)
     if len(words) != len(sung):
         raise CorrectionError(f"{where}: {len(words)} entries for {len(sung)} sung notes; write one entry for each note "
                               "that is not a rest, a grace note or the continuation of a tie, and _ where no syllable is printed")

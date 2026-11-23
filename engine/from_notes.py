@@ -6,8 +6,7 @@ from dataclasses import dataclass, field, replace
 import xml.etree.ElementTree as ET
 from fractions import Fraction
 
-from engine import notes
-from engine.correct import replace_bars
+from engine import correct, notes
 from engine.errors import UserError
 from engine.score import Measure
 
@@ -48,7 +47,7 @@ def score_from_notes(text: str, *, after_a_rest_bar: bool = False) -> bytes:
         raise notes.NotesError(f"Bar {first.name}: len= makes the first bar shorter than its time signature; only a "
                                "pickup is shorter, and a pickup is written m0")
     measures = [_rest_bar_before(first), *index.measures] if first and after_a_rest_bar else index.measures
-    return replace_bars(_empty_score(measures, staves), _with_every_staff(text, staves))
+    return correct.replace_bars(_empty_score(measures, staves), _with_every_staff(text, staves))
 
 
 def _rest_bar_before(first: Measure) -> Measure:
@@ -110,7 +109,7 @@ def _joined(pages: list[list[_Bar]], div: int, meter: str, key: str) -> list[_Ba
     for page in pages:
         for position, bar in enumerate(page):
             if position == 0 and bars and _completes(bars[-1], bar, div, meter, key):
-                bars[-1] = _one_bar(bars[-1], bar)
+                bars[-1] = _one_bar(bars[-2] if len(bars) > 1 else None, bars[-1], bar, div)
                 continue
             meter, key = bar.changes.get("ts", meter), bar.changes.get("ks", key)
             bars.append(bar)
@@ -123,13 +122,22 @@ def _completes(before: _Bar, after: _Bar, div: int, meter: str, key: str) -> boo
     return unchanged and full is not None and before.length < full and before.length + after.length == full
 
 
-def _one_bar(before: _Bar, after: _Bar) -> _Bar:
+def _one_bar(previous: _Bar | None, before: _Bar, after: _Bar, div: int) -> _Bar:
     labels = [*before.voices, *(label for label in after.voices if label not in before.voices)]
     voices = {label: f"{before.voices.get(label, f'{before.length} r')} {after.voices.get(label, f'{after.length} r')}"
               for label in labels}
-    words = {label: " ".join(filter(None, (before.words.get(label), after.words.get(label))))
-             for label in [*before.words, *(label for label in after.words if label not in before.words)]}
+    words = {}
+    for label in [*before.words, *(label for label in after.words if label not in before.words)]:
+        tied_in = bool(previous and label in previous.voices and correct.ends_tied(previous.voices[label], div, False))
+        tied_across = label in before.voices and correct.ends_tied(before.voices[label], div, tied_in)
+        first = before.words.get(label) or _unsung(before.voices.get(label), div, tied_in)
+        second = after.words.get(label) or _unsung(after.voices.get(label), div, tied_across)
+        words[label] = " ".join(filter(None, (first, second)))
     return _Bar(before.written_number, before.length + after.length, before.changes, voices, words, before.other + after.other)
+
+
+def _unsung(body: str | None, div: int, tied_into: bool) -> str:
+    return " ".join("_" * (correct.sung_notes(body, div, tied_into) if body else 0))
 
 
 def _bars_as_text(bars: list[_Bar], div: int, meter: str, key: str) -> str:

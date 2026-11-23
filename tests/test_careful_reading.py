@@ -266,3 +266,15 @@ def test_a_tie_into_a_voice_the_next_page_leaves_out_is_dropped():
     score = ET.fromstring(from_notes.score_from_pages([first.format(first="\n1.2: 8 A3~"), second.format(second="")]))
     tied = [note for note in score.iter("note") if note.findtext("pitch/step") == "A"]
     assert len(tied) == 1 and tied[0].find("notations/tied") is None and tied[0].find("tie") is None
+
+
+@pytest.mark.parametrize("before_the_turn, after_the_turn, sung", [
+    ("\n1.1w: ki", "", [("E", "ki"), ("F", None), ("A", None), ("G", "lo")]),
+    ("", "\n1.1w: la _", [("E", None), ("F", "la"), ("A", None), ("G", "lo")]),
+], ids=["words-only-before-the-turn", "words-only-after-the-turn"])
+def test_words_on_one_half_of_a_bar_split_by_the_page_turn_stay_on_their_notes(before_the_turn, after_the_turn, sung):
+    pages = ["N1 div=4 ts=4/4 ks=0\nm1 len=16\n1.1: 16 C4\n1.1w: Ah\nm2 len=8\n1.1: 8 E4" + before_the_turn,
+             "N1 div=4 ts=4/4 ks=0\nm1 len=8\n1.1: 4 F4 A4" + after_the_turn + "\nm2 len=16\n1.1: 16 G4\n1.1w: lo"]
+    score = ET.fromstring(from_notes.score_from_pages(pages))
+    words = [(note.findtext("pitch/step"), note.findtext("lyric/text")) for note in score.iter("note") if note.find("pitch") is not None]
+    assert words == [("C", "Ah"), *sung]
