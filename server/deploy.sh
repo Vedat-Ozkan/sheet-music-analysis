@@ -96,7 +96,7 @@ gcloud run deploy "$RUN_SERVICE" --image="$DIGEST" --region="$REGION" \
   --service-account="$ACCOUNT" "$ACCESS" "${PROXY_KEY[@]}" \
   --execution-environment=gen2 --cpu=4 --memory=4Gi --concurrency=2 --min-instances=0 --max-instances=2 --timeout=900 \
   --startup-probe=tcpSocket.port=8080,timeoutSeconds=240,periodSeconds=240,failureThreshold=3 \
-  --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL@CONNECTOR_URL=${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}@KIT_ELSEWHERE=$KIT_ELSEWHERE$LIMITS"
+  --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL@CONNECTOR_URL=${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}@KIT_ELSEWHERE=$KIT_ELSEWHERE@CAREFUL_READING=${CAREFUL_READING:-}$LIMITS"
 if [ "$STAGE" = production ]; then
   REVISION=$(gcloud run services describe "$RUN_SERVICE" --region="$REGION" --format='value(status.latestReadyRevisionName)')
   git tag "prod-${REVISION#$SERVICE-}"

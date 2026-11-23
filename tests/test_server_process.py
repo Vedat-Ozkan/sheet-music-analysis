@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -14,6 +15,7 @@ from pathlib import Path
 import pytest
 from mcp.client.client import Client
 
+from engine import read_pdf as pdf_reader
 from server import app
 
 
@@ -132,6 +134,46 @@ def test_a_chat_can_download_the_careful_reading_kit(server):
     with pytest.raises(urllib.error.HTTPError) as refused:
         urllib.request.urlopen(f"{server}/kit/app.py", timeout=30)
     assert refused.value.code == 404
+
+
+CAREFUL_PAGES = [(NOCTURNE.parent / f"careful/dvorak-silhouette-1-page{number}.n1").read_text() for number in (1, 2, 3)]
+CHATGPT, CLAUDE = "openai-mcp/1.0.0", "Claude-User"
+
+
+def read_scan(server, agent, pdf_id):
+    return json.loads(as_client(server, agent, "tools/call", {"name": "read_fetched_pdf", "arguments": {"pdf_id": pdf_id}}))["result"]
+
+
+def careful_call(server, agent, name, **arguments):
+    return json.loads(as_client(server, agent, "tools/call", {"name": name, "arguments": arguments}))["result"]
+
+
+@pytest.mark.parametrize("setting, offered_to", [(None, set()), ("chatgpt", {CHATGPT}), ("claude", {CLAUDE}),
+                                                 ("chatgpt,claude", {CHATGPT, CLAUDE})])
+def test_the_careful_reading_reaches_only_the_platforms_it_is_switched_on_for(tmp_path, setting, offered_to):
+    pdf = (NOCTURNE.parent / "chopin-28-4-mutopia.pdf").read_bytes()
+    scores = tmp_path / "scores"
+    scores.mkdir()
+    (scores / "SCAN1.pdf").write_bytes(pdf)
+    (scores / "QUICK1N").write_bytes((NOCTURNE.parent / "chopin_prelude_op28_no4_reading.musicxml").read_bytes())
+    (scores / "QUICK1N.scan").write_text(json.dumps({"pages": 3}))
+    card = {"score_id": "QUICK1N", "pages": 3, "scan": True, "measures": "1 to 25", "bars": 25, "notice": "", "image_url": "",
+            "pdf_url": "", "page_images": []}
+    (scores / f"pdf-card-{pdf_reader.READER}-{hashlib.sha256(pdf).hexdigest()}.json").write_text(json.dumps(card))
+    with running_server(tmp_path, **({"CAREFUL_READING": setting} if setting is not None else {})) as (url, _):
+        for agent in (CHATGPT, CLAUDE):
+            offer = read_scan(url, agent, "SCAN1")["content"][-1]["text"]
+            steps = careful_call(url, agent, "careful_reading", score_id="QUICK1N")
+            handed_in = careful_call(url, agent, "use_careful_reading", score_id="QUICK1N", pages=CAREFUL_PAGES)
+            if agent in offered_to:
+                assert "Shall I go ahead?" in offer and "careful_reading" in offer, agent
+                assert not steps.get("isError") and "kit/reader.md" in steps["content"][0]["text"], agent
+                assert not handed_in.get("isError") and handed_in["content"][0]["text"].startswith("score_id: "), agent
+            else:
+                assert "careful" not in offer.lower() and "Shall I go ahead?" not in offer, agent
+                assert "draft_analysis with this score_id now" in offer, agent
+                for refused in (steps, handed_in):
+                    assert refused.get("isError") and refused["content"][0]["text"] == app.CAREFUL_OFF, agent
 
 
 def test_chatgpt_keeps_its_tools_and_attachment_arguments(server):

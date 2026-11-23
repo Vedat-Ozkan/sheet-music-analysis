@@ -1116,7 +1116,7 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
     if card := await anyio.to_thread.run_sync(store.get, card_key):
         card = json.loads(card)
         log(tool, platform=source, pages=card["pages"], cached="card")
-        return pdf_card_result(card, tool)
+        return pdf_card_result(card, tool, source)
     failed = json.loads(await anyio.to_thread.run_sync(store.get, failure_of(card_key)) or b"{}")
     if (unread := failed.get("unread")) and unread["final"]:
         log(tool, platform=source, outcome="user_error", error=failed["error"], reference=unread["reference"], cached="unread")
@@ -1147,7 +1147,7 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
         if card := await anyio.to_thread.run_sync(store.get, card_key):
             card = json.loads(card)
             log(tool, platform=source, pages=card["pages"], cached="card")
-            return pdf_card_result(card, tool)
+            return pdf_card_result(card, tool, source)
         if time.time() - arrived_at >= min(SAME_FILE_WAIT, starter_wait):
             log(tool, platform=source, reading=True, waiting_turn=True)
             return reading_status(WAITING_FOR_TURN.format(again=CALL_AGAIN[tool]), WAITING_FOR_TURN_STATUS)
@@ -1175,7 +1175,7 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
     else:
         log(tool, platform=source, outcome=details["outcome"],
             **{key: details[key] for key in ("busy", "error") if key in details})
-    return pdf_card_result(result, tool) if isinstance(result, dict) else result
+    return pdf_card_result(result, tool, source) if isinstance(result, dict) else result
 
 
 def marker_of(card_key: str) -> str:
@@ -1263,7 +1263,7 @@ async def wait_for_other_machine(card_key: str, since: float, source: str, tool:
         while True:
             if card := await anyio.to_thread.run_sync(store.get, card_key):
                 log(tool, platform=source, other_machine=True)
-                return pdf_card_result(json.loads(card), tool)
+                return pdf_card_result(json.loads(card), tool, source)
             found = json.loads(await anyio.to_thread.run_sync(store.get, failure_of(card_key)) or b"{}")
             if found.get("at", 0) >= since:
                 if found["error"] == "limit":
@@ -1462,6 +1462,8 @@ HELPER_SETTINGS = {"claude": "Give each helper the Sonnet model at medium effort
 KIT = HERE.parent / "kit"
 KIT_FILES = ("notetool.py", "tool.md", "reader.md")
 KIT_ELSEWHERE = os.environ.get("KIT_ELSEWHERE", "").rstrip("/")
+CAREFUL_PLATFORMS = set(os.environ.get("CAREFUL_READING", "").split(","))
+CAREFUL_OFF = "The careful reading of scans is not available here. Use the quick reading: call draft_analysis with the score_id the PDF's result gave."
 NOT_A_SCAN = ("A careful reading is offered only for a scanned PDF that read_pdf or read_fetched_pdf has read, with the "
               "score_id it returned.")
 
@@ -1498,7 +1500,7 @@ def doubtful_reading(card: dict) -> str:
             "don't. The analysis may be wrong in those bars.\"\n")
 
 
-def pdf_card_result(card: dict, tool: str) -> CallToolResult:
+def pdf_card_result(card: dict, tool: str, source: str) -> CallToolResult:
     more_pages = card.get("more_pages")
     shown = (f"the first {CARD_PAGES} pages of the engraved score read from their {card['pages']}-page PDF; the PDF has every bar"
              if more_pages else f"every bar of the engraved score read from their {card['pages']}-page PDF, in one image")
@@ -1507,7 +1509,7 @@ def pdf_card_result(card: dict, tool: str) -> CallToolResult:
         f"The card shows the user {shown}. "
         f"The score has measures {card['measures']}.\n"
         f"{doubtful_reading(card)}"
-        + (CAREFUL_OFFER.format(warning=careful_warning(card["pages"])) if card.get("scan") else "")
+        + (CAREFUL_OFFER.format(warning=careful_warning(card["pages"])) if card.get("scan") and source in CAREFUL_PLATFORMS else "")
         + "Go straight on to the analysis without asking the user to check the reading: call draft_analysis with this "
         "score_id now and continue exactly as for an attached MusicXML file, drawing it with render_analysis. "
         "Bars shaded in the reading stay shaded on the drawn page. "
@@ -2029,6 +2031,9 @@ async def correct_bars(
 @observed
 async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
     source = platform(ctx)
+    if source not in CAREFUL_PLATFORMS:
+        log("careful_reading", platform=source, error="CarefulOff")
+        return error_result(CAREFUL_OFF)
     scan = await anyio.to_thread.run_sync(store.get, scan_key(score_id))
     if scan is None:
         log("careful_reading", platform=source, error="ScoreError")
@@ -2060,6 +2065,9 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
 @observed
 async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> CallToolResult:
     source = platform(ctx)
+    if source not in CAREFUL_PLATFORMS:
+        log("use_careful_reading", platform=source, error="CarefulOff")
+        return error_result(CAREFUL_OFF)
     scan = await anyio.to_thread.run_sync(store.get, scan_key(score_id))
     if scan is None:
         log("use_careful_reading", platform=source, error="ScoreError")

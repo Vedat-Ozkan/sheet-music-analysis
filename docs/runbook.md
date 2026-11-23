@@ -28,6 +28,7 @@ server/deploy.sh sheet-music-analysis staging    # staging
 - Production deploys only from a clean checkout of `origin/main` that CI has passed; the script refuses anything else. Staging may run a branch.
 - Measure and quote any change that adds Cloud Run compute first. Never raise max instances or the daily limits without asking.
 - A change to `Dockerfile.base`, `pyproject.toml` or `uv.lock` rebuilds the base image first (a few minutes longer).
+- The careful reading of scans is off unless the deploy names the platforms that get it: `CAREFUL_READING=chatgpt`, `CAREFUL_READING=claude` or `CAREFUL_READING=chatgpt,claude` before `server/deploy.sh`. Off for a platform, its users get no offer on a scan's result, and `careful_reading` and `use_careful_reading` answer with a short refusal. Every deploy sets it again, so a deploy without it switches it off.
 
 ## Roll back
 

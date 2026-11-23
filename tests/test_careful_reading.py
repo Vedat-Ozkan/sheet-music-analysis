@@ -27,6 +27,11 @@ SIGNS_DISAGREE_WITH_PITCHES = {
 }
 
 
+@pytest.fixture(autouse=True)
+def careful_reading_on(monkeypatch):
+    monkeypatch.setattr(app, "CAREFUL_PLATFORMS", {"other"})
+
+
 def text_of(result):
     return next(item.text for item in result.content if item.type == "text")
 
@@ -39,13 +44,13 @@ def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_pa
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
     app.store.put("scores/QUICK1", QUICK_READING.read_bytes())
     offer = text_of(app.pdf_card_result({"score_id": "QUICK1", "pages": 3, "scan": True, "measures": "1 to 25", "bars": 25,
-                                         "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf"))
+                                         "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf", "other"))
     assert app.careful_warning(3) in offer
     assert "uses a lot of your plan's usage allowance" in offer and "This piece has 3 pages. Shall I go ahead?" in offer
     assert "download and run a small measuring script from Sheet Music Analysis" in offer
     assert "careful_reading" in offer and "If the user says no" in offer
     typeset = text_of(app.pdf_card_result({"score_id": "QUICK1", "pages": 3, "scan": False, "measures": "1 to 25", "bars": 25,
-                                           "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf"))
+                                           "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf", "other"))
     assert "careful" not in typeset
 
     refused = asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": "QUICK1"}))
