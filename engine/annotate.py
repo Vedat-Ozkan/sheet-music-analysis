@@ -341,7 +341,7 @@ def _reserve_numeral_room(toolkit, index: ScoreIndex, annotations: AnnotationLis
         offset = measure.offset_of(harmony.at.beat)
         segment = measure.segment_at(offset)
         added.setdefault(segment.id, []).append(
-            f'<harm staff="{bottom_staff}" tstamp="{measure.tstamp_of(segment, offset):g}" place="below">{escape(label)}\u00a0\u00a0</harm>'
+            f'<harm staff="{bottom_staff}" tstamp="{measure.tstamp_of(segment, offset):g}" place="below" type="analysis-room">{escape(label)}\u00a0\u00a0</harm>'
         )
     if not added:
         return

@@ -156,7 +156,6 @@ class PageLayout:
         self.stems: dict[str, str] = {}
         self.shown: set[tuple[str, str]] = set()
         self._remove("fing")
-        self._remove("harm")
         self._remove("analysis-room")
         for group in self.canvas.iter(f"{S}g"):
             if "system" in group.get("class", "").split() and "bounding-box" not in group.get("class", ""):
