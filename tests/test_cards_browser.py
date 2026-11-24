@@ -340,6 +340,19 @@ def test_analysis_card_sends_a_rating_and_says_thanks(page, server):
     for element in ("#question", "#up", "#down"):
         expect(card.locator(element)).to_be_hidden()
     assert page.evaluate("widget_states") == [{"rated": True}]
+    expect(card.locator("#suggest-form")).to_be_hidden()
+
+
+SHARE_THE_CHAT = "To show us this chat, use its Share button, copy the link and paste it here. We can then read that chat."
+
+
+def test_analysis_card_asks_what_went_wrong_after_a_thumbs_down_and_says_how_to_share_the_chat(page, server):
+    card = open_card(page, server, "card.html", openai=True)
+    deliver(page, links(server), {"ask_for_rating": True})
+    card.get_by_role("button", name="Not helpful").click()
+    expect(card.locator("#rating-status")).to_have_text("Thanks for telling us.")
+    expect(card.locator("#suggestion")).to_be_focused()
+    expect(card.get_by_text(SHARE_THE_CHAT)).to_be_visible()
 
 
 def test_analysis_card_asks_to_rate_again_when_the_rating_fails(page, server):
@@ -372,6 +385,13 @@ def test_analysis_card_sends_a_problem_report(page, server):
     expect(card.locator("#send")).to_be_hidden()
     expect(card.locator("#sending")).to_be_hidden()
     assert page.evaluate("widget_states") == [{"reported": True}]
+    expect(card.locator("#suggestion")).to_be_focused()
+    expect(card.get_by_text(SHARE_THE_CHAT)).to_be_visible()
+    page.evaluate("hold = false")
+    card.locator("#suggestion").fill("https://chatgpt.com/share/0123")
+    card.get_by_role("button", name="Send", exact=True).click()
+    expect(card.locator("#suggest-status")).to_have_text("Sent. Thank you; we read every message.")
+    assert sent(page, "tools/call")[-1]["params"] == {"name": "send_suggestion", "arguments": {"text": "https://chatgpt.com/share/0123"}}
 
 
 def test_analysis_card_gives_the_reference_when_a_report_cannot_be_sent(page, server):
