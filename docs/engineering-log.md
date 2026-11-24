@@ -4316,6 +4316,26 @@ PR #43 merged to `main` as `247754f` (entries 170, 173 and 182 to 202; with it #
 
 **NOT RUN.** A real chat in ChatGPT or Claude on production after the deploy; the careful reading on production; a read whose own request lands on the other instance; the rollback command.
 
+### 204. The log holds the sentence of an error when nothing in it comes from the score or the chat (2026-11-23, branch `log-error-sentences`, nothing released)
+
+**Why.** A daily check of production (users, errors, what users wrote to us) was set up for the owner on the day of the release. Its error section said almost nothing: for a failed analysis the log held only the kind of error. In the week to 23 November, 37 of the 44 user-error lines in the log (probes included) carried the kind `ScoreError`, and 25 of those no sentence, so "the file was not attached", "that id is unknown" and "this is a PDF, read it first" could not be told apart.
+
+**The limit.** The privacy page says the server logs hold no score content and no chat text. Many error sentences quote one or the other: the notes at a beat ("notes there: …"), part names, a line of a handed-in note list, a tempo word. Read through, every sentence logged with the kind `ScoreError` (20 raised, 4 returned directly) is our own fixed text with at most a number or one of our own codes, except two that repeated the id the chat had sent, which can be anything the chat typed, a file name included.
+
+**What changed.**
+- Where a tool catches an error it logs it through one function, `logged(error)`: the kind, and for a `ScoreError` its own sentence as `reason`. Other kinds (a position, a note list, a correction, an annotation) keep only their kind, which already says what went wrong. The four refusals that are returned without an error being raised log their sentence the same way.
+- The two sentences no longer repeat the id: "No score has that id; scores are kept for 30 days" and "No PDF has that pdf_id; …". The chat still has the id in its own call.
+- Found on the way, on production since the evening of 23 November: a refused hand-in of a careful reading logged its sentence, which can quote a line of the reading. It no longer does. No such refusal had happened on production by then (no `use_careful_reading` call at all).
+- Also found: when the player asks which tempo a word means, the log held that word from the score (`asked_tempo`). It now holds only that the question was asked.
+
+**Checks.** `tests/test_call_log.py`: an unknown id logs the fixed sentence and not the id; a bar that does not exist and a malformed line of a reading log their kind and no sentence, and neither text appears anywhere in the log lines. The test fails on the code before (no `reason`). Full suite with the PDF reader on bc0ae54: 1,902 passed, 4 skipped, 2 expected failures, 0 failed (4 workers, 12.5 minutes; a first run with 8 workers was stopped by the machine for low memory at about 98% with nothing failed, and is not counted).
+
+**After review** (Opus read the first version). That version took the sentence from the answer the chat was given, in `observed`. `correct_bars` appends the score's current notes for the bars in question to its refusal, so a `ScoreError` there would have put up to four bars of notes in the log. The sentence is now taken from the error itself where it is caught, never from the answer. The review found every other `ScoreError` sentence to be fixed text, and named the `asked_tempo` word above.
+
+**Known and left.** A fault on our side logs its stack trace, and an exception's own text can quote what it was given; unchanged. The `ScoreError` rule is kept by reading, not by a check: a new `ScoreError` sentence must not quote the score or the chat.
+
+**Owed from entry 203.** Production has run revision 00068-5ph since the evening of 23 November: the same code as 00067-4r6 (main 247754f) with `CAREFUL_READING=chatgpt,claude`, switched on after OpenAI listed the two careful-reading tools. Going back to 00067-4r6 takes the scan offer away from ChatGPT only; 00065-fjv is the revision before the release.
+
 ## Reproducing
 
 ```bash
