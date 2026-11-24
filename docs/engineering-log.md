@@ -4384,6 +4384,27 @@ PR #43 merged to `main` as `247754f` (entries 170, 173 and 182 to 202; with it #
 
 **What it shows.** Since the offer, a user with a scan gets no analysis until they have answered a question that warns of minutes per page and of using up their plan's allowance ("a 10-page piece can use most of a five-hour allowance"); for 8 pages it names about 40 minutes. Before the offer the analysis came straight after the read. Two users are too few to prove the question costs analyses (two misses in a row happen about one time in eight at the old rate), and we cannot see their chats. Not known: why the first user's careful reading was never handed in (left the chat, a plan without the sandbox, a failure in the chat). Nothing was changed; the order (analyse the quick reading first, then offer) is the owner's decision.
 
+### 207. A scan is analysed first; the careful reading is offered after the analysis (2026-11-24, branch `offer-after-analysis`, on staging only)
+
+**Why.** Entry 206: since 23 November a user with a scan got a question with a cost warning before any analysis. The owner asked how we know the two users of 24 November were lost and not just uninterested, and what they sent. We do not know. What they sent, from the kept uploads (looked at, local copies deleted): a phone photo of one workbook page that already has Roman numerals printed under it (the quick reading made 21 bars of about 8 and shaded 7; six minutes later a careful reading was started and never handed in), and a scanned piano arrangement of an overture, 11 pages of which 8 were read in 4.5 minutes (276 bars, 39 shaded), after which the question named about 40 more minutes and was not answered. The base rate, corrected from entry 206's rougher count: in the 30 days before the offer, 31 ChatGPT users got a first reading of a scan and 20 of them (65%) reached a marked page within three hours, with no question in the way; 11 left anyway. Two misses in a row happen about one time in eight at that rate. The owner decided to turn the order around all the same: a user who stops at the question leaves with nothing, and after the change has the marked page first.
+
+**What changed** (no tool name, description or schema; no card):
+- The result of reading a scan tells the chat what it tells it for any PDF, to go straight on to the analysis, and adds the offer as "the very last thing in your reply with the analysis", once for a score. The fixed warning text is unchanged.
+- The steps `careful_reading` returns now begin with the usage warning and a wait for the user's yes on every platform, "unless they have already said yes to exactly this question in this chat". Before, a platform named in `CAREFUL_READING` got the steps with no question, because the read's result had just asked it; with the offer two tool calls away from the read, a chat that forgot it could have started the helpers and the script without the warning ever being shown (found in review).
+- `skill/SKILL.md`, the runbook and the README say the new order. `dist/` is unchanged.
+
+**Review** (Opus read the first commit; it then built the second, which I read). Besides the warning: in Claude the skill asks for a closing line ("they can ask for a closer look at any bars") and the offer also claimed the end of the reply, hence "the very last thing ... after any other closing line". The reviewer's test case for ChatGPT ("Asking for the careful reading") holds again with the warning back in the steps.
+
+**Real chats on staging** (our sample scan, two pages; staging closed afterwards, 403 on both addresses):
+- ChatGPT, yes (first commit, 00166-mrq): marked page about 30 s after the first message, no question before it; the offer once, as the last paragraph (the chat puts its own heading "Would you like a more accurate reading?" over our fixed words); after "Yes please." the careful reading and a second analysis in about 3 minutes.
+- ChatGPT, no, then "Now just bars 1 to 4.": "No problem! We'll stick with the quick analysis."; the part analysed from the quick reading; the offer not made again.
+- Claude (test connector, Opus 5.5): analysis and drawn page first; the offer as the last paragraph, once, in the result's words; "No thanks." accepted, no second offer.
+- ChatGPT, yes, again after the second commit (00168-7nk): the same first reply; after "Yes please." no second question; second analysis about 3 minutes later.
+- The staging log shows the order in every chat: read, draft, render, and only after the yes `careful_reading`, `use_careful_reading`, draft, render.
+- One mistake in the run: the Claude connector switches did not hold until the page was reloaded, so one first message went to the production connector and opened one upload card there (23:17 UTC; nothing uploaded).
+
+**NOT RUN.** The yes path in Claude after the second commit (the careful reading itself in a Claude chat); a scan of many pages; a chat without a code sandbox; the full suite (running as this is written, result in the next commit).
+
 ## Reproducing
 
 ```bash
