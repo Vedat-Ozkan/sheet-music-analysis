@@ -457,7 +457,7 @@ OUR_ERROR_MESSAGE = (
     "Something went wrong on our side, not with the user's score or request (reference {reference}). "
     "Apologise to the user for us, and tell them that if they would like to tell us what happened or get help, "
     "they can email support@sheetmusicanalysis.com and mention reference {reference}; a link to this chat, made "
-    "with the chat's Share button, shows us exactly what happened. We read every message and their feedback helps "
+    "with the chat's Share button, helps us see what happened. We read every message and their feedback helps "
     "us fix it."
 )
 OUR_ERROR_FOR_CARD = "Something went wrong on our side, not with your score."
@@ -468,10 +468,7 @@ UNREAD_PDF_FOR_CARD = (
 FAILED_CALL = "This call failed and produced nothing, so there is no result to describe. "
 UNREAD_PDF = "This call failed: no music was read, so there is no score_id and nothing to analyse. "
 READING_SHOWN = "This is what I read from your PDF."
-CARD_SHOWS_PROBLEM = (
-    " The card shows the user this problem with a button that sends it to us, and a box where they can paste a link "
-    "to this chat, made with the chat's Share button, if they want us to see what happened."
-)
+CARD_SHOWS_PROBLEM = " The card shows the user this problem with a button that sends it to us."
 FAILURES_IN_CARD = {"read_pdf", "render_analysis"}
 
 UPLOAD_LIMIT_MESSAGE = "Today's limit of new scores has been reached; it resets at midnight UTC. Please try again tomorrow."

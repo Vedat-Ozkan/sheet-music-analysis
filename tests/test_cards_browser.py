@@ -394,6 +394,19 @@ def test_analysis_card_sends_a_problem_report(page, server):
     assert sent(page, "tools/call")[-1]["params"] == {"name": "send_suggestion", "arguments": {"text": "https://chatgpt.com/share/0123"}}
 
 
+def test_analysis_card_does_not_offer_a_sent_suggestion_again_after_a_thumbs_down(page, server):
+    card = open_card(page, server, "card.html", openai=True)
+    deliver(page, links(server), {"ask_for_rating": True})
+    card.get_by_role("button", name="Suggest something").click()
+    card.locator("#suggestion").fill("Show key changes")
+    card.get_by_role("button", name="Send", exact=True).click()
+    expect(card.locator("#suggest-status")).to_have_text("Sent. Thank you; we read every message.")
+    card.get_by_role("button", name="Not helpful").click()
+    expect(card.locator("#suggestion")).to_be_focused()
+    expect(card.locator("#suggestion")).to_have_value("")
+    expect(card.get_by_role("button", name="Send", exact=True)).to_be_disabled()
+
+
 def test_analysis_card_gives_the_reference_when_a_report_cannot_be_sent(page, server):
     card = open_card(page, server, "card.html")
     page.evaluate("replies['tools/call'] = { result: { isError: true } }")
