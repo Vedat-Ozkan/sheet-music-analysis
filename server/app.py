@@ -245,6 +245,10 @@ def write_line(entry: dict) -> None:
     print(json.dumps(entry), file=sys.stdout, flush=True)
 
 
+def logged(error: Exception) -> dict:
+    return {"error": type(error).__name__, **({"reason": str(error)} if type(error) is ScoreError else {})}
+
+
 def log(event: str, **details) -> None:
     call = current_call.get()
     if call is None:
@@ -613,7 +617,7 @@ async def resolve_score(score_file: AttachedFile | None, score_id: str | None, s
                                      "the score_id it returns.")
                 if await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is not None:
                     raise NotChosenYet(NOT_CHOSEN_YET)
-                raise ScoreError(f"No score has the id {score_id!r}; scores are kept for 30 days")
+                raise ScoreError("No score has that id; scores are kept for 30 days")
             return data, "score_id"
     raise ScoreError(NO_SCORE_GIVEN["claude" if source == "claude" else "other"])
 
@@ -885,7 +889,7 @@ async def render_analysis(
         log("render_analysis", platform=source, problems=len(error.problems))
         return error_result("Fix these annotations and call again:\n" + "\n".join(error.problems))
     except UserError as error:
-        log("render_analysis", platform=source, error=type(error).__name__)
+        log("render_analysis", platform=source, **logged(error))
         return error_result(str(error))
     drawn = (index.name_of(measures[0]), index.name_of(measures[1])) if measures else None
     measure_range = f"{drawn[0]}-{drawn[1]}" if drawn else "all"
@@ -1108,7 +1112,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile) -> CallToolResult:
         if not data.startswith(b"%PDF"):
             raise ScoreError("This file is not a PDF. Ask the user to attach a PDF of the printed music or a MusicXML file.")
     except ScoreError as error:
-        log("read_pdf", platform=source, error=type(error).__name__, reason=str(error))
+        log("read_pdf", platform=source, **logged(error))
         return error_result(str(error))
     return await read_pdf_data(data, source, "read_pdf")
 
@@ -1605,11 +1609,12 @@ async def read_fetched_pdf(ctx: Context, pdf_id: str) -> CallToolResult:
     if data is None:
         if await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is not None:
             return waiting_for_choice("read_fetched_pdf", source)
-        log("read_fetched_pdf", platform=source, error="ScoreError")
         if await anyio.to_thread.run_sync(store.get, f"scores/{code}") is not None:
-            return error_result(f"This score is a MusicXML file, not a PDF. Call draft_analysis with score_id {code}.")
-        return error_result(f"No PDF has the pdf_id {pdf_id!r}; PDFs are kept for 30 days. Call choose_score so "
-                            "the user can choose the PDF again.")
+            no_pdf = f"This score is a MusicXML file, not a PDF. Call draft_analysis with score_id {code}."
+        else:
+            no_pdf = "No PDF has that pdf_id; PDFs are kept for 30 days. Call choose_score so the user can choose the PDF again."
+        log("read_fetched_pdf", platform=source, error="ScoreError", reason=no_pdf)
+        return error_result(no_pdf)
     return await read_pdf_data(data, source, "read_fetched_pdf")
 
 
@@ -1754,14 +1759,14 @@ async def play(ctx: Context, score_id: str | None = None, measure_range: str = "
         unclear = unclear_tempos(index, measures)
         if unclear and not tempo:
             bar, word = unclear[0]
-            log("play", platform=source, measure_range=measure_range, legacy=not score_id, asked_tempo=word)
+            log("play", platform=source, measure_range=measure_range, legacy=not score_id, asked_tempo=True)
             return CallToolResult(content=[TextContent(type="text", text=(
                 f"Bar {bar} is marked '{word}' with a half-note beat, so how fast to play it is unclear. Ask the user how "
                 "fast they want it, then call play again with the same arguments and tempo in quarter notes per minute."
             ))])
         performance = await in_turn(lambda: performance_text(index, measures, tempo=tempo))
     except UserError as error:
-        log("play", platform=source, legacy=not score_id, error=type(error).__name__, outcome="user_error")
+        log("play", platform=source, legacy=not score_id, **logged(error), outcome="user_error")
         return error_result(str(error))
     log("play", platform=source, measure_range=measure_range, legacy=not score_id)
     return CallToolResult(
@@ -1899,7 +1904,7 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
     except check_analysis.ClarificationNeeded as error:
         return error_result(QUESTION_FOR_USER + error.question)
     except UserError as error:
-        log("draft_from_notes", platform=source, error=type(error).__name__, chars=len(notes), outcome="user_error")
+        log("draft_from_notes", platform=source, **logged(error), chars=len(notes), outcome="user_error")
         return error_result(str(error))
     if refused := await take_score(caller(), source):
         log("limit", tool="draft_from_notes", platform=source, per=refused)
@@ -1964,7 +1969,7 @@ async def draft_analysis(
     except NotChosenYet:
         return waiting_for_choice("draft_analysis", source)
     except (UserError, httpx.HTTPError) as error:
-        log("draft_analysis", platform=source, error=type(error).__name__, outcome="user_error")
+        log("draft_analysis", platform=source, **logged(error), outcome="user_error")
         return error_result(str(error))
     log("draft_analysis", platform=source, input=given, score_bytes=len(score), measure_range=measure_range,
         seconds=round(time.time() - started, 1))
@@ -2020,7 +2025,7 @@ async def correct_bars(
     try:
         before, _ = await resolve_score(None, score_id, source)
     except ScoreError as error:
-        log("correct_bars", platform=source, error=type(error).__name__)
+        log("correct_bars", platform=source, **logged(error))
         return error_result(str(error))
     if not await take("draft", source):
         log("limit", tool="correct_bars", platform=source)
@@ -2056,7 +2061,7 @@ async def correct_bars(
                 uneven, _ = await in_turn(pdf_reader.problem_spots, after)
                 await anyio.to_thread.run_sync(store.put, shaded_key(code), json.dumps(uneven).encode())
     except (correct.CorrectionError, ScoreError, PositionError) as error:
-        log("correct_bars", platform=source, error=type(error).__name__)
+        log("correct_bars", platform=source, **logged(error))
         return error_result("Fix the replacement bars and call correct_bars again: " + str(error)
                             + await current_bars(before, replacement_bars, part))
     log("correct_bars", platform=source, changed=len(review.changed_bars), pages=len(pages))
@@ -2091,13 +2096,13 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
     source = platform(ctx)
     scan = await anyio.to_thread.run_sync(store.get, scan_key(score_id))
     if scan is None:
-        log("careful_reading", platform=source, error="ScoreError")
+        log("careful_reading", platform=source, error="ScoreError", reason=NOT_A_SCAN)
         return error_result(NOT_A_SCAN)
     pages = json.loads(scan)["pages"]
     try:
         score, _ = await resolve_score(None, score_id, source)
     except ScoreError as error:
-        log("careful_reading", platform=source, error=type(error).__name__)
+        log("careful_reading", platform=source, **logged(error))
         return error_result(str(error))
     hint = await in_turn(signatures_found, score)
     addresses = [f"{PUBLIC_BASE_URL}/kit", *([KIT_ELSEWHERE] if KIT_ELSEWHERE else [])]
@@ -2123,11 +2128,12 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
     source = platform(ctx)
     scan = await anyio.to_thread.run_sync(store.get, scan_key(score_id))
     if scan is None:
-        log("use_careful_reading", platform=source, error="ScoreError")
+        log("use_careful_reading", platform=source, error="ScoreError", reason=NOT_A_SCAN)
         return error_result(NOT_A_SCAN)
     if len(pages) > json.loads(scan)["pages"]:
-        log("use_careful_reading", platform=source, error="ScoreError", pages=len(pages), outcome="user_error")
-        return error_result(f"This scan has {page_count(json.loads(scan)['pages'])}; hand in one note list for each page, not {len(pages)}.")
+        too_many = f"This scan has {page_count(json.loads(scan)['pages'])}; hand in one note list for each page, not {len(pages)}."
+        log("use_careful_reading", platform=source, error="ScoreError", reason=too_many, pages=len(pages), outcome="user_error")
+        return error_result(too_many)
     if not await take("draft", source):
         log("limit", tool="use_careful_reading", platform=source)
         return error_result(LIMIT_MESSAGE)
@@ -2136,7 +2142,7 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
             score = await in_turn(lambda: from_notes.score_from_pages(pages))
             bars = await in_turn(lambda: [measure.name for measure in ScoreIndex(load_toolkit(score).getMEI()).measures])
     except UserError as error:
-        log("use_careful_reading", platform=source, error=type(error).__name__, reason=str(error), pages=len(pages), outcome="user_error")
+        log("use_careful_reading", platform=source, **logged(error), pages=len(pages), outcome="user_error")
         return error_result("Fix the page this is about and call use_careful_reading again with every page: " + str(error))
     code = secrets.token_hex(8).upper()
     await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)
@@ -2205,7 +2211,7 @@ async def fetch_score(ctx: Context, url: str) -> CallToolResult:
         log("fetch_score", platform=source, host=host, error="HTTPStatusError", status=error.response.status_code)
         return error_result(LINK_ANSWERED.format(status=error.response.status_code))
     except ScoreError as error:
-        log("fetch_score", platform=source, host=host, error="ScoreError")
+        log("fetch_score", platform=source, host=host, **logged(error))
         return error_result(str(error))
     except (httpx.HTTPError, httpx.InvalidURL, ValueError) as error:
         log("fetch_score", platform=source, host=host, error=type(error).__name__)

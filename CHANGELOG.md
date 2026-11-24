@@ -2,6 +2,12 @@
 
 What changed for users, newest first. Numbers in brackets are entries in `docs/engineering-log.md`; #n are pull requests.
 
+## Unreleased
+
+Merged on `main` after production revision 00068-5ph, not deployed.
+
+- An unknown score or PDF id is answered without repeating the id; the server's log records which of our own error sentences a chat was given, and never one that quotes the score [204].
+
 ## 2026-11-23: server 00067-4r6
 
 Claude plugin unchanged (1.10.3). ChatGPT app 1.5.0, published the same day.

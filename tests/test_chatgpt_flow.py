@@ -90,7 +90,7 @@ def test_marks_that_fit_are_drawn_and_the_rest_are_listed(server):
 
 def test_a_request_turned_away_before_any_work_is_not_charged(server):
     result = call("render_analysis", {"score_id": "NOSUCHSCORE", "annotations": {"annotations": []}})
-    assert result.is_error and "No score has the id" in text_of(result)
+    assert result.is_error and "No score has that id" in text_of(result)
     assert charged(server, "render") == 0
 
 
