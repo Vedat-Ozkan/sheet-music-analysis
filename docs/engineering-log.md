@@ -4338,6 +4338,31 @@ PR #43 merged to `main` as `247754f` (entries 170, 173 and 182 to 202; with it #
 
 **Owed from entry 203.** Production has run revision 00068-5ph since the evening of 23 November: the same code as 00067-4r6 (main 247754f) with `CAREFUL_READING=chatgpt,claude`, switched on after OpenAI listed the two careful-reading tools. Going back to 00067-4r6 takes the scan offer away from ChatGPT only; 00065-fjv is the revision before the release.
 
+### 205. A user can show us their chat: the link goes in the card's suggestion box (2026-11-24, branch `share-chat`, on staging only, wording not yet decided by the owner)
+
+**Why.** When something goes wrong we see a log line and nothing of what the user saw. The owner asked for a way for a user to share the chat with us, and for it to cost the user as little effort as possible.
+
+**What was ruled out.** A tool the chat itself could call with the link would save the user two clicks (paste the link into the chat instead of into the card). It was not built: OpenAI's guidelines say a tool must not request or rebuild the conversation, and Anthropic's directory policy says software must not collect conversation data it does not need, "even for logging" (both read 2026-11-24). A link typed by the user into our own feedback box is the user's act, not the tool's. No product lets a card open the chat's Share dialog, so the user always makes the link themselves.
+
+**What changed** (no new tool, no changed tool description or address; the card page changed in place):
+- The suggestion form has one more line: "To show us this chat, use its Share button, copy the link and paste it here. We can then read that chat." The link travels as the suggestion's text, through `send_suggestion`, into the server log for 30 days like any suggestion.
+- The form opens by itself at the two moments something has gone wrong for the user: after a thumbs-down is recorded, and after "Send this problem to us" succeeds. A card that shows a problem now also shows the suggestion section (it was hidden there).
+- The message the chat gets when something fails on our side says a link to the chat, made with the chat's Share button, helps us see what happened; it still names the email address and the reference. In Claude a failed call shows no card, so email is the route there.
+- A draft sentence for the privacy page's suggestion row (the owner decides its wording; the site is not published from this branch).
+
+**Review** (Opus read the first version) found two faults, both fixed. After a suggestion was sent the text stayed in the box, so a thumbs-down afterwards reopened the form with the old text and a live Send button: the box is now emptied on a successful send, with a test. And the first version told the chat that the card has "a box where they can paste a link", which is false for as long as ChatGPT runs its stored older copy of the card page: the chat's message no longer mentions the box, so it is true with either copy.
+
+**Real chats on staging** (revision 00161-scq, card address 00215-qoz; staging closed afterwards, 403 on both addresses):
+- Claude (test connector, published plugin): the analysis card's form shows the new line (picture `C1-suggest-form.jpg`).
+- ChatGPT, analysis card: the form shows the new line. After three analyses in one chat the rating line appeared; a thumbs-down was logged (`rate_analysis`, not helpful) and the card grew from 418 to 571 pixels, the height of the form. No picture of that state: see below.
+- ChatGPT, a PDF with no music in it: the problem card shows the suggestion section under the report; after "Send this problem to us" the form opened by itself with the new line (seen in a screenshot; the card grew once, from 185 to 309 pixels, and stayed there).
+- In the first run that card was still ChatGPT's stored older copy, 18 minutes after "Refresh tools", while the analysis card in the same account was already the new one; half an hour later the same chat showed the new page. The two cards have two addresses and are refreshed separately.
+- The browser tool's screenshots timed out again and again on ChatGPT pages, most often right after a button in the card was pressed, for two helpers and for me. Measured from the page itself at those moments: about 145 frames a second, the card's height unchanged after its one step, the tab visible. So the page did not hang; the capture did. This cost three runs and is why the thumbs-down state has no picture.
+
+**Not done.** What a shared link really shows us was not looked at (making one publishes a chat; it needs the owner's yes). From the two help pages: a ChatGPT link holds the chat as it was when the link was made and can include uploaded files; a Claude link holds the messages up to that point, not the attached files and not the raw answers of our tools. Whether either shows our cards is not known. The full suite has not run on this branch (card tests and the related server tests pass: 39 and 126).
+
+**Open for the owner.** The wording of the line and of the privacy sentence. Whether the form should take the keyboard when it opens by itself (it does now; on a phone that brings up the keyboard after a thumbs-down). Whether "Please don't include personal details" should be reworded now that the same form invites a link to a whole chat.
+
 ## Reproducing
 
 ```bash
