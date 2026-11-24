@@ -117,7 +117,7 @@ def test_server_correct_missing_score_and_render_limit(tmp_path, monkeypatch):
     result = asyncio.run(app.mcp.call_tool('correct_bars', {
         'score_id': 'MISSING', 'replacement_bars': replacement()}))
     assert result.is_error
-    assert "No score has the id 'MISSING'" in result.content[0].text
+    assert "No score has that id" in result.content[0].text
     assert not (tmp_path / 'usage').exists()
     app.store.put('scores/READ18', READING.read_bytes())
     asyncio.run(app.take('render', 'other'))

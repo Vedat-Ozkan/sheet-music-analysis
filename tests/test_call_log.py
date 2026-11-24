@@ -125,20 +125,39 @@ def test_a_stray_value_error_inside_a_tool_is_a_server_error_with_the_generic_me
     assert line["reference"] in text and "support@sheetmusicanalysis.com" in text and "internal detail" not in text
 
 
+CHORALE = Path(__file__).parent / "data" / "part_writing_bwv64.4.musicxml"
+
+
+async def call(tool, arguments):
+    async with Client(app.mcp) as client:
+        return await client.call_tool(tool, arguments)
+
+
 def test_a_message_written_for_the_user_still_reaches_them_as_a_user_error(local_store, capsys):
-    score = (Path(__file__).parent / "data" / "part_writing_bwv64.4.musicxml").read_bytes()
-    app.store.put("scores/CHORALE", score)
-
-    async def call(tool, arguments):
-        async with Client(app.mcp) as client:
-            return await client.call_tool(tool, arguments)
-
+    app.store.put("scores/CHORALE", CHORALE.read_bytes())
     drawn = asyncio.run(call("render_analysis", {"score_id": "CHORALE", "annotations": {"annotations": []}, "view": "nonsense"}))
     drafted = asyncio.run(call("draft_analysis", {"score_id": "CHORALE", "student_analysis": "m1 b0 I"}))
     lines = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")]
     assert drawn.is_error and drawn.content[0].text.startswith("view must be one of")
     assert drafted.is_error and drafted.content[0].text == "Beat must be at least 1 in bar 1"
     assert [line["outcome"] for line in lines if line.get("tool") in ("render_analysis", "draft_analysis")] == ["user_error"] * 2
+
+
+def test_the_log_holds_the_sentence_of_an_error_only_when_nothing_in_it_comes_from_the_score_or_the_chat(local_store, capsys):
+    app.store.put("scores/CHORALE", CHORALE.read_bytes())
+    app.store.put(app.scan_key("SCAN01"), json.dumps({"pages": 1}).encode())
+    unknown = asyncio.run(call("draft_analysis", {"score_id": "Moonlight Sonata.mxl"}))
+    beyond = asyncio.run(call("draft_analysis", {"score_id": "CHORALE", "measure_range": "900-901"}))
+    misread = asyncio.run(call("use_careful_reading", {"score_id": "SCAN01", "pages": ["N1 div=24 ts=4/4 ks=0\nm la la la"]}))
+    no_pdf = asyncio.run(call("read_fetched_pdf", {"pdf_id": "My Waltz.pdf"}))
+    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")]
+    no_score, no_bar, bad_page, unknown_pdf = (line for line in lines if "tool" in line)
+    assert no_score["error"] == unknown_pdf["error"] == "ScoreError"
+    assert no_score["reason"] == unknown.content[0].text == "No score has that id; scores are kept for 30 days"
+    assert unknown_pdf["reason"] == no_pdf.content[0].text and unknown_pdf["reason"].startswith("No PDF has that pdf_id")
+    assert "900" in beyond.content[0].text and no_bar["error"] == "PositionError" and "reason" not in no_bar
+    assert "la la la" in misread.content[0].text and bad_page["error"] == "NotesError" and "reason" not in bad_page
+    assert not any(text in json.dumps(lines) for text in ("Moonlight", "la la la", "My Waltz"))
 
 
 ALLOWED_VALUE_ERROR_CATCHES = {"is_public_https", "link_host", "fetch_score"}
