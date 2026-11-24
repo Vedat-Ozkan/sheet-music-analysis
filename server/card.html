@@ -197,8 +197,8 @@
       answeredHere = true;
       if (window.openai && window.openai.setWidgetState) window.openai.setWidgetState({ rated: true });
       for (const id of ["question", "up", "down"]) document.getElementById(id).hidden = true;
-      document.getElementById("rating-status").textContent = "Thanks for telling us." + (helpful ? "" : " " + SAY_WHAT_WENT_WRONG);
-      if (!helpful) openSuggestion();
+      document.getElementById("rating-status").textContent = "Thanks for telling us.";
+      if (!helpful) openSuggestion(document.getElementById("rating-status"));
     });
   }
   document.getElementById("send").addEventListener("click", () => {
@@ -215,15 +215,15 @@
       }
       if (window.openai && window.openai.setWidgetState) window.openai.setWidgetState({ reported: true });
       showReport(true);
-      document.getElementById("report-status").textContent += " " + SAY_WHAT_WENT_WRONG;
-      openSuggestion();
+      openSuggestion(document.getElementById("report-status"));
     });
   });
   document.getElementById("up").addEventListener("click", () => rate(true));
   document.getElementById("down").addEventListener("click", () => rate(false));
 
-  function openSuggestion() {
+  function openSuggestion(announcedIn) {
     if (!document.getElementById("suggest-form").hidden) return;
+    if (announcedIn) announcedIn.textContent += " " + SAY_WHAT_WENT_WRONG;
     document.getElementById("suggest-closed").hidden = true;
     document.getElementById("suggest-status").textContent = "";
     document.getElementById("suggest-form").hidden = false;
