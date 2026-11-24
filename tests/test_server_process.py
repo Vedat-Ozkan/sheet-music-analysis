@@ -181,11 +181,8 @@ def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_
         assert not steps.get("isError") and "kit/reader.md" in steps["content"][0]["text"]
         assert not handed_in.get("isError") and handed_in["content"][0]["text"].startswith("score_id: ")
         warning = app.careful_warning(3)
-        if CHATGPT in offered_to:
-            assert warning not in steps["content"][0]["text"]
-        else:
-            assert steps["content"][0]["text"].startswith("Before any of these steps, ask the user")
-            assert f'"{warning}"' in steps["content"][0]["text"].split("\n", 1)[0]
+        assert steps["content"][0]["text"].startswith("Before any of these steps, ask the user")
+        assert f'"{warning}"' in steps["content"][0]["text"].split("\n", 1)[0]
 
 
 def test_chatgpt_keeps_its_tools_and_attachment_arguments(server):

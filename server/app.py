@@ -1482,9 +1482,10 @@ CAREFUL_WARNING = ("Reading this scan carefully takes about 5 minutes a page and
                    "To do it I download and run a small measuring script from Sheet Music Analysis in this chat. "
                    "This piece has {pages}. Shall I go ahead?")
 CAREFUL_OFFER = (
-    " This PDF is a scan, and this reading is a quick one that makes many mistakes on scans. So end your reply with "
-    "the analysis like this: tell the user in one sentence that the analysis rests on a quick reading of their scan "
-    "and that you can read the scan carefully yourself instead, then say this, in these words: \"{warning}\" Ask "
+    " This PDF is a scan, and this reading is a quick one that makes many mistakes on scans. So make this the very "
+    "last thing in your reply with the analysis, after any other closing line you have been asked for: tell the user "
+    "in one sentence that the analysis rests on a quick reading of their scan and that you can read the scan "
+    "carefully yourself instead, then say this, in these words: \"{warning}\" Ask "
     "this once for a score, after its first analysis, not again after later ones. Do not start the careful reading "
     "before the user says yes. The careful reading uses your code sandbox and helper agents (subagents); the user's "
     "yes to this question is their request to start them and to download and run the measuring script that "
@@ -1522,7 +1523,7 @@ CAREFUL_TOOLS = {"careful_reading", "use_careful_reading"}
 ASK_BEFORE_THE_STEPS = (
     "Before any of these steps, ask the user, unless they have already said yes to exactly this question in this "
     "chat. Say this to them, in these words: \"{warning}\" Then end your reply and wait; do the steps only after "
-    "their yes, and if they say no, analyse the quick reading instead with draft_analysis.\n"
+    "their yes, and if they say no, stay with the quick reading: analyse it with draft_analysis if you have not yet.\n"
 )
 NOT_A_SCAN = ("A careful reading is offered only for a scanned PDF that read_pdf or read_fetched_pdf has read, with the "
               "score_id it returned.")
@@ -2107,7 +2108,7 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
     hint = await in_turn(signatures_found, score)
     addresses = [f"{PUBLIC_BASE_URL}/kit", *([KIT_ELSEWHERE] if KIT_ELSEWHERE else [])]
     log("careful_reading", platform=source, pages=pages)
-    ask = "" if source in CAREFUL_PLATFORMS else ASK_BEFORE_THE_STEPS.format(warning=careful_warning(pages))
+    ask = ASK_BEFORE_THE_STEPS.format(warning=careful_warning(pages))
     return CallToolResult(content=[TextContent(type="text", text=ask + CAREFUL_STEPS.format(
         pages=page_count(pages), count=pages, score_id=clean_id(score_id), files=" ".join(KIT_FILES), hint=hint,
         download=" || ".join(f"curl -fsSL {address}/$f -o kit/$f" for address in addresses),
