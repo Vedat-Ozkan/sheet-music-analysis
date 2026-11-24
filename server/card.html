@@ -78,8 +78,8 @@
   <form id="suggest-form" hidden>
     <label for="suggestion">What would you like it to do? Ideas, problems, anything.</label>
     <textarea id="suggestion" maxlength="1000" rows="3"></textarea>
-    <span>Please don't include personal details. Only what you type here is sent to us.</span>
-    <span>To show us this chat, use its Share button, copy the link and paste it here. We can then read that chat.</span>
+    <span>Only what you type here is sent to us.</span>
+    <span>To show us this chat, use its Share button, copy the link and paste it here. We can then read that chat. Please don't share a chat that holds personal details.</span>
     <span class="buttons"><button id="suggest-send" type="submit" disabled>Send</button><button id="suggest-cancel" type="button">Cancel</button></span>
   </form>
   <span id="suggest-status" role="status" aria-live="polite"></span>
@@ -225,9 +225,11 @@
     document.getElementById("suggest-form").hidden = false;
     document.getElementById("suggest-send").hidden = false;
     document.getElementById("suggest-send").disabled = !document.getElementById("suggestion").value.trim();
-    document.getElementById("suggestion").focus();
   }
-  document.getElementById("suggest-open").addEventListener("click", openSuggestion);
+  document.getElementById("suggest-open").addEventListener("click", () => {
+    openSuggestion();
+    document.getElementById("suggestion").focus();
+  });
   document.getElementById("suggest-cancel").addEventListener("click", () => {
     document.getElementById("suggest-form").hidden = true;
     document.getElementById("suggest-status").textContent = "";
