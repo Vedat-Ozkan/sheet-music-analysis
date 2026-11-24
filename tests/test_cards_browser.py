@@ -350,7 +350,7 @@ def test_analysis_card_asks_what_went_wrong_after_a_thumbs_down_and_says_how_to_
     card = open_card(page, server, "card.html", openai=True)
     deliver(page, links(server), {"ask_for_rating": True})
     card.get_by_role("button", name="Not helpful").click()
-    expect(card.locator("#rating-status")).to_have_text("Thanks for telling us.")
+    expect(card.locator("#rating-status")).to_have_text("Thanks for telling us. You can say what went wrong below.")
     expect(card.locator("#suggestion")).not_to_be_focused()
     expect(card.get_by_text(SHARE_THE_CHAT)).to_be_visible()
 
@@ -381,7 +381,7 @@ def test_analysis_card_sends_a_problem_report(page, server):
     expect(card.locator("#send")).to_be_disabled()
     assert first_sent(page, "tools/call")["params"] == {"name": "report_problem", "arguments": {"reference": "a1b2c3d4"}}
     page.evaluate("release()")
-    expect(card.locator("#report-status")).to_have_text("Sent. Thank you; we look at every report.")
+    expect(card.locator("#report-status")).to_have_text("Sent. Thank you; we look at every report. You can say what went wrong below.")
     expect(card.locator("#send")).to_be_hidden()
     expect(card.locator("#sending")).to_be_hidden()
     assert page.evaluate("widget_states") == [{"reported": True}]
@@ -402,7 +402,7 @@ def test_analysis_card_does_not_offer_a_sent_suggestion_again_after_a_thumbs_dow
     card.get_by_role("button", name="Send", exact=True).click()
     expect(card.locator("#suggest-status")).to_have_text("Sent. Thank you; we read every message.")
     card.get_by_role("button", name="Not helpful").click()
-    expect(card.locator("#rating-status")).to_have_text("Thanks for telling us.")
+    expect(card.locator("#rating-status")).to_have_text("Thanks for telling us. You can say what went wrong below.")
     expect(card.locator("#suggestion")).not_to_be_focused()
     expect(card.locator("#suggestion")).to_have_value("")
     expect(card.get_by_role("button", name="Send", exact=True)).to_be_disabled()
@@ -418,7 +418,7 @@ def test_analysis_card_keeps_send_off_while_a_suggestion_is_on_its_way_and_a_thu
     card.get_by_role("button", name="Not helpful").click()
     page.wait_for_function("held.length === 2")
     page.evaluate("reply(held.pop())")
-    expect(card.locator("#rating-status")).to_have_text("Thanks for telling us.")
+    expect(card.locator("#rating-status")).to_have_text("Thanks for telling us. You can say what went wrong below.")
     expect(card.get_by_role("button", name="Send", exact=True)).to_be_disabled()
 
 

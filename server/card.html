@@ -183,6 +183,8 @@
   download("pdf", () => pdfUrl);
   for (const name in extras) download(name, () => extras[name]);
 
+  const SAY_WHAT_WENT_WRONG = "You can say what went wrong below.";
+
   function rate(helpful) {
     document.getElementById("rating-status").textContent = "";
     for (const id of ["up", "down"]) document.getElementById(id).disabled = true;
@@ -195,7 +197,7 @@
       answeredHere = true;
       if (window.openai && window.openai.setWidgetState) window.openai.setWidgetState({ rated: true });
       for (const id of ["question", "up", "down"]) document.getElementById(id).hidden = true;
-      document.getElementById("rating-status").textContent = "Thanks for telling us.";
+      document.getElementById("rating-status").textContent = "Thanks for telling us." + (helpful ? "" : " " + SAY_WHAT_WENT_WRONG);
       if (!helpful) openSuggestion();
     });
   }
@@ -213,6 +215,7 @@
       }
       if (window.openai && window.openai.setWidgetState) window.openai.setWidgetState({ reported: true });
       showReport(true);
+      document.getElementById("report-status").textContent += " " + SAY_WHAT_WENT_WRONG;
       openSuggestion();
     });
   });
