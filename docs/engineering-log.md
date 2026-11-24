@@ -4403,7 +4403,9 @@ PR #43 merged to `main` as `247754f` (entries 170, 173 and 182 to 202; with it #
 - The staging log shows the order in every chat: read, draft, render, and only after the yes `careful_reading`, `use_careful_reading`, draft, render.
 - One mistake in the run: the Claude connector switches did not hold until the page was reloaded, so one first message went to the production connector and opened one upload card there (23:17 UTC; nothing uploaded).
 
-**NOT RUN.** The yes path in Claude after the second commit (the careful reading itself in a Claude chat); a scan of many pages; a chat without a code sandbox; the full suite (running as this is written, result in the next commit).
+**NOT RUN.** The yes path in Claude after the second commit (the careful reading itself in a Claude chat); a scan of many pages; a chat without a code sandbox.
+
+**Checks.** Full suite with the PDF reader on the branch (the two code commits plus this entry): 1,905 passed, 4 skipped (no ring codes), 2 expected failures, 0 failed (4 workers, 15.3 minutes).
 
 ## Reproducing
 
