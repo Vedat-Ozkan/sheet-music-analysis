@@ -220,7 +220,8 @@ def test_romantext_of_a_pickup_piece_with_a_key_change(tmp_path):
     harmonies = analysis.annotations
     for measures, chosen in [(None, harmonies), ((1, 3), harmonies)]:
         text = export_romantext(score, analysis.model_dump(), measures).decode()
-        chords = list(music21.converter.parse(text, format='romantext').recurse().getElementsByClass('RomanNumeral'))
+        parsed = music21.converter.parse(text, format='romantext')
+        chords = list(parsed.recurse().getElementsByClass('RomanNumeral'))
         assert len(chords) == len(chosen)
         assert_romantext_matches(chords, chosen)
         assert [c.measureNumber for c in chords][:2] == [0, 1]
