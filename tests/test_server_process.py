@@ -170,11 +170,12 @@ def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_
         assert careful_tools & listed_tools(url, CLAUDE) == (careful_tools if CLAUDE in offered_to else set())
         for agent in (CHATGPT, CLAUDE):
             offer = read_scan(url, agent, "SCAN1")["content"][-1]["text"]
+            assert "draft_analysis with this score_id now" in offer, agent
             if agent in offered_to:
                 assert "Shall I go ahead?" in offer and "careful_reading" in offer, agent
+                assert offer.index("draft_analysis with this score_id now") < offer.index("Shall I go ahead?"), agent
             else:
                 assert "careful" not in offer.lower() and "Shall I go ahead?" not in offer, agent
-                assert "draft_analysis with this score_id now" in offer, agent
         steps = careful_call(url, CHATGPT, "careful_reading", score_id="QUICK1N")
         handed_in = careful_call(url, CHATGPT, "use_careful_reading", score_id="QUICK1N", pages=CAREFUL_PAGES)
         assert not steps.get("isError") and "kit/reader.md" in steps["content"][0]["text"]
