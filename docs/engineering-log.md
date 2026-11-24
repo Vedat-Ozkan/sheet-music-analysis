@@ -4316,7 +4316,9 @@ PR #43 merged to `main` as `247754f` (entries 170, 173 and 182 to 202; with it #
 
 **NOT RUN.** A real chat in ChatGPT or Claude on production after the deploy; the careful reading on production; a read whose own request lands on the other instance; the rollback command.
 
-### 204. The log holds the sentence of an error when nothing in it comes from the score or the chat (2026-11-23, branch `log-error-sentences`, nothing released)
+### 204. The log holds the sentence of an error when nothing in it comes from the score or the chat (2026-11-23, branch `log-error-sentences`; released 2026-11-24)
+
+**Released 2026-11-24.** PR #45 merged to `main` as `8d96e8b`, CI green on the pull request and on `main`. Production revision `sheet-music-analysis-00069-8bl` (rollback target `00068-5ph`), serving from 20:29 UTC with `CAREFUL_READING=chatgpt,claude` as before; the deploy script tagged the commit `prod-00069-8bl`. No tool name, description, schema or card changed, so OpenAI has nothing to scan, and the Claude plugin was not released. Clean start (`server imported`, the start-up probe at the first attempt, on both instances); the only warning lines are the release script's own two test requests. Through `mcp.sheetmusicanalysis.com` an empty request answers 400, straight to the run.app address 403, `/health` 200. The registry now keeps the images of `00069-8bl`, `00068-5ph` and `00067-4r6`; the tag of `00065-fjv` was dropped, so that revision can no longer be rolled back to. NOT RUN: a real chat on production after the deploy; a failed call on production whose log line shows the new sentence (the daily check will show the first one a user causes).
 
 **Why.** A daily check of production (users, errors, what users wrote to us) was set up for the owner on the day of the release. Its error section said almost nothing: for a failed analysis the log held only the kind of error. In the week to 23 November, 37 of the 44 user-error lines in the log (probes included) carried the kind `ScoreError`, and 25 of those no sentence, so "the file was not attached", "that id is unknown" and "this is a PDF, read it first" could not be told apart.
 

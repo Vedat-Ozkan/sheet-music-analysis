@@ -2,11 +2,11 @@
 
 What changed for users, newest first. Numbers in brackets are entries in `docs/engineering-log.md`; #n are pull requests.
 
-## Unreleased
+## 2026-11-24: server 00069-8bl
 
-Merged on `main` after production revision 00068-5ph, not deployed.
+Claude plugin unchanged (1.10.3). ChatGPT app unchanged (1.5.0).
 
-- An unknown score or PDF id is answered without repeating the id; the server's log records which of our own error sentences a chat was given, and never one that quotes the score [204].
+- An unknown score or PDF id is answered without repeating the id; the server's log records which of our own error sentences a chat was given, and never one that quotes the score [204] (#45).
 
 ## 2026-11-23: server 00067-4r6
 
