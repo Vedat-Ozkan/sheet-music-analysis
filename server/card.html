@@ -220,6 +220,7 @@
   document.getElementById("down").addEventListener("click", () => rate(false));
 
   function openSuggestion() {
+    if (!document.getElementById("suggest-form").hidden) return;
     document.getElementById("suggest-closed").hidden = true;
     document.getElementById("suggest-status").textContent = "";
     document.getElementById("suggest-form").hidden = false;

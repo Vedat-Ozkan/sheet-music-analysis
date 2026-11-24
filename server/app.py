@@ -457,8 +457,8 @@ OUR_ERROR_MESSAGE = (
     "Something went wrong on our side, not with the user's score or request (reference {reference}). "
     "Apologise to the user for us, and tell them that if they would like to tell us what happened or get help, "
     "they can email support@sheetmusicanalysis.com and mention reference {reference}; a link to this chat, made "
-    "with the chat's Share button, helps us see what happened. We read every message and their feedback helps "
-    "us fix it."
+    "with the chat's Share button, helps us see what happened, as long as the chat holds no personal details. "
+    "We read every message and their feedback helps us fix it."
 )
 OUR_ERROR_FOR_CARD = "Something went wrong on our side, not with your score."
 UNREAD_PDF_FOR_CARD = (

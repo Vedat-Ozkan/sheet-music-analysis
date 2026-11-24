@@ -402,8 +402,23 @@ def test_analysis_card_does_not_offer_a_sent_suggestion_again_after_a_thumbs_dow
     card.get_by_role("button", name="Send", exact=True).click()
     expect(card.locator("#suggest-status")).to_have_text("Sent. Thank you; we read every message.")
     card.get_by_role("button", name="Not helpful").click()
+    expect(card.locator("#rating-status")).to_have_text("Thanks for telling us.")
     expect(card.locator("#suggestion")).not_to_be_focused()
     expect(card.locator("#suggestion")).to_have_value("")
+    expect(card.get_by_role("button", name="Send", exact=True)).to_be_disabled()
+
+
+def test_analysis_card_keeps_send_off_while_a_suggestion_is_on_its_way_and_a_thumbs_down_arrives(page, server):
+    card = open_card(page, server, "card.html", openai=True)
+    deliver(page, links(server), {"ask_for_rating": True})
+    card.get_by_role("button", name="Suggest something").click()
+    card.locator("#suggestion").fill("Show key changes")
+    page.evaluate("hold = true")
+    card.get_by_role("button", name="Send", exact=True).click()
+    card.get_by_role("button", name="Not helpful").click()
+    page.wait_for_function("held.length === 2")
+    page.evaluate("reply(held.pop())")
+    expect(card.locator("#rating-status")).to_have_text("Thanks for telling us.")
     expect(card.get_by_role("button", name="Send", exact=True)).to_be_disabled()
 
 
