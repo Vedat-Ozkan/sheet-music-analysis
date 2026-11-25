@@ -119,7 +119,7 @@ def test_claude_is_offered_the_upload_card_score_links_and_cards_on_its_own_doma
     listed = {tool["name"]: tool for tool in json.loads(as_client(server, "Claude-User", "tools/list", {}))["result"]["tools"]}
     card = json.loads(as_client(server, "Claude-User", "resources/read", {"uri": "ui://sheet-music-analysis/card-v2.html"}))
     assert set(listed) == {"choose_score", "fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis",
-                           "play", "draft_from_notes", "send_suggestion", "asked_to_analyse"}
+                           "play", "draft_from_notes", "send_suggestion"}
     assert "score_file" not in listed["draft_analysis"]["inputSchema"]["properties"]
     assert set(listed["play"]["inputSchema"]["properties"]) == {"score_id", "measure_range", "tempo", "play_id", "notes"}
     assert "fetch_score" in listed["draft_analysis"]["description"] and "read_fetched_pdf" in listed["correct_bars"]["description"]
@@ -153,9 +153,7 @@ def listed_tools(server, agent):
     return {tool["name"] for tool in json.loads(as_client(server, agent, "tools/list", {}))["result"]["tools"]}
 
 
-@pytest.mark.parametrize("setting, offered_to", [(None, set()), ("chatgpt", {CHATGPT}), ("claude", {CLAUDE}),
-                                                 ("chatgpt,claude", {CHATGPT, CLAUDE})])
-def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_for(tmp_path, setting, offered_to):
+def store_a_read_scan(tmp_path):
     pdf = (NOCTURNE.parent / "chopin-28-4-mutopia.pdf").read_bytes()
     scores = tmp_path / "scores"
     scores.mkdir()
@@ -165,6 +163,19 @@ def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_
     card = {"score_id": "QUICK1N", "pages": 3, "scan": True, "measures": "1 to 25", "bars": 25, "notice": "", "image_url": "",
             "pdf_url": "", "page_images": []}
     (scores / f"pdf-card-{pdf_reader.READER}-{hashlib.sha256(pdf).hexdigest()}.json").write_text(json.dumps(card))
+
+
+def test_only_chatgpt_is_offered_the_analyse_button_on_a_reading(tmp_path):
+    store_a_read_scan(tmp_path)
+    with running_server(tmp_path) as (url, _):
+        offered = {agent: read_scan(url, agent, "SCAN1").get("_meta", {}).get("offer_analysis") for agent in (CHATGPT, CLAUDE, "curl/8.5")}
+    assert offered == {CHATGPT: True, CLAUDE: None, "curl/8.5": None}
+
+
+@pytest.mark.parametrize("setting, offered_to", [(None, set()), ("chatgpt", {CHATGPT}), ("claude", {CLAUDE}),
+                                                 ("chatgpt,claude", {CHATGPT, CLAUDE})])
+def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_for(tmp_path, setting, offered_to):
+    store_a_read_scan(tmp_path)
     with running_server(tmp_path, **({"CAREFUL_READING": setting} if setting is not None else {})) as (url, _):
         careful_tools = {"careful_reading", "use_careful_reading"}
         assert careful_tools <= listed_tools(url, CHATGPT)

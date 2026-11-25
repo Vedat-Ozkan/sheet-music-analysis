@@ -740,3 +740,11 @@ def test_only_a_finished_reading_shows_the_analyse_button(page, server, structur
     expect(card.locator("#suggest" if structured != {"status": STILL_READING} else "#status")).to_be_visible()
     expect(card.locator("#analyse")).to_have_count(1)
     expect(card.locator("#analyse")).to_be_hidden()
+
+
+def test_a_reading_the_server_does_not_offer_shows_no_analyse_button(page, server):
+    card = open_card(page, server, "card.html")
+    deliver(page, reading(server))
+    expect(card.locator("#open-page")).to_be_visible()
+    expect(card.locator("#analyse")).to_be_hidden()
+    expect(card.get_by_text("If the analysis has not started by itself, tap here.")).to_be_hidden()
