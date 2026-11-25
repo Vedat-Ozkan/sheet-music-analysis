@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import hashlib
 import json
 import os
@@ -211,8 +212,21 @@ def test_a_whole_piece_drawn_for_claude_fits_its_result_limit(server, store):
     assert len(claude) < 150_000
     assert "image" in [part["type"] for part in json.loads(chatgpt)["result"]["content"]]
     content = json.loads(claude)["result"]["content"]
-    assert [part["type"] for part in content] == ["text", "text"] and "left out" in content[1]["text"]
+    assert [part["type"] for part in content] == ["text", "text"] and "left out" in content[0]["text"]
     assert json.loads(claude)["result"]["structuredContent"]["image_url"]
+
+
+def test_a_reading_too_large_for_claude_still_ends_with_the_next_step(server, store):
+    pdf = (NOCTURNE.parent / "chopin-28-4-mutopia.pdf").read_bytes()
+    pdf_id = card_id(server)
+    upload(server, pdf, pdf_id)
+    page = base64.b64encode(os.urandom(60_000)).decode()
+    card = {"score_id": "READ1N", "pages": 1, "scan": False, "measures": "1 to 25", "bars": 25, "notice": "",
+            "image_url": "", "pdf_url": "", "page_images": [page, page]}
+    (store / app.card_of(hashlib.sha256(pdf).hexdigest())).write_text(json.dumps(card))
+    content = as_claude(server, "tools/call", {"name": "read_fetched_pdf", "arguments": {"pdf_id": pdf_id}})["content"]
+    assert "image" in [part["type"] for part in content] and "left out" in content[-2]["text"]
+    assert content[-1]["text"].endswith("\nNow call draft_analysis with this score_id.")
 
 
 def as_claude(server, method, params):

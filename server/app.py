@@ -741,8 +741,8 @@ def make_draft(score: bytes, code: str, named: tuple[str, str] | None, student_a
             + "\n\n" + METHOD
             + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
             + reduce.as_text(index, first, last)
-            + f"\n\nWhen your analysis is ready, call render_analysis with score_id {code} to draw it; "
-            "the analysis is not finished until the page is drawn."
+            + f"\n\nWhen you have analysed every bar the user asked for, draw them as this reply says above, with "
+            f"render_analysis and score_id {code}; the analysis is not finished until the page is drawn."
         )
 
 
@@ -1639,7 +1639,7 @@ CLAUDE_HIDDEN_ARGUMENTS = {"draft_analysis": {"score_file"}}
 CLAUDE_RESULT_CHARS = 100_000
 IMAGES_LEFT_OUT = (
     "{count} image(s) were left out of this reply to keep it within Claude's size limit. The card shows the page to "
-    "the user; where no card is shown, give the user the links above."
+    "the user; where no card is shown, give the user the links in this reply."
 )
 QUESTION_FOR_USER = "Question for the user about their Roman numerals: "
 
@@ -1684,7 +1684,7 @@ def within_claude_limit(result):
         result.content.remove(images.pop())
         left_out += 1
     if left_out:
-        result.content.append(TextContent(type="text", text=IMAGES_LEFT_OUT.format(count=left_out)))
+        result.content.insert(len(images), TextContent(type="text", text=IMAGES_LEFT_OUT.format(count=left_out)))
     return result
 
 
