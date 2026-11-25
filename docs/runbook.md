@@ -29,7 +29,7 @@ server/deploy.sh sheet-music-analysis staging    # staging
 - Measure and quote any change that adds Cloud Run compute first. Never raise max instances or the daily limits without asking.
 - A change to `Dockerfile.base`, `pyproject.toml` or `uv.lock` rebuilds the base image first (a few minutes longer).
 - The careful reading of scans is offered only on the platforms the deploy names: `CAREFUL_READING=chatgpt`, `CAREFUL_READING=claude` or `CAREFUL_READING=chatgpt,claude` before `server/deploy.sh`. Every deploy sets it again, so a deploy without it switches the offer off everywhere.
-  - A platform not named gets no offer on a scan's result. Claude, not named, is not shown `careful_reading` and `use_careful_reading` at all. ChatGPT always lists both tools and they always work, so OpenAI's reviewer can run them; if a chat calls `careful_reading` where no offer was made, its steps begin with the usage warning and wait for the user's yes.
+  - A platform not named gets no offer on a scan's result. Claude, not named, is not shown `careful_reading` and `use_careful_reading` at all. ChatGPT always lists both tools and they always work, so OpenAI's reviewer can run them; on every platform the steps `careful_reading` returns begin with the usage warning and a wait for the user's yes, unless the user has already said yes to it in that chat.
   - For ChatGPT the order is: deploy without `chatgpt` in `CAREFUL_READING`, wait until the plugin's MCPs tab at platform.openai.com/plugins lists `careful_reading` and `use_careful_reading` as published (OpenAI scans the server itself, or press "Rescan" there), and only then add `chatgpt`.
 
 ## Roll back

@@ -1482,14 +1482,15 @@ CAREFUL_WARNING = ("Reading this scan carefully takes about 5 minutes a page and
                    "To do it I download and run a small measuring script from Sheet Music Analysis in this chat. "
                    "This piece has {pages}. Shall I go ahead?")
 CAREFUL_OFFER = (
-    "Ask before analysing: this PDF is a scan, and the reading in the card is a quick one that makes many mistakes "
-    "on scans. In this reply, tell the user in one sentence that the card shows a quick reading and that you can "
-    "read the scan carefully yourself instead, then say this, in these words: \"{warning}\" Then end your reply and "
-    "wait for the answer; do not call draft_analysis yet. The careful reading uses your code sandbox and helper "
-    "agents (subagents); the user's yes to this question is their request to start them and to download and run the "
-    "measuring script that careful_reading names. Skip the question only if "
-    "this chat has no code sandbox at all. If the user says yes, call careful_reading with this score_id and follow "
-    "what it returns. If the user says no, or you skipped the question, use the quick reading as follows. "
+    " This PDF is a scan, and this reading is a quick one that makes many mistakes on scans. So make this the very "
+    "last thing in your reply with the analysis, after any other closing line you have been asked for: tell the user "
+    "in one sentence that the analysis rests on a quick reading of their scan and that you can read the scan "
+    "carefully yourself instead, then say this, in these words: \"{warning}\" Ask "
+    "this once for a score, after its first analysis, not again after later ones. Do not start the careful reading "
+    "before the user says yes. The careful reading uses your code sandbox and helper agents (subagents); the user's "
+    "yes to this question is their request to start them and to download and run the measuring script that "
+    "careful_reading names. Leave the question out only if this chat has no code sandbox at all. If the user says "
+    "yes, call careful_reading with this score_id and follow what it returns."
 )
 CAREFUL_STEPS = (
     "Careful reading of the user's scan ({pages}). Do these steps in order, in your code sandbox.\n"
@@ -1522,7 +1523,7 @@ CAREFUL_TOOLS = {"careful_reading", "use_careful_reading"}
 ASK_BEFORE_THE_STEPS = (
     "Before any of these steps, ask the user, unless they have already said yes to exactly this question in this "
     "chat. Say this to them, in these words: \"{warning}\" Then end your reply and wait; do the steps only after "
-    "their yes, and if they say no, analyse the quick reading instead with draft_analysis.\n"
+    "their yes, and if they say no, stay with the quick reading: analyse it with draft_analysis if you have not yet.\n"
 )
 NOT_A_SCAN = ("A careful reading is offered only for a scanned PDF that read_pdf or read_fetched_pdf has read, with the "
               "score_id it returned.")
@@ -1569,12 +1570,11 @@ def pdf_card_result(card: dict, tool: str, source: str) -> CallToolResult:
         f"The card shows the user {shown}. "
         f"The score has measures {card['measures']}.\n"
         f"{doubtful_reading(card)}"
-        + (CAREFUL_OFFER.format(warning=careful_warning(card["pages"])) + "Call draft_analysis with this score_id"
-           if card.get("scan") and source in CAREFUL_PLATFORMS else
-           "Go straight on to the analysis without asking the user to check the reading: call draft_analysis with this score_id now")
-        + " and continue exactly as for an attached MusicXML file, drawing it with render_analysis. "
+        "Go straight on to the analysis without asking the user to check the reading: call draft_analysis with this score_id now"
+        " and continue exactly as for an attached MusicXML file, drawing it with render_analysis. "
         "Bars shaded in the reading stay shaded on the drawn page. "
         f"The card does not show this note, so in your reply with the analysis pass on this note about the reading, briefly: \"{card['notice']}\""
+        + (CAREFUL_OFFER.format(warning=careful_warning(card["pages"])) if card.get("scan") and source in CAREFUL_PLATFORMS else "")
     )
     return CallToolResult(
         content=[
@@ -2108,7 +2108,7 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
     hint = await in_turn(signatures_found, score)
     addresses = [f"{PUBLIC_BASE_URL}/kit", *([KIT_ELSEWHERE] if KIT_ELSEWHERE else [])]
     log("careful_reading", platform=source, pages=pages)
-    ask = "" if source in CAREFUL_PLATFORMS else ASK_BEFORE_THE_STEPS.format(warning=careful_warning(pages))
+    ask = ASK_BEFORE_THE_STEPS.format(warning=careful_warning(pages))
     return CallToolResult(content=[TextContent(type="text", text=ask + CAREFUL_STEPS.format(
         pages=page_count(pages), count=pages, score_id=clean_id(score_id), files=" ".join(KIT_FILES), hint=hint,
         download=" || ".join(f"curl -fsSL {address}/$f -o kit/$f" for address in addresses),
