@@ -26,7 +26,7 @@ jobs:
         run: |
           heavy=true
           if [ "$EVENT" != workflow_dispatch ] && git fetch -q --depth=1 origin "$BEFORE" 2>/dev/null; then
-            files=$(git diff --name-only "$BEFORE" HEAD)
+            files=$(git diff --name-only --no-renames "$BEFORE" HEAD)
             if [ -n "$files" ]; then
               heavy=false
               while read -r file; do
