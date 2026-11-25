@@ -44,6 +44,10 @@
   #suggest-send { flex: 1; }
   #suggest-cancel { height: 40px; padding: 0 16px; border: 1px solid var(--border); border-radius: 20px; background: none; color: var(--fg); font: inherit; font-size: 15px; cursor: pointer; }
   .report small:empty { margin-top: 0; }
+  .analyse { padding: 12px 12px 0; }
+  .analyse[hidden] { display: none; }
+  .analyse small { display: block; margin-top: 6px; color: var(--muted); font-size: 13px; }
+  #analyse-button { width: 100%; height: 40px; border: 0; border-radius: 20px; background: var(--button); color: var(--button-fg); font: inherit; font-size: 15px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -51,6 +55,10 @@
 <p class="caption" id="caption" hidden></p>
 <p class="key" id="shading" hidden><span class="swatch"></span>Shaded bars may be misread; check them against your copy.</p>
 <button id="open-page" hidden><img id="page" alt=""></button>
+<div class="analyse" id="analyse" hidden>
+  <button id="analyse-button">Analyse this score</button>
+  <small>If the analysis has not started by itself, tap here.</small>
+</div>
 <div class="actions" id="actions" hidden>
   <button id="pdf">Download PDF</button>
 </div>
@@ -107,6 +115,8 @@
   let askForRating = false;
   let answeredHere = false;
   let report = null;
+  let askedHere = false;
+  const ANALYSE_MESSAGE = "Please analyse this score now.";
   function showReport(sent) {
     document.getElementById("problem").textContent = report.text;
     document.getElementById("reference").textContent = report.reference;
@@ -119,6 +129,8 @@
     askForRating = Boolean(metadata && metadata.ask_for_rating);
     report = (metadata && metadata.report) || null;
     document.getElementById("report").hidden = true;
+    const asked = askedHere || Boolean(window.openai && window.openai.widgetState && window.openai.widgetState.asked);
+    document.getElementById("analyse").hidden = true;
     if (report) {
       showReport(Boolean(window.openai && window.openai.widgetState && window.openai.widgetState.reported));
       document.getElementById("suggest").hidden = false;
@@ -146,6 +158,7 @@
     const opener = document.getElementById("open-page");
     opener.setAttribute("aria-label", "Open the page full size: " + description);
     opener.hidden = false;
+    document.getElementById("analyse").hidden = !(metadata && metadata.offer_analysis) || asked;
     pdfUrl = data.pdf_url;
     document.getElementById("pdf").hidden = !pdfUrl;
     for (const name in extras) {
@@ -162,7 +175,7 @@
     const message = event.data;
     if (!message || message.jsonrpc !== "2.0") return;
     if (message.id !== undefined && pending[message.id]) {
-      pending[message.id](message.result);
+      pending[message.id]("error" in message ? { isError: true } : message.result);
       delete pending[message.id];
     } else if (message.method === "ui/notifications/host-context-changed") {
       applyTheme(message.params);
@@ -217,6 +230,16 @@
       showReport(true);
       openSuggestion(document.getElementById("report-status"));
     });
+  });
+  document.getElementById("analyse-button").addEventListener("click", () => {
+    askedHere = true;
+    document.getElementById("analyse").hidden = true;
+    if (window.openai && window.openai.setWidgetState) window.openai.setWidgetState({ asked: true });
+    request("ui/message", { role: "user", content: { type: "text", text: ANALYSE_MESSAGE } }).then((result) => {
+      if (result && !result.isError) return true;
+      if (!(window.openai && window.openai.sendFollowUpMessage)) return false;
+      return Promise.resolve(window.openai.sendFollowUpMessage({ prompt: ANALYSE_MESSAGE })).then(() => true, () => false);
+    }).then((sent) => request("tools/call", { name: "asked_to_analyse", arguments: { sent } }));
   });
   document.getElementById("up").addEventListener("click", () => rate(true));
   document.getElementById("down").addEventListener("click", () => rate(false));
