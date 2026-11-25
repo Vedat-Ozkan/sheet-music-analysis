@@ -4,10 +4,15 @@ What changed for users, newest first. Numbers in brackets are entries in `docs/e
 
 ## Unreleased
 
-- Not merged yet (branch `share-chat`): the card's "Suggest something" box says how to show us a chat (share it, paste the link), and opens by itself after a thumbs-down or after a problem is sent to us [205].
-- Not merged yet (branch `offer-after-analysis`): a scanned PDF is analysed straight away from the quick reading, and the careful reading is offered at the end of that analysis instead of before it [207].
 - Not merged yet (branch `go-on-wording`): what the server tells a chat after a reading and after a draft now ends with the next step, so fewer chats stop before the page is drawn [208].
 - Not merged yet (branch `go-on-wording`): the note on a scan's reading says the analysis may be wrong where the reading is, instead of asking the user to check carefully [208].
+
+## 2026-11-25: server 00070-555
+
+Claude plugin unchanged (1.10.3). ChatGPT app unchanged (1.5.0).
+
+- A scanned PDF is analysed straight away from the quick reading, and the careful reading is offered at the end of that analysis instead of before it [207] (#48).
+- The card's "Suggest something" box says how to show us a chat (share it, paste the link), and opens by itself after a thumbs-down or after a problem is sent to us; the privacy page says what a pasted chat link lets us read [205] (#47).
 
 ## 2026-11-24: server 00069-8bl
 
