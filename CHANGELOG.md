@@ -4,6 +4,7 @@ What changed for users, newest first. Numbers in brackets are entries in `docs/e
 
 ## Unreleased
 
+- Not merged yet (branch `faster-ci`): the tests on GitHub run as four parallel jobs, a text-only change runs only the tests that read texts, and a deploy accepts the pull request's test run when main holds exactly what it tested [209].
 - Not merged yet (branch `share-chat`): the card's "Suggest something" box says how to show us a chat (share it, paste the link), and opens by itself after a thumbs-down or after a problem is sent to us [205].
 - Not merged yet (branch `offer-after-analysis`): a scanned PDF is analysed straight away from the quick reading, and the careful reading is offered at the end of that analysis instead of before it [207].
 

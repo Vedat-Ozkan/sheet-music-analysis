@@ -27,9 +27,8 @@ else
     echo "production deploys only from a clean checkout of origin/main; commit, push and let CI pass first" >&2
     exit 1
   fi
-  CI=$(gh run list --branch main --commit "$(git rev-parse HEAD)" --workflow tests --json conclusion --jq '.[0].conclusion // empty')
-  if [ "$CI" != success ]; then
-    echo "CI has not passed on $(git rev-parse --short HEAD) (${CI:-no run yet}); production waits for it" >&2
+  if ! server/ci-passed.sh HEAD > /dev/null; then
+    echo "CI has not passed for what is on $(git rev-parse --short HEAD) (no successful run on a commit with the same files); production waits for it" >&2
     exit 1
   fi
 fi

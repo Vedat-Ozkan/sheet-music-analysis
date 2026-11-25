@@ -5,10 +5,44 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  GROUP_READ: tests/test_read_pdf.py
+  GROUP_CORRECTIONS: tests/test_correction_regressions.py tests/test_piano_reduction.py tests/test_verovio_workers.py
+  GROUP_MIXED: tests/test_read_user_pdfs.py tests/test_host_render.py tests/test_awkward.py tests/test_chatgpt_flow.py tests/test_part_writing_audit.py tests/test_pdf_same_file.py tests/test_server_process.py
+  TEXT_TESTS: tests/test_site_facts.py tests/test_annotate.py
+
 jobs:
-  test:
+  changes:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    outputs:
+      heavy: ${{ steps.which.outputs.heavy }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: which
+        env:
+          BEFORE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          heavy=true
+          if git fetch -q --depth=1 origin "$BEFORE" 2>/dev/null; then
+            files=$(git diff --name-only "$BEFORE" HEAD)
+            if [ -n "$files" ]; then
+              heavy=false
+              while read -r file; do
+                case "$file" in
+                  site/*|server/*|engine/*|kit/*|skill/*|plugin/*|dist/*|tests/*|tools/*|eval/*|.github/*) heavy=true ;;
+                  *.md|docs/*|LICENSE*) ;;
+                  *) heavy=true ;;
+                esac
+              done <<< "$files"
+            fi
+          fi
+          echo "heavy=$heavy" >> "$GITHUB_OUTPUT"
+
+  texts:
+    needs: changes
+    if: needs.changes.outputs.heavy == 'false'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -20,9 +54,32 @@ jobs:
           python-version: "3.11"
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libcairo2
       - run: uv sync --frozen --group server --group dev
-      - run: uvx ruff@0.14.5 check
+      - run: .venv/bin/python -m pytest -q -rs $TEXT_TESTS
+
+  groups:
+    needs: changes
+    if: needs.changes.outputs.heavy == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [read, corrections, mixed, rest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.15"
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: "3.11"
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libcairo2
+      - run: uv sync --frozen --group server --group dev
+      - if: matrix.group == 'rest'
+        run: uvx ruff@0.14.5 check
       - name: A changed plugin folder is a fresh build with a new version
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && matrix.group == 'rest'
         run: |
           git fetch -q --depth=1 origin "${{ github.base_ref }}"
           if ! git diff --quiet FETCH_HEAD -- dist/; then
@@ -34,7 +91,8 @@ jobs:
               exit 1
             fi
           fi
-      - run: .venv/bin/python -m playwright install --with-deps --only-shell chromium
+      - if: matrix.group == 'rest'
+        run: .venv/bin/python -m playwright install --with-deps --only-shell chromium
       - uses: actions/cache@v4
         id: audiveris
         with:
@@ -50,6 +108,34 @@ jobs:
           mkdir audiveris/opt/audiveris/tessdata
           curl -fL -o audiveris/opt/audiveris/tessdata/eng.traineddata https://github.com/tesseract-ocr/tessdata/raw/ced78752cc61322fb554c280d13360b35b8684e4/eng.traineddata
           echo "daa0c97d651c19fba3b25e81317cd697e9908c8208090c94c3905381c23fc047  audiveris/opt/audiveris/tessdata/eng.traineddata" | sha256sum -c
-      - run: .venv/bin/python -m pytest -q -rs -n auto
+      - name: Run this group's test files
         env:
+          GROUP: ${{ matrix.group }}
           AUDIVERIS: ${{ github.workspace }}/audiveris/opt/audiveris/bin/Audiveris
+        run: |
+          case "$GROUP" in
+            read) files="$GROUP_READ" ;;
+            corrections) files="$GROUP_CORRECTIONS" ;;
+            mixed) files="$GROUP_MIXED" ;;
+            rest) files=""; for named in $GROUP_READ $GROUP_CORRECTIONS $GROUP_MIXED; do files="$files --ignore=$named"; done ;;
+          esac
+          .venv/bin/python -m pytest -q -rs -n auto $files
+
+  test:
+    needs: [changes, texts, groups]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Every needed job passed
+        env:
+          HEAVY: ${{ needs.changes.outputs.heavy }}
+          CHANGES: ${{ needs.changes.result }}
+          TEXTS: ${{ needs.texts.result }}
+          GROUPS_RESULT: ${{ needs.groups.result }}
+        run: |
+          [ "$CHANGES" = success ] || exit 1
+          if [ "$HEAVY" = true ]; then
+            [ "$GROUPS_RESULT" = success ] && [ "$TEXTS" = skipped ]
+          else
+            [ "$TEXTS" = success ] && [ "$GROUPS_RESULT" = skipped ]
+          fi
