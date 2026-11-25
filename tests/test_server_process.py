@@ -369,6 +369,24 @@ def test_with_a_proxy_key_set_only_requests_that_carry_it_are_served(tmp_path):
     assert health.status == 200
 
 
+def test_every_answer_from_our_server_carries_the_mark_the_proxy_retries_without(tmp_path):
+    def answer(path, key="the key of this test", **sent):
+        request = urllib.request.Request(f"{locked}{path}", headers={"X-Proxy-Key": key, "Accept": "application/json, text/event-stream",
+                                                                     "Content-Type": "application/json"}, **sent)
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return response.status, response.headers.get("x-answered-by")
+        except urllib.error.HTTPError as refused:
+            return refused.code, refused.headers.get("x-answered-by")
+
+    listing = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}).encode()
+    with running_server(tmp_path, PROXY_KEY="the key of this test") as (locked, _):
+        answers = [answer("/mcp", data=listing, method="POST"), answer("/mcp", key="another key", data=listing, method="POST"),
+                   answer("/mcp"), answer("/files/nothing-here.png"), answer("/health")]
+    assert [status for status, _ in answers] == [200, 403, 405, 404, 200]
+    assert {mark for _, mark in answers} == {"sheet-music-analysis"}
+
+
 def test_a_request_without_the_key_gets_the_whole_refusal_while_its_body_is_still_arriving(tmp_path):
     size = 2_000_000
 

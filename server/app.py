@@ -292,6 +292,24 @@ def traced(app):
     return with_trace
 
 
+ANSWERED_HERE = (b"x-answered-by", b"sheet-music-analysis")
+
+
+def marked_as_ours(app):
+    async def marking(scope, receive, send):
+        if scope["type"] != "http":
+            return await app(scope, receive, send)
+
+        async def marked(message):
+            if message["type"] == "http.response.start":
+                message["headers"] = [*message.get("headers", []), ANSWERED_HERE]
+            await send(message)
+
+        await app(scope, receive, marked)
+
+    return marking
+
+
 def only_through_the_proxy(app):
     refusal = Response(f"This address is not public; use {CONNECTOR_URL}", status_code=403)
 
@@ -2425,7 +2443,7 @@ def main() -> None:
     tool_calls = logging.getLogger("mcp.server.mcpserver.server")
     tool_calls.setLevel(logging.INFO)
     tool_calls.addFilter(lambda record: record.levelno > logging.INFO or record.msg.startswith("Tool %r rejected arguments"))
-    server = HttpServer(uvicorn.Config(traced(only_through_the_proxy(without_event_stream(app))), host="0.0.0.0", port=PORT, log_level="warning",
+    server = HttpServer(uvicorn.Config(marked_as_ours(traced(only_through_the_proxy(without_event_stream(app)))), host="0.0.0.0", port=PORT, log_level="warning",
                                        log_config=None))
     server.run()
     if not server.started:

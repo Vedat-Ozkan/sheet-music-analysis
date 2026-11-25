@@ -80,6 +80,8 @@ jobs:
       - run: uv sync --frozen --group server --group dev
       - if: matrix.group == 'rest'
         run: uvx ruff@0.14.5 check
+      - if: matrix.group == 'rest'
+        run: node --test proxy/worker.test.mjs
       - name: A changed plugin folder is a fresh build with a new version
         if: github.event_name == 'pull_request' && matrix.group == 'rest'
         run: |
