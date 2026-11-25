@@ -646,7 +646,7 @@ def test_player_shows_no_bar_label_without_measures(page, server, performance):
 
 
 READING = {"offer_analysis": True}
-ANALYSE = {"role": "user", "content": {"type": "text", "text": "Please analyse this score now."}}
+ANALYSE = {"role": "user", "content": [{"type": "text", "text": "Please analyse this score now."}]}
 
 
 def reading(server):

@@ -241,7 +241,7 @@
     document.getElementById("analyse-button").hidden = true;
     document.getElementById("analyse-hint").hidden = true;
     if (window.openai && window.openai.setWidgetState) window.openai.setWidgetState({ asked: true });
-    request("ui/message", { role: "user", content: { type: "text", text: ANALYSE_MESSAGE } }).then((result) => {
+    request("ui/message", { role: "user", content: [{ type: "text", text: ANALYSE_MESSAGE }] }).then((result) => {
       if (!(result && result.isError)) return true;
       if (!(window.openai && window.openai.sendFollowUpMessage)) return false;
       return Promise.resolve(window.openai.sendFollowUpMessage({ prompt: ANALYSE_MESSAGE })).then(() => true, () => false);
