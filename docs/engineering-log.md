@@ -4407,6 +4407,23 @@ PR #43 merged to `main` as `247754f` (entries 170, 173 and 182 to 202; with it #
 
 **Checks.** Full suite with the PDF reader on the branch (the two code commits plus this entry): 1,905 passed, 4 skipped (no ring codes), 2 expected failures, 0 failed (4 workers, 15.3 minutes).
 
+### 208. Where ChatGPT users stop between a reading and a marked page, and results that end with the next step (2026-11-25, branch `go-on-wording`, not on staging yet)
+
+**Why.** Entry 207 asked whether users who left were lost. Counting what each ChatGPT user did in the three hours after their first PDF reading (production logs, owner's codes left out): between 11 and 23 November, when the chat was told to go straight on to the analysis, 33 users got a reading; 23 reached a marked page (70%), 6 got a draft and never a drawn page, 4 stopped right after the reading, and 4 of the 23 went on only 30 seconds or more after the reading, which is a user asking again (the usual gap is 2 to 10 seconds). How long the reading took does not separate the groups. My first count took the whole 30 days (48 readers, 11 stopped after the reading) and was wrong to: until the release of 10 November the read's result told ChatGPT not to analyse before the user had checked the reading, so those stops were asked for. Opus found that while studying the fixes.
+
+**What the study found** (`options-opus.md`, kept outside the repo): the server holds no analysis of its own since entry 143, so a card cannot draw one without the chat. Several of our texts invite a model to end its turn early: the doubtful-reading warning said "Open your reply with this warning, before anything else"; a scan's result ended on the offer's question; the draft is 13,000 characters or more of method before the notes, with "call render_analysis" once in the middle. Both products' card interfaces document a way for a card to post a message into the chat on a user's tap (`ui/message`; `window.openai.sendFollowUpMessage`); whether that starts the model's turn is not documented and not tried.
+
+**What changed** (result texts only; no tool name, description, schema or card):
+- Every PDF read's result ends with "Now call draft_analysis with this score_id.", after the link line and after a scan's offer. In Claude, the note about images left out for size is put before the text instead of after it, so the last line stays last.
+- The draft's result ends with "When you have analysed every bar the user asked for, draw them as this reply says above, with render_analysis and score_id <id>; the analysis is not finished until the page is drawn."
+- The doubtful-reading sentence is "Open your reply with the analysis with this warning, before anything else: ...".
+
+**Review** (Sonnet built it, Opus read it and built the second commit, which I read). The first version of the draft's last line said to draw "when your analysis is ready": it comes after every stretch of a long piece and after the context calls around a passage, so a chat could have drawn several times, each one charged, against the rule of one drawing. It now defers to the guide's own drawing rule. One new test goes through the running server as Claude with images left out and checks the end of the text.
+
+**Left out on purpose.** The scan note's "please check carefully" (user-visible wording, the owner decides); the description's "unless the result tells you to ask the user a question first" (a description change, which OpenAI re-scans); the sentences a chat is told to write between calls.
+
+**NOT RUN.** Any real chat with these texts (staging needs the browser, which was not connected); a ChatGPT chat on a smaller model, which is my untested guess for who stops; the full suite (the touched files' tests pass: 202, and the doubtful-reading test with the PDF reader).
+
 ## Reproducing
 
 ```bash
