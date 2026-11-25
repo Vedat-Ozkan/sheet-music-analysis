@@ -70,9 +70,10 @@ RATING_AFTER_ANALYSES = 3
 PERSON_SCORE_LIMIT = int(os.environ.get("PERSON_SCORE_LIMIT", "10"))
 DAILY_LIMITS = {"score": 100, "draft": 300, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
 CARD_URI = "ui://sheet-music-analysis/card-v3.html"
-PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v3.html"
-HELD_CARD_URIS = {"ui://sheet-music-analysis/card-v2.html": "Analysis card",
-                  "ui://sheet-music-analysis/pdf-card-v2.html": "PDF reading card"}
+PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v4.html"
+HELD_CARD_URIS = {"ui://sheet-music-analysis/card-v2.html": ("Analysis card", "card-v2.html"),
+                  "ui://sheet-music-analysis/pdf-card-v2.html": ("PDF reading card", "card-v2.html"),
+                  "ui://sheet-music-analysis/pdf-card-v3.html": ("PDF reading card", "card-v3.html")}
 PLAYER_URI = "ui://sheet-music-analysis/player-v3.html"
 UPLOAD_CARD_URI = "ui://sheet-music-analysis/upload-card-v1.html"
 CONNECTOR_URL = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
@@ -1002,6 +1003,19 @@ async def report_problem(ctx: Context, reference: str) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text="Thanks; the report is recorded.")])
 
 
+@apps.tool(
+    resource_uri=PDF_CARD_URI,
+    visibility=["app"],
+    title="Note a tap on Analyse this score",
+    description="Records that the user tapped the reading card's Analyse this score button, and whether the message reached the chat.",
+    annotations=stores("Note a tap on Analyse this score"),
+)
+@observed
+async def asked_to_analyse(ctx: Context, sent: bool) -> CallToolResult:
+    log("asked_to_analyse", platform=platform(ctx), sent=sent)
+    return CallToolResult(content=[TextContent(type="text", text="Noted.")])
+
+
 SUGGESTION_LENGTH = 1000
 
 
@@ -1022,7 +1036,7 @@ async def send_suggestion(ctx: Context, text: str) -> CallToolResult:
 
 
 for uri, name, card in [(CARD_URI, "Analysis card", "card.html"), (PDF_CARD_URI, "PDF reading card", "card.html"),
-                        *((uri, name, "card-v2.html") for uri, name in HELD_CARD_URIS.items())]:
+                        *((uri, *held) for uri, held in HELD_CARD_URIS.items())]:
     apps.add_html_resource(
         uri,
         (HERE / card).read_text(),
@@ -1580,6 +1594,7 @@ def pdf_card_result(card: dict, tool: str, source: str) -> CallToolResult:
     )
     go_on = "Now call draft_analysis with this score_id."
     return CallToolResult(
+        meta={"offer_analysis": True},
         content=[
             *(ImageContent(type="image", data=png, mime_type="image/png") for png in card["page_images"]),
             TextContent(type="text", text=f"{text}\nPDF of the engraved score: {card['pdf_url']}\n{go_on}"),
@@ -1623,7 +1638,7 @@ async def read_fetched_pdf(ctx: Context, pdf_id: str) -> CallToolResult:
 
 
 CLAUDE_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "draft_analysis", "correct_bars", "render_analysis", "play",
-                "draft_from_notes", "send_suggestion", "careful_reading", "use_careful_reading"}
+                "draft_from_notes", "send_suggestion", "asked_to_analyse", "careful_reading", "use_careful_reading"}
 CLAUDE_ONLY_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "play", "draft_from_notes"}
 NO_NOTE_LIST = (
     "No note list: draft_from_notes needs the compact note list (starting 'N1 div=') that the Sheet Music Analysis "

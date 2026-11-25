@@ -561,7 +561,25 @@ def test_cards_held_for_review_keep_their_old_page():
 
     pages = anyio.run(go)
     assert "report_problem" in pages[app.CARD_URI] and "send_suggestion" in pages[app.CARD_URI]
-    assert all("report_problem" not in pages[uri] and "send_suggestion" not in pages[uri] for uri in app.HELD_CARD_URIS)
+    assert "asked_to_analyse" in pages[app.CARD_URI] and not any("asked_to_analyse" in pages[uri] for uri in app.HELD_CARD_URIS)
+    assert not any("report_problem" in pages[uri] for uri in app.HELD_CARD_URIS if "-v2." in uri)
+
+
+def test_only_a_reading_offers_the_analyse_button_and_a_tap_is_logged_without_the_score(server, capsys):
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    drafted = call("draft_analysis", {"score_id": score_id, "measure_range": "1-4"})
+
+    async def go():
+        async with Client(app.mcp) as client:
+            tools = {tool.name: tool for tool in (await client.list_tools()).tools}
+            return tools, await client.call_tool("asked_to_analyse", {"sent": True})
+
+    tools, noted = anyio.run(go)
+    assert tools["read_pdf"].meta["openai/outputTemplate"] == app.PDF_CARD_URI == "ui://sheet-music-analysis/pdf-card-v4.html"
+    assert tools["asked_to_analyse"].meta["ui"]["visibility"] == ["app"] and not noted.is_error
+    assert call("read_pdf", ATTACHED).meta["offer_analysis"] is True and "offer_analysis" not in (drafted.meta or {})
+    lines = [line for line in logged(capsys, "asked_to_analyse") if line.get("event") == "asked_to_analyse"]
+    assert [(line["sent"], line["platform"]) for line in lines] == [(True, "other")]
 
 
 def shaded_pixels(result):
