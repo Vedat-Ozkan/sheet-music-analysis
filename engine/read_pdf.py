@@ -53,7 +53,7 @@ NEXT_STEP = (
 )
 PAINT_OPERATORS = {"S", "s", "f", "F", "f*", "B", "B*", "b", "b*"}
 CHECK = "This is what I read from your PDF; check it against your copy before I analyse it."
-SCAN_WARNING = "Scanned pages often have reading mistakes, so please check carefully."
+SCAN_WARNING = "Scanned pages often have reading mistakes, so the analysis may be wrong where the reading is."
 SLURS_LEFT_OUT = "Slurs are not read, because they are often misread from PDFs."
 SHOWN = 4
 DEFAULT_PART_NAMES = {"Voice", "NoName"}

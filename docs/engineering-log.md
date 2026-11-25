@@ -4420,7 +4420,9 @@ PR #43 merged to `main` as `247754f` (entries 170, 173 and 182 to 202; with it #
 
 **Review** (Sonnet built it, Opus read it and built the second commit, which I read). The first version of the draft's last line said to draw "when your analysis is ready": it comes after every stretch of a long piece and after the context calls around a passage, so a chat could have drawn several times, each one charged, against the rule of one drawing. It now defers to the guide's own drawing rule. One new test goes through the running server as Claude with images left out and checks the end of the text.
 
-**Left out on purpose.** The scan note's "please check carefully" (user-visible wording, the owner decides); the description's "unless the result tells you to ask the user a question first" (a description change, which OpenAI re-scans); the sentences a chat is told to write between calls.
+**The scan note** (owner's decision, 25 November). The note the chat passes on for every scan ended "so please check carefully", a request to the user to check inside a result that tells the chat not to wait for a check. It now ends "so the analysis may be wrong where the reading is". Readings stored before the change keep the old sentence.
+
+**Left out on purpose.** The description's "unless the result tells you to ask the user a question first" (a description change, which OpenAI re-scans); the sentences a chat is told to write between calls.
 
 **NOT RUN.** Any real chat with these texts (staging needs the browser, which was not connected); a ChatGPT chat on a smaller model, which is my untested guess for who stops; the full suite (the touched files' tests pass: 202, and the doubtful-reading test with the PDF reader).
 
