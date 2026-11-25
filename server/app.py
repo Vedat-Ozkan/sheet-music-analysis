@@ -1497,8 +1497,9 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
             "pdf_url": pdf_url, "more_pages": more_pages, "shaded_bars": uneven_named, "page_images": [base64.b64encode(png).decode() for png in pages]}
 
 
-CAREFUL_COST = {"claude": " and uses a lot of your plan's usage allowance. As a guide, a 10-page piece can use most of a "
-                          "five-hour allowance on a standard paid plan.",
+CAREFUL_COST = {"claude": ". I'd start one helper per page, each on Sonnet at medium effort, and that uses a lot of your plan's "
+                          "usage allowance. As a guide, a 10-page piece can use most of a five-hour allowance on a standard "
+                          "paid plan.",
                 "other": "."}
 CAREFUL_WARNING = ("Reading this scan carefully takes about 5 minutes a page{cost} "
                    "To do it I download and run a small measuring script from Sheet Music Analysis in this chat. "

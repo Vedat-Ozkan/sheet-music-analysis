@@ -48,7 +48,8 @@ def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_pa
     assert app.careful_warning(3, "other") in offer
     assert "takes about 5 minutes a page. To do it" in offer and "This piece has 3 pages. Shall I go ahead?" in offer
     assert "allowance" not in offer
-    assert "uses a lot of your plan's usage allowance. As a guide, a 10-page piece" in app.careful_warning(3, "claude")
+    assert ("takes about 5 minutes a page. I'd start one helper per page, each on Sonnet at medium effort, and that uses a lot of "
+            "your plan's usage allowance. As a guide, a 10-page piece") in app.careful_warning(3, "claude")
     assert "download and run a small measuring script from Sheet Music Analysis" in offer
     assert "careful_reading" in offer
     assert "draft_analysis with this score_id now" in offer
