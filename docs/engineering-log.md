@@ -4504,6 +4504,20 @@ The ChatGPT package's reviewer case and release notes said the same untrue thing
 
 **Review** (Opus, both commits and the wording commit): no fault; its three points are in (the shared helper, the README row, Claude's question checked through the running server). **Checks.** The four test files that touch these texts: 171 passed.
 
+### 213. A score with no notes is answered plainly (2026-11-25, branch `no-notes-message`)
+
+**Why.** The owner showed two shared chats of one real ChatGPT user, a composer working in a music production program (20 and 22 November). In the first, the user attached a MusicXML export that held one empty bar. Our server's log says `draft_analysis` ok: the answer was the whole method for analysing a score over an empty table of notes, and nothing told the chat or the user that the file was the problem. The user then tried a PDF export of one part (3 pages, 25 bars, all 25 marked doubtful; ChatGPT rightly drew no numerals) and an MP3, which ChatGPT measured by itself; two days later a MIDI file, which never reached us because we take none. Four formats in two visits and no useful word from us about any of them. This entry fixes the first; MIDI is a separate question for the owner.
+
+**The rule** (owner's wording): a score file with no sounding note anywhere, pitched or percussion, is a user's mistake, answered with "This file has no notes in it, only empty bars. Export it again from your music program, or send a PDF of the score." Rests, empty bars and a file with no bars all count as no notes; one silent part among sounding ones is fine.
+
+**What changed** (Sonnet built it, Opus reviewed it, I made the review's one change). `require_notes` in `engine/render.py` looks for a pitch or an unpitched note in the file's text; it is called in one place, `resolve_score`, where `draft_analysis`, `render_analysis` and `play` get their score, before any daily limit is counted. The fetching itself is now `fetch_given_score`, used directly by the three callers that must not refuse: the PDF path, and, after review, `careful_reading` and `correct_bars`, which are the two remedies for a reading that came out empty. The refusal is logged as a user error with the sentence as its reason.
+
+**Before the fix, across the test data:** 78 score files, none without notes; the check stays as a test. **Cost:** no extra parse; on a 682 KB score 0.1 ms with notes and 0.7 ms without (1.4 ms packed).
+
+**Known and left.** Claude's upload card and a link still accept such a file and the sentence comes one call later, at the draft; that upload counts toward the daily limits as any upload does. A chord chart with symbols over rests and no notes is told "only empty bars", which is not quite true of it; the analysis works from notes and gave nothing for such a file before either. A PDF whose reading held only rests would be told at the draft to "send a PDF"; none has been seen.
+
+**Checks.** 16 new tests through the running server for Claude and ChatGPT, 12 of the first 15 failing before the fix and the review's test failing before its change; five test files that touch scores and corrections: 595 passed, 2 expected failures. `tools/diff_check.py --base` against the commit before, `render`: 28 inputs, none changed. NOT RUN: a real chat, so how a chat words the sentence to a user is not seen.
+
 ## Reproducing
 
 ```bash

@@ -22,7 +22,7 @@ These are the owner's standing rules. Older detail is in the memory notes for th
 
 ## Owner decisions
 - Display, upload or UI choices: show real examples from both Claude and ChatGPT first; the owner decides.
-- Public text (site, listings, messages users see) must be clear to someone with very basic music knowledge; explain how a number was measured; no library names.
+- Public text (site, listings, messages users see) must be clear to someone with very basic music knowledge; explain how a number was measured; no names of software libraries (the PDF reader, the engraver and the like mean nothing to a user). Names of chat models and their effort settings, such as Sonnet at medium, are fine.
 - Record problems, fixes and before/after numbers in `docs/engineering-log.md`, honestly.
 - Keep agent and evaluation token use low: short fresh briefs, Sonnet for routine work, test on 2-3 pieces first, ask before anything over about US$10.
 - Commit with explicit paths; never push, deploy or publish without being asked.
