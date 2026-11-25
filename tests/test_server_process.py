@@ -185,6 +185,9 @@ def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_
         warning = app.careful_warning(3, "chatgpt")
         assert steps["content"][0]["text"].startswith("Before any of these steps, ask the user")
         assert f'"{warning}"' in steps["content"][0]["text"].split("\n", 1)[0]
+        if CLAUDE in offered_to:
+            asked_in_claude = careful_call(url, CLAUDE, "careful_reading", score_id="QUICK1N")["content"][0]["text"].split("\n", 1)[0]
+            assert f'"{app.careful_warning(3, "claude")}"' in asked_in_claude and "usage allowance" in asked_in_claude
 
 
 def test_chatgpt_keeps_its_tools_and_attachment_arguments(server):

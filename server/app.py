@@ -206,6 +206,10 @@ def platform(ctx: Context | None) -> str:
     return client_of(headers)
 
 
+def for_product(texts: dict[str, str], source: str) -> str:
+    return texts["claude" if source == "claude" else "other"]
+
+
 pseudonym_key: bytes | None = None
 months_recorded: set[str] = set()
 
@@ -620,7 +624,7 @@ async def resolve_score(score_file: AttachedFile | None, score_id: str | None, s
                     raise NotChosenYet(NOT_CHOSEN_YET)
                 raise ScoreError("No score has that id; scores are kept for 30 days")
             return data, "score_id"
-    raise ScoreError(NO_SCORE_GIVEN["claude" if source == "claude" else "other"])
+    raise ScoreError(for_product(NO_SCORE_GIVEN, source))
 
 
 def publish(data: bytes, extension: str, suffix: str = "") -> str:
@@ -1542,7 +1546,7 @@ def page_count(pages: int) -> str:
 
 
 def careful_warning(pages: int, source: str) -> str:
-    return CAREFUL_WARNING.format(cost=CAREFUL_COST["claude" if source == "claude" else "other"], pages=page_count(pages))
+    return CAREFUL_WARNING.format(cost=for_product(CAREFUL_COST, source), pages=page_count(pages))
 
 
 def signatures_found(score: bytes) -> str:
@@ -2117,7 +2121,7 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=ask + CAREFUL_STEPS.format(
         pages=page_count(pages), count=pages, score_id=clean_id(score_id), files=" ".join(KIT_FILES), hint=hint,
         download=" || ".join(f"curl -fsSL {address}/$f -o kit/$f" for address in addresses),
-        helpers=HELPER_SETTINGS["claude" if source == "claude" else "other"]))])
+        helpers=for_product(HELPER_SETTINGS, source)))])
 
 
 @mcp.tool(
