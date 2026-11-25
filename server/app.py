@@ -73,7 +73,7 @@ CARD_URI = "ui://sheet-music-analysis/card-v3.html"
 PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v4.html"
 HELD_CARD_URIS = {"ui://sheet-music-analysis/card-v2.html": ("Analysis card", "card-v2.html"),
                   "ui://sheet-music-analysis/pdf-card-v2.html": ("PDF reading card", "card-v2.html"),
-                  "ui://sheet-music-analysis/pdf-card-v3.html": ("PDF reading card", "card-v3.html")}
+                  "ui://sheet-music-analysis/pdf-card-v3.html": ("PDF reading card", "pdf-card-v3.html")}
 PLAYER_URI = "ui://sheet-music-analysis/player-v3.html"
 UPLOAD_CARD_URI = "ui://sheet-music-analysis/upload-card-v1.html"
 CONNECTOR_URL = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")

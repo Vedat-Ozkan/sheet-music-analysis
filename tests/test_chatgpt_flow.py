@@ -562,7 +562,7 @@ def test_cards_held_for_review_keep_their_old_page():
     pages = anyio.run(go)
     assert "report_problem" in pages[app.CARD_URI] and "send_suggestion" in pages[app.CARD_URI]
     assert "asked_to_analyse" in pages[app.CARD_URI] and not any("asked_to_analyse" in pages[uri] for uri in app.HELD_CARD_URIS)
-    assert not any("report_problem" in pages[uri] for uri in app.HELD_CARD_URIS if "-v2." in uri)
+    assert not any("report_problem" in pages[uri] or "send_suggestion" in pages[uri] for uri in app.HELD_CARD_URIS if "-v2." in uri)
 
 
 def test_only_a_reading_offers_the_analyse_button_and_a_tap_is_logged_without_the_score(server, capsys):
