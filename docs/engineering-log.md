@@ -4450,7 +4450,7 @@ The release was meant to be one command and took three. The script stopped silen
 
 **NOT RUN.** The text-only path on a real event (the `texts` job has only been skipped so far); a run on `main` after a push, which reads `github.event.before`; the gate on a merge commit of `main`, where it has to find the pull request's run. The first release with this workflow is their test.
 
-### 210. A button on the reading card that asks the chat to analyse: built, tried in real chats, does not do its job (2026-11-25, branch `analyse-button`, on staging only, not decided)
+### 210. A button on the reading card that asks the chat to analyse: built, tried in real chats, does not do its job (2026-11-25, branch `analyse-button`, on staging only; second round and the decision in entry 211)
 
 **Why.** Entry 208: some chats stop after the reading, and both products document a way for a card to post a user's message into the chat on a tap. A button "Analyse this score" with the line "If the analysis has not started by itself, tap here." was built on the reading card: a tap sends "Please analyse this score now." with `ui/message`, and with ChatGPT's own `sendFollowUpMessage` if that is refused; the card then says whether the chat was asked, and tells the server through a new tool the chat cannot call (`asked_to_analyse`). The reading card got a new address (`pdf-card-v4.html`), with the page as it was kept at the old one for ChatGPT's stored tool list. Opus reviewed it; four faults fixed (a second message when the answer had no result, no status text, a loosened test, a confusing file name).
 
@@ -4463,6 +4463,46 @@ The release was meant to be one command and took three. The script stopped silen
 - In the ChatGPT chats with the printed sample the reading card's page picture was missing. Cause: the stored reading held the picture's address on the Claude test address, read there minutes before, and ChatGPT's card may only load pictures from the address it was listed with. Staging has two addresses over one store; production has one, so this cannot happen there. The scan, read only through the ChatGPT address, showed its picture.
 
 **Where this leaves it.** In neither product did a tap produce a marked page. Shipping it would cost a new card address and a new tool for OpenAI to scan, and a control in Claude that fails. Not merged; the owner decides between dropping it and one more round (find out why Claude refuses; in ChatGPT compare the tap with the same sentence typed by hand).
+
+### 211. The button, second round: it works in ChatGPT and is not shown in Claude (2026-11-25, branches `analyse-button` and `analyse-button-chatgpt`)
+
+**Why a second round.** Entry 210 ended with no tap producing a marked page. Two things in that round were mine to fix before judging the button. The button sent its message with `content` as one object, while the upload card, whose message Claude accepts, sends a list (fixed in `9851003`). And in claude.ai a card's message has never been posted by itself (entry of 8 November: it went into the reply box), which the first round never looked for.
+
+**Real chats on staging** (the standing Sonnet session in the owner's browser; revision 00171-jn9 for ChatGPT and 00232-cox for Claude; "Refresh tools" pressed 21:39 UTC, the ChatGPT chats from 22:11; one printed sample PDF; notes and pictures outside the repo):
+
+| Product | How the chat began | Marked page by itself | What was done | Marked page afterwards |
+|---|---|---|---|---|
+| ChatGPT | "Can you read this PDF with the app?" | no | tap | yes, within 40 s |
+| ChatGPT | told to read only (two chats) | no | tap | yes, within 55 and 65 s |
+| ChatGPT | told to read only (two chats) | no | the same sentence typed by hand | yes, within 60 s both |
+| Claude | told to read only (two chats) | no | tap | no |
+| Claude | "Can you read my score?" | yes | tap | already there |
+
+- ChatGPT: a tap posts "Please analyse this score now." as the user's own message, ChatGPT asks nothing first, and the page is drawn. A tap and the typed sentence behaved the same in five chats. The question ChatGPT asked back in the first round ("Would you like me to proceed ...?") did not come again; why it came then is not known. The neutral request is the nearest thing to the real case that we have produced: ChatGPT read, stopped, and the tap finished the job.
+- Claude: a tap brings up Claude's own panel above the reply box: "'test sheet' wants to send Claude a message / These are the app's words, not yours. / Please analyse this score now. / Decline / Allow once". The card already said "Asked the chat to analyse this score." while the panel was unanswered. Only the owner may answer such a panel; in the one chat where the owner pressed "Allow once", Claude wrote "That came from the app, not from you, and you asked me not to analyse yet, so I haven't started." and drew nothing. That chat had been told not to analyse, so it does not show what Claude does for a user who wanted the analysis; the panel alone fails the owner's bar that a first-time user must find everything obvious.
+- The reading card's picture was a broken image in all six ChatGPT chats. Every read that evening reused a stored reading first made through the Claude test address, and a picture's address is fixed when the reading is made (`publish` uses the address of the revision that read). Staging has two addresses over one store; production has one. A control chat with what I took for a different file proved nothing, because the file was a copy of the sample. The evidence that it is staging only is the code, the log, and the scan of the first round, read only through ChatGPT's address, whose picture showed.
+
+**Decision (owner, 25 November):** the button ships in ChatGPT only.
+
+**What changed** (Opus built it, I read it): the server marks a reading for the button only when ChatGPT made the call (`pdf_card_result`), so the card, which already showed the button only with that mark, needed no change; the note-a-tap tool is not in Claude's tool list. Deciding it on the server uses the product rule that already gives Claude its own tool list, and can be tested through the running server for both products. For OpenAI's scan, against `main`: one new tool, `asked_to_analyse` (callable by the card only), and `read_pdf`'s card address moves from `pdf-card-v3.html` to `pdf-card-v4.html`, with the old page kept at the old address. Claude's tool names are unchanged; its reading card moves to the new address and shows no button.
+
+**Checks.** The card's browser tests, the ChatGPT flow, the server-process tests and the careful-reading tests on the branch: 213 passed. A new server test reads a PDF as ChatGPT, as Claude and as neither and finds the mark only for ChatGPT. NOT RUN: a real chat on the final branch (the chats above ran the branch before the server decided by product; the card and its message are the same); which of the two ways of posting ChatGPT accepted (the card tries the shared one first and ChatGPT's own second; the server's log shows only that the message went); a tap on production.
+
+### 212. The careful reading's cost warning says what is true for each product (2026-11-25, branch `offer-warning-by-product`)
+
+**Why.** The offer of a careful reading warned every user that it "uses a lot of your plan's usage allowance. As a guide, a 10-page piece can use most of a five-hour allowance on a standard paid plan." That was worked out on Claude (entry 181) and says nothing true about ChatGPT: OpenAI's pricing page lists everyday chat on its paid plans as unlimited, with separate limits only on the higher thinking settings, for which it gives no numbers (pricing and help pages read on 25 November). The owner also asked that Claude's sentence say what will run.
+
+**What changed.** One table of cost sentences by product (`CAREFUL_COST`) and one helper that picks a text by product (`for_product`), now also used for the two older texts that were picked the same way. In both places the warning is said (the offer after the analysis and the question before the steps):
+- Claude: "Reading this scan carefully takes about 5 minutes a page. I'd start one helper per page, each on Sonnet at medium effort, and that uses a lot of your plan's usage allowance. As a guide, a 10-page piece can use most of a five-hour allowance on a standard paid plan. ..."
+- ChatGPT and any other product: "Reading this scan carefully takes about 5 minutes a page. ..."
+
+The ChatGPT package's reviewer case and release notes said the same untrue thing about an allowance and are corrected in package 1.5.1.
+
+**Not measured.** The owner wants Claude's sentence to give the share of a five-hour limit by plan. The only figures we have are derived (about US$1.3 a page at API prices, and one observation of where the owner's own limit was reached), so no percentage is printed. A measurement with Claude's usage page could not be run by the browser tools, which may not open Claude's settings pages; the owner reads the page by hand before and after one careful reading, and the number follows.
+
+**What the day's production log shows about the offer** (25 November, the first day with the analysis before the offer): 9 scans read (7 by four ChatGPT users, 2 in Claude chats); the offer went into every scan's result; the careful reading was started in two chats and handed in in neither. One ChatGPT user said yes on an 8-page scan, got the steps, had the quick analysis drawn again three minutes later, asked for the steps once more and stopped. Both ChatGPT users who have said yes so far (24 and 25 November) ended without a careful reading. Why is not known: what the chat does between the steps and the hand-in happens in its own sandbox, and the careful reading has only ever been tried on the owner's paid account.
+
+**Review** (Opus, both commits and the wording commit): no fault; its three points are in (the shared helper, the README row, Claude's question checked through the running server). **Checks.** The four test files that touch these texts: 171 passed.
 
 ## Reproducing
 

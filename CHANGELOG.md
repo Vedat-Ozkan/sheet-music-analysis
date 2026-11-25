@@ -6,6 +6,8 @@ What changed for users, newest first. Numbers in brackets are entries in `docs/e
 
 - Not merged yet (branch `go-on-wording`): what the server tells a chat after a reading and after a draft now ends with the next step, so fewer chats stop before the page is drawn [208].
 - Not merged yet (branch `go-on-wording`): the note on a scan's reading says the analysis may be wrong where the reading is, instead of asking the user to check carefully [208].
+- Not released yet: in ChatGPT the card that shows what was read from a PDF has a button, "Analyse this score", for when the analysis has not started by itself; Claude does not show it [210, 211].
+- Not released yet: the offer of a careful reading says what it costs in the product the user is in: in Claude it names its helpers (one per page, on Sonnet at medium effort) and the usage allowance, in ChatGPT only the time [212]. ChatGPT package 1.5.1 corrects the same sentence in its texts.
 - Not merged yet (branch `faster-ci`): the tests on GitHub run as four parallel jobs, a text-only change runs only the tests that read texts, and a deploy accepts the pull request's full test run when main holds exactly what it tested, and never a text-only run [209].
 
 ## 2026-11-25: server 00070-555

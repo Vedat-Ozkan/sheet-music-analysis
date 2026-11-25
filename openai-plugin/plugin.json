@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "sheet-music-analysis",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Harmonic analysis of sheet music, drawn on the engraved score.",
   "author": {
     "name": "Sheet Music Analysis",
@@ -105,10 +105,19 @@
               ]
             },
             {
+              "description": "The Analyse this score button (new chat)",
+              "prompt": "Can you read this PDF with the app?",
+              "tools_triggered": "read_pdf, asked_to_analyse, draft_analysis, render_analysis",
+              "expected_behavior": "A card shows the engraved music read from the PDF, with a button, Analyse this score. If the reply stops after the reading, tapping the button posts the message \"Please analyse this score now.\" for the user, and a second card shows the analysis drawn on the score.",
+              "file_attachment_urls": [
+                "https://sheetmusicanalysis.com/samples/chopin-prelude-op28-no4.pdf"
+              ]
+            },
+            {
               "description": "Reading a scanned PDF (new chat)",
               "prompt": "Can you analyse the harmony of this piece?",
               "tools_triggered": "read_pdf, draft_analysis, render_analysis",
-              "expected_behavior": "A card shows the music read from the two scanned pages, with bars that may be misread shaded; a second card shows the analysis drawn on that reading.",
+              "expected_behavior": "A card shows the music read from the two scanned pages, with bars that may be misread shaded; a second card shows the analysis drawn on that reading. The reply ends by offering to read the scan carefully.",
               "file_attachment_urls": [
                 "https://sheetmusicanalysis.com/samples/kinkel-trennung-scan.pdf"
               ]
@@ -117,7 +126,7 @@
               "description": "Asking for the careful reading, same chat as the scanned PDF",
               "prompt": "Please read this scan carefully instead.",
               "tools_triggered": "careful_reading",
-              "expected_behavior": "Nothing is read yet. The reply says that reading a scan carefully takes about 5 minutes a page and uses a lot of the plan's usage allowance, that it downloads and runs a small measuring script from Sheet Music Analysis in the chat, and asks whether to go ahead.",
+              "expected_behavior": "Nothing is read yet. The reply says that reading a scan carefully takes about 5 minutes a page, that it downloads and runs a small measuring script from Sheet Music Analysis in the chat, and asks whether to go ahead.",
               "file_attachment_urls": [
                 "https://sheetmusicanalysis.com/samples/kinkel-trennung-scan.pdf"
               ]
@@ -151,7 +160,7 @@
         "commerce": false
       },
       "publication": {
-        "release_notes": "A scanned PDF can be read a second, slower way: ChatGPT reads each page itself. It takes about 5 minutes a page and uses more of your plan's allowance, so it asks before starting.\nWhen you name no bars, the whole piece is analysed straight away.\nThe reply is written in plain sentences for someone playing the piece, and ends with one thing to listen for.\nChord symbols printed in a score stay on the page.\nThe drawn page keeps the bars of each line together, and its guide to the marks is shorter.\nThe PDF download is laid out for Letter paper."
+        "release_notes": "The card that shows what was read from your PDF has a button, Analyse this score, for when the analysis has not started by itself.\nA scanned PDF is analysed straight away. The slower, careful reading is offered afterwards; it takes about 5 minutes a page.\nA file with no notes in it is answered with a plain message instead of an empty analysis.\nAfter a reading and after a draft, the chat is told the next step, so fewer analyses stop halfway."
       }
     }
   }
