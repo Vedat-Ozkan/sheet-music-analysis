@@ -459,9 +459,18 @@ def test_a_score_with_no_notes_chosen_in_the_card_is_answered_plainly_by_every_t
     score_id = card_id(server)
     assert upload(server, WITHOUT_NOTES[kind], score_id)[0] == 200
     answers = {name: tool_answer(server, CLAUDE, name, score_id=score_id, **arguments) for name, arguments in {
-        "draft_analysis": {}, "render_analysis": {"annotations": {"annotations": []}}, "play": {},
-        "correct_bars": {"replacement_bars": "N1 div=1 ts=4/4 ks=0\nm1 len=4\n1.1: 4 C4\n"}}.items()}
+        "draft_analysis": {}, "render_analysis": {"annotations": {"annotations": []}}, "play": {}}.items()}
     assert {name for name, answer in answers.items() if refused_plainly(answer)} == set(answers), answers
+
+
+def test_a_reading_with_no_notes_can_still_be_read_carefully_and_corrected(tmp_path):
+    store_a_read_scan(tmp_path)
+    (tmp_path / "scores" / "QUICK1N").write_bytes(one_bar_score(WHOLE_BAR_REST))
+    with running_server(tmp_path, CAREFUL_READING="chatgpt") as (url, _):
+        steps = careful_call(url, CHATGPT, "careful_reading", score_id="QUICK1N")
+        corrected = careful_call(url, CHATGPT, "correct_bars", score_id="QUICK1N", replacement_bars="")
+    assert not steps.get("isError") and "kit/reader.md" in steps["content"][0]["text"]
+    assert not refused_plainly(corrected)
 
 
 @pytest.mark.parametrize("kind", list(WITHOUT_NOTES))

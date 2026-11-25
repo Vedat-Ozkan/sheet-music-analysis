@@ -2055,7 +2055,7 @@ async def correct_bars(
 ) -> CallToolResult:
     source = platform(ctx)
     try:
-        before, _ = await resolve_score(None, score_id, source)
+        before, _ = await fetch_given_score(None, score_id, source)
     except ScoreError as error:
         log("correct_bars", platform=source, **logged(error))
         return error_result(str(error))
@@ -2132,7 +2132,7 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
         return error_result(NOT_A_SCAN)
     pages = json.loads(scan)["pages"]
     try:
-        score, _ = await resolve_score(None, score_id, source)
+        score, _ = await fetch_given_score(None, score_id, source)
     except ScoreError as error:
         log("careful_reading", platform=source, **logged(error))
         return error_result(str(error))
