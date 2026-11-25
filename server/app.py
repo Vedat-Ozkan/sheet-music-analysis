@@ -1479,8 +1479,10 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
             "pdf_url": pdf_url, "more_pages": more_pages, "shaded_bars": uneven_named, "page_images": [base64.b64encode(png).decode() for png in pages]}
 
 
-CAREFUL_WARNING = ("Reading this scan carefully takes about 5 minutes a page and uses a lot of your plan's usage allowance. "
-                   "As a guide, a 10-page piece can use most of a five-hour allowance on a standard paid plan. "
+CAREFUL_COST = {"claude": " and uses a lot of your plan's usage allowance. As a guide, a 10-page piece can use most of a "
+                          "five-hour allowance on a standard paid plan.",
+                "other": "."}
+CAREFUL_WARNING = ("Reading this scan carefully takes about 5 minutes a page{cost} "
                    "To do it I download and run a small measuring script from Sheet Music Analysis in this chat. "
                    "This piece has {pages}. Shall I go ahead?")
 CAREFUL_OFFER = (
@@ -1539,8 +1541,8 @@ def page_count(pages: int) -> str:
     return "1 page" if pages == 1 else f"{pages} pages"
 
 
-def careful_warning(pages: int) -> str:
-    return CAREFUL_WARNING.format(pages=page_count(pages))
+def careful_warning(pages: int, source: str) -> str:
+    return CAREFUL_WARNING.format(cost=CAREFUL_COST["claude" if source == "claude" else "other"], pages=page_count(pages))
 
 
 def signatures_found(score: bytes) -> str:
@@ -1576,7 +1578,7 @@ def pdf_card_result(card: dict, tool: str, source: str) -> CallToolResult:
         " and continue exactly as for an attached MusicXML file, drawing it with render_analysis. "
         "Bars shaded in the reading stay shaded on the drawn page. "
         f"The card does not show this note, so in your reply with the analysis pass on this note about the reading, briefly: \"{card['notice']}\""
-        + (CAREFUL_OFFER.format(warning=careful_warning(card["pages"])) if card.get("scan") and source in CAREFUL_PLATFORMS else "")
+        + (CAREFUL_OFFER.format(warning=careful_warning(card["pages"], source)) if card.get("scan") and source in CAREFUL_PLATFORMS else "")
     )
     go_on = "Now call draft_analysis with this score_id."
     return CallToolResult(
@@ -2111,7 +2113,7 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
     hint = await in_turn(signatures_found, score)
     addresses = [f"{PUBLIC_BASE_URL}/kit", *([KIT_ELSEWHERE] if KIT_ELSEWHERE else [])]
     log("careful_reading", platform=source, pages=pages)
-    ask = ASK_BEFORE_THE_STEPS.format(warning=careful_warning(pages))
+    ask = ASK_BEFORE_THE_STEPS.format(warning=careful_warning(pages, source))
     return CallToolResult(content=[TextContent(type="text", text=ask + CAREFUL_STEPS.format(
         pages=page_count(pages), count=pages, score_id=clean_id(score_id), files=" ".join(KIT_FILES), hint=hint,
         download=" || ".join(f"curl -fsSL {address}/$f -o kit/$f" for address in addresses),

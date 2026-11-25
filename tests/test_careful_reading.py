@@ -45,12 +45,14 @@ def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_pa
     app.store.put("scores/QUICK1", QUICK_READING.read_bytes())
     offer = text_of(app.pdf_card_result({"score_id": "QUICK1", "pages": 3, "scan": True, "measures": "1 to 25", "bars": 25,
                                          "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf", "other"))
-    assert app.careful_warning(3) in offer
-    assert "uses a lot of your plan's usage allowance" in offer and "This piece has 3 pages. Shall I go ahead?" in offer
+    assert app.careful_warning(3, "other") in offer
+    assert "takes about 5 minutes a page. To do it" in offer and "This piece has 3 pages. Shall I go ahead?" in offer
+    assert "allowance" not in offer
+    assert "uses a lot of your plan's usage allowance. As a guide, a 10-page piece" in app.careful_warning(3, "claude")
     assert "download and run a small measuring script from Sheet Music Analysis" in offer
     assert "careful_reading" in offer
     assert "draft_analysis with this score_id now" in offer
-    assert offer.index("draft_analysis with this score_id now") < offer.index(app.careful_warning(3))
+    assert offer.index("draft_analysis with this score_id now") < offer.index(app.careful_warning(3, "other"))
     assert offer.endswith("\nNow call draft_analysis with this score_id.")
     assert "do not call draft_analysis yet" not in offer and "Ask before analysing" not in offer
     typeset = text_of(app.pdf_card_result({"score_id": "QUICK1", "pages": 3, "scan": False, "measures": "1 to 25", "bars": 25,
