@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 env:
   GROUP_READ: tests/test_read_pdf.py
@@ -21,9 +22,10 @@ jobs:
       - id: which
         env:
           BEFORE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          EVENT: ${{ github.event_name }}
         run: |
           heavy=true
-          if git fetch -q --depth=1 origin "$BEFORE" 2>/dev/null; then
+          if [ "$EVENT" != workflow_dispatch ] && git fetch -q --depth=1 origin "$BEFORE" 2>/dev/null; then
             files=$(git diff --name-only "$BEFORE" HEAD)
             if [ -n "$files" ]; then
               heavy=false

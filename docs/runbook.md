@@ -25,7 +25,7 @@ server/deploy.sh sheet-music-analysis            # production
 server/deploy.sh sheet-music-analysis staging    # staging
 ```
 
-- Production deploys only from a clean checkout of `origin/main` that CI has passed; the script refuses anything else. "Passed" means a successful `tests` run on any commit with the same files as the commit being deployed (`server/ci-passed.sh`), so the pull request's run counts when `main` holds exactly what it tested. Staging may run a branch.
+- Production deploys only from a clean checkout of `origin/main` that CI has passed; the script refuses anything else. "Passed" means a successful full run of the `tests` workflow (all four test groups ran; a text-only run does not count) on any commit with the same files as the commit being deployed (`server/ci-passed.sh`), so the pull request's run counts when `main` holds exactly what it tested. If `main` differs from the last fully tested files only in text, start the workflow by hand (GitHub, Actions, tests, Run workflow) on `main`; a manual run is always the full suite. Staging may run a branch.
 - Measure and quote any change that adds Cloud Run compute first. Never raise max instances or the daily limits without asking.
 - A change to `Dockerfile.base`, `pyproject.toml` or `uv.lock` rebuilds the base image first (a few minutes longer).
 - The careful reading of scans is offered only on the platforms the deploy names: `CAREFUL_READING=chatgpt`, `CAREFUL_READING=claude` or `CAREFUL_READING=chatgpt,claude` before `server/deploy.sh`. Every deploy sets it again, so a deploy without it switches the offer off everywhere.

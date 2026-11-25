@@ -28,7 +28,7 @@ else
     exit 1
   fi
   if ! server/ci-passed.sh HEAD > /dev/null; then
-    echo "CI has not passed for what is on $(git rev-parse --short HEAD) (no successful run on a commit with the same files); production waits for it" >&2
+    echo "production deploys only what the full suite passed: no full run of the tests succeeded on the files of $(git rev-parse --short HEAD). If main differs from the last fully tested files only in text, run the tests workflow in full on main (GitHub, Actions, tests, Run workflow) and deploy after it succeeds; deploy before merging text-only changes to avoid this" >&2
     exit 1
   fi
 fi
