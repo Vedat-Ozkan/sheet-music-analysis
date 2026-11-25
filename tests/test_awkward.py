@@ -1,3 +1,4 @@
+import gzip
 import io
 import re
 import xml.etree.ElementTree as ET
@@ -17,7 +18,7 @@ from engine.part_writing import applies, as_text, check
 from engine.performance import marked_index, perform
 from engine.overlay import PageLayout, S
 from engine.read_pdf import problem_spots
-from engine.render import Engraving, load_toolkit
+from engine.render import Engraving, ScoreError, load_toolkit, require_notes
 from engine.score import ScoreIndex
 
 DATA = Path(__file__).parent / "data"
@@ -426,3 +427,15 @@ def test_page_key_sits_below_every_mark_of_the_last_system(name):
         marks_bottom = ImageChops.difference(plain, Image.new("RGB", plain.size, "#ffffff")).getbbox()[3]
         key_box = ImageChops.difference(keyed, plain).getbbox()
         assert key_box and key_box[1] > marks_bottom, (name, key_box, marks_bottom)
+
+
+def test_every_score_in_the_test_data_has_notes():
+    refused = []
+    for path in sorted(DATA.rglob("*")):
+        if path.name.endswith((".musicxml", ".mxl", ".musicxml.gz", ".mxl.gz")):
+            data = path.read_bytes()
+            try:
+                require_notes(gzip.decompress(data) if path.suffix == ".gz" else data)
+            except ScoreError:
+                refused.append(path.relative_to(DATA).as_posix())
+    assert not refused

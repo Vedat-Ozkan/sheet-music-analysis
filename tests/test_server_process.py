@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import hashlib
+import io
 import json
 import os
 import re
@@ -10,6 +11,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import zipfile
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -411,3 +413,97 @@ def test_while_the_key_changes_the_previous_key_is_served_too(tmp_path):
     assert "draft_analysis" in {tool["name"] for tool in old["result"]["tools"]} & {tool["name"] for tool in new["result"]["tools"]}
     assert other.value.code == 403
 
+
+
+NO_NOTES = ("This file has no notes in it, only empty bars. Export it again from your music program, or send a PDF "
+            "of the score.")
+WHOLE_BAR_REST = '<note><rest measure="yes"/><duration>4</duration></note>'
+PITCHED = '<note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>'
+UNPITCHED = ('<note><unpitched><display-step>E</display-step><display-octave>4</display-octave></unpitched>'
+             '<duration>4</duration><type>whole</type></note>')
+
+
+def one_bar_score(*parts):
+    listed = "".join(f'<score-part id="P{n}"><part-name>Part {n}</part-name></score-part>' for n in range(1, len(parts) + 1))
+    attributes = ("<attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time>"
+                  "<clef><sign>G</sign><line>2</line></clef></attributes>")
+    written = "".join(f'<part id="P{n}">' + (f'<measure number="1">{attributes}{content}</measure>' if content else "") + "</part>"
+                      for n, content in enumerate(parts, start=1))
+    return (f'<?xml version="1.0" encoding="UTF-8"?><score-partwise version="4.0"><part-list>{listed}</part-list>'
+            f"{written}</score-partwise>").encode()
+
+
+def packed(score):
+    sink = io.BytesIO()
+    with zipfile.ZipFile(sink, "w") as archive:
+        archive.writestr("META-INF/container.xml", '<container><rootfiles><rootfile full-path="score.xml"/></rootfiles></container>')
+        archive.writestr("score.xml", score)
+    return sink.getvalue()
+
+
+WITHOUT_NOTES = {"a-whole-bar-rest": one_bar_score(WHOLE_BAR_REST), "two-silent-parts": one_bar_score(WHOLE_BAR_REST, ""),
+                 "no-bars": one_bar_score(""), "packed": packed(one_bar_score(WHOLE_BAR_REST)),
+                 "utf-16": one_bar_score(WHOLE_BAR_REST).decode().replace("UTF-8", "UTF-16").encode("utf-16")}
+
+
+def tool_answer(server, agent, name, **arguments):
+    return json.loads(as_client(server, agent, "tools/call", {"name": name, "arguments": arguments}))["result"]
+
+
+def refused_plainly(answer):
+    return answer.get("isError") and [part["text"] for part in answer["content"]] == [NO_NOTES]
+
+
+@pytest.mark.parametrize("kind", list(WITHOUT_NOTES))
+def test_a_score_with_no_notes_chosen_in_the_card_is_answered_plainly_by_every_tool_claude_gives_it_to(server, kind):
+    score_id = card_id(server)
+    assert upload(server, WITHOUT_NOTES[kind], score_id)[0] == 200
+    answers = {name: tool_answer(server, CLAUDE, name, score_id=score_id, **arguments) for name, arguments in {
+        "draft_analysis": {}, "render_analysis": {"annotations": {"annotations": []}}, "play": {},
+        "correct_bars": {"replacement_bars": "N1 div=1 ts=4/4 ks=0\nm1 len=4\n1.1: 4 C4\n"}}.items()}
+    assert {name for name, answer in answers.items() if refused_plainly(answer)} == set(answers), answers
+
+
+@pytest.mark.parametrize("kind", list(WITHOUT_NOTES))
+def test_a_stored_score_with_no_notes_is_answered_plainly_to_chatgpt(server, store, kind):
+    (store / "scores").mkdir(exist_ok=True)
+    (store / "scores" / "NONOTES").write_bytes(WITHOUT_NOTES[kind])
+    drafted = tool_answer(server, CHATGPT, "draft_analysis", score_id="NONOTES")
+    drawn = tool_answer(server, CHATGPT, "render_analysis", score_id="NONOTES", annotations={"annotations": []})
+    assert refused_plainly(drafted) and refused_plainly(drawn), (drafted, drawn)
+
+
+@pytest.mark.parametrize("score", [one_bar_score(PITCHED), one_bar_score(UNPITCHED), one_bar_score(WHOLE_BAR_REST, PITCHED)],
+                         ids=["pitched", "percussion", "one-silent-part-among-sounding-ones"])
+def test_a_score_with_any_note_is_drafted(server, score):
+    score_id = card_id(server)
+    upload(server, score, score_id)
+    drafted = tool_answer(server, CLAUDE, "draft_analysis", score_id=score_id)
+    assert not drafted.get("isError") and drafted["content"][0]["text"].startswith(f"score_id: {score_id}")
+
+
+@pytest.mark.parametrize("name, arguments", [
+    ("draft_analysis", {"score_file": {"download_url": "https://example.com/score.musicxml", "file_id": "file-1"}}),
+    ("fetch_score", {"url": "https://example.com/score.musicxml"})])
+def test_a_file_with_no_notes_that_is_attached_or_linked_is_a_user_error_with_the_sentence_as_its_reason(
+        monkeypatch, tmp_path, capsys, name, arguments):
+    async def download(url):
+        return WITHOUT_NOTES["a-whole-bar-rest"]
+
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    monkeypatch.setattr(app, "download", download)
+
+    async def go():
+        async with Client(app.mcp) as client:
+            answered = await client.call_tool(name, arguments)
+            if name == "fetch_score":
+                score_id = answered.content[0].text.split("score_id: ", 1)[1].split()[0]
+                answered = await client.call_tool("draft_analysis", {"score_id": score_id})
+            return answered
+
+    answered = asyncio.run(go())
+    line = [json.loads(line) for line in capsys.readouterr().out.splitlines() if '"tool": "draft_analysis"' in line][-1]
+    assert answered.is_error and [part.text for part in answered.content] == [NO_NOTES]
+    assert (line["outcome"], line["error"], line["reason"]) == ("user_error", "ScoreError", NO_NOTES)
+    if name == "draft_analysis":
+        assert not list(tmp_path.glob("scores/*")) and not list(tmp_path.glob("limits/*")) and not list(tmp_path.glob("usage/*"))

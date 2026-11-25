@@ -56,7 +56,7 @@ from engine.performance import marked_index, performance_text, unclear_tempos
 from engine.annotations import AnnotationList, view_named
 from engine.errors import UserError
 from engine.export import export_midi, export_musicxml, export_romantext
-from engine.render import ScoreError, engrave, load_toolkit, parse_measures, xml_text
+from engine.render import ScoreError, engrave, load_toolkit, parse_measures, require_notes, xml_text
 from engine.score import PositionError, ScoreIndex
 from server import IMPORTS_BEGUN, SERVER_FILES
 
@@ -608,6 +608,12 @@ NO_SCORE_GIVEN = {
 
 
 async def resolve_score(score_file: AttachedFile | None, score_id: str | None, source: str = "other") -> tuple[bytes, str]:
+    score, given = await fetch_given_score(score_file, score_id, source)
+    await anyio.to_thread.run_sync(require_notes, score)
+    return score, given
+
+
+async def fetch_given_score(score_file: AttachedFile | None, score_id: str | None, source: str = "other") -> tuple[bytes, str]:
     with stage("fetch"):
         if score_file:
             data = await download_attachment(score_file.download_url)
@@ -1459,7 +1465,7 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
                    "skipped": result.skipped, "of_pages": pages, "low_resolution": result.low_resolution}
         await anyio.to_thread.run_sync(store.put, f"scores/{reading['score_id']}", result.musicxml)
         await anyio.to_thread.run_sync(store.put, cache_key, json.dumps(reading).encode())
-    score, _ = await resolve_score(None, reading["score_id"])
+    score, _ = await fetch_given_score(None, reading["score_id"])
     score_id = reading["score_id"] + "N"
     score = await in_turn(pdf_reader.without_slurs, score)
     await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
