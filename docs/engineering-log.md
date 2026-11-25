@@ -4407,6 +4407,19 @@ PR #43 merged to `main` as `247754f` (entries 170, 173 and 182 to 202; with it #
 
 **Checks.** Full suite with the PDF reader on the branch (the two code commits plus this entry): 1,905 passed, 4 skipped (no ring codes), 2 expected failures, 0 failed (4 workers, 15.3 minutes).
 
+### 209. Tests on GitHub in four parallel jobs, a light path for text-only changes, and a deploy gate that needs one full run (2026-11-25, branch `faster-ci`, never run on GitHub yet)
+
+**Why.** On 24 November three small releases cost eight runs of the suite at 25 to 37 minutes each, about four hours, plus a dozen commands for the owner, who asked for the process to be far faster and for every release to be one command. Measured: set-up is 30 seconds, everything else is `pytest` on GitHub's 4-core machine (12 minutes on this PC with 4 workers). Tests of 2 seconds or more add up to 38 CPU-minutes here, 18 of them reading real PDFs (`tests/test_read_pdf.py` alone 13.7) and 6.7 the round trip of corrections on long pieces. Every release ran the suite twice on the same files, on the pull request and again on `main`, and a text-only release record ran it twice too.
+
+**What changed.**
+- `.github/workflows/test.yml`: a job `changes` lists the files changed (against the pull request's base, or the commit before on `main`) and decides. Any file outside `*.md`, `docs/` and `LICENSE*`, or under `site/ server/ engine/ kit/ skill/ plugin/ dist/ tests/ tools/ eval/ .github/`, or a list that cannot be made, means the full suite, which runs as four jobs: `read` (`test_read_pdf.py`), `corrections`, `mixed`, and `rest`, which is everything not named in the other three, so a new test file runs without an edit. A text-only change runs the two test files that read texts (24 tests). The last job is still named `test`, the one required check, and fails unless the path that was due succeeded and the other was skipped. A run started by hand is always the full suite.
+- `server/ci-passed.sh` and the production gate in `server/deploy.sh`: production deploys only what a full run passed. The gate looks at the runs of the commit itself and of the pull request GitHub ties to it, and accepts one whose commit has exactly the tree being deployed and whose four group jobs all succeeded. So the second run on `main` need not be waited for when the pull request's branch held all of `main`; a text-only run never counts; and a head of `main` that differs from the last fully tested files only in text is refused with a message saying what to do.
+- The groups together collect 1,911 tests, as the plain run does.
+
+**Review** (Sonnet built it; I read the first commit; Opus read the branch). Mine: a text-only run is a green run of the workflow, and the first gate took any green run with the same tree, so code that never passed the suite could have reached production over a broken `main`. Opus: `git diff --name-only` names only the new path of a renamed file, so a test moved into `docs/` would have passed as text (now `--no-renames`, shown in a scratch repository); the gate scanned the newest 30 successful runs of all branches and would have refused wrongly on a busy day (now the commit's own runs); a failure to reach GitHub was reported as "no full run" (now its own message). The builder caught one of its own: `exit 0` inside a piped loop left only the subshell.
+
+**NOT RUN.** Anything on GitHub: the workflow itself, the real times of the four jobs (my estimate is 4 to 6 minutes of tests for the slowest, from the local CPU-minutes), `github.event.before` and the base fetch on real events, the gate against a real new-style run (it was tried with a stand-in for `gh`: accept, refuse, GitHub unreachable). The first pull request with this workflow is its test.
+
 ## Reproducing
 
 ```bash
