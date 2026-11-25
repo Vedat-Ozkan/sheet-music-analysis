@@ -327,6 +327,12 @@ def test_the_draft_says_whether_the_whole_score_can_be_drawn_in_one_call(server,
     assert plan in text[:1000]
 
 
+def test_the_draft_ends_with_the_call_that_draws_the_page(server):
+    text = app.make_draft((DATA / "chopin_nocturne_op9_no2.mxl").read_bytes(), "ENDS1", None)
+    assert text.endswith("When your analysis is ready, call render_analysis with score_id ENDS1 to draw it; "
+                         "the analysis is not finished until the page is drawn.")
+
+
 def test_an_ordinary_score_gets_the_notes_table_and_no_mention_of_a_draft(server):
     score_id = score_id_of(call("read_pdf", ATTACHED))
     result = call("draft_analysis", {"score_id": score_id, "measure_range": "1-4"})

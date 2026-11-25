@@ -741,6 +741,8 @@ def make_draft(score: bytes, code: str, named: tuple[str, str] | None, student_a
             + "\n\n" + METHOD
             + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
             + reduce.as_text(index, first, last)
+            + f"\n\nWhen your analysis is ready, call render_analysis with score_id {code} to draw it; "
+            "the analysis is not finished until the page is drawn."
         )
 
 
@@ -1556,7 +1558,7 @@ def doubtful_reading(card: dict) -> str:
     shaded, bars = len(card.get("shaded_bars", [])), card.get("bars")
     if not bars or shaded < MOSTLY_DOUBTFUL * bars:
         return ""
-    return (f"Open your reply with this warning, before anything else: \"Much of this reading is doubtful: {shaded} of its "
+    return (f"Open your reply with the analysis with this warning, before anything else: \"Much of this reading is doubtful: {shaded} of its "
             f"{bars} bars are shaded because their beats don't add up, notes are missing, or notes that should line up "
             "don't. The analysis may be wrong in those bars.\"\n")
 
@@ -1576,10 +1578,11 @@ def pdf_card_result(card: dict, tool: str, source: str) -> CallToolResult:
         f"The card does not show this note, so in your reply with the analysis pass on this note about the reading, briefly: \"{card['notice']}\""
         + (CAREFUL_OFFER.format(warning=careful_warning(card["pages"])) if card.get("scan") and source in CAREFUL_PLATFORMS else "")
     )
+    go_on = "Now call draft_analysis with this score_id."
     return CallToolResult(
         content=[
             *(ImageContent(type="image", data=png, mime_type="image/png") for png in card["page_images"]),
-            TextContent(type="text", text=f"{text}\nPDF of the engraved score: {card['pdf_url']}"),
+            TextContent(type="text", text=f"{text}\nPDF of the engraved score: {card['pdf_url']}\n{go_on}"),
         ],
         structured_content={"image_url": card["image_url"], "pdf_url": card["pdf_url"],
                             "caption": f"What I read from your PDF, first {CARD_PAGES} pages" if more_pages else "What I read from your PDF, every bar",

@@ -51,10 +51,12 @@ def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_pa
     assert "careful_reading" in offer
     assert "draft_analysis with this score_id now" in offer
     assert offer.index("draft_analysis with this score_id now") < offer.index(app.careful_warning(3))
+    assert offer.endswith("\nNow call draft_analysis with this score_id.")
     assert "do not call draft_analysis yet" not in offer and "Ask before analysing" not in offer
     typeset = text_of(app.pdf_card_result({"score_id": "QUICK1", "pages": 3, "scan": False, "measures": "1 to 25", "bars": 25,
                                            "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf", "other"))
     assert "careful" not in typeset and "Go straight on" in typeset
+    assert typeset.endswith("\nNow call draft_analysis with this score_id.")
 
     refused = asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": "QUICK1"}))
     assert refused.is_error
