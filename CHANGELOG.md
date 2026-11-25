@@ -2,6 +2,10 @@
 
 What changed for users, newest first. Numbers in brackets are entries in `docs/engineering-log.md`; #n are pull requests.
 
+## Unreleased
+
+- Not merged yet (branch `share-chat`): the card's "Suggest something" box says how to show us a chat (share it, paste the link), and opens by itself after a thumbs-down or after a problem is sent to us [205].
+
 ## 2026-11-24: server 00069-8bl
 
 Claude plugin unchanged (1.10.3). ChatGPT app unchanged (1.5.0).
