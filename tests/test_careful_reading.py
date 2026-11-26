@@ -1,10 +1,8 @@
 import asyncio
 import copy
-import io
 import json
 import re
 import xml.etree.ElementTree as ET
-import zipfile
 from fractions import Fraction
 from pathlib import Path
 
@@ -12,7 +10,7 @@ import pytest
 
 from engine import correct, from_notes, notes
 from engine import read_pdf as pdf_reader
-from engine.render import load_toolkit
+from engine.render import load_toolkit, musicxml_text
 from engine.score import ScoreIndex
 from server import app
 from tests.test_chord_symbols import LEAD_SHEET, PRINTED, printed_symbols
@@ -195,11 +193,7 @@ def scores_in_test_data():
 
 @pytest.mark.parametrize("path", scores_in_test_data(), ids=lambda path: path.name)
 def test_the_accidental_rule_never_adds_or_changes_a_printed_sign(path):
-    data = path.read_bytes()
-    if data[:2] == b"PK":
-        with zipfile.ZipFile(io.BytesIO(data)) as archive:
-            data = archive.read(next(name for name in archive.namelist() if not name.startswith("META-INF") and name.endswith(("xml", "musicxml"))))
-    root = ET.fromstring(data)
+    root = ET.fromstring(musicxml_text(path.read_bytes()))
     for part in root.findall("part"):
         if part.find(".//transpose") is not None:
             continue
