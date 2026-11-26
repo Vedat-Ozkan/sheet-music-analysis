@@ -4641,6 +4641,16 @@ The old and new text are identical on 263 whole-piece and 4-bar-range cases (36 
 
 **Checks.** New tests fail before and pass after, through the tools (`draft_analysis`, `draft_from_notes`, `play`, `correct_bars`). `diff_check` typed, partwriting, export and render: no changes. NOT RUN: a real chat in either product, and a second model's review.
 
+**After review** (Sonnet, then me). Two faults were mine:
+- `score.transpose` could spell a transposed double flat or double sharp with three signs (a B-flat clarinet's F double-flat came out as E triple-flat), and the strict pitch rule then refused the index's own pitch. Now `transpose` moves to the next letter, which gives the same sound (D-flat). I indexed 71 test scores and took the MIDI number of all 53,792 notes; none was refused.
+- The shared opener refused an .mxl whose rootfile is marked `application/xml` or `text/xml`. It now prefers the MusicXML type and otherwise takes the first rootfile.
+
+Two decisions:
+- A bad ornament pitch now gets the same sentence as a bad note.
+- A reading of ours whose voice part lacks bar 1 hit the "cannot be mapped" check. When the parts' bar counts differ, that check now answers "cannot be corrected here" and names the counts.
+
+The speed tests now count work, so they cannot flake on a slow machine. A new test checks that the check of some bars equals the whole-piece check inside them.
+
 **Seen and left.** `replace_bars` still turns any `ValueError` raised while parsing the replacement into a user error. `kit/notetool.py` keeps its own copy of the pitch pattern (it runs in the chat's sandbox), and it matches. An unknown tempo word is still refused only at play.
 
 
