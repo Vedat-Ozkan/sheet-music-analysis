@@ -598,10 +598,14 @@ def test_an_ordinary_chatgpt_turn_is_told_how_to_start_the_careful_reading_and_t
     ordinary = answers["ordinary"]
     assert "kit/" not in ordinary and "curl" not in ordinary
     assert ('Note for the user: "I can\'t start the careful reading from this message. To start it, type '
-            '@Sheet Music Analysis, choose the app from the list, and say yes again. Setting ChatGPT\'s thinking to '
-            'Medium or higher works too."') in ordinary
+            '@Sheet Music Analysis, choose the app from the list, and say yes again."') in ordinary
+    assert "thinking" not in ordinary
     assert ordinary.endswith("score_id QUICK1N is ready for draft_analysis.")
     lines = logged_lines(tmp_path, "careful_reading")
     assert [(line.get("route"), line["answer"]) for line in lines] == [
         ("agent", "steps"), ("ordinary", "needs_the_agent"), ("unknown", "steps"), (None, "steps")]
     assert lines[0]["user"] == lines[1]["user"] and len(lines[0]["user"]) == 16
+    with running_server(tmp_path, CAREFUL_READING="chatgpt", CHATGPT_APP_NAME="sheet-music-staging") as (url, _):
+        call = {"name": "careful_reading", "arguments": {"score_id": "QUICK1N"}, "_meta": ORDINARY_TURN[1]}
+        on_staging = json.loads(as_client(url, ORDINARY_TURN[0], "tools/call", call))["result"]["content"][0]["text"]
+    assert "To start it, type @sheet-music-staging, choose the app from the list" in on_staging

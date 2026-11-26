@@ -1558,12 +1558,12 @@ ASK_BEFORE_THE_STEPS = (
 )
 NOT_A_SCAN = ("A careful reading is offered only for a scanned PDF that read_pdf or read_fetched_pdf has read, with the "
               "score_id it returned.")
-CHATGPT_APP_NAME = "Sheet Music Analysis"
+CHATGPT_APP_NAME = os.environ.get("CHATGPT_APP_NAME") or "Sheet Music Analysis"
 NEEDS_THE_AGENT = (
     "This ChatGPT turn cannot run the careful reading: it needs ChatGPT's agent, whose code sandbox reaches the "
     "internet and can start helper agents, and this turn's sandbox can do neither. No steps are given.\n"
     "Note for the user: \"I can't start the careful reading from this message. To start it, type @{app}, choose the "
-    "app from the list, and say yes again. Setting ChatGPT's thinking to Medium or higher works too.\"\n"
+    "app from the list, and say yes again.\"\n"
     "Meanwhile the quick reading stays: score_id {score_id} is ready for draft_analysis."
 )
 
