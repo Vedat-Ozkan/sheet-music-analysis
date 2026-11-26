@@ -41,6 +41,7 @@ DROP_TEXT = re.compile(r"\bdrop\s*([A-G][#b♯♭]?)\b", re.IGNORECASE)
 CAPO_TEXT = re.compile(r"\bcapo\s*(?:fret\s*)?(\d{1,2}|[IVX]{1,5})\b", re.IGNORECASE)
 ROMAN = {"I": 1, "V": 5, "X": 10}
 TABLATURE_UNDER_STAFF = False
+MUSIC_FONT_CODES = ("\ue000", "\uf8ff")
 
 
 @dataclass
@@ -69,7 +70,6 @@ class Glyph:
     y1: float
     size: float
     font: str
-    origin_x: float
     origin_y: float
 
     @property
@@ -78,7 +78,7 @@ class Glyph:
 
     @property
     def y(self) -> float:
-        return (self.y0 + self.y1) / 2
+        return self.origin_y if MUSIC_FONT_CODES[0] <= self.text <= MUSIC_FONT_CODES[1] else (self.y0 + self.y1) / 2
 
 
 @dataclass
@@ -273,7 +273,7 @@ def _page(layout) -> Page:
         for item in node:
             if isinstance(item, LTChar):
                 glyphs.append(Glyph(item.get_text(), item.x0, item.x1, item.y0, item.y1, item.size, item.fontname,
-                                    item.matrix[4], item.matrix[5]))
+                                    item.matrix[5]))
             elif isinstance(item, LTCurve):
                 if not _white(item):
                     shapes.append(_shape(item))
@@ -512,7 +512,7 @@ def _zone(page: Page, staff: Staff, every_staff: list[Staff]) -> Page:
     above = min((other.bottom for other in neighbours if other.bottom > staff.top), default=staff.top + 2 * reach)
     below = max((other.top for other in neighbours if other.top < staff.bottom), default=staff.bottom - 2 * reach)
     high, low = min(staff.top + reach, (staff.top + above) / 2), max(staff.bottom - reach, (staff.bottom + below) / 2)
-    return Page([glyph for glyph in page.glyphs if low <= glyph.origin_y <= high],
+    return Page([glyph for glyph in page.glyphs if low <= glyph.y <= high],
                 [shape for shape in page.shapes if low <= (shape.y0 + shape.y1) / 2 <= high], page.width, page.height)
 
 
@@ -593,7 +593,7 @@ def _beams_and_flags(page: Page, staff: Staff, stems: list[Stem]) -> None:
                 if abs((shape.y0 + shape.y1) / 2 - stem.outer) <= nearest + 0.25 * gap:
                     joined.setdefault(id(shape), []).append(index)
         smufl = [SMUFL_FLAGS[glyph.text] for glyph in page.glyphs if glyph.text in SMUFL_FLAGS
-                 and abs(glyph.origin_x - stem.x) < 0.5 * gap and abs(glyph.origin_y - stem.outer) < 0.5 * gap]
+                 and abs(glyph.x0 - stem.x) < 0.5 * gap and abs(glyph.y - stem.outer) < 0.5 * gap]
         drawn = [shape for shape in flag_shapes if abs(shape.x0 - stem.x) < 0.3 * gap and shape.y1 >= reach[0] and shape.y0 <= reach[1]]
         stem.flags = max(smufl, default=0) or len(_clusters(sorted(shape.y0 for shape in drawn), 0.25 * gap))
     for members in joined.values():
@@ -608,7 +608,7 @@ def _beams_and_flags(page: Page, staff: Staff, stems: list[Stem]) -> None:
 
 def _round_dots(page: Page, staff: Staff) -> list[tuple[float, float]]:
     gap = staff.gap
-    dots = [(glyph.origin_x, glyph.origin_y) for glyph in page.glyphs if glyph.text == SMUFL_DOT]
+    dots = [(glyph.x, glyph.y) for glyph in page.glyphs if glyph.text == SMUFL_DOT]
     dots += [((shape.x0 + shape.x1) / 2, (shape.y0 + shape.y1) / 2) for shape in page.shapes
              if shape.curved and 0.1 * gap <= shape.width <= 0.45 * gap and 0.6 <= shape.width / max(shape.height, 1e-6) <= 1.6]
     return [(x, y) for x, y in dots if staff.x0 - gap <= x <= staff.x1 + gap and staff.bottom - 8 * gap <= y <= staff.top + 8 * gap]
@@ -659,10 +659,10 @@ def _rests(page: Page, staff: Staff) -> list[tuple[float, float, Fraction, int]]
     found = []
     for glyph in page.glyphs:
         if (glyph.text in SMUFL_RESTS and staff.x0 <= glyph.x <= staff.x1
-                and staff.bottom - 4 * gap <= glyph.origin_y <= staff.top + 4 * gap):
+                and staff.bottom - 4 * gap <= glyph.y <= staff.top + 4 * gap):
             dots = sum(1 for x, y in _round_dots(page, staff)
-                       if 0 < x - glyph.origin_x < 2 * gap and abs(y - glyph.origin_y) < 1.5 * gap)
-            found.append((glyph.x, glyph.origin_y, SMUFL_RESTS[glyph.text] * (2 - Fraction(1, 2 ** dots)), dots))
+                       if 0 < x - glyph.x0 < 2 * gap and abs(y - glyph.y) < 1.5 * gap)
+            found.append((glyph.x, glyph.y, SMUFL_RESTS[glyph.text] * (2 - Fraction(1, 2 ** dots)), dots))
     return found
 
 
@@ -763,8 +763,8 @@ def _time_signature(page: Page, staff: Staff, left: float, right: float, fret_fo
     if not signs:
         return None
     middle = (staff.top + staff.bottom) / 2
-    upper = sorted((glyph for glyph in signs if _sign_middle(glyph, staff) > middle), key=lambda glyph: glyph.x0)
-    lower = sorted((glyph for glyph in signs if _sign_middle(glyph, staff) <= middle), key=lambda glyph: glyph.x0)
+    upper = sorted((glyph for glyph in signs if glyph.y > middle), key=lambda glyph: glyph.x0)
+    lower = sorted((glyph for glyph in signs if glyph.y <= middle), key=lambda glyph: glyph.x0)
     if not upper or not lower:
         return None
     beats = int("".join(SMUFL_TIME_DIGITS.get(glyph.text, glyph.text) for glyph in upper))
@@ -772,14 +772,10 @@ def _time_signature(page: Page, staff: Staff, left: float, right: float, fret_fo
     return (beats, unit) if beats and unit in (1, 2, 4, 8, 16, 32) else None
 
 
-def _sign_middle(glyph: Glyph, staff: Staff) -> float:
-    return glyph.origin_y if glyph.text in SMUFL_TIME_DIGITS else glyph.y
-
-
 def _repeat_marks(page: Page, staff: Staff, left: float, right: float, bar_xs: list[float]) -> tuple[bool, bool]:
     gap = staff.gap
-    marks = [glyph.origin_x for glyph in page.glyphs if glyph.text in SMUFL_REPEAT_DOTS and staff.x0 <= glyph.x <= staff.x1
-             and staff.bottom <= glyph.origin_y <= staff.top]
+    marks = [glyph.x for glyph in page.glyphs if glyph.text in SMUFL_REPEAT_DOTS and staff.x0 <= glyph.x <= staff.x1
+             and staff.bottom <= glyph.y <= staff.top]
     marks += [x for x, y in _round_dots(page, staff) if staff.bottom < y < staff.top and any(abs(x - bar) < 1.2 * gap for bar in bar_xs)]
     start = any(0 < x - left < 1.5 * gap for x in marks)
     end = any(0 < right - x < 1.5 * gap for x in marks)
