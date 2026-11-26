@@ -20,7 +20,7 @@ def reading_against_truth(name: str, folder: Path):
     pdf = folder / f"{name}.pdf"
     if not pdf.exists():
         pytest.skip(f"{pdf} is a user's file kept out of the repository")
-    truth_data, capo, bar_limit, spelled = truth_of(name)
+    truth_data, capo, bar_limit, spelled = truth_of(pdf)
     reading = read_tab(pdf.read_bytes())
     read = [note for note in notes(reading.musicxml)[0] if bar_limit is None or note.bar < bar_limit]
     return reading, compare(notes(truth_data, capo)[0], read, spelled and not capo)
@@ -52,7 +52,7 @@ def test_a_pdf_without_typed_tablature_is_refused(name):
 @pytest.mark.parametrize("name, bars, wrong_lengths", [("weird-tab-only-musescore", 58, 0), ("weiss-allemande-tab-only", 32, 1)])
 def test_users_tablature_reads_like_the_page(name, bars, wrong_lengths):
     reading, result = reading_against_truth(name, USERS)
-    assert len(result["found"]) == len(notes(truth_of(name)[0])[0])
+    assert len(result["found"]) == len(notes(truth_of(USERS / f"{name}.pdf")[0])[0])
     assert len(result["wrong length"]) <= wrong_lengths
     assert notes(reading.musicxml)[1] == bars
 

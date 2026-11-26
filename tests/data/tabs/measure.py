@@ -13,6 +13,9 @@ from engine.read_pdf import problem_spots
 from engine.read_tab import read_tab
 
 USERS = HERE.parent / "users"
+REVIEW = HERE / "review"
+FOLDERS = [HERE, REVIEW, REVIEW / "hand", USERS]
+SILENT_KINDS = ("wrong length", "wrong onset", "missed", "extra")
 STEPS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 
 
@@ -61,17 +64,45 @@ def notes(data: bytes, capo: int = 0) -> tuple[list[Note], int]:
     return found, count
 
 
-def truth_of(name: str) -> tuple[bytes, int, int | None, bool]:
-    source = HERE / f"{name}.musicxml"
+def truth_of(pdf: Path) -> tuple[bytes, int, int | None, bool] | None:
+    source = pdf.with_suffix(".musicxml")
     if source.exists():
         data = source.read_bytes()
         capo = int(ET.fromstring(data).findtext(".//staff-details/capo") or 0)
-        return data, capo, None, True
-    text = (USERS / f"{name}.truth.txt").read_text()
-    head, _, body = text.partition("\n")
+        return data, capo, None, pdf.parent == HERE
+    hand = pdf.with_suffix(".truth.txt")
+    if not hand.exists():
+        return None
+    head, _, body = hand.read_text().partition("\n")
     fields = dict(part.split("=", 1) for part in head.split())
-    piece = Piece(name, fields["tuning"].split(","), fields["meter"], bars(body), pickup=fields.get("pickup") == "yes")
+    piece = Piece(pdf.stem, fields["tuning"].split(","), fields["meter"], bars(body), pickup=fields.get("pickup") == "yes")
     return musicxml(piece), int(fields.get("capo", 0)), len(piece.bars), False
+
+
+def meters(data: bytes) -> list[str]:
+    found, current = [], None
+    for measure in ET.fromstring(data).find("part").findall("measure"):
+        time = measure.find("attributes/time")
+        if time is not None:
+            current = f"{time.findtext('beats')}/{time.findtext('beat-type')}"
+        found.append(current)
+    return found
+
+
+def tuning(data: bytes) -> list[int]:
+    lines = ET.fromstring(data).find("part").findall(".//staff-details/staff-tuning")
+    return [12 * (int(line.findtext("tuning-octave")) + 1) + STEPS[line.findtext("tuning-step")] + int(line.findtext("tuning-alter") or 0)
+            for line in sorted(lines, key=lambda line: -int(line.get("line")))]
+
+
+def midi_of(name: str) -> int:
+    return 12 * (int(name[-1]) + 1) + STEPS[name[0]] + {"#": 1, "b": -1, "♯": 1, "♭": -1}.get(name[1:-1], 0)
+
+
+def silent_bars(result: dict, wrong_meters: list[int], numbers: list[str], marked: set[int]) -> list[int]:
+    wrong = {pair[0].bar if pair[0] else pair[1].bar for kind in SILENT_KINDS for pair in result[kind]} | set(wrong_meters)
+    return sorted(position + 1 for position in wrong
+                  if position >= len(numbers) or int(numbers[position]) not in marked)
 
 
 def compare(truth: list[Note], read: list[Note], spelling: bool) -> dict[str, list]:
@@ -112,40 +143,76 @@ def describe(note: Note | None) -> str:
             f"{note.spelled}{'~' if note.tie_stop else ''}")
 
 
-def measure(pdf: Path) -> None:
+def measure(pdf: Path, details: bool) -> dict:
     name = pdf.stem
-    truth_data, capo, bar_limit, spelled = truth_of(name)
+    known = truth_of(pdf)
     started = time.perf_counter()
-    reading = read_tab(pdf.read_bytes())
+    try:
+        reading = read_tab(pdf.read_bytes())
+    except Exception as error:
+        return {"file": name, "outcome": f"CRASH {type(error).__name__}: {error}"}
     seconds = time.perf_counter() - started
     if reading is None:
-        print(f"{name}: NO TABLATURE READ ({seconds:.1f} s)")
-        return
-    truth, truth_bars = notes(truth_data, capo)
+        return {"file": name, "outcome": "refused"}
     read, read_bars = notes(reading.musicxml)
+    row = {"file": name, "outcome": "read", "notes read": len(read), "bars read": read_bars, "doubtful": reading.doubtful,
+           "tuning": " ".join(reading.tuning) + (" printed" if reading.tuning_printed else " assumed"),
+           "meter printed": reading.meter_printed, "seconds": round(seconds, 2)}
+    if known is None:
+        return row
+    truth_data, capo, bar_limit, spelled = known
+    truth, truth_bars = notes(truth_data, capo)
     if bar_limit:
         read = [note for note in read if note.bar < bar_limit]
     result = compare(truth, read, spelled and not capo)
-    shaded = problem_spots(reading.musicxml)[0]
-    counts = ", ".join(f"{kind} {len(pairs)}" for kind, pairs in result.items() if kind != "found")
-    print(f"{name}: {len(truth)} notes, found {len(result['found'])}; {counts}; bars truth {truth_bars if not bar_limit else bar_limit} "
-          f"read {read_bars}; doubtful {reading.doubtful}; shaded {shaded}; tuning {' '.join(reading.tuning)} "
-          f"({'printed' if reading.tuning_printed else 'assumed'}), capo {reading.capo}; "
-          f"{reading.pages} pages, {seconds:.2f} s, {seconds / reading.pages:.2f} s per page")
-    for kind, pairs in result.items():
-        if kind == "found":
-            continue
-        for expected, got in pairs:
-            print(f"   {kind}: truth {describe(expected)} | read {describe(got)}")
+    marked = set(problem_spots(reading.musicxml)[0]) | set(reading.doubtful)
+    numbers = [measure.get("number") for measure in ET.fromstring(reading.musicxml).find("part").findall("measure")]
+    wanted, got = meters(truth_data), meters(reading.musicxml)
+    wrong_meters = [] if bar_limit else [position for position in range(len(wanted))
+                                         if position >= len(got) or wanted[position] != got[position]]
+    truth_tuning = tuning(truth_data)
+    row.update({"notes": len(truth), "found": len(result["found"]),
+                **{kind: len(pairs) for kind, pairs in result.items() if kind != "found"},
+                "bars": truth_bars if not bar_limit else bar_limit, "wrong meter bars": len(wrong_meters),
+                "tuning right": [midi_of(name) for name in reading.tuning] == truth_tuning if truth_tuning else None,
+                "marked": sorted(marked), "silent wrong bars": silent_bars(result, wrong_meters, numbers, marked)})
+    if details:
+        for kind, pairs in result.items():
+            if kind != "found":
+                for expected, got_note in pairs:
+                    print(f"   {name} {kind}: truth {describe(expected)} | read {describe(got_note)}")
+        if wrong_meters:
+            print(f"   {name} meters (bar, truth, read): {[(p + 1, wanted[p], got[p] if p < len(got) else None) for p in wrong_meters]}")
+    return row
 
 
-def main(names: list[str]) -> None:
-    pdfs = sorted(HERE.glob("*.pdf")) + sorted(USERS.glob("*.pdf"))
-    for pdf in pdfs:
-        has_truth = (HERE / f"{pdf.stem}.musicxml").exists() or (USERS / f"{pdf.stem}.truth.txt").exists()
-        if (names and pdf.stem not in names) or not has_truth:
-            continue
-        measure(pdf)
+COLUMNS = [("file", "file"), ("outcome", "outcome"), ("notes", "notes"), ("found", "found"), ("wrong length", "len"),
+           ("wrong onset", "onset"), ("wrong pitch", "pitch"), ("wrong string or fret", "fret"), ("missed", "missed"),
+           ("extra", "extra"), ("bars", "bars"), ("bars read", "read"), ("wrong meter bars", "meter"),
+           ("tuning right", "tuning ok"), ("tuning", "tuning"), ("notes read", "notes read"), ("doubtful", "doubtful"),
+           ("meter printed", "meter printed"), ("marked", "shaded or doubtful"),
+           ("silent wrong bars", "wrong in silence")]
+
+
+def table(rows: list[dict]) -> str:
+    def cell(row, key):
+        value = row.get(key, "")
+        if isinstance(value, list):
+            return "-" if not value else " ".join(map(str, value)) if len(value) < 9 else f"{len(value)} bars"
+        return "" if value is None else str(value)
+    lines = ["| " + " | ".join(title for _, title in COLUMNS) + " |", "|" + "---|" * len(COLUMNS)]
+    lines += ["| " + " | ".join(cell(row, key) for key, _ in COLUMNS) + " |" for row in rows]
+    silent = sum(len(row.get("silent wrong bars", [])) for row in rows)
+    wrong_files = [row["file"] for row in rows if row.get("silent wrong bars")]
+    return "\n".join(lines) + f"\n\nBars wrong in silence: {silent}, in {len(wrong_files)} files"
+
+
+def main(arguments: list[str]) -> None:
+    details = "--details" in arguments
+    names = [argument for argument in arguments if not argument.startswith("--")]
+    pdfs = [pdf for folder in FOLDERS for pdf in sorted(folder.glob("*.pdf"))]
+    rows = [measure(pdf, details) for pdf in pdfs if not names or any(pdf.stem.startswith(name) for name in names)]
+    print(table(rows))
 
 
 if __name__ == "__main__":
