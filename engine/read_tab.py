@@ -14,6 +14,8 @@ from pdfminer.layout import LTChar, LTCurve, LTLine, LTRect
 from pdfminer.pdfinterp import PDFPageInterpreter, PDFResourceManager
 from pdfminer.pdfpage import PDFPage
 
+from engine import correct
+
 STANDARD_TUNINGS = {4: ["G2", "D2", "A1", "E1"], 6: ["E4", "B3", "G3", "D3", "A2", "E2"],
                     7: ["E4", "B3", "G3", "D3", "A2", "E2", "B1"]}
 STAFF_LINES = {4, 5, 6, 7}
@@ -846,6 +848,7 @@ def _musicxml(bars: list[list[Item]], meters, meter, numbers: list[int], pickup:
                 written += item.length
         if repeat and repeat[1]:
             ET.SubElement(ET.SubElement(measure, "barline", location="right"), "repeat", direction="backward")
+        correct._write_accidentals(measure, fifths)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 

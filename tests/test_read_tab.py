@@ -1,11 +1,16 @@
+import copy
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
 
+from engine import correct
 from engine.read_tab import read_tab
+from engine.render import load_toolkit
 from tests.data.tabs.measure import USERS, compare, notes, truth_of
 
 DATA = Path(__file__).parent / "data"
+MEI = "{http://www.music-encoding.org/ns/mei}"
 GENERATED = sorted(path.stem for path in (DATA / "tabs").glob("*.musicxml"))
 
 
@@ -55,3 +60,26 @@ def test_tablature_without_rhythm_marks_its_bars_as_doubtful():
     if not pdf.exists():
         pytest.skip(f"{pdf} is a user's file kept out of the repository")
     assert 1 in read_tab(pdf.read_bytes()).doubtful
+
+
+@pytest.mark.parametrize("pdf", [*sorted((DATA / "tabs").glob("*.pdf")), *(USERS / f"{name}.pdf" for name in
+                                 ("weird-tab-only-musescore", "weiss-allemande-tab-only", "bond-theme-guitar-tab"))],
+                         ids=lambda path: path.stem)
+def test_every_sign_the_accidental_rule_wants_is_drawn(pdf):
+    if not pdf.exists():
+        pytest.skip(f"{pdf} is a user's file kept out of the repository")
+    score = read_tab(pdf.read_bytes()).musicxml
+    root = ET.fromstring(score)
+    fifths = int(root.findtext(".//key/fifths"))
+    wanted = {}
+    for bar in root.iter("measure"):
+        bare = copy.deepcopy(bar)
+        for note in bare.iter("note"):
+            for sign in note.findall("accidental"):
+                note.remove(sign)
+        correct._write_accidentals(bare, fifths)
+        wanted[bar.get("number")] = len(bare.findall(".//accidental"))
+    mei = ET.fromstring(load_toolkit(score).getMEI())
+    drawn = {bar.get("n"): sum(1 for accid in bar.iter(f"{MEI}accid") if accid.get("accid"))
+             for bar in mei.iter(f"{MEI}measure")}
+    assert {number: count for number, count in wanted.items() if count != drawn.get(number, 0)} == {}
