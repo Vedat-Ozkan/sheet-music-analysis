@@ -50,6 +50,7 @@ def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_pa
     reading = text_of(app.pdf_card_result({"score_id": "QUICK1", "pages": 3, "scan": True, "measures": "1 to 25", "bars": 25,
                                            "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf", "other"))
     assert "this reading is a quick one that makes many mistakes on scans." in reading
+    assert reading.index("quick one") < reading.index("Note for the user about the reading")
     assert "Offer for the user" not in reading and "Shall I go ahead?" not in reading
     assert "it needs no check by the user first" in reading
     assert reading.endswith("\nscore_id QUICK1 is ready for draft_analysis.")

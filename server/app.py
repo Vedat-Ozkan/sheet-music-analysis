@@ -1513,7 +1513,7 @@ CAREFUL_COST = {"claude": ". I'd start one helper per page, each on Sonnet at me
 CAREFUL_WARNING = ("Reading this scan carefully takes about 5 minutes a page{cost} "
                    "To do it I download and run a small measuring script from Sheet Music Analysis in this chat. "
                    "This piece has {pages}. Shall I go ahead?")
-QUICK_READING_OF_A_SCAN = "\nThis PDF is a scan, and this reading is a quick one that makes many mistakes on scans."
+QUICK_READING_OF_A_SCAN = "This PDF is a scan, and this reading is a quick one that makes many mistakes on scans.\n"
 CAREFUL_OFFER = (
     "A careful reading of this scan in this chat is possible instead of the quick one.\n"
     "Offer for the user, at the end of the reply with this analysis: \"The analysis rests on a quick reading of your "
@@ -1624,9 +1624,9 @@ def pdf_card_result(card: dict, tool: str, source: str) -> CallToolResult:
         f"The score has measures {card['measures']}.\n"
         "The reading is analysed and drawn as an attached MusicXML file is; it needs no check by the user first. "
         "Bars shaded in the reading stay shaded on the drawn page.\n"
-        f"{doubtful_reading(card)}"
-        f"Note for the user about the reading (the card does not show it): \"{card['notice']}\""
         + (QUICK_READING_OF_A_SCAN if card.get("scan") and source in CAREFUL_PLATFORMS else "")
+        + f"{doubtful_reading(card)}"
+        f"Note for the user about the reading (the card does not show it): \"{card['notice']}\""
     )
     go_on = f"score_id {card['score_id']} is ready for draft_analysis."
     return CallToolResult(
