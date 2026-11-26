@@ -230,7 +230,7 @@ def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_
             assert "Shall I go ahead?" not in again, agent
             if agent in offered_to:
                 assert "Shall I go ahead?" in first and "careful_reading" in first, agent
-                assert first.index("is a scan, and its reading was a quick one") < first.index("Offer for the user"), agent
+                assert first.index("shown in a card") < first.index("is a scan, and its reading was a quick one") < first.index("Offer for the user"), agent
                 assert ("usage allowance" in first) == (agent == CLAUDE), agent
                 assert first.index("Offer for the user, at the end of the reply with this analysis:") < first.index("Shall I go ahead?"), agent
             else:
@@ -624,7 +624,7 @@ def test_an_ordinary_chatgpt_turn_is_told_how_to_start_the_careful_reading_and_t
     assert ('Note for the user: "I can\'t start the careful reading from this message. To start it, type '
             '@Sheet Music Analysis, choose the app from the list, and say yes again."') in ordinary
     assert "thinking" not in ordinary
-    assert ordinary.endswith("score_id QUICK1N is ready for draft_analysis.")
+    assert "QUICK1N" not in ordinary
     lines = logged_lines(tmp_path, "careful_reading")
     assert [(line.get("route"), line["answer"]) for line in lines] == [
         ("agent", "steps"), ("ordinary", "needs_the_agent"), ("unknown", "steps"), (None, "steps")]

@@ -747,12 +747,16 @@ GUIDE_RULES = (
     "reader's, not as an answer key, following that section's guidance. This is for learning. Note for the user, if "
     "they say it is coursework: their course's rules on AI help apply.\n"
 )
+DRAFT_IS_MATERIAL = (
+    "Material for the harmonic analysis of this score: its notes beat by beat (the NOTES table) and the method. The "
+    "server works out no Roman numerals itself; the analysis is written from this material.\n"
+)
 NOTES_GUIDE = (
     "HOW THE NOTES ARE USED\n"
-    "The analysis is made from the NOTES table below by the method below. Where the user asked for their own "
-    "numerals to be checked and there is no STUDENT CHECK section, they are compared with the NOTES table. "
-    "render_analysis draws the analysis from the score_id and an annotation list (its `view` argument draws one layer: "
-    "harmony, voice_leading or form), and the commentary goes with the drawn page.\n" + GUIDE_RULES
+    "Where the user asked for their own numerals to be checked and there is no STUDENT CHECK section, they are "
+    "compared with the NOTES table. render_analysis draws the analysis from the score_id and an annotation list (its "
+    "`view` argument draws one layer: harmony, voice_leading or form), and the commentary goes with the drawn page.\n"
+    + GUIDE_RULES
 )
 METHOD = "## Method" + SKILL_RULES
 
@@ -772,7 +776,8 @@ def make_draft(score: bytes, code: str, named: tuple[str, str] | None, student_a
                 check_analysis.student_labels(student_analysis, score, index), index) if student_analysis else ""),
         ]
         return (
-            f"score_id: {code}\nThe score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n"
+            f"score_id: {code}\n" + DRAFT_IS_MATERIAL
+            + f"The score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n"
             + ANNOTATION_FORMAT + drawing_plan(mei, index) + "\n"
             + NOTES_GUIDE
             + "".join("\n" + text + "\n" for text in (optional(name, make) for name, make in sections) if text)
@@ -976,9 +981,10 @@ async def render_analysis(
         meta={"ask_for_rating": True} if await rating_is_due(ctx) else None,
         content=[
             ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png"),
-            TextContent(type="text", text="".join(f"{note}\n\n" for note in left_out) + offer
+            TextContent(type="text", text="".join(f"{note}\n\n" for note in left_out)
                         + f"{caption}, shown in a card. PDF: {pdf_url}\nPNG: {links['image_url']}{more_pages}\n"
-                        + (export_warning or musicxml_text(links["musicxml_url"], annotations)) + downloads_text(links)),
+                        + (export_warning or musicxml_text(links["musicxml_url"], annotations)) + downloads_text(links)
+                        + (f"\n\n{offer}" if offer else "")),
         ],
         structured_content=structured_content,
     )
@@ -1581,7 +1587,7 @@ NEEDS_THE_AGENT = (
     "internet and can start helper agents, and this turn's sandbox can do neither. No steps are given.\n"
     "Note for the user: \"I can't start the careful reading from this message. To start it, type @{app}, choose the "
     "app from the list, and say yes again.\"\n"
-    "Meanwhile the quick reading stays: score_id {score_id} is ready for draft_analysis."
+    "Meanwhile the quick reading stays as it is."
 )
 
 
@@ -1600,7 +1606,7 @@ async def careful_offer(score_id: str, source: str) -> str:
     if scan.get("offered"):
         return ""
     await anyio.to_thread.run_sync(store.put, reading, json.dumps({**scan, "offered": True}).encode())
-    return QUICK_READING_OF_A_SCAN + CAREFUL_OFFER.format(warning=careful_warning(scan["pages"], source)) + CAREFUL_MEANS + "\n\n"
+    return QUICK_READING_OF_A_SCAN + CAREFUL_OFFER.format(warning=careful_warning(scan["pages"], source)) + CAREFUL_MEANS
 
 
 def page_count(pages: int) -> str:
@@ -2191,8 +2197,7 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
         return error_result(str(error))
     if chatgpt_route(*request_parts(ctx)) == "ordinary":
         log("careful_reading", platform=source, pages=pages, answer="needs_the_agent")
-        return CallToolResult(content=[TextContent(type="text", text=NEEDS_THE_AGENT.format(
-            app=CHATGPT_APP_NAME, score_id=clean_id(score_id)))])
+        return CallToolResult(content=[TextContent(type="text", text=NEEDS_THE_AGENT.format(app=CHATGPT_APP_NAME))])
     hint = await in_turn(signatures_found, score)
     addresses = [f"{PUBLIC_BASE_URL}/kit", *([KIT_ELSEWHERE] if KIT_ELSEWHERE else [])]
     log("careful_reading", platform=source, pages=pages, answer="steps")
