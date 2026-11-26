@@ -73,7 +73,11 @@ def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_pa
     assert "time signature 2/2" in steps and "1 sharps" in steps
 
     result = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": PAGES}))
-    assert not result.is_error
+    assert not result.is_error and "It holds only" not in text_of(result)
+    first_page_only = text_of(asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": PAGES[:1]})))
+    assert "It holds only 1 page of the scan's 3 pages, so the rest of the piece is not in it;" in first_page_only
+    assert ('Note for the user, if the other pages cannot be read: "This careful reading covers only 1 page of your '
+            "scan's 3 pages") in first_page_only
     code = text_of(result).split("score_id: ")[1].split()[0]
     score = app.store.get(f"scores/{code}")
     index = ScoreIndex(load_toolkit(score).getMEI())
@@ -384,4 +388,3 @@ def test_a_correction_of_a_carefully_read_bar_keeps_its_chord_symbols():
     assert after != before and chord_symbols_of(after) == chord_symbols_of(before)
     with pytest.raises(correct.CorrectionError, match="Bar 13: leave out the c: line"):
         correct.replace_bars(before, handed_out.replace("1.1:", "c: C@0\n1.1:"))
-

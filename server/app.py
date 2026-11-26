@@ -2165,6 +2165,14 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
         helpers=for_product(HELPER_SETTINGS, source)))])
 
 
+PART_OF_THE_SCAN = (
+    " It holds only {given} of the scan's {scan}, so the rest of the piece is not in it; handing in every page, in "
+    "order, gives the whole piece.\n"
+    "Note for the user, if the other pages cannot be read: \"This careful reading covers only {given} of your "
+    "scan's {scan}, so the rest of the piece is not in it.\""
+)
+
+
 @mcp.tool(
     title="Use a careful reading",
     description=(
@@ -2181,8 +2189,9 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
     if scan is None:
         log("use_careful_reading", platform=source, error="ScoreError", reason=NOT_A_SCAN)
         return error_result(NOT_A_SCAN)
-    if len(pages) > json.loads(scan)["pages"]:
-        too_many = f"This scan has {page_count(json.loads(scan)['pages'])}; hand in one note list for each page, not {len(pages)}."
+    scan_pages = json.loads(scan)["pages"]
+    if len(pages) > scan_pages:
+        too_many = f"This scan has {page_count(scan_pages)}; hand in one note list for each page, not {len(pages)}."
         log("use_careful_reading", platform=source, error="ScoreError", reason=too_many, pages=len(pages), outcome="user_error")
         return error_result(too_many)
     if not await take("draft", source):
@@ -2197,10 +2206,12 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
         return error_result("A page does not fit; a corrected hand-in takes every page again: " + str(error))
     code = secrets.token_hex(8).upper()
     await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)
-    log("use_careful_reading", platform=source, pages=len(pages), bars=len(bars), chars_in=sum(map(len, pages)))
+    log("use_careful_reading", platform=source, pages=len(pages), scan_pages=scan_pages, bars=len(bars),
+        chars_in=sum(map(len, pages)))
+    part_only = PART_OF_THE_SCAN.format(given=page_count(len(pages)), scan=page_count(scan_pages)) if len(pages) < scan_pages else ""
     return CallToolResult(content=[TextContent(type="text", text=(
-        f"score_id: {code}\nThe careful reading is stored: measures {bars[0]} to {bars[-1]}. It is analysed and "
-        "drawn as an attached MusicXML file is.\n"
+        f"score_id: {code}\nThe careful reading is stored: measures {bars[0]} to {bars[-1]}.{part_only}\nIt is "
+        "analysed and drawn as an attached MusicXML file is.\n"
         "Note for the user: \"The page shows my careful reading of your scan. It can still contain mistakes, so check "
         "it against your copy.\"\n"
         f"score_id {code} is ready for draft_analysis."))])
