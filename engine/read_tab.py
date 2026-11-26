@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import io
 import math
 import re
@@ -13,6 +14,8 @@ from pdfminer.converter import PDFPageAggregator
 from pdfminer.layout import LTChar, LTCurve, LTLine, LTRect
 from pdfminer.pdfinterp import PDFPageInterpreter, PDFResourceManager
 from pdfminer.pdfpage import PDFPage
+from pdfminer.pdftypes import PDFException
+from pdfminer.psexceptions import PSException
 
 from engine import correct
 
@@ -37,6 +40,7 @@ TUNING_TEXT = re.compile(r"tuning\s*:?\s*((?:[A-G][#b♯♭]?\s*){4,7})", re.IGN
 DROP_TEXT = re.compile(r"\bdrop\s*([A-G][#b♯♭]?)\b", re.IGNORECASE)
 CAPO_TEXT = re.compile(r"\bcapo\s*(?:fret\s*)?(\d{1,2}|[IVX]{1,5})\b", re.IGNORECASE)
 ROMAN = {"I": 1, "V": 5, "X": 10}
+TABLATURE_UNDER_STAFF = False
 
 
 @dataclass
@@ -47,7 +51,13 @@ class TabReading:
     tuning_printed: bool
     capo: int
     meter_printed: bool
-    doubtful: list[int] = field(default_factory=list)
+    doubtful: list[int]
+    notes: int
+    beside_staff: bool
+
+    def facts(self) -> dict:
+        return {"tuning": self.tuning, "tuning_printed": self.tuning_printed, "capo": self.capo, "doubtful": self.doubtful,
+                "notes": self.notes}
 
 
 @dataclass
@@ -154,7 +164,10 @@ class Page:
 
 
 def read_tab(data: bytes) -> TabReading | None:
-    pages = _pages(data)
+    try:
+        pages = _pages(data)
+    except (PDFException, PSException):
+        return None
     every_staff = [staff for number, page in enumerate(pages) for staff in _staves(page, number)]
     tops = {number: [staff.top for staff in every_staff if staff.page == number] for number in range(len(pages))}
     staves = [staff for staff in every_staff if len(staff.lines) in STANDARD_TUNINGS]
@@ -183,8 +196,63 @@ def read_tab(data: bytes) -> TabReading | None:
     pickup = bool(bars[0]) and first_full < _bar_length(_meter_at(meters, 0, meter))
     numbers = [position if pickup else position + 1 for position in range(len(bars))]
     musicxml = _musicxml(bars, meters, meter, numbers, pickup, repeats, open_strings, len(tuning))
-    return TabReading(musicxml, len(pages), tuning, printed, capo, meter_printed,
-                      [numbers[position] for position in doubtful_positions])
+    return TabReading(laid_out(musicxml, tuning), len(pages), tuning, printed, capo, meter_printed,
+                      [numbers[position] for position in doubtful_positions],
+                      sum(len(item.frets) for bar in bars for item in bar),
+                      any(len(staff.lines) == 5 for staff in every_staff))
+
+
+def laid_out(score: bytes, tuning: list[str]) -> bytes:
+    return with_tablature_staff(score, tuning) if TABLATURE_UNDER_STAFF else score
+
+
+def with_tablature_staff(score: bytes, tuning: list[str]) -> bytes:
+    root = ET.fromstring(score)
+    for measure in root.iter("measure"):
+        attributes = measure.find("attributes")
+        if attributes is not None and attributes.find("divisions") is not None:
+            attributes.find("clef").set("number", "1")
+            attributes.insert(list(attributes).index(attributes.find("clef")), ET.Element("staves"))
+            attributes.find("staves").text = "2"
+            clef = ET.SubElement(attributes, "clef", number="2")
+            ET.SubElement(clef, "sign").text, ET.SubElement(clef, "line").text = "TAB", "5"
+            details = ET.SubElement(attributes, "staff-details", number="2")
+            ET.SubElement(details, "staff-lines").text = str(len(tuning))
+            for line, name in enumerate(reversed(tuning), 1):
+                string = ET.SubElement(details, "staff-tuning", line=str(line))
+                ET.SubElement(string, "tuning-step").text = name[0]
+                if name[1:-1]:
+                    ET.SubElement(string, "tuning-alter").text = "1" if name[1] == "#" else "-1"
+                ET.SubElement(string, "tuning-octave").text = name[-1]
+        timed = [element for element in measure if element.tag in ("note", "backup", "forward")]
+        cursor = 0
+        for element in timed:
+            if element.tag == "note":
+                ET.SubElement(element, "staff").text = "1"
+            if element.tag == "backup":
+                cursor -= int(element.findtext("duration"))
+            elif element.find("chord") is None:
+                cursor += int(element.findtext("duration"))
+        ET.SubElement(ET.SubElement(measure, "backup"), "duration").text = str(cursor)
+        for element in timed:
+            copied = copy.deepcopy(element)
+            if copied.find("voice") is not None:
+                copied.find("voice").text = str(int(copied.findtext("voice")) + 4)
+            if copied.tag == "note":
+                copied.find("staff").text = "2"
+                for sign in copied.findall("accidental"):
+                    copied.remove(sign)
+            measure.append(copied)
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def notice(facts: dict) -> str:
+    names = " ".join(name[:-1] for name in reversed(facts["tuning"]))
+    text = (f"The notes were read from the fret numbers of the tablature, with the tuning printed on it ({names})."
+            if facts["tuning_printed"] else
+            f"The notes were read from the fret numbers of the tablature, in standard "
+            f"{'bass' if len(facts['tuning']) == 4 else 'guitar'} tuning ({names}) because no tuning is printed on it.")
+    return text + (f" The capo on fret {facts['capo']} is counted in." if facts["capo"] else "")
 
 
 def _pages(data: bytes) -> list[Page]:

@@ -50,6 +50,7 @@ from starlette.responses import JSONResponse, Response
 from engine import correct, draft, from_notes, read_ahead, verovio_workers
 from engine import notes as note_list
 from engine import read_pdf as pdf_reader
+from engine import read_tab
 from engine import check_analysis, ledger, part_writing, reduce
 from engine.annotate import AnnotationError, by_number, leave_out_rejected, render
 from engine.performance import marked_index, performance_text, unclear_tempos
@@ -1488,7 +1489,8 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
                 raise
         passes = result.passes
         reading = {"score_id": secrets.token_hex(8).upper(), "pages": result.pages, "scan": result.scan,
-                   "skipped": result.skipped, "of_pages": pages, "low_resolution": result.low_resolution}
+                   "skipped": result.skipped, "of_pages": pages, "low_resolution": result.low_resolution,
+                   "tablature": result.tablature}
         await anyio.to_thread.run_sync(store.put, f"scores/{reading['score_id']}", result.musicxml)
         await anyio.to_thread.run_sync(store.put, cache_key, json.dumps(reading).encode())
     score, _ = await fetch_given_score(None, reading["score_id"])
@@ -1496,12 +1498,17 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
     score = await in_turn(pdf_reader.without_slurs, score)
     await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
 
+    tablature = reading.get("tablature")
+
     def render():
-        spots = pdf_reader.problem_spots(score)
+        uneven, guessed = pdf_reader.problem_spots(score)
+        spots = (sorted(set(uneven) | set(tablature["doubtful"] if tablature else [])), guessed)
         index = ScoreIndex(load_toolkit(score).getMEI())
         named = ([index.measure(bar).printed for bar in spots[0]], spots[1])
         return (pdf_reader.preview(score, spots=spots), engrave(score),
-                pdf_reader.notice(score, reading["scan"], reading["skipped"], named, reading.get("low_resolution", False), opening=READING_SHOWN) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
+                pdf_reader.notice(score, reading["scan"], reading["skipped"], named, reading.get("low_resolution", False), opening=READING_SHOWN)
+                + (" " + read_tab.notice(tablature) if tablature else "")
+                + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
                 index.name_span, len(index.measures), spots[0], named[0])
 
     with stage("render"):
@@ -1522,7 +1529,9 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
         image, pdf, pages = await in_turn(files)
         image_url, pdf_url = await in_turn(lambda: (publish(image, "png"), publish(pdf, "pdf")))
     log("read_pdf_work", pages=reading["pages"], scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached),
-        passes=passes, bars=bars, bars_shaded=len(uneven))
+        passes=passes, bars=bars, bars_shaded=len(uneven),
+        **({"tablature": True, "notes": tablature["notes"], "bars_doubtful": len(tablature["doubtful"]),
+            "tuning_printed": tablature["tuning_printed"]} if tablature else {}))
     if reading["scan"]:
         await anyio.to_thread.run_sync(store.put, scan_key(score_id), json.dumps({"pages": reading["pages"]}).encode())
     return {"score_id": score_id, "pages": reading["pages"], "scan": reading["scan"], "measures": measures, "bars": bars, "notice": notice, "image_url": image_url,

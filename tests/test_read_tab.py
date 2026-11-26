@@ -5,8 +5,10 @@ from pathlib import Path
 import pytest
 
 from engine import correct
-from engine.read_tab import read_tab
+from engine.read_pdf import problem_spots
+from engine.read_tab import read_tab, with_tablature_staff
 from engine.render import load_toolkit
+from engine.score import ScoreIndex
 from tests.data.tabs.measure import USERS, compare, notes, truth_of
 
 DATA = Path(__file__).parent / "data"
@@ -90,3 +92,17 @@ def test_notes_joined_by_a_printed_beam_are_beamed_together():
     for bar in root.iter("measure"):
         marks = [beam.text for beam in bar.iter("beam") if beam.get("number") == "1"]
         assert marks == ["begin", "continue", "end"] * 3, bar.get("number")
+
+
+def test_the_tablature_under_the_staff_is_drawn_without_counting_any_note_twice():
+    reading = read_tab((DATA / "tabs/romanza.pdf").read_bytes())
+    both = with_tablature_staff(reading.musicxml, reading.tuning)
+    events = lambda score: sum(1 for bar in ScoreIndex(load_toolkit(score).getMEI()).measures for event in bar.events if event.pitch)
+    assert events(both) == events(reading.musicxml) == reading.notes
+    assert problem_spots(both) == problem_spots(reading.musicxml)
+    assert 'notationtype="tab' in load_toolkit(both).getMEI()
+
+
+def test_tablature_beside_a_five_line_staff_is_left_to_the_staff_reader():
+    assert read_tab((DATA / "tabs/greensleeves-staff-and-tab.pdf").read_bytes()).beside_staff
+    assert not read_tab((DATA / "tabs/greensleeves.pdf").read_bytes()).beside_staff

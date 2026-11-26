@@ -29,6 +29,7 @@ from music21 import instrument
 from engine import text, tint, verovio_workers
 from engine.errors import UserError
 from engine.overlay import S, Box, PageLayout
+from engine.read_tab import read_tab
 from engine.render import Engraving, ScoreError, load_toolkit
 from engine.score import NOTE_TYPE_LENGTH, TOLERANCE, ScoreIndex, bar_length, musicxml_meter
 from engine.triplets import infer_triplets
@@ -73,7 +74,7 @@ SETTINGS = [_BASE, _BASE + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"
 THIN_BEAM_SETTINGS = [setting + ["-option", "org.audiveris.omr.sheet.ScaleBuilder.beamMinFraction=0.2"]
                       for setting in SETTINGS]
 _LELAND = ["-option", "org.audiveris.omr.ui.symbol.MusicFont.defaultMusicFamily=Leland"]
-READER = "5.11.0-sma.8-best2-tuplet-rests-eight-leland-ocr-r9-page-size-marks-thin-beams-fingering"
+READER = "5.11.0-sma.8-best2-tuplet-rests-eight-leland-ocr-r9-page-size-marks-thin-beams-fingering-tablature"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
@@ -96,6 +97,7 @@ class PdfReading:
     skipped: list[int] = field(default_factory=list)
     passes: list[dict] = field(default_factory=list)
     low_resolution: bool = False
+    tablature: dict | None = None
 
 SCAN_TOO_SMALL = ("This scan is too small to read: its staff lines are only about {} apart, and a sharp scan "
                   "has at least {}. Scanning the pages again at a higher resolution should let them be read")
@@ -440,6 +442,9 @@ def uses_leland(pdf: pikepdf.Pdf) -> bool:
 
 def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
     pdf = open_pdf(data)
+    tablature = read_tab(data)
+    if tablature and not tablature.beside_staff:
+        return PdfReading(tablature.musicxml, tablature.pages, False, tablature=tablature.facts())
     pages, scan, leland = len(pdf.pages), is_scan(pdf), uses_leland(pdf)
     data = without_oversize_pages(data)
     deadline = time.monotonic() + TIMEOUT
