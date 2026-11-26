@@ -48,7 +48,31 @@ def score_from_notes(text: str, *, after_a_rest_bar: bool = False) -> bytes:
         raise notes.NotesError(f"Bar {first.name}: len= makes the first bar shorter than its time signature; only a "
                                "pickup is shorter, and a pickup is written m0")
     measures = [_rest_bar_before(first), *index.measures] if first and after_a_rest_bar else index.measures
-    return correct.replace_bars(_empty_score(measures, staves), _with_every_staff(text, staves))
+    return correct.replace_bars(_empty_score(measures, staves, _opening_clefs(text)), _with_every_staff(text, staves))
+
+
+def _opening_clefs(text: str) -> dict[int, str]:
+    opening: dict[int, str] = {}
+    seen: set[int] = set()
+    started: set[int] = set()
+    for line in text.splitlines():
+        if BAR_LINE.match(line):
+            seen |= started
+            started = set()
+            continue
+        label, _, body = line.partition(":")
+        if not notes.VOICE_LABEL.fullmatch(label.strip()):
+            continue
+        staff = int(label.split(".")[0])
+        if staff in seen:
+            continue
+        started.add(staff)
+        for written in body.split():
+            if change := notes.CLEF.fullmatch(written):
+                opening.setdefault(staff, change[1])
+            elif not written.isdigit():
+                break
+    return opening
 
 
 def _rest_bar_before(first: Measure) -> Measure:
@@ -180,7 +204,7 @@ def _bars_as_text(bars: list[_Bar], div: int, meter: str, key: str) -> str:
     return "\n".join(lines)
 
 
-def _empty_score(measures: list[Measure], staves: int) -> bytes:
+def _empty_score(measures: list[Measure], staves: int, clefs: dict[int, str]) -> bytes:
     root = ET.Element("score-partwise", version="4.0")
     ET.SubElement(ET.SubElement(ET.SubElement(root, "part-list"), "score-part", id="P1"), "part-name")
     part = ET.SubElement(root, "part", id="P1")
@@ -205,9 +229,11 @@ def _empty_score(measures: list[Measure], staves: int) -> bytes:
             if part[0] is bar:
                 ET.SubElement(attributes, "staves").text = str(staves)
                 for staff in range(1, staves + 1):
-                    sign, line, _ = notes.CLEFS["F" if staff == staves > 1 else "G"]
+                    sign, line, octave = notes.CLEFS[clefs.get(staff, "F" if staff == staves > 1 else "G")]
                     clef = ET.SubElement(attributes, "clef", number=str(staff))
                     ET.SubElement(clef, "sign").text, ET.SubElement(clef, "line").text = sign, str(line)
+                    if octave:
+                        ET.SubElement(clef, "clef-octave-change").text = str(octave)
         for at, symbol in measure.chord_symbols:
             bar.append(_chord_symbol(symbol, int(at * divisions)))
         for staff in range(1, staves + 1):

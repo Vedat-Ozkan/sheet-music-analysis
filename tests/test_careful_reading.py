@@ -386,3 +386,65 @@ def test_a_correction_of_a_carefully_read_bar_keeps_its_chord_symbols():
     assert after != before and chord_symbols_of(after) == chord_symbols_of(before)
     with pytest.raises(correct.CorrectionError, match="Bar 13: leave out the c: line"):
         correct.replace_bars(before, handed_out.replace("1.1:", "c: C@0\n1.1:"))
+
+
+TRIAL = Path("/home/kema/sheet-music-gate/careful-vs-reader")
+MEI_NS = "{http://www.music-encoding.org/ns/mei}"
+
+
+def _note_list_pieces():
+    pieces = {}
+    for page in sorted(DATA.rglob("*.n1")):
+        pieces.setdefault(re.sub(r"-page\d+$", "", page.stem), []).append(page)
+    for page in sorted(TRIAL.glob("*/page*.n1")):
+        pieces.setdefault(page.parent.name, []).append(page)
+    return pieces
+
+
+def _stated_opening_clefs(text: str) -> dict[str, tuple]:
+    div = int(re.search(r"div=(\d+)", text)[1])
+    stated, done, bar = {}, set(), "0"
+    for line in text.splitlines():
+        if bar_line := re.match(r"m(\S+) ", line):
+            done |= {staff for staff in stated}
+            bar = bar_line[1]
+            continue
+        label, _, body = line.partition(":")
+        if not notes.VOICE_LABEL.fullmatch(label.strip()) or label.split(".")[0] in done:
+            continue
+        groups = correct._read_voice(body, div, bar, label)[1]
+        if groups:
+            staff = label.split(".")[0]
+            clef = notes.CLEFS[groups[0].clef] if groups[0].clef else None
+            if clef or staff not in stated:
+                stated[staff] = clef
+    return stated
+
+
+@pytest.mark.parametrize("pages", list(_note_list_pieces().values()), ids=list(_note_list_pieces()))
+def test_every_staff_starts_in_the_clef_its_first_note_is_written_in(pages):
+    texts = [page.read_text() for page in pages]
+    mei = ET.fromstring(load_toolkit(from_notes.score_from_pages(texts)).getMEI())
+    drawn = {}
+    for definition in mei.iter(f"{MEI_NS}staffDef"):
+        clef = definition.find(f"{MEI_NS}clef")
+        shape, line = (clef.get("shape"), clef.get("line")) if clef is not None else (definition.get("clef.shape"), definition.get("clef.line"))
+        octave = (clef if clef is not None else definition).get("clef.dis" if clef is None else "dis")
+        drawn.setdefault(definition.get("n"), (shape, int(line), -1 if octave else 0))
+    stated = _stated_opening_clefs(texts[0])
+    staves = len(drawn)
+    wanted = {staff: clef or notes.CLEFS["F" if int(staff) == staves > 1 else "G"] for staff, clef in stated.items()}
+    assert {staff: drawn[staff] for staff in wanted} == wanted
+    measures = list(mei.iter(f"{MEI_NS}measure"))
+    staves = {staff.get("n") for measure in measures for staff in measure.iter(f"{MEI_NS}staff")}
+    changed_before_first_note = []
+    for number in staves:
+        for measure in measures:
+            staff = next((staff for staff in measure.iter(f"{MEI_NS}staff") if staff.get("n") == number), None)
+            kinds = [element.tag for element in (staff.iter() if staff is not None else [])
+                     if element.tag in (f"{MEI_NS}clef", f"{MEI_NS}note")]
+            if f"{MEI_NS}note" in kinds:
+                if f"{MEI_NS}clef" in kinds[:kinds.index(f"{MEI_NS}note")]:
+                    changed_before_first_note.append(number)
+                break
+    assert changed_before_first_note == []
