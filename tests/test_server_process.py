@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 from mcp.client.client import Client
 
+from engine import correct
 from engine import read_pdf as pdf_reader
 from server import app
 from tests.test_chord_symbols import PRINTED
@@ -169,6 +170,37 @@ def store_a_read_scan(tmp_path):
     (scores / f"pdf-card-{pdf_reader.READER}-{hashlib.sha256(pdf).hexdigest()}.json").write_text(json.dumps(card))
 
 
+CHOPIN_BAR_1 = correct.bars_from_musicxml((NOCTURNE.parent / "chopin_prelude_op28_no4_reading.musicxml").read_bytes(), 1)
+CHOPIN_MARK = {"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "i", "key": "e"}]}
+
+
+def drawn_text(server, agent, score_id, **arguments):
+    drawn = careful_call(server, agent, "render_analysis", score_id=score_id, annotations=CHOPIN_MARK, **arguments)
+    assert not drawn.get("isError"), drawn
+    return drawn["content"][-1]["text"]
+
+
+def test_the_careful_reading_is_offered_on_the_first_drawn_page_of_each_reading_of_a_scan(tmp_path):
+    store_a_read_scan(tmp_path)
+    with running_server(tmp_path, CAREFUL_READING="chatgpt") as (url, _):
+        read_scan(url, CHATGPT, "SCAN1")
+        corrected = careful_call(url, CHATGPT, "correct_bars", score_id="QUICK1N",
+                                 replacement_bars=CHOPIN_BAR_1.replace("24 C5", "24 D5"))["structuredContent"]["score_id"]
+        offered = {"corrected before any drawing": drawn_text(url, CHATGPT, corrected),
+                   "the original after that": drawn_text(url, CHATGPT, "QUICK1N"),
+                   "a few bars again": drawn_text(url, CHATGPT, "QUICK1N", measure_range="1-4"),
+                   "the piano version": drawn_text(url, CHATGPT, "QUICK1N", piano=True)}
+        read_scan(url, CHATGPT, "SCAN1")
+        offered["after the scan is read again"] = drawn_text(url, CHATGPT, "QUICK1N")
+        careful = careful_call(url, CHATGPT, "use_careful_reading", score_id="QUICK1N", pages=CAREFUL_PAGES)
+        offered["the careful reading"] = drawn_text(url, CHATGPT, careful["content"][0]["text"].split()[1])
+    offered = {path: "Offer for the user" in text for path, text in offered.items()}
+    assert offered == {"corrected before any drawing": True, "the original after that": False, "a few bars again": False,
+                       "the piano version": False, "after the scan is read again": True, "the careful reading": False}
+    lines = logged_lines(tmp_path, "render_analysis")
+    assert [line.get("careful_offer") for line in lines] == [True, None, None, None, True, None]
+
+
 def test_only_chatgpt_is_offered_the_analyse_button_on_a_reading(tmp_path):
     store_a_read_scan(tmp_path)
     with running_server(tmp_path) as (url, _):
@@ -185,14 +217,18 @@ def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_
         assert careful_tools <= listed_tools(url, CHATGPT)
         assert careful_tools & listed_tools(url, CLAUDE) == (careful_tools if CLAUDE in offered_to else set())
         for agent in (CHATGPT, CLAUDE):
-            offer = read_scan(url, agent, "SCAN1")["content"][-1]["text"]
-            assert offer.endswith("\nscore_id QUICK1N is ready for draft_analysis."), agent
+            reading = read_scan(url, agent, "SCAN1")["content"][-1]["text"]
+            assert reading.endswith("\nscore_id QUICK1N is ready for draft_analysis."), agent
+            assert "Shall I go ahead?" not in reading and "Offer for the user" not in reading, agent
+            assert ("quick one that makes many mistakes on scans" in reading) == (agent in offered_to), agent
+            first, again = (drawn_text(url, agent, "QUICK1N") for _ in range(2))
+            assert "Shall I go ahead?" not in again, agent
             if agent in offered_to:
-                assert "Shall I go ahead?" in offer and "careful_reading" in offer, agent
-                assert ("usage allowance" in offer) == (agent == CLAUDE), agent
-                assert offer.index("Offer for the user") < offer.index("Shall I go ahead?"), agent
+                assert "Shall I go ahead?" in first and "careful_reading" in first, agent
+                assert ("usage allowance" in first) == (agent == CLAUDE), agent
+                assert first.index("Offer for the user, at the end of the reply with this analysis:") < first.index("Shall I go ahead?"), agent
             else:
-                assert "careful" not in offer.lower() and "Shall I go ahead?" not in offer, agent
+                assert "careful" not in first.lower() and "Shall I go ahead?" not in first, agent
         steps = careful_call(url, CHATGPT, "careful_reading", score_id="QUICK1N")
         handed_in = careful_call(url, CHATGPT, "use_careful_reading", score_id="QUICK1N", pages=CAREFUL_PAGES)
         assert not steps.get("isError") and "kit/reader.md" in steps["content"][0]["text"]

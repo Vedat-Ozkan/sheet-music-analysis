@@ -941,8 +941,10 @@ async def render_analysis(
     caption = f"Analysis, measures {measure_range}, view {view}" + (", piano reduction" if piano else "")
     more_pages = (f"\nThe card shows the first {CARD_PAGES} of the {engraving.page_count} pages; the PDF has them all."
                   if engraving.page_count > CARD_PAGES else "")
+    offer = await careful_offer(score_id, source)
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
-        view=view, measure_range=measure_range, left_out=asked - len(annotations.annotations) or None)
+        view=view, measure_range=measure_range, left_out=asked - len(annotations.annotations) or None,
+        careful_offer=bool(offer) or None)
     shaded = [index.measure(bar).printed for bar in shaded]
     structured_content = {**links, "caption": card_caption(drawn, view, piano), "shaded_bars": shaded}
     if not asked:
@@ -957,7 +959,7 @@ async def render_analysis(
         meta={"ask_for_rating": True} if await rating_is_due(ctx) else None,
         content=[
             ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png"),
-            TextContent(type="text", text="".join(f"{note}\n\n" for note in left_out)
+            TextContent(type="text", text="".join(f"{note}\n\n" for note in left_out) + offer
                         + f"{caption}, shown in a card. PDF: {pdf_url}\nPNG: {links['image_url']}{more_pages}\n"
                         + (export_warning or musicxml_text(links["musicxml_url"], annotations)) + downloads_text(links)),
         ],
@@ -1149,6 +1151,8 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
     if card := await anyio.to_thread.run_sync(store.get, card_key):
         card = json.loads(card)
         log(tool, platform=source, pages=card["pages"], cached="card")
+        if card.get("scan"):
+            await anyio.to_thread.run_sync(store.put, scan_key(card["score_id"]), json.dumps({"pages": card["pages"]}).encode())
         return pdf_card_result(card, tool, source)
     failed = json.loads(await anyio.to_thread.run_sync(store.get, failure_of(card_key)) or b"{}")
     if (unread := failed.get("unread")) and unread["final"]:
@@ -1509,10 +1513,10 @@ CAREFUL_COST = {"claude": ". I'd start one helper per page, each on Sonnet at me
 CAREFUL_WARNING = ("Reading this scan carefully takes about 5 minutes a page{cost} "
                    "To do it I download and run a small measuring script from Sheet Music Analysis in this chat. "
                    "This piece has {pages}. Shall I go ahead?")
+QUICK_READING_OF_A_SCAN = "\nThis PDF is a scan, and this reading is a quick one that makes many mistakes on scans."
 CAREFUL_OFFER = (
-    "\nThis PDF is a scan, and this reading is a quick one that makes many mistakes on scans; a careful reading in "
-    "this chat is possible instead.\n"
-    "Offer for the user, after the first analysis of this score: \"The analysis rests on a quick reading of your "
+    "A careful reading of this scan in this chat is possible instead of the quick one.\n"
+    "Offer for the user, at the end of the reply with this analysis: \"The analysis rests on a quick reading of your "
     "scan; I can read the scan carefully instead. {warning}\"\n"
 )
 CAREFUL_MEANS = (
@@ -1568,6 +1572,20 @@ def scan_key(score_id: str) -> str:
     return f"scores/{clean_id(score_id)}.scan"
 
 
+async def careful_offer(score_id: str, source: str) -> str:
+    if source not in CAREFUL_PLATFORMS:
+        return ""
+    raw = await anyio.to_thread.run_sync(store.get, scan_key(score_id))
+    if not raw:
+        return ""
+    reading = scan_key(json.loads(raw).get("read_as", score_id))
+    scan = json.loads(await anyio.to_thread.run_sync(store.get, reading) or raw)
+    if scan.get("offered"):
+        return ""
+    await anyio.to_thread.run_sync(store.put, reading, json.dumps({**scan, "offered": True}).encode())
+    return CAREFUL_OFFER.format(warning=careful_warning(scan["pages"], source)) + CAREFUL_MEANS + "\n\n"
+
+
 def page_count(pages: int) -> str:
     return "1 page" if pages == 1 else f"{pages} pages"
 
@@ -1608,8 +1626,7 @@ def pdf_card_result(card: dict, tool: str, source: str) -> CallToolResult:
         "Bars shaded in the reading stay shaded on the drawn page.\n"
         f"{doubtful_reading(card)}"
         f"Note for the user about the reading (the card does not show it): \"{card['notice']}\""
-        + (CAREFUL_OFFER.format(warning=careful_warning(card["pages"], source)) + CAREFUL_MEANS
-           if card.get("scan") and source in CAREFUL_PLATFORMS else "")
+        + (QUICK_READING_OF_A_SCAN if card.get("scan") and source in CAREFUL_PLATFORMS else "")
     )
     go_on = f"score_id {card['score_id']} is ready for draft_analysis."
     return CallToolResult(
@@ -2106,6 +2123,10 @@ async def correct_bars(
             )
             code = secrets.token_hex(8).upper()
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", after)
+            if (scan := await anyio.to_thread.run_sync(store.get, scan_key(score_id))) is not None:
+                scan = json.loads(scan)
+                await anyio.to_thread.run_sync(store.put, scan_key(code), json.dumps(
+                    {"pages": scan["pages"], "read_as": scan.get("read_as", clean_id(score_id))}).encode())
             if await anyio.to_thread.run_sync(store.get, shaded_key(score_id)) is not None:
                 uneven, _ = await in_turn(pdf_reader.problem_spots, after)
                 await anyio.to_thread.run_sync(store.put, shaded_key(code), json.dumps(uneven).encode())

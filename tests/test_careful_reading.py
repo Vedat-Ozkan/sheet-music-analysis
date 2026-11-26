@@ -47,23 +47,23 @@ def notes_of(bar):
 def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
     app.store.put("scores/QUICK1", QUICK_READING.read_bytes())
-    offer = text_of(app.pdf_card_result({"score_id": "QUICK1", "pages": 3, "scan": True, "measures": "1 to 25", "bars": 25,
-                                         "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf", "other"))
-    assert app.careful_warning(3, "other") in offer
-    assert "takes about 5 minutes a page. To do it" in offer and "This piece has 3 pages. Shall I go ahead?" in offer
-    assert "allowance" not in offer
-    assert ("takes about 5 minutes a page. I'd start one helper per page, each on Sonnet at medium effort, and that uses a lot of "
-            "your plan's usage allowance. As a guide, a 10-page piece") in app.careful_warning(3, "claude")
-    assert "download and run a small measuring script from Sheet Music Analysis" in offer
-    assert "careful_reading" in offer
-    assert "it needs no check by the user first" in offer
-    assert offer.index("Offer for the user, after the first analysis of this score:") < offer.index(app.careful_warning(3, "other"))
-    assert offer.endswith("\nscore_id QUICK1 is ready for draft_analysis.")
-    assert "do not call draft_analysis yet" not in offer and "Ask before analysing" not in offer
+    reading = text_of(app.pdf_card_result({"score_id": "QUICK1", "pages": 3, "scan": True, "measures": "1 to 25", "bars": 25,
+                                           "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf", "other"))
+    assert "this reading is a quick one that makes many mistakes on scans." in reading
+    assert "Offer for the user" not in reading and "Shall I go ahead?" not in reading
+    assert "it needs no check by the user first" in reading
+    assert reading.endswith("\nscore_id QUICK1 is ready for draft_analysis.")
     typeset = text_of(app.pdf_card_result({"score_id": "QUICK1", "pages": 3, "scan": False, "measures": "1 to 25", "bars": 25,
                                            "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf", "other"))
-    assert "careful" not in typeset and "it needs no check by the user first" in typeset
+    assert "careful" not in typeset and "quick one" not in typeset and "it needs no check by the user first" in typeset
     assert typeset.endswith("\nscore_id QUICK1 is ready for draft_analysis.")
+    assert app.careful_warning(3, "other") in app.CAREFUL_OFFER.format(warning=app.careful_warning(3, "other"))
+    assert "takes about 5 minutes a page. To do it" in app.careful_warning(3, "other")
+    assert "This piece has 3 pages. Shall I go ahead?" in app.careful_warning(3, "other")
+    assert "allowance" not in app.careful_warning(3, "other")
+    assert ("takes about 5 minutes a page. I'd start one helper per page, each on Sonnet at medium effort, and that uses a lot of "
+            "your plan's usage allowance. As a guide, a 10-page piece") in app.careful_warning(3, "claude")
+    assert "download and run a small measuring script from Sheet Music Analysis" in app.careful_warning(3, "other")
 
     refused = asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": "QUICK1"}))
     assert refused.is_error
