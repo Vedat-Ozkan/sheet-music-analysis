@@ -14,7 +14,7 @@ from engine.read_tab import read_tab
 
 USERS = HERE.parent / "users"
 REVIEW = HERE / "review"
-FOLDERS = [HERE, REVIEW, REVIEW / "hand", USERS]
+FOLDERS = [HERE, REVIEW, REVIEW / "hand", REVIEW / "round2", REVIEW / "round2" / "hand", USERS]
 SILENT_KINDS = ("wrong length", "wrong onset", "missed", "extra")
 STEPS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 

@@ -1,0 +1,59 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [6 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+5 0 obj
+<< /Length 953 >>
+stream
+BT /H 14 Tf 90.00 660.00 Td (Visitors per month) Tj ET
+0.4 w 90.00 600.00 m 530.00 600.00 l S
+0.4 w 90.00 570.00 m 530.00 570.00 l S
+0.4 w 90.00 540.00 m 530.00 540.00 l S
+0.4 w 90.00 510.00 m 530.00 510.00 l S
+0.4 w 90.00 480.00 m 530.00 480.00 l S
+0.4 w 90.00 450.00 m 530.00 450.00 l S
+0.4 w 90.00 450.00 m 90.00 600.00 l S
+0.4 w 178.00 450.00 m 178.00 600.00 l S
+0.4 w 266.00 450.00 m 266.00 600.00 l S
+0.4 w 354.00 450.00 m 354.00 600.00 l S
+0.4 w 442.00 450.00 m 442.00 600.00 l S
+0.4 w 530.00 450.00 m 530.00 600.00 l S
+BT /H 9 Tf 76.00 596.80 Td (50) Tj ET
+BT /H 9 Tf 76.00 566.80 Td (40) Tj ET
+BT /H 9 Tf 76.00 536.80 Td (30) Tj ET
+BT /H 9 Tf 76.00 506.80 Td (20) Tj ET
+BT /H 9 Tf 76.00 476.80 Td (10) Tj ET
+BT /H 9 Tf 76.00 446.80 Td (0) Tj ET
+BT /H 9 Tf 125.00 434.00 Td (Jan) Tj ET
+BT /H 9 Tf 213.00 434.00 Td (Feb) Tj ET
+BT /H 9 Tf 301.00 434.00 Td (Mar) Tj ET
+BT /H 9 Tf 389.00 434.00 Td (Apr) Tj ET
+BT /H 9 Tf 477.00 434.00 Td (May) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /H 3 0 R /C 4 0 R >> >> >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000185 00000 n 
+0000000253 00000 n 
+0000001257 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+1391
+%%EOF
