@@ -278,7 +278,7 @@ def test_server_refuses_a_piano_version_of_a_reading_whose_parts_hold_different_
     from engine.piano import PARTS_DO_NOT_LINE_UP
     monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
     app.store.put('scores/STADT', (ROOT / 'tests/data/pdf_warnings/schubert_die_stadt_audiveris.musicxml').read_bytes())
-    result = asyncio.run(app.render_analysis(None, 'STADT', AnnotationList(annotations=[]), measure_range='2-5', piano=True))
+    result = asyncio.run(app.render_analysis(None, 'STADT', AnnotationList.model_validate({"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "C"}]}), measure_range='2-5', piano=True))
     assert result.is_error and result.content[0].text == PARTS_DO_NOT_LINE_UP
 
 

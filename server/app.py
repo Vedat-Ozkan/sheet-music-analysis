@@ -805,9 +805,10 @@ CARD_PAGES = 2
 MOSTLY_DOUBTFUL = 0.5
 
 
-NOTHING_DRAWN = (
-    "No analysis marks were drawn: the annotation list was empty, so the page shows only the score. The notes for "
-    "an analysis come from draft_analysis with score_id {score_id}."
+NOTHING_TO_DRAW = (
+    "Nothing is drawn: the annotation list is empty, and a drawn analysis needs at least one mark. The reading card "
+    "or the score itself shows the score without marks; the notes for an analysis come from draft_analysis with "
+    "score_id {score_id}."
 )
 
 
@@ -889,6 +890,8 @@ async def render_analysis(
         score, _ = await resolve_score(None, score_id, source)
         named = parse_measures(measure_range)
         view = view_named(view)
+        if not asked:
+            raise UserError(NOTHING_TO_DRAW.format(score_id=clean_id(score_id)))
         with stage("parse"):
             index = await in_turn(lambda: ScoreIndex(load_toolkit(score).getMEI()))
         measures = index.numbers(named)
@@ -924,17 +927,16 @@ async def render_analysis(
             links = {"image_url": publish(image, "png"), "pdf_url": publish(pdf, "pdf")}
             if musicxml is not None:
                 links["musicxml_url"] = publish(musicxml, "musicxml")
-            if asked:
-                links["worksheet_url"] = publish_worksheet(score, measures, piano)
-                for name, make in (("midi", lambda: export_midi(score, measures)),
-                                   ("romantext", lambda: export_romantext(score, annotations.model_dump(), measures))):
-                    try:
-                        data = make()
-                    except Exception as error:
-                        log("render_analysis", platform=source, extra_error=f"{name}: {type(error).__name__}")
-                        continue
-                    if data:
-                        links[f"{name}_url"] = publish(data, *EXTRA_FILES[name])
+            links["worksheet_url"] = publish_worksheet(score, measures, piano)
+            for name, make in (("midi", lambda: export_midi(score, measures)),
+                               ("romantext", lambda: export_romantext(score, annotations.model_dump(), measures))):
+                try:
+                    data = make()
+                except Exception as error:
+                    log("render_analysis", platform=source, extra_error=f"{name}: {type(error).__name__}")
+                    continue
+                if data:
+                    links[f"{name}_url"] = publish(data, *EXTRA_FILES[name])
         return links
     links = await in_turn(publish_all)
     pdf_url = links["pdf_url"]
@@ -947,12 +949,9 @@ async def render_analysis(
         careful_offer=bool(offer) or None)
     shaded = [index.measure(bar).printed for bar in shaded]
     structured_content = {**links, "caption": card_caption(drawn, view, piano), "shaded_bars": shaded}
-    if not asked:
-        left_out.append(NOTHING_DRAWN.format(score_id=score_id))
-    else:
-        left_out.append(callouts_text(engraving.callouts))
-        if engraving.preview.key_drawn:
-            left_out.append(KEY_ON_PAGE)
+    left_out.append(callouts_text(engraving.callouts))
+    if engraving.preview.key_drawn:
+        left_out.append(KEY_ON_PAGE)
     if shaded:
         left_out.append(SHADED_ON_PAGE.format(bars=", ".join(map(str, shaded))))
     return CallToolResult(

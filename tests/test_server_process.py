@@ -509,7 +509,7 @@ def test_a_score_with_no_notes_chosen_in_the_card_is_answered_plainly_by_every_t
     score_id = card_id(server)
     assert upload(server, WITHOUT_NOTES[kind], score_id)[0] == 200
     answers = {name: tool_answer(server, CLAUDE, name, score_id=score_id, **arguments) for name, arguments in {
-        "draft_analysis": {}, "render_analysis": {"annotations": {"annotations": []}}, "play": {}}.items()}
+        "draft_analysis": {}, "render_analysis": {"annotations": {"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "C"}]}}, "play": {}}.items()}
     assert {name for name, answer in answers.items() if refused_plainly(answer)} == set(answers), answers
 
 
@@ -528,7 +528,7 @@ def test_a_stored_score_with_no_notes_is_answered_plainly_to_chatgpt(server, sto
     (store / "scores").mkdir(exist_ok=True)
     (store / "scores" / "NONOTES").write_bytes(WITHOUT_NOTES[kind])
     drafted = tool_answer(server, CHATGPT, "draft_analysis", score_id="NONOTES")
-    drawn = tool_answer(server, CHATGPT, "render_analysis", score_id="NONOTES", annotations={"annotations": []})
+    drawn = tool_answer(server, CHATGPT, "render_analysis", score_id="NONOTES", annotations={"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "C"}]})
     assert refused_plainly(drafted) and refused_plainly(drawn), (drafted, drawn)
 
 

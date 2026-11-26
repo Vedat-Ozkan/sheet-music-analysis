@@ -72,11 +72,12 @@ def test_a_pdf_reading_states_its_bars_so_the_model_can_ask_for_real_ranges(serv
     assert line["page_points"] and line["image_pixels"] and "scan" in line
 
 
-def test_drawing_with_no_marks_tells_the_model_to_analyse_first(server):
+def test_drawing_with_no_marks_is_refused_and_points_to_the_analysis(server):
     score_id = score_id_of(call("read_pdf", ATTACHED))
     result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": []}, "measure_range": "1-4"})
-    assert not result.is_error
-    assert f"The notes for an analysis come from draft_analysis with score_id {score_id}." in text_of(result)
+    assert result.is_error and result.content[0].type == "text"
+    assert text_of(result).startswith("Nothing is drawn: the annotation list is empty, and a drawn analysis needs at least one mark.")
+    assert f"the notes for an analysis come from draft_analysis with score_id {score_id}." in text_of(result)
 
 
 def test_marks_that_fit_are_drawn_and_the_rest_are_listed(server):
@@ -275,13 +276,6 @@ def test_a_view_in_other_case_and_a_range_with_a_long_dash_are_drawn(server):
     assert not result.is_error
     assert "Analysis, measures 1-4, view harmony" in text_of(result)
     assert result.structured_content["caption"] == "Analysis of bars 1–4, harmony only"
-
-
-def test_a_drawing_with_no_marks_says_so_first_and_skips_the_extra_downloads(server):
-    score_id = score_id_of(call("read_pdf", ATTACHED))
-    result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": []}, "measure_range": "1-4"})
-    assert text_of(result).startswith("No analysis marks were drawn")
-    assert "worksheet" not in text_of(result).lower()
 
 
 def test_a_whole_score_draft_gives_its_instructions_before_the_method_and_the_notes_last(server):
@@ -490,7 +484,7 @@ def test_a_crash_while_drawing_offers_a_report_and_is_logged_as_ours(server, mon
 
     monkeypatch.setattr(app, "draw", crash)
     capsys.readouterr()
-    result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": []}})
+    result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "C"}]}})
     assert not result.is_error and f"reference {report_of(result)['reference']}" in text_of(result)
     assert text_of(result).startswith(app.FAILED_CALL)
     line = logged(capsys, "render_analysis")[-1]

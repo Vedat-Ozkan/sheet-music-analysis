@@ -92,7 +92,7 @@ def test_a_reversed_bar_range_is_refused(tmp_path, monkeypatch):
 
     async def call():
         async with Client(app.mcp) as client:
-            return await client.call_tool("render_analysis", {"score_id": "ABC", "measure_range": "8-1", "annotations": {"annotations": []}})
+            return await client.call_tool("render_analysis", {"score_id": "ABC", "measure_range": "8-1", "annotations": {"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "C"}]}})
 
     result = asyncio.run(call())
     assert result.is_error and "run backwards; give the first bar first, e.g. 1-8" in result.content[0].text
