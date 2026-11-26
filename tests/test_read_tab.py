@@ -180,3 +180,13 @@ def test_the_downloaded_analysis_puts_its_labels_on_the_staff_not_on_the_tablatu
     labelled = [note.findtext("staff") for note in root.iter("note") if note.find("lyric") is not None]
     placed = [direction.findtext("staff") for direction in root.iter("direction") if direction.find("direction-type/words") is not None]
     assert labelled + placed and set(labelled + placed) == {"1"}
+
+
+@pytest.mark.parametrize("path", ["round2/r3-two-short-bars", "b05-whole-half", "a1-endings"])
+def test_whole_notes_and_a_bar_printed_in_two_halves_are_read_without_a_mark(path):
+    assert read_tab((DATA / "tabs/review" / f"{path}.pdf").read_bytes()).doubtful == []
+
+
+def test_the_chorales_phrase_bars_written_as_two_halves_are_not_marked():
+    for name in ("bwv336-capo", "bwv386-chords", "bwv418-bass"):
+        assert read_tab((DATA / f"tabs/{name}.pdf").read_bytes()).doubtful == [], name

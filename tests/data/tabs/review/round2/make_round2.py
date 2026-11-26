@@ -175,7 +175,7 @@ def pieces():
     again = [B(EIGHTS, time="4/4", key=2), B(SCALE), B("q:1-3 e:1-5 e:1-7 h:2-5"), B("e:6-3 e:6-5 e:5-2 e:5-3 q:4-0 q:4-2"),
              B("h:3-4 q:2-7 q:1-8"), B("w:1-0+2-1+3-0"), dict(REST), B(SCALE)]
     mixed += theme + second + again + [dict(bar) for bar in theme] + [dict(bar) for bar in second[:6]] + [B("h.:1-0", "h.:6-0")]
-    add({**single("m1-mixed-piece", mixed, pickup=True),
+    add({**single("m1-mixed-piece", mixed, pickup=True, capo=2),
          "change": edits((0, 3, 0, "technical", '<fingering>3</fingering>'),
                          (0, 18, 0, "technical", '<hammer-on type="start" number="1">H</hammer-on>'),
                          (0, 18, 1, "technical", '<hammer-on type="stop" number="1"/>'),

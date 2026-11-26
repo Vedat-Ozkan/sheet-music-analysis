@@ -219,7 +219,7 @@ def read_tab(data: bytes) -> TabReading | None:
         raise OutsideScope(NO_RHYTHM)
     _stem_lengths(part.bars)
     part.meter, meter_from = _meter(part.meters, part.bars)
-    may_be_short = {0, len(part.bars) - 1}
+    may_be_short = {0, len(part.bars) - 1} | _split_bars(part)
     doubtful = part.unread | {position for position, bar in enumerate(part.bars)
                               if (meter_from == "assumed" and _open(bar))
                               | _settle(bar, _meter_at(part.meters, position, part.meter), position in may_be_short)}
@@ -230,6 +230,18 @@ def read_tab(data: bytes) -> TabReading | None:
     return TabReading(laid_out(musicxml, tuning), len(pages), tuning, tuning_from, capo, 0 in part.meters,
                       [numbers[position] for position in sorted(doubtful)], [numbers[position] for position in sorted(part.unread)],
                       sum(len(item.frets) for bar in part.bars for item in bar))
+
+
+def _split_bars(part: Part) -> set[int]:
+    def short(position: int) -> Fraction | None:
+        bar, full = part.bars[position], _bar_length(_meter_at(part.meters, position, part.meter))
+        total = max((_total(_voice(bar, voice)) for voice in {item.voice for item in bar}), default=Fraction(0))
+        return total if bar and not _open(bar) and total < full else None
+
+    shorts = [short(position) for position in range(len(part.bars))]
+    return {position + step for position in range(len(shorts) - 1) for step in (0, 1)
+            if None not in shorts[position:position + 2]
+            and sum(shorts[position:position + 2]) == _bar_length(_meter_at(part.meters, position, part.meter))}
 
 
 def _joined(pages: list[Page], staves: list[Staff]) -> bool:
@@ -928,6 +940,7 @@ def _settle(bar: list[Item], meter: tuple[int, int], may_be_short: bool) -> bool
     for item in unknown:
         left = full - _total(_voice(bar, item.voice))
         item.length = left if left > 0 else Fraction(1)
+    unknown = [item for item in unknown if _voice(bar, item.voice) != [item]]
     totals = {voice: _total(_voice(bar, voice)) for voice in voices}
     longest = max(totals.values(), default=full)
     return (bool(unknown) or longest > full or any(totals[voice] != full for voice in unsure)
