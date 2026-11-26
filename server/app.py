@@ -1502,11 +1502,13 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
 
     def render():
         uneven, guessed = pdf_reader.problem_spots(score)
-        spots = (sorted(set(uneven) | set(tablature["doubtful"] if tablature else [])), guessed)
+        misread = set(uneven) | set(tablature["doubtful"]) - set(tablature["unread"]) if tablature else set(uneven)
+        spots = (sorted(misread | set(tablature["unread"] if tablature else [])), guessed)
         index = ScoreIndex(load_toolkit(score).getMEI())
         named = ([index.measure(bar).printed for bar in spots[0]], spots[1])
+        told = ([index.measure(bar).printed for bar in sorted(misread)], guessed)
         return (pdf_reader.preview(score, spots=spots), engrave(score),
-                pdf_reader.notice(score, reading["scan"], reading["skipped"], named, reading.get("low_resolution", False), opening=READING_SHOWN)
+                pdf_reader.notice(score, reading["scan"], reading["skipped"], told, reading.get("low_resolution", False), opening=READING_SHOWN)
                 + (" " + read_tab.notice(tablature) if tablature else "")
                 + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
                 index.name_span, len(index.measures), spots[0], named[0])
