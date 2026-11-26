@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import copy
-import io
 import math
 import xml.etree.ElementTree as ET
-import zipfile
 from collections import Counter
 from dataclasses import dataclass, replace
 from fractions import Fraction
@@ -15,7 +13,7 @@ from music21.duration import Duration
 from engine import notes, tint
 from engine.errors import UserError
 from engine.overlay import Box, PageLayout
-from engine.render import Engraving, incoming_ties, load_toolkit, shorten_ties
+from engine.render import Engraving, incoming_ties, load_toolkit, musicxml_text, shorten_ties
 from engine.score import PITCH, ScoreIndex, spelled
 
 
@@ -46,12 +44,7 @@ class Group:
 
 
 def _read(score: bytes, part: str | None):
-    if score[:2] == b"PK":
-        with zipfile.ZipFile(io.BytesIO(score)) as archive:
-            container = ET.fromstring(archive.read("META-INF/container.xml"))
-            name = next(e.get("full-path") for e in container.iter() if e.tag.endswith("rootfile"))
-            score = archive.read(name)
-    root = ET.fromstring(score)
+    root = ET.fromstring(musicxml_text(score))
     if root.tag != "score-partwise":
         raise CorrectionError("Corrections require unnamespaced partwise MusicXML")
     parts = root.findall("part")

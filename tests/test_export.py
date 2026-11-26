@@ -10,9 +10,9 @@ from music21 import converter
 from engine import correct
 from engine.check_analysis import from_musicxml
 from engine.comparison import from_annotations
-from engine.export import export_musicxml, export_romantext, _document
+from engine.export import export_musicxml, export_romantext
 from engine.performance import marked_index, performance_text
-from engine.render import load_toolkit
+from engine.render import load_toolkit, musicxml_file
 from engine.score import ScoreIndex, beat_length
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,7 +31,7 @@ def test_bach_full_score():
     exported = export_musicxml(original, reviewed)
     assert note_content(original) == note_content(exported)
     assert load_toolkit(exported).renderToSVG(1).startswith('<svg')
-    before, after = ET.fromstring(_document(original)), ET.fromstring(exported)
+    before, after = ET.fromstring(musicxml_file(original)), ET.fromstring(exported)
     lyrics = after.findall(".//lyric[@name='roman-analysis']")
     assert len(lyrics) == 22
     assert lyrics[0].findtext('text') == 'G: I'
@@ -248,7 +248,7 @@ def test_a_hairpin_across_a_compact_rest_ends_where_it_does_with_every_bar_drawn
 @pytest.mark.parametrize('path', sorted(p for p in (ROOT / 'tests/data').iterdir() if p.suffix in ('.mxl', '.musicxml')), ids=lambda p: p.name)
 def test_every_xml_measure_has_one_indexed_segment(path):
     data = path.read_bytes()
-    counts = {len(part.findall('measure')) for part in ET.fromstring(_document(data)).findall('part')}
+    counts = {len(part.findall('measure')) for part in ET.fromstring(musicxml_file(data)).findall('part')}
     if len(counts) > 1:
         pytest.skip('parts of different lengths')
     assert counts == {sum(len(m.segments) for m in ScoreIndex(load_toolkit(data).getMEI()).measures)}

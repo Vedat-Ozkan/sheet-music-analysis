@@ -23,8 +23,7 @@ import resvg_py
 from PIL import Image, ImageChops
 
 from engine.errors import UserError
-from engine.score import midi
-from engine.score import TOLERANCE, Measure, PositionError, ScoreIndex
+from engine.score import TOLERANCE, Measure, PositionError, ScoreIndex, midi
 from engine.text import FONT_DIR, FONT_FILES, MAIN as TEXT_FONT
 
 if TYPE_CHECKING:
@@ -242,7 +241,7 @@ new_toolkit: Callable[[], verovio.toolkit] = local_toolkit
 
 
 def require_notes(score: bytes) -> None:
-    text = xml_text(_musicxml(score))
+    text = musicxml_text(score)
     if SCORE_ROOT.search(text[:5000]) and not SOUNDING_NOTE.search(text):
         raise ScoreError(NO_NOTES)
 
@@ -251,7 +250,7 @@ def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool
                  bar_names: dict[int, str] | None = None) -> verovio.toolkit:
     toolkit = new_toolkit()
     toolkit.setOptions({**VEROVIO_OPTIONS, **(options or {})})
-    text = xml_text(_musicxml(score))
+    text = musicxml_text(score)
     if not SCORE_ROOT.search(text[:5000]):
         raise ScoreError("This file is not MusicXML" + (" but a PDF" if score[:5] == b"%PDF-" else ""))
     loaded = toolkit.loadData(_importable(text))
@@ -497,7 +496,7 @@ def _drop_title_text(mei: str) -> str:
     return re.sub(r"<dir\b.*?</dir>", drop, mei, flags=re.S)
 
 
-def _musicxml(score: bytes) -> bytes:
+def musicxml_file(score: bytes) -> bytes:
     if score[:2] != b"PK":
         return score
     try:
@@ -508,10 +507,15 @@ def _musicxml(score: bytes) -> bytes:
                 return archive.read(name)
 
             container = ET.fromstring(member("META-INF/container.xml"))
-            path = next(e.get("full-path") for e in container.iter() if e.tag.endswith("rootfile") and e.get("full-path"))
+            path = next(e.get("full-path") for e in container.iter() if e.tag.endswith("rootfile") and e.get("full-path")
+                        and e.get("media-type") in (None, "application/vnd.recordare.musicxml+xml"))
             return member(path)
     except (zipfile.BadZipFile, KeyError, StopIteration, ET.ParseError) as error:
         raise ScoreError("This file is not MusicXML: its .mxl archive could not be read") from error
+
+
+def musicxml_text(score: bytes) -> str:
+    return xml_text(musicxml_file(score))
 
 
 def xml_text(data: bytes) -> str:
@@ -593,7 +597,7 @@ def _separate_voices_in(segment: ET.Element) -> bool:
 
 
 def _readable_names(score: bytes) -> dict[str, str]:
-    text = xml_text(_musicxml(score))
+    text = musicxml_text(score)
     names = {}
     for part in re.finditer(r'<score-part\b[^>]*\bid="([^"]+)"(.*?)</score-part>', text, flags=re.S):
         label = re.search(r"<part-name\b[^>]*>\s*([a-z]+)(\d*)\s*</part-name>", part.group(2))

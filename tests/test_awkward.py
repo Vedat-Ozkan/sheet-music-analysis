@@ -13,12 +13,12 @@ from engine.annotate import render
 from engine.annotations import Alternative, AnnotationList
 from engine.check_analysis import ClarificationNeeded, from_musicxml, from_text, student_labels
 from engine.check_analysis import as_text as student_check
-from engine.export import _document, export_musicxml
+from engine.export import export_musicxml
 from engine.part_writing import applies, as_text, check
 from engine.performance import marked_index, perform
 from engine.overlay import PageLayout, S
 from engine.read_pdf import problem_spots
-from engine.render import Engraving, ScoreError, load_toolkit, require_notes
+from engine.render import Engraving, ScoreError, load_toolkit, musicxml_file, require_notes
 from engine.score import ScoreIndex
 
 DATA = Path(__file__).parent / "data"
@@ -100,7 +100,7 @@ def test_numerals_written_into_the_score_are_read_back_at_their_bar_and_beat(nam
 @score_ids
 def test_problem_spots(name):
     data, _ = load(name)
-    bars, _ = problem_spots(_document(data))
+    bars, _ = problem_spots(musicxml_file(data))
     assert all(isinstance(bar, int) for bar in bars)
 
 
@@ -137,8 +137,8 @@ def test_engrave_a_range(request, name):
 def test_correct_roundtrip(request, name):
     known(request, "correct_roundtrip", name)
     data, index = load(name)
-    part = ET.fromstring(_document(data)).find("part").get("id")
-    flagged = problem_spots(_document(data))[0]
+    part = ET.fromstring(musicxml_file(data)).find("part").get("id")
+    flagged = problem_spots(musicxml_file(data))[0]
     numbers = [m.number for m in index.measures]
     failures = []
     for bar in dict.fromkeys([numbers[0], numbers[-1], *flagged[:4]]):

@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import io
 import re
 import xml.etree.ElementTree as ET
-import zipfile
 from dataclasses import asdict, replace
 from fractions import Fraction
 
@@ -377,11 +375,9 @@ def compare_labels(student: list[Label], reference: list[Label], index: ScoreInd
 
 
 def from_score(score: bytes, index: ScoreIndex) -> list[Label]:
-    if score[:2] == b'PK':
-        with zipfile.ZipFile(io.BytesIO(score)) as archive:
-            container = ET.fromstring(archive.read('META-INF/container.xml'))
-            score = archive.read(next(e.get('full-path') for e in container.iter() if e.tag.endswith('rootfile')))
-    return from_musicxml(score, index=index)
+    from engine.render import musicxml_text
+
+    return from_musicxml(musicxml_text(score), index=index)
 
 
 def student_labels(text: str, score: bytes | None, index: ScoreIndex) -> list[Label]:

@@ -1,40 +1,21 @@
 from __future__ import annotations
 
-import io
 import xml.etree.ElementTree as ET
-import zipfile
 from fractions import Fraction
 
 from music21 import meter as m21meter
 
 from engine.comparison import beat_ratio
 from engine.performance import performance_midi
-from engine.render import check_range, load_toolkit
+from engine.render import check_range, load_toolkit, musicxml_file, musicxml_text
 from engine.score import BEAT_DENOMINATOR, STEPS, TOLERANCE, ScoreIndex
 
 _SUPERSCRIPTS = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹', '0123456789')
 
 
-def _document(data: bytes) -> bytes:
-    if not zipfile.is_zipfile(io.BytesIO(data)):
-        return data
-    with zipfile.ZipFile(io.BytesIO(data)) as archive:
-        container = ET.fromstring(archive.read('META-INF/container.xml'))
-        files = [node for node in container.iter() if node.tag.rsplit('}', 1)[-1] == 'rootfile']
-        rootfile = next((node for node in files if node.get('media-type') in (None, 'application/vnd.recordare.musicxml+xml')), None)
-        if rootfile is None:
-            raise ValueError('MXL container has no MusicXML rootfile')
-        return archive.read(rootfile.attrib['full-path'])
-
-
 def export_musicxml(original: bytes, analysis: dict) -> bytes:
-    document = _document(original)
     parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True, insert_pis=True))
-    try:
-        root = ET.fromstring(document, parser=parser)
-    except ET.ParseError:
-        parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True, insert_pis=True))
-        root = ET.fromstring(document.decode('latin-1'), parser=parser)
+    root = ET.fromstring(musicxml_text(original), parser=parser)
     namespace = root.tag.partition('}')[0] + '}' if root.tag.startswith('{') else ''
     def tag(name):
         return namespace + name
@@ -46,7 +27,7 @@ def export_musicxml(original: bytes, analysis: dict) -> bytes:
     harmonies = sorted((a for a in analysis['annotations'] if a['type'] == 'harmony'),
                        key=lambda a: (a['at']['measure'], a['at'].get('beat', 1)))
     if not harmonies:
-        return _document(original)
+        return musicxml_file(original)
     index = ScoreIndex(load_toolkit(original).getMEI())
     bass = parts[-1]
     measures = bass.findall(tag('measure'))

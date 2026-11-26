@@ -8,7 +8,7 @@ import pytest
 
 from engine import notes
 from engine.read_pdf import problem_spots, without_slurs
-from engine.render import _musicxml, load_toolkit, written_by_the_pdf_reader
+from engine.render import load_toolkit, musicxml_file, written_by_the_pdf_reader
 from engine.score import ScoreIndex
 from server import app
 from tests.test_bar_names import ATTRIBUTES, note, score
@@ -27,7 +27,7 @@ MISSED = unmarked(MARKED)
 
 def musicxml(path: Path) -> bytes:
     data = path.read_bytes()
-    return _musicxml(gzip.decompress(data) if path.suffix == ".gz" else data)
+    return musicxml_file(gzip.decompress(data) if path.suffix == ".gz" else data)
 
 
 READINGS = [path for path in sorted(DATA.rglob("*")) if path.name.endswith((".musicxml", ".mxl", ".musicxml.gz"))

@@ -15,8 +15,8 @@ import subprocess
 import xml.etree.ElementTree as ET
 
 from engine.draft import as_annotations, build
-from engine.export import _document, export_musicxml
-from engine.render import load_toolkit
+from engine.export import export_musicxml
+from engine.render import load_toolkit, musicxml_file
 from engine.score import ScoreIndex
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -28,7 +28,7 @@ DIGITS = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹', '0123456789')
 
 
 def expected_labels(original, analysis, index):
-    root = ET.fromstring(_document(original))
+    root = ET.fromstring(musicxml_file(original))
     staff_count = sum(int(p.findtext('measure/attributes/staves', '1')) for p in root.findall('part'))
     key, expected = None, []
     for a in sorted((a for a in analysis['annotations'] if a['type'] == 'harmony'),
@@ -124,7 +124,7 @@ def main():
         original = source.read_bytes()
         index = ScoreIndex(load_toolkit(original).getMEI())
         expected = expected_labels(original, analysis, index)
-        before = ET.fromstring(_document(original))
+        before = ET.fromstring(musicxml_file(original))
         original_texts = {x.text for x in before.findall('.//lyric/text')
                           + before.findall('.//direction/direction-type/words')}
         assert not original_texts & {x[3] for x in expected}, name

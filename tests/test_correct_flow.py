@@ -214,3 +214,17 @@ def test_server_correct_leaves_a_voice_longer_than_the_bar_alone(tmp_path, monke
     result = call(tmp_path, monkeypatch, score, replacement_bars=handed_out.replace('1.2: 4 r 3 D#4 1 E4', '1.2: 4 r 3 D#4 1 F4'), part='P2')
     assert not result.is_error, result.content[0].text
     assert result.structured_content['changed_bars'] == [6]
+
+
+def test_a_latin1_score_without_an_encoding_line_is_corrected_with_its_title_kept(tmp_path, monkeypatch):
+    latin = ROOT / 'tests/data/check_analysis/musescore-roman-latin1.musicxml'
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/LATIN', latin.read_bytes())
+    bars = correct.bars_from_musicxml(latin.read_bytes(), 1, 1)
+    assert '1.1: 4 G4' in bars
+    result = asyncio.run(app.mcp.call_tool('correct_bars', {
+        'score_id': 'LATIN', 'replacement_bars': bars.replace('1.1: 4 G4', '1.1: 4 A4')}))
+    assert not result.is_error, result.content[0].text
+    assert result.structured_content['changed_bars'] == [1]
+    corrected = app.store.get(f"scores/{result.structured_content['score_id']}")
+    assert "Pièce à l'étude" in corrected.decode('utf-8')

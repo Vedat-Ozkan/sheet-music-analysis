@@ -68,3 +68,10 @@ def test_numerals_written_in_the_score_are_read_only_when_asked(local_store):
 def test_ambiguous_answer_comes_back_as_the_question(local_store):
     result = call(app.draft_analysis, score_id="CHOPIN", student_analysis="I IV V I")
     assert result.is_error and result.content[0].text == app.QUESTION_FOR_USER + QUESTION
+
+
+def test_numerals_in_a_latin1_score_without_an_encoding_line_are_checked(local_store):
+    app.store.put("scores/LATIN", (ROOT / "tests/data/check_analysis/musescore-roman-latin1.musicxml").read_bytes())
+    latin = call(app.draft_analysis, score_id="LATIN", student_analysis="score")
+    plain = call(app.draft_analysis, score_id="LABELLED", student_analysis="score")
+    assert section_of(latin.content[0].text) == section_of(plain.content[0].text)

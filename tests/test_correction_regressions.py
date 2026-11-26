@@ -7,8 +7,8 @@ import pytest
 
 from engine import correct, notes
 from engine.check_analysis import from_musicxml
-from engine.export import export_musicxml, _document
-from engine.render import load_toolkit
+from engine.export import export_musicxml
+from engine.render import load_toolkit, musicxml_file
 from engine.score import ScoreIndex
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,7 +33,7 @@ def summary(data):
 
 def timeline(data):
     result = []
-    for part in ET.fromstring(_document(data)).findall('part'):
+    for part in ET.fromstring(musicxml_file(data)).findall('part'):
         divisions = 1
         for bar in part.findall('measure'):
             cursor = previous = Fraction(0)
@@ -129,7 +129,7 @@ def test_real_bars_round_trip(path):
     original = path.read_bytes()
     before = summary(original)
     retained = timeline(original)
-    part = ET.fromstring(_document(original)).find("part").get("id")
+    part = ET.fromstring(musicxml_file(original)).find("part").get("id")
     bars = index(original).measures[::STRIDE.get(path.name, 1)]
     accepted, rejected = 0, Counter()
     for bar in bars:
@@ -172,7 +172,7 @@ def test_real_octave_span_edit(number):
     assert pitched(index(result).measure(number)) == pitched(expected)
     assert timeline(result) == timeline(original)
     assert [ET.tostring(e) for e in ET.fromstring(result).iter('octave-shift')] == [
-        ET.tostring(e) for e in ET.fromstring(_document(original)).iter('octave-shift')]
+        ET.tostring(e) for e in ET.fromstring(musicxml_file(original)).iter('octave-shift')]
 
 
 @pytest.mark.parametrize('kind,size', [('down', '8'), ('up', '8'), ('down', '15')])
@@ -207,10 +207,10 @@ def test_real_split_bar_edit_and_range_after_split():
     sustained = correct.replace_bars(original, text.replace('4 G4 2 B4', '6 C5'), part='P1')
     assert [(e.onset, e.duration, e.pitch, e.tied) for e in index(sustained).measure(7).events if e.staff == 1 and e.pitch] == [
         (Fraction(0), Fraction(2), 'C5', True), (Fraction(2), Fraction(1), 'C5', False)]
-    for before, after in zip(ET.fromstring(_document(original)).findall('part'), root.findall('part')):
+    for before, after in zip(ET.fromstring(musicxml_file(original)).findall('part'), root.findall('part')):
         if before.get('id') != 'P1':
             assert ET.tostring(before) == ET.tostring(after)
-    for before, after in zip(ET.fromstring(_document(original)).findall('part/measure'), root.findall('part/measure')):
+    for before, after in zip(ET.fromstring(musicxml_file(original)).findall('part/measure'), root.findall('part/measure')):
         assert [ET.tostring(e) for e in before.findall('barline')] == [ET.tostring(e) for e in after.findall('barline')]
 
 
