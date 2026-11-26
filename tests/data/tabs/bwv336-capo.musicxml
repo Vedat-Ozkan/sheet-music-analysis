@@ -373,6 +373,7 @@
         <duration>48</duration>
         <voice>2</voice>
         <type>quarter</type>
+        <accidental>flat</accidental>
         <stem>down</stem>
         <notations>
           <technical>
@@ -389,6 +390,7 @@
         <duration>48</duration>
         <voice>2</voice>
         <type>quarter</type>
+        <accidental>natural</accidental>
         <stem>down</stem>
         <notations>
           <technical>
@@ -564,6 +566,7 @@
         <duration>48</duration>
         <voice>2</voice>
         <type>quarter</type>
+        <accidental>flat</accidental>
         <stem>down</stem>
         <notations>
           <technical>
@@ -580,6 +583,7 @@
         <duration>24</duration>
         <voice>2</voice>
         <type>eighth</type>
+        <accidental>natural</accidental>
         <stem>down</stem>
         <notations>
           <technical>
@@ -632,6 +636,7 @@
         <duration>48</duration>
         <voice>1</voice>
         <type>quarter</type>
+        <accidental>flat</accidental>
         <stem>up</stem>
         <notations>
           <technical>
@@ -648,6 +653,7 @@
         <duration>48</duration>
         <voice>1</voice>
         <type>quarter</type>
+        <accidental>natural</accidental>
         <stem>up</stem>
         <notations>
           <technical>
@@ -754,6 +760,7 @@
         <duration>48</duration>
         <voice>2</voice>
         <type>quarter</type>
+        <accidental>natural</accidental>
         <stem>down</stem>
         <notations>
           <technical>
@@ -859,6 +866,7 @@
         <duration>48</duration>
         <voice>2</voice>
         <type>quarter</type>
+        <accidental>natural</accidental>
         <stem>down</stem>
         <notations>
           <technical>
@@ -927,6 +935,7 @@
         <duration>48</duration>
         <voice>1</voice>
         <type>quarter</type>
+        <accidental>flat</accidental>
         <stem>up</stem>
         <notations>
           <technical>
@@ -943,6 +952,7 @@
         <duration>48</duration>
         <voice>1</voice>
         <type>quarter</type>
+        <accidental>natural</accidental>
         <stem>up</stem>
         <notations>
           <technical>
@@ -1198,6 +1208,7 @@
         <duration>24</duration>
         <voice>2</voice>
         <type>eighth</type>
+        <accidental>flat</accidental>
         <stem>down</stem>
         <notations>
           <technical>
@@ -1214,6 +1225,7 @@
         <duration>24</duration>
         <voice>2</voice>
         <type>eighth</type>
+        <accidental>natural</accidental>
         <stem>down</stem>
         <notations>
           <technical>
@@ -1231,6 +1243,7 @@
         <duration>48</duration>
         <voice>2</voice>
         <type>quarter</type>
+        <accidental>sharp</accidental>
         <stem>down</stem>
         <notations>
           <technical>

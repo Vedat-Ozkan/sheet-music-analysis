@@ -466,6 +466,7 @@
         <duration>24</duration>
         <voice>1</voice>
         <type>eighth</type>
+        <accidental>sharp</accidental>
         <staff>1</staff>
         <notations />
       </note>
@@ -509,6 +510,7 @@
         <duration>24</duration>
         <voice>5</voice>
         <type>eighth</type>
+        <accidental>sharp</accidental>
         <staff>2</staff>
         <notations>
           <technical>
@@ -555,6 +557,7 @@
         <duration>48</duration>
         <voice>1</voice>
         <type>quarter</type>
+        <accidental>sharp</accidental>
         <staff>1</staff>
         <notations />
       </note>
@@ -586,6 +589,7 @@
         <duration>48</duration>
         <voice>5</voice>
         <type>quarter</type>
+        <accidental>sharp</accidental>
         <staff>2</staff>
         <notations>
           <technical>
@@ -1034,6 +1038,7 @@
         <voice>1</voice>
         <type>quarter</type>
         <dot />
+        <accidental>sharp</accidental>
         <staff>1</staff>
         <notations />
       </note>
@@ -1046,6 +1051,7 @@
         <duration>24</duration>
         <voice>1</voice>
         <type>eighth</type>
+        <accidental>sharp</accidental>
         <staff>1</staff>
         <notations />
       </note>
@@ -1074,6 +1080,7 @@
         <voice>5</voice>
         <type>quarter</type>
         <dot />
+        <accidental>sharp</accidental>
         <staff>2</staff>
         <notations>
           <technical>
@@ -1091,6 +1098,7 @@
         <duration>24</duration>
         <voice>5</voice>
         <type>eighth</type>
+        <accidental>sharp</accidental>
         <staff>2</staff>
         <notations>
           <technical>

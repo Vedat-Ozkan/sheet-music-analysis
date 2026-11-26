@@ -10,6 +10,8 @@ from pathlib import Path
 
 from music21 import converter, pitch
 
+from engine import correct
+
 HERE = Path(__file__).parent
 DATA = HERE.parent
 MUSESCORE = "/mnt/c/Program Files/MuseScore 4/bin/MuseScore4.exe"
@@ -272,6 +274,7 @@ def musicxml(piece: Piece) -> bytes:
                                  tied, fifths)
         if bar.repeat_end:
             ET.SubElement(ET.SubElement(measure, "barline", location="right"), "repeat", direction="backward")
+        correct._write_accidentals(measure, fifths)
     ET.indent(root)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 

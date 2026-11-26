@@ -146,6 +146,7 @@
         <duration>12</duration>
         <voice>1</voice>
         <type>16th</type>
+        <accidental>natural</accidental>
         <notations>
           <technical>
             <string>3</string>
@@ -1439,6 +1440,7 @@
         <duration>24</duration>
         <voice>1</voice>
         <type>eighth</type>
+        <accidental>flat</accidental>
         <notations>
           <technical>
             <string>1</string>
@@ -1509,6 +1511,7 @@
         <tie type="start" />
         <voice>1</voice>
         <type>eighth</type>
+        <accidental>natural</accidental>
         <notations>
           <tied type="start" />
           <technical>
@@ -1778,6 +1781,7 @@
         <tie type="start" />
         <voice>1</voice>
         <type>eighth</type>
+        <accidental>flat</accidental>
         <notations>
           <tied type="start" />
           <technical>

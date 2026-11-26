@@ -288,6 +288,7 @@
         <duration>24</duration>
         <voice>1</voice>
         <type>eighth</type>
+        <accidental>sharp</accidental>
         <notations>
           <technical>
             <string>3</string>
@@ -336,6 +337,7 @@
         <duration>48</duration>
         <voice>1</voice>
         <type>quarter</type>
+        <accidental>sharp</accidental>
         <notations>
           <technical>
             <string>3</string>
@@ -586,6 +588,7 @@
         <voice>1</voice>
         <type>quarter</type>
         <dot />
+        <accidental>sharp</accidental>
         <notations>
           <technical>
             <string>3</string>
@@ -602,6 +605,7 @@
         <duration>24</duration>
         <voice>1</voice>
         <type>eighth</type>
+        <accidental>sharp</accidental>
         <notations>
           <technical>
             <string>4</string>
