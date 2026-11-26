@@ -9,6 +9,7 @@ What changed for users, newest first. Numbers in brackets are entries in `docs/e
 - Not released yet: in ChatGPT the card that shows what was read from a PDF has a button, "Analyse this score", for when the analysis has not started by itself; Claude does not show it [210, 211].
 - Not released yet: the offer of a careful reading says what it costs in the product the user is in: in Claude it names its helpers (one per page, on Sonnet at medium effort) and the usage allowance, in ChatGPT only the time [212]. ChatGPT package 1.5.1 corrects the same sentence in its texts.
 - Not released yet: a score file with no notes in it is answered with one plain sentence instead of an empty analysis job [213].
+- Not released yet: a careful reading of a scan keeps the chord symbols printed in the score; before, a lead sheet read carefully lost them [214].
 - Not merged yet (branch `faster-ci`): the tests on GitHub run as four parallel jobs, a text-only change runs only the tests that read texts, and a deploy accepts the pull request's full test run when main holds exactly what it tested, and never a text-only run [209].
 
 ## 2026-11-25: server 00070-555

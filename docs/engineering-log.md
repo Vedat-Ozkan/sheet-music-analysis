@@ -3154,6 +3154,88 @@ Full suite with the PDF reader (sma.8) on the finished branch, which includes en
 
 **After review.** The first version passed the secret as `proxy-key:latest`. With no instance kept warm, each cold start reads `latest`, so adding a secret version would have changed the key production enforces at once, and a failed Worker step would have refused every call; rolling back would not have helped, since later revisions read `latest` too. Versions are now pinned and one script sets all three places. The first version also gave back the pages after a crash (see Give-back).
 
+### 169. Visual check of drawn pages after the guide to the marks (2026-11-14, branch `visual-qa-2026-11-14`, nothing changed in code)
+
+**Why.** The guide to the marks was released today (entries 162 to 164). The automated tests check overlaps by geometry, but nobody had looked at a broad sample of real pages since.
+
+**Sample.** Only saved, real analyses were drawn on their own scores, with no invented inputs:
+- `examples/` (the nocturne and the nine engraving passages);
+- `tests/data/check_display/bach-reviewed.json`;
+- the 30 held-out reviewed lists in `eval/results/`;
+- from the main checkout's `out/eval/reviewed/`, the core reviewed lists (whole pieces and the Haydn 104 orchestral score), seven multi-expert lists and four lists with alternative readings.
+
+That gives 251 renders of 125 passages:
+- 4 string-quartet and orchestral passages;
+- 8 piano reductions;
+- 13 whole pieces of 2 to 9 PDF pages;
+- songs, chorales, and the rest piano.
+
+Each passage was drawn in all four views where the list had them: every held-out first passage in all four, every engraving passage and the nocturne in all four. Each render was drawn as `render_analysis` draws it: `render(..., key=True, preview_pages=2)`, the preview from `preview.png(1, width=1400, colors=256, pages=2)`, the 580-px card size scaled down from that, and the PDF from `pdf()` rasterised at 1,400 px. Scripts, renders and tiles are in the session scratchpad only.
+
+**How it was looked at.** Every image was cut into full-resolution tiles 1,400 px wide. Reviewers were 8 Opus agents (cut off by the usage limit after 12 cases), then Sonnet agents. Each one read every tile of its cases, cropped each defect and wrote one JSON line per defect, with a done line per case. I checked the worst claims myself and corrected four of them:
+- Two were source-file problems: clefs in the Grieg Notturno, Beethoven Op. 14 No. 1 iii and Chopin BI 60-3, and the lyric syllables "< [ )" in the Moonlight Sonata.
+- One was source notation: a Verovio `bracketSpan` in WTC I/22 that a reviewer took for an unlabelled alternative bracket.
+- One was a PDF glyph, confirmed missing from the PDF's own text layer.
+
+**Pages looked at (honest count).**
+- 580-px card images: NCARD of 251.
+- Full-size previews read tile by tile: NPREV of 251.
+- PDF pages: NPDF of 323. All 88 pages of the 13 multi-page PDFs were read. A one-page render's PDF is the same SVG page as its preview, so only NONE of those 235 PDFs were read separately.
+
+The last NLATE renders were read in a reduced pass (580-px card plus full-size preview page 1 only) after the usage limit. NOT LOOKED: NMISS renders.
+
+Records: NREC defect lines, of which NBLOCK block reading, NUGLY ugly and NCOS cosmetic. These are per case, so one cause is counted many times. Everything is in `/home/kema/ux-review-2026-11-13/visual-qa/`:
+- `defects.html`: every record, worst first, with its crop;
+- `index.html`: every 580-px card, captioned with piece, bars and view;
+- `findings/*.jsonl`: the raw records.
+
+**What the guide changed.** Eight renders were drawn again at `prod-00064-tcs`. The music and every mark sit in the same place; `_grow_page` only extends the page.
+- Preview images grew 68 to 199 px.
+- The last PDF page grew 56 to 85 pt.
+- The four-bar gallery image grew most: 488 to 687 px.
+
+**The guide itself: no clipping, no overlap with music, lyrics or the last system in any render looked at.** It is present only at the foot of preview page 1 and at the end of the last PDF page. It lists exactly the kinds of mark drawn: the harmony, voice-leading and form views drop what they hide, and the cue line appears only on piano reductions. It is readable at 580 px except on very tall orchestral previews, where the music is just as small. Defects found:
+1. *Ugly.* With a two-page preview (every render over 32 bars) the guide sits in the middle of the card image, and page 2's music starts about 80 px below it with no divider (Haydn 104 bars 1–60 piano, Pathétique ii, K. 545 i, Grieg Notturno). This follows from the placement chosen in entry 162, so it is the owner's call.
+2. *Cosmetic.* The guide wraps at the right end of the last system, not at the page width. On the four-bar gallery image (`site/gallery/mozart-symphony-41-piano.png` input) this gives four lines, the last holding only "Vl. violin". This is a guess from `page_key.draw` taking `right = max(system.right)`.
+3. *Cosmetic.* The key sample is the alphabetically first key, not the first on the page. `page_key.entries` sorts what was shown (checked in code), so BWV 38.6 in A minor is explained with "G:".
+4. *Cosmetic.* The dashed region sample is hard to recognise at 580 px.
+5. *Cosmetic.* In a long PDF the guide reads "pre-dominant (pre-dom., PD)". `overlay.py` picks words or letters for the function brackets per page (checked), so a document mixes both. This is older than the guide, which only exposes it.
+
+**Other defects, grouped by cause (causes are guesses unless marked checked).** All of these are older than the guide. The only drawing code the guide release changed apart from `page_key.py` is the alternative bracket's end and the `shown` bookkeeping (checked with `git diff prod-00064-tcs..main -- engine/`). Haydn and Grieg were also seen the same at `prod-00064-tcs`.
+
+| Group | Renders affected | Worst example | Severity | Guess |
+|---|---|---|---|---|
+| Region brackets ("pedal on X", "drone", "descending bass"): label struck by its own dashed line, slurs, accents, notes; line through tempo words | about GREG | Tchaikovsky June bars 84–85 "pedal on G" printed over noteheads and a beam, unreadable (`tchaikovsky-all--pedal-label-garbled-over-notes.png`); Debussy Clair de lune "Calmato" struck out | blocks reading / ugly | region bracket placed at a fixed height above the staff with no collision check against music or text |
+| Arrows across a system break, or between adjacent notes | about GARR1 | Haydn 104 piano bars 19–20: two arrows run to the page edge with no head; K. 545 bars 68–71: arrows reduced to an arrowhead on the barline | ugly | an arrow whose target is on the next system is clipped, not split; no minimum length |
+| Arrow labels and shafts on notes, staff lines, accidentals, clef changes | about GARR2 | Schubert Du bist die Ruh bar 40 "7–6" on its own shaft reads "7=6"; Debussy bars 6–7 arrow through a clef change | ugly / cosmetic | label placed beside the shaft without checking music |
+| Ring codes and small labels on lyrics, beams, dynamics | about GRING | Winterreise "Gefror'ne Tränen" bar 21: "NT" printed over the syllable "mei-", both unreadable (`winterreise-all--nt-label-over-lyric.png`); Der Atlas bar 19 "SUS" on a syllable; Beethoven Op. 10 No. 2 ii bar 38 "pp" on the numeral | blocks reading / ugly | code placed in the lyric band; numeral row does not avoid score dynamics below the staff |
+| Phrase brackets | about GPHR | Haydn 104 bars 17–24: the continuation of "antecedent" over the next system lands on the previous system's function row ("D antecedent T"); pickup phrases leave an unlabelled stub at a system end; "a″" and "c″" drawn smaller than "a′" (checked: `PHRASE_LETTER_SIZE` applies only to a letter with at most one prime) | ugly / cosmetic | no vertical room reserved for a continued bracket above a system |
+| Cadential "-7 / -3" figures with leading dashes after V6/4 | about GFIG | BWV 38.6 bar 10 | cosmetic | how continuation figures are written |
+| Views other than "all" keep the space of hidden marks | about GBAND | blank bands about 150 px under each system | cosmetic | layout reserves room for every mark before the view filters |
+| PDF only: the note in "Andante très expressif ♩ = 60" is lost | 1 | Debussy Clair de lune, PDF page 1 (checked: missing from the PDF's text layer; the preview has it) | ugly | cairosvg lacks the music glyph inside a text run |
+
+**Input, not drawing.**
+- Clefs: staff-1 clefs in the source files put treble music on eight ledger lines. Grieg Notturno bars 1–20 has an F clef. Beethoven Op. 14 No. 1 iii and Chopin BI 60-3 write clef changes with no staff number.
+- Doubled dynamics in several DCML Beethoven sonatas: a plain copy of each dynamic under the engraved one. This is a guess: probably a source text layer. Not checked.
+- Callout numbers out of reading order or repeated: the model writes those numbers.
+- Chord symbols used as numerals in one Debussy list.
+
+**What looked good everywhere.** Numerals stay clear of notes and ledger lines. Function brackets and cadence boxes do not collide. Rings sit on their notes. Callout discs mostly sit clear of the music. Phrase brackets close and restart at system breaks, with their labels. Labels were never cut off at a page edge. The orchestral scores (Mozart 41, Dvořák 9, all views) and the piano reductions' cue words were clean.
+
+**Minimal reproductions.**
+- Each record names its input (score file, annotation list), bars and view.
+- The renders follow `render(score, list, measures=bars, view=view, piano=piano, key=True, preview_pages=2)`, with annotations outside the bars dropped, as the gallery redraw did.
+- Region labels: `out/eval/reviewed/opus-medium-2026-10-24/tchaikovsky-june.json`, whole piece, PDF page 8.
+- NT over lyric: `heldout-schubert-_franz-winterreise-_d-911-03_gefror-ne_thränen`, bars 0–23.
+- Split arrows: `haydn-104-1.json`, bars 1–32, `piano=True`.
+- Guide mid-image: `haydn-104-1.json`, bars 1–60, `piano=True`.
+
+**NOT RUN.**
+- The pytest suite (not asked; no code changed).
+- The cards in real Claude or ChatGPT chats.
+- PDFs of one-page renders, except NONE.
+- A second, independent read of the pages that the Sonnet reviewers alone looked at.
+
 ### 170. The upload card's device code leaves the web address; the privacy page names the note of a file already sent (2026-11-16, branch `privacy-page-sent-record`, nothing released)
 
 From the cold review of 2026-11-14 (finding 1 of the site and listings part, confirmed by reading the code). The owner chose this form on 2026-11-16: one clause on the page, no technical detail, and the device code moved so the page need not mention it. Entry 169 is on the unmerged branch `homr-staging`.
@@ -4517,6 +4599,23 @@ The ChatGPT package's reviewer case and release notes said the same untrue thing
 **Known and left.** Claude's upload card and a link still accept such a file and the sentence comes one call later, at the draft; that upload counts toward the daily limits as any upload does. A chord chart with symbols over rests and no notes is told "only empty bars", which is not quite true of it; the analysis works from notes and gave nothing for such a file before either. A PDF whose reading held only rests would be told at the draft to "send a PDF"; none has been seen.
 
 **Checks.** 16 new tests through the running server for Claude and ChatGPT, 12 of the first 15 failing before the fix and the review's test failing before its change; five test files that touch scores and corrections: 595 passed, 2 expected failures. `tools/diff_check.py --base` against the commit before, `render`: 28 inputs, none changed. NOT RUN: a real chat, so how a chat words the sentence to a user is not seen.
+
+### 214. A careful reading keeps the chord symbols printed in the score (2026-11-25, branch `careful-chord-symbols`)
+
+**Why.** The quick reading of a PDF keeps a score's printed chord symbols (entry 199). The careful reading builds a new score from the note lists its helpers write, and the instructions never mentioned chord symbols, so a lead sheet read carefully lost every one of them. In the one careful reading a real user has finished (24 November, 8 pages) the quick reading's 3 chord symbols became 0. The owner's decision: tell the helpers to keep them.
+
+**The rule.** A bar's chord symbols are one line of the note list, `c: SYMBOL@POSITION`, with the position in the bar's own units from its start (`c: Am7@0 D7/F#@8`). Units, because the helper already adds them up for note lengths and `len`, so the check can ask for a position below `len` and the page join shifts it like a note length. The marks line `x:` counts in quarter notes; whether it should follow is not decided. A symbol belongs to the bar and not to a voice, since it often stands where no note starts.
+
+**What changed** (Sonnet built it, I reviewed it). `kit/reader.md` asks the helper for the line and shows one; the kit's check refuses an entry with no position or a position at or past `len` (`CHORDS`), and `notes.decode` refuses the same. `engine/from_notes.py` writes each symbol into the empty score as the same element a file's or a quick reading's chord symbol is, so the drawn page, the marks around it and the table of notes for the chat (entry 199) need no second path. A name that starts with A to G keeps its root and bass and prints its ending as written, with no table of chord kinds and nothing guessed; anything else (`N.C.`, `(Am)`) prints as written. `correct_bars` already kept a bar's chord symbols (measured: 15 of 15 and 9 of 9 symbol bars on two lead sheets, after a note edit and a rewrite of each bar) and now answers a `c:` line with "leave out the c: line; a corrected bar keeps its chord symbols".
+
+**Measured.** One helper on Sonnet at medium effort, one page (our own "Amazing Grace" lead sheet, drawn by us and turned into the kit's page picture): with the changed instructions 16 of 16 chord symbols right in name and position, 33 of 33 notes, 16 of 16 bars; with the unchanged instructions the same notes and no symbols. 74,949 against 74,745 tokens. The quick reading of the same page as a picture-only PDF kept 6 of the 16 (it missed every single-letter name). **Limits:** one clean typeset page with one voice, and only one symbol off the first beat, so this does not show what the extra task costs on a hard page, and says little about placing.
+
+**Nothing changes without chord symbols:** 76 note lists from the test data, none with a `c:` line: 33 build the same score before and after and 43 are refused with the same sentence.
+
+**Checks.** 25 new tests, failing before; the careful-reading, correction and server test files: 659 passed, 2 expected failures. NOT RUN: a real chat in either product; a photographed or scanned lead sheet; a second model's review beyond mine.
+
+**Seen and left.** A control character in a symbol raises the same uncaught error sung words already do. The format has no staff for a symbol, so all are drawn above the top staff. A word that starts with A to G written on the `c:` line (`D.C.`) would be listed as a chord.
+
 
 ## Reproducing
 
