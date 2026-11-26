@@ -448,3 +448,29 @@ def test_every_staff_starts_in_the_clef_its_first_note_is_written_in(pages):
                     changed_before_first_note.append(number)
                 break
     assert changed_before_first_note == []
+
+
+def test_a_careful_reading_covers_every_page_of_a_scan_longer_than_the_quick_reading(tmp_path, monkeypatch):
+    import pikepdf
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    pages_read = []
+
+    def read(data):
+        pages_read.append(len(pdf_reader.open_pdf(data).pages))
+        return pdf_reader.PdfReading(QUICK_READING.read_bytes(), pages_read[-1], True)
+
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", read)
+    pdf = pikepdf.new()
+    for _ in range(pdf_reader.READ_PAGES + 4):
+        pdf.add_blank_page()
+    out = io.BytesIO()
+    pdf.save(out)
+    card = asyncio.run(app.read_pdf_data(out.getvalue(), "other", "read_pdf"))
+    score_id = text_of(card).split("score_id: ")[1].split()[0]
+    total = pdf_reader.READ_PAGES + 4
+    assert pages_read == [pdf_reader.READ_PAGES]
+    steps = text_of(asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": score_id})))
+    assert f"This piece has {total} pages." in steps and f"page N of {total}" in steps
+    pages = [f"N1 div=1 ts=4/4 ks=0\nm{bar} len=4\n1.1: 4 C4" for bar in range(1, total + 1)]
+    result = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": score_id, "pages": pages}))
+    assert not result.is_error and "It holds only" not in text_of(result)

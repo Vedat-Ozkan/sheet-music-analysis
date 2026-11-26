@@ -1175,7 +1175,7 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
         card = json.loads(card)
         log(tool, platform=source, pages=card["pages"], cached="card")
         if card.get("scan"):
-            await anyio.to_thread.run_sync(store.put, scan_key(card["score_id"]), json.dumps({"pages": card["pages"]}).encode())
+            await anyio.to_thread.run_sync(store.put, scan_key(card["score_id"]), json.dumps({"pages": card.get("of_pages", card["pages"])}).encode())
         return pdf_card_result(card, tool, source)
     failed = json.loads(await anyio.to_thread.run_sync(store.get, failure_of(card_key)) or b"{}")
     if (unread := failed.get("unread")) and unread["final"]:
@@ -1524,8 +1524,8 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
     log("read_pdf_work", pages=reading["pages"], scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached),
         passes=passes, bars=bars, bars_shaded=len(uneven))
     if reading["scan"]:
-        await anyio.to_thread.run_sync(store.put, scan_key(score_id), json.dumps({"pages": reading["pages"]}).encode())
-    return {"score_id": score_id, "pages": reading["pages"], "scan": reading["scan"], "measures": measures, "bars": bars, "notice": notice, "image_url": image_url,
+        await anyio.to_thread.run_sync(store.put, scan_key(score_id), json.dumps({"pages": reading.get("of_pages", reading["pages"])}).encode())
+    return {"score_id": score_id, "pages": reading["pages"], "of_pages": reading.get("of_pages", reading["pages"]), "scan": reading["scan"], "measures": measures, "bars": bars, "notice": notice, "image_url": image_url,
             "pdf_url": pdf_url, "more_pages": more_pages, "shaded_bars": uneven_named, "page_images": [base64.b64encode(png).decode() for png in pages]}
 
 
