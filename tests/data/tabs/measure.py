@@ -36,6 +36,7 @@ def notes(data: bytes, capo: int = 0) -> tuple[list[Note], int]:
     found, count = [], 0
     for part in root.iter("part"):
         divisions = 1
+        drawn_twice = staves_beside_tablature(part)
         for position, measure in enumerate(part.iter("measure")):
             count = max(count, position + 1)
             cursor = onset = Fraction(0)
@@ -53,7 +54,7 @@ def notes(data: bytes, capo: int = 0) -> tuple[list[Note], int]:
                     onset = cursor
                     cursor += length
                 string = element.findtext("notations/technical/string")
-                if string is None or element.find("pitch") is None:
+                if string is None or element.find("pitch") is None or element.findtext("staff") in drawn_twice:
                     continue
                 step = element.findtext("pitch/step")
                 alter = int(element.findtext("pitch/alter") or 0)
@@ -62,6 +63,12 @@ def notes(data: bytes, capo: int = 0) -> tuple[list[Note], int]:
                 found.append(Note(position, onset, int(string), int(element.findtext("notations/technical/fret")),
                                   length, midi, any(tie.get("type") == "stop" for tie in element.findall("tie")), spelled))
     return found, count
+
+
+def staves_beside_tablature(part: ET.Element) -> set[str]:
+    clefs = part.findall("measure/attributes/clef")
+    tablature = {clef.get("number", "1") for clef in clefs if clef.findtext("sign") == "TAB"}
+    return {clef.get("number", "1") for clef in clefs} - tablature if tablature else set()
 
 
 def truth_of(pdf: Path) -> tuple[bytes, int, int | None, bool] | None:

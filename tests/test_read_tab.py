@@ -1,12 +1,14 @@
 import copy
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
 
 from engine import correct
+from engine.export import export_musicxml
 from engine.read_pdf import problem_spots
-from engine.read_tab import read_tab, with_tablature_staff
+from engine.read_tab import read_tab
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 from tests.data.tabs.measure import FOLDERS, USERS, compare, measure, notes, truth_of
@@ -76,6 +78,9 @@ def test_every_sign_the_accidental_rule_wants_is_drawn(pdf):
     wanted = {}
     for bar in root.iter("measure"):
         bare = copy.deepcopy(bar)
+        for note in bare.findall("note"):
+            if note.findtext("staff") == "2":
+                bare.remove(note)
         for note in bare.iter("note"):
             for sign in note.findall("accidental"):
                 note.remove(sign)
@@ -90,17 +95,19 @@ def test_every_sign_the_accidental_rule_wants_is_drawn(pdf):
 def test_notes_joined_by_a_printed_beam_are_beamed_together():
     root = ET.fromstring(read_tab((DATA / "tabs/romanza.pdf").read_bytes()).musicxml)
     for bar in root.iter("measure"):
-        marks = [beam.text for beam in bar.iter("beam") if beam.get("number") == "1"]
+        marks = [beam.text for note in bar.iter("note") if note.findtext("staff") == "1"
+                 for beam in note.iter("beam") if beam.get("number") == "1"]
         assert marks == ["begin", "continue", "end"] * 3, bar.get("number")
 
 
-def test_the_tablature_under_the_staff_is_drawn_without_counting_any_note_twice():
-    reading = read_tab((DATA / "tabs/romanza.pdf").read_bytes())
-    both = with_tablature_staff(reading.musicxml, reading.tuning)
-    events = lambda score: sum(1 for bar in ScoreIndex(load_toolkit(score).getMEI()).measures for event in bar.events if event.pitch)
-    assert events(both) == events(reading.musicxml) == reading.notes
-    assert problem_spots(both) == problem_spots(reading.musicxml)
-    assert 'notationtype="tab' in load_toolkit(both).getMEI()
+@pytest.mark.parametrize("name", ["romanza", "bwv386-chords", "greensleeves"])
+def test_a_tablature_reading_is_drawn_as_a_staff_with_its_tablature_under_it_and_each_note_counted_once(name):
+    reading = read_tab((DATA / f"tabs/{name}.pdf").read_bytes())
+    mei = load_toolkit(reading.musicxml).getMEI()
+    assert len(re.findall(r"<staffDef\b", mei)) == 2 and len(re.findall(r'<staffDef\b[^>]*notationtype="tab', mei)) == 1
+    index = ScoreIndex(mei)
+    assert sum(1 for bar in index.measures for event in bar.events if event.pitch) == reading.notes
+    assert problem_spots(reading.musicxml)[0] == []
 
 
 def test_tablature_beside_a_five_line_staff_is_left_to_the_staff_reader():
@@ -163,3 +170,13 @@ def test_a_sign_on_the_strings_that_is_not_read_marks_its_bar(path, bars):
 def test_a_bracketed_fret_is_tied_only_to_the_note_just_before_it():
     root = ET.fromstring(read_tab((REVIEW / "hand/h3-ghost-notes.pdf").read_bytes()).musicxml)
     assert list(root.iter("tied")) == []
+
+
+def test_the_downloaded_analysis_puts_its_labels_on_the_staff_not_on_the_tablature():
+    reading = read_tab((DATA / "tabs/greensleeves.pdf").read_bytes())
+    analysis = {"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "key": "a", "label": "i"},
+                                {"type": "harmony", "at": {"measure": 1, "beat": 2.5}, "label": "V"}]}
+    root = ET.fromstring(export_musicxml(reading.musicxml, analysis))
+    labelled = [note.findtext("staff") for note in root.iter("note") if note.find("lyric") is not None]
+    placed = [direction.findtext("staff") for direction in root.iter("direction") if direction.find("direction-type/words") is not None]
+    assert labelled + placed and set(labelled + placed) == {"1"}
