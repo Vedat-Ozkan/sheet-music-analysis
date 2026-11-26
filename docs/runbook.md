@@ -98,4 +98,4 @@ Cloud Run itself refuses a request when no instance slot frees up in time: it wa
 
 ## Release history
 
-Each release has an entry in `docs/engineering-log.md` with its pull requests, commit, revision and rollback target (entries 145, 149, 152, 156, 158, 203, 204 and 207), and a `prod-*` tag.
+Each release has an entry in `docs/engineering-log.md` with its pull requests, commit, revision and rollback target (entries 145, 149, 152, 156, 158, 203, 204, 207 and 217), and a `prod-*` tag.

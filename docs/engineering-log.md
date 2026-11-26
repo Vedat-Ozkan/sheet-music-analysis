@@ -4493,7 +4493,7 @@ PR #43 merged to `main` as `247754f` (entries 170, 173 and 182 to 202; with it #
 
 The release was meant to be one command and took three. The script stopped silently at its last step because one of my own checks looked for a sentence that is broken over two lines in the source, and my watcher did not notice for 40 minutes; the replacement then stopped once more because it gave the live site 20 seconds to show the new privacy page and the site took longer. Nothing wrong was released either time. From now on every check of a release script is run against the branch before the owner gets the command, all checks come before anything is merged, and waits for a live page poll for minutes. NOT RUN: a real chat on production after the deploy (the same code ran the chats above on staging).
 
-### 208. Where ChatGPT users stop between a reading and a marked page, and results that end with the next step (2026-11-25, branch `go-on-wording`, on staging only)
+### 208. Where ChatGPT users stop between a reading and a marked page, and results that end with the next step (2026-11-25, branch `go-on-wording`; released 2026-11-26)
 
 **Why.** Entry 207 asked whether users who left were lost. Counting what each ChatGPT user did in the three hours after their first PDF reading (production logs, owner's codes left out): between 11 and 23 November, when the chat was told to go straight on to the analysis, 33 users got a reading; 23 reached a marked page (70%), 6 got a draft and never a drawn page, 4 stopped right after the reading, and 4 of the 23 went on only 30 seconds or more after the reading, which is a user asking again (the usual gap is 2 to 10 seconds). How long the reading took does not separate the groups. My first count took the whole 30 days (48 readers, 11 stopped after the reading) and was wrong to: until the release of 10 November the read's result told ChatGPT not to analyse before the user had checked the reading, so those stops were asked for. Opus found that while studying the fixes.
 
@@ -4517,7 +4517,7 @@ The release was meant to be one command and took three. The script stopped silen
 
 **Checks.** Full suite with the PDF reader on `analyse-button` 4bc6f60, which is this branch's four commits plus the button: 1,917 passed, 4 skipped (no ring codes), 2 expected failures, 0 failed (4 workers, 12.4 minutes). NOT RUN: the suite on this branch alone; a chat with a doubtful reading, for the reworded warning.
 
-### 209. Tests on GitHub in four parallel jobs, a light path for text-only changes, and a deploy gate that needs one full run (2026-11-25, branch `faster-ci`)
+### 209. Tests on GitHub in four parallel jobs, a light path for text-only changes, and a deploy gate that needs one full run (2026-11-25, branch `faster-ci`; merged 2026-11-26)
 
 **Why.** On 24 November three small releases cost eight runs of the suite at 25 to 37 minutes each, about four hours, plus a dozen commands for the owner, who asked for the process to be far faster and for every release to be one command. Measured: set-up is 30 seconds, everything else is `pytest` on GitHub's 4-core machine (12 minutes on this PC with 4 workers). Tests of 2 seconds or more add up to 38 CPU-minutes here, 18 of them reading real PDFs (`tests/test_read_pdf.py` alone 13.7) and 6.7 the round trip of corrections on long pieces. Every release ran the suite twice on the same files, on the pull request and again on `main`, and a text-only release record ran it twice too.
 
@@ -4532,7 +4532,7 @@ The release was meant to be one command and took three. The script stopped silen
 
 **NOT RUN.** The text-only path on a real event (the `texts` job has only been skipped so far); a run on `main` after a push, which reads `github.event.before`; the gate on a merge commit of `main`, where it has to find the pull request's run. The first release with this workflow is their test.
 
-### 210. A button on the reading card that asks the chat to analyse: built, tried in real chats, does not do its job (2026-11-25, branch `analyse-button`, on staging only; second round and the decision in entry 211)
+### 210. A button on the reading card that asks the chat to analyse: built, tried in real chats, does not do its job (2026-11-25, branch `analyse-button`; second round and the decision in entry 211)
 
 **Why.** Entry 208: some chats stop after the reading, and both products document a way for a card to post a user's message into the chat on a tap. A button "Analyse this score" with the line "If the analysis has not started by itself, tap here." was built on the reading card: a tap sends "Please analyse this score now." with `ui/message`, and with ChatGPT's own `sendFollowUpMessage` if that is refused; the card then says whether the chat was asked, and tells the server through a new tool the chat cannot call (`asked_to_analyse`). The reading card got a new address (`pdf-card-v4.html`), with the page as it was kept at the old one for ChatGPT's stored tool list. Opus reviewed it; four faults fixed (a second message when the answer had no result, no status text, a loosened test, a confusing file name).
 
@@ -4546,7 +4546,7 @@ The release was meant to be one command and took three. The script stopped silen
 
 **Where this leaves it.** In neither product did a tap produce a marked page. Shipping it would cost a new card address and a new tool for OpenAI to scan, and a control in Claude that fails. Not merged; the owner decides between dropping it and one more round (find out why Claude refuses; in ChatGPT compare the tap with the same sentence typed by hand).
 
-### 211. The button, second round: it works in ChatGPT and is not shown in Claude (2026-11-25, branches `analyse-button` and `analyse-button-chatgpt`)
+### 211. The button, second round: it works in ChatGPT and is not shown in Claude (2026-11-25, branches `analyse-button` and `analyse-button-chatgpt`; released 2026-11-26)
 
 **Why a second round.** Entry 210 ended with no tap producing a marked page. Two things in that round were mine to fix before judging the button. The button sent its message with `content` as one object, while the upload card, whose message Claude accepts, sends a list (fixed in `9851003`). And in claude.ai a card's message has never been posted by itself (entry of 8 November: it went into the reply box), which the first round never looked for.
 
@@ -4570,7 +4570,7 @@ The release was meant to be one command and took three. The script stopped silen
 
 **Checks.** The card's browser tests, the ChatGPT flow, the server-process tests and the careful-reading tests on the branch: 213 passed. A new server test reads a PDF as ChatGPT, as Claude and as neither and finds the mark only for ChatGPT. NOT RUN: a real chat on the final branch (the chats above ran the branch before the server decided by product; the card and its message are the same); which of the two ways of posting ChatGPT accepted (the card tries the shared one first and ChatGPT's own second; the server's log shows only that the message went); a tap on production.
 
-### 212. The careful reading's cost warning says what is true for each product (2026-11-25, branch `offer-warning-by-product`)
+### 212. The careful reading's cost warning says what is true for each product (2026-11-25, branch `offer-warning-by-product`; released 2026-11-26)
 
 **Why.** The offer of a careful reading warned every user that it "uses a lot of your plan's usage allowance. As a guide, a 10-page piece can use most of a five-hour allowance on a standard paid plan." That was worked out on Claude (entry 181) and says nothing true about ChatGPT: OpenAI's pricing page lists everyday chat on its paid plans as unlimited, with separate limits only on the higher thinking settings, for which it gives no numbers (pricing and help pages read on 25 November). The owner also asked that Claude's sentence say what will run.
 
@@ -4586,7 +4586,7 @@ The ChatGPT package's reviewer case and release notes said the same untrue thing
 
 **Review** (Opus, both commits and the wording commit): no fault; its three points are in (the shared helper, the README row, Claude's question checked through the running server). **Checks.** The four test files that touch these texts: 171 passed.
 
-### 213. A score with no notes is answered plainly (2026-11-25, branch `no-notes-message`)
+### 213. A score with no notes is answered plainly (2026-11-25, branch `no-notes-message`; released 2026-11-26)
 
 **Why.** The owner showed two shared chats of one real ChatGPT user, a composer working in a music production program (20 and 22 November). In the first, the user attached a MusicXML export that held one empty bar. Our server's log says `draft_analysis` ok: the answer was the whole method for analysing a score over an empty table of notes, and nothing told the chat or the user that the file was the problem. The user then tried a PDF export of one part (3 pages, 25 bars, all 25 marked doubtful; ChatGPT rightly drew no numerals) and an MP3, which ChatGPT measured by itself; two days later a MIDI file, which never reached us because we take none. Four formats in two visits and no useful word from us about any of them. This entry fixes the first; MIDI is a separate question for the owner.
 
@@ -4600,7 +4600,7 @@ The ChatGPT package's reviewer case and release notes said the same untrue thing
 
 **Checks.** 16 new tests through the running server for Claude and ChatGPT, 12 of the first 15 failing before the fix and the review's test failing before its change; five test files that touch scores and corrections: 595 passed, 2 expected failures. `tools/diff_check.py --base` against the commit before, `render`: 28 inputs, none changed. NOT RUN: a real chat, so how a chat words the sentence to a user is not seen.
 
-### 214. A careful reading keeps the chord symbols printed in the score (2026-11-25, branch `careful-chord-symbols`)
+### 214. A careful reading keeps the chord symbols printed in the score (2026-11-25, branch `careful-chord-symbols`; released 2026-11-26)
 
 **Why.** The quick reading of a PDF keeps a score's printed chord symbols (entry 199). The careful reading builds a new score from the note lists its helpers write, and the instructions never mentioned chord symbols, so a lead sheet read carefully lost every one of them. In the one careful reading a real user has finished (24 November, 8 pages) the quick reading's 3 chord symbols became 0. The owner's decision: tell the helpers to keep them.
 
@@ -4616,7 +4616,7 @@ The ChatGPT package's reviewer case and release notes said the same untrue thing
 
 **Seen and left.** A control character in a symbol raises the same uncaught error sung words already do. The format has no staff for a symbol, so all are drawn above the top staff. A word that starts with A to G written on the `c:` line (`D.C.`) would be listed as a chord.
 
-### 215. ChatGPT calls us in two ways, and only one of them can do a careful reading (2026-11-26, branch `plain-tool-texts`)
+### 215. ChatGPT calls us in two ways, and only one of them can do a careful reading (2026-11-26, branch `plain-tool-texts`; released 2026-11-26)
 
 **Why.** Since the careful reading was switched on in ChatGPT (23 November), three real users said yes to it and none got one: the server handed out the steps and never heard from the chat again. On the owner's account it had worked every time.
 
@@ -4642,7 +4642,7 @@ What sends a turn to the agent, tested one change at a time on the Instant setti
 
 **Conclusion.** Where the script runs was never the obstacle. An ordinary ChatGPT turn does not work from a tool's pictures, and ChatGPT without helpers will not write out a page of notes. The branch is kept and shelved; the memory question would have to be solved first if it is ever taken up for another product.
 
-### 217. What our tools say to the chat: statements instead of orders (2026-11-26, branch `plain-tool-texts`)
+### 217. What our tools say to the chat: statements instead of orders (2026-11-26, branch `plain-tool-texts`; released 2026-11-26)
 
 **Why.** In ordinary ChatGPT turns, ChatGPT sometimes stopped one of our calls at its confirmation box with a red panel, "Suspicious Instruction", that quoted our own texts back: "Tool documentation attempts to prescribe when to call, how to label annotations, what links to offer", "Prior tool output attempts to override workflow, require specific follow-up calls, and prescribe exact user-facing wording". Seen on the released app in 1 of 6 later-turn drawing calls, and on the staging app in 3 of 3 situations that the 25 November texts had made more commanding. OpenAI documents no such check; its pages say a description explains what a tool does, that "required tool sequences" belong in the server's instructions with the most important part in the first 512 characters, and that a result holds data relevant to the request. Four other developers report the same panel and the same cure.
 
@@ -4666,7 +4666,11 @@ What sends a turn to the agent, tested one change at a time on the Instant setti
 
 **Checks.** The tests that pinned texts pin the new ones; one walks every path of a scan (read, first drawn page, later pages, both products) and checks where the scan fact and the offer appear. Full suite with the PDF reader on e66cdbe: 1,963 passed, 4 skipped, 2 expected failures, 0 failed; on round 4's commit 588b3ff: the same counts.
 
-### 218. A page with no marks is not drawn, and a careful reading of part of a scan says so (2026-11-26, branch `plain-tool-texts`)
+**Released 2026-11-26, with entries 208 to 215, 218 and 219.** PR #51 (`batch-2026-11-26`, at `ce8f975`) merged to `main` as `c0fc81c`; the pull request's four test jobs had passed on `ce8f975` and the deploy gate accepted that run, because `main` held exactly the tested files. Production revision `sheet-music-analysis-00071-8q6` (rollback target `00070-555`), serving from 15:29 UTC with `CAREFUL_READING=chatgpt,claude` as before; the deploy script tagged the commit `prod-00071-8q6`. The proxy went out after the server, once the released server's health answer carried the mark of entry 219 (Worker version `fe2e7b06`). Afterwards the live address answered its health check with the mark and handed out the new server instructions (1,685 characters). ChatGPT package 1.5.1 was built and is not uploaded; OpenAI's own scan has not seen the new texts. NOT RUN after the release: a real chat on the released app in either product.
+
+The release was one command and took two minutes from the owner's press to the last step, with nothing to press in between.
+
+### 218. A page with no marks is not drawn, and a careful reading of part of a scan says so (2026-11-26, branch `plain-tool-texts`; released 2026-11-26)
 
 **Why.** In a staging chat ChatGPT called `render_analysis` twice in one turn, with 71 marks and 11 seconds later with none; the server drew the empty list as a bare score, the card showed that, and the reply still said "Roman numeral analysis". It was not new: on production in the 30 days before, 29 of 141 pages drawn for real ChatGPT users had no marks at all (9 of 50 people), 28 of them with no marked page within three minutes before or five after. What those users asked for is not known; some may have wanted to see the score. Our counts of "marked pages" included these.
 
@@ -4676,7 +4680,7 @@ Separately, a careful reading handed in for one page of an eight-page scan was a
 
 **Checks.** Tests through the server for both; the tests that used to draw an empty list now draw one mark. NOT RUN: what a chat tells a user after the refusal.
 
-### 219. The proxy's second try, proved on staging (2026-11-26, branch `proxy-retry`, merged into `plain-tool-texts`)
+### 219. The proxy's second try, proved on staging (2026-11-26, branch `proxy-retry`, merged into `plain-tool-texts`; released 2026-11-26)
 
 **Why.** Twice on 25 November, and 21 times in the 30 days before, Cloud Run refused a request before our server saw it ("aborted after waiting too long for an available instance"). Since 23 November one PDF read holds both request slots of its instance, and a third request arriving then can be refused although a second instance is idle.
 
