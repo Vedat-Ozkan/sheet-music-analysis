@@ -8,7 +8,7 @@ from fractions import Fraction
 
 from engine import correct, notes
 from engine.errors import UserError
-from engine.score import Measure
+from engine.score import Measure, alteration
 
 REST_TYPES = ("whole", "half", "quarter", "eighth", "16th", "32nd", "64th", "128th")
 DIVISIONS = 32
@@ -18,6 +18,7 @@ MAX_BARS = 1000
 MAX_BAR_LENGTH = 64
 HEADER = re.compile(notes.VERSION + r" div=(?P<div>[1-9]\d*) ts=(?P<meter>\S*) ks=(?P<key>\S+)")
 BAR_LINE = re.compile(r"m\d+ len=(?P<length>\d+)(?P<changes>(?: (?:ts|ks)=\S+)*)")
+CHORD_NAME = re.compile(r"(?P<root>[A-G])(?P<sign>[#b♯♭]?)(?P<kind>.*?)(?:/(?P<bass>[A-G])(?P<bass_sign>[#b♯♭]?))?")
 
 
 def score_from_pages(pages: list[str]) -> bytes:
@@ -51,7 +52,7 @@ def score_from_notes(text: str, *, after_a_rest_bar: bool = False) -> bytes:
 
 
 def _rest_bar_before(first: Measure) -> Measure:
-    return replace(first, number=first.number - 1, name=str(first.number - 1), declared_length=_full_length(first), events=[])
+    return replace(first, number=first.number - 1, name=str(first.number - 1), declared_length=_full_length(first), events=[], chord_symbols=[])
 
 
 @dataclass
@@ -61,6 +62,7 @@ class _Bar:
     changes: dict[str, str]
     voices: dict[str, str] = field(default_factory=dict)
     words: dict[str, str] = field(default_factory=dict)
+    chord_symbols: list[tuple[str, int]] = field(default_factory=list)
     other: list[str] = field(default_factory=list)
 
 
@@ -97,6 +99,9 @@ def _page_bars(number: int, lines: list[str], scale: int, meter: str, key: str) 
             raise notes.NotesError(f"Page {number}: a voice line needs a bar line like 'm3 len=96' before it")
         elif label == "x":
             bars[-1].other.append(line)
+        elif label == "c":
+            entries = map(notes.CHORD_ENTRY.fullmatch, body.split())
+            bars[-1].chord_symbols.extend((entry["symbol"], int(entry["at"]) * scale) for entry in entries)
         elif notes.WORDS_LABEL.fullmatch(label):
             bars[-1].words[label[:-1]] = body.strip()
         else:
@@ -137,7 +142,9 @@ def _one_bar(previous: _Bar | None, before: _Bar, after: _Bar, div: int) -> _Bar
         second = (_words_after_the_turn(before.voices.get(label), after.voices.get(label), after.words[label], div)
                   if label in after.words else _unsung(after.voices.get(label), div, tied_across))
         words[label] = " ".join(filter(None, (first, second)))
-    return _Bar(before.written_number, before.length + after.length, before.changes, voices, words, before.other + after.other)
+    chord_symbols = before.chord_symbols + [(symbol, before.length + at) for symbol, at in after.chord_symbols]
+    return _Bar(before.written_number, before.length + after.length, before.changes, voices, words, chord_symbols,
+                before.other + after.other)
 
 
 def _words_after_the_turn(before: str | None, after: str | None, words: str, div: int) -> str:
@@ -162,6 +169,8 @@ def _bars_as_text(bars: list[_Bar], div: int, meter: str, key: str) -> str:
             key = bar.changes["ks"]
             line += f" ks={key}"
         lines.append(line)
+        if bar.chord_symbols:
+            lines.append("c: " + " ".join(f"{symbol}@{at}" for symbol, at in bar.chord_symbols))
         for label, body in bar.voices.items():
             lines.append(f"{label}: {body}")
             if label in bar.words:
@@ -176,6 +185,7 @@ def _empty_score(measures: list[Measure], staves: int) -> bytes:
     ET.SubElement(ET.SubElement(ET.SubElement(root, "part-list"), "score-part", id="P1"), "part-name")
     part = ET.SubElement(root, "part", id="P1")
     meter = key = None
+    divisions = math.lcm(DIVISIONS, *(at.denominator for measure in measures for at, _ in measure.chord_symbols))
     for measure in measures:
         full = _full_length(measure)
         bar = ET.SubElement(part, "measure", number=measure.name)
@@ -184,7 +194,7 @@ def _empty_score(measures: list[Measure], staves: int) -> bytes:
         if part[0] is bar or measure.meter != meter or measure.key_signature != key:
             attributes = ET.SubElement(bar, "attributes")
             if part[0] is bar:
-                ET.SubElement(attributes, "divisions").text = str(DIVISIONS)
+                ET.SubElement(attributes, "divisions").text = str(divisions)
             if measure.key_signature != key:
                 key = measure.key_signature
                 ET.SubElement(ET.SubElement(attributes, "key"), "fifths").text = str(_fifths(key))
@@ -198,18 +208,37 @@ def _empty_score(measures: list[Measure], staves: int) -> bytes:
                     sign, line, _ = notes.CLEFS["F" if staff == staves > 1 else "G"]
                     clef = ET.SubElement(attributes, "clef", number=str(staff))
                     ET.SubElement(clef, "sign").text, ET.SubElement(clef, "line").text = sign, str(line)
+        for at, symbol in measure.chord_symbols:
+            bar.append(_chord_symbol(symbol, int(at * divisions)))
         for staff in range(1, staves + 1):
             if staff > 1:
-                ET.SubElement(ET.SubElement(bar, "backup"), "duration").text = str(int(measure.length * DIVISIONS))
+                ET.SubElement(ET.SubElement(bar, "backup"), "duration").text = str(int(measure.length * divisions))
             for kind, length in [(None, measure.length)] if measure.length == full else _rests(measure):
                 note = ET.SubElement(bar, "note")
                 ET.SubElement(note, "rest", {} if kind else {"measure": "yes"})
-                ET.SubElement(note, "duration").text = str(int(length * DIVISIONS))
+                ET.SubElement(note, "duration").text = str(int(length * divisions))
                 ET.SubElement(note, "voice").text = str(staff)
                 if kind:
                     ET.SubElement(note, "type").text = kind
                 ET.SubElement(note, "staff").text = str(staff)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _chord_symbol(symbol: str, offset: int) -> ET.Element:
+    name = CHORD_NAME.fullmatch(symbol)
+    harmony = ET.Element("harmony")
+    root = ET.SubElement(harmony, "root")
+    ET.SubElement(root, "root-step").text = name["root"] if name else "C"
+    if name and name["sign"]:
+        ET.SubElement(root, "root-alter").text = str(alteration(name["sign"]))
+    ET.SubElement(harmony, "kind", text=name["kind"] if name else symbol).text = "other" if name else "none"
+    if name and name["bass"]:
+        bass = ET.SubElement(harmony, "bass")
+        ET.SubElement(bass, "bass-step").text = name["bass"]
+        if name["bass_sign"]:
+            ET.SubElement(bass, "bass-alter").text = str(alteration(name["bass_sign"]))
+    ET.SubElement(harmony, "offset").text = str(offset)
+    return harmony
 
 
 def _units_in_bar(meter: str, div: int) -> int | None:
@@ -249,6 +278,8 @@ def _with_every_staff(text: str, staves: int) -> str:
         lines.extend(f"{staff}.1: {length} r" for staff in range(1, staves + 1) if staff not in written)
 
     for line in filter(None, map(str.strip, text.splitlines())):
+        if line.startswith("c:"):
+            continue
         if line.startswith("m") and lines:
             fill()
             written, length = set(), line.split("len=", 1)[1].split()[0]

@@ -1,0 +1,48 @@
+N1 div=2 ts=3/4 ks=1s
+m0 len=2
+1.1: clef=G 2 D4
+m1 len=6
+c: G@0
+1.1: 4 G4 1 B4 G4
+m2 len=6
+c: G7@0
+1.1: 4 B4 2 A4
+m3 len=6
+c: C@0
+1.1: 4 G4 2 E4
+m4 len=6
+c: G@0
+1.1: 4 D4 2 D4
+m5 len=6
+c: G@0
+1.1: 4 G4 1 B4 G4
+m6 len=6
+c: Em@0
+1.1: 4 B4 2 A4
+m7 len=6
+c: D@0
+1.1: 6 D5
+m8 len=6
+c: D7@0
+1.1: 4 D5 2 B4
+m9 len=6
+c: G@0
+1.1: 4 D5 1 B4 D5
+m10 len=6
+c: G7@0
+1.1: 4 B4 2 A4
+m11 len=6
+c: C@0
+1.1: 4 G4 2 E4
+m12 len=6
+c: G@0
+1.1: 4 D4 2 D4
+m13 len=6
+c: G@0 Em@4
+1.1: 4 G4 1 B4 G4
+m14 len=6
+c: D7@0
+1.1: 4 B4 2 A4
+m15 len=4
+c: G@0
+1.1: 4 G4

@@ -380,6 +380,14 @@ def check(a):
             if length != full:
                 print(f'{bar}: NOTE len={length} but a full bar is {full}; only a pickup or its closing bar may be shorter')
             continue
+        m = re.fullmatch(r'c:(.*)', line)
+        if m and bar is not None:
+            for entry in m[1].split():
+                at = re.fullmatch(r'[^@]+@(\d+)', entry)
+                if not at or int(at[1]) >= length:
+                    print(f'{bar} c: CHORDS {entry}: write symbol@position, without spaces, with a position below len={length}')
+                    errors += 1
+            continue
         m = re.fullmatch(r'(\d+\.\d+)w:(.*)', line)
         if m and bar is not None:
             if len(m[2].split()) != sung.get(m[1]):

@@ -20,6 +20,7 @@ from mcp.client.client import Client
 
 from engine import read_pdf as pdf_reader
 from server import app
+from tests.test_chord_symbols import PRINTED
 
 
 NOCTURNE = Path(__file__).parent / "data" / "chopin_nocturne_op9_no2.mxl"
@@ -201,6 +202,19 @@ def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_
         if CLAUDE in offered_to:
             asked_in_claude = careful_call(url, CLAUDE, "careful_reading", score_id="QUICK1N")["content"][0]["text"].split("\n", 1)[0]
             assert f'"{app.careful_warning(3, "claude")}"' in asked_in_claude and "usage allowance" in asked_in_claude
+
+
+def test_the_chord_symbols_of_pages_handed_in_reach_the_table_of_notes(tmp_path):
+    store_a_read_scan(tmp_path)
+    page = (NOCTURNE.parent / "chord_symbols/amazing-grace-lead-sheet-page.n1").read_text()
+    with running_server(tmp_path, CAREFUL_READING="chatgpt") as (url, _):
+        handed_in = careful_call(url, CHATGPT, "use_careful_reading", score_id="QUICK1N", pages=[page])
+        code = handed_in["content"][0]["text"].split()[1]
+        drafted = careful_call(url, CHATGPT, "draft_analysis", score_id=code)
+    table = "".join(part.get("text", "") for part in drafted["content"]).split("\nNOTES (", 1)[1]
+    assert re.findall(r"chord symbol (\S+)@1(?!\d)", table)[:3] == ["G", "G7", "C"]
+    assert "chord symbol Em@3\nm14" in table
+    assert re.findall(r"chord symbol (\S+)@\d", table) == PRINTED
 
 
 def test_chatgpt_keeps_its_tools_and_attachment_arguments(server):

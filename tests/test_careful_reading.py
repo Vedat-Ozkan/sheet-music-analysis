@@ -5,18 +5,22 @@ import json
 import re
 import xml.etree.ElementTree as ET
 import zipfile
+from fractions import Fraction
 from pathlib import Path
 
 import pytest
 
 from engine import correct, from_notes, notes
+from engine import read_pdf as pdf_reader
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 from server import app
+from tests.test_chord_symbols import LEAD_SHEET, PRINTED, printed_symbols
 
 DATA = Path(__file__).parent / "data"
 PAGES = [(DATA / f"careful/dvorak-silhouette-1-page{number}.n1").read_text() for number in (1, 2, 3)]
 QUICK_READING = DATA / "chopin_prelude_op28_no4_reading.musicxml"
+LEAD_SHEET_PAGE = (DATA / "chord_symbols/amazing-grace-lead-sheet-page.n1").read_text()
 SIGNS_DISAGREE_WITH_PITCHES = {
     "grieg-op38-7-scan-reading-verovio-crashed-chord.musicxml",
     "choral-songs-02-invalid-page-1.mxl",
@@ -310,3 +314,73 @@ def test_a_note_tied_in_from_the_page_before_still_needs_its_words_entry_on_its_
              "N1 div=4 ts=4/4 ks=0\nm1 len=16\n1.1: 8 C4 D4\n1.1w: la"]
     with pytest.raises(notes.NotesError, match="Page 2: Bar 1, 1.1w: 1 entries for 2 sung notes"):
         from_notes.score_from_pages(pages)
+
+
+def chord_symbols_of(score):
+    return [(measure.name, at, symbol) for measure in ScoreIndex(load_toolkit(score).getMEI()).measures
+            for at, symbol in measure.chord_symbols]
+
+
+def drawn_symbols(score):
+    signs = str.maketrans({"\uea64": "b", "\uea66": "#"})
+    return [symbol.translate(signs) for svg in pdf_reader.preview(score).svgs for symbol in printed_symbols(svg)]
+
+
+def test_a_lead_sheet_read_carefully_has_the_chord_symbols_of_the_score_it_was_printed_from():
+    built = from_notes.score_from_pages([LEAD_SHEET_PAGE])
+    assert chord_symbols_of(built) == chord_symbols_of(LEAD_SHEET)
+    assert drawn_symbols(built) == PRINTED
+
+
+def test_a_chord_symbol_line_gives_each_symbol_its_place_in_the_bar():
+    index = notes.decode("N1 div=4 ts=4/4 ks=0\nm1 len=16\nc: Am7@0 D7/F#@10\n1.1: 16 A4")
+    assert index.measures[0].chord_symbols == [(0, "Am7"), (Fraction(5, 2), "D7/F#")]
+
+
+@pytest.mark.parametrize("entry", ["Am7", "Am7@16", "Am7@2.5", "@0", "Am7@-1"])
+def test_a_chord_symbol_without_a_place_inside_its_bar_is_refused_on_its_page(entry):
+    page = f"N1 div=4 ts=4/4 ks=0\nm1 len=16\nc: {entry}\n1.1: 16 A4"
+    with pytest.raises(notes.NotesError, match=f"Page 1: Bar 1: a chord symbol is written as symbol@position.*not '{entry}'"):
+        from_notes.score_from_pages([page])
+
+
+def test_chord_symbols_on_both_sides_of_a_page_turn_keep_their_places():
+    pages = ["N1 div=2 ts=4/4 ks=0\nm1 len=8\nc: C@0\n1.1: 8 C4\nm2 len=4\nc: F@2\n1.1: 4 E4",
+             "N1 div=4 ts=4/4 ks=0\nm1 len=8\nc: G7@4\n1.1: 8 F4\nm2 len=16\nc: C@12\n1.1: 16 G4"]
+    joined = from_notes.join_pages(pages)
+    assert [line for line in joined.splitlines() if line.startswith("c:")] == ["c: C@0", "c: F@4 G7@12", "c: C@12"]
+    assert chord_symbols_of(from_notes.score_from_pages(pages)) == [("1", 0, "C"), ("2", 1, "F"), ("2", 3, "G7"), ("3", 3, "C")]
+
+
+def test_the_lead_sheet_split_over_two_pages_keeps_every_chord_symbol_in_its_bar():
+    lines = LEAD_SHEET_PAGE.splitlines()
+    turn = lines.index("m9 len=6")
+    second = re.sub(r"^m(\d+)", lambda bar: f"m{int(bar[1]) - 8}", "\n".join([lines[0], *lines[turn:]]), flags=re.M)
+    assert chord_symbols_of(from_notes.score_from_pages(["\n".join(lines[:turn]), second])) == chord_symbols_of(LEAD_SHEET)
+
+
+@pytest.mark.parametrize("written, listed", [
+    ("Am7", "Am7"), ("D7/F#", "D7/F#"), ("Bb", "Bb"), ("B\u266dmaj7", "Bbmaj7"), ("F#m7b5", "F#m7b5"), ("C6/9", "C6/9"),
+    ("C7(b9)", "C7(b9)"), ("G/B", "G/B"), ("N.C.", "N.C."), ("H7", None), ("(Am)", None), ("%", None), ("A<&B", "A<&B"),
+])
+def test_a_chord_symbol_is_printed_as_it_was_written_and_listed_when_it_names_a_chord(written, listed):
+    built = from_notes.score_from_pages([f"N1 div=4 ts=4/4 ks=0\nm1 len=16\nc: {written}@0\n1.1: 16 A4"])
+    assert [symbol for _, _, symbol in chord_symbols_of(built)] == ([listed] if listed else [])
+    shown = written.replace("\u266d", "b").replace("<", "&lt;").replace("&B", "&amp;B")
+    assert drawn_symbols(built) == [shown]
+
+
+def test_a_chord_symbol_stands_where_no_note_starts_in_pickups_rest_bars_and_triplets():
+    page = ("N1 div=3 ts=2/4 ks=0\nm0 len=3\nc: C@1\n1.1: 3 G4\nm1 len=6\nc: F@0 G7@4\n1.1: 6 r\n2.1: 6 C3\n"
+            "m2 len=6\nc: C@5\n1.1: 1 C4 D4 E4 3 C4")
+    assert chord_symbols_of(from_notes.score_from_pages([page])) == [
+        ("0", Fraction(1, 3), "C"), ("1", 0, "F"), ("1", Fraction(4, 3), "G7"), ("2", Fraction(5, 3), "C")]
+
+
+def test_a_correction_of_a_carefully_read_bar_keeps_its_chord_symbols():
+    before = from_notes.score_from_pages([LEAD_SHEET_PAGE])
+    handed_out = correct.bars_from_musicxml(before, 13)
+    after = correct.replace_bars(before, handed_out.replace("1.1: 4 G4 1 B4 G4", "1.1: 6 G4"))
+    assert after != before and chord_symbols_of(after) == chord_symbols_of(before)
+    with pytest.raises(correct.CorrectionError, match="Bar 13: leave out the c: line"):
+        correct.replace_bars(before, handed_out.replace("1.1:", "c: C@0\n1.1:"))
