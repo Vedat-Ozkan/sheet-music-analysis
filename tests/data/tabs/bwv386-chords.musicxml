@@ -1433,14 +1433,13 @@
       <note>
         <chord />
         <pitch>
-          <step>E</step>
-          <alter>-1</alter>
+          <step>D</step>
+          <alter>1</alter>
           <octave>5</octave>
         </pitch>
         <duration>24</duration>
         <voice>1</voice>
         <type>eighth</type>
-        <accidental>flat</accidental>
         <notations>
           <technical>
             <string>1</string>
@@ -1511,7 +1510,6 @@
         <tie type="start" />
         <voice>1</voice>
         <type>eighth</type>
-        <accidental>natural</accidental>
         <notations>
           <tied type="start" />
           <technical>
@@ -1773,15 +1771,14 @@
       <note>
         <chord />
         <pitch>
-          <step>E</step>
-          <alter>-1</alter>
+          <step>D</step>
+          <alter>1</alter>
           <octave>5</octave>
         </pitch>
         <duration>24</duration>
         <tie type="start" />
         <voice>1</voice>
         <type>eighth</type>
-        <accidental>flat</accidental>
         <notations>
           <tied type="start" />
           <technical>
@@ -1845,8 +1842,8 @@
       <note>
         <chord />
         <pitch>
-          <step>E</step>
-          <alter>-1</alter>
+          <step>D</step>
+          <alter>1</alter>
           <octave>5</octave>
         </pitch>
         <duration>24</duration>

@@ -18,10 +18,10 @@ def reading_against_truth(name: str, folder: Path):
     pdf = folder / f"{name}.pdf"
     if not pdf.exists():
         pytest.skip(f"{pdf} is a user's file kept out of the repository")
-    truth_data, capo, bar_limit = truth_of(name)
+    truth_data, capo, bar_limit, spelled = truth_of(name)
     reading = read_tab(pdf.read_bytes())
     read = [note for note in notes(reading.musicxml)[0] if bar_limit is None or note.bar < bar_limit]
-    return reading, compare(notes(truth_data, capo)[0], read, not capo)
+    return reading, compare(notes(truth_data, capo)[0], read, spelled and not capo)
 
 
 @pytest.mark.parametrize("name", GENERATED)

@@ -61,17 +61,17 @@ def notes(data: bytes, capo: int = 0) -> tuple[list[Note], int]:
     return found, count
 
 
-def truth_of(name: str) -> tuple[bytes, int, int | None]:
+def truth_of(name: str) -> tuple[bytes, int, int | None, bool]:
     source = HERE / f"{name}.musicxml"
     if source.exists():
         data = source.read_bytes()
         capo = int(ET.fromstring(data).findtext(".//staff-details/capo") or 0)
-        return data, capo, None
+        return data, capo, None, True
     text = (USERS / f"{name}.truth.txt").read_text()
     head, _, body = text.partition("\n")
     fields = dict(part.split("=", 1) for part in head.split())
     piece = Piece(name, fields["tuning"].split(","), fields["meter"], bars(body), pickup=fields.get("pickup") == "yes")
-    return musicxml(piece), int(fields.get("capo", 0)), len(piece.bars)
+    return musicxml(piece), int(fields.get("capo", 0)), len(piece.bars), False
 
 
 def compare(truth: list[Note], read: list[Note], spelling: bool) -> dict[str, list]:
@@ -114,7 +114,7 @@ def describe(note: Note | None) -> str:
 
 def measure(pdf: Path) -> None:
     name = pdf.stem
-    truth_data, capo, bar_limit = truth_of(name)
+    truth_data, capo, bar_limit, spelled = truth_of(name)
     started = time.perf_counter()
     reading = read_tab(pdf.read_bytes())
     seconds = time.perf_counter() - started
@@ -125,7 +125,7 @@ def measure(pdf: Path) -> None:
     read, read_bars = notes(reading.musicxml)
     if bar_limit:
         read = [note for note in read if note.bar < bar_limit]
-    result = compare(truth, read, not capo)
+    result = compare(truth, read, spelled and not capo)
     shaded = problem_spots(reading.musicxml)[0]
     counts = ", ".join(f"{kind} {len(pairs)}" for kind, pairs in result.items() if kind != "found")
     print(f"{name}: {len(truth)} notes, found {len(result['found'])}; {counts}; bars truth {truth_bars if not bar_limit else bar_limit} "

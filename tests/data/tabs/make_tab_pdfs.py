@@ -141,7 +141,7 @@ def chorale_bars(source: str, parts: list[int], tuning: list[str], *, chords: bo
             for (voice, note, midi, p), string in zip(wanted, choice):
                 tie = note.tie is not None and note.tie.type in ("start", "continue")
                 notes_of.setdefault(voice, []).append((string + 1, midi - open_strings[string], tie))
-                names_of.setdefault(voice, []).append(p.transpose(12 * octave).nameWithOctave)
+                names_of.setdefault(voice, []).append(f"{p.name}{p.octave + octave}")
                 held.pop((voice, p.nameWithOctave), None)
                 if tie:
                     held[(voice, p.nameWithOctave)] = string

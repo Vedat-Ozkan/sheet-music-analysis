@@ -159,14 +159,14 @@
       </note>
       <note>
         <pitch>
-          <step>E</step>
-          <alter>-1</alter>
+          <step>D</step>
+          <alter>1</alter>
           <octave>2</octave>
         </pitch>
         <duration>48</duration>
         <voice>1</voice>
         <type>quarter</type>
-        <accidental>flat</accidental>
+        <accidental>sharp</accidental>
         <notations>
           <technical>
             <string>2</string>
@@ -182,7 +182,6 @@
         <duration>48</duration>
         <voice>1</voice>
         <type>quarter</type>
-        <accidental>natural</accidental>
         <notations>
           <technical>
             <string>2</string>
@@ -546,14 +545,14 @@
       </note>
       <note>
         <pitch>
-          <step>E</step>
-          <alter>-1</alter>
+          <step>D</step>
+          <alter>1</alter>
           <octave>2</octave>
         </pitch>
         <duration>48</duration>
         <voice>1</voice>
         <type>quarter</type>
-        <accidental>flat</accidental>
+        <accidental>sharp</accidental>
         <notations>
           <technical>
             <string>2</string>
@@ -1047,14 +1046,14 @@
     <measure number="16">
       <note>
         <pitch>
-          <step>E</step>
-          <alter>-1</alter>
+          <step>D</step>
+          <alter>1</alter>
           <octave>2</octave>
         </pitch>
         <duration>24</duration>
         <voice>1</voice>
         <type>eighth</type>
-        <accidental>flat</accidental>
+        <accidental>sharp</accidental>
         <notations>
           <technical>
             <string>2</string>
@@ -1070,7 +1069,6 @@
         <duration>24</duration>
         <voice>1</voice>
         <type>eighth</type>
-        <accidental>natural</accidental>
         <notations>
           <technical>
             <string>2</string>
