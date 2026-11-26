@@ -10,6 +10,7 @@ from engine import notation, slurs, tint
 from engine.errors import UserError
 from engine.annotations import Alternative, AnnotationList, Cadence, Callout, Harmony, NoteRef, NonChordTone, Phrase, Region, VoiceLeading
 from engine.overlay import PageLayout
+from engine import output_checks
 from engine.render import PAPER, VEROVIO_OPTIONS, Engraving, check_range, incoming_ties, load_toolkit, shorten_ties
 from engine.score import PositionError, ScoreIndex
 
@@ -220,6 +221,17 @@ def render(
         toolkit.setOptions({**PRINT_OPTIONS, "pageMarginBottom": round(FOOT_MARGIN + guide / UNIT + KEY_GAP) if guide else PRINT_MARGIN})
         toolkit.redoLayout()
         printed = draw_pages()
+        if output_checks.systems_off_the_page(printed):
+            shift, _, height = output_checks.page_frame(printed[0])
+            options = toolkit.getOptions()
+            room = height - shift - options["pageMarginBottom"] * UNIT
+            larger = output_checks.tallest_system(printed) / room
+            toolkit.setOptions({"pageWidth": round(options["pageWidth"] * larger), "pageHeight": round(options["pageHeight"] * larger),
+                                "scale": options["scale"] / larger})
+            toolkit.redoLayout()
+            printed = draw_pages()
+            toolkit.setOptions({key: options[key] for key in ("pageWidth", "pageHeight", "scale")})
+        output_checks.report(output_checks.SYSTEM_INSIDE_PAGE, output_checks.systems_off_the_page(printed))
         for layout in printed:
             tint.flag_bars(layout, index, shaded_bars)
         if guide:
