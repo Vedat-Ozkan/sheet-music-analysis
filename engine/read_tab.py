@@ -130,6 +130,7 @@ class Stem:
     flags: int = 0
     dots: int = 0
     tuplet: Fraction = Fraction(1)
+    group: int | None = None
 
 
 @dataclass
@@ -141,6 +142,7 @@ class Item:
     rest: bool = False
     tuplet: Fraction = Fraction(1)
     gap: float = 0
+    stem: Stem | None = None
 
 
 @dataclass
@@ -511,15 +513,29 @@ def _beams_and_flags(page: Page, staff: Staff, stems: list[Stem]) -> None:
              and shape.height <= max(shape.width, gap) and (shape.y0 > staff.top + 0.3 * gap or shape.y1 < staff.bottom - 0.3 * gap)]
     flag_shapes = [shape for shape in page.shapes if shape.curved and 0.3 * gap <= shape.width <= 1.5 * gap
                    and shape.height >= 0.8 * gap]
-    for stem in stems:
+    joined = {}
+    for index, stem in enumerate(stems):
         reach = (stem.outer - 0.4 * gap, stem.outer + 2.5 * gap) if not stem.up else (stem.outer - 2.5 * gap, stem.outer + 0.4 * gap)
-        levels = [(shape.y0 + shape.y1) / 2 for shape in beams if shape.x0 - 0.25 * gap <= stem.x <= shape.x1 + 0.25 * gap
-                  and shape.y1 >= reach[0] and shape.y0 <= reach[1]]
-        stem.beams = len(_clusters(sorted(levels), 0.25 * gap))
+        touching = [shape for shape in beams if shape.x0 - 0.25 * gap <= stem.x <= shape.x1 + 0.25 * gap
+                    and shape.y1 >= reach[0] and shape.y0 <= reach[1]]
+        stem.beams = len(_clusters(sorted((shape.y0 + shape.y1) / 2 for shape in touching), 0.25 * gap))
+        if touching:
+            nearest = min(abs((shape.y0 + shape.y1) / 2 - stem.outer) for shape in touching)
+            for shape in touching:
+                if abs((shape.y0 + shape.y1) / 2 - stem.outer) <= nearest + 0.25 * gap:
+                    joined.setdefault(id(shape), []).append(index)
         smufl = [SMUFL_FLAGS[glyph.text] for glyph in page.glyphs if glyph.text in SMUFL_FLAGS
                  and abs(glyph.origin_x - stem.x) < 0.5 * gap and abs(glyph.origin_y - stem.outer) < 0.5 * gap]
         drawn = [shape for shape in flag_shapes if abs(shape.x0 - stem.x) < 0.3 * gap and shape.y1 >= reach[0] and shape.y0 <= reach[1]]
         stem.flags = max(smufl, default=0) or len(_clusters(sorted(shape.y0 for shape in drawn), 0.25 * gap))
+    for members in joined.values():
+        groups = {stems[index].group for index in members if stems[index].group is not None}
+        group = min(groups, default=members[0])
+        for stem in stems:
+            if stem.group in groups:
+                stem.group = group
+        for index in members:
+            stems[index].group = group
 
 
 def _round_dots(page: Page, staff: Staff) -> list[tuple[float, float]]:
@@ -642,12 +658,12 @@ def _items(frets: list[Fret], stems: list[Stem], rests, staff: Staff, full_reach
         if two_voices and up and down:
             low = _low_part(column, down[0], staff)
             items.append(Item(x, [fret for fret in column if fret not in low], _stem_length(up[0], staff, full_reach), 1,
-                              tuplet=up[0].tuplet))
-            items.append(Item(x, low, _stem_length(down[0], staff, full_reach), 2, tuplet=down[0].tuplet))
+                              tuplet=up[0].tuplet, stem=up[0]))
+            items.append(Item(x, low, _stem_length(down[0], staff, full_reach), 2, tuplet=down[0].tuplet, stem=down[0]))
         elif own:
             stem = own[0]
             items.append(Item(x, column, _stem_length(stem, staff, full_reach), 2 if two_voices and not stem.up else 1,
-                              tuplet=stem.tuplet))
+                              tuplet=stem.tuplet, stem=stem))
         else:
             items.append(Item(x, column, None, 1))
     middle = (staff.top + staff.bottom) / 2
@@ -837,6 +853,7 @@ def _musicxml(bars: list[list[Item]], meters, meter, numbers: list[int], pickup:
                 ET.SubElement(ET.SubElement(measure, "backup"), "duration").text = str(int(written * divisions))
             columns = _onsets(_voice(bar, leading)) if voice != leading else []
             written = Fraction(0)
+            beams = _beam_marks(items)
             for item in items:
                 placed = _placed(columns, item, grid) if columns else written
                 if placed > written:
@@ -844,7 +861,7 @@ def _musicxml(bars: list[list[Item]], meters, meter, numbers: list[int], pickup:
                     ET.SubElement(forward, "duration").text = str(int((placed - written) * divisions))
                     ET.SubElement(forward, "voice").text = str(voice)
                     written = placed
-                _write_item(measure, item, voice, divisions, open_strings, fifths)
+                _write_item(measure, item, voice, divisions, open_strings, fifths, beams.get(id(item), []))
                 written += item.length
         if repeat and repeat[1]:
             ET.SubElement(ET.SubElement(measure, "barline", location="right"), "repeat", direction="backward")
@@ -873,7 +890,33 @@ def _onsets(items: list[Item]) -> list[tuple[Item, Fraction]]:
     return onsets
 
 
-def _write_item(measure: ET.Element, item: Item, voice: int, divisions: int, open_strings: list[int], fifths: int) -> None:
+def _beam_marks(items: list[Item]) -> dict[int, list[tuple[int, str]]]:
+    marks = {}
+    runs = []
+    for item in items:
+        group = item.stem.group if item.stem and item.stem.beams else None
+        if group is not None and runs and runs[-1][0] == group:
+            runs[-1][1].append(item)
+        else:
+            runs.append((group, [item]))
+    for group, run in runs:
+        if group is None or len(run) < 2:
+            continue
+        for level in range(1, max(item.stem.beams for item in run) + 1):
+            reaching = [item.stem.beams >= level for item in run]
+            for position, item in enumerate(run):
+                if not reaching[position]:
+                    continue
+                before = position > 0 and reaching[position - 1]
+                after = position + 1 < len(run) and reaching[position + 1]
+                value = ("continue" if before and after else "end" if before else "begin" if after
+                         else "forward hook" if position + 1 < len(run) else "backward hook")
+                marks.setdefault(id(item), []).append((level, value))
+    return marks
+
+
+def _write_item(measure: ET.Element, item: Item, voice: int, divisions: int, open_strings: list[int], fifths: int,
+                beams: list[tuple[int, str]]) -> None:
     kind = _note_type(item.length / item.tuplet)
     for position, fret in enumerate(item.frets or [None]):
         note = ET.SubElement(measure, "note")
@@ -903,6 +946,9 @@ def _write_item(measure: ET.Element, item: Item, voice: int, divisions: int, ope
             factor = item.tuplet
             ET.SubElement(modification, "actual-notes").text = str(factor.denominator)
             ET.SubElement(modification, "normal-notes").text = str(factor.numerator)
+        if position == 0:
+            for level, value in beams:
+                ET.SubElement(note, "beam", number=str(level)).text = value
         if fret is not None:
             notations = ET.SubElement(note, "notations")
             if fret.tie_stop:

@@ -83,3 +83,10 @@ def test_every_sign_the_accidental_rule_wants_is_drawn(pdf):
     drawn = {bar.get("n"): sum(1 for accid in bar.iter(f"{MEI}accid") if accid.get("accid"))
              for bar in mei.iter(f"{MEI}measure")}
     assert {number: count for number, count in wanted.items() if count != drawn.get(number, 0)} == {}
+
+
+def test_notes_joined_by_a_printed_beam_are_beamed_together():
+    root = ET.fromstring(read_tab((DATA / "tabs/romanza.pdf").read_bytes()).musicxml)
+    for bar in root.iter("measure"):
+        marks = [beam.text for beam in bar.iter("beam") if beam.get("number") == "1"]
+        assert marks == ["begin", "continue", "end"] * 3, bar.get("number")
