@@ -168,6 +168,10 @@ def store_a_read_scan(tmp_path):
     card = {"score_id": "QUICK1N", "pages": 3, "scan": True, "measures": "1 to 25", "bars": 25, "notice": "", "image_url": "",
             "pdf_url": "", "page_images": []}
     (scores / f"pdf-card-{pdf_reader.READER}-{hashlib.sha256(pdf).hexdigest()}.json").write_text(json.dumps(card))
+    typeset = pdf + b"\n"
+    (scores / "TYPESET1.pdf").write_bytes(typeset)
+    (scores / f"pdf-card-{pdf_reader.READER}-{hashlib.sha256(typeset).hexdigest()}.json").write_text(
+        json.dumps({**card, "scan": False}))
 
 
 CHOPIN_BAR_1 = correct.bars_from_musicxml((NOCTURNE.parent / "chopin_prelude_op28_no4_reading.musicxml").read_bytes(), 1)
@@ -194,6 +198,7 @@ def test_the_careful_reading_is_offered_on_the_first_drawn_page_of_each_reading_
         offered["after the scan is read again"] = drawn_text(url, CHATGPT, "QUICK1N")
         careful = careful_call(url, CHATGPT, "use_careful_reading", score_id="QUICK1N", pages=CAREFUL_PAGES)
         offered["the careful reading"] = drawn_text(url, CHATGPT, careful["content"][0]["text"].split()[1])
+    assert all(("Offer for the user" in text) == ("is a scan, and its reading was a quick one" in text) for text in offered.values())
     offered = {path: "Offer for the user" in text for path, text in offered.items()}
     assert offered == {"corrected before any drawing": True, "the original after that": False, "a few bars again": False,
                        "the piano version": False, "after the scan is read again": True, "the careful reading": False}
@@ -220,11 +225,12 @@ def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_
             reading = read_scan(url, agent, "SCAN1")["content"][-1]["text"]
             assert reading.endswith("\nscore_id QUICK1N is ready for draft_analysis."), agent
             assert "Shall I go ahead?" not in reading and "Offer for the user" not in reading, agent
-            assert ("quick one that makes many mistakes on scans" in reading) == (agent in offered_to), agent
+            assert reading == read_scan(url, agent, "TYPESET1")["content"][-1]["text"], agent
             first, again = (drawn_text(url, agent, "QUICK1N") for _ in range(2))
             assert "Shall I go ahead?" not in again, agent
             if agent in offered_to:
                 assert "Shall I go ahead?" in first and "careful_reading" in first, agent
+                assert first.index("is a scan, and its reading was a quick one") < first.index("Offer for the user"), agent
                 assert ("usage allowance" in first) == (agent == CLAUDE), agent
                 assert first.index("Offer for the user, at the end of the reply with this analysis:") < first.index("Shall I go ahead?"), agent
             else:

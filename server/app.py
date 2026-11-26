@@ -1530,7 +1530,7 @@ CAREFUL_COST = {"claude": ". I'd start one helper per page, each on Sonnet at me
 CAREFUL_WARNING = ("Reading this scan carefully takes about 5 minutes a page{cost} "
                    "To do it I download and run a small measuring script from Sheet Music Analysis in this chat. "
                    "This piece has {pages}. Shall I go ahead?")
-QUICK_READING_OF_A_SCAN = "This PDF is a scan, and this reading is a quick one that makes many mistakes on scans.\n"
+QUICK_READING_OF_A_SCAN = "The PDF behind this score is a scan, and its reading was a quick one that makes many mistakes on scans.\n"
 CAREFUL_OFFER = (
     "A careful reading of this scan in this chat is possible instead of the quick one.\n"
     "Offer for the user, at the end of the reply with this analysis: \"The analysis rests on a quick reading of your "
@@ -1600,7 +1600,7 @@ async def careful_offer(score_id: str, source: str) -> str:
     if scan.get("offered"):
         return ""
     await anyio.to_thread.run_sync(store.put, reading, json.dumps({**scan, "offered": True}).encode())
-    return CAREFUL_OFFER.format(warning=careful_warning(scan["pages"], source)) + CAREFUL_MEANS + "\n\n"
+    return QUICK_READING_OF_A_SCAN + CAREFUL_OFFER.format(warning=careful_warning(scan["pages"], source)) + CAREFUL_MEANS + "\n\n"
 
 
 def page_count(pages: int) -> str:
@@ -1641,7 +1641,6 @@ def pdf_card_result(card: dict, tool: str, source: str) -> CallToolResult:
         f"The score has measures {card['measures']}.\n"
         "The reading is analysed and drawn as an attached MusicXML file is; it needs no check by the user first. "
         "Bars shaded in the reading stay shaded on the drawn page.\n"
-        + (QUICK_READING_OF_A_SCAN if card.get("scan") and source in CAREFUL_PLATFORMS else "")
         + f"{doubtful_reading(card)}"
         f"Note for the user about the reading (the card does not show it): \"{card['notice']}\""
     )
@@ -2173,7 +2172,7 @@ async def correct_bars(
         "Returns the steps for a careful reading of a scanned PDF that read_pdf or read_fetched_pdf read (its "
         "score_id): the chat reads each page with its own helper agents in its code sandbox, using a small measuring "
         "script downloaded from this server, and hands the pages in with use_careful_reading. Because it runs a "
-        "downloaded script and starts helper agents, it is for after the user has accepted the careful-reading offer."
+        "downloaded script and starts helper agents, it is for after the user has accepted the careful-reading offer that comes with the drawn analysis of a scan."
     ),
     annotations=read_only("Start a careful reading of a scan"),
 )
