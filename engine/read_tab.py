@@ -31,6 +31,7 @@ SMUFL_FLAGS = {chr(0xE240 + index): index // 2 + 1 for index in range(8)}
 SMUFL_DOT = ""
 SMUFL_TUPLET_DIGITS = {chr(0xE880 + digit): str(digit) for digit in range(10)}
 SMUFL_REPEAT_DOTS = {"", ""}
+SMUFL_ARTICULATIONS = ("\ue4a0", "\ue4bf")
 TUPLETS = {3: 2, 5: 4, 6: 4, 7: 4}
 NOTE_TYPES = {Fraction(4): "whole", Fraction(2): "half", Fraction(1): "quarter", Fraction(1, 2): "eighth",
               Fraction(1, 4): "16th", Fraction(1, 8): "32nd", Fraction(1, 16): "64th"}
@@ -46,6 +47,7 @@ TUNING_WORDS = re.compile(r"(?i:\b(?:tun(?:e|ed|ing)|scordatura|ukulele|uke|banj
 CAPO_WORD = re.compile(r"(?<![Dd][Aa] )(?i:\bcapo\b)")
 ROMAN = {"I": 1, "V": 5, "X": 10}
 MOST_CHOICES = 12
+UNDERSTOOD_SIGNS = {*SMUFL_RESTS, SMUFL_DOT, *SMUFL_REPEAT_DOTS, *SMUFL_TIME_DIGITS, *SMUFL_TIME_WHOLE, *SMUFL_FLAGS, *SMUFL_TUPLET_DIGITS}
 HALF_STEM = 0.75
 TABLATURE_UNDER_STAFF = False
 MUSIC_FONT_CODES = ("\ue000", "\uf8ff")
@@ -60,11 +62,12 @@ class TabReading:
     capo: int
     meter_printed: bool
     doubtful: list[int]
+    unread: list[int]
     notes: int
     beside_staff: bool
 
     def facts(self) -> dict:
-        return {"tuning": self.tuning, "tuning_from": self.tuning_from, "capo": self.capo, "doubtful": self.doubtful,
+        return {"tuning": self.tuning, "tuning_from": self.tuning_from, "capo": self.capo, "doubtful": self.doubtful, "unread": self.unread,
                 "notes": self.notes}
 
 
@@ -85,7 +88,7 @@ class Glyph:
 
     @property
     def y(self) -> float:
-        return self.origin_y if MUSIC_FONT_CODES[0] <= self.text <= MUSIC_FONT_CODES[1] else (self.y0 + self.y1) / 2
+        return self.origin_y if _music_sign(self) else (self.y0 + self.y1) / 2
 
 
 @dataclass
@@ -134,6 +137,7 @@ class Fret:
     bracketed: bool
     tie_stop: bool = False
     tie_start: bool = False
+    glyphs: tuple[int, ...] = ()
 
 
 @dataclass
@@ -166,6 +170,15 @@ class Item:
 
 
 @dataclass
+class Part:
+    bars: list[list[Item]]
+    meters: dict[int, tuple[int, int]]
+    repeats: dict[int, tuple[bool, bool]]
+    unread: set[int] = field(default_factory=set)
+    meter: tuple[int, int] = (4, 4)
+
+
+@dataclass
 class Page:
     glyphs: list[Glyph]
     shapes: list[Shape]
@@ -194,26 +207,46 @@ def read_tab(data: bytes) -> TabReading | None:
     tuning, tuning_from = _tuning(text, pages, staves, fret_font)
     capo = _capo(text)
     zones = {id(staff): _zone(pages[staff.page], staff, every_staff) for staff in staves}
-    bars, meters, repeats = [], {}, {}
+    part_of = _parts(pages, staves)
+    parts = [Part([], {}, {}) for _ in range(max(part_of.values()) + 1)]
     for staff in staves:
-        _read_staff(zones[id(staff)], staff, frets_of[id(staff)], fret_font, tops[staff.page], bars, meters, repeats)
-    if not any(item.frets for bar in bars for item in bar):
+        part = parts[part_of[id(staff)]]
+        _read_staff(zones[id(staff)], staff, frets_of[id(staff)], fret_font, tops[staff.page], part.bars, part.meters, part.repeats,
+                    part.unread)
+    every_bar = [bar for part in parts for bar in part.bars]
+    if not any(item.frets for bar in every_bar for item in bar):
         return None
-    _stem_lengths(bars)
-    meter, meter_from = _meter(meters, bars)
-    meter_printed = meter_from == "printed"
-    split = _split_bars(bars, meters, meter)
-    doubtful_positions = [position for position, bar in enumerate(bars)
-                          if (meter_from == "assumed" and _open(bar)) | _settle(bar, _meter_at(meters, position, meter), position in split)]
+    _stem_lengths(every_bar)
+    doubtful_positions = set()
+    for part in parts:
+        part.meter, meter_from = _meter(part.meters, part.bars)
+        split = _split_bars(part.bars, part.meters, part.meter)
+        doubtful_positions |= part.unread | {position for position, bar in enumerate(part.bars)
+                               if (meter_from == "assumed" and _open(bar))
+                               | _settle(bar, _meter_at(part.meters, position, part.meter), position in split)}
     open_strings = [_midi(name) + capo for name in tuning]
-    first_full = sum((item.length for item in _voice(bars[0], 1)), Fraction(0))
-    pickup = bool(bars[0]) and first_full < _bar_length(_meter_at(meters, 0, meter))
-    numbers = [position if pickup else position + 1 for position in range(len(bars))]
-    musicxml = _musicxml(bars, meters, meter, numbers, pickup, repeats, open_strings, len(tuning))
-    return TabReading(laid_out(musicxml, tuning), len(pages), tuning, tuning_from, capo, meter_printed,
-                      [numbers[position] for position in doubtful_positions],
-                      sum(len(item.frets) for bar in bars for item in bar),
+    first = parts[0]
+    first_full = sum((item.length for item in _voice(first.bars[0], 1)), Fraction(0))
+    pickup = bool(first.bars[0]) and first_full < _bar_length(_meter_at(first.meters, 0, first.meter))
+    numbers = [position if pickup else position + 1 for position in range(max(len(part.bars) for part in parts))]
+    musicxml = _musicxml(parts, numbers, pickup, open_strings, len(tuning))
+    return TabReading(laid_out(musicxml, tuning), len(pages), tuning, tuning_from, capo, 0 in first.meters,
+                      [numbers[position] for position in sorted(doubtful_positions)],
+                      sorted({numbers[position] for part in parts for position in part.unread}),
+                      sum(len(item.frets) for bar in every_bar for item in bar),
                       any(len(staff.lines) == 5 for staff in every_staff))
+
+
+def _parts(pages: list[Page], staves: list[Staff]) -> dict[int, int]:
+    part_of, previous = {}, None
+    for staff in sorted(staves, key=lambda staff: (staff.page, -staff.top)):
+        joined = previous is not None and previous.page == staff.page and any(
+            abs(shape.x0 - staff.x0) < staff.gap and abs(previous.x0 - staff.x0) < staff.gap
+            and shape.y0 <= staff.top + 0.35 * staff.gap and shape.y1 >= previous.bottom - 0.35 * staff.gap
+            and shape.width <= 0.25 * staff.gap for shape in pages[staff.page].shapes)
+        part_of[id(staff)] = part_of[id(previous)] + 1 if joined else 0
+        previous = staff
+    return part_of
 
 
 def laid_out(score: bytes, tuning: list[str]) -> bytes:
@@ -269,7 +302,13 @@ def notice(facts: dict) -> str:
             "unclear": f"The notes were read from the fret numbers of the tablature, in standard {instrument} tuning ({names}). "
                        "The page mentions a tuning or a capo this reading could not follow, so if the piece is played in "
                        "another tuning, every note here is off by the same difference."}[facts["tuning_from"]]
-    return text + (f" The capo on fret {facts['capo']} is counted in." if facts["capo"] else "")
+    unread = [str(bar) for bar in facts["unread"]]
+    capo = f" The capo on fret {facts['capo']} is counted in." if facts["capo"] else ""
+    if not unread:
+        return text + capo
+    named = f"Bar {unread[0]} holds" if len(unread) == 1 else f"Bars {', '.join(unread[:-1])} and {unread[-1]} hold"
+    return (f"{text}{capo} {named} signs on the strings that this reading leaves out, such as grace notes, dead notes, "
+            "bends, ghost notes or harmonics.")
 
 
 def _pages(data: bytes) -> list[Page]:
@@ -421,7 +460,8 @@ def _frets(page: Page, staff: Staff, fret_font) -> list[Fret]:
         digits = text.strip("()")
         if digits.isdigit() and len(digits) <= 2:
             number = [glyph for glyph in glyphs if glyph.text.isdigit()]
-            frets.append(Fret(line + 1, int(digits), (number[0].x0 + number[-1].x1) / 2, text.startswith("(")))
+            frets.append(Fret(line + 1, int(digits), (number[0].x0 + number[-1].x1) / 2, text.startswith("("),
+                              glyphs=tuple(id(glyph) for glyph in glyphs)))
     return frets
 
 
@@ -551,7 +591,7 @@ def _zone(page: Page, staff: Staff, every_staff: list[Staff]) -> Page:
                 [shape for shape in page.shapes if low <= (shape.y0 + shape.y1) / 2 <= high], page.width, page.height)
 
 
-def _read_staff(page: Page, staff: Staff, frets: list[Fret], fret_font, tops: list[float], bars, meters, repeats):
+def _read_staff(page: Page, staff: Staff, frets: list[Fret], fret_font, tops: list[float], bars, meters, repeats, unknown):
     gap = staff.gap
     verticals = _verticals(page, staff)
     bar_xs = _clusters(sorted((shape.x0 + shape.x1) / 2 for shape in verticals if _is_bar_line(shape, staff, tops)), 1.2 * gap)
@@ -559,7 +599,7 @@ def _read_staff(page: Page, staff: Staff, frets: list[Fret], fret_font, tops: li
     stems = _distinct_stems(stems, gap)
     _beams_and_flags(page, staff, stems)
     _dots(page, staff, stems, bar_xs)
-    _ties(page, staff, frets)
+    unread = _ties(page, staff, frets) + _unread(page, staff, frets, fret_font)
     rests = _rests(page, staff)
     numbers = _numbers(page, staff, fret_font)
     edges = [staff.x0] + [x for x in bar_xs if staff.x0 + gap < x < staff.x1 - gap] + [staff.x1]
@@ -568,7 +608,7 @@ def _read_staff(page: Page, staff: Staff, frets: list[Fret], fret_font, tops: li
         inside = [fret for fret in frets if left < fret.x < right]
         bar_rests = [rest for rest in rests if left < rest[0] < right]
         meter = _time_signature(page, staff, left, right, fret_font) or pending
-        if not inside and not bar_rests and left == staff.x0 and right - left < 8 * gap:
+        if not inside and not bar_rests and (left == staff.x0 or right == staff.x1) and right - left < 8 * gap:
             pending = meter
             continue
         pending = None
@@ -577,10 +617,23 @@ def _read_staff(page: Page, staff: Staff, frets: list[Fret], fret_font, tops: li
             meters[position] = meter
         bar_stems = [stem for stem in stems if left < stem.x < right]
         _tuplets(numbers, bar_stems, staff)
+        if any(left < x < right for x in unread):
+            unknown.add(position)
         bars.append(_items(inside, bar_stems, bar_rests, staff))
+        if not inside and not bar_rests:
+            bars.extend([] for _ in range(_bars_resting(page, staff, left, right) - 1))
         repeat = _repeat_marks(page, staff, left, right, bar_xs)
         if repeat:
             repeats[position] = repeat
+
+
+def _bars_resting(page: Page, staff: Staff, left: float, right: float) -> int:
+    gap = staff.gap
+    rest_bar = any(not shape.curved and shape.width >= 2 * gap and shape.thickness >= 0.3 * gap and left < shape.x0 < shape.x1 < right
+                   and staff.bottom < (shape.y0 + shape.y1) / 2 < staff.top for shape in page.shapes)
+    digits = sorted((glyph for glyph in page.glyphs if glyph.text in SMUFL_TIME_DIGITS and left < glyph.x < right
+                     and staff.top < glyph.y < staff.top + 3 * gap), key=lambda glyph: glyph.x0)
+    return int("".join(SMUFL_TIME_DIGITS[glyph.text] for glyph in digits)) if rest_bar and digits else 1
 
 
 def _clusters(values: list[float], within: float) -> list[float]:
@@ -654,7 +707,7 @@ def _dots(page: Page, staff: Staff, stems: list[Stem], bar_xs: list[float]) -> N
             min(candidates, key=lambda stem: (not min(stem.outer, stem.inner) <= y <= max(stem.outer, stem.inner), x - stem.x)).dots += 1
 
 
-def _ties(page: Page, staff: Staff, frets: list[Fret]) -> None:
+def _ties(page: Page, staff: Staff, frets: list[Fret]) -> list[float]:
     gap = staff.gap
     for shape in page.shapes:
         opening = shape.x0 < staff.x0 + 3 * gap
@@ -677,10 +730,36 @@ def _ties(page: Page, staff: Staff, frets: list[Fret]) -> None:
         second.tie_stop = True
         if first:
             first.tie_start = True
-    ordered = sorted(frets, key=lambda fret: (fret.string, fret.x))
-    for previous, fret in zip(ordered, ordered[1:]):
-        if fret.bracketed and previous.string == fret.string and previous.fret == fret.fret:
-            previous.tie_start, fret.tie_stop = True, True
+    untied = []
+    for fret in frets:
+        if not fret.bracketed or fret.tie_stop:
+            continue
+        before = [other.x for other in frets if other.x < fret.x - 0.6 * gap]
+        column = [other for other in frets if before and abs(other.x - max(before)) < 0.6 * gap]
+        previous = [other for other in column if (other.string, other.fret) == (fret.string, fret.fret)]
+        if previous:
+            previous[0].tie_start, fret.tie_stop = True, True
+        else:
+            untied.append(fret.x)
+    return untied
+
+
+def _unread(page: Page, staff: Staff, frets: list[Fret], fret_font) -> list[float]:
+    gap, read = staff.gap, {mark for fret in frets for mark in fret.glyphs}
+    first = min((fret.x for fret in frets), default=staff.x1) - 0.5 * gap
+    return [glyph.x for glyph in page.glyphs if glyph.text.strip() and id(glyph) not in read
+            and first <= glyph.x <= staff.x1 and staff.bottom - 0.5 * gap <= glyph.y <= staff.top + 0.5 * gap
+            and (_music_sign(glyph) or abs(_near_line(staff, glyph.y)[1]) < 0.25 * gap)
+            and not _understood(glyph, fret_font)]
+
+
+def _music_sign(glyph: Glyph) -> bool:
+    return MUSIC_FONT_CODES[0] <= glyph.text <= MUSIC_FONT_CODES[1]
+
+
+def _understood(glyph: Glyph, fret_font) -> bool:
+    return (glyph.text in UNDERSTOOD_SIGNS or SMUFL_ARTICULATIONS[0] <= glyph.text <= SMUFL_ARTICULATIONS[1]
+            or glyph.text.isdigit() and glyph.size >= 1.5 * fret_font[1])
 
 
 def _rests(page: Page, staff: Staff) -> list[tuple[float, float, Fraction, int]]:
@@ -963,66 +1042,70 @@ def _spelling(midi: int, fifths: int) -> tuple[str, int, int]:
     return name[0], alter, (midi - alter) // 12 - 1
 
 
-def _musicxml(bars: list[list[Item]], meters, meter, numbers: list[int], pickup: bool, repeats, open_strings: list[int],
-              strings: int) -> bytes:
-    midis = [open_strings[fret.string - 1] + fret.fret for bar in bars for item in bar for fret in item.frets]
+def _musicxml(parts: list[Part], numbers: list[int], pickup: bool, open_strings: list[int], strings: int) -> bytes:
+    every_bar = [bar for tab_part in parts for bar in tab_part.bars]
+    midis = [open_strings[fret.string - 1] + fret.fret for bar in every_bar for item in bar for fret in item.frets]
     fifths = _key(midis)
-    lengths = [item.length for bar in bars for item in bar] + [_bar_length(meter) for meter in [meter, *meters.values()]]
+    lengths = [item.length for bar in every_bar for item in bar] + [_bar_length(meter) for tab_part in parts
+                                                                    for meter in [tab_part.meter, *tab_part.meters.values()]]
     divisions = math.lcm(1, *(length.denominator for length in lengths))
     root = ET.Element("score-partwise", version="4.0")
-    score_part = ET.SubElement(ET.SubElement(root, "part-list"), "score-part", id="P1")
-    ET.SubElement(score_part, "part-name").text = "Bass" if strings == 4 else "Guitar"
-    part = ET.SubElement(root, "part", id="P1")
-    current = None
-    for position, (bar, number) in enumerate(zip(bars, numbers)):
-        measure = ET.SubElement(part, "measure", number=str(number))
-        if pickup and position == 0:
-            measure.set("implicit", "yes")
-        repeat = repeats.get(position)
-        if repeat and repeat[0]:
-            ET.SubElement(ET.SubElement(measure, "barline", location="left"), "repeat", direction="forward")
-        bar_meter = _meter_at(meters, position, meter)
-        if position == 0 or bar_meter != current:
-            attributes = ET.SubElement(measure, "attributes")
-            if position == 0:
-                ET.SubElement(attributes, "divisions").text = str(divisions)
-                ET.SubElement(ET.SubElement(attributes, "key"), "fifths").text = str(fifths)
-            time = ET.SubElement(attributes, "time")
-            ET.SubElement(time, "beats").text, ET.SubElement(time, "beat-type").text = str(bar_meter[0]), str(bar_meter[1])
-            if position == 0:
-                clef = ET.SubElement(attributes, "clef")
-                sign, line = ("F", "4") if strings == 4 else ("G", "2")
-                ET.SubElement(clef, "sign").text, ET.SubElement(clef, "line").text = sign, line
-                ET.SubElement(clef, "clef-octave-change").text = "-1"
-            current = bar_meter
-        if not bar:
-            rest = ET.SubElement(measure, "note")
-            ET.SubElement(rest, "rest", measure="yes")
-            ET.SubElement(rest, "duration").text = str(int(_bar_length(bar_meter) * divisions))
-            ET.SubElement(rest, "voice").text = "1"
-        voices = sorted({item.voice for item in bar})
-        leading = max(voices, key=lambda voice: (sum((item.length for item in _voice(bar, voice)), Fraction(0)), -voice), default=1)
-        grid = min((item.length for item in bar), default=Fraction(1))
-        written = Fraction(0)
-        for voice in voices:
-            items = _voice(bar, voice)
-            if written:
-                ET.SubElement(ET.SubElement(measure, "backup"), "duration").text = str(int(written * divisions))
-            columns = _onsets(_voice(bar, leading)) if voice != leading else []
+    part_list = ET.SubElement(root, "part-list")
+    for index, tab_part in enumerate(parts, 1):
+        score_part = ET.SubElement(part_list, "score-part", id=f"P{index}")
+        ET.SubElement(score_part, "part-name").text = ("Bass" if strings == 4 else "Guitar") + (f" {index}" if len(parts) > 1 else "")
+        part = ET.SubElement(root, "part", id=f"P{index}")
+        bars, meters, meter, repeats = tab_part.bars, tab_part.meters, tab_part.meter, tab_part.repeats
+        current = None
+        for position, (bar, number) in enumerate(zip(bars, numbers)):
+            measure = ET.SubElement(part, "measure", number=str(number))
+            if pickup and position == 0:
+                measure.set("implicit", "yes")
+            repeat = repeats.get(position)
+            if repeat and repeat[0]:
+                ET.SubElement(ET.SubElement(measure, "barline", location="left"), "repeat", direction="forward")
+            bar_meter = _meter_at(meters, position, meter)
+            if position == 0 or bar_meter != current:
+                attributes = ET.SubElement(measure, "attributes")
+                if position == 0:
+                    ET.SubElement(attributes, "divisions").text = str(divisions)
+                    ET.SubElement(ET.SubElement(attributes, "key"), "fifths").text = str(fifths)
+                time = ET.SubElement(attributes, "time")
+                ET.SubElement(time, "beats").text, ET.SubElement(time, "beat-type").text = str(bar_meter[0]), str(bar_meter[1])
+                if position == 0:
+                    clef = ET.SubElement(attributes, "clef")
+                    sign, line = ("F", "4") if strings == 4 else ("G", "2")
+                    ET.SubElement(clef, "sign").text, ET.SubElement(clef, "line").text = sign, line
+                    ET.SubElement(clef, "clef-octave-change").text = "-1"
+                current = bar_meter
+            if not bar:
+                rest = ET.SubElement(measure, "note")
+                ET.SubElement(rest, "rest", measure="yes")
+                ET.SubElement(rest, "duration").text = str(int(_bar_length(bar_meter) * divisions))
+                ET.SubElement(rest, "voice").text = "1"
+            voices = sorted({item.voice for item in bar})
+            leading = max(voices, key=lambda voice: (sum((item.length for item in _voice(bar, voice)), Fraction(0)), -voice), default=1)
+            grid = min((item.length for item in bar), default=Fraction(1))
             written = Fraction(0)
-            beams = _beam_marks(items)
-            for item in items:
-                placed = _placed(columns, item, grid) if columns else written
-                if placed > written:
-                    forward = ET.SubElement(measure, "forward")
-                    ET.SubElement(forward, "duration").text = str(int((placed - written) * divisions))
-                    ET.SubElement(forward, "voice").text = str(voice)
-                    written = placed
-                _write_item(measure, item, voice, divisions, open_strings, fifths, beams.get(id(item), []))
-                written += item.length
-        if repeat and repeat[1]:
-            ET.SubElement(ET.SubElement(measure, "barline", location="right"), "repeat", direction="backward")
-        correct._write_accidentals(measure, fifths)
+            for voice in voices:
+                items = _voice(bar, voice)
+                if written:
+                    ET.SubElement(ET.SubElement(measure, "backup"), "duration").text = str(int(written * divisions))
+                columns = _onsets(_voice(bar, leading)) if voice != leading else []
+                written = Fraction(0)
+                beams = _beam_marks(items)
+                for item in items:
+                    placed = _placed(columns, item, grid) if columns else written
+                    if placed > written:
+                        forward = ET.SubElement(measure, "forward")
+                        ET.SubElement(forward, "duration").text = str(int((placed - written) * divisions))
+                        ET.SubElement(forward, "voice").text = str(voice)
+                        written = placed
+                    _write_item(measure, item, voice, divisions, open_strings, fifths, beams.get(id(item), []))
+                    written += item.length
+            if repeat and repeat[1]:
+                ET.SubElement(ET.SubElement(measure, "barline", location="right"), "repeat", direction="backward")
+            correct._write_accidentals(measure, fifths)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 

@@ -41,3 +41,10 @@ def test_a_tablature_bar_whose_lengths_were_guessed_is_shaded_like_a_misread_bar
     text, card = read_through_the_server(monkeypatch, tmp_path, data, lambda _: doubtful)
     assert card["shaded_bars"] == [3]
     assert "Bar 3 (shaded)" in text and "in standard guitar tuning (E A D G B E)" in text
+
+
+def test_signs_left_out_and_a_tuning_not_followed_are_told_to_the_user(monkeypatch, tmp_path):
+    text, card = read_through_the_server(monkeypatch, tmp_path, (TABS / "review/f1-grace-notes.pdf").read_bytes())
+    assert "Bar 1 holds signs on the strings that this reading leaves out" in text and 1 in card["shaded_bars"]
+    text, _ = read_through_the_server(monkeypatch, tmp_path / "words", (TABS / "review/f6-eb-standard-words.pdf").read_bytes())
+    assert "mentions a tuning or a capo this reading could not follow" in text

@@ -9,7 +9,7 @@ from engine.read_pdf import problem_spots
 from engine.read_tab import read_tab, with_tablature_staff
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
-from tests.data.tabs.measure import USERS, compare, notes, truth_of
+from tests.data.tabs.measure import FOLDERS, USERS, compare, measure, notes, truth_of
 
 DATA = Path(__file__).parent / "data"
 MEI = "{http://www.music-encoding.org/ns/mei}"
@@ -136,3 +136,30 @@ def test_a_short_last_line_of_tablature_is_read(name, bars):
 def test_a_tuning_or_capo_is_taken_only_from_a_statement_that_means_nothing_else(path, tuning, source, capo):
     reading = read_tab((REVIEW / f"{path}.pdf").read_bytes())
     assert (reading.tuning, reading.tuning_from, reading.capo) == (tuning, source, capo)
+
+
+DRAWN_ALIKE = {"a9-fingering-stems-up": [1, 3], "b14-two-voices": [1]}
+
+
+@pytest.mark.parametrize("pdf", [pdf for folder in FOLDERS for pdf in sorted(folder.glob("*.pdf"))
+                                 if truth_of(pdf) is not None], ids=lambda path: path.stem)
+def test_no_bar_of_tablature_is_read_wrong_without_being_shaded(pdf):
+    row = measure(pdf, False)
+    assert row.get("silent wrong bars", []) == DRAWN_ALIKE.get(pdf.stem, [])
+
+
+def test_two_tablature_staves_joined_in_one_system_are_two_parts():
+    root = ET.fromstring(read_tab((REVIEW / "d4-duet.pdf").read_bytes()).musicxml)
+    assert [len(part.findall("measure")) for part in root.iter("part")] == [4, 4]
+
+
+@pytest.mark.parametrize("path, bars", [("f1-grace-notes", [1]), ("f3-harmonics", [1, 2]), ("hand/h2-dead-and-hammer", [1, 2]),
+                                        ("hand/h3-ghost-notes", [2]), ("b13-rest-bar", [])])
+def test_a_sign_on_the_strings_that_is_not_read_marks_its_bar(path, bars):
+    reading = read_tab((REVIEW / f"{path}.pdf").read_bytes())
+    assert reading.unread == bars and set(bars) <= set(reading.doubtful)
+
+
+def test_a_bracketed_fret_is_tied_only_to_the_note_just_before_it():
+    root = ET.fromstring(read_tab((REVIEW / "hand/h3-ghost-notes.pdf").read_bytes()).musicxml)
+    assert list(root.iter("tied")) == []
