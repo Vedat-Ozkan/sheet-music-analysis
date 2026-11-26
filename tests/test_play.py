@@ -162,3 +162,11 @@ def test_a_tempo_in_a_file_no_one_can_play_falls_back_to_its_word(local_store):
     played = call(app.play, score_id="FAST").structured_content["performance"]
     app.store.put("scores/WORD", a_bar_marked("Adagio", "4/4"))
     assert played == call(app.play, score_id="WORD").structured_content["performance"]
+
+
+def test_a_transposing_part_whose_double_flat_sounds_three_flats_down_is_drawn_and_played(local_store):
+    app.store.put("scores/CLARINET", (Path(__file__).parent / "data/clarinet-in-b-flat-double-flat.musicxml").read_bytes())
+    draft = call(app.draft_analysis, score_id="CLARINET")
+    assert not draft.is_error and "Db4@1" in draft.content[0].text
+    played = call(app.play, score_id="CLARINET")
+    assert not played.is_error and played.structured_content["performance"].split()[2].endswith(".61")

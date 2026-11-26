@@ -258,8 +258,10 @@ def transpose(pitch: str, semitones: int) -> str:
     letter, octave, alter = spelled(pitch)
     step = LETTERS.index(letter)
     sounding = SEMITONES[step] + alter + 12 * octave + semitones
-    new_octave, new_step = divmod(step + 7 * octave + diatonic, 7)
-    alter = sounding - (SEMITONES[new_step] + 12 * new_octave)
+    degree = step + 7 * octave + diatonic
+    while abs(alter := sounding - (SEMITONES[degree % 7] + 12 * (degree // 7))) > 2:
+        degree += 1 if alter > 0 else -1
+    new_octave, new_step = divmod(degree, 7)
     return f"{LETTERS[new_step]}{'#' * alter if alter > 0 else 'b' * -alter}{new_octave}"
 
 
