@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from fractions import Fraction
 from itertools import combinations
@@ -35,8 +36,23 @@ class Finding:
     why: str
 
 
-def _table(index):
-    voices = sorted({(e.staff, e.layer) for m in index.measures for e in m.events if e.pitch and not e.grace})
+@dataclass
+class _Table:
+    voices: list[Voice]
+    notes: dict[Voice, list]
+    rows: list
+    times: list[Fraction]
+
+    def at(self, t):
+        i = bisect_right(self.times, t) - 1
+        return self.rows[i][1] if i >= 0 else {v: [] for v in self.voices}
+
+    def just_before(self, t):
+        i = bisect_left(self.times, t) - 1
+        return self.rows[i][1] if i >= 0 else {v: [] for v in self.voices}
+
+
+def _table(index, voices):
     notes, offset = {v: [] for v in voices}, Fraction(0)
     positions = {}
     for m in index.measures:
@@ -52,30 +68,53 @@ def _table(index):
                 t = offset + e.onset
                 notes[e.staff, e.layer].append((t, t + e.duration, e))
         offset += m.length
+    by_start = {v: sorted(range(len(notes[v])), key=lambda i: notes[v][i][0]) for v in voices}
+    taken, sounding = dict.fromkeys(voices, 0), {v: [] for v in voices}
+    times = sorted(positions)
     rows = []
-    for t in sorted(positions):
-        sounding = {v: [e for start, end, e in notes[v] if start <= t < end] for v in voices}
-        rows.append((positions[t], sounding))
-    return voices, notes, rows
+    for t in times:
+        for v in voices:
+            line, order = notes[v], by_start[v]
+            while taken[v] < len(order) and line[order[taken[v]]][0] <= t:
+                sounding[v].append(order[taken[v]])
+                taken[v] += 1
+            sounding[v] = [i for i in sounding[v] if line[i][1] > t]
+        rows.append((positions[t], {v: [notes[v][i][2] for i in sorted(sounding[v])] for v in voices}))
+    return _Table(voices, notes, rows, times)
+
+
+def _chorale(index: ScoreIndex) -> _Table | None:
+    voices = sorted({(e.staff, e.layer) for m in index.measures for e in m.events if e.pitch and not e.grace})
+    if not 2 <= len(voices) <= 4 or len({e.staff for m in index.measures for e in m.events}) > 4:
+        return None
+    table = _table(index, voices)
+    if any(len(es) > 1 for _, row in table.rows for es in row.values()):
+        return None
+    starts = [set(start for start, _, _ in table.notes[v]) for v in voices]
+    total = sum(map(len, starts))
+    if not total or len(voices) * len(set.intersection(*starts)) / total < 0.6:
+        return None
+    return table
 
 
 def applies(index: ScoreIndex) -> bool:
-    voices, notes, rows = _table(index)
-    if not 2 <= len(voices) <= 4 or len({e.staff for m in index.measures for e in m.events}) > 4:
-        return False
-    if any(len(es) > 1 for _, row in rows for es in row.values()):
-        return False
-    starts = [set(start for start, _, _ in notes[v]) for v in voices]
-    total = sum(map(len, starts))
-    return bool(total) and len(voices) * len(set.intersection(*starts)) / total >= 0.6
+    return _chorale(index) is not None
 
 
 def check(index: ScoreIndex, chords=None) -> list[Finding]:
-    if not applies(index):
-        return []
+    table = _chorale(index)
+    return _findings(index, table, chords) if table else []
+
+
+def _findings(index: ScoreIndex, table: _Table, chords, bars: set[int] | None = None) -> list[Finding]:
     from music21 import chord, interval, key, note, roman, stream, voiceLeading
 
-    voices, notes, rows = _table(index)
+    voices, notes, rows = table.voices, table.notes, table.rows
+    inside = [i for i, (pos, _) in enumerate(rows) if bars is None or pos[0] in bars]
+    if not inside:
+        return []
+    lo, hi = inside[0], inside[-1] + 1
+    worked = {e.id for _, row in rows[lo:hi] for es in row.values() for e in es}
     name = _names(voices)
     result = []
 
@@ -88,6 +127,8 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
     ornaments, neighbors = set(), set()
     for line in notes.values():
         for (start, end, previous), (onset, stop, event), (following, _, next_event) in zip(line, line[1:], line[2:]):
+            if event.id not in worked:
+                continue
             measure = index.measure(event.measure)
             if end != onset or stop != following or previous.tied or event.tied:
                 continue
@@ -96,9 +137,9 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
             approach = interval.Interval(note.Note(pitch(previous)), note.Note(pitch(event)))
             departure = interval.Interval(note.Note(pitch(event)), note.Note(pitch(next_event)))
             if approach.directedName in ('m-3', 'M-3') and departure.directedName == 'm2':
-                other_lines = [other for v, other in notes.items() if v != (event.staff, event.layer)]
-                held = [[e for begin, finish, e in other if begin <= onset < finish] for other in other_lines]
-                arrival = [[e for begin, finish, e in other if begin <= following < finish] for other in other_lines]
+                others = [v for v in voices if v != (event.staff, event.layer)]
+                held = [table.at(onset)[v] for v in others]
+                arrival = [table.at(following)[v] for v in others]
                 if all(len(es) == 1 for es in held + arrival):
                     tones = [midi(es[0].pitch) % 12 for es in held]
                     resolved = chord.Chord([pitch(es[0]) for es in held] + [pitch(next_event)])
@@ -116,6 +157,8 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
     anticipations = {}
     for line in notes.values():
         for (_, end, previous), (onset, stop, event) in zip(line, line[1:]):
+            if event.id not in worked:
+                continue
             measure = index.measure(event.measure)
             beat = event.onset / measure.beat_length
             if (end != onset or previous.tied or event.duration > measure.beat_length
@@ -125,8 +168,8 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
             approach = interval.Interval(note.Note(pitch(previous)), note.Note(pitch(event)))
             if following > stop or not approach.isStep or not 0 < abs(approach.semitones) <= 2:
                 continue
-            source = [[e for begin, finish, e in other if begin < onset <= finish] for other in notes.values()]
-            arrival = [[e for begin, finish, e in other if begin <= following < finish] for other in notes.values()]
+            source = [table.just_before(onset)[v] for v in voices]
+            arrival = [table.at(following)[v] for v in voices]
             if all(len(es) == 1 for es in source + arrival):
                 target = arrival[voices.index((event.staff, event.layer))][0]
                 source_chord = chord.Chord([pitch(es[0]) for es in source])
@@ -145,35 +188,41 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
 
     sonorities = [(p, {v: es[0] for v, es in row.items() if len(es) == 1}) for p, row in rows]
     spans = sorted(chords or [], key=lambda c: (index.measure(c.measure).index, c.beat))
-    keys = {}
-    context = stream.Stream()
-    if not spans:
-        for start in range(0, len(index.measures), 4):
+    keys, place = {}, {m.number: i for i, m in enumerate(index.measures)}
+
+    def key_at(number):
+        if spans:
+            return None
+        start = place[number] // 4 * 4
+        if start not in keys:
             phrase = stream.Stream()
             for m in index.measures[start:start + 4]:
                 for e in m.events:
                     if e.pitch and not e.grace and e.duration > 0:
-                        sounding_note = note.Note(pitch(e), quarterLength=float(e.duration))
-                        phrase.append(sounding_note)
-                        context.append(sounding_note)
-            if phrase.notes:
-                estimated = phrase.analyze("key")
-                for m in index.measures[start:start + 4]:
-                    keys[m.number] = estimated
+                        phrase.append(note.Note(pitch(e), quarterLength=float(e.duration)))
+            keys[start] = phrase.analyze("key") if phrase.notes else None
+        return keys[start]
 
-    context_key = context.analyze("key") if context.notes else None
+    lengths = {}
+    for m in index.measures:
+        for e in m.events:
+            if e.pitch and not e.grace and e.duration > 0:
+                lengths[midi(e.pitch) % 12] = lengths.get(midi(e.pitch) % 12, 0) + float(e.duration)
+    context = stream.Stream([note.Note(pitch_class, quarterLength=length) for pitch_class, length in sorted(lengths.items())])
+    context_key = context.analyze("key") if not spans and lengths else None
     context_tones = {p.pitchClass for p in context_key.pitches} if context_key else set()
 
     inferred = {}
-    previous, local_key = None, None
-    if not spans:
-        for pos, row in sonorities:
-            k = keys.get(pos[0])
+
+    def inference():
+        previous, local_key = None, None
+        for pos, row in sonorities[lo:]:
+            k = key_at(pos[0])
             c = chord.Chord([pitch(e) for e in row.values()])
             if len(row) != len(voices):
                 previous, local_key = None, None
             if not (c.isTriad() or c.isSeventh()) or len(row) != len(voices):
-                inferred[pos] = (k, None)
+                yield pos, (k, None)
                 continue
             root = c.root().pitchClass
             if c.isDominantSeventh():
@@ -193,7 +242,15 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                 sounding = harmony.Chord(reduced.root().pitchClass, frozenset(p.pitchClass for p in reduced.pitches),
                                          reduced.bass().pitchClass, reduced.seventh.pitchClass if reduced.seventh else None,
                                          reduced.third.pitchClass if reduced.third else None)
-            inferred[pos] = (local_key or k, sounding)
+            yield pos, (local_key or k, sounding)
+
+    inferring = inference()
+
+    def inferred_at(pos):
+        while pos not in inferred:
+            found, value = next(inferring)
+            inferred[found] = value
+        return inferred[pos]
 
     def named(pos, row):
         if spans:
@@ -211,9 +268,9 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                 if named_chord.secondaryRomanNumeralKey:
                     k = named_chord.secondaryRomanNumeralKey
             return k, c
-        return inferred[pos]
+        return inferred_at(pos)
 
-    for pos, row in sonorities:
+    for pos, row in sonorities[lo:hi]:
         for v in row:
             event = row[v]
             if pos != (event.measure, index.measure(event.measure).beat_of(event.onset)):
@@ -250,7 +307,8 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
             if len(doubled) > 1:
                 add("doubled_leading_tone", [pos], doubled, f"The leading tone ({leading.name.replace('-', 'b')}) is doubled, in the {' and '.join(name[v] for v in doubled)}; it should appear once.")
 
-    for row_number, ((before, arow), (after, brow)) in enumerate(zip(rows, rows[1:])):
+    for row_number in range(lo, min(hi, len(rows) - 1)):
+        (before, arow), (after, brow) = rows[row_number], rows[row_number + 1]
         a = {v: es[0] for v, es in arow.items() if len(es) == 1}
         b = {v: es[0] for v, es in brow.items() if len(es) == 1}
         for upper, lower in combinations(voices, 2):
@@ -306,7 +364,7 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
                 if not retained and motion.directedName not in ("m-2", "M-2"):
                     add("unresolved_seventh", [before, destination], [v], f"The {name[v]}'s seventh ({a[v].pitch}) should fall by step; it {'moves to ' + target.pitch if target.pitch != a[v].pitch else 'is held'} instead.")
             if ka and kb and cb and v in (voices[0], voices[-1]):
-                if (not spans and ka.tonic.pitchClass == ca.root and ka != keys.get(before[0])
+                if (not spans and ka.tonic.pitchClass == ca.root and ka != key_at(before[0])
                         and cb.root == kb.tonic.pitchClass
                         and context_key and (cb.root == context_key.tonic.pitchClass
                                              or not ca.tones <= context_tones)
@@ -322,11 +380,16 @@ def check(index: ScoreIndex, chords=None) -> list[Finding]:
 
 
 def as_text(index: ScoreIndex, chords=None, first: int | None = None, last: int | None = None) -> str:
-    if not applies(index):
+    table = _chorale(index)
+    if table is None:
         return ""
-    voices, _, rows = _table(index)
-    chosen = {measure.number for measure in index.select(first, last, include_pickup=False)}
-    found = [f for f in check(index, chords) if all(bar in chosen for bar in f.bars)]
+    voices, rows = table.voices, table.rows
+    chosen = index.select(first, last, include_pickup=False)
+    numbers = {measure.number for measure in chosen}
+    place = {m.number: i for i, m in enumerate(index.measures)}
+    around = index.measures[max(place[chosen[0].number] - 1, 0):place[chosen[-1].number] + 2] if chosen else []
+    found = [f for f in _findings(index, table, chords, {m.number for m in around})
+             if all(bar in numbers for bar in f.bars)]
     names = _names(voices)
     at = {pos: row for pos, row in rows}
 
