@@ -44,6 +44,17 @@ class Event:
     attack: str = ""
     slashed: bool = False
 
+SLOWEST_TEMPO, FASTEST_TEMPO = 10, 1000
+TEMPO_RANGE = f"from {SLOWEST_TEMPO} to {FASTEST_TEMPO}"
+
+
+def playable_tempo(text: str) -> bool:
+    try:
+        return SLOWEST_TEMPO <= float(text) <= FASTEST_TEMPO
+    except ValueError:
+        return False
+
+
 @dataclass
 class Mark:
 

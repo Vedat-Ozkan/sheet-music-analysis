@@ -5,7 +5,8 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 
 from engine.errors import UserError
-from engine.score import PITCH, POSITION_DENOMINATOR, Event, Mark, Measure, ScoreIndex, beat_length, parse_meter
+from engine.score import (PITCH, POSITION_DENOMINATOR, TEMPO_RANGE, Event, Mark, Measure, ScoreIndex, beat_length, parse_meter,
+                          playable_tempo)
 
 VERSION = "N1"
 ORNAMENTS = ("tr", "mu", "ml", "tu", "tl")
@@ -129,6 +130,9 @@ def _read_marks(tokens: list[str], measure: Measure) -> None:
         if found["pedal"]:
             measure.marks.append(Mark("pedal", at, "down" if found["pedal"] == "Pd" else "up"))
         elif found["tempo"]:
+            if not found["tempo"].isalpha() and not playable_tempo(found["tempo"]):
+                raise NotesError(f"Bar {measure.name}: {token!r} is not a speed that can be played. A tempo is written in "
+                                 f"quarter notes per minute, {TEMPO_RANGE}, such as q=96@0.")
             measure.marks.append(Mark("tempo", at, found["tempo"]))
         elif found["hairpin"]:
             measure.marks.append(Mark("hairpin", at, found["hairpin"], Fraction(found["length"]).limit_denominator(POSITION_DENOMINATOR)))

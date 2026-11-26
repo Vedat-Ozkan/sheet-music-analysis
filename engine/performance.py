@@ -10,7 +10,8 @@ from fractions import Fraction
 
 from engine.errors import UserError
 from engine.render import load_toolkit
-from engine.score import LETTERS, MEI, SEMITONES, XML_ID, Event, Mark, Measure, ScoreIndex, midi, spelled
+from engine.score import (LETTERS, MEI, SEMITONES, TEMPO_RANGE, XML_ID, Event, Mark, Measure, ScoreIndex, midi, playable_tempo,
+                          spelled)
 
 LEVELS = {"ppp": 30, "pp": 42, "p": 55, "mp": 66, "mf": 78, "f": 92, "ff": 105, "fff": 118}
 ACCENTS = {"sf": 20, "sfz": 20, "sffz": 24, "fz": 18, "rf": 14, "rfz": 16, "z": 16}
@@ -76,7 +77,7 @@ def marked_index(score: bytes) -> ScoreIndex:
         return measure, measure.offset_at_tstamp(segment, tstamp)
 
     for score_def in root.iter(f"{MEI}scoreDef"):
-        if score_def.get("midi.bpm") and index.measures:
+        if playable_tempo(score_def.get("midi.bpm", "")) and index.measures:
             index.measures[0].marks.append(Mark("tempo", Fraction(0), score_def.get("midi.bpm")))
         break
     worded = []
@@ -85,7 +86,7 @@ def marked_index(score: bytes) -> ScoreIndex:
         for element in bar:
             tag = element.tag.replace(MEI, "")
             tstamp = element.get("tstamp")
-            if tag in ("dir", "tempo") and tstamp and not element.get("midi.bpm"):
+            if tag in ("dir", "tempo") and tstamp and not playable_tempo(element.get("midi.bpm", "")):
                 word = next((word for word in re.findall(r"[a-z]+", "".join(element.itertext()).lower()) if word in TEMPO_WORDS), None)
                 if word:
                     measure, offset = place(bar_id, tstamp)
@@ -104,7 +105,7 @@ def marked_index(score: bytes) -> ScoreIndex:
             elif tag == "pedal" and tstamp and element.get("dir") in ("down", "up"):
                 measure, offset = place(bar_id, tstamp)
                 measure.marks.append(Mark("pedal", offset, element.get("dir")))
-            elif tag == "tempo" and tstamp and element.get("midi.bpm"):
+            elif tag == "tempo" and tstamp and playable_tempo(element.get("midi.bpm", "")):
                 measure, offset = place(bar_id, tstamp)
                 measure.marks.append(Mark("tempo", offset, element.get("midi.bpm")))
             elif tag in ("trill", "mordent", "turn") and element.get("startid", "").lstrip("#") in events:
@@ -153,6 +154,8 @@ def unclear_tempos(index: ScoreIndex, measures: tuple[int, int] | None = None) -
 
 
 def perform(index: ScoreIndex, measures: tuple[int, int] | None = None, tempo: float | None = None) -> tuple[list[Note], list[tuple[float, int]], float]:
+    if tempo and not playable_tempo(str(tempo)):
+        raise UserError(f"A tempo of {tempo:g} cannot be played; give it in quarter notes per minute, {TEMPO_RANGE}.")
     starts = _bar_starts(index)
 
     def bpm(measure: Measure, value: str) -> float:

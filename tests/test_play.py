@@ -142,3 +142,23 @@ def test_a_pitch_the_note_list_cannot_hold_is_refused_by_name(local_store, writt
     app.store.put("scores/CHOPIN", CHOPIN.read_bytes())
     corrected = asyncio.run(app.mcp.call_tool("correct_bars", {"score_id": "CHOPIN", "replacement_bars": sent}))
     assert corrected.is_error and f"Bar 1: '{written}' is not a note this list can hold" in corrected.content[0].text
+
+
+@pytest.mark.parametrize("mark", ["q=0@0", "q=0.0@0", "q=5@0", "q=5000@0", "q=.@0"])
+def test_a_tempo_no_one_can_play_is_refused_by_name(local_store, mark):
+    result = call(app.play, notes=f"N1 div=1 ts=4/4 ks=0\nm1 len=4\nx: {mark}\n1.1: 4 C4")
+    assert result.is_error and f"Bar 1: '{mark}' is not a speed that can be played" in result.content[0].text
+
+
+@pytest.mark.parametrize("tempo", [-60, 0.01, 100000])
+def test_a_tempo_answer_no_one_can_play_is_refused(local_store, tempo):
+    result = call(app.play, notes="N1 div=1 ts=4/4 ks=0\nm1 len=4\nx: q=adagio@0\n1.1: 4 C4", tempo=tempo)
+    assert result.is_error and "cannot be played; give it in quarter notes per minute, from 10 to 1000" in result.content[0].text
+
+
+def test_a_tempo_in_a_file_no_one_can_play_falls_back_to_its_word(local_store):
+    marked = a_bar_marked("Adagio", "4/4").replace(b"</words></direction-type>", b"</words></direction-type><sound tempo=\"5000\"/>")
+    app.store.put("scores/FAST", marked)
+    played = call(app.play, score_id="FAST").structured_content["performance"]
+    app.store.put("scores/WORD", a_bar_marked("Adagio", "4/4"))
+    assert played == call(app.play, score_id="WORD").structured_content["performance"]
