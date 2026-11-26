@@ -4,8 +4,25 @@ What changed for users, newest first. Numbers in brackets are entries in `docs/e
 
 ## Unreleased
 
-- Not merged yet (branch `share-chat`): the card's "Suggest something" box says how to show us a chat (share it, paste the link), and opens by itself after a thumbs-down or after a problem is sent to us [205].
-- Not merged yet (branch `offer-after-analysis`): a scanned PDF is analysed straight away from the quick reading, and the careful reading is offered at the end of that analysis instead of before it [207].
+- Not released yet: what the server's tools say to a chat is written as statements instead of orders, after ChatGPT stopped some calls with a "Suspicious Instruction" warning that quoted our texts. The order of calls is in the server's instructions, results carry labelled lines for the user, and the next-step sentences of [208] are gone. In real ChatGPT chats on staging the warning did not come back [217].
+- Not released yet: ChatGPT calls the server in two ways and only one of them can run a careful reading. A yes that arrives the other way is answered with how to start it (type @Sheet Music Analysis, choose the app, say yes again) instead of steps the chat cannot follow [215].
+- Not released yet: the reading of a scanned PDF no longer mentions the careful reading; the offer comes once, with the first drawn page [217].
+- Not released yet: a drawing with no marks is refused instead of shown as a bare score, and a careful reading handed in for part of a scan says how many of its pages it holds [218].
+- Not released yet: the proxy sends a request once more when Cloud Run refused it before our server saw it; the server marks its own answers so the proxy can tell [219]. The server is released before the proxy.
+- Tried and not kept: running the careful reading's measuring tool on our server did not let ChatGPT's ordinary turns read a scan [216].
+- Not merged yet (branch `go-on-wording`): the note on a scan's reading says the analysis may be wrong where the reading is, instead of asking the user to check carefully [208].
+- Not released yet: in ChatGPT the card that shows what was read from a PDF has a button, "Analyse this score", for when the analysis has not started by itself; Claude does not show it [210, 211].
+- Not released yet: the offer of a careful reading says what it costs in the product the user is in: in Claude it names its helpers (one per page, on Sonnet at medium effort) and the usage allowance, in ChatGPT only the time [212]. ChatGPT package 1.5.1 corrects the same sentence in its texts.
+- Not released yet: a score file with no notes in it is answered with one plain sentence instead of an empty analysis job [213].
+- Not released yet: a careful reading of a scan keeps the chord symbols printed in the score; before, a lead sheet read carefully lost them [214].
+- Not merged yet (branch `faster-ci`): the tests on GitHub run as four parallel jobs, a text-only change runs only the tests that read texts, and a deploy accepts the pull request's full test run when main holds exactly what it tested, and never a text-only run [209].
+
+## 2026-11-25: server 00070-555
+
+Claude plugin unchanged (1.10.3). ChatGPT app unchanged (1.5.0).
+
+- A scanned PDF is analysed straight away from the quick reading, and the careful reading is offered at the end of that analysis instead of before it [207] (#48).
+- The card's "Suggest something" box says how to show us a chat (share it, paste the link), and opens by itself after a thumbs-down or after a problem is sent to us; the privacy page says what a pasted chat link lets us read [205] (#47).
 
 ## 2026-11-24: server 00069-8bl
 

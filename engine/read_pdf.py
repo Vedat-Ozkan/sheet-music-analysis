@@ -47,13 +47,13 @@ READABLE_INTERLINE = 20
 SHARP_SCAN_INTERLINE = 11
 NOTHING_READ = "No music could be read from this PDF"
 NEXT_STEP = (
-    ". Tell the user plainly, and suggest what may work: a PDF exported from notation software reads best; a scan "
+    ". What may work instead: a PDF exported from notation software reads best; a scan "
     "should be straight, sharp and about 300 dpi; a long PDF can be sent a few pages at a time; a MusicXML file "
     "(.mxl or .musicxml) needs no reading at all."
 )
 PAINT_OPERATORS = {"S", "s", "f", "F", "f*", "B", "B*", "b", "b*"}
 CHECK = "This is what I read from your PDF; check it against your copy before I analyse it."
-SCAN_WARNING = "Scanned pages often have reading mistakes, so please check carefully."
+SCAN_WARNING = "Scanned pages often have reading mistakes, so the analysis may be wrong where the reading is."
 SLURS_LEFT_OUT = "Slurs are not read, because they are often misread from PDFs."
 SHOWN = 4
 DEFAULT_PART_NAMES = {"Voice", "NoName"}

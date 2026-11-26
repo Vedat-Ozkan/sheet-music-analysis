@@ -114,6 +114,10 @@ class ScoreError(UserError):
 
 
 UNREADABLE = "This file looks like MusicXML but its music could not be read"
+NO_NOTES = ("This file has no notes in it, only empty bars. Export it again from your music program, or send a PDF "
+            "of the score.")
+SCORE_ROOT = re.compile(r"<score-(?:partwise|timewise)\b")
+SOUNDING_NOTE = re.compile(r"<(?:pitch|unpitched)[\s/>]")
 
 
 def parse_measures(measure_range: str | None) -> tuple[str, str] | None:
@@ -237,12 +241,18 @@ def local_toolkit() -> verovio.toolkit:
 new_toolkit: Callable[[], verovio.toolkit] = local_toolkit
 
 
+def require_notes(score: bytes) -> None:
+    text = xml_text(_musicxml(score))
+    if SCORE_ROOT.search(text[:5000]) and not SOUNDING_NOTE.search(text):
+        raise ScoreError(NO_NOTES)
+
+
 def load_toolkit(score: bytes, options: dict | None = None, *, keep_pedals: bool = False, labelled_bars: Collection[int] = (),
                  bar_names: dict[int, str] | None = None) -> verovio.toolkit:
     toolkit = new_toolkit()
     toolkit.setOptions({**VEROVIO_OPTIONS, **(options or {})})
     text = xml_text(_musicxml(score))
-    if not re.search(r"<score-(?:partwise|timewise)\b", text[:5000]):
+    if not SCORE_ROOT.search(text[:5000]):
         raise ScoreError("This file is not MusicXML" + (" but a PDF" if score[:5] == b"%PDF-" else ""))
     loaded = toolkit.loadData(_importable(text))
     if not loaded:

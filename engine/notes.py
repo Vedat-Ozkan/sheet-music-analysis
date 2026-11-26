@@ -20,6 +20,7 @@ MAX_CHARS = 200_000
 CLEFS = {"G": ("G", 2, 0), "F": ("F", 4, 0), "C": ("C", 3, 0), "T": ("C", 4, 0), "G8": ("G", 2, -1)}
 CLEF = re.compile(r"clef=(" + "|".join(CLEFS) + ")")
 WORDS_LABEL = re.compile(r"\d+\.\d+w")
+CHORD_ENTRY = re.compile(r"(?P<symbol>[^@\s]+)@(?P<at>\d+)")
 MARKED = re.compile(r"(?P<opened>\(*)(?P<sounding>.+?)(?P<signs>[.>]*)(?P<closed>\)*)")
 METER = re.compile(r"(?:[1-9]\d*/[1-9]\d*)?")
 KEY = re.compile(r"0|[1-7][sf]")
@@ -132,6 +133,15 @@ def _read_marks(tokens: list[str], measure: Measure) -> None:
             measure.marks.append(Mark("dynamic", at, found["dynamic"]))
 
 
+def _read_chord_symbols(entries: list[str], measure: Measure, div: int) -> None:
+    for entry in entries:
+        found = CHORD_ENTRY.fullmatch(entry)
+        if not found or Fraction(int(found["at"]), div) >= measure.length:
+            raise NotesError(f"Bar {measure.name}: a chord symbol is written as symbol@position, without spaces, with the "
+                             f"position in units from the start of the bar and below its len, e.g. D7@0, not {entry!r}")
+        measure.chord_symbols.append((Fraction(int(found["at"]), div), found["symbol"]))
+
+
 def _units(value: Fraction, div: int) -> int:
     units = value * div
     if units.denominator != 1:
@@ -205,6 +215,10 @@ def decode(text: str) -> ScoreIndex:
                 if not measures:
                     raise NotesError(f"Line {number}: a marks line needs a bar line like 'm3 len=96' before it")
                 _read_marks(line[2:].split(), measures[-1])
+            elif line.startswith("c:"):
+                if not measures:
+                    raise NotesError(f"Line {number}: a chord symbol line needs a bar line like 'm3 len=96' before it")
+                _read_chord_symbols(line[2:].split(), measures[-1], div)
             else:
                 if not measures:
                     raise NotesError(f"Line {number}: a voice line needs a bar line like 'm3 len=96' before it")

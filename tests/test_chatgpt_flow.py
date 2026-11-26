@@ -72,11 +72,12 @@ def test_a_pdf_reading_states_its_bars_so_the_model_can_ask_for_real_ranges(serv
     assert line["page_points"] and line["image_pixels"] and "scan" in line
 
 
-def test_drawing_with_no_marks_tells_the_model_to_analyse_first(server):
+def test_drawing_with_no_marks_is_refused_and_points_to_the_analysis(server):
     score_id = score_id_of(call("read_pdf", ATTACHED))
     result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": []}, "measure_range": "1-4"})
-    assert not result.is_error
-    assert "call draft_analysis with score_id" in text_of(result)
+    assert result.is_error and result.content[0].type == "text"
+    assert text_of(result).startswith("Nothing is drawn: the annotation list is empty, and a drawn analysis needs at least one mark.")
+    assert f"the notes for an analysis come from draft_analysis with score_id {score_id}." in text_of(result)
 
 
 def test_marks_that_fit_are_drawn_and_the_rest_are_listed(server):
@@ -277,21 +278,14 @@ def test_a_view_in_other_case_and_a_range_with_a_long_dash_are_drawn(server):
     assert result.structured_content["caption"] == "Analysis of bars 1–4, harmony only"
 
 
-def test_a_drawing_with_no_marks_says_so_first_and_skips_the_extra_downloads(server):
-    score_id = score_id_of(call("read_pdf", ATTACHED))
-    result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": []}, "measure_range": "1-4"})
-    assert text_of(result).startswith("No analysis marks were drawn")
-    assert "worksheet" not in text_of(result).lower()
-
-
 def test_a_whole_score_draft_gives_its_instructions_before_the_method_and_the_notes_last(server):
     score_id = score_id_of(call("read_pdf", ATTACHED))
     text = text_of(call("draft_analysis", {"score_id": score_id}))
-    assert text.index("HOW TO ANALYSE THIS SCORE") < 1000
-    assert text.index("HOW TO ANALYSE THIS SCORE") < text.index("## Method") < text.index("NOTES (one row")
-    guide = text.split("HOW TO ANALYSE THIS SCORE", 1)[1]
-    assert guide.index("I have the notes and am working out the harmony now") < guide.index("Analyse from the NOTES table")
-    assert "Now I'm drawing the analysis on the score." in guide and "not for each passage" in guide
+    assert text.index("HOW THE NOTES ARE USED") < 1000
+    assert text.index("HOW THE NOTES ARE USED") < text.index("## Method") < text.index("NOTES (one row")
+    assert "a short sentence before each says what is happening" in app.INSTRUCTIONS
+    assert app.INSTRUCTIONS.index("acted on after a yes.") < 512
+    assert "score_id and pdf_id are for tool calls only; replies do not show them to the user." in app.INSTRUCTIONS
     assert "ask which bars they want" not in text and "asks which bars" not in text
     assert "do not stop to ask which bars" in text
 
@@ -319,12 +313,18 @@ def test_the_worksheet_is_made_when_first_opened_and_the_other_downloads_with_th
 
 
 @pytest.mark.parametrize("name, plan", [
-    ("chopin_nocturne_op9_no2.mxl", 'for the whole piece pass measure_range "all"'),
-    ("piano/dvorak-9-2.mxl", "passages of at most 80 bars"),
+    ("chopin_nocturne_op9_no2.mxl", 'the whole piece included (measure_range "all"), as one PDF'),
+    ("piano/dvorak-9-2.mxl", "render_analysis draws at most 80 bars of it at a time"),
 ])
 def test_the_draft_says_whether_the_whole_score_can_be_drawn_in_one_call(server, name, plan):
     text = app.make_draft((DATA / name).read_bytes(), "PLAN", None)
     assert plan in text[:1000]
+
+
+def test_the_draft_ends_with_the_call_that_draws_the_page(server):
+    text = app.make_draft((DATA / "chopin_nocturne_op9_no2.mxl").read_bytes(), "ENDS1", None)
+    assert text.endswith("The analysis of the bars the user asked for is drawn with render_analysis and score_id ENDS1, "
+                         "as described above; the drawn page is the result the user sees.")
 
 
 def test_an_ordinary_score_gets_the_notes_table_and_no_mention_of_a_draft(server):
@@ -484,7 +484,7 @@ def test_a_crash_while_drawing_offers_a_report_and_is_logged_as_ours(server, mon
 
     monkeypatch.setattr(app, "draw", crash)
     capsys.readouterr()
-    result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": []}})
+    result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "C"}]}})
     assert not result.is_error and f"reference {report_of(result)['reference']}" in text_of(result)
     assert text_of(result).startswith(app.FAILED_CALL)
     line = logged(capsys, "render_analysis")[-1]
@@ -555,7 +555,25 @@ def test_cards_held_for_review_keep_their_old_page():
 
     pages = anyio.run(go)
     assert "report_problem" in pages[app.CARD_URI] and "send_suggestion" in pages[app.CARD_URI]
-    assert all("report_problem" not in pages[uri] and "send_suggestion" not in pages[uri] for uri in app.HELD_CARD_URIS)
+    assert "asked_to_analyse" in pages[app.CARD_URI] and not any("asked_to_analyse" in pages[uri] for uri in app.HELD_CARD_URIS)
+    assert not any("report_problem" in pages[uri] or "send_suggestion" in pages[uri] for uri in app.HELD_CARD_URIS if "-v2." in uri)
+
+
+def test_a_tap_on_the_analyse_button_is_logged_without_the_score(server, capsys):
+    score_id = score_id_of(call("read_pdf", ATTACHED))
+    drafted = call("draft_analysis", {"score_id": score_id, "measure_range": "1-4"})
+
+    async def go():
+        async with Client(app.mcp) as client:
+            tools = {tool.name: tool for tool in (await client.list_tools()).tools}
+            return tools, await client.call_tool("asked_to_analyse", {"sent": True})
+
+    tools, noted = anyio.run(go)
+    assert tools["read_pdf"].meta["openai/outputTemplate"] == app.PDF_CARD_URI == "ui://sheet-music-analysis/pdf-card-v4.html"
+    assert tools["asked_to_analyse"].meta["ui"]["visibility"] == ["app"] and not noted.is_error
+    assert "offer_analysis" not in (call("read_pdf", ATTACHED).meta or {}) and "offer_analysis" not in (drafted.meta or {})
+    lines = [line for line in logged(capsys, "asked_to_analyse") if line.get("event") == "asked_to_analyse"]
+    assert [(line["sent"], line["platform"]) for line in lines] == [(True, "other")]
 
 
 def shaded_pixels(result):
@@ -571,7 +589,8 @@ SHADE = tuple(round(255 * (1 - float(tint.FLAG_OPACITY)) + int(tint.FLAG_BAR[i:i
 def test_after_a_pdf_read_the_model_goes_straight_on_to_the_analysis(server):
     result = call("read_pdf", ATTACHED)
     text = text_of(result)
-    assert "call draft_analysis with this score_id now" in text
+    assert text.endswith(f"\nscore_id {score_id_of(result)} is ready for draft_analysis.")
+    assert "it needs no check by the user first" in text
     assert "wait" not in text.lower() and "go ahead" not in text.lower() and "check it against your copy" not in text
     assert "(shaded) looks misread" in text
 
@@ -583,10 +602,10 @@ def test_bars_shaded_in_the_reading_stay_shaded_on_the_analysis(server):
     assert len(shaded) == 1 and reading.structured_content["shaded_bars"] == shaded
     marks = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "i", "key": "e"}]
     drawn = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}})
-    assert f"Shaded bars ({shaded[0]}) may be misread" in text_of(drawn) and drawn.structured_content["shaded_bars"] == shaded
+    assert f"Note for the user: \"The shaded bars ({shaded[0]}) may be misread" in text_of(drawn) and drawn.structured_content["shaded_bars"] == shaded
     assert shaded_pixels(drawn) > 1000
     elsewhere = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1-4"})
-    assert "Shaded bars" not in text_of(elsewhere) and shaded_pixels(elsewhere) == 0
+    assert "shaded bars (" not in text_of(elsewhere) and shaded_pixels(elsewhere) == 0
     assert elsewhere.structured_content["shaded_bars"] == [] and elsewhere.structured_content["caption"] == "Analysis of bars 1–4"
 
 

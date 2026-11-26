@@ -11,12 +11,14 @@ IMAGE=$REGION-docker.pkg.dev/$PROJECT/$SERVICE/server
 RUN_SERVICE=$SERVICE
 ACCESS=--allow-unauthenticated
 LIMITS=""
+APP_NAME=""
 if [ "$STAGE" = staging ]; then
   BUCKET=$PROJECT-staging-data
   IMAGE=$IMAGE:staging
   RUN_SERVICE=$SERVICE-staging
   ACCESS=--no-allow-unauthenticated
   LIMITS='@DAILY_LIMITS={"score": 100000, "draft": 100000, "render": 100000, "pdf_page": 100000}@PERSON_SCORE_LIMIT=100000'
+  APP_NAME=@CHATGPT_APP_NAME=sheet-music-staging
 elif [ "$STAGE" != production ]; then
   echo "unknown stage: $STAGE" >&2
   exit 1
@@ -27,9 +29,12 @@ else
     echo "production deploys only from a clean checkout of origin/main; commit, push and let CI pass first" >&2
     exit 1
   fi
-  CI=$(gh run list --branch main --commit "$(git rev-parse HEAD)" --workflow tests --json conclusion --jq '.[0].conclusion // empty')
-  if [ "$CI" != success ]; then
-    echo "CI has not passed on $(git rev-parse --short HEAD) (${CI:-no run yet}); production waits for it" >&2
+  gate=0
+  server/ci-passed.sh HEAD > /dev/null || gate=$?
+  if [ "$gate" = 2 ]; then
+    exit 1
+  elif [ "$gate" != 0 ]; then
+    echo "production deploys only what the full suite passed: no full run of the tests succeeded on the files of $(git rev-parse --short HEAD). If main differs from the last fully tested files only in text, run the tests workflow in full on main (GitHub, Actions, tests, Run workflow) and deploy after it succeeds; deploy before merging text-only changes to avoid this" >&2
     exit 1
   fi
 fi
@@ -97,7 +102,7 @@ gcloud run deploy "$RUN_SERVICE" --image="$DIGEST" --region="$REGION" \
   --service-account="$ACCOUNT" "$ACCESS" "${PROXY_KEY[@]}" \
   --execution-environment=gen2 --cpu=4 --memory=4Gi --concurrency=2 --min-instances=0 --max-instances=2 --timeout=900 \
   --startup-probe=tcpSocket.port=8080,timeoutSeconds=240,periodSeconds=240,failureThreshold=3 \
-  --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL@CONNECTOR_URL=${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}@KIT_ELSEWHERE=$KIT_ELSEWHERE@CAREFUL_READING=${CAREFUL_READING:-}@OWN_ADDRESS=$OWN_ADDRESS$LIMITS"
+  --set-env-vars="^@^BUCKET=$BUCKET@PUBLIC_BASE_URL=$PUBLIC_BASE_URL@CONNECTOR_URL=${CONNECTOR_URL:-$PUBLIC_BASE_URL/mcp}@KIT_ELSEWHERE=$KIT_ELSEWHERE@CAREFUL_READING=${CAREFUL_READING:-}@OWN_ADDRESS=$OWN_ADDRESS$LIMITS$APP_NAME"
 if [ "$STAGE" = production ]; then
   REVISION=$(gcloud run services describe "$RUN_SERVICE" --region="$REGION" --format='value(status.latestReadyRevisionName)')
   git tag "prod-${REVISION#$SERVICE-}"

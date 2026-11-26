@@ -26,7 +26,7 @@ NOCTURNE_MARKS = json.loads((Path(__file__).parent.parent / "examples/chopin_op9
 PDF = (DATA / "chopin-28-4-mutopia.pdf").read_bytes()
 AUDIVERIS = os.environ.get("AUDIVERIS", "/opt/audiveris/bin/Audiveris")
 ATTACHED = {"pdf_file": {"download_url": "https://example.com/score.pdf", "file_id": "file-1"}}
-NO_MARKS = {"annotations": []}
+ONE_MARK = {"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "C"}]}
 READ_PDF = pdf_reader.read_pdf
 
 
@@ -93,7 +93,7 @@ def test_a_reading_that_crashes_the_drawing_is_a_server_error_and_keeps_the_pdf(
     call_line = [line for line in lines if line.get("tool") == "read_pdf"][-1]
     assert call_line["outcome"] == "server_error" and call_line["reference"] == reference
 
-    drawn = call("render_analysis", {"score_id": "CHORALE", "annotations": NO_MARKS})
+    drawn = call("render_analysis", {"score_id": "CHORALE", "annotations": ONE_MARK})
     assert not drawn.is_error
     assert len(set(before) & set(pids(pool))) == 1
     assert len(pool.free) == 2
@@ -114,7 +114,7 @@ def test_a_crash_in_one_reading_leaves_a_drawing_on_the_other_worker_running(poo
     async def both():
         async with Client(app.mcp) as drawing, Client(app.mcp) as reading:
             async def draw():
-                finished["drawing"] = await drawing.call_tool("render_analysis", {"score_id": "BALLADE", "annotations": NO_MARKS}), time.monotonic()
+                finished["drawing"] = await drawing.call_tool("render_analysis", {"score_id": "BALLADE", "annotations": ONE_MARK}), time.monotonic()
 
             async def read():
                 await anyio.sleep(0.5)
@@ -129,7 +129,7 @@ def test_a_crash_in_one_reading_leaves_a_drawing_on_the_other_worker_running(poo
     assert not read.is_error and text_of(read).startswith(app.UNREAD_PDF + pdf_reader.NOTHING_READ)
     assert read_at < drawn_at
     assert not drawn.is_error and "shown in a card" in text_of(drawn)
-    again = call("render_analysis", {"score_id": "CHORALE", "annotations": NO_MARKS})
+    again = call("render_analysis", {"score_id": "CHORALE", "annotations": ONE_MARK})
     assert not again.is_error
 
 
@@ -168,7 +168,7 @@ def test_the_server_survives_a_score_that_crashes_the_drawing_library(server_pro
 
     async def draw(score_id):
         async with Client(f"{url}/mcp") as client:
-            return await client.call_tool("render_analysis", {"score_id": score_id, "annotations": NO_MARKS})
+            return await client.call_tool("render_analysis", {"score_id": score_id, "annotations": ONE_MARK})
 
     before = workers_of(process)
     crashed = asyncio.run(draw("CRASH"))
@@ -219,7 +219,7 @@ def test_three_drawings_sent_together_to_the_server_are_all_drawn(server_process
 
     async def draw(name, score_id):
         async with Client(f"{url}/mcp") as client:
-            finished[name] = await client.call_tool("render_analysis", {"score_id": score_id, "annotations": NO_MARKS})
+            finished[name] = await client.call_tool("render_analysis", {"score_id": score_id, "annotations": ONE_MARK})
 
     async def three():
         async with anyio.create_task_group() as group:
@@ -248,7 +248,7 @@ def test_requests_that_find_every_worker_taken_are_drawn_in_the_order_they_came(
     finished = []
 
     async def draw(client, name):
-        result = await client.call_tool("render_analysis", {"score_id": "CHORALE", "annotations": NO_MARKS})
+        result = await client.call_tool("render_analysis", {"score_id": "CHORALE", "annotations": ONE_MARK})
         finished.append((name, result.is_error))
 
     async def two():
@@ -270,12 +270,12 @@ def test_requests_that_find_every_worker_taken_are_drawn_in_the_order_they_came(
 def test_a_request_whose_turn_does_not_come_gets_the_busy_answer(pool, store, monkeypatch, capsys):
     monkeypatch.setattr(app, "DRAWING_WAIT", 1)
     taken = [pool.take(1), pool.take(1)]
-    refused = call("render_analysis", {"score_id": "CHORALE", "annotations": NO_MARKS})
+    refused = call("render_analysis", {"score_id": "CHORALE", "annotations": ONE_MARK})
     for worker in taken:
         pool.give_back(worker)
     assert refused.is_error and text_of(refused) == app.BUSY_MESSAGE
     assert [line for line in logged(capsys) if line.get("tool") == "render_analysis"][-1]["outcome"] == "busy"
-    assert not call("render_analysis", {"score_id": "CHORALE", "annotations": NO_MARKS}).is_error
+    assert not call("render_analysis", {"score_id": "CHORALE", "annotations": ONE_MARK}).is_error
     assert len(pool.free) == 2 and not pool.queue
 
 
@@ -285,7 +285,7 @@ def test_a_third_request_while_two_ballades_draw_gets_the_busy_answer(pool, stor
 
     async def draw(name, score_id):
         async with Client(app.mcp) as client:
-            finished[name] = await client.call_tool("render_analysis", {"score_id": score_id, "annotations": NO_MARKS})
+            finished[name] = await client.call_tool("render_analysis", {"score_id": score_id, "annotations": ONE_MARK})
 
     async def three():
         async with anyio.create_task_group() as group:

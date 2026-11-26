@@ -23,7 +23,7 @@ def chopin(tmp_path, monkeypatch):
 def renders(chats: list[str]) -> list[bool]:
     async def call():
         async with Client(app.mcp) as client:
-            results = [await client.call_tool("render_analysis", {"score_id": "ABC", "measure_range": "1-1", "annotations": {"annotations": []}},
+            results = [await client.call_tool("render_analysis", {"score_id": "ABC", "measure_range": "1-1", "annotations": {"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "C"}]}},
                                               meta={"openai/session": chat}) for chat in chats]
         return [bool(result.meta and result.meta.get("ask_for_rating")) for result in results]
 

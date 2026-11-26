@@ -1,5 +1,7 @@
 import asyncio
+import base64
 import hashlib
+import io
 import json
 import os
 import re
@@ -9,14 +11,17 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import zipfile
 from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
 from mcp.client.client import Client
 
+from engine import correct
 from engine import read_pdf as pdf_reader
 from server import app
+from tests.test_chord_symbols import PRINTED
 
 
 NOCTURNE = Path(__file__).parent / "data" / "chopin_nocturne_op9_no2.mxl"
@@ -45,7 +50,8 @@ def started_server(store, settings):
     env = {**os.environ, "PORT": str(port), "DATA_DIR": str(store), **settings}
     env.pop("BUCKET", None)
     env.pop("K_SERVICE", None)
-    process = subprocess.Popen([sys.executable, "-m", "server.app"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    with (Path(store) / "server-log.jsonl").open("a") as log_file:
+        process = subprocess.Popen([sys.executable, "-m", "server.app"], env=env, stdout=log_file, stderr=subprocess.DEVNULL)
     for _ in range(480):
         if process.poll() is not None:
             return None
@@ -152,9 +158,7 @@ def listed_tools(server, agent):
     return {tool["name"] for tool in json.loads(as_client(server, agent, "tools/list", {}))["result"]["tools"]}
 
 
-@pytest.mark.parametrize("setting, offered_to", [(None, set()), ("chatgpt", {CHATGPT}), ("claude", {CLAUDE}),
-                                                 ("chatgpt,claude", {CHATGPT, CLAUDE})])
-def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_for(tmp_path, setting, offered_to):
+def store_a_read_scan(tmp_path):
     pdf = (NOCTURNE.parent / "chopin-28-4-mutopia.pdf").read_bytes()
     scores = tmp_path / "scores"
     scores.mkdir()
@@ -164,31 +168,102 @@ def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_
     card = {"score_id": "QUICK1N", "pages": 3, "scan": True, "measures": "1 to 25", "bars": 25, "notice": "", "image_url": "",
             "pdf_url": "", "page_images": []}
     (scores / f"pdf-card-{pdf_reader.READER}-{hashlib.sha256(pdf).hexdigest()}.json").write_text(json.dumps(card))
+    typeset = pdf + b"\n"
+    (scores / "TYPESET1.pdf").write_bytes(typeset)
+    (scores / f"pdf-card-{pdf_reader.READER}-{hashlib.sha256(typeset).hexdigest()}.json").write_text(
+        json.dumps({**card, "scan": False}))
+
+
+CHOPIN_BAR_1 = correct.bars_from_musicxml((NOCTURNE.parent / "chopin_prelude_op28_no4_reading.musicxml").read_bytes(), 1)
+CHOPIN_MARK = {"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "i", "key": "e"}]}
+
+
+def drawn_text(server, agent, score_id, **arguments):
+    drawn = careful_call(server, agent, "render_analysis", score_id=score_id, annotations=CHOPIN_MARK, **arguments)
+    assert not drawn.get("isError"), drawn
+    return drawn["content"][-1]["text"]
+
+
+def test_the_careful_reading_is_offered_on_the_first_drawn_page_of_each_reading_of_a_scan(tmp_path):
+    store_a_read_scan(tmp_path)
+    with running_server(tmp_path, CAREFUL_READING="chatgpt") as (url, _):
+        read_scan(url, CHATGPT, "SCAN1")
+        corrected = careful_call(url, CHATGPT, "correct_bars", score_id="QUICK1N",
+                                 replacement_bars=CHOPIN_BAR_1.replace("24 C5", "24 D5"))["structuredContent"]["score_id"]
+        offered = {"corrected before any drawing": drawn_text(url, CHATGPT, corrected),
+                   "the original after that": drawn_text(url, CHATGPT, "QUICK1N"),
+                   "a few bars again": drawn_text(url, CHATGPT, "QUICK1N", measure_range="1-4"),
+                   "the piano version": drawn_text(url, CHATGPT, "QUICK1N", piano=True)}
+        read_scan(url, CHATGPT, "SCAN1")
+        offered["after the scan is read again"] = drawn_text(url, CHATGPT, "QUICK1N")
+        careful = careful_call(url, CHATGPT, "use_careful_reading", score_id="QUICK1N", pages=CAREFUL_PAGES)
+        offered["the careful reading"] = drawn_text(url, CHATGPT, careful["content"][0]["text"].split()[1])
+    assert all(("Offer for the user" in text) == ("is a scan, and its reading was a quick one" in text) for text in offered.values())
+    offered = {path: "Offer for the user" in text for path, text in offered.items()}
+    assert offered == {"corrected before any drawing": True, "the original after that": False, "a few bars again": False,
+                       "the piano version": False, "after the scan is read again": True, "the careful reading": False}
+    lines = logged_lines(tmp_path, "render_analysis")
+    assert [line.get("careful_offer") for line in lines] == [True, None, None, None, True, None]
+
+
+def test_only_chatgpt_is_offered_the_analyse_button_on_a_reading(tmp_path):
+    store_a_read_scan(tmp_path)
+    with running_server(tmp_path) as (url, _):
+        offered = {agent: read_scan(url, agent, "SCAN1").get("_meta", {}).get("offer_analysis") for agent in (CHATGPT, CLAUDE, "curl/8.5")}
+    assert offered == {CHATGPT: True, CLAUDE: None, "curl/8.5": None}
+
+
+@pytest.mark.parametrize("setting, offered_to", [(None, set()), ("chatgpt", {CHATGPT}), ("claude", {CLAUDE}),
+                                                 ("chatgpt,claude", {CHATGPT, CLAUDE})])
+def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_for(tmp_path, setting, offered_to):
+    store_a_read_scan(tmp_path)
     with running_server(tmp_path, **({"CAREFUL_READING": setting} if setting is not None else {})) as (url, _):
         careful_tools = {"careful_reading", "use_careful_reading"}
         assert careful_tools <= listed_tools(url, CHATGPT)
         assert careful_tools & listed_tools(url, CLAUDE) == (careful_tools if CLAUDE in offered_to else set())
         for agent in (CHATGPT, CLAUDE):
-            offer = read_scan(url, agent, "SCAN1")["content"][-1]["text"]
-            assert "draft_analysis with this score_id now" in offer, agent
+            reading = read_scan(url, agent, "SCAN1")["content"][-1]["text"]
+            assert reading.endswith("\nscore_id QUICK1N is ready for draft_analysis."), agent
+            assert "Shall I go ahead?" not in reading and "Offer for the user" not in reading, agent
+            assert reading == read_scan(url, agent, "TYPESET1")["content"][-1]["text"], agent
+            first, again = (drawn_text(url, agent, "QUICK1N") for _ in range(2))
+            assert "Shall I go ahead?" not in again, agent
             if agent in offered_to:
-                assert "Shall I go ahead?" in offer and "careful_reading" in offer, agent
-                assert offer.index("draft_analysis with this score_id now") < offer.index("Shall I go ahead?"), agent
+                assert "Shall I go ahead?" in first and "careful_reading" in first, agent
+                assert first.index("shown in a card") < first.index("is a scan, and its reading was a quick one") < first.index("Offer for the user"), agent
+                assert ("usage allowance" in first) == (agent == CLAUDE), agent
+                assert first.index("Offer for the user, at the end of the reply with this analysis:") < first.index("Shall I go ahead?"), agent
             else:
-                assert "careful" not in offer.lower() and "Shall I go ahead?" not in offer, agent
+                assert "careful" not in first.lower() and "Shall I go ahead?" not in first, agent
         steps = careful_call(url, CHATGPT, "careful_reading", score_id="QUICK1N")
         handed_in = careful_call(url, CHATGPT, "use_careful_reading", score_id="QUICK1N", pages=CAREFUL_PAGES)
         assert not steps.get("isError") and "kit/reader.md" in steps["content"][0]["text"]
         assert not handed_in.get("isError") and handed_in["content"][0]["text"].startswith("score_id: ")
-        warning = app.careful_warning(3)
-        assert steps["content"][0]["text"].startswith("Before any of these steps, ask the user")
+        warning = app.careful_warning(3, "chatgpt")
+        assert steps["content"][0]["text"].startswith("These steps are for after the user's yes to this question")
         assert f'"{warning}"' in steps["content"][0]["text"].split("\n", 1)[0]
+        if CLAUDE in offered_to:
+            asked_in_claude = careful_call(url, CLAUDE, "careful_reading", score_id="QUICK1N")["content"][0]["text"].split("\n", 1)[0]
+            assert f'"{app.careful_warning(3, "claude")}"' in asked_in_claude and "usage allowance" in asked_in_claude
+
+
+def test_the_chord_symbols_of_pages_handed_in_reach_the_table_of_notes(tmp_path):
+    store_a_read_scan(tmp_path)
+    page = (NOCTURNE.parent / "chord_symbols/amazing-grace-lead-sheet-page.n1").read_text()
+    with running_server(tmp_path, CAREFUL_READING="chatgpt") as (url, _):
+        handed_in = careful_call(url, CHATGPT, "use_careful_reading", score_id="QUICK1N", pages=[page])
+        code = handed_in["content"][0]["text"].split()[1]
+        drafted = careful_call(url, CHATGPT, "draft_analysis", score_id=code)
+    table = "".join(part.get("text", "") for part in drafted["content"]).split("\nNOTES (", 1)[1]
+    assert re.findall(r"chord symbol (\S+)@1(?!\d)", table)[:3] == ["G", "G7", "C"]
+    assert "chord symbol Em@3\nm14" in table
+    assert re.findall(r"chord symbol (\S+)@\d", table) == PRINTED
 
 
 def test_chatgpt_keeps_its_tools_and_attachment_arguments(server):
     listed = {tool["name"]: tool for tool in json.loads(as_client(server, "openai-mcp/1.0.0", "tools/list", {}))["result"]["tools"]}
     assert set(listed) == {"draft_analysis", "render_analysis", "correct_bars", "read_pdf", "rate_analysis", "report_problem", "send_suggestion",
-                           "careful_reading", "use_careful_reading"}
+                           "asked_to_analyse", "careful_reading", "use_careful_reading"}
     assert "pdf_file" in listed["read_pdf"]["inputSchema"]["properties"]
     assert "score_file" in listed["draft_analysis"]["inputSchema"]["properties"]
 
@@ -211,8 +286,21 @@ def test_a_whole_piece_drawn_for_claude_fits_its_result_limit(server, store):
     assert len(claude) < 150_000
     assert "image" in [part["type"] for part in json.loads(chatgpt)["result"]["content"]]
     content = json.loads(claude)["result"]["content"]
-    assert [part["type"] for part in content] == ["text", "text"] and "left out" in content[1]["text"]
+    assert [part["type"] for part in content] == ["text", "text"] and "left out" in content[0]["text"]
     assert json.loads(claude)["result"]["structuredContent"]["image_url"]
+
+
+def test_a_reading_too_large_for_claude_still_ends_with_the_next_step(server, store):
+    pdf = (NOCTURNE.parent / "chopin-28-4-mutopia.pdf").read_bytes()
+    pdf_id = card_id(server)
+    upload(server, pdf, pdf_id)
+    page = base64.b64encode(os.urandom(60_000)).decode()
+    card = {"score_id": "READ1N", "pages": 1, "scan": False, "measures": "1 to 25", "bars": 25, "notice": "",
+            "image_url": "", "pdf_url": "", "page_images": [page, page]}
+    (store / app.card_of(hashlib.sha256(pdf).hexdigest())).write_text(json.dumps(card))
+    content = as_claude(server, "tools/call", {"name": "read_fetched_pdf", "arguments": {"pdf_id": pdf_id}})["content"]
+    assert "image" in [part["type"] for part in content] and "left out" in content[-2]["text"]
+    assert content[-1]["text"].endswith("\nscore_id READ1N is ready for draft_analysis.")
 
 
 def as_claude(server, method, params):
@@ -238,12 +326,11 @@ def test_the_upload_card_tool_shows_the_card_that_sends_to_this_server(server):
     shown = as_claude(server, "tools/call", {"name": "choose_score", "arguments": {}})
     card = as_claude(server, "resources/read", {"uri": uri})["contents"][0]
     port = server.rsplit(":", 1)[1]
-    assert "choose the same file again in the card below" in listed["choose_score"]["description"]
     code = shown["structuredContent"]["upload_id"]
-    assert not shown.get("isError") and "End your reply here" in shown["content"][0]["text"]
-    assert f"read_fetched_pdf with pdf_id {code}" in shown["content"][0]["text"]
-    assert "you are reading the PDF now" in shown["content"][0]["text"]
-    assert f"draft_analysis with score_id {code}" in shown["content"][0]["text"]
+    assert not shown.get("isError") and "the next step comes with their message" in shown["content"][0]["text"]
+    assert f"{code} is the pdf_id for read_fetched_pdf" in shown["content"][0]["text"]
+    assert f"{code} is the score_id for draft_analysis" in shown["content"][0]["text"]
+    assert "choose the same file again in the card below" in shown["content"][0]["text"]
     assert card["_meta"]["ui"]["domain"].endswith(".claudemcpcontent.com")
     assert card["_meta"]["ui"]["csp"]["connectDomains"] == [f"http://localhost:{port}"]
     assert f'"http://localhost:{port}/upload"' in card["text"]
@@ -340,6 +427,24 @@ def test_with_a_proxy_key_set_only_requests_that_carry_it_are_served(tmp_path):
     assert health.status == 200
 
 
+def test_every_answer_from_our_server_carries_the_mark_the_proxy_retries_without(tmp_path):
+    def answer(path, key="the key of this test", **sent):
+        request = urllib.request.Request(f"{locked}{path}", headers={"X-Proxy-Key": key, "Accept": "application/json, text/event-stream",
+                                                                     "Content-Type": "application/json"}, **sent)
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return response.status, response.headers.get("x-answered-by")
+        except urllib.error.HTTPError as refused:
+            return refused.code, refused.headers.get("x-answered-by")
+
+    listing = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}).encode()
+    with running_server(tmp_path, PROXY_KEY="the key of this test") as (locked, _):
+        answers = [answer("/mcp", data=listing, method="POST"), answer("/mcp", key="another key", data=listing, method="POST"),
+                   answer("/mcp"), answer("/files/nothing-here.png"), answer("/health")]
+    assert [status for status, _ in answers] == [200, 403, 405, 404, 200]
+    assert {mark for _, mark in answers} == {"sheet-music-analysis"}
+
+
 def test_a_request_without_the_key_gets_the_whole_refusal_while_its_body_is_still_arriving(tmp_path):
     size = 2_000_000
 
@@ -382,3 +487,149 @@ def test_while_the_key_changes_the_previous_key_is_served_too(tmp_path):
     assert "draft_analysis" in {tool["name"] for tool in old["result"]["tools"]} & {tool["name"] for tool in new["result"]["tools"]}
     assert other.value.code == 403
 
+
+
+NO_NOTES = ("This file has no notes in it, only empty bars. Export it again from your music program, or send a PDF "
+            "of the score.")
+WHOLE_BAR_REST = '<note><rest measure="yes"/><duration>4</duration></note>'
+PITCHED = '<note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>'
+UNPITCHED = ('<note><unpitched><display-step>E</display-step><display-octave>4</display-octave></unpitched>'
+             '<duration>4</duration><type>whole</type></note>')
+
+
+def one_bar_score(*parts):
+    listed = "".join(f'<score-part id="P{n}"><part-name>Part {n}</part-name></score-part>' for n in range(1, len(parts) + 1))
+    attributes = ("<attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time>"
+                  "<clef><sign>G</sign><line>2</line></clef></attributes>")
+    written = "".join(f'<part id="P{n}">' + (f'<measure number="1">{attributes}{content}</measure>' if content else "") + "</part>"
+                      for n, content in enumerate(parts, start=1))
+    return (f'<?xml version="1.0" encoding="UTF-8"?><score-partwise version="4.0"><part-list>{listed}</part-list>'
+            f"{written}</score-partwise>").encode()
+
+
+def packed(score):
+    sink = io.BytesIO()
+    with zipfile.ZipFile(sink, "w") as archive:
+        archive.writestr("META-INF/container.xml", '<container><rootfiles><rootfile full-path="score.xml"/></rootfiles></container>')
+        archive.writestr("score.xml", score)
+    return sink.getvalue()
+
+
+WITHOUT_NOTES = {"a-whole-bar-rest": one_bar_score(WHOLE_BAR_REST), "two-silent-parts": one_bar_score(WHOLE_BAR_REST, ""),
+                 "no-bars": one_bar_score(""), "packed": packed(one_bar_score(WHOLE_BAR_REST)),
+                 "utf-16": one_bar_score(WHOLE_BAR_REST).decode().replace("UTF-8", "UTF-16").encode("utf-16")}
+
+
+def tool_answer(server, agent, name, **arguments):
+    return json.loads(as_client(server, agent, "tools/call", {"name": name, "arguments": arguments}))["result"]
+
+
+def refused_plainly(answer):
+    return answer.get("isError") and [part["text"] for part in answer["content"]] == [NO_NOTES]
+
+
+@pytest.mark.parametrize("kind", list(WITHOUT_NOTES))
+def test_a_score_with_no_notes_chosen_in_the_card_is_answered_plainly_by_every_tool_claude_gives_it_to(server, kind):
+    score_id = card_id(server)
+    assert upload(server, WITHOUT_NOTES[kind], score_id)[0] == 200
+    answers = {name: tool_answer(server, CLAUDE, name, score_id=score_id, **arguments) for name, arguments in {
+        "draft_analysis": {}, "render_analysis": {"annotations": {"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "C"}]}}, "play": {}}.items()}
+    assert {name for name, answer in answers.items() if refused_plainly(answer)} == set(answers), answers
+
+
+def test_a_reading_with_no_notes_can_still_be_read_carefully_and_corrected(tmp_path):
+    store_a_read_scan(tmp_path)
+    (tmp_path / "scores" / "QUICK1N").write_bytes(one_bar_score(WHOLE_BAR_REST))
+    with running_server(tmp_path, CAREFUL_READING="chatgpt") as (url, _):
+        steps = careful_call(url, CHATGPT, "careful_reading", score_id="QUICK1N")
+        corrected = careful_call(url, CHATGPT, "correct_bars", score_id="QUICK1N", replacement_bars="")
+    assert not steps.get("isError") and "kit/reader.md" in steps["content"][0]["text"]
+    assert not refused_plainly(corrected)
+
+
+@pytest.mark.parametrize("kind", list(WITHOUT_NOTES))
+def test_a_stored_score_with_no_notes_is_answered_plainly_to_chatgpt(server, store, kind):
+    (store / "scores").mkdir(exist_ok=True)
+    (store / "scores" / "NONOTES").write_bytes(WITHOUT_NOTES[kind])
+    drafted = tool_answer(server, CHATGPT, "draft_analysis", score_id="NONOTES")
+    drawn = tool_answer(server, CHATGPT, "render_analysis", score_id="NONOTES", annotations={"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "C"}]})
+    assert refused_plainly(drafted) and refused_plainly(drawn), (drafted, drawn)
+
+
+@pytest.mark.parametrize("score", [one_bar_score(PITCHED), one_bar_score(UNPITCHED), one_bar_score(WHOLE_BAR_REST, PITCHED)],
+                         ids=["pitched", "percussion", "one-silent-part-among-sounding-ones"])
+def test_a_score_with_any_note_is_drafted(server, score):
+    score_id = card_id(server)
+    upload(server, score, score_id)
+    drafted = tool_answer(server, CLAUDE, "draft_analysis", score_id=score_id)
+    assert not drafted.get("isError") and drafted["content"][0]["text"].startswith(f"score_id: {score_id}")
+
+
+@pytest.mark.parametrize("name, arguments", [
+    ("draft_analysis", {"score_file": {"download_url": "https://example.com/score.musicxml", "file_id": "file-1"}}),
+    ("fetch_score", {"url": "https://example.com/score.musicxml"})])
+def test_a_file_with_no_notes_that_is_attached_or_linked_is_a_user_error_with_the_sentence_as_its_reason(
+        monkeypatch, tmp_path, capsys, name, arguments):
+    async def download(url):
+        return WITHOUT_NOTES["a-whole-bar-rest"]
+
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    monkeypatch.setattr(app, "download", download)
+
+    async def go():
+        async with Client(app.mcp) as client:
+            answered = await client.call_tool(name, arguments)
+            if name == "fetch_score":
+                score_id = answered.content[0].text.split("score_id: ", 1)[1].split()[0]
+                answered = await client.call_tool("draft_analysis", {"score_id": score_id})
+            return answered
+
+    answered = asyncio.run(go())
+    line = [json.loads(line) for line in capsys.readouterr().out.splitlines() if '"tool": "draft_analysis"' in line][-1]
+    assert answered.is_error and [part.text for part in answered.content] == [NO_NOTES]
+    assert (line["outcome"], line["error"], line["reason"]) == ("user_error", "ScoreError", NO_NOTES)
+    if name == "draft_analysis":
+        assert not list(tmp_path.glob("scores/*")) and not list(tmp_path.glob("limits/*")) and not list(tmp_path.glob("usage/*"))
+
+
+AGENT_TURN = ("openai-mcp/1.0.0 (Codex)",
+              {"callId": "exec-1", "itemId": "item-1", "sessionId": "session-1", "windowId": "window-1",
+               "io.modelcontextprotocol/clientInfo": {"name": "openai-mcp (Codex)", "version": "1.0.0"},
+               "openai/subject": "user-1"})
+ORDINARY_TURN = ("openai-mcp/1.0.0",
+                 {"io.modelcontextprotocol/clientInfo": {"name": "openai-mcp", "version": "1.0.0"},
+                  "openai/locale": "en-US", "openai/userAgent": "Mozilla/5.0", "timezone": "America/New_York",
+                  "timezone_offset_minutes": -300, "openai/subject": "user-1"})
+UNKNOWN_CHATGPT = (CHATGPT, {})
+CLAUDE_CALL = (CLAUDE, {})
+
+
+def logged_lines(store, tool):
+    lines = [json.loads(line) for line in (store / "server-log.jsonl").read_text().splitlines() if line.startswith("{")]
+    return [line for line in lines if line.get("tool") == tool]
+
+
+def test_an_ordinary_chatgpt_turn_is_told_how_to_start_the_careful_reading_and_the_others_get_the_steps(tmp_path):
+    store_a_read_scan(tmp_path)
+    with running_server(tmp_path, CAREFUL_READING="chatgpt,claude") as (url, _):
+        answers = {}
+        for name, (agent, meta) in {"agent": AGENT_TURN, "ordinary": ORDINARY_TURN, "unknown": UNKNOWN_CHATGPT,
+                                    "claude": CLAUDE_CALL}.items():
+            call = {"name": "careful_reading", "arguments": {"score_id": "QUICK1N"}, "_meta": meta}
+            answers[name] = json.loads(as_client(url, agent, "tools/call", call))["result"]["content"][0]["text"]
+    for name in ("agent", "unknown", "claude"):
+        assert "kit/reader.md" in answers[name] and "@Sheet Music Analysis" not in answers[name], name
+    ordinary = answers["ordinary"]
+    assert "kit/" not in ordinary and "curl" not in ordinary
+    assert ('Note for the user: "I can\'t start the careful reading from this message. To start it, type '
+            '@Sheet Music Analysis, choose the app from the list, and say yes again."') in ordinary
+    assert "thinking" not in ordinary
+    assert "QUICK1N" not in ordinary
+    lines = logged_lines(tmp_path, "careful_reading")
+    assert [(line.get("route"), line["answer"]) for line in lines] == [
+        ("agent", "steps"), ("ordinary", "needs_the_agent"), ("unknown", "steps"), (None, "steps")]
+    assert lines[0]["user"] == lines[1]["user"] and len(lines[0]["user"]) == 16
+    with running_server(tmp_path, CAREFUL_READING="chatgpt", CHATGPT_APP_NAME="sheet-music-staging") as (url, _):
+        call = {"name": "careful_reading", "arguments": {"score_id": "QUICK1N"}, "_meta": ORDINARY_TURN[1]}
+        on_staging = json.loads(as_client(url, ORDINARY_TURN[0], "tools/call", call))["result"]["content"][0]["text"]
+    assert "To start it, type @sheet-music-staging, choose the app from the list" in on_staging

@@ -25,12 +25,13 @@ server/deploy.sh sheet-music-analysis            # production
 server/deploy.sh sheet-music-analysis staging    # staging
 ```
 
-- Production deploys only from a clean checkout of `origin/main` that CI has passed; the script refuses anything else. Staging may run a branch.
+- Production deploys only from a clean checkout of `origin/main` that CI has passed; the script refuses anything else. "Passed" means a successful full run of the `tests` workflow (all four test groups ran; a text-only run does not count) on any commit with the same files as the commit being deployed (`server/ci-passed.sh`), so the pull request's run counts when `main` holds exactly what it tested. If `main` differs from the last fully tested files only in text, start the workflow by hand (GitHub, Actions, tests, Run workflow) on `main`; a manual run is always the full suite. Staging may run a branch.
 - Measure and quote any change that adds Cloud Run compute first. Never raise max instances or the daily limits without asking.
 - A change to `Dockerfile.base`, `pyproject.toml` or `uv.lock` rebuilds the base image first (a few minutes longer).
 - The careful reading of scans is offered only on the platforms the deploy names: `CAREFUL_READING=chatgpt`, `CAREFUL_READING=claude` or `CAREFUL_READING=chatgpt,claude` before `server/deploy.sh`. Every deploy sets it again, so a deploy without it switches the offer off everywhere.
   - A platform not named gets no offer on a scan's result. Claude, not named, is not shown `careful_reading` and `use_careful_reading` at all. ChatGPT always lists both tools and they always work, so OpenAI's reviewer can run them; on every platform the steps `careful_reading` returns begin with the usage warning and a wait for the user's yes, unless the user has already said yes to it in that chat.
   - For ChatGPT the order is: deploy without `chatgpt` in `CAREFUL_READING`, wait until the plugin's MCPs tab at platform.openai.com/plugins lists `careful_reading` and `use_careful_reading` as published (OpenAI scans the server itself, or press "Rescan" there), and only then add `chatgpt`.
+- `CHATGPT_APP_NAME` is the app's name as ChatGPT lists it, used in the note that tells a user in an ordinary turn to pick the app with @; it defaults to Sheet Music Analysis, and `server/deploy.sh` sets sheet-music-staging on staging.
 
 ## Roll back
 
@@ -83,6 +84,18 @@ If every call starts failing with 403, the copies differ: run `proxy/set-key.sh 
 
 Changing the key later is the same script. It needs a serving revision whose server knows `PROXY_KEY_PREVIOUS` (log 186); on an older one, calls are refused from its Worker step until its last step.
 
+## The proxy sends a refused request once more
+
+Cloud Run itself refuses a request when no instance slot frees up in time: it waits in Cloud Run's queue (20 to 58 seconds in November 2026), then fails with 429 or 500 and "The request was aborted after waiting too long for an available instance" on a log line that has no instance id. Our container never sees it. Every answer our server gives carries the header `x-answered-by: sheet-music-analysis`, so the Worker treats a 429 or 500 without that header as Cloud Run's refusal and sends the same request once more, at once, with the same body; an answer from our server, whatever its status, is passed on and never sent again. A second refusal is passed on as it came.
+
+- Order: the server revision with the header must be serving before the Worker with the retry is deployed, or the Worker would send our own 429s and 500s a second time. `proxy/set-key.sh` deploys the Worker too, so the same order applies to it.
+- Each refusal the Worker saw is one line in the Worker's logs (Cloudflare dashboard, Workers, `sheet-music-analysis-mcp`, Logs), `{"event": "cloud_run_refused", "method", "path", "status", "waited_ms", "retry_status", "rescued"}`; nothing else is logged there. Workers Logs keeps them 3 days on the free plan, so count them within that time. Cloud Run's own refusal lines stay in Cloud Logging for 30 days: `gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="sheet-music-analysis" AND "waiting too long for an available instance"' --project sheet-music-analysis --freshness 7d`
+- `node --test proxy/worker.test.mjs` tests the Worker without the network.
+
+## Instance limits
+
+`server/deploy.sh` sets the revision's limits (`--max-instances=2 --concurrency=2 --min-instances=0`). The production service also carries a service-level annotation `run.googleapis.com/maxScale=3`, which `server/deploy.sh` neither sets nor removes; see it with `gcloud run services describe sheet-music-analysis --region us-central1 --project sheet-music-analysis --format='value(metadata.annotations)'`.
+
 ## Release history
 
-Each release has an entry in `docs/engineering-log.md` with its pull requests, commit, revision and rollback target (entries 145, 149, 152, 156, 158 and 203), and a `prod-*` tag.
+Each release has an entry in `docs/engineering-log.md` with its pull requests, commit, revision and rollback target (entries 145, 149, 152, 156, 158, 203, 204 and 207), and a `prod-*` tag.

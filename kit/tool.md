@@ -35,7 +35,7 @@ If the tool prints `system N: SKIPPED`, it traced the wrong number of staves in 
 - Red labels (`?` in the list). `off`: the head is not centred on a line or space. `ledger`: the ledger lines could not be counted. `touching`: heads touch, as in stacked chords and seconds; such heads can also be mislabelled, doubled or missing. Zoom on every one.
 - Heads without a label. The tool does not label hollow heads (half and whole notes), grace notes, and now and then a filled head. Read them in a zoom. The first grace note of a group may be a chord.
 - Labels on things that are not notes: clefs, key and time signatures, text. Ignore them.
-- Accidentals, dots, ties, slurs, staccato dots, accents, words, rests, beams, flags, the triplet 3, clef changes: the tool sees none of these. Read them by eye, and zoom when a sign is small or crowded.
+- Accidentals, dots, ties, slurs, staccato dots, accents, words, chord symbols, rests, beams, flags, the triplet 3, clef changes: the tool sees none of these. Read them by eye, and zoom when a sign is small or crowded.
 - A note printed between the staves is listed under the nearer staff, in that staff's clef.
 
 ## 5. Zoom
@@ -68,4 +68,5 @@ After every system:
 - `departs from the key signature`: point to the printed accidental for each one (on the note or earlier in the bar). If there is none, the pitch is wrong.
 - `BAD`: fix the syntax.
 - `WORDS`: the words line does not have one entry for each sung note of its voice. Count again.
+- `CHORDS`: an entry of a `c:` line has no position, or a position that is not below the bar's `len`.
 - `SLURS`: a slur was opened and not closed, or closed and not opened, in that voice.

@@ -56,7 +56,7 @@ from engine.performance import marked_index, performance_text, unclear_tempos
 from engine.annotations import AnnotationList, view_named
 from engine.errors import UserError
 from engine.export import export_midi, export_musicxml, export_romantext
-from engine.render import ScoreError, engrave, load_toolkit, parse_measures, xml_text
+from engine.render import ScoreError, engrave, load_toolkit, parse_measures, require_notes, xml_text
 from engine.score import PositionError, ScoreIndex
 from server import IMPORTS_BEGUN, SERVER_FILES
 
@@ -70,9 +70,10 @@ RATING_AFTER_ANALYSES = 3
 PERSON_SCORE_LIMIT = int(os.environ.get("PERSON_SCORE_LIMIT", "10"))
 DAILY_LIMITS = {"score": 100, "draft": 300, "render": 200, "pdf_page": 150} | json.loads(os.environ.get("DAILY_LIMITS", "{}"))
 CARD_URI = "ui://sheet-music-analysis/card-v3.html"
-PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v3.html"
-HELD_CARD_URIS = {"ui://sheet-music-analysis/card-v2.html": "Analysis card",
-                  "ui://sheet-music-analysis/pdf-card-v2.html": "PDF reading card"}
+PDF_CARD_URI = "ui://sheet-music-analysis/pdf-card-v4.html"
+HELD_CARD_URIS = {"ui://sheet-music-analysis/card-v2.html": ("Analysis card", "card-v2.html"),
+                  "ui://sheet-music-analysis/pdf-card-v2.html": ("PDF reading card", "card-v2.html"),
+                  "ui://sheet-music-analysis/pdf-card-v3.html": ("PDF reading card", "pdf-card-v3.html")}
 PLAYER_URI = "ui://sheet-music-analysis/player-v3.html"
 UPLOAD_CARD_URI = "ui://sheet-music-analysis/upload-card-v1.html"
 CONNECTOR_URL = os.environ.get("CONNECTOR_URL", "https://mcp.sheetmusicanalysis.com/mcp")
@@ -206,6 +207,10 @@ def platform(ctx: Context | None) -> str:
     return client_of(headers)
 
 
+def for_product(texts: dict[str, str], source: str) -> str:
+    return texts["claude" if source == "claude" else "other"]
+
+
 pseudonym_key: bytes | None = None
 months_recorded: set[str] = set()
 
@@ -232,6 +237,28 @@ def user_code(subject: str) -> str:
 def client_of(headers) -> str:
     agent = (dict(headers or {}).get("user-agent") or "").lower()
     return "claude" if "claude" in agent else "chatgpt" if "openai" in agent else "other"
+
+
+def chatgpt_route(headers, meta: dict) -> str | None:
+    if client_of(headers) != "chatgpt":
+        return None
+    agent = (dict(headers or {}).get("user-agent") or "").lower()
+    client = str((meta.get("io.modelcontextprotocol/clientInfo") or {}).get("name", "")).lower()
+    if "codex" in agent or "codex" in client or "callId" in meta:
+        return "agent"
+    return "ordinary" if "openai/userAgent" in meta else "unknown"
+
+
+def request_parts(ctx: Context | None) -> tuple[dict | None, dict]:
+    try:
+        headers = ctx.headers
+    except Exception:
+        headers = None
+    try:
+        meta = dict(ctx.request_context.meta or {})
+    except Exception:
+        meta = {}
+    return headers, meta
 
 
 PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "sheet-music-analysis")
@@ -287,6 +314,24 @@ def traced(app):
     return with_trace
 
 
+ANSWERED_HERE = (b"x-answered-by", b"sheet-music-analysis")
+
+
+def marked_as_ours(app):
+    async def marking(scope, receive, send):
+        if scope["type"] != "http":
+            return await app(scope, receive, send)
+
+        async def marked(message):
+            if message["type"] == "http.response.start":
+                message["headers"] = [*message.get("headers", []), ANSWERED_HERE]
+            await send(message)
+
+        await app(scope, receive, marked)
+
+    return marking
+
+
 def only_through_the_proxy(app):
     refusal = Response(f"This address is not public; use {CONNECTOR_URL}", status_code=403)
 
@@ -336,14 +381,7 @@ def observed(fn):
     @functools.wraps(fn)
     async def wrapper(ctx: Context, *args, **kwargs):
         global calls_served
-        try:
-            headers = ctx.headers
-        except Exception:
-            headers = None
-        try:
-            meta = dict(ctx.request_context.meta or {})
-        except Exception:
-            meta = {}
+        headers, meta = request_parts(ctx)
         span = tracer.start_span(tool)
         request_id = f"{span.get_span_context().trace_id:032x}"
         call = {"event": tool, "tool": tool, "platform": client_of(headers), "request_id": request_id,
@@ -351,6 +389,8 @@ def observed(fn):
                 "logging.googleapis.com/spanId": f"{span.get_span_context().span_id:016x}",
                 "cold": calls_served == 0, "uptime_s": round(time.monotonic() - STARTED),
                 "meta_keys": sorted(meta), "header_names": sorted(dict(headers or {})), "reference": secrets.token_hex(4)}
+        if route := chatgpt_route(headers, meta):
+            call["route"] = route
         if subject := meta.get("openai/subject"):
             try:
                 call["user"] = await anyio.to_thread.run_sync(user_code, str(subject))
@@ -454,11 +494,11 @@ async def count(key: str, name: str, amount: int, limit: int, also: str | None =
 
 
 OUR_ERROR_MESSAGE = (
-    "Something went wrong on our side, not with the user's score or request (reference {reference}). "
-    "Apologise to the user for us, and tell them that if they would like to tell us what happened or get help, "
-    "they can email support@sheetmusicanalysis.com and mention reference {reference}; a link to this chat, made "
+    "Something went wrong on our side, not with the user's score or request (reference {reference}).\n"
+    "Note for the user: \"Sorry, something went wrong on our side, not with your score. To tell us what happened or "
+    "get help, email support@sheetmusicanalysis.com and mention reference {reference}; a link to this chat, made "
     "with the chat's Share button, helps us see what happened, as long as the chat holds no personal details. "
-    "We read every message and their feedback helps us fix it."
+    "We read every message, and your feedback helps us fix it.\""
 )
 OUR_ERROR_FOR_CARD = "Something went wrong on our side, not with your score."
 UNREAD_PDF_FOR_CARD = (
@@ -474,20 +514,19 @@ FAILURES_IN_CARD = {"read_pdf", "render_analysis"}
 UPLOAD_LIMIT_MESSAGE = "Today's limit of new scores has been reached; it resets at midnight UTC. Please try again tomorrow."
 PERSON_LIMIT_MESSAGE = (
     f"The user has reached today's limit of {PERSON_SCORE_LIMIT} new scores per person; it resets at midnight UTC. "
-    "Tell them plainly and that they can analyse the scores they already sent, or try again tomorrow."
+    "The scores they already sent can still be analysed, and new ones can be sent again tomorrow."
 )
 UPLOAD_PERSON_MESSAGE = (f"You have reached today's limit of {PERSON_SCORE_LIMIT} new scores; it resets at midnight UTC. "
                          "Scores you already sent can still be analysed, and choosing one of them again does not count.")
 LIMIT_MESSAGE = (
-    "Sheet Music Analysis has reached its daily limit; it resets at midnight UTC. "
-    "Tell the user plainly that the free service is at capacity for today and to try again tomorrow."
+    "Sheet Music Analysis, a free service, has reached its daily limit for everyone; it resets at midnight UTC, "
+    "so it can be used again tomorrow."
 )
 
 SCORE_INPUT_HELP = (
-    "Give the score in exactly one way. score_file: a file the user attached to the chat. "
+    "The score is given in one of two ways. score_file: a MusicXML file the user attached to the chat. "
     "score_id: the id returned by an earlier draft_analysis, read_pdf or correct_bars. "
-    "Never encode, paste or retype a file's contents. If the user has not attached a score, ask them to attach "
-    "their MusicXML file (.mxl or .musicxml) to the chat."
+    "The tool takes a file or an id, not a file's contents."
 )
 
 
@@ -515,11 +554,11 @@ def is_public_https(url: str) -> bool:
 
 IMSLP_REFUSED = (
     "This is an IMSLP link. IMSLP asks each person to accept its copyright notice and, without a membership, to wait "
-    "before a download starts, so this server does not download from IMSLP. Tell the user to open the link in their "
-    "browser and download the PDF there, then put it in Google Drive or Dropbox, share it so anyone with the link can "
-    "view it, and send you that link."
+    "before a download starts, so this server does not download from IMSLP. What works: the user opens the link in "
+    "their browser and downloads the PDF there, puts it in Google Drive or Dropbox, shares it so anyone with the link "
+    "can view it, and sends that link."
 )
-FOLDER_REFUSED = "This is a link to a folder. Ask the user for the link to the score file itself."
+FOLDER_REFUSED = "This is a link to a folder; the link to the score file itself is needed."
 
 
 def is_imslp(host: str) -> bool:
@@ -575,10 +614,11 @@ async def download(url: str) -> bytes:
 
 
 ATTACHMENT_ANSWERED = (
-    "The attached file could not be downloaded from the chat (HTTP {status}). Ask the user to attach it again in a "
-    "new message."
+    "The attached file could not be downloaded from the chat (HTTP {status}). Attaching it again in a new message "
+    "usually works."
 )
-ATTACHMENT_UNREACHABLE = "The attached file could not be downloaded from the chat. Ask the user to attach it again in a new message."
+ATTACHMENT_UNREACHABLE = ("The attached file could not be downloaded from the chat. Attaching it again in a new message "
+                          "usually works.")
 
 
 async def download_attachment(url: str) -> bytes:
@@ -597,30 +637,36 @@ def clean_id(score_id: str) -> str:
 
 
 NO_SCORE_GIVEN = {
-    "claude": "No score was provided. Call choose_score so the user can choose their score file in a card.",
-    "other": "No score was provided. Ask the user to attach their MusicXML file (.mxl or .musicxml) to the chat.",
+    "claude": "No score was provided. choose_score shows a card in which the user chooses their score file.",
+    "other": "No score was provided. The user can attach their MusicXML file (.mxl or .musicxml) to the chat.",
 }
 
 
 async def resolve_score(score_file: AttachedFile | None, score_id: str | None, source: str = "other") -> tuple[bytes, str]:
+    score, given = await fetch_given_score(score_file, score_id, source)
+    await anyio.to_thread.run_sync(require_notes, score)
+    return score, given
+
+
+async def fetch_given_score(score_file: AttachedFile | None, score_id: str | None, source: str = "other") -> tuple[bytes, str]:
     with stage("fetch"):
         if score_file:
             data = await download_attachment(score_file.download_url)
             if data.startswith(b"%PDF"):
-                raise ScoreError("This file is a PDF. Call read_pdf with it first, then use the score_id it returns.")
+                raise ScoreError("This file is a PDF. read_pdf reads it and returns the score_id to use here.")
             return data, "score_file"
         if score_id:
             code = clean_id(score_id)
             data = await anyio.to_thread.run_sync(store.get, f"scores/{code}")
             if data is None:
                 if await anyio.to_thread.run_sync(store.get, f"scores/{code}.pdf") is not None:
-                    raise ScoreError(f"This score is a PDF. Call read_fetched_pdf with pdf_id {code} first, then use "
-                                     "the score_id it returns.")
+                    raise ScoreError(f"This score is a PDF. read_fetched_pdf with pdf_id {code} reads it and returns "
+                                     "the score_id to use here.")
                 if await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is not None:
                     raise NotChosenYet(NOT_CHOSEN_YET)
                 raise ScoreError("No score has that id; scores are kept for 30 days")
             return data, "score_id"
-    raise ScoreError(NO_SCORE_GIVEN["claude" if source == "claude" else "other"])
+    raise ScoreError(for_product(NO_SCORE_GIVEN, source))
 
 
 def publish(data: bytes, extension: str, suffix: str = "") -> str:
@@ -680,41 +726,37 @@ DRAW_BUDGET = 2000
 def drawing_plan(mei: str, index: ScoreIndex) -> str:
     staves = max(int(n) for n in re.findall(r'<staffDef\b[^>]*?\bn="(\d+)"', mei))
     if staves * len(index.measures) <= DRAW_BUDGET:
-        return ('One render_analysis call draws any number of bars: for the whole piece pass measure_range "all", '
-                "so the user gets one PDF.\n")
-    return (f"This score is too large to draw whole in one call: call render_analysis on passages of at most "
-            f"{DRAW_BUDGET // staves} bars.\n")
+        return ('One render_analysis call draws any number of bars of this score, the whole piece included '
+                '(measure_range "all"), as one PDF.\n')
+    return (f"This score is too large to draw whole in one call: render_analysis draws at most "
+            f"{DRAW_BUDGET // staves} bars of it at a time.\n")
 
 
 SKILL_RULES = re.sub(r"<!--.*?-->\n+", "", (HERE.parent / "skill" / "SKILL.md").read_text().split("## Method", 1)[1])
-DRAW_STEP = (
-    "call render_analysis with the score_id and your annotation list (its `view` argument draws one layer: "
-    "harmony, voice_leading or form), show the page and write the commentary.\n"
-)
 GUIDE_RULES = (
     "Positions: `measure` is the bar as the NOTES table names it: its printed number, or a name like \"16a\" for a "
     "bar the printed copy does not number (a pickup is 0); `beat` is 1-based in the unit given above; "
     "`pitch` is like \"Eb4\" at sounding pitch; `staff` 1 is the top staff.\n\n"
-    "If there is a PART-WRITING CHECK section (chorale-style scores only), your first reply must include one "
-    "sentence offering to check the voice leading; draw nothing from it "
-    "unless the user says yes or asked for it. When they want it, add "
-    "one callout per numbered spot and the voice_leading marks listed under it (kind, notes and label exactly as given; use the NoteRefs "
-    "given), and explain every finding of a spot in its numbered paragraph of the commentary, in terms of the notes. "
-    "Call these strict classroom rules, not verdicts on a composer.\n\n"
-    "If there is a STUDENT CHECK section, the user wants their own numerals checked: draw the "
-    "page as usual from your own analysis (how their numerals are marked on it is not decided yet), and write the commentary as a second "
-    "reader would, not as an answer key, following that section's guidance. This is for learning; if they say it is "
-    "coursework, remind them to check their course's rules on AI help.\n"
+    "A PART-WRITING CHECK section (chorale-style scores only) is an offer for the user: a check of the voice leading "
+    "against strict classroom rules, not verdicts on a composer. Nothing from it is drawn unless the user asked for "
+    "it or accepts. The check draws one callout per numbered spot and the voice_leading marks listed under it (kind, "
+    "notes, NoteRefs and label as given), and each spot's numbered paragraph of the commentary explains its findings "
+    "in terms of the notes.\n\n"
+    "A STUDENT CHECK section means the user wants their own numerals checked: the page is drawn as usual from your "
+    "own analysis (how their numerals are marked on it is not decided yet), and the commentary reads as a second "
+    "reader's, not as an answer key, following that section's guidance. This is for learning. Note for the user, if "
+    "they say it is coursework: their course's rules on AI help apply.\n"
+)
+DRAFT_IS_MATERIAL = (
+    "Material for the harmonic analysis of this score: its notes beat by beat (the NOTES table) and the method. The "
+    "server works out no Roman numerals itself; the analysis is written from this material.\n"
 )
 NOTES_GUIDE = (
-    "HOW TO ANALYSE THIS SCORE\n"
-    "The user sees nothing while you work, so once per request (not for each passage of a long piece) write them one "
-    "short sentence before you analyse, such as \"I have the notes and am working out the harmony now; this takes a "
-    "minute or two.\", and one before your first render_analysis call, such as \"Now I'm drawing the analysis on the "
-    "score.\"\n"
-    "Analyse from the NOTES table below, following the method below. If the user asked for their own numerals to be "
-    "checked and there is no STUDENT CHECK section, compare them with your reading of the NOTES table. Then "
-    + DRAW_STEP + GUIDE_RULES
+    "HOW THE NOTES ARE USED\n"
+    "Where the user asked for their own numerals to be checked and there is no STUDENT CHECK section, they are "
+    "compared with the NOTES table. render_analysis draws the analysis from the score_id and an annotation list (its "
+    "`view` argument draws one layer: harmony, voice_leading or form), and the commentary goes with the drawn page.\n"
+    + GUIDE_RULES
 )
 METHOD = "## Method" + SKILL_RULES
 
@@ -734,13 +776,16 @@ def make_draft(score: bytes, code: str, named: tuple[str, str] | None, student_a
                 check_analysis.student_labels(student_analysis, score, index), index) if student_analysis else ""),
         ]
         return (
-            f"score_id: {code}\nThe score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n"
+            f"score_id: {code}\n" + DRAFT_IS_MATERIAL
+            + f"The score has measures {numbers}. One beat = {float(unit):g} quarter notes.\n"
             + ANNOTATION_FORMAT + drawing_plan(mei, index) + "\n"
             + NOTES_GUIDE
             + "".join("\n" + text + "\n" for text in (optional(name, make) for name, make in sections) if text)
             + "\n\n" + METHOD
             + "\n\nNOTES (one row per beat: lowest note, pitch classes, every note as pitch@beat)\n"
             + reduce.as_text(index, first, last)
+            + f"\n\nThe analysis of the bars the user asked for is drawn with render_analysis and score_id {code}, as "
+            "described above; the drawn page is the result the user sees."
         )
 
 
@@ -776,17 +821,17 @@ def downloads_text(links: dict[str, str]) -> str:
     present = [f"{label}: {links[key]}" for key, label in names.items() if key in links]
     if not present:
         return ""
-    return ("\nMore downloads, shown on the card under \"More downloads\"; mention them to the user once per "
-            "conversation, not after every render, by the names given here:\n" + "\n".join(present))
+    return "\nMore downloads, shown on the card under \"More downloads\":\n" + "\n".join(present)
 
 
 CARD_PAGES = 2
 MOSTLY_DOUBTFUL = 0.5
 
 
-NOTHING_DRAWN = (
-    "No analysis marks were drawn: the annotation list was empty, so the page shows only the score. To analyse, "
-    "call draft_analysis with score_id {score_id}, review the draft, then call render_analysis with your annotation list."
+NOTHING_TO_DRAW = (
+    "Nothing is drawn: the annotation list is empty, and a drawn analysis needs at least one mark. The reading card "
+    "or the score itself shows the score without marks; the notes for an analysis come from draft_analysis with "
+    "score_id {score_id}."
 )
 
 
@@ -800,24 +845,20 @@ def card_caption(named: tuple[str, str] | None, view: str, piano: bool) -> str:
 
 KEY_ON_PAGE = ("The page has a guide to the marks at its foot (under the last page the card shows, at the end of the last page "
                "in the PDF). It names the marks and codes drawn around the numerals: cadence labels, non-chord-tone and "
-               "part-writing codes, alternative-reading brackets, callouts and shaded bars, so do "
-               "not define those again. It does not explain Roman "
-               "numerals, figures or inversions: for a student, still explain each numeral the first time it appears. Say "
-               "what each numbered callout is about and explain the reasoning behind the labels.")
+               "part-writing codes, alternative-reading brackets, callouts and shaded bars. It does not explain Roman "
+               "numerals, figures or inversions.")
 
 
-CALLOUTS_DRAWN = ("Numbered callouts drawn on the page: {numbers}. Number your commentary paragraphs to match exactly "
-                  "these, one paragraph for each callout.")
-NO_CALLOUTS = ("No numbered callouts are drawn on the page, so do not write the commentary as numbered points: the "
-               "reader would look for numbers that are not there.")
+CALLOUTS_DRAWN = "Numbered callouts drawn on the page: {numbers}; one numbered paragraph of the commentary goes with each."
+NO_CALLOUTS = "No numbered callouts are drawn on the page, so the commentary has no numbered paragraphs."
 
 
 def callouts_text(numbers: list[int]) -> str:
     return CALLOUTS_DRAWN.format(numbers=", ".join(map(str, numbers))) if numbers else NO_CALLOUTS
 
 
-SHADED_ON_PAGE = ("Shaded bars ({bars}) may be misread from the PDF, so their analysis may be wrong. Mention this "
-                  "briefly in your reply, and that the user can tell you what a misread bar should be.")
+SHADED_ON_PAGE = ("Note for the user: \"The shaded bars ({bars}) may be misread from the PDF, so their analysis may "
+                  "be wrong; if a bar was misread, tell me what it should be and I can correct it.\"")
 
 
 def shaded_key(score_id: str) -> str:
@@ -834,8 +875,8 @@ async def draw(score: bytes, annotations: AnnotationList, index: ScoreIndex, mea
         lambda: leave_out_rejected(lambda kept: render(score, kept, measures=measures, view=view, piano=piano,
                                                        shaded_bars=shaded, key=True, preview_pages=CARD_PAGES),
                                      annotations, lambda given: by_number(given, index)))
-    left_out = ["Left out, for the reason on each line (fix them and call again to add them; numbers refer to your "
-                "list):\n" + "\n".join(problems)] if problems else []
+    left_out = ["Left out, for the reason on each line (numbers refer to your list; a corrected list can be drawn "
+                "again):\n" + "\n".join(problems)] if problems else []
     return engraving, annotations, left_out
 
 
@@ -843,20 +884,16 @@ async def draw(score: bytes, annotations: AnnotationList, index: ScoreIndex, mea
     resource_uri=CARD_URI,
     title="Draw the analysis on the score",
     description=(
-        "Use this after draft_analysis, once you have reviewed the draft, to draw your analysis on the engraved "
-        "score. Takes the score_id and your annotation list and returns the page as an image plus PNG, PDF and MusicXML "
-        "links, shown to the user in a card. A bar is its printed number or, for a bar the printed copy does not number "
-        "(such as a second-time ending), the name the draft gives it, such as \"16a\"; measure_range takes the same, "
-        "e.g. \"16a-20\". If a position does not exist in the score, the error lists each "
-        "problem so you can fix the list and call again. Draw the whole stretch the user asked for in one call, "
-        "even a whole piece, so they get one PDF; analyse a long piece passage by passage first. view is one of all, harmony, voice_leading, form. "
-        "Set annotations.style to abrsm (letter inversions, Ib, Vc) when the user mentions ABRSM, figured_bass when they ask "
-        "for figured bass, otherwise leave it out. "
-        "Offer the MusicXML link once per conversation, not after every render: it downloads a file for "
-        "MuseScore, Sibelius or Dorico; the result also lists the card's other downloads (Blank worksheet, MIDI, Analysis as text) to mention once. "
-        "piano=true draws the same annotation list (written for the original score) on a two-staff piano reduction. "
-        "For a score with more than four staves (an orchestra, band or large ensemble), draw the original first, then offer the user "
-        "the piano reduction once; call again with piano=true only if they accept."
+        "Draws an analysis on the engraved score and shows the page to the user in a card. Takes the score_id from "
+        "draft_analysis and an annotation list; returns the page as an image, with PNG, PDF and MusicXML links (the "
+        "MusicXML opens in MuseScore, Sibelius or Dorico) and the card's other downloads (Blank worksheet, MIDI, "
+        "Analysis as text). A bar is its printed number or, for a bar the printed copy does not number (such as a "
+        "second-time ending), the name the draft gives it, such as \"16a\"; measure_range takes the same, e.g. "
+        "\"16a-20\". One call draws any length, a whole piece included, as one PDF. view is one of all, harmony, "
+        "voice_leading, form. annotations.style: abrsm (letter inversions, Ib, Vc, as in ABRSM exams) or figured_bass; "
+        "left out, standard Roman numerals. piano=true draws the same annotation list (written for the original score) "
+        "on a two-staff piano reduction. A position that does not exist in the score is listed in the error, one line "
+        "per problem."
     ),
     annotations=stores("Draw the analysis on the score"),
     meta={"openai/outputTemplate": CARD_URI},
@@ -876,6 +913,8 @@ async def render_analysis(
         score, _ = await resolve_score(None, score_id, source)
         named = parse_measures(measure_range)
         view = view_named(view)
+        if not asked:
+            raise UserError(NOTHING_TO_DRAW.format(score_id=clean_id(score_id)))
         with stage("parse"):
             index = await in_turn(lambda: ScoreIndex(load_toolkit(score).getMEI()))
         measures = index.numbers(named)
@@ -888,7 +927,7 @@ async def render_analysis(
             engraving, annotations, left_out = await draw(score, annotations, index, measures, view, piano, shaded)
     except AnnotationError as error:
         log("render_analysis", platform=source, problems=len(error.problems))
-        return error_result("Fix these annotations and call again:\n" + "\n".join(error.problems))
+        return error_result("These annotations do not fit the score:\n" + "\n".join(error.problems))
     except UserError as error:
         log("render_analysis", platform=source, **logged(error))
         return error_result(str(error))
@@ -911,33 +950,31 @@ async def render_analysis(
             links = {"image_url": publish(image, "png"), "pdf_url": publish(pdf, "pdf")}
             if musicxml is not None:
                 links["musicxml_url"] = publish(musicxml, "musicxml")
-            if asked:
-                links["worksheet_url"] = publish_worksheet(score, measures, piano)
-                for name, make in (("midi", lambda: export_midi(score, measures)),
-                                   ("romantext", lambda: export_romantext(score, annotations.model_dump(), measures))):
-                    try:
-                        data = make()
-                    except Exception as error:
-                        log("render_analysis", platform=source, extra_error=f"{name}: {type(error).__name__}")
-                        continue
-                    if data:
-                        links[f"{name}_url"] = publish(data, *EXTRA_FILES[name])
+            links["worksheet_url"] = publish_worksheet(score, measures, piano)
+            for name, make in (("midi", lambda: export_midi(score, measures)),
+                               ("romantext", lambda: export_romantext(score, annotations.model_dump(), measures))):
+                try:
+                    data = make()
+                except Exception as error:
+                    log("render_analysis", platform=source, extra_error=f"{name}: {type(error).__name__}")
+                    continue
+                if data:
+                    links[f"{name}_url"] = publish(data, *EXTRA_FILES[name])
         return links
     links = await in_turn(publish_all)
     pdf_url = links["pdf_url"]
     caption = f"Analysis, measures {measure_range}, view {view}" + (", piano reduction" if piano else "")
-    more_pages = (f"\nThe card shows the first {CARD_PAGES} of the {engraving.page_count} pages; the PDF has them all. "
-                  "Tell the user to open the PDF for the rest." if engraving.page_count > CARD_PAGES else "")
+    more_pages = (f"\nThe card shows the first {CARD_PAGES} of the {engraving.page_count} pages; the PDF has them all."
+                  if engraving.page_count > CARD_PAGES else "")
+    offer = await careful_offer(score_id, source)
     log("render_analysis", platform=source, annotations=len(annotations.annotations), png_bytes=len(png), piano=piano,
-        view=view, measure_range=measure_range, left_out=asked - len(annotations.annotations) or None)
+        view=view, measure_range=measure_range, left_out=asked - len(annotations.annotations) or None,
+        careful_offer=bool(offer) or None)
     shaded = [index.measure(bar).printed for bar in shaded]
     structured_content = {**links, "caption": card_caption(drawn, view, piano), "shaded_bars": shaded}
-    if not asked:
-        left_out.append(NOTHING_DRAWN.format(score_id=score_id))
-    else:
-        left_out.append(callouts_text(engraving.callouts))
-        if engraving.preview.key_drawn:
-            left_out.append(KEY_ON_PAGE)
+    left_out.append(callouts_text(engraving.callouts))
+    if engraving.preview.key_drawn:
+        left_out.append(KEY_ON_PAGE)
     if shaded:
         left_out.append(SHADED_ON_PAGE.format(bars=", ".join(map(str, shaded))))
     return CallToolResult(
@@ -946,7 +983,8 @@ async def render_analysis(
             ImageContent(type="image", data=base64.b64encode(png).decode(), mime_type="image/png"),
             TextContent(type="text", text="".join(f"{note}\n\n" for note in left_out)
                         + f"{caption}, shown in a card. PDF: {pdf_url}\nPNG: {links['image_url']}{more_pages}\n"
-                        + (export_warning or musicxml_text(links["musicxml_url"], annotations)) + downloads_text(links)),
+                        + (export_warning or musicxml_text(links["musicxml_url"], annotations)) + downloads_text(links)
+                        + (f"\n\n{offer}" if offer else "")),
         ],
         structured_content=structured_content,
     )
@@ -1000,6 +1038,19 @@ async def report_problem(ctx: Context, reference: str) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text="Thanks; the report is recorded.")])
 
 
+@apps.tool(
+    resource_uri=PDF_CARD_URI,
+    visibility=["app"],
+    title="Note a tap on Analyse this score",
+    description="Records that the user tapped the reading card's Analyse this score button, and whether the message reached the chat.",
+    annotations=stores("Note a tap on Analyse this score"),
+)
+@observed
+async def asked_to_analyse(ctx: Context, sent: bool) -> CallToolResult:
+    log("asked_to_analyse", platform=platform(ctx), sent=sent)
+    return CallToolResult(content=[TextContent(type="text", text="Noted.")])
+
+
 SUGGESTION_LENGTH = 1000
 
 
@@ -1020,7 +1071,7 @@ async def send_suggestion(ctx: Context, text: str) -> CallToolResult:
 
 
 for uri, name, card in [(CARD_URI, "Analysis card", "card.html"), (PDF_CARD_URI, "PDF reading card", "card.html"),
-                        *((uri, name, "card-v2.html") for uri, name in HELD_CARD_URIS.items())]:
+                        *((uri, *held) for uri, held in HELD_CARD_URIS.items())]:
     apps.add_html_resource(
         uri,
         (HERE / card).read_text(),
@@ -1032,8 +1083,8 @@ for uri, name, card in [(CARD_URI, "Analysis card", "card.html"), (PDF_CARD_URI,
 
 PDF_WAIT = "a PDF usually takes a minute or two to read; a long one can take several minutes"
 BUSY_MESSAGE = (
-    f"Another PDF is being read right now, and {PDF_WAIT}. Tell the user plainly that the "
-    "service is busy reading another PDF and to send theirs again in a few minutes."
+    f"The service is busy: another PDF is being read right now, and {PDF_WAIT}. The user's PDF can be sent again "
+    "in a few minutes."
 )
 SAME_FILE_WAIT = 100
 REQUEST_SECONDS = 900
@@ -1042,14 +1093,14 @@ READ_MARKER_SECONDS = REQUEST_SECONDS
 READ_MINUTES = round((pdf_reader.TIMEOUT + 120) / 60)
 POLL_SECONDS = 3
 STILL_READING = (
-    "This PDF is still being read ({elapsed} so far): " + PDF_WAIT + ", up to about {minutes} minutes. Tell the user in one "
-    "short sentence how long it has been reading and that the card will show what was read, then you analyse it; "
-    "then call {again}; each call waits up to {wait} s for the result."
+    "This PDF is still being read ({elapsed} so far): " + PDF_WAIT + ", up to about {minutes} minutes. The card will "
+    "show what was read, and the analysis follows. Calling {again} picks up the result; each call waits up to "
+    "{wait} s for it."
 )
 STILL_READING_STATUS = "Still reading your PDF: {elapsed} so far. What I read appears next, then the analysis."
 WAITING_FOR_TURN = (
-    "The user's previous PDF is still being read, and this one is read after it: " + PDF_WAIT + ". Tell the user, then "
-    "call {again} in a minute or two."
+    "The user's previous PDF is still being read, and this one is read after it: " + PDF_WAIT + ". Calling {again} "
+    "in a minute or two picks this one up."
 )
 WAITING_FOR_TURN_STATUS = "Your previous PDF is still being read; this one is read after it."
 BUSY_STATUS = "Another PDF is being read right now. Send yours again in a few minutes."
@@ -1085,11 +1136,10 @@ claiming = asyncio.Lock()
     resource_uri=PDF_CARD_URI,
     title="Read a PDF of sheet music",
     description=(
-        "Use this when the user attaches a PDF of printed sheet music (born-digital or scanned) and wants it analysed. "
-        "Reads the music from the PDF and shows the user the engraved result in a card, with bars that may be misread "
-        "shaded. Returns a score_id. Then, unless the result tells you to ask the user a question first, go straight on without waiting for the user: call draft_analysis with that "
-        f"score_id and continue as for a MusicXML file. Only the first {pdf_reader.READ_PAGES} pages are read. "
-        "Slurs are not read, because they are often misread from PDFs; if the user asks for slurs, tell them so."
+        "Reads the music from a PDF of printed sheet music (born-digital or scanned) that the user attached, and shows "
+        "the user the engraved result in a card, with bars that may be misread shaded. Returns a score_id for "
+        f"draft_analysis and a note about the reading for the user. Only the first {pdf_reader.READ_PAGES} pages are "
+        "read. Slurs are not read, because they are often misread from PDFs."
     ),
     annotations=stores("Read a PDF of sheet music", again=True),
     meta={"openai/outputTemplate": PDF_CARD_URI, "openai/fileParams": ["pdf_file"]},
@@ -1111,7 +1161,7 @@ async def read_pdf(ctx: Context, pdf_file: AttachedFile) -> CallToolResult:
                 if kept and data.startswith(b"%PDF"):
                     await anyio.to_thread.run_sync(store.put, kept, data)
         if not data.startswith(b"%PDF"):
-            raise ScoreError("This file is not a PDF. Ask the user to attach a PDF of the printed music or a MusicXML file.")
+            raise ScoreError("This file is not a PDF. A PDF of the printed music or a MusicXML file is needed.")
     except ScoreError as error:
         log("read_pdf", platform=source, **logged(error))
         return error_result(str(error))
@@ -1124,6 +1174,8 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
     if card := await anyio.to_thread.run_sync(store.get, card_key):
         card = json.loads(card)
         log(tool, platform=source, pages=card["pages"], cached="card")
+        if card.get("scan"):
+            await anyio.to_thread.run_sync(store.put, scan_key(card["score_id"]), json.dumps({"pages": card["pages"]}).encode())
         return pdf_card_result(card, tool, source)
     failed = json.loads(await anyio.to_thread.run_sync(store.get, failure_of(card_key)) or b"{}")
     if (unread := failed.get("unread")) and unread["final"]:
@@ -1439,7 +1491,7 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
                    "skipped": result.skipped, "of_pages": pages, "low_resolution": result.low_resolution}
         await anyio.to_thread.run_sync(store.put, f"scores/{reading['score_id']}", result.musicxml)
         await anyio.to_thread.run_sync(store.put, cache_key, json.dumps(reading).encode())
-    score, _ = await resolve_score(None, reading["score_id"])
+    score, _ = await fetch_given_score(None, reading["score_id"])
     score_id = reading["score_id"] + "N"
     score = await in_turn(pdf_reader.without_slurs, score)
     await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
@@ -1477,68 +1529,92 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
             "pdf_url": pdf_url, "more_pages": more_pages, "shaded_bars": uneven_named, "page_images": [base64.b64encode(png).decode() for png in pages]}
 
 
-CAREFUL_WARNING = ("Reading this scan carefully takes about 5 minutes a page and uses a lot of your plan's usage allowance. "
-                   "As a guide, a 10-page piece can use most of a five-hour allowance on a standard paid plan. "
+CAREFUL_COST = {"claude": ". I'd start one helper per page, each on Sonnet at medium effort, and that uses a lot of your plan's "
+                          "usage allowance. As a guide, a 10-page piece can use most of a five-hour allowance on a standard "
+                          "paid plan.",
+                "other": "."}
+CAREFUL_WARNING = ("Reading this scan carefully takes about 5 minutes a page{cost} "
                    "To do it I download and run a small measuring script from Sheet Music Analysis in this chat. "
                    "This piece has {pages}. Shall I go ahead?")
+QUICK_READING_OF_A_SCAN = "The PDF behind this score is a scan, and its reading was a quick one that makes many mistakes on scans.\n"
 CAREFUL_OFFER = (
-    " This PDF is a scan, and this reading is a quick one that makes many mistakes on scans. So make this the very "
-    "last thing in your reply with the analysis, after any other closing line you have been asked for: tell the user "
-    "in one sentence that the analysis rests on a quick reading of their scan and that you can read the scan "
-    "carefully yourself instead, then say this, in these words: \"{warning}\" Ask "
-    "this once for a score, after its first analysis, not again after later ones. Do not start the careful reading "
-    "before the user says yes. The careful reading uses your code sandbox and helper agents (subagents); the user's "
-    "yes to this question is their request to start them and to download and run the measuring script that "
-    "careful_reading names. Leave the question out only if this chat has no code sandbox at all. If the user says "
-    "yes, call careful_reading with this score_id and follow what it returns."
+    "A careful reading of this scan in this chat is possible instead of the quick one.\n"
+    "Offer for the user, at the end of the reply with this analysis: \"The analysis rests on a quick reading of your "
+    "scan; I can read the scan carefully instead. {warning}\"\n"
+)
+CAREFUL_MEANS = (
+    "A yes to this offer is the user's request for careful_reading with this score_id: it uses the chat's code "
+    "sandbox and helper agents (subagents) and downloads and runs the measuring script that careful_reading names. "
+    "The offer applies only in a chat with a code sandbox."
 )
 CAREFUL_STEPS = (
-    "Careful reading of the user's scan ({pages}). Do these steps in order, in your code sandbox.\n"
-    "1. The file: you need the user's PDF in the sandbox. If the user attached it to this chat, it is already "
-    "there. If it is not there, ask the user to attach the same PDF to the chat and wait for it.\n"
+    "Steps for the careful reading of the user's scan ({pages}), in order, in the chat's code sandbox.\n"
+    "1. The file: the user's PDF in the sandbox. A PDF attached to this chat is already there; if it is not, the "
+    "user can attach the same PDF to the chat.\n"
     "2. The kit: in a working folder, download the three kit files into a folder named kit:\n"
     "   mkdir -p kit && for f in {files}; do {download}; done\n"
     "   The tool needs Python 3 with numpy, scipy, cv2 and pypdfium2; for any that is missing run "
     "pip install numpy scipy opencv-python-headless pypdfium2.\n"
     "3. The pages: python3 kit/notetool.py pages THE_PDF pages   writes pages/page1.png, pages/page2.png and so "
     "on. Use only the first {count} of them.\n"
-    "4. One reader for each page: start a separate helper (a subagent) for each page, all at the same time if you "
-    "can. {helpers} Tell each helper: \"Read kit/reader.md and do exactly what it says. Your page is "
-    "pages/pageN.png, page N of {count}. Write your result to pageN.n1. {hint}\" Do not read the pages yourself "
-    "if you can start helpers. If you cannot start helpers at all, tell the user so plainly, then read the pages "
-    "yourself, one at a time, following kit/reader.md for each. Do not search the web for the piece and do not "
-    "use what you remember of the music: only what is printed counts.\n"
-    "5. Hand in: when every page file exists, call use_careful_reading with this score_id ({score_id}) and with "
-    "pages set to the full text of page1.n1, page2.n1 and so on, in order and unchanged, leaving out any page whose "
-    "helper wrote NO MUSIC. It returns a new "
-    "score_id for the careful reading."
+    "4. One reader for each page: a separate helper (a subagent) for each page, all at the same time where "
+    "possible. {helpers} Each helper's brief: \"Read kit/reader.md and do exactly what it says. Your page is "
+    "pages/pageN.png, page N of {count}. Write your result to pageN.n1. {hint}\" Where no helpers can be started, "
+    "the pages are read in the chat itself, one at a time, following kit/reader.md for each, and the user is told "
+    "that no helpers were available. Only what is printed counts: the reading uses neither a web search for the "
+    "piece nor a remembered version of it.\n"
+    "5. Hand in: when every page file exists, use_careful_reading takes this score_id ({score_id}) and, as pages, "
+    "the full text of page1.n1, page2.n1 and so on, in order and unchanged, without any page whose helper wrote "
+    "NO MUSIC. It returns a new score_id for the careful reading."
 )
-HELPER_SETTINGS = {"claude": "Give each helper the Sonnet model at medium effort.",
-                   "other": "Give each helper your highest thinking setting."}
+HELPER_SETTINGS = {"claude": "Each helper runs on the Sonnet model at medium effort.",
+                   "other": "Each helper runs at the highest thinking setting available."}
 KIT = HERE.parent / "kit"
 KIT_FILES = ("notetool.py", "tool.md", "reader.md")
 KIT_ELSEWHERE = os.environ.get("KIT_ELSEWHERE", "").rstrip("/")
 CAREFUL_PLATFORMS = set(os.environ.get("CAREFUL_READING", "").split(","))
 CAREFUL_TOOLS = {"careful_reading", "use_careful_reading"}
 ASK_BEFORE_THE_STEPS = (
-    "Before any of these steps, ask the user, unless they have already said yes to exactly this question in this "
-    "chat. Say this to them, in these words: \"{warning}\" Then end your reply and wait; do the steps only after "
-    "their yes, and if they say no, stay with the quick reading: analyse it with draft_analysis if you have not yet.\n"
+    "These steps are for after the user's yes to this question (unless they have already said yes to it in this "
+    "chat), since they download and run a script and start helper agents: \"{warning}\" If they say no, the quick "
+    "reading stays: score_id {score_id} is ready for draft_analysis.\n"
 )
 NOT_A_SCAN = ("A careful reading is offered only for a scanned PDF that read_pdf or read_fetched_pdf has read, with the "
               "score_id it returned.")
+CHATGPT_APP_NAME = os.environ.get("CHATGPT_APP_NAME") or "Sheet Music Analysis"
+NEEDS_THE_AGENT = (
+    "This ChatGPT turn cannot run the careful reading: it needs ChatGPT's agent, whose code sandbox reaches the "
+    "internet and can start helper agents, and this turn's sandbox can do neither. No steps are given.\n"
+    "Note for the user: \"I can't start the careful reading from this message. To start it, type @{app}, choose the "
+    "app from the list, and say yes again.\"\n"
+    "Meanwhile the quick reading stays as it is."
+)
 
 
 def scan_key(score_id: str) -> str:
     return f"scores/{clean_id(score_id)}.scan"
 
 
+async def careful_offer(score_id: str, source: str) -> str:
+    if source not in CAREFUL_PLATFORMS:
+        return ""
+    raw = await anyio.to_thread.run_sync(store.get, scan_key(score_id))
+    if not raw:
+        return ""
+    reading = scan_key(json.loads(raw).get("read_as", score_id))
+    scan = json.loads(await anyio.to_thread.run_sync(store.get, reading) or raw)
+    if scan.get("offered"):
+        return ""
+    await anyio.to_thread.run_sync(store.put, reading, json.dumps({**scan, "offered": True}).encode())
+    return QUICK_READING_OF_A_SCAN + CAREFUL_OFFER.format(warning=careful_warning(scan["pages"], source)) + CAREFUL_MEANS
+
+
 def page_count(pages: int) -> str:
     return "1 page" if pages == 1 else f"{pages} pages"
 
 
-def careful_warning(pages: int) -> str:
-    return CAREFUL_WARNING.format(pages=page_count(pages))
+def careful_warning(pages: int, source: str) -> str:
+    return CAREFUL_WARNING.format(cost=for_product(CAREFUL_COST, source), pages=page_count(pages))
 
 
 def signatures_found(score: bytes) -> str:
@@ -1556,7 +1632,7 @@ def doubtful_reading(card: dict) -> str:
     shaded, bars = len(card.get("shaded_bars", [])), card.get("bars")
     if not bars or shaded < MOSTLY_DOUBTFUL * bars:
         return ""
-    return (f"Open your reply with this warning, before anything else: \"Much of this reading is doubtful: {shaded} of its "
+    return (f"Warning for the user: \"Much of this reading is doubtful: {shaded} of its "
             f"{bars} bars are shaded because their beats don't add up, notes are missing, or notes that should line up "
             "don't. The analysis may be wrong in those bars.\"\n")
 
@@ -1569,17 +1645,17 @@ def pdf_card_result(card: dict, tool: str, source: str) -> CallToolResult:
         f"score_id: {card['score_id']}\n"
         f"The card shows the user {shown}. "
         f"The score has measures {card['measures']}.\n"
-        f"{doubtful_reading(card)}"
-        "Go straight on to the analysis without asking the user to check the reading: call draft_analysis with this score_id now"
-        " and continue exactly as for an attached MusicXML file, drawing it with render_analysis. "
-        "Bars shaded in the reading stay shaded on the drawn page. "
-        f"The card does not show this note, so in your reply with the analysis pass on this note about the reading, briefly: \"{card['notice']}\""
-        + (CAREFUL_OFFER.format(warning=careful_warning(card["pages"])) if card.get("scan") and source in CAREFUL_PLATFORMS else "")
+        "The reading is analysed and drawn as an attached MusicXML file is; it needs no check by the user first. "
+        "Bars shaded in the reading stay shaded on the drawn page.\n"
+        + f"{doubtful_reading(card)}"
+        f"Note for the user about the reading (the card does not show it): \"{card['notice']}\""
     )
+    go_on = f"score_id {card['score_id']} is ready for draft_analysis."
     return CallToolResult(
+        meta={"offer_analysis": True} if source == "chatgpt" else None,
         content=[
             *(ImageContent(type="image", data=png, mime_type="image/png") for png in card["page_images"]),
-            TextContent(type="text", text=f"{text}\nPDF of the engraved score: {card['pdf_url']}"),
+            TextContent(type="text", text=f"{text}\nPDF of the engraved score: {card['pdf_url']}\n{go_on}"),
         ],
         structured_content={"image_url": card["image_url"], "pdf_url": card["pdf_url"],
                             "caption": f"What I read from your PDF, first {CARD_PAGES} pages" if more_pages else "What I read from your PDF, every bar",
@@ -1593,12 +1669,10 @@ def pdf_card_result(card: dict, tool: str, source: str) -> CallToolResult:
     resource_uri=PDF_CARD_URI,
     title="Read a chosen PDF of sheet music",
     description=(
-        "Use this when choose_score or fetch_score gave a pdf_id, with that pdf_id. Reads the music from the PDF and shows the "
-        "user the engraved result in a card. Returns a score_id. Then, unless the result tells you to ask the user a question "
-        "first, go straight on to the analysis without waiting for the user: call draft_analysis with that score_id, and "
-        "pass on the result's note about the reading in your "
-        f"reply with the analysis. Only the first {pdf_reader.READ_PAGES} pages are read. "
-        "Slurs are not read, because they are often misread from PDFs; if the user asks for slurs, tell them so."
+        "Reads the music from a PDF that choose_score or fetch_score gave a pdf_id for, and shows the user the engraved "
+        "result in a card, with bars that may be misread shaded. Returns a score_id for draft_analysis and a note about "
+        f"the reading for the user. Only the first {pdf_reader.READ_PAGES} pages are read. Slurs are not read, because "
+        "they are often misread from PDFs."
     ),
     annotations=stores("Read a chosen PDF of sheet music", again=True),
 )
@@ -1611,9 +1685,9 @@ async def read_fetched_pdf(ctx: Context, pdf_id: str) -> CallToolResult:
         if await anyio.to_thread.run_sync(store.get, f"scores/{code}.waiting") is not None:
             return waiting_for_choice("read_fetched_pdf", source)
         if await anyio.to_thread.run_sync(store.get, f"scores/{code}") is not None:
-            no_pdf = f"This score is a MusicXML file, not a PDF. Call draft_analysis with score_id {code}."
+            no_pdf = f"This score is a MusicXML file, not a PDF: score_id {code} is ready for draft_analysis."
         else:
-            no_pdf = "No PDF has that pdf_id; PDFs are kept for 30 days. Call choose_score so the user can choose the PDF again."
+            no_pdf = "No PDF has that pdf_id; PDFs are kept for 30 days. choose_score lets the user choose the PDF again."
         log("read_fetched_pdf", platform=source, error="ScoreError", reason=no_pdf)
         return error_result(no_pdf)
     return await read_pdf_data(data, source, "read_fetched_pdf")
@@ -1624,19 +1698,19 @@ CLAUDE_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "draft_analys
 CLAUDE_ONLY_TOOLS = {"choose_score", "fetch_score", "read_fetched_pdf", "play", "draft_from_notes"}
 NO_NOTE_LIST = (
     "No note list: draft_from_notes needs the compact note list (starting 'N1 div=') that the Sheet Music Analysis "
-    "plugin's skill makes from the user's score file. Without the plugin, call choose_score so the user can choose "
-    "their score file in a card."
+    "plugin's skill makes from the user's score file. Without the plugin, choose_score shows a card in which the "
+    "user chooses their score file."
 )
 NOTES_FROM_LIST = (
-    "No automatic draft analysis is given with this reply, by design: nothing failed, so do not mention a draft to "
-    "the user. Analyse from the note list you sent. If the user asked for their own numerals to be checked and there "
-    "is no STUDENT CHECK section, compare them with your reading of the note list."
+    "This reply has no automatic draft analysis, by design; nothing failed. The analysis is made from the note list "
+    "sent. Where the user asked for their own numerals to be checked and there is no STUDENT CHECK section, they are "
+    "compared with the note list."
 )
 CLAUDE_HIDDEN_ARGUMENTS = {"draft_analysis": {"score_file"}}
 CLAUDE_RESULT_CHARS = 100_000
 IMAGES_LEFT_OUT = (
     "{count} image(s) were left out of this reply to keep it within Claude's size limit. The card shows the page to "
-    "the user; where no card is shown, give the user the links above."
+    "the user; where no card is shown, the links in this reply lead to the same pages."
 )
 QUESTION_FOR_USER = "Question for the user about their Roman numerals: "
 
@@ -1681,7 +1755,7 @@ def within_claude_limit(result):
         result.content.remove(images.pop())
         left_out += 1
     if left_out:
-        result.content.append(TextContent(type="text", text=IMAGES_LEFT_OUT.format(count=left_out)))
+        result.content.insert(len(images), TextContent(type="text", text=IMAGES_LEFT_OUT.format(count=left_out)))
     return result
 
 
@@ -1728,12 +1802,12 @@ SITE = "https://sheetmusicanalysis.com"
     resource_uri=PLAYER_URI,
     title="Play the score",
     description=(
-        "Shows the user a small piano player in the chat, with play, pause and a seek bar. Use it when the user "
-        "wants to hear the passage or score. Pass the score_id that choose_score, fetch_score, read_fetched_pdf or "
-        "correct_bars gave and the bars to play as measure_range, e.g. \"1-8\" or \"16a-20\" (\"all\" plays the whole score). It plays the "
-        "score's tempo, dynamics, pedal marks and ornaments. tempo, in quarter notes per minute, is only for a tempo "
-        "word whose speed play says is unclear: ask the user, then pass their answer. play_id and notes are only for "
-        "older versions of the Sheet Music Analysis plugin (1.8.0 and earlier); in a new chat use score_id."
+        "Shows the user a small piano player in the chat, with play, pause and a seek bar, for when the user wants to "
+        "hear the passage or score. Takes the score_id that choose_score, fetch_score, read_fetched_pdf or "
+        "correct_bars gave and the bars to play as measure_range, e.g. \"1-8\" or \"16a-20\" (\"all\" plays the whole "
+        "score). It plays the score's tempo, dynamics, pedal marks and ornaments. tempo, in quarter notes per minute, "
+        "is for a tempo word whose speed is unclear; the result then asks for it. play_id and notes are for older "
+        "versions of the Sheet Music Analysis plugin (1.8.0 and earlier); current versions pass score_id."
     ),
     annotations=read_only("Play the score"),
 )
@@ -1752,8 +1826,8 @@ async def play(ctx: Context, score_id: str | None = None, measure_range: str = "
             if play_id and (stored := await anyio.to_thread.run_sync(store.get, f"scores/{clean_id(play_id)}.notes")):
                 notes = stored.decode()
             elif play_id and not notes:
-                return error_result(f"No passage has the play_id {play_id!r}; they are kept for 30 days. Call "
-                                    "draft_from_notes again, or pass the note list as notes.")
+                return error_result(f"No passage has the play_id {play_id!r}; they are kept for 30 days. "
+                                    "draft_from_notes gives a new one, or the note list can be passed as notes.")
             if not notes or not notes.lstrip().startswith("N1"):
                 return error_result(NO_PLAY_NOTES)
             index = await in_turn(note_list.decode, notes)
@@ -1762,8 +1836,9 @@ async def play(ctx: Context, score_id: str | None = None, measure_range: str = "
             bar, word = unclear[0]
             log("play", platform=source, measure_range=measure_range, legacy=not score_id, asked_tempo=True)
             return CallToolResult(content=[TextContent(type="text", text=(
-                f"Bar {bar} is marked '{word}' with a half-note beat, so how fast to play it is unclear. Ask the user how "
-                "fast they want it, then call play again with the same arguments and tempo in quarter notes per minute."
+                f"Question for the user: bar {bar} is marked '{word}' with a half-note beat, so how fast to play it is "
+                "unclear; how fast do they want it? Their answer goes in tempo, in quarter notes per minute, with the "
+                "same arguments."
             ))])
         performance = await in_turn(lambda: performance_text(index, measures, tempo=tempo))
     except UserError as error:
@@ -1797,8 +1872,8 @@ NO_PLAY_NOTES = (
 )
 
 
-NOT_CHOSEN_YET = ("The user has not chosen their file in the card yet. Ask them to click Choose your score in the "
-                  "card and choose it.")
+NOT_CHOSEN_YET = ("The user has not chosen their file in the card yet; the card's Choose your score button does "
+                  "that.")
 
 
 class NotChosenYet(ScoreError):
@@ -1814,14 +1889,11 @@ ATTACHED_FILE_SENTENCE = (
     resource_uri=UPLOAD_CARD_URI,
     title="Choose a score file",
     description=(
-        "Use this only when the user wants their score analysed and no score_id or link to the score is available yet "
-        "in this conversation; never call it otherwise, and not again while a card you showed is still waiting for "
-        "the user's file (ask them to use that card). It shows a small card in which the user chooses their score "
-        "file, a MusicXML file (.mxl or .musicxml) or a PDF of printed music, which goes straight to this server. "
-        "Files attached to the chat cannot be passed to this server, so if the user attached their score to the chat, "
-        f"start your reply with this sentence and then call this tool: \"{ATTACHED_FILE_SENTENCE}\" It returns the "
-        "id the file will be kept under; end your reply, and when the user's next message says they have chosen it, "
-        "use that id as the result says. If the user gives a link to the score instead, call fetch_score with it."
+        "Shows a small card in which the user chooses their score file, a MusicXML file (.mxl or .musicxml) or a PDF "
+        "of printed music, which goes straight to this server. Returns the id the file will be kept under. For when "
+        "the user wants their score analysed and the conversation has no score_id or link for it yet; while a card "
+        "shown earlier is still waiting for the file, that card still works. Files attached to the chat cannot reach "
+        "this server, so this card is how an attached score gets here. A link to the score goes to fetch_score."
     ),
     annotations=stores("Choose a score file"),
 )
@@ -1832,10 +1904,11 @@ async def choose_score(ctx: Context) -> CallToolResult:
     await anyio.to_thread.run_sync(store.put, f"scores/{code}.waiting", b"")
     return CallToolResult(content=[TextContent(type="text", text=(
         f"The user now sees a card in which to choose their score file, which will be kept under the id {code}. "
-        "End your reply here. When their next message says they have chosen it: if the file name ends in .pdf, "
-        f"write one short sentence saying you are reading the PDF now and that {PDF_WAIT}, then in the same reply "
-        f"call read_fetched_pdf with pdf_id {code}; otherwise it is MusicXML, so call draft_analysis with "
-        f"score_id {code}."))], structuredContent={"upload_id": code})
+        "The file arrives when the user chooses it in the card, so the next step comes with their message that "
+        f"they have chosen it. For a file name ending in .pdf, {code} is the pdf_id for read_fetched_pdf ({PDF_WAIT}); "
+        f"otherwise it is MusicXML, and {code} is the score_id for draft_analysis.\n"
+        f"Note for the user, if they attached their score to the chat: \"{ATTACHED_FILE_SENTENCE}\""
+    ))], structuredContent={"upload_id": code})
 
 
 apps.add_html_resource(
@@ -1848,6 +1921,29 @@ apps.add_html_resource(
 )
 
 
+INSTRUCTIONS = (
+    "Harmonic analysis of sheet music, drawn on the score. Usual sequence, in one turn: a score_id (PDFs: read_pdf "
+    "or read_fetched_pdf first), draft_analysis, render_analysis. A PDF reading is analysed at once, unchecked by "
+    "the user. No bars named: the whole piece, drawn in one call.\n"
+    "Result labels: \"Note for the user\": passed on with the analysis. \"Warning for the user\": opens that reply. "
+    "\"Question for the user\": asked before going on. \"Offer for the user\": made once, at the reply's end; acted "
+    "on after a yes.\n"
+    "score_id and pdf_id are for tool calls only; replies do not show them to the user.\n"
+    "Getting the score: in ChatGPT the user attaches it (MusicXML as draft_analysis's score_file, a PDF to "
+    "read_pdf). In Claude, choose_score shows a card for choosing the file and fetch_score takes a link; files "
+    "attached to a Claude chat do not reach this server. In Claude, play shows a small piano player for a passage.\n"
+    "Reading a PDF and analysing each take a minute or more and the user sees nothing meanwhile, so a short "
+    "sentence before each says what is happening. A reading still in progress is picked up by calling the same "
+    "tool again with the same file or pdf_id.\n"
+    "Once per conversation: the card's downloads, by the card's names; for a score with more than four staves, "
+    "after the original is drawn, the offer of a piano reduction (piano=true).\n"
+    "annotations.style is abrsm when the user mentions ABRSM, figured_bass when they ask for figured bass.\n"
+    "Corrections: correct_bars shows the redrawn bars for the user to confirm against their copy; the new score_id "
+    "is analysed after their yes, the old one stays in use after a no, and a correction the chat proposed is "
+    "presented as its suggestion."
+)
+
+
 mcp = Server(
     "sheet-music-analysis",
     title="Sheet Music Analysis",
@@ -1856,39 +1952,34 @@ mcp = Server(
         Icon(src=f"{SITE}/icons/clef-for-light-512.png", mime_type="image/png", sizes=["512x512"], theme="light"),
         Icon(src=f"{SITE}/icons/clef-for-dark-512.png", mime_type="image/png", sizes=["512x512"], theme="dark"),
     ],
-    instructions=(
-        "Harmonic analysis of sheet music: Roman numerals, cadences, phrases and non-chord tones. The server reads "
-        "MusicXML and PDF scores and draws the analysis on the engraved page. In Claude the user chooses their score file "
-        "in a card that choose_score shows, or gives a link that fetch_score downloads, and play shows a small piano player for the passage in the chat."
-    ),
+    instructions=INSTRUCTIONS,
     extensions=[apps],
 )
 del mcp._lowlevel_server._request_handlers["subscriptions/listen"]
 
 
 DRAFT_ANALYSIS_USE = (
-    "Use this when the user wants a harmonic analysis of a MusicXML score (.mxl or .musicxml): Roman numerals, "
-    "cadences, phrases, non-chord tones. Returns the score's notes beat by beat as a table for you to analyse, "
-    "plus a score_id. Follow it with render_analysis. If the user wants their own analysis checked, pass their "
-    "Roman numerals as student_analysis, as they typed them (\"m1 I, m2 V6, m3 beat 3 ii65 ...\"), with a beat only "
-    "where they gave one: never choose beats yourself, the server places them or asks. Or pass the word "
-    "\"score\" when the numerals are written into their score file; the result then lists, for each of their "
-    "labels, the notes at that beat and whether the numeral fits them. If the result is a question, ask the user "
-    "that question and call again with their answer. "
+    "For a harmonic analysis of a MusicXML score (.mxl or .musicxml): Roman numerals, cadences, phrases, non-chord "
+    "tones. Returns the score's notes beat by beat as a table, the method and annotation format for the analysis, "
+    "and a score_id for render_analysis. student_analysis: the user's own Roman numerals for checking, as they typed "
+    "them (\"m1 I, m2 V6, m3 beat 3 ii65 ...\"), with a beat only where the user gave one; the server places the "
+    "others or returns a question for the user, whose answer goes in a second call. The word \"score\" means the "
+    "numerals are written into their score file; the result then lists, for each of their labels, the notes at "
+    "that beat and whether the numeral fits them. "
 )
 CLAUDE_SCORE_INPUT_HELP = (
-    "score_id: the id that choose_score, fetch_score, read_fetched_pdf or correct_bars gave. Never encode, paste or "
-    "retype a file's contents. If there is no score_id yet, call choose_score so the user can choose their score file."
+    "score_id: the id that choose_score, fetch_score, read_fetched_pdf or correct_bars gave. The tool takes an id, "
+    "not a file's contents; without a score_id, choose_score shows a card in which the user chooses their file."
 )
 
 
 @mcp.tool(
     title="Draft a harmonic analysis from a note list",
     description=(
-        "Only for older versions of the Sheet Music Analysis plugin (1.8.0 and earlier), whose skill passes a compact "
-        "note list starting 'N1 div=' that it made in Claude's code sandbox. In a new chat do not use this: call "
-        "choose_score so the user can choose their score file. Drafts a harmonic analysis from that note list, passed "
-        "unchanged as `notes`, and returns the draft with a play_id for play."
+        "For older versions of the Sheet Music Analysis plugin (1.8.0 and earlier), whose skill passes a compact "
+        "note list starting 'N1 div=' that it made in Claude's code sandbox; current versions use choose_score. "
+        "Drafts a harmonic analysis from that note list, passed unchanged as `notes`, and returns the draft with a "
+        "play_id for play."
     ),
     annotations=stores("Draft a harmonic analysis from a note list"),
 )
@@ -1920,7 +2011,7 @@ async def draft_from_notes(ctx: Context, notes: str, student_analysis: str | Non
         text = await in_turn(build)
     play_id = secrets.token_hex(8).upper()
     await anyio.to_thread.run_sync(store.put, f"scores/{play_id}.notes", notes.encode())
-    text += f"\n\nPLAY: play_id {play_id} plays this passage. Call play with it when the user wants to hear it."
+    text += f"\n\nPLAY: play_id {play_id} plays this passage with play."
     log("draft_from_notes", platform=source, chars_in=len(notes), seconds=round(time.time() - started, 1))
     return CallToolResult(content=[TextContent(type="text", text=text)])
 
@@ -1965,7 +2056,7 @@ async def draft_analysis(
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)
         text = await in_turn(make_draft, score, code, named, student_analysis)
     except check_analysis.ClarificationNeeded as error:
-        kept = f"\nThe score is saved as score_id: {code}. Call again with it and the user's answer." if code else ""
+        kept = f"\nThe score is saved as score_id: {code}, for a second call with the user's answer." if code else ""
         return error_result(QUESTION_FOR_USER + error.question + kept)
     except NotChosenYet:
         return waiting_for_choice("draft_analysis", source)
@@ -1997,19 +2088,16 @@ async def current_bars(score: bytes | None, replacement_bars: str, part: str | N
 
 
 CORRECT_BARS_DESCRIPTION = (
-    "Use this after read_pdf for a misread bar the user describes, or one read_pdf flagged or "
-    "you can see is misread when you are confident what it should be. Pass its score_id and replacement_bars "
-    "in N1 format, replacing every voice of each listed bar and including every staff. Example:\n"
+    "Corrects misread bars of a read_pdf reading: a bar the user describes, one read_pdf flagged, or one you can "
+    "see is misread when you are confident what it should be. Takes the score_id and replacement_bars in N1 format, "
+    "which replace every voice of each listed bar, every staff included. Example:\n"
     "N1 div=24 ts=4/4 ks=0\nm3 len=96\n1.1: 24 C4 D4 48 E4\n"
     "div is units per quarter note; m3 is printed bar 3 (m16a is the bar the draft names 16a); len is its length in those units. "
     "Each staff.voice line uses numbers to set the duration for following tokens, + for chords, r for rests, "
     "g for grace notes (u for slashed ones) and ~ for ties to the next note; pitches are sounding pitches (e.g. F#4, Bb3). "
-    "Every voice must explicitly fill the existing bar, including rests. A bar line may also carry ts= or ks= where the meter or key signature changes. Header and bar-line key/meter do not change the score. "
-    "Use part (a part id or name) in a score with multiple parts; staff numbers count within that part. Returns a new score_id, PNGs of only changed bars "
-    "and a note per bar; runs no model. If you proposed the correction, say it is your suggestion. "
-    "Show the redrawn bars and note; ask the user to confirm against their copy. "
-    "Only after confirmation analyse with draft_analysis using the new score_id. "
-    "If they decline, keep using the original score_id."
+    "Each voice fills the whole existing bar, rests included. A bar line may also carry ts= or ks= where the meter or key signature changes. Header and bar-line key/meter do not change the score. "
+    "part (a part id or name) is for a score with multiple parts; staff numbers count within that part. Returns a new score_id, PNGs of only the changed bars "
+    "and a note per bar; runs no model. The original score_id stays unchanged."
 )
 
 
@@ -2024,7 +2112,7 @@ async def correct_bars(
 ) -> CallToolResult:
     source = platform(ctx)
     try:
-        before, _ = await resolve_score(None, score_id, source)
+        before, _ = await fetch_given_score(None, score_id, source)
     except ScoreError as error:
         log("correct_bars", platform=source, **logged(error))
         return error_result(str(error))
@@ -2042,8 +2130,8 @@ async def correct_bars(
         if not review.changed_bars:
             log("correct_bars", platform=source, changed=0)
             return CallToolResult(
-                content=[TextContent(type="text", text=f"No bars changed: the replacement matches the score. "
-                                     f"Nothing to confirm; keep using score_id {score_id}.")],
+                content=[TextContent(type="text", text=f"No bars changed: the replacement matches the score, so "
+                                     f"score_id {score_id} stays the one to use.")],
                 structured_content={"score_id": score_id, "changed_bars": [], "image_urls": [], "notes": {}},
             )
         with stage("render"):
@@ -2058,21 +2146,22 @@ async def correct_bars(
             )
             code = secrets.token_hex(8).upper()
             await anyio.to_thread.run_sync(store.put, f"scores/{code}", after)
+            if (scan := await anyio.to_thread.run_sync(store.get, scan_key(score_id))) is not None:
+                scan = json.loads(scan)
+                await anyio.to_thread.run_sync(store.put, scan_key(code), json.dumps(
+                    {"pages": scan["pages"], "read_as": scan.get("read_as", clean_id(score_id))}).encode())
             if await anyio.to_thread.run_sync(store.get, shaded_key(score_id)) is not None:
                 uneven, _ = await in_turn(pdf_reader.problem_spots, after)
                 await anyio.to_thread.run_sync(store.put, shaded_key(code), json.dumps(uneven).encode())
     except (correct.CorrectionError, ScoreError, PositionError) as error:
         log("correct_bars", platform=source, **logged(error))
-        return error_result("Fix the replacement bars and call correct_bars again: " + str(error)
+        return error_result("The replacement bars do not fit: " + str(error)
                             + await current_bars(before, replacement_bars, part))
     log("correct_bars", platform=source, changed=len(review.changed_bars), pages=len(pages))
     descriptions = list(review.notes.values())
     text = (
-        f"score_id: {code}\n" + "\n".join(descriptions)
-        + "\nIf you proposed the correction, tell the user it is your suggestion. "
-        "Show the redrawn bars and note. Ask them to confirm against their copy; "
-        "only after confirmation call draft_analysis with this new score_id."
-        + f" If they decline, keep using score_id {score_id}."
+        f"score_id: {code} (the corrected score; the previous one, {score_id}, is unchanged)\n" + "\n".join(descriptions)
+        + "\nQuestion for the user: do the redrawn bars match their copy?"
         + ("\nPNGs: " + " ".join(urls) if urls else "")
     )
     return CallToolResult(
@@ -2086,9 +2175,10 @@ async def correct_bars(
 @mcp.tool(
     title="Start a careful reading of a scan",
     description=(
-        "Use this only after read_pdf or read_fetched_pdf has read a scanned PDF and the user has said yes to the "
-        "usage warning from its result. Returns the steps for reading the scan carefully with your own helpers, "
-        "one page each, and handing the result in with use_careful_reading."
+        "Returns the steps for a careful reading of a scanned PDF that read_pdf or read_fetched_pdf read (its "
+        "score_id): the chat reads each page with its own helper agents in its code sandbox, using a small measuring "
+        "script downloaded from this server, and hands the pages in with use_careful_reading. Because it runs a "
+        "downloaded script and starts helper agents, it is for after the user has accepted the careful-reading offer that comes with the drawn analysis of a scan."
     ),
     annotations=read_only("Start a careful reading of a scan"),
 )
@@ -2101,26 +2191,37 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
         return error_result(NOT_A_SCAN)
     pages = json.loads(scan)["pages"]
     try:
-        score, _ = await resolve_score(None, score_id, source)
+        score, _ = await fetch_given_score(None, score_id, source)
     except ScoreError as error:
         log("careful_reading", platform=source, **logged(error))
         return error_result(str(error))
+    if chatgpt_route(*request_parts(ctx)) == "ordinary":
+        log("careful_reading", platform=source, pages=pages, answer="needs_the_agent")
+        return CallToolResult(content=[TextContent(type="text", text=NEEDS_THE_AGENT.format(app=CHATGPT_APP_NAME))])
     hint = await in_turn(signatures_found, score)
     addresses = [f"{PUBLIC_BASE_URL}/kit", *([KIT_ELSEWHERE] if KIT_ELSEWHERE else [])]
-    log("careful_reading", platform=source, pages=pages)
-    ask = ASK_BEFORE_THE_STEPS.format(warning=careful_warning(pages))
+    log("careful_reading", platform=source, pages=pages, answer="steps")
+    ask = ASK_BEFORE_THE_STEPS.format(warning=careful_warning(pages, source), score_id=clean_id(score_id))
     return CallToolResult(content=[TextContent(type="text", text=ask + CAREFUL_STEPS.format(
         pages=page_count(pages), count=pages, score_id=clean_id(score_id), files=" ".join(KIT_FILES), hint=hint,
         download=" || ".join(f"curl -fsSL {address}/$f -o kit/$f" for address in addresses),
-        helpers=HELPER_SETTINGS["claude" if source == "claude" else "other"]))])
+        helpers=for_product(HELPER_SETTINGS, source)))])
+
+
+PART_OF_THE_SCAN = (
+    " It holds only {given} of the scan's {scan}, so the rest of the piece is not in it; handing in every page, in "
+    "order, gives the whole piece.\n"
+    "Note for the user, if the other pages cannot be read: \"This careful reading covers only {given} of your "
+    "scan's {scan}, so the rest of the piece is not in it.\""
+)
 
 
 @mcp.tool(
     title="Use a careful reading",
     description=(
-        "Use this at the end of the steps careful_reading returned: hands in the pages your helpers read, one note "
-        "list (starting 'N1 div=') for each page, in order. Builds the score from them and returns a new score_id; "
-        "then call draft_analysis with it and continue as for a MusicXML file."
+        "The last of the steps careful_reading returns: takes the pages the helpers read, one note list (starting "
+        "'N1 div=') for each page, in order, builds the score from them and returns a new score_id for "
+        "draft_analysis, with a note about the careful reading for the user."
     ),
     annotations=stores("Use a careful reading"),
 )
@@ -2131,8 +2232,9 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
     if scan is None:
         log("use_careful_reading", platform=source, error="ScoreError", reason=NOT_A_SCAN)
         return error_result(NOT_A_SCAN)
-    if len(pages) > json.loads(scan)["pages"]:
-        too_many = f"This scan has {page_count(json.loads(scan)['pages'])}; hand in one note list for each page, not {len(pages)}."
+    scan_pages = json.loads(scan)["pages"]
+    if len(pages) > scan_pages:
+        too_many = f"This scan has {page_count(scan_pages)}; hand in one note list for each page, not {len(pages)}."
         log("use_careful_reading", platform=source, error="ScoreError", reason=too_many, pages=len(pages), outcome="user_error")
         return error_result(too_many)
     if not await take("draft", source):
@@ -2144,25 +2246,28 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
             bars = await in_turn(lambda: [measure.name for measure in ScoreIndex(load_toolkit(score).getMEI()).measures])
     except UserError as error:
         log("use_careful_reading", platform=source, **logged(error), pages=len(pages), outcome="user_error")
-        return error_result("Fix the page this is about and call use_careful_reading again with every page: " + str(error))
+        return error_result("A page does not fit; a corrected hand-in takes every page again: " + str(error))
     code = secrets.token_hex(8).upper()
     await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)
-    log("use_careful_reading", platform=source, pages=len(pages), bars=len(bars), chars_in=sum(map(len, pages)))
+    log("use_careful_reading", platform=source, pages=len(pages), scan_pages=scan_pages, bars=len(bars),
+        chars_in=sum(map(len, pages)))
+    part_only = PART_OF_THE_SCAN.format(given=page_count(len(pages)), scan=page_count(scan_pages)) if len(pages) < scan_pages else ""
     return CallToolResult(content=[TextContent(type="text", text=(
-        f"score_id: {code}\nThe careful reading is stored: measures {bars[0]} to {bars[-1]}. Call draft_analysis with "
-        "this score_id now and continue exactly as for an attached MusicXML file, drawing it with render_analysis. In "
-        "your reply with the analysis, tell the user in one sentence that the page shows your careful reading of "
-        "their scan and that it can still contain mistakes, so they should check it against their copy."))])
+        f"score_id: {code}\nThe careful reading is stored: measures {bars[0]} to {bars[-1]}.{part_only}\nIt is "
+        "analysed and drawn as an attached MusicXML file is.\n"
+        "Note for the user: \"The page shows my careful reading of your scan. It can still contain mistakes, so check "
+        "it against your copy.\"\n"
+        f"score_id {code} is ready for draft_analysis."))])
 
 
 LINK_NOT_A_SCORE = (
     "The link gave something other than a MusicXML file or a PDF, usually a web page: a sign-in page when the file is "
-    "not shared publicly, or a page about the file rather than the file itself. Ask the user to share the file so "
-    "anyone with the link can view it, or for a direct link to the .mxl, .musicxml or .pdf file."
+    "not shared publicly, or a page about the file rather than the file itself. What works: the file shared so "
+    "anyone with the link can view it, or a direct link to the .mxl, .musicxml or .pdf file."
 )
 LINK_ANSWERED = (
-    "The link answered with an error (HTTP {status}). Ask the user to check that the link opens in a private browser "
-    "window, shared so anyone with the link can view it."
+    "The link answered with an error (HTTP {status}). A link that works opens in a private browser window and is "
+    "shared so anyone with the link can view it."
 )
 
 
@@ -2193,12 +2298,11 @@ def link_host(url: str) -> str:
 @mcp.tool(
     title="Open a score from a link",
     description=(
-        "Use this first whenever the user gives a link to their score and wants it analysed: a direct link to a "
-        "MusicXML file (.mxl or .musicxml) or a PDF of printed music, or a Google Drive or Dropbox share link to one. "
-        "The server downloads the file (https only, at most 10 MB). For MusicXML it returns a score_id: call "
-        "draft_analysis with it. For a PDF it returns a pdf_id: call read_fetched_pdf with it. IMSLP links are not "
-        "downloaded; the result says what to tell the user. Without a link, call choose_score instead. Never download, open or search for the score "
-        "yourself (no web search, no code sandbox): only this server fetches it, from a link the user gave."
+        "Downloads the user's score from a link they gave: a direct link to a MusicXML file (.mxl or .musicxml) or a "
+        "PDF of printed music, or a Google Drive or Dropbox share link to one (https only, at most 10 MB). Returns a "
+        "score_id for draft_analysis (MusicXML) or a pdf_id for read_fetched_pdf (PDF). IMSLP links are not "
+        "downloaded; the result explains why and what works instead. The server analyses only files that reach it "
+        "this way or through choose_score, not a copy found by a web search or made in a code sandbox."
     ),
     annotations=stores("Open a score from a link", open_world=True),
 )
@@ -2216,7 +2320,7 @@ async def fetch_score(ctx: Context, url: str) -> CallToolResult:
         return error_result(str(error))
     except (httpx.HTTPError, httpx.InvalidURL, ValueError) as error:
         log("fetch_score", platform=source, host=host, error=type(error).__name__)
-        return error_result("The link could not be reached. Ask the user to check it opens in their browser.")
+        return error_result("The link could not be reached. A link that works opens in the user's browser.")
     kind = score_kind(data)
     if kind is None:
         log("fetch_score", platform=source, host=host, error="not a score", score_bytes=len(data))
@@ -2237,9 +2341,8 @@ async def keep_score(data: bytes, kind: str, code: str | None = None) -> str:
 
 def next_step(kind: str, code: str) -> str:
     if kind == "pdf":
-        return (f"pdf_id: {code}\nIt is a PDF. Write one short sentence saying you are reading the PDF now and that "
-                f"{PDF_WAIT}, then in the same reply call read_fetched_pdf with this pdf_id to read the music from it.")
-    return f"score_id: {code}\nIt is a MusicXML score. Call draft_analysis with this score_id now."
+        return f"pdf_id: {code}\nIt is a PDF, for read_fetched_pdf ({PDF_WAIT})."
+    return f"score_id: {code}\nIt is a MusicXML score, ready for draft_analysis."
 
 
 CLAUDE_DESCRIPTIONS = {
@@ -2400,7 +2503,7 @@ def main() -> None:
     tool_calls = logging.getLogger("mcp.server.mcpserver.server")
     tool_calls.setLevel(logging.INFO)
     tool_calls.addFilter(lambda record: record.levelno > logging.INFO or record.msg.startswith("Tool %r rejected arguments"))
-    server = HttpServer(uvicorn.Config(traced(only_through_the_proxy(without_event_stream(app))), host="0.0.0.0", port=PORT, log_level="warning",
+    server = HttpServer(uvicorn.Config(marked_as_ours(traced(only_through_the_proxy(without_event_stream(app)))), host="0.0.0.0", port=PORT, log_level="warning",
                                        log_config=None))
     server.run()
     if not server.started:

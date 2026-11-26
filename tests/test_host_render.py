@@ -190,7 +190,7 @@ def test_server_extra_downloads(chopin, chopin_annotations, tmp_path, monkeypatc
 
     async def run():
         result = await app.render_analysis(None, 'REAL', chopin_annotations, measure_range='1-8')
-        assert 'once per conversation' in result.content[1].text
+        assert 'More downloads, shown on the card under "More downloads"' in result.content[1].text
         assert 'Analysis as text (the key and the Roman numeral of each chord' in result.content[1].text
         assert 'RomanText' not in result.content[1].text
         assert 'title' not in result.structured_content
@@ -278,7 +278,7 @@ def test_server_refuses_a_piano_version_of_a_reading_whose_parts_hold_different_
     from engine.piano import PARTS_DO_NOT_LINE_UP
     monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
     app.store.put('scores/STADT', (ROOT / 'tests/data/pdf_warnings/schubert_die_stadt_audiveris.musicxml').read_bytes())
-    result = asyncio.run(app.render_analysis(None, 'STADT', AnnotationList(annotations=[]), measure_range='2-5', piano=True))
+    result = asyncio.run(app.render_analysis(None, 'STADT', AnnotationList.model_validate({"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "C"}]}), measure_range='2-5', piano=True))
     assert result.is_error and result.content[0].text == PARTS_DO_NOT_LINE_UP
 
 
@@ -297,8 +297,8 @@ def test_server_mentions_the_guide_only_when_one_is_drawn(chopin, chopin_annotat
 
 
 @pytest.mark.parametrize('measure_range, kinds, said', [
-    ('1-8', None, 'Numbered callouts drawn on the page: 1, 2, 3, 4.'),
-    ('3-8', None, 'Numbered callouts drawn on the page: 3, 4.'),
+    ('1-8', None, 'Numbered callouts drawn on the page: 1, 2, 3, 4;'),
+    ('3-8', None, 'Numbered callouts drawn on the page: 3, 4;'),
     ('1-8', {'harmony', 'cadence', 'phrase'}, app.NO_CALLOUTS),
 ])
 def test_server_names_the_callouts_drawn_so_the_commentary_can_match(chopin, chopin_annotations, tmp_path, monkeypatch,

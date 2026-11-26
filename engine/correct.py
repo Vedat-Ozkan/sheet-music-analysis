@@ -207,6 +207,8 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                     raise CorrectionError(f"Bar {name} is repeated")
                 replacements[current] = {}
                 continue
+            if line.startswith("c:"):
+                raise CorrectionError(f"Bar {name}: leave out the c: line; a corrected bar keeps its chord symbols")
             label, body = line.split(":", 1)
             if notes.WORDS_LABEL.fullmatch(label):
                 staff, voice = notes.voice_label(label[:-1])

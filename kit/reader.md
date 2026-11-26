@@ -6,7 +6,7 @@ Rules of the task:
 - Work only from the image. Do not search for the piece, do not read any file other than the ones named in your task, and do not rely on memory of the music: write what is printed.
 - Go one system at a time, one bar at a time, one staff at a time. For every note, find its line or space against the clef, then apply the key signature and any accidental earlier in the same bar.
 - Count the bars in each system by its bar lines, and transcribe every bar. Number bars 1, 2, 3 … in order across the systems of your page, whatever the page's number in the piece. If the piece opens on your page with a pickup (an incomplete first bar), call it m0.
-- Ignore dynamics, fingering numbers and pedal marks. Do read ties, grace notes, rests, clef changes (they change which pitch a position means) and changes of key or time signature. Also read slurs, staccato dots and accents, and the words printed under a sung staff.
+- Ignore dynamics, fingering numbers and pedal marks. Do read ties, grace notes, rests, clef changes (they change which pitch a position means) and changes of key or time signature. Also read slurs, staccato dots and accents, the words printed under a sung staff, and the chord symbols printed above a staff.
 - If something is unreadable, write your best reading; do not leave a bar out.
 
 ## The N1 format
@@ -24,6 +24,7 @@ Then, for each bar, one bar line followed by one line per voice:
 - Slurs: write `(` directly before the first note of a slur and `)` directly after its last note: `4 (C4 D4 E4)`. On a chord the bracket goes around the whole chord token: `(C4+E4`. A slur may end in a later bar or system; write its `)` in the same voice it started in. If a slur runs on past the end of your page, close it after your last note under it; if a slur comes in from the page before, open it before your first note under it. Do not write a tie as a slur.
 - Staccato and accent: `.` after a note with a staccato dot, `>` after a note with an accent sign: `C4.`, `C4+E4>`, and after the tie sign if there is one: `E4~>`. A slur's `)` comes last: `E4.)`.
 - Words: directly under a voice line that has words printed under it, write one line `1.1w:` with one entry for every note of that voice line that is sung: every note token except rests, grace notes and a note that only continues a tie. Write the syllable printed under the note as printed, with a `-` at its end when the word goes on (`Kin- der`), and `_` when no syllable is printed under the note. If the first note of a voice on your page is tied in from the page before, it counts as sung on your page: write `_` for it, or the syllable if one is printed under it. Write no words line for a voice without words.
+- Chord symbols: for each bar with chord names printed above a staff (`E`, `Am7`, `D7/F#`, `Bb`, `N.C.`), write one line `c:` under its bar line, with one entry `symbol@position` for each name. Write the name as printed, without spaces, with `b` and `#` for the flat and sharp signs. The position is where in the bar the name stands, in units from the start of the bar: `0` over the first beat, and otherwise the length of everything before that point, so it is always below `len`. A name may stand where no note starts. Write no `c:` line for a bar without a chord name.
 - Every voice line must fill its bar exactly: its durations, rests included, must add up to `len`. Check this for every line before moving on.
 - A dotted note is written by its full length (a dotted quarter with div=12 is 18). A triplet eighth with div=12 is 4.
 - If the printed values of a beamed group do not fit the beat it stands in (for example four eighths, or eight sixteenths, where only three eighths fit), the group is a tuplet, even when no number is printed over it. Spread its notes evenly over that beat, and choose `div` so that each is a whole number. Do not shorten or lengthen other notes to make the bar add up.
@@ -48,6 +49,14 @@ A voice line with words (another piece):
 ```
 1.1: 4 G4 2 A4 B4 4 (C5 B4) 8 A4~
 1.1w: Nun ru- hen al- _ le
+```
+
+A bar with two chord symbols, the second over the third beat (another piece; div=4):
+
+```
+m7 len=16
+c: Am7@0 D7/F#@8
+1.1: 16 A4
 ```
 
 ## Working method (required)

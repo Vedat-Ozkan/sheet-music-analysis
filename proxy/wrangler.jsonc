@@ -4,5 +4,6 @@
   "main": "worker.js",
   "compatibility_date": "2026-10-01",
   "routes": [{ "pattern": "mcp.sheetmusicanalysis.com", "custom_domain": true }],
-  "kv_namespaces": [{ "binding": "UPLOADS", "id": "1ab6c1cfd56847a5bf16eb800924b4a1" }]
+  "kv_namespaces": [{ "binding": "UPLOADS", "id": "1ab6c1cfd56847a5bf16eb800924b4a1" }],
+  "observability": { "enabled": true, "logs": { "invocation_logs": false } }
 }

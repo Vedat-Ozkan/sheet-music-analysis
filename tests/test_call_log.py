@@ -135,7 +135,7 @@ async def call(tool, arguments):
 
 def test_a_message_written_for_the_user_still_reaches_them_as_a_user_error(local_store, capsys):
     app.store.put("scores/CHORALE", CHORALE.read_bytes())
-    drawn = asyncio.run(call("render_analysis", {"score_id": "CHORALE", "annotations": {"annotations": []}, "view": "nonsense"}))
+    drawn = asyncio.run(call("render_analysis", {"score_id": "CHORALE", "annotations": {"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "I", "key": "C"}]}, "view": "nonsense"}))
     drafted = asyncio.run(call("draft_analysis", {"score_id": "CHORALE", "student_analysis": "m1 b0 I"}))
     lines = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")]
     assert drawn.is_error and drawn.content[0].text.startswith("view must be one of")

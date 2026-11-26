@@ -3154,6 +3154,88 @@ Full suite with the PDF reader (sma.8) on the finished branch, which includes en
 
 **After review.** The first version passed the secret as `proxy-key:latest`. With no instance kept warm, each cold start reads `latest`, so adding a secret version would have changed the key production enforces at once, and a failed Worker step would have refused every call; rolling back would not have helped, since later revisions read `latest` too. Versions are now pinned and one script sets all three places. The first version also gave back the pages after a crash (see Give-back).
 
+### 169. Visual check of drawn pages after the guide to the marks (2026-11-14, branch `visual-qa-2026-11-14`, nothing changed in code)
+
+**Why.** The guide to the marks was released today (entries 162 to 164). The automated tests check overlaps by geometry, but nobody had looked at a broad sample of real pages since.
+
+**Sample.** Only saved, real analyses were drawn on their own scores, with no invented inputs:
+- `examples/` (the nocturne and the nine engraving passages);
+- `tests/data/check_display/bach-reviewed.json`;
+- the 30 held-out reviewed lists in `eval/results/`;
+- from the main checkout's `out/eval/reviewed/`, the core reviewed lists (whole pieces and the Haydn 104 orchestral score), seven multi-expert lists and four lists with alternative readings.
+
+That gives 251 renders of 125 passages:
+- 4 string-quartet and orchestral passages;
+- 8 piano reductions;
+- 13 whole pieces of 2 to 9 PDF pages;
+- songs, chorales, and the rest piano.
+
+Each passage was drawn in all four views where the list had them: every held-out first passage in all four, every engraving passage and the nocturne in all four. Each render was drawn as `render_analysis` draws it: `render(..., key=True, preview_pages=2)`, the preview from `preview.png(1, width=1400, colors=256, pages=2)`, the 580-px card size scaled down from that, and the PDF from `pdf()` rasterised at 1,400 px. Scripts, renders and tiles are in the session scratchpad only.
+
+**How it was looked at.** Every image was cut into full-resolution tiles 1,400 px wide. Reviewers were 8 Opus agents (cut off by the usage limit after 12 cases), then Sonnet agents. Each one read every tile of its cases, cropped each defect and wrote one JSON line per defect, with a done line per case. I checked the worst claims myself and corrected four of them:
+- Two were source-file problems: clefs in the Grieg Notturno, Beethoven Op. 14 No. 1 iii and Chopin BI 60-3, and the lyric syllables "< [ )" in the Moonlight Sonata.
+- One was source notation: a Verovio `bracketSpan` in WTC I/22 that a reviewer took for an unlabelled alternative bracket.
+- One was a PDF glyph, confirmed missing from the PDF's own text layer.
+
+**Pages looked at (honest count).**
+- 580-px card images: NCARD of 251.
+- Full-size previews read tile by tile: NPREV of 251.
+- PDF pages: NPDF of 323. All 88 pages of the 13 multi-page PDFs were read. A one-page render's PDF is the same SVG page as its preview, so only NONE of those 235 PDFs were read separately.
+
+The last NLATE renders were read in a reduced pass (580-px card plus full-size preview page 1 only) after the usage limit. NOT LOOKED: NMISS renders.
+
+Records: NREC defect lines, of which NBLOCK block reading, NUGLY ugly and NCOS cosmetic. These are per case, so one cause is counted many times. Everything is in `/home/kema/ux-review-2026-11-13/visual-qa/`:
+- `defects.html`: every record, worst first, with its crop;
+- `index.html`: every 580-px card, captioned with piece, bars and view;
+- `findings/*.jsonl`: the raw records.
+
+**What the guide changed.** Eight renders were drawn again at `prod-00064-tcs`. The music and every mark sit in the same place; `_grow_page` only extends the page.
+- Preview images grew 68 to 199 px.
+- The last PDF page grew 56 to 85 pt.
+- The four-bar gallery image grew most: 488 to 687 px.
+
+**The guide itself: no clipping, no overlap with music, lyrics or the last system in any render looked at.** It is present only at the foot of preview page 1 and at the end of the last PDF page. It lists exactly the kinds of mark drawn: the harmony, voice-leading and form views drop what they hide, and the cue line appears only on piano reductions. It is readable at 580 px except on very tall orchestral previews, where the music is just as small. Defects found:
+1. *Ugly.* With a two-page preview (every render over 32 bars) the guide sits in the middle of the card image, and page 2's music starts about 80 px below it with no divider (Haydn 104 bars 1–60 piano, Pathétique ii, K. 545 i, Grieg Notturno). This follows from the placement chosen in entry 162, so it is the owner's call.
+2. *Cosmetic.* The guide wraps at the right end of the last system, not at the page width. On the four-bar gallery image (`site/gallery/mozart-symphony-41-piano.png` input) this gives four lines, the last holding only "Vl. violin". This is a guess from `page_key.draw` taking `right = max(system.right)`.
+3. *Cosmetic.* The key sample is the alphabetically first key, not the first on the page. `page_key.entries` sorts what was shown (checked in code), so BWV 38.6 in A minor is explained with "G:".
+4. *Cosmetic.* The dashed region sample is hard to recognise at 580 px.
+5. *Cosmetic.* In a long PDF the guide reads "pre-dominant (pre-dom., PD)". `overlay.py` picks words or letters for the function brackets per page (checked), so a document mixes both. This is older than the guide, which only exposes it.
+
+**Other defects, grouped by cause (causes are guesses unless marked checked).** All of these are older than the guide. The only drawing code the guide release changed apart from `page_key.py` is the alternative bracket's end and the `shown` bookkeeping (checked with `git diff prod-00064-tcs..main -- engine/`). Haydn and Grieg were also seen the same at `prod-00064-tcs`.
+
+| Group | Renders affected | Worst example | Severity | Guess |
+|---|---|---|---|---|
+| Region brackets ("pedal on X", "drone", "descending bass"): label struck by its own dashed line, slurs, accents, notes; line through tempo words | about GREG | Tchaikovsky June bars 84–85 "pedal on G" printed over noteheads and a beam, unreadable (`tchaikovsky-all--pedal-label-garbled-over-notes.png`); Debussy Clair de lune "Calmato" struck out | blocks reading / ugly | region bracket placed at a fixed height above the staff with no collision check against music or text |
+| Arrows across a system break, or between adjacent notes | about GARR1 | Haydn 104 piano bars 19–20: two arrows run to the page edge with no head; K. 545 bars 68–71: arrows reduced to an arrowhead on the barline | ugly | an arrow whose target is on the next system is clipped, not split; no minimum length |
+| Arrow labels and shafts on notes, staff lines, accidentals, clef changes | about GARR2 | Schubert Du bist die Ruh bar 40 "7–6" on its own shaft reads "7=6"; Debussy bars 6–7 arrow through a clef change | ugly / cosmetic | label placed beside the shaft without checking music |
+| Ring codes and small labels on lyrics, beams, dynamics | about GRING | Winterreise "Gefror'ne Tränen" bar 21: "NT" printed over the syllable "mei-", both unreadable (`winterreise-all--nt-label-over-lyric.png`); Der Atlas bar 19 "SUS" on a syllable; Beethoven Op. 10 No. 2 ii bar 38 "pp" on the numeral | blocks reading / ugly | code placed in the lyric band; numeral row does not avoid score dynamics below the staff |
+| Phrase brackets | about GPHR | Haydn 104 bars 17–24: the continuation of "antecedent" over the next system lands on the previous system's function row ("D antecedent T"); pickup phrases leave an unlabelled stub at a system end; "a″" and "c″" drawn smaller than "a′" (checked: `PHRASE_LETTER_SIZE` applies only to a letter with at most one prime) | ugly / cosmetic | no vertical room reserved for a continued bracket above a system |
+| Cadential "-7 / -3" figures with leading dashes after V6/4 | about GFIG | BWV 38.6 bar 10 | cosmetic | how continuation figures are written |
+| Views other than "all" keep the space of hidden marks | about GBAND | blank bands about 150 px under each system | cosmetic | layout reserves room for every mark before the view filters |
+| PDF only: the note in "Andante très expressif ♩ = 60" is lost | 1 | Debussy Clair de lune, PDF page 1 (checked: missing from the PDF's text layer; the preview has it) | ugly | cairosvg lacks the music glyph inside a text run |
+
+**Input, not drawing.**
+- Clefs: staff-1 clefs in the source files put treble music on eight ledger lines. Grieg Notturno bars 1–20 has an F clef. Beethoven Op. 14 No. 1 iii and Chopin BI 60-3 write clef changes with no staff number.
+- Doubled dynamics in several DCML Beethoven sonatas: a plain copy of each dynamic under the engraved one. This is a guess: probably a source text layer. Not checked.
+- Callout numbers out of reading order or repeated: the model writes those numbers.
+- Chord symbols used as numerals in one Debussy list.
+
+**What looked good everywhere.** Numerals stay clear of notes and ledger lines. Function brackets and cadence boxes do not collide. Rings sit on their notes. Callout discs mostly sit clear of the music. Phrase brackets close and restart at system breaks, with their labels. Labels were never cut off at a page edge. The orchestral scores (Mozart 41, Dvořák 9, all views) and the piano reductions' cue words were clean.
+
+**Minimal reproductions.**
+- Each record names its input (score file, annotation list), bars and view.
+- The renders follow `render(score, list, measures=bars, view=view, piano=piano, key=True, preview_pages=2)`, with annotations outside the bars dropped, as the gallery redraw did.
+- Region labels: `out/eval/reviewed/opus-medium-2026-10-24/tchaikovsky-june.json`, whole piece, PDF page 8.
+- NT over lyric: `heldout-schubert-_franz-winterreise-_d-911-03_gefror-ne_thränen`, bars 0–23.
+- Split arrows: `haydn-104-1.json`, bars 1–32, `piano=True`.
+- Guide mid-image: `haydn-104-1.json`, bars 1–60, `piano=True`.
+
+**NOT RUN.**
+- The pytest suite (not asked; no code changed).
+- The cards in real Claude or ChatGPT chats.
+- PDFs of one-page renders, except NONE.
+- A second, independent read of the pages that the Sonnet reviewers alone looked at.
+
 ### 170. The upload card's device code leaves the web address; the privacy page names the note of a file already sent (2026-11-16, branch `privacy-page-sent-record`, nothing released)
 
 From the cold review of 2026-11-14 (finding 1 of the site and listings part, confirmed by reading the code). The owner chose this form on 2026-11-16: one clause on the page, no technical detail, and the device code moved so the page need not mention it. Entry 169 is on the unmerged branch `homr-staging`.
@@ -4338,7 +4420,7 @@ PR #43 merged to `main` as `247754f` (entries 170, 173 and 182 to 202; with it #
 
 **Owed from entry 203.** Production has run revision 00068-5ph since the evening of 23 November: the same code as 00067-4r6 (main 247754f) with `CAREFUL_READING=chatgpt,claude`, switched on after OpenAI listed the two careful-reading tools. Going back to 00067-4r6 takes the scan offer away from ChatGPT only; 00065-fjv is the revision before the release.
 
-### 205. A user can show us their chat: the link goes in the card's suggestion box (2026-11-24, branch `share-chat`, on staging only; wording decided by the owner the same day)
+### 205. A user can show us their chat: the link goes in the card's suggestion box (2026-11-24, branch `share-chat`; wording decided by the owner the same day; released 2026-11-25)
 
 **Why.** When something goes wrong we see a log line and nothing of what the user saw. The owner asked for a way for a user to share the chat with us, and for it to cost the user as little effort as possible.
 
@@ -4384,7 +4466,7 @@ PR #43 merged to `main` as `247754f` (entries 170, 173 and 182 to 202; with it #
 
 **What it shows.** Since the offer, a user with a scan gets no analysis until they have answered a question that warns of minutes per page and of using up their plan's allowance ("a 10-page piece can use most of a five-hour allowance"); for 8 pages it names about 40 minutes. Before the offer the analysis came straight after the read. Two users are too few to prove the question costs analyses (two misses in a row happen about one time in eight at the old rate), and we cannot see their chats. Not known: why the first user's careful reading was never handed in (left the chat, a plan without the sandbox, a failure in the chat). Nothing was changed; the order (analyse the quick reading first, then offer) is the owner's decision.
 
-### 207. A scan is analysed first; the careful reading is offered after the analysis (2026-11-24, branch `offer-after-analysis`, on staging only)
+### 207. A scan is analysed first; the careful reading is offered after the analysis (2026-11-24, branch `offer-after-analysis`; released 2026-11-25)
 
 **Why.** Entry 206: since 23 November a user with a scan got a question with a cost warning before any analysis. The owner asked how we know the two users of 24 November were lost and not just uninterested, and what they sent. We do not know. What they sent, from the kept uploads (looked at, local copies deleted): a phone photo of one workbook page that already has Roman numerals printed under it (the quick reading made 21 bars of about 8 and shaded 7; six minutes later a careful reading was started and never handed in), and a scanned piano arrangement of an overture, 11 pages of which 8 were read in 4.5 minutes (276 bars, 39 shaded), after which the question named about 40 more minutes and was not answered. The base rate, corrected from entry 206's rougher count: in the 30 days before the offer, 31 ChatGPT users got a first reading of a scan and 20 of them (65%) reached a marked page within three hours, with no question in the way; 11 left anyway. Two misses in a row happen about one time in eight at that rate. The owner decided to turn the order around all the same: a user who stops at the question leaves with nothing, and after the change has the marked page first.
 
@@ -4406,6 +4488,207 @@ PR #43 merged to `main` as `247754f` (entries 170, 173 and 182 to 202; with it #
 **NOT RUN.** The yes path in Claude after the second commit (the careful reading itself in a Claude chat); a scan of many pages; a chat without a code sandbox.
 
 **Checks.** Full suite with the PDF reader on the branch (the two code commits plus this entry): 1,905 passed, 4 skipped (no ring codes), 2 expected failures, 0 failed (4 workers, 15.3 minutes).
+
+**Released 2026-11-25, with entry 205.** PR #47 (`share-chat`) merged to `main` as `ca328d2` and PR #48 (this branch) as `8b40a20`; CI green on both pull requests and on `main`. Production revision `sheet-music-analysis-00070-555` (rollback target `00069-8bl`), serving from 04:39 UTC with `CAREFUL_READING=chatgpt,claude` as before; the deploy script tagged the commit `prod-00070-555`. The privacy page with the sentence about a pasted chat link was published a few minutes before the server and checked on the live site. No tool name, description, schema or card address changed, so OpenAI has nothing new to list; the analysis card's page changed in place, and ChatGPT shows its stored older copy until it fetches the page again (entry 205). The Claude plugin was not released. Clean start (`server imported`, the start-up probe at the first attempt, on both instances); the only warning lines are the release script's own two test requests. Through `mcp.sheetmusicanalysis.com` an empty request answers 400, straight to the run.app address 403, `/health` 200. The registry now keeps the images of `00070-555`, `00069-8bl` and `00068-5ph`; the tag of `00067-4r6` was dropped.
+
+The release was meant to be one command and took three. The script stopped silently at its last step because one of my own checks looked for a sentence that is broken over two lines in the source, and my watcher did not notice for 40 minutes; the replacement then stopped once more because it gave the live site 20 seconds to show the new privacy page and the site took longer. Nothing wrong was released either time. From now on every check of a release script is run against the branch before the owner gets the command, all checks come before anything is merged, and waits for a live page poll for minutes. NOT RUN: a real chat on production after the deploy (the same code ran the chats above on staging).
+
+### 208. Where ChatGPT users stop between a reading and a marked page, and results that end with the next step (2026-11-25, branch `go-on-wording`, on staging only)
+
+**Why.** Entry 207 asked whether users who left were lost. Counting what each ChatGPT user did in the three hours after their first PDF reading (production logs, owner's codes left out): between 11 and 23 November, when the chat was told to go straight on to the analysis, 33 users got a reading; 23 reached a marked page (70%), 6 got a draft and never a drawn page, 4 stopped right after the reading, and 4 of the 23 went on only 30 seconds or more after the reading, which is a user asking again (the usual gap is 2 to 10 seconds). How long the reading took does not separate the groups. My first count took the whole 30 days (48 readers, 11 stopped after the reading) and was wrong to: until the release of 10 November the read's result told ChatGPT not to analyse before the user had checked the reading, so those stops were asked for. Opus found that while studying the fixes.
+
+**What the study found** (`options-opus.md`, kept outside the repo): the server holds no analysis of its own since entry 143, so a card cannot draw one without the chat. Several of our texts invite a model to end its turn early: the doubtful-reading warning said "Open your reply with this warning, before anything else"; a scan's result ended on the offer's question; the draft is 13,000 characters or more of method before the notes, with "call render_analysis" once in the middle. Both products' card interfaces document a way for a card to post a message into the chat on a user's tap (`ui/message`; `window.openai.sendFollowUpMessage`); whether that starts the model's turn is not documented and not tried.
+
+**What changed** (result texts only; no tool name, description, schema or card):
+- Every PDF read's result ends with "Now call draft_analysis with this score_id.", after the link line and after a scan's offer. In Claude, the note about images left out for size is put before the text instead of after it, so the last line stays last.
+- The draft's result ends with "When you have analysed every bar the user asked for, draw them as this reply says above, with render_analysis and score_id <id>; the analysis is not finished until the page is drawn."
+- The doubtful-reading sentence is "Open your reply with the analysis with this warning, before anything else: ...".
+
+**Review** (Sonnet built it, Opus read it and built the second commit, which I read). The first version of the draft's last line said to draw "when your analysis is ready": it comes after every stretch of a long piece and after the context calls around a passage, so a chat could have drawn several times, each one charged, against the rule of one drawing. It now defers to the guide's own drawing rule. One new test goes through the running server as Claude with images left out and checks the end of the text.
+
+**The scan note** (owner's decision, 25 November). The note the chat passes on for every scan ended "so please check carefully", a request to the user to check inside a result that tells the chat not to wait for a check. It now ends "so the analysis may be wrong where the reading is". Readings stored before the change keep the old sentence.
+
+**Left out on purpose.** The description's "unless the result tells you to ask the user a question first" (a description change, which OpenAI re-scans); the sentences a chat is told to write between calls.
+
+**Real chats on staging** (25 November, ChatGPT only for the first five, the owner's Plus account, our two sample PDFs; staging closed afterwards, 403 on both addresses):
+- Before the change (revision 00168-7nk), to test my guess that chats on a smaller model are the ones that stop: five chats, four on the picker's fastest setting ("Instant") and one on the default, a printed score and a scan. All five went from the reading to a marked page without a further message. The guess is not confirmed. Not tried: a free account, and a reading that takes minutes (all five readings were stored ones).
+- After the change (revision 00169-fh7, which also carries the button of entry 210): three ChatGPT chats (print, print, scan) and one Claude chat again went straight to a marked page; the scan's reply ended once with the offer. So the new texts break nothing in these chats, and nothing here shows that they help: we have not been able to make a chat stop by itself, before or after. Whether fewer users stop can only be seen in production's numbers after a release (70% of readers reached a marked page between 11 and 23 November).
+- The scan's reply still said "so please check carefully": its reading was a stored one from before the change, as expected.
+
+**Checks.** Full suite with the PDF reader on `analyse-button` 4bc6f60, which is this branch's four commits plus the button: 1,917 passed, 4 skipped (no ring codes), 2 expected failures, 0 failed (4 workers, 12.4 minutes). NOT RUN: the suite on this branch alone; a chat with a doubtful reading, for the reworded warning.
+
+### 209. Tests on GitHub in four parallel jobs, a light path for text-only changes, and a deploy gate that needs one full run (2026-11-25, branch `faster-ci`)
+
+**Why.** On 24 November three small releases cost eight runs of the suite at 25 to 37 minutes each, about four hours, plus a dozen commands for the owner, who asked for the process to be far faster and for every release to be one command. Measured: set-up is 30 seconds, everything else is `pytest` on GitHub's 4-core machine (12 minutes on this PC with 4 workers). Tests of 2 seconds or more add up to 38 CPU-minutes here, 18 of them reading real PDFs (`tests/test_read_pdf.py` alone 13.7) and 6.7 the round trip of corrections on long pieces. Every release ran the suite twice on the same files, on the pull request and again on `main`, and a text-only release record ran it twice too.
+
+**What changed.**
+- `.github/workflows/test.yml`: a job `changes` lists the files changed (against the pull request's base, or the commit before on `main`) and decides. Any file outside `*.md`, `docs/` and `LICENSE*`, or under `site/ server/ engine/ kit/ skill/ plugin/ dist/ tests/ tools/ eval/ .github/`, or a list that cannot be made, means the full suite, which runs as four jobs: `read` (`test_read_pdf.py`), `corrections`, `mixed`, and `rest`, which is everything not named in the other three, so a new test file runs without an edit. A text-only change runs the two test files that read texts (24 tests). The last job is still named `test`, the one required check, and fails unless the path that was due succeeded and the other was skipped. A run started by hand is always the full suite.
+- `server/ci-passed.sh` and the production gate in `server/deploy.sh`: production deploys only what a full run passed. The gate looks at the runs of the commit itself and of the pull request GitHub ties to it, and accepts one whose commit has exactly the tree being deployed and whose four group jobs all succeeded. So the second run on `main` need not be waited for when the pull request's branch held all of `main`; a text-only run never counts; and a head of `main` that differs from the last fully tested files only in text is refused with a message saying what to do.
+- The groups together collect 1,911 tests, as the plain run does.
+
+**Review** (Sonnet built it; I read the first commit; Opus read the branch). Mine: a text-only run is a green run of the workflow, and the first gate took any green run with the same tree, so code that never passed the suite could have reached production over a broken `main`. Opus: `git diff --name-only` names only the new path of a renamed file, so a test moved into `docs/` would have passed as text (now `--no-renames`, shown in a scratch repository); the gate scanned the newest 30 successful runs of all branches and would have refused wrongly on a busy day (now the commit's own runs); a failure to reach GitHub was reported as "no full run" (now its own message). The builder caught one of its own: `exit 0` inside a piped loop left only the subshell.
+
+**First run on GitHub** (pull request #49, 25 November). The whole run took 12 minutes 17 seconds, against 25 to 37 before: `read` 12 minutes 3 seconds, `corrections` 6 minutes 44, `mixed` 4 minutes 20, `rest` 4 minutes 51, so my estimate of 4 to 6 minutes for the slowest job was wrong by half and `read` sets the time. The gate, run by hand against real runs: it accepts the head of this branch (the four group jobs succeeded on exactly its files) and refuses `main` at `8b40a20` and the head of `go-on-wording`, whose runs are the old single job.
+
+**NOT RUN.** The text-only path on a real event (the `texts` job has only been skipped so far); a run on `main` after a push, which reads `github.event.before`; the gate on a merge commit of `main`, where it has to find the pull request's run. The first release with this workflow is their test.
+
+### 210. A button on the reading card that asks the chat to analyse: built, tried in real chats, does not do its job (2026-11-25, branch `analyse-button`, on staging only; second round and the decision in entry 211)
+
+**Why.** Entry 208: some chats stop after the reading, and both products document a way for a card to post a user's message into the chat on a tap. A button "Analyse this score" with the line "If the analysis has not started by itself, tap here." was built on the reading card: a tap sends "Please analyse this score now." with `ui/message`, and with ChatGPT's own `sendFollowUpMessage` if that is refused; the card then says whether the chat was asked, and tells the server through a new tool the chat cannot call (`asked_to_analyse`). The reading card got a new address (`pdf-card-v4.html`), with the page as it was kept at the old one for ChatGPT's stored tool list. Opus reviewed it; four faults fixed (a second message when the answer had no result, no status text, a loosened test, a confusing file name).
+
+**Real chats on staging** (revision 00169-fh7 for ChatGPT, 00229-rex for Claude; 16 minutes after "Refresh tools"; the server's own log of each tap is the evidence where the card could not be photographed):
+- Claude, two chats, one that had analysed and one told to read only: the tap posted nothing. The server's log has `sent: false` for both, so Claude refused the message and the card showed the sentence that tells the user to type instead. The refusal's reason was not captured. To a Claude user the button is one that does not work.
+- ChatGPT, chat that had already analysed: the message appeared at once with no question from ChatGPT first; the chat answered that the score was already analysed.
+- ChatGPT, two chats told "just read this PDF for now, do not analyse it yet", then the tap: the message appeared both times, and both times the chat answered with a question ("Would you like me to proceed with the harmonic analysis now ...?") instead of analysing. No marked page from the tap in either. The test is not the real case, because here the user had asked for no analysis and in the real case nobody had; but it is the only stop we can produce.
+- ChatGPT, tap while the reply was still running: nothing happened and the server's log has no line for it, so either the tap did not reach the card or the card was not listening yet.
+- After a reload of a ChatGPT chat the button is gone from a card where it was tapped, as built. The status line under the button was never seen: screenshots time out after a click in a card, and a reload clears the line.
+- In the ChatGPT chats with the printed sample the reading card's page picture was missing. Cause: the stored reading held the picture's address on the Claude test address, read there minutes before, and ChatGPT's card may only load pictures from the address it was listed with. Staging has two addresses over one store; production has one, so this cannot happen there. The scan, read only through the ChatGPT address, showed its picture.
+
+**Where this leaves it.** In neither product did a tap produce a marked page. Shipping it would cost a new card address and a new tool for OpenAI to scan, and a control in Claude that fails. Not merged; the owner decides between dropping it and one more round (find out why Claude refuses; in ChatGPT compare the tap with the same sentence typed by hand).
+
+### 211. The button, second round: it works in ChatGPT and is not shown in Claude (2026-11-25, branches `analyse-button` and `analyse-button-chatgpt`)
+
+**Why a second round.** Entry 210 ended with no tap producing a marked page. Two things in that round were mine to fix before judging the button. The button sent its message with `content` as one object, while the upload card, whose message Claude accepts, sends a list (fixed in `9851003`). And in claude.ai a card's message has never been posted by itself (entry of 8 November: it went into the reply box), which the first round never looked for.
+
+**Real chats on staging** (the standing Sonnet session in the owner's browser; revision 00171-jn9 for ChatGPT and 00232-cox for Claude; "Refresh tools" pressed 21:39 UTC, the ChatGPT chats from 22:11; one printed sample PDF; notes and pictures outside the repo):
+
+| Product | How the chat began | Marked page by itself | What was done | Marked page afterwards |
+|---|---|---|---|---|
+| ChatGPT | "Can you read this PDF with the app?" | no | tap | yes, within 40 s |
+| ChatGPT | told to read only (two chats) | no | tap | yes, within 55 and 65 s |
+| ChatGPT | told to read only (two chats) | no | the same sentence typed by hand | yes, within 60 s both |
+| Claude | told to read only (two chats) | no | tap | no |
+| Claude | "Can you read my score?" | yes | tap | already there |
+
+- ChatGPT: a tap posts "Please analyse this score now." as the user's own message, ChatGPT asks nothing first, and the page is drawn. A tap and the typed sentence behaved the same in five chats. The question ChatGPT asked back in the first round ("Would you like me to proceed ...?") did not come again; why it came then is not known. The neutral request is the nearest thing to the real case that we have produced: ChatGPT read, stopped, and the tap finished the job.
+- Claude: a tap brings up Claude's own panel above the reply box: "'test sheet' wants to send Claude a message / These are the app's words, not yours. / Please analyse this score now. / Decline / Allow once". The card already said "Asked the chat to analyse this score." while the panel was unanswered. Only the owner may answer such a panel; in the one chat where the owner pressed "Allow once", Claude wrote "That came from the app, not from you, and you asked me not to analyse yet, so I haven't started." and drew nothing. That chat had been told not to analyse, so it does not show what Claude does for a user who wanted the analysis; the panel alone fails the owner's bar that a first-time user must find everything obvious.
+- The reading card's picture was a broken image in all six ChatGPT chats. Every read that evening reused a stored reading first made through the Claude test address, and a picture's address is fixed when the reading is made (`publish` uses the address of the revision that read). Staging has two addresses over one store; production has one. A control chat with what I took for a different file proved nothing, because the file was a copy of the sample. The evidence that it is staging only is the code, the log, and the scan of the first round, read only through ChatGPT's address, whose picture showed.
+
+**Decision (owner, 25 November):** the button ships in ChatGPT only.
+
+**What changed** (Opus built it, I read it): the server marks a reading for the button only when ChatGPT made the call (`pdf_card_result`), so the card, which already showed the button only with that mark, needed no change; the note-a-tap tool is not in Claude's tool list. Deciding it on the server uses the product rule that already gives Claude its own tool list, and can be tested through the running server for both products. For OpenAI's scan, against `main`: one new tool, `asked_to_analyse` (callable by the card only), and `read_pdf`'s card address moves from `pdf-card-v3.html` to `pdf-card-v4.html`, with the old page kept at the old address. Claude's tool names are unchanged; its reading card moves to the new address and shows no button.
+
+**Checks.** The card's browser tests, the ChatGPT flow, the server-process tests and the careful-reading tests on the branch: 213 passed. A new server test reads a PDF as ChatGPT, as Claude and as neither and finds the mark only for ChatGPT. NOT RUN: a real chat on the final branch (the chats above ran the branch before the server decided by product; the card and its message are the same); which of the two ways of posting ChatGPT accepted (the card tries the shared one first and ChatGPT's own second; the server's log shows only that the message went); a tap on production.
+
+### 212. The careful reading's cost warning says what is true for each product (2026-11-25, branch `offer-warning-by-product`)
+
+**Why.** The offer of a careful reading warned every user that it "uses a lot of your plan's usage allowance. As a guide, a 10-page piece can use most of a five-hour allowance on a standard paid plan." That was worked out on Claude (entry 181) and says nothing true about ChatGPT: OpenAI's pricing page lists everyday chat on its paid plans as unlimited, with separate limits only on the higher thinking settings, for which it gives no numbers (pricing and help pages read on 25 November). The owner also asked that Claude's sentence say what will run.
+
+**What changed.** One table of cost sentences by product (`CAREFUL_COST`) and one helper that picks a text by product (`for_product`), now also used for the two older texts that were picked the same way. In both places the warning is said (the offer after the analysis and the question before the steps):
+- Claude: "Reading this scan carefully takes about 5 minutes a page. I'd start one helper per page, each on Sonnet at medium effort, and that uses a lot of your plan's usage allowance. As a guide, a 10-page piece can use most of a five-hour allowance on a standard paid plan. ..."
+- ChatGPT and any other product: "Reading this scan carefully takes about 5 minutes a page. ..."
+
+The ChatGPT package's reviewer case and release notes said the same untrue thing about an allowance and are corrected in package 1.5.1.
+
+**Not measured.** The owner wants Claude's sentence to give the share of a five-hour limit by plan. The only figures we have are derived (about US$1.3 a page at API prices, and one observation of where the owner's own limit was reached), so no percentage is printed. A measurement with Claude's usage page could not be run by the browser tools, which may not open Claude's settings pages; the owner reads the page by hand before and after one careful reading, and the number follows.
+
+**What the day's production log shows about the offer** (25 November, the first day with the analysis before the offer): 9 scans read (7 by four ChatGPT users, 2 in Claude chats); the offer went into every scan's result; the careful reading was started in two chats and handed in in neither. One ChatGPT user said yes on an 8-page scan, got the steps, had the quick analysis drawn again three minutes later, asked for the steps once more and stopped. Both ChatGPT users who have said yes so far (24 and 25 November) ended without a careful reading. Why is not known: what the chat does between the steps and the hand-in happens in its own sandbox, and the careful reading has only ever been tried on the owner's paid account.
+
+**Review** (Opus, both commits and the wording commit): no fault; its three points are in (the shared helper, the README row, Claude's question checked through the running server). **Checks.** The four test files that touch these texts: 171 passed.
+
+### 213. A score with no notes is answered plainly (2026-11-25, branch `no-notes-message`)
+
+**Why.** The owner showed two shared chats of one real ChatGPT user, a composer working in a music production program (20 and 22 November). In the first, the user attached a MusicXML export that held one empty bar. Our server's log says `draft_analysis` ok: the answer was the whole method for analysing a score over an empty table of notes, and nothing told the chat or the user that the file was the problem. The user then tried a PDF export of one part (3 pages, 25 bars, all 25 marked doubtful; ChatGPT rightly drew no numerals) and an MP3, which ChatGPT measured by itself; two days later a MIDI file, which never reached us because we take none. Four formats in two visits and no useful word from us about any of them. This entry fixes the first; MIDI is a separate question for the owner.
+
+**The rule** (owner's wording): a score file with no sounding note anywhere, pitched or percussion, is a user's mistake, answered with "This file has no notes in it, only empty bars. Export it again from your music program, or send a PDF of the score." Rests, empty bars and a file with no bars all count as no notes; one silent part among sounding ones is fine.
+
+**What changed** (Sonnet built it, Opus reviewed it, I made the review's one change). `require_notes` in `engine/render.py` looks for a pitch or an unpitched note in the file's text; it is called in one place, `resolve_score`, where `draft_analysis`, `render_analysis` and `play` get their score, before any daily limit is counted. The fetching itself is now `fetch_given_score`, used directly by the three callers that must not refuse: the PDF path, and, after review, `careful_reading` and `correct_bars`, which are the two remedies for a reading that came out empty. The refusal is logged as a user error with the sentence as its reason.
+
+**Before the fix, across the test data:** 78 score files, none without notes; the check stays as a test. **Cost:** no extra parse; on a 682 KB score 0.1 ms with notes and 0.7 ms without (1.4 ms packed).
+
+**Known and left.** Claude's upload card and a link still accept such a file and the sentence comes one call later, at the draft; that upload counts toward the daily limits as any upload does. A chord chart with symbols over rests and no notes is told "only empty bars", which is not quite true of it; the analysis works from notes and gave nothing for such a file before either. A PDF whose reading held only rests would be told at the draft to "send a PDF"; none has been seen.
+
+**Checks.** 16 new tests through the running server for Claude and ChatGPT, 12 of the first 15 failing before the fix and the review's test failing before its change; five test files that touch scores and corrections: 595 passed, 2 expected failures. `tools/diff_check.py --base` against the commit before, `render`: 28 inputs, none changed. NOT RUN: a real chat, so how a chat words the sentence to a user is not seen.
+
+### 214. A careful reading keeps the chord symbols printed in the score (2026-11-25, branch `careful-chord-symbols`)
+
+**Why.** The quick reading of a PDF keeps a score's printed chord symbols (entry 199). The careful reading builds a new score from the note lists its helpers write, and the instructions never mentioned chord symbols, so a lead sheet read carefully lost every one of them. In the one careful reading a real user has finished (24 November, 8 pages) the quick reading's 3 chord symbols became 0. The owner's decision: tell the helpers to keep them.
+
+**The rule.** A bar's chord symbols are one line of the note list, `c: SYMBOL@POSITION`, with the position in the bar's own units from its start (`c: Am7@0 D7/F#@8`). Units, because the helper already adds them up for note lengths and `len`, so the check can ask for a position below `len` and the page join shifts it like a note length. The marks line `x:` counts in quarter notes; whether it should follow is not decided. A symbol belongs to the bar and not to a voice, since it often stands where no note starts.
+
+**What changed** (Sonnet built it, I reviewed it). `kit/reader.md` asks the helper for the line and shows one; the kit's check refuses an entry with no position or a position at or past `len` (`CHORDS`), and `notes.decode` refuses the same. `engine/from_notes.py` writes each symbol into the empty score as the same element a file's or a quick reading's chord symbol is, so the drawn page, the marks around it and the table of notes for the chat (entry 199) need no second path. A name that starts with A to G keeps its root and bass and prints its ending as written, with no table of chord kinds and nothing guessed; anything else (`N.C.`, `(Am)`) prints as written. `correct_bars` already kept a bar's chord symbols (measured: 15 of 15 and 9 of 9 symbol bars on two lead sheets, after a note edit and a rewrite of each bar) and now answers a `c:` line with "leave out the c: line; a corrected bar keeps its chord symbols".
+
+**Measured.** One helper on Sonnet at medium effort, one page (our own "Amazing Grace" lead sheet, drawn by us and turned into the kit's page picture): with the changed instructions 16 of 16 chord symbols right in name and position, 33 of 33 notes, 16 of 16 bars; with the unchanged instructions the same notes and no symbols. 74,949 against 74,745 tokens. The quick reading of the same page as a picture-only PDF kept 6 of the 16 (it missed every single-letter name). **Limits:** one clean typeset page with one voice, and only one symbol off the first beat, so this does not show what the extra task costs on a hard page, and says little about placing.
+
+**Nothing changes without chord symbols:** 76 note lists from the test data, none with a `c:` line: 33 build the same score before and after and 43 are refused with the same sentence.
+
+**Checks.** 25 new tests, failing before; the careful-reading, correction and server test files: 659 passed, 2 expected failures. NOT RUN: a real chat in either product; a photographed or scanned lead sheet; a second model's review beyond mine.
+
+**Seen and left.** A control character in a symbol raises the same uncaught error sung words already do. The format has no staff for a symbol, so all are drawn above the top staff. A word that starts with A to G written on the `c:` line (`D.C.`) would be listed as a chord.
+
+### 215. ChatGPT calls us in two ways, and only one of them can do a careful reading (2026-11-26, branch `plain-tool-texts`)
+
+**Why.** Since the careful reading was switched on in ChatGPT (23 November), three real users said yes to it and none got one: the server handed out the steps and never heard from the chat again. On the owner's account it had worked every time.
+
+**What we found** (owner's Plus account, two-page scans; staging and production; the route of every call read from the server log). ChatGPT reaches the server in two ways, and each call shows which. From ChatGPT's agent the caller names itself `openai-mcp (Codex)` and sends a `callId`; from an ordinary chat turn it names itself `openai-mcp` and sends the browser's user agent, locale and timezone instead. A careful reading started from the agent downloaded the measuring script within seconds and went on, 16 of 16. Started from an ordinary turn it never did, 14 of 14, the three real users among them: that turn's code sandbox has the user's PDF but no internet, and it has no helper agents, so the chat gives up in 10 to 25 seconds, twice asking the user to upload our three script files by hand. In one such chat ChatGPT also showed a web picture of another edition under its own heading "Annotated score".
+
+What sends a turn to the agent, tested one change at a time on the Instant setting (thinking Medium and High always use it): the app picked in that message, by typing @ and choosing it or from the "+" menu, yes (3 of 3); the PDF attached again, no; asking in words for the sandbox and helpers, no; a message posted by a tap on our card, no. On production since 19 November, leaving out the owner, 20 people came only by ordinary turns, 5 only through the agent and 1 by both. Both ways are at least 30 days old.
+
+**What changed** (Opus built it, I reviewed it). `chatgpt_route` in `server/app.py`, beside `client_of`, says agent, ordinary or unknown for a ChatGPT call; every ChatGPT log line carries it as `route`. `careful_reading` called from an ordinary turn hands out no steps. It says that this turn cannot run the careful reading and gives the chat a note for the user: "I can't start the careful reading from this message. To start it, type @Sheet Music Analysis, choose the app from the list, and say yes again." The log line says which answer was given (`answer`: `steps` or `needs_the_agent`), with the person's code, so we can count who is sent round and who comes back and hands a reading in. From the agent, from Claude, and when the caller cannot be told, the steps are as before; if OpenAI changes these signs, calls fall to "unknown" and behave as they did.
+
+**Measured in real chats** (staging, Instant): a plain yes that arrived by an ordinary turn got the note 11 times in 11 over four rounds of chats, and each reply told the user to pick the app and say yes again (the wording is the chat's own; one said "an agent-enabled session"). In the six chats where that was then done, the steps were handed out and the script downloaded every time; five finished with a new marked page in 2 min 42 s to 3 min 55 s for two pages, and one gave up after two minutes and said it had not redrawn the analysis. On Medium a plain yes started the reading directly (1 of 1). On production, with the old texts, a yes sent on Instant with the app picked again by @ led to a finished careful reading (1 of 1), so the step the note asks for works there too.
+
+**Known and left.** The signs are not documented by OpenAI. Free and Go accounts could not be tested: OpenAI's help pages say its agent is for "eligible paid plans", so those users may get the note and no careful reading. The offer is still made in a chat whose yes will arrive in an ordinary turn, which costs the user one round trip.
+
+**Checks.** One test through the running server sends agent, ordinary, unknown and Claude calls shaped like the log's and checks the answer and the log line. NOT RUN: any account other than the owner's.
+
+### 216. Running the careful reading's measuring tool on our server: tried, and it does not help in ChatGPT (2026-11-26, scratch branch `careful-tools-trial`, not merged)
+
+**Question.** If the chat needs no sandbox and no download, because our server runs the three measuring commands and returns their pictures, can an ordinary ChatGPT turn read a scan carefully?
+
+**The trial** (Opus built it in two hours, staging only, behind a setting). Four read-only tools ran `kit/notetool.py` in the server process: the layout of a page, the labelled crops of one system, a zoom, and the note-list check. First call on a page 1.4 to 2.4 s, later calls 0.02 to 0.15 s; 2.5 to 4.6 MB of pictures a page as JPEG; server memory up by 0.3 to 0.5 GB beside a PDF read, on top of a worst case already measured above the service's 4 GiB; about US$0.001 a page at Cloud Run's list price. One helper on Sonnet at medium effort read Beethoven page 1 through the tools as well as with the script in a sandbox (162 of 164 notes both; 19 against 21 of 22 bars fully right, one run).
+
+**In ChatGPT it failed 4 of 4.** On Instant the chat gave up 9 to 13 seconds after the yes, at the first result ("returned an unusable response", "did not come through in a usable format"; our server had answered with the picture and the text), three times on two pieces. On Medium, through the agent, it called the tools 14 times in 85 seconds and stopped: "I haven't completed the full note-by-note transcription". The same setting finished a careful reading in under three minutes with the script, by giving each page to a helper.
+
+**Conclusion.** Where the script runs was never the obstacle. An ordinary ChatGPT turn does not work from a tool's pictures, and ChatGPT without helpers will not write out a page of notes. The branch is kept and shelved; the memory question would have to be solved first if it is ever taken up for another product.
+
+### 217. What our tools say to the chat: statements instead of orders (2026-11-26, branch `plain-tool-texts`)
+
+**Why.** In ordinary ChatGPT turns, ChatGPT sometimes stopped one of our calls at its confirmation box with a red panel, "Suspicious Instruction", that quoted our own texts back: "Tool documentation attempts to prescribe when to call, how to label annotations, what links to offer", "Prior tool output attempts to override workflow, require specific follow-up calls, and prescribe exact user-facing wording". Seen on the released app in 1 of 6 later-turn drawing calls, and on the staging app in 3 of 3 situations that the 25 November texts had made more commanding. OpenAI documents no such check; its pages say a description explains what a tool does, that "required tool sequences" belong in the server's instructions with the most important part in the first 512 characters, and that a result holds data relevant to the request. Four other developers report the same panel and the same cure.
+
+**What changed** (Opus wrote the texts and the proposal, I reviewed; round 4 is mine, reviewed by an Opus reviewer). Only words change; no tool, argument, card or limit does.
+- Tool descriptions say what a tool takes and returns. ChatGPT's ten shrink from 5,316 to 4,357 characters; the order words in `server/app.py` (must, never, only, "Tell the user", "Call ...", "in these words") fall from 107 to 25, all of them now statements of fact.
+- The order of calls and the meaning of four labels sit once in the server instructions (362 to 1,685 characters, the order and the labels in the first 512).
+- Results are data plus labelled lines: "Note for the user", "Warning for the user", "Question for the user", "Offer for the user".
+- The reading result of a scan is word for word that of a typeset PDF. That the PDF is a scan, and the offer of a careful reading, come with the first drawn page of that score, as the last thing in its result.
+- The analysis material says in its second line what it is: material, from which the analysis is written; the server works out no Roman numerals.
+- Scores' ids are for calls; the instructions say replies do not show them, and the how-to-start note does not name one.
+
+**Measured in real chats** (owner's Plus account, the staging app, two-page scan of Mozart K. 545 and a typeset Chopin prelude; the route of every call read from the server log). No warning panel in 41 chats over four rounds, where the old texts on the same app had drawn it in 3 of 3 situations.
+- Round 1 (12 chats): no panel; the how-to-start note led to a finished careful reading 2 of 2. Costs of the softer words: one chat stopped after the reading, the sentence about slurs was lost, the offer was paraphrased, ids were shown, one page was drawn with no marks (entry 218).
+- Round 2 (12 chats): the note gives its one step 5 of 5, a careful reading finished 3 of 3. But every chat that started without the app picked stopped after reading the scan and recommended the careful reading first (3 of 3): the reading's result still said the PDF was a scan. In later turns the offer was missing or weak in 4 of 5.
+- Round 3 (8 chats): with the scan fact moved to the drawn page, 2 of 3 unpicked chats went from reading to a marked page with the offer at the end; one received the analysis material and told the user the app "did not return the harmonic-analysis data". After the card's button the offer, sent by the server, was not passed on (2 of 2).
+- Round 4: (9 chats) with the analysis material saying what it is and the offer last in the drawn page's result: after the card's button the offer was passed on 3 of 3; of four unpicked chats three reached a marked page (one offer was a statement, not a question) and one again stopped after the material ("the harmonic-analysis step did not return a usable result", 7 seconds); after a typed "Please analyse this score now." the offer was missing (1 of 1); one read-only reply showed a score id. Over rounds 3 and 4, 5 of 7 unpicked scan chats reached a marked page in the first reply.
+
+**What production says about the old texts.** In 30 days, 30 of 83 analysis requests that arrived by an ordinary turn (15 people) were not followed by a drawn page within three minutes; through ChatGPT's agent, 6 of 44. The owner's tests are in these numbers, and some users may have wanted words only. So a chat that stops after the analysis material is an old fault of ordinary turns, not one the new words brought.
+
+**Known and left.** An ordinary turn follows the server instructions poorly: tables instead of sentences in some replies, the sentence about slurs passed on in a minority of chats, no line before a long step. The agent route follows them. Results now say what they are at their start and what is for the user at their end, because that is what an ordinary turn was seen to act on. OpenAI's own scan of the changed tools has not seen these texts. Claude was not tested in a chat (NOT RUN).
+
+**Checks.** The tests that pinned texts pin the new ones; one walks every path of a scan (read, first drawn page, later pages, both products) and checks where the scan fact and the offer appear. Full suite with the PDF reader on e66cdbe: 1,963 passed, 4 skipped, 2 expected failures, 0 failed; on round 4's commit 588b3ff: the same counts.
+
+### 218. A page with no marks is not drawn, and a careful reading of part of a scan says so (2026-11-26, branch `plain-tool-texts`)
+
+**Why.** In a staging chat ChatGPT called `render_analysis` twice in one turn, with 71 marks and 11 seconds later with none; the server drew the empty list as a bare score, the card showed that, and the reply still said "Roman numeral analysis". It was not new: on production in the 30 days before, 29 of 141 pages drawn for real ChatGPT users had no marks at all (9 of 50 people), 28 of them with no marked page within three minutes before or five after. What those users asked for is not known; some may have wanted to see the score. Our counts of "marked pages" included these.
+
+Separately, a careful reading handed in for one page of an eight-page scan was accepted with the same words as a whole one (a staging chat on 26 November, and the one real Claude user who finished a careful reading, on 24 November, handed in one page first).
+
+**What changed.** `render_analysis` with an empty annotation list draws nothing and says so: the list is empty, a drawn analysis needs at least one mark, and the reading card or the score itself shows the score without marks. Nothing in the product drew an empty list through the tool; the worksheet calls the engine directly and is unaffected. `use_careful_reading` with fewer pages than the scan has says how many of the scan's pages the reading holds, and gives a note for the user in case the rest cannot be read; its log line carries the scan's page count.
+
+**Checks.** Tests through the server for both; the tests that used to draw an empty list now draw one mark. NOT RUN: what a chat tells a user after the refusal.
+
+### 219. The proxy's second try, proved on staging (2026-11-26, branch `proxy-retry`, merged into `plain-tool-texts`)
+
+**Why.** Twice on 25 November, and 21 times in the 30 days before, Cloud Run refused a request before our server saw it ("aborted after waiting too long for an available instance"). Since 23 November one PDF read holds both request slots of its instance, and a third request arriving then can be refused although a second instance is idle.
+
+**The rule** (Opus built it, I reviewed it). The server marks every answer it gives with the header `x-answered-by`. The Cloudflare proxy sends a request once more, at once, when the answer is a 429 or a 500 without that mark, and logs one line per refusal with how long the first try waited and whether the second was answered by us.
+
+**Proof.** Step A (25 November, staging with one instance and a long read, no proxy): a second request waited 10 s and got HTTP 429, `text/html`, "Rate exceeded.", no mark; every answer of ours carried the mark. Step B (26 November, the owner's run; a temporary proxy in front of staging, one instance held by a read for 102 s, 24 requests five seconds apart): the proxy logged 14 refusals, every one without the mark, and tried each again once. Four were then answered by our server; ten were refused again, because the only instance was still full. Ten more were answered on the first try after waiting up to 32 s. Both of Google's refusals were seen: 429 "Rate exceeded." and a 500 error page ("Please try again in 30 seconds"). A request waits about 33 s in Cloud Run's queue before it is refused; one was refused after 34 ms and then answered on the second try.
+
+**What this does not show.** The share of real refusals the second try will save: the test left it nowhere to go, and production's case is an idle second instance. The proxy's log line will tell after release. A request refused twice now takes about 66 s to fail instead of about 33.
+
+**Release order.** The server with the mark goes out first, then the proxy; a proxy that looks for the mark in front of a server that does not send it would try every 429 and 500 of ours a second time.
+
+**One false start, mine.** The owner's first run of step B stopped at once: staging answered without the mark. I had moved staging's traffic back to the build with the proxy change, but the proof script sets the instance count with `gcloud run services update`, which makes a new revision from the latest deployed build, and that was a build without the change. Setting that build as the service's current one fixed it. Before any such proof, check the mark on the latest revision, not only where traffic points.
 
 ## Reproducing
 

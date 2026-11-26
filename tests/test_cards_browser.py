@@ -643,3 +643,108 @@ def test_player_shows_no_bar_label_without_measures(page, server, performance):
     deliver(page, {"performance": performance})
     expect(card.locator("#play")).to_be_visible()
     expect(card.locator("#bars")).to_be_hidden()
+
+
+READING = {"offer_analysis": True}
+ANALYSE = {"role": "user", "content": [{"type": "text", "text": "Please analyse this score now."}]}
+
+
+def reading(server):
+    return links(server, caption="What I read from your PDF, every bar")
+
+
+def tool_calls(page):
+    return [message["params"] for message in sent(page, "tools/call")]
+
+
+def test_reading_card_asks_the_chat_to_analyse_once_and_logs_the_tap(page, server):
+    card = open_card(page, server, "card.html")
+    deliver(page, reading(server), READING)
+    expect(card.get_by_text("If the analysis has not started by itself, tap here.")).to_be_visible()
+    card.get_by_role("button", name="Analyse this score").click()
+    page.wait_for_function("received.some((m) => m.method === 'tools/call')")
+    expect(card.locator("#analyse-status")).to_have_text(ASKED)
+    expect(card.get_by_role("button", name="Analyse this score")).to_be_hidden()
+    deliver(page, reading(server), READING)
+    expect(card.locator("#open-page")).to_be_visible()
+    expect(card.locator("#analyse")).to_be_hidden()
+    page.wait_for_timeout(300)
+    assert [message["params"] for message in sent(page, "ui/message")] == [ANALYSE]
+    assert tool_calls(page) == [{"name": "asked_to_analyse", "arguments": {"sent": True}}]
+
+
+def test_reading_card_keeps_the_button_away_once_chatgpt_holds_the_tap(page, server):
+    card = open_card(page, server, "card.html", openai=True)
+    deliver(page, reading(server), READING)
+    card.get_by_role("button", name="Analyse this score").click()
+    page.wait_for_function("received.some((m) => m.method === 'tools/call')")
+    assert page.evaluate("widget_states") == [{"asked": True}]
+    other = page.context.new_page()
+    other.add_init_script("if (window !== window.top) window.openai = { widgetState: { asked: true }, toolOutput: %s, "
+                          "toolResponseMetadata: %s };" % (json.dumps(reading(server)), json.dumps(READING)))
+    again = open_card(other, server, "card.html")
+    expect(again.locator("#open-page")).to_be_visible()
+    expect(again.locator("#analyse")).to_be_hidden()
+
+
+ASKED = "Asked the chat to analyse this score."
+NOT_ASKED = 'It could not be started from here. Type "analyse this score" in the chat.'
+FOLLOW_UPS = ("if (window === window.top) window.follow_ups = []; else window.openai = "
+              "{ sendFollowUpMessage: (m) => { window.top.follow_ups.push(m.prompt); return Promise.resolve(); } };")
+
+
+@pytest.mark.parametrize("follow_up, sent_by_chatgpt, said", [(False, [], NOT_ASKED), (True, ["Please analyse this score now."], ASKED)])
+def test_reading_card_says_what_happened_when_the_host_refuses_the_message(page, server, follow_up, sent_by_chatgpt, said):
+    if follow_up:
+        page.add_init_script(FOLLOW_UPS)
+    card = open_card(page, server, "card.html")
+    page.evaluate("replies['ui/message'] = { error: { code: -32000, message: 'Message sending denied' } }")
+    deliver(page, reading(server), READING)
+    card.get_by_role("button", name="Analyse this score").click()
+    page.wait_for_function("received.some((m) => m.method === 'tools/call')")
+    expect(card.locator("#analyse-status")).to_have_text(said)
+    expect(card.get_by_role("button", name="Analyse this score")).to_be_hidden()
+    assert page.evaluate("window.follow_ups || []") == sent_by_chatgpt
+    assert tool_calls(page) == [{"name": "asked_to_analyse", "arguments": {"sent": follow_up}}]
+
+
+def test_reading_card_sends_once_when_the_host_answers_without_a_result(page, server):
+    page.add_init_script(FOLLOW_UPS)
+    card = open_card(page, server, "card.html")
+    page.evaluate("replies['ui/message'] = { result: undefined }")
+    deliver(page, reading(server), READING)
+    card.get_by_role("button", name="Analyse this score").click()
+    page.wait_for_function("received.some((m) => m.method === 'tools/call')")
+    page.wait_for_timeout(300)
+    assert len(sent(page, "ui/message")) == 1 and page.evaluate("window.follow_ups") == []
+    expect(card.locator("#analyse-status")).to_have_text(ASKED)
+    assert tool_calls(page) == [{"name": "asked_to_analyse", "arguments": {"sent": True}}]
+
+
+def test_reading_card_stays_silent_while_the_host_has_not_answered(page, server):
+    card = open_card(page, server, "card.html")
+    deliver(page, reading(server), READING)
+    page.evaluate("hold = true")
+    card.get_by_role("button", name="Analyse this score").click()
+    page.wait_for_function("received.some((m) => m.method === 'ui/message')")
+    page.wait_for_timeout(300)
+    expect(card.get_by_role("button", name="Analyse this score")).to_be_hidden()
+    expect(card.locator("#analyse-status")).to_have_text("")
+    assert tool_calls(page) == []
+
+
+@pytest.mark.parametrize("structured, meta", [("analysis", {"ask_for_rating": True}), ({}, REPORT), ({"status": STILL_READING}, READING)])
+def test_only_a_finished_reading_shows_the_analyse_button(page, server, structured, meta):
+    card = open_card(page, server, "card.html")
+    deliver(page, links(server) if structured == "analysis" else structured, meta)
+    expect(card.locator("#suggest" if structured != {"status": STILL_READING} else "#status")).to_be_visible()
+    expect(card.locator("#analyse")).to_have_count(1)
+    expect(card.locator("#analyse")).to_be_hidden()
+
+
+def test_a_reading_the_server_does_not_offer_shows_no_analyse_button(page, server):
+    card = open_card(page, server, "card.html")
+    deliver(page, reading(server))
+    expect(card.locator("#open-page")).to_be_visible()
+    expect(card.locator("#analyse")).to_be_hidden()
+    expect(card.get_by_text("If the analysis has not started by itself, tap here.")).to_be_hidden()
