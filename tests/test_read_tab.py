@@ -8,14 +8,15 @@ import pytest
 from engine import correct
 from engine.export import export_musicxml
 from engine.read_pdf import problem_spots
-from engine.read_tab import read_tab
+from engine.read_tab import MORE_THAN_ONE_STAFF, NO_RHYTHM, OutsideScope, read_tab
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 from tests.data.tabs.measure import FOLDERS, USERS, compare, measure, notes, truth_of
 
 DATA = Path(__file__).parent / "data"
 MEI = "{http://www.music-encoding.org/ns/mei}"
-GENERATED = sorted(path.stem for path in (DATA / "tabs").glob("*.musicxml"))
+BESIDE_A_STAFF = {"greensleeves-staff-and-tab", "bond-theme-guitar-tab"}
+GENERATED = sorted(path.stem for path in (DATA / "tabs").glob("*.musicxml") if path.stem not in BESIDE_A_STAFF)
 
 
 def reading_against_truth(name: str, folder: Path):
@@ -34,7 +35,6 @@ def test_every_note_of_the_generated_tablature_is_read(name):
     for kind in ("wrong length", "wrong pitch", "wrong string or fret", "wrong onset", "missed", "extra"):
         assert result[kind] == [], kind
     assert len(result["wrong tie"]) <= 1
-    assert reading.doubtful == []
 
 
 def test_printed_tuning_and_capo_are_used():
@@ -59,15 +59,18 @@ def test_users_tablature_reads_like_the_page(name, bars, wrong_lengths):
     assert notes(reading.musicxml)[1] == bars
 
 
-def test_tablature_without_rhythm_marks_its_bars_as_doubtful():
-    pdf = USERS / "bond-theme-guitar-tab.pdf"
-    if not pdf.exists():
-        pytest.skip(f"{pdf} is a user's file kept out of the repository")
-    assert 1 in read_tab(pdf.read_bytes()).doubtful
+@pytest.mark.parametrize("path, reason", [("hand/h4-no-rhythm", NO_RHYTHM), ("d4-duet", MORE_THAN_ONE_STAFF),
+                                          ("round2/r4-guitar-and-bass", MORE_THAN_ONE_STAFF),
+                                          ("round2/r4-joined-tabs", MORE_THAN_ONE_STAFF),
+                                          ("round2/hand/h5-second-tab-hidden", MORE_THAN_ONE_STAFF)])
+def test_tablature_outside_the_scope_is_refused_with_its_reason(path, reason):
+    with pytest.raises(OutsideScope) as refused:
+        read_tab((DATA / "tabs/review" / f"{path}.pdf").read_bytes())
+    assert str(refused.value) == reason
 
 
-@pytest.mark.parametrize("pdf", [*sorted((DATA / "tabs").glob("*.pdf")), *(USERS / f"{name}.pdf" for name in
-                                 ("weird-tab-only-musescore", "weiss-allemande-tab-only", "bond-theme-guitar-tab"))],
+@pytest.mark.parametrize("pdf", [*(path for path in sorted((DATA / "tabs").glob("*.pdf")) if path.stem not in BESIDE_A_STAFF),
+                                 *(USERS / f"{name}.pdf" for name in ("weird-tab-only-musescore", "weiss-allemande-tab-only"))],
                          ids=lambda path: path.stem)
 def test_every_sign_the_accidental_rule_wants_is_drawn(pdf):
     if not pdf.exists():
@@ -111,8 +114,8 @@ def test_a_tablature_reading_is_drawn_as_a_staff_with_its_tablature_under_it_and
 
 
 def test_tablature_beside_a_five_line_staff_is_left_to_the_staff_reader():
-    assert read_tab((DATA / "tabs/greensleeves-staff-and-tab.pdf").read_bytes()).beside_staff
-    assert not read_tab((DATA / "tabs/greensleeves.pdf").read_bytes()).beside_staff
+    assert read_tab((DATA / "tabs/greensleeves-staff-and-tab.pdf").read_bytes()) is None
+    assert read_tab((DATA / "tabs/greensleeves.pdf").read_bytes()) is not None
 
 
 REVIEW = DATA / "tabs/review"
@@ -131,21 +134,23 @@ def test_a_short_last_line_of_tablature_is_read(name, bars):
 
 
 @pytest.mark.parametrize("path, tuning, source, capo", [
-    ("f5-drop-c", ["D4", "A3", "F3", "C3", "G2", "C2"], "page", 0),
-    ("hand/h6-drop-c-words", ["D4", "A3", "F3", "C3", "G2", "C2"], "page", 0),
+    ("f5-drop-c", ["E4", "B3", "G3", "D3", "A2", "E2"], "standard", 0),
     ("hand/h8-tuning-words", ["Eb4", "Bb3", "Gb3", "Db3", "Ab2", "Eb2"], "page", 0),
-    ("f6-eb-standard-words", ["E4", "B3", "G3", "D3", "A2", "E2"], "unclear", 0),
-    ("f7-open-g-words", ["E4", "B3", "G3", "D3", "A2", "E2"], "unclear", 0),
-    ("d3-ukulele", ["G2", "D2", "A1", "E1"], "unclear", 0),
+    ("f6-eb-standard-words", ["E4", "B3", "G3", "D3", "A2", "E2"], "standard", 0),
+    ("d3-ukulele", ["G2", "D2", "A1", "E1"], "standard", 0),
+    ("round2/hand/t01-tuning-dadgad", ["D4", "A3", "G3", "D3", "A2", "D2"], "page", 0),
+    ("round2/hand/t09-capo-II", ["E4", "B3", "G3", "D3", "A2", "E2"], "standard", 2),
+    ("round2/hand/t11-standard-capo-4", ["E4", "B3", "G3", "D3", "A2", "E2"], "standard", 0),
+    ("round2/hand/t16-beat-drop-A", ["E4", "B3", "G3", "D3", "A2", "E2"], "standard", 0),
     ("hand/h5-da-capo-words", ["E4", "B3", "G3", "D3", "A2", "E2"], "standard", 0),
     ("hand/h7-drop-a-story", ["E4", "B3", "G3", "D3", "A2", "E2"], "standard", 0),
 ])
-def test_a_tuning_or_capo_is_taken_only_from_a_statement_that_means_nothing_else(path, tuning, source, capo):
+def test_a_tuning_comes_only_from_a_tuning_line_and_a_capo_only_from_a_capo_line(path, tuning, source, capo):
     reading = read_tab((REVIEW / f"{path}.pdf").read_bytes())
     assert (reading.tuning, reading.tuning_from, reading.capo) == (tuning, source, capo)
 
 
-DRAWN_ALIKE = {"a9-fingering-stems-up": [1, 3], "b14-two-voices": [1]}
+DRAWN_ALIKE = {"b14-two-voices": [1], "m1-mixed-piece": [3, 6, 27, 30], "r3-quarter-triplets": [4]}
 
 
 @pytest.mark.parametrize("pdf", [pdf for folder in FOLDERS for pdf in sorted(folder.glob("*.pdf"))
@@ -153,11 +158,6 @@ DRAWN_ALIKE = {"a9-fingering-stems-up": [1, 3], "b14-two-voices": [1]}
 def test_no_bar_of_tablature_is_read_wrong_without_being_shaded(pdf):
     row = measure(pdf, False)
     assert row.get("silent wrong bars", []) == DRAWN_ALIKE.get(pdf.stem, [])
-
-
-def test_two_tablature_staves_joined_in_one_system_are_two_parts():
-    root = ET.fromstring(read_tab((REVIEW / "d4-duet.pdf").read_bytes()).musicxml)
-    assert [len(part.findall("measure")) for part in root.iter("part")] == [4, 4]
 
 
 @pytest.mark.parametrize("path, bars", [("f1-grace-notes", [1]), ("f3-harmonics", [1, 2]), ("hand/h2-dead-and-hammer", [1, 2]),

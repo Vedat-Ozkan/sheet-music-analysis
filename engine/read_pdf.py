@@ -29,7 +29,7 @@ from music21 import instrument
 from engine import text, tint, verovio_workers
 from engine.errors import UserError
 from engine.overlay import S, Box, PageLayout
-from engine.read_tab import read_tab
+from engine.read_tab import OutsideScope, read_tab
 from engine.render import SOUNDING_NOTE, Engraving, ScoreError, load_toolkit, xml_text
 from engine.score import NOTE_TYPE_LENGTH, TOLERANCE, ScoreIndex, bar_length, musicxml_meter
 from engine.triplets import infer_triplets
@@ -442,8 +442,11 @@ def uses_leland(pdf: pikepdf.Pdf) -> bool:
 
 def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
     pdf = open_pdf(data)
-    tablature = read_tab(data)
-    if tablature and not tablature.beside_staff:
+    try:
+        tablature = read_tab(data)
+    except OutsideScope as refusal:
+        raise ReadError(str(refusal), lasting=True) from refusal
+    if tablature:
         return PdfReading(tablature.musicxml, tablature.pages, False, tablature=tablature.facts())
     pages, scan, leland = len(pdf.pages), is_scan(pdf), uses_leland(pdf)
     data = without_oversize_pages(data)

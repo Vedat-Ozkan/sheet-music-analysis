@@ -9,7 +9,6 @@ import xml.etree.ElementTree as ET
 from collections import Counter
 from dataclasses import dataclass, field
 from fractions import Fraction
-from itertools import combinations
 
 from pdfminer.converter import PDFPageAggregator
 from pdfminer.layout import LTChar, LTCurve, LTLine, LTRect
@@ -32,6 +31,8 @@ SMUFL_DOT = ""
 SMUFL_TUPLET_DIGITS = {chr(0xE880 + digit): str(digit) for digit in range(10)}
 SMUFL_REPEAT_DOTS = {"", ""}
 SMUFL_ARTICULATIONS = ("\ue4a0", "\ue4bf")
+SMUFL_CLEFS = ("\ue050", "\ue07f")
+SMUFL_ACCIDENTALS = ("\ue260", "\ue26f")
 TUPLETS = {3: 2, 5: 4, 6: 4, 7: 4}
 NOTE_TYPES = {Fraction(4): "whole", Fraction(2): "half", Fraction(1): "quarter", Fraction(1, 2): "eighth",
               Fraction(1, 4): "16th", Fraction(1, 8): "32nd", Fraction(1, 16): "64th"}
@@ -39,18 +40,22 @@ NAMES = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 SHARP_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 FLAT_NAMES = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"]
 TUNING_TEXT = re.compile(r"(?i:\btuning)\s*:?\s*((?:[A-G][#b♯♭]?\s*){4,7})(?![\w#♯♭])")
-DROP_TEXT = re.compile(r"(?i:\bdrop)\s+([A-G][#b♯♭]?)(?![\w#♯♭])")
-STANDARD_TEXT = re.compile(r"(?i:\bstandard\s+tuning\b)")
-CAPO_TEXT = re.compile(r"(?<![Dd][Aa] )(?i:\bcapo)\s*:?\s*(?:(?i:fret)\s*)?(\d{1,2}|[IVX]{1,5})\b")
-TUNING_WORDS = re.compile(r"(?i:\b(?:tun(?:e|ed|ing)|scordatura|ukulele|uke|banjo|mandolin)\b)"
-                          r"|(?i:\bopen)\s+[A-G]\b|(?i:\b(?:half|whole|1/2)[ -]step)")
-CAPO_WORD = re.compile(r"(?<![Dd][Aa] )(?i:\bcapo\b)")
+CAPO_TEXT = re.compile(r"^\s*(?i:capo)\s*:?\s*(\d{1,2}|[IVX]{1,5})\b", re.MULTILINE)
+MORE_THAN_ONE_STAFF = ("This tablature can't be read: its lines of music hold more than one staff, and only music written as "
+                       "a single tablature staff per line can be read")
+NO_RHYTHM = ("This tablature can't be read: it shows no rhythm (no stems under the fret numbers), so how long each note "
+             "lasts is not on the page")
+NEVER_READ = "Slides, bends, hammer-ons and pull-offs, vibrato, let ring and grace notes are not read from tablature."
 ROMAN = {"I": 1, "V": 5, "X": 10}
-MOST_CHOICES = 12
 UNDERSTOOD_SIGNS = {*SMUFL_RESTS, SMUFL_DOT, *SMUFL_REPEAT_DOTS, *SMUFL_TIME_DIGITS, *SMUFL_TIME_WHOLE, *SMUFL_FLAGS, *SMUFL_TUPLET_DIGITS}
 HALF_STEM = 0.75
+TUNING_SIGNS = {*NAMES, "#", "b", "♯", "♭"}
 TABLATURE_UNDER_STAFF = True
 MUSIC_FONT_CODES = ("\ue000", "\uf8ff")
+
+
+class OutsideScope(Exception):
+    pass
 
 
 @dataclass
@@ -64,7 +69,6 @@ class TabReading:
     doubtful: list[int]
     unread: list[int]
     notes: int
-    beside_staff: bool
 
     def facts(self) -> dict:
         return {"tuning": self.tuning, "tuning_from": self.tuning_from, "capo": self.capo, "doubtful": self.doubtful, "unread": self.unread,
@@ -192,6 +196,8 @@ def read_tab(data: bytes) -> TabReading | None:
     except (PDFException, PSException):
         return None
     every_staff = [staff for number, page in enumerate(pages) for staff in _staves(page, number)]
+    if any(len(staff.lines) == 5 for staff in every_staff):
+        return None
     tops = {number: [staff.top for staff in every_staff if staff.page == number] for number in range(len(pages))}
     staves = [staff for staff in every_staff if len(staff.lines) in STANDARD_TUNINGS
               and any(_is_bar_line(shape, staff, tops[staff.page]) for shape in _verticals(pages[staff.page], staff))]
@@ -199,54 +205,39 @@ def read_tab(data: bytes) -> TabReading | None:
     if fret_font is None:
         return None
     frets_of = {id(staff): _frets(pages[staff.page], staff, fret_font) for staff in staves}
-    strings = Counter(len(staff.lines) for staff in staves if frets_of[id(staff)]).most_common(1)
-    if not strings:
+    if not any(frets_of.values()):
         return None
-    staves = [staff for staff in staves if len(staff.lines) == strings[0][0]]
+    if len({len(staff.lines) for staff in staves}) > 1 or _joined(pages, every_staff):
+        raise OutsideScope(MORE_THAN_ONE_STAFF)
     text = _page_texts(pages)
     tuning, tuning_from = _tuning(text, pages, staves, fret_font)
     capo = _capo(text)
-    zones = {id(staff): _zone(pages[staff.page], staff, every_staff) for staff in staves}
-    part_of = _parts(pages, staves)
-    parts = [Part([], {}, {}) for _ in range(max(part_of.values()) + 1)]
+    part = Part([], {}, {})
     for staff in staves:
-        part = parts[part_of[id(staff)]]
-        _read_staff(zones[id(staff)], staff, frets_of[id(staff)], fret_font, tops[staff.page], part.bars, part.meters, part.repeats,
-                    part.unread)
-    every_bar = [bar for part in parts for bar in part.bars]
-    if not any(item.frets for bar in every_bar for item in bar):
-        return None
-    _stem_lengths(every_bar)
-    doubtful_positions = set()
-    for part in parts:
-        part.meter, meter_from = _meter(part.meters, part.bars)
-        split = _split_bars(part.bars, part.meters, part.meter)
-        doubtful_positions |= part.unread | {position for position, bar in enumerate(part.bars)
-                               if (meter_from == "assumed" and _open(bar))
-                               | _settle(bar, _meter_at(part.meters, position, part.meter), position in split)}
-    open_strings = [_midi(name) + capo for name in tuning]
-    first = parts[0]
-    first_full = sum((item.length for item in _voice(first.bars[0], 1)), Fraction(0))
-    pickup = bool(first.bars[0]) and first_full < _bar_length(_meter_at(first.meters, 0, first.meter))
-    numbers = [position if pickup else position + 1 for position in range(max(len(part.bars) for part in parts))]
-    musicxml = _musicxml(parts, numbers, pickup, open_strings, len(tuning))
-    return TabReading(laid_out(musicxml, tuning), len(pages), tuning, tuning_from, capo, 0 in first.meters,
-                      [numbers[position] for position in sorted(doubtful_positions)],
-                      sorted({numbers[position] for part in parts for position in part.unread}),
-                      sum(len(item.frets) for bar in every_bar for item in bar),
-                      any(len(staff.lines) == 5 for staff in every_staff))
+        _read_staff(_zone(pages[staff.page], staff, every_staff), staff, frets_of[id(staff)], fret_font, tops[staff.page], part)
+    if not any(item.stem for bar in part.bars for item in bar):
+        raise OutsideScope(NO_RHYTHM)
+    _stem_lengths(part.bars)
+    part.meter, meter_from = _meter(part.meters, part.bars)
+    may_be_short = {0, len(part.bars) - 1}
+    doubtful = part.unread | {position for position, bar in enumerate(part.bars)
+                              if (meter_from == "assumed" and _open(bar))
+                              | _settle(bar, _meter_at(part.meters, position, part.meter), position in may_be_short)}
+    first_full = sum((item.length for item in _voice(part.bars[0], 1)), Fraction(0))
+    pickup = bool(part.bars[0]) and first_full < _bar_length(_meter_at(part.meters, 0, part.meter))
+    numbers = [position if pickup else position + 1 for position in range(len(part.bars))]
+    musicxml = _musicxml([part], numbers, pickup, [_midi(name) + capo for name in tuning], len(tuning))
+    return TabReading(laid_out(musicxml, tuning), len(pages), tuning, tuning_from, capo, 0 in part.meters,
+                      [numbers[position] for position in sorted(doubtful)], [numbers[position] for position in sorted(part.unread)],
+                      sum(len(item.frets) for bar in part.bars for item in bar))
 
 
-def _parts(pages: list[Page], staves: list[Staff]) -> dict[int, int]:
-    part_of, previous = {}, None
-    for staff in sorted(staves, key=lambda staff: (staff.page, -staff.top)):
-        joined = previous is not None and previous.page == staff.page and any(
-            abs(shape.x0 - staff.x0) < staff.gap and abs(previous.x0 - staff.x0) < staff.gap
-            and shape.y0 <= staff.top + 0.35 * staff.gap and shape.y1 >= previous.bottom - 0.35 * staff.gap
-            and shape.width <= 0.25 * staff.gap for shape in pages[staff.page].shapes)
-        part_of[id(staff)] = part_of[id(previous)] + 1 if joined else 0
-        previous = staff
-    return part_of
+def _joined(pages: list[Page], staves: list[Staff]) -> bool:
+    ordered = sorted(staves, key=lambda staff: (staff.page, -staff.top))
+    return any(upper.page == lower.page and abs(upper.x0 - lower.x0) < lower.gap and any(
+        abs(shape.x0 - lower.x0) < lower.gap and shape.width <= 0.25 * lower.gap
+        and shape.y0 <= lower.top + 0.35 * lower.gap and shape.y1 >= upper.bottom - 0.35 * lower.gap
+        for shape in pages[lower.page].shapes) for upper, lower in zip(ordered, ordered[1:]))
 
 
 def laid_out(score: bytes, tuning: list[str]) -> bytes:
@@ -296,19 +287,18 @@ def with_tablature_staff(score: bytes, tuning: list[str]) -> bytes:
 def notice(facts: dict) -> str:
     names = " ".join(name[:-1] for name in reversed(facts["tuning"]))
     instrument = "bass" if len(facts["tuning"]) == 4 else "guitar"
-    text = {"page": f"The notes were read from the fret numbers of the tablature, with the tuning printed on it ({names}).",
-            "standard": f"The notes were read from the fret numbers of the tablature, in standard {instrument} tuning ({names}) "
-                        "because no tuning is printed on it.",
-            "unclear": f"The notes were read from the fret numbers of the tablature, in standard {instrument} tuning ({names}). "
-                       "The page mentions a tuning or a capo this reading could not follow, so if the piece is played in "
-                       "another tuning, every note here is off by the same difference."}[facts["tuning_from"]]
+    tuning = (f"The notes were read from the fret numbers of the tablature, with the tuning printed on it ({names})."
+              if facts["tuning_from"] == "page" else
+              f"The notes were read from the fret numbers of the tablature in standard {instrument} tuning ({names}), which is "
+              "assumed because the page has no tuning line or string names that this reading can follow; if the piece is "
+              "played in another tuning, every note here is off by the same difference.")
+    capo = f" A capo on fret {facts['capo']} is counted in." if facts["capo"] else " No capo is counted."
     unread = [str(bar) for bar in facts["unread"]]
-    capo = f" The capo on fret {facts['capo']} is counted in." if facts["capo"] else ""
     if not unread:
-        return text + capo
+        return f"{tuning}{capo} {NEVER_READ}"
     named = f"Bar {unread[0]} holds" if len(unread) == 1 else f"Bars {', '.join(unread[:-1])} and {unread[-1]} hold"
-    return (f"{text}{capo} {named} signs on the strings that this reading leaves out, such as grace notes, dead notes, "
-            "bends, ghost notes or harmonics.")
+    return (f"{tuning}{capo} {NEVER_READ} {named} signs on the strings that change a note and were not read, such as dead "
+            "notes, ghost notes, harmonics or grace notes.")
 
 
 def _pages(data: bytes) -> list[Page]:
@@ -492,28 +482,11 @@ def _tuning(text: str, pages: list[Page], staves: list[Staff], fret_font) -> tup
     at_staff = _letters_at_staff(pages[staves[0].page], staves[0], fret_font)
     if at_staff:
         return _octaves(at_staff, standard), "page"
-    drop = DROP_TEXT.search(text)
-    if drop:
-        return _dropped(drop.group(1), standard), "page"
-    if STANDARD_TEXT.search(text):
-        return standard, "page"
-    unclear = TUNING_WORDS.search(text) or (CAPO_WORD.search(text) and not CAPO_TEXT.search(text))
-    return standard, "unclear" if unclear else "standard"
-
-
-def _dropped(letter: str, standard: list[str]) -> list[str]:
-    lowest = _midi(standard[-1]) - 2
-    shift = (_pitch_class(letter) - lowest + 6) % 12 - 6
-    flats = letter[1:] in ("b", "♭")
-    return [_name(_midi(name) + shift, flats) for name in standard[:-1]] + [_name(lowest + shift, flats)]
+    return standard, "standard"
 
 
 def _pitch_class(letter: str) -> int:
     return (NAMES[letter[0]] + (1 if letter[1:] in ("#", "♯") else -1 if letter[1:] in ("b", "♭") else 0)) % 12
-
-
-def _name(midi: int, flats: bool) -> str:
-    return (FLAT_NAMES if flats else SHARP_NAMES)[midi % 12] + str(midi // 12 - 1)
 
 
 def _letters_at_staff(page: Page, staff: Staff, fret_font) -> list[str] | None:
@@ -591,7 +564,8 @@ def _zone(page: Page, staff: Staff, every_staff: list[Staff]) -> Page:
                 [shape for shape in page.shapes if low <= (shape.y0 + shape.y1) / 2 <= high], page.width, page.height)
 
 
-def _read_staff(page: Page, staff: Staff, frets: list[Fret], fret_font, tops: list[float], bars, meters, repeats, unknown):
+def _read_staff(page: Page, staff: Staff, frets: list[Fret], fret_font, tops: list[float], part: Part):
+    bars, meters, repeats = part.bars, part.meters, part.repeats
     gap = staff.gap
     verticals = _verticals(page, staff)
     bar_xs = _clusters(sorted((shape.x0 + shape.x1) / 2 for shape in verticals if _is_bar_line(shape, staff, tops)), 1.2 * gap)
@@ -608,7 +582,7 @@ def _read_staff(page: Page, staff: Staff, frets: list[Fret], fret_font, tops: li
         inside = [fret for fret in frets if left < fret.x < right]
         bar_rests = [rest for rest in rests if left < rest[0] < right]
         meter = _time_signature(page, staff, left, right, fret_font) or pending
-        if not inside and not bar_rests and (left == staff.x0 or right == staff.x1) and right - left < 8 * gap:
+        if not inside and not bar_rests and (left == staff.x0 or right == staff.x1) and _holds_signs(page, staff, left, right, fret_font):
             pending = meter
             continue
         pending = None
@@ -618,13 +592,26 @@ def _read_staff(page: Page, staff: Staff, frets: list[Fret], fret_font, tops: li
         bar_stems = [stem for stem in stems if left < stem.x < right]
         _tuplets(numbers, bar_stems, staff)
         if any(left < x < right for x in unread):
-            unknown.add(position)
+            part.unread.add(position)
         bars.append(_items(inside, bar_stems, bar_rests, staff))
         if not inside and not bar_rests:
             bars.extend([] for _ in range(_bars_resting(page, staff, left, right) - 1))
         repeat = _repeat_marks(page, staff, left, right, bar_xs)
         if repeat:
             repeats[position] = repeat
+
+
+def _holds_signs(page: Page, staff: Staff, left: float, right: float, fret_font) -> bool:
+    gap = staff.gap
+    inside = staff.bottom - 0.5 * gap, staff.top + 0.5 * gap
+    return (any(left < glyph.x < right and inside[0] < glyph.y < inside[1] and _staff_sign(glyph, fret_font) for glyph in page.glyphs)
+            or any(left < shape.x0 and shape.x1 < right and shape.height > 0.3 * gap and shape.width > 0.25 * gap
+                   and inside[0] < (shape.y0 + shape.y1) / 2 < inside[1] for shape in page.shapes))
+
+
+def _staff_sign(glyph: Glyph, fret_font) -> bool:
+    return (glyph.text in SMUFL_TIME_DIGITS or glyph.text in SMUFL_TIME_WHOLE or SMUFL_CLEFS[0] <= glyph.text <= SMUFL_CLEFS[1]
+            or SMUFL_ACCIDENTALS[0] <= glyph.text <= SMUFL_ACCIDENTALS[1] or glyph.text.isdigit() and glyph.size >= 1.5 * fret_font[1])
 
 
 def _bars_resting(page: Page, staff: Staff, left: float, right: float) -> int:
@@ -668,6 +655,8 @@ def _beams_and_flags(page: Page, staff: Staff, stems: list[Stem]) -> None:
         reach = (stem.outer - 0.4 * gap, stem.outer + 2.5 * gap) if not stem.up else (stem.outer - 2.5 * gap, stem.outer + 0.4 * gap)
         touching = [shape for shape in beams if shape.x0 - 0.25 * gap <= stem.x <= shape.x1 + 0.25 * gap
                     and shape.y1 >= reach[0] and shape.y0 <= reach[1]]
+        if not any(abs((shape.y1 if stem.up else shape.y0) - stem.outer) <= 0.25 * gap for shape in touching):
+            touching = []
         stem.beams = len(_clusters(sorted((shape.y0 + shape.y1) / 2 for shape in touching), 0.25 * gap))
         if touching:
             nearest = min(abs((shape.y0 + shape.y1) / 2 - stem.outer) for shape in touching)
@@ -730,27 +719,16 @@ def _ties(page: Page, staff: Staff, frets: list[Fret]) -> list[float]:
         second.tie_stop = True
         if first:
             first.tie_start = True
-    untied = []
-    for fret in frets:
-        if not fret.bracketed or fret.tie_stop:
-            continue
-        before = [other.x for other in frets if other.x < fret.x - 0.6 * gap]
-        column = [other for other in frets if before and abs(other.x - max(before)) < 0.6 * gap]
-        previous = [other for other in column if (other.string, other.fret) == (fret.string, fret.fret)]
-        if previous:
-            previous[0].tie_start, fret.tie_stop = True, True
-        else:
-            untied.append(fret.x)
-    return untied
+    return [fret.x for fret in frets if fret.bracketed]
 
 
 def _unread(page: Page, staff: Staff, frets: list[Fret], fret_font) -> list[float]:
     gap, read = staff.gap, {mark for fret in frets for mark in fret.glyphs}
-    first = min((fret.x for fret in frets), default=staff.x1) - 0.5 * gap
+    first = min((fret.x for fret in frets), default=staff.x1)
     return [glyph.x for glyph in page.glyphs if glyph.text.strip() and id(glyph) not in read
-            and first <= glyph.x <= staff.x1 and staff.bottom - 0.5 * gap <= glyph.y <= staff.top + 0.5 * gap
+            and staff.x0 <= glyph.x <= staff.x1 and staff.bottom - 0.5 * gap <= glyph.y <= staff.top + 0.5 * gap
             and (_music_sign(glyph) or abs(_near_line(staff, glyph.y)[1]) < 0.25 * gap)
-            and not _understood(glyph, fret_font)]
+            and not _understood(glyph, fret_font) and not (glyph.x < first and glyph.text in TUNING_SIGNS)]
 
 
 def _music_sign(glyph: Glyph) -> bool:
@@ -759,6 +737,7 @@ def _music_sign(glyph: Glyph) -> bool:
 
 def _understood(glyph: Glyph, fret_font) -> bool:
     return (glyph.text in UNDERSTOOD_SIGNS or SMUFL_ARTICULATIONS[0] <= glyph.text <= SMUFL_ARTICULATIONS[1]
+            or SMUFL_CLEFS[0] <= glyph.text <= SMUFL_CLEFS[1]
             or glyph.text.isdigit() and glyph.size >= 1.5 * fret_font[1])
 
 
@@ -829,21 +808,7 @@ def _stem_lengths(bars: list[list[Item]]) -> None:
     for item in stemmed:
         item.stem.known = full is not None
         item.stem.short = full is not None and _plain(item.stem) and item.stem.reach / item.gap < HALF_STEM * full
-        _choose(item, set())
-
-
-def _choices(item: Item) -> list[tuple]:
-    if item.stem is None:
-        return []
-    return ([("half", id(item))] if _plain(item.stem) and not item.stem.known else []) + ([("tuplet", item.stem.tuplet_sign)] if item.stem.tuplet_sign else [])
-
-
-def _choose(item: Item, flips: set[tuple]) -> None:
-    if item.stem is None:
-        return
-    tuplet = (item.stem.tuplet_sign is not None) != (("tuplet", item.stem.tuplet_sign) in flips)
-    item.length = _length(item.stem, item.stem.short != (("half", id(item)) in flips), tuplet)
-    item.tuplet = item.stem.tuplet if tuplet else Fraction(1)
+        item.length = _length(item.stem, item.stem.short, True)
 
 
 def _items(frets: list[Fret], stems: list[Stem], rests, staff: Staff) -> list[Item]:
@@ -937,23 +902,9 @@ def _meter(meters: dict[int, tuple[int, int]], bars: list[list[Item]]) -> tuple[
     return (4, 4), "assumed"
 
 
-def _split_bars(bars: list[list[Item]], meters, meter) -> set[int]:
-    def short(position: int) -> Fraction | None:
-        bar = bars[position]
-        total = max((_total(_voice(bar, voice)) for voice in {item.voice for item in bar}), default=Fraction(0))
-        return total if bar and not _open(bar) and total < _bar_length(_meter_at(meters, position, meter)) else None
-
-    shorts = [short(position) for position in range(len(bars))]
-    split = {0, len(bars) - 1}
-    for position in range(len(bars) - 1):
-        pair = shorts[position], shorts[position + 1]
-        if None not in pair and sum(pair) == _bar_length(_meter_at(meters, position, meter)):
-            split |= {position, position + 1}
-    return split
-
-
 def _open(bar: list[Item]) -> bool:
-    return any(item.length is None or _choices(item) for item in bar)
+    return any(item.length is None or item.stem.tuplet_sign or _plain(item.stem) and not item.stem.known
+               for item in bar if not item.rest)
 
 
 def _total(items: list[Item]) -> Fraction:
@@ -971,37 +922,16 @@ def _voice(bar: list[Item], voice: int) -> list[Item]:
 
 def _settle(bar: list[Item], meter: tuple[int, int], may_be_short: bool) -> bool:
     full = _bar_length(meter)
-    doubtful = False
     voices = {item.voice for item in bar}
-    filled = any(_total(_voice(bar, voice)) == full and not any(item.length is None for item in _voice(bar, voice))
-                 for voice in voices)
-    for voice in voices:
-        items = _voice(bar, voice)
-        if (filled and len(voices) > 1 or may_be_short) and not _open(items) and _total(items) <= full:
-            continue
-        unknown = [item for item in items if item.length is None]
-        keys = sorted({key for item in items for key in _choices(item)}, key=repr)
-        fitting = []
-        for count in range(len(keys) + 1 if len(keys) <= MOST_CHOICES else 1):
-            for flips in combinations(keys, count):
-                for item in items:
-                    _choose(item, set(flips))
-                if _fills(_total(items), len(unknown), full):
-                    fitting.append(set(flips))
-            if fitting:
-                break
-        chosen = fitting[0] if len(fitting) == 1 or fitting and not may_be_short else set()
-        for item in items:
-            _choose(item, chosen)
-        left = full - _total(items)
-        for item in unknown:
-            item.length = left if len(unknown) == 1 and fitting else left / len(unknown) if left > 0 else Fraction(1)
-        doubtful = doubtful or len(fitting) != 1
-    return doubtful
-
-
-def _fills(total: Fraction, unknown: int, full: Fraction) -> bool:
-    return total == full if not unknown else unknown == 1 and total < full and _note_type(full - total) is not None
+    unsure = {voice for voice in voices if _open(_voice(bar, voice))}
+    unknown = [item for item in bar if item.length is None]
+    for item in unknown:
+        left = full - _total(_voice(bar, item.voice))
+        item.length = left if left > 0 else Fraction(1)
+    totals = {voice: _total(_voice(bar, voice)) for voice in voices}
+    longest = max(totals.values(), default=full)
+    return (bool(unknown) or longest > full or any(totals[voice] != full for voice in unsure)
+            or longest < full and not may_be_short)
 
 
 def _note_type(length: Fraction) -> tuple[str, int] | None:

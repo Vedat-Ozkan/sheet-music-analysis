@@ -10,7 +10,7 @@ from pathlib import Path
 from tests.data.tabs.make_tab_pdfs import HERE, Piece, bars, musicxml
 
 from engine.read_pdf import problem_spots
-from engine.read_tab import read_tab
+from engine.read_tab import OutsideScope, read_tab
 
 USERS = HERE.parent / "users"
 REVIEW = HERE / "review"
@@ -156,6 +156,8 @@ def measure(pdf: Path, details: bool) -> dict:
     started = time.perf_counter()
     try:
         reading = read_tab(pdf.read_bytes())
+    except OutsideScope as refusal:
+        return {"file": name, "outcome": f"refused: {str(refusal).split(': ')[1].split(',')[0]}"}
     except Exception as error:
         return {"file": name, "outcome": f"CRASH {type(error).__name__}: {error}"}
     seconds = time.perf_counter() - started

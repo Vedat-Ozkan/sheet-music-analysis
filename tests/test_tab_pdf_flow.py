@@ -45,7 +45,17 @@ def test_a_tablature_bar_whose_lengths_were_guessed_is_shaded_like_a_misread_bar
 
 def test_signs_left_out_and_a_tuning_not_followed_are_told_to_the_user(monkeypatch, tmp_path):
     text, card = read_through_the_server(monkeypatch, tmp_path, (TABS / "review/f1-grace-notes.pdf").read_bytes())
-    assert "Bar 1 holds signs on the strings that this reading leaves out" in text and 1 in card["shaded_bars"]
+    assert "Bar 1 holds signs on the strings that change a note and were not read" in text and 1 in card["shaded_bars"]
     assert "look misread" not in text
     text, _ = read_through_the_server(monkeypatch, tmp_path / "words", (TABS / "review/f6-eb-standard-words.pdf").read_bytes())
-    assert "mentions a tuning or a capo this reading could not follow" in text
+    assert "which is assumed because the page has no tuning line or string names that this reading can follow" in text
+    assert "No capo is counted. Slides, bends, hammer-ons and pull-offs" in text
+
+
+def test_tablature_outside_the_scope_is_answered_at_once_without_the_slow_reader(monkeypatch, tmp_path):
+    def slow_reader(*_):
+        raise AssertionError("the slow reader was started")
+
+    monkeypatch.setattr(app.pdf_reader, "_read_with_every_setting", slow_reader)
+    text, _ = read_through_the_server(monkeypatch, tmp_path, (TABS / "review/d4-duet.pdf").read_bytes())
+    assert "This tablature can't be read: its lines of music hold more than one staff" in text
