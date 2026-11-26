@@ -48,7 +48,7 @@ def test_ties_grace_notes_and_rests_are_written(index):
 def test_bad_note_lists_are_refused():
     with pytest.raises(notes.NotesError, match="must start with"):
         notes.decode("hello")
-    with pytest.raises(notes.NotesError, match="could not be read"):
+    with pytest.raises(notes.NotesError, match="Bar 1: 'H9' is not a note"):
         notes.decode("N1 div=48 ts=4/4 ks=0\nm1 len=192\n1.1: 48 H9")
     with pytest.raises(notes.NotesError, match="too long"):
         notes.decode("N1 " + "x" * 300_000)

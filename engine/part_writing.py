@@ -7,7 +7,7 @@ from fractions import Fraction
 from itertools import combinations
 
 from engine import harmony
-from engine.reduce import midi
+from engine.score import midi
 from engine.score import ScoreIndex
 
 Voice = tuple[int, int]

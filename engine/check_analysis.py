@@ -12,7 +12,7 @@ from music21 import roman
 
 from engine.errors import UserError
 from engine.comparison import Label, from_annotations, matches, sounding
-from engine.reduce import midi
+from engine.score import midi
 from engine.score import Measure, PositionError, ScoreIndex, beat_length, fifths_of_signature, musicxml_meter
 
 KEY_NAME = r"[A-Ga-g][#b♯♭-]*(?:\s+(?:major|minor|maj|min))?"

@@ -17,6 +17,7 @@ LETTERS = "CDEFGAB"
 SEMITONES = (0, 2, 4, 5, 7, 9, 11)
 STEPS = dict(zip(LETTERS, SEMITONES))
 SIGN_ALTERATION = {"#": 1, "♯": 1, "b": -1, "♭": -1, "-": -1}
+PITCH = re.compile(r"[A-G](?:##?|bb?)?[0-9]")
 TOLERANCE = Fraction(1, 96)
 CHORD_SYMBOL = re.compile(r"[A-G]|N\.?C\.?$")
 BEAT_DENOMINATOR = 96
@@ -146,6 +147,17 @@ def alteration(signs: str) -> int:
     return sum(SIGN_ALTERATION.get(sign, 0) for sign in signs)
 
 
+def spelled(pitch: str) -> tuple[str, int, int]:
+    if not PITCH.fullmatch(pitch):
+        raise ValueError(f"{pitch!r} is not a pitch")
+    return pitch[0], int(pitch[-1]), alteration(pitch[1:-1])
+
+
+def midi(pitch: str) -> int:
+    letter, octave, alter = spelled(pitch)
+    return STEPS[letter] + alter + 12 * (octave + 1)
+
+
 def pitch_class(name: str) -> int:
     return (STEPS[name[0].upper()] + alteration(name[1:])) % 12
 
@@ -232,10 +244,9 @@ def _shifted(signature: str | None, fifths: int) -> str | None:
 
 def transpose(pitch: str, semitones: int) -> str:
     diatonic = round(semitones * 7 / 12)
-    accidental = pitch[1:].rstrip("0123456789")
-    octave = int(pitch[1 + len(accidental) :])
-    step = LETTERS.index(pitch[0])
-    sounding = SEMITONES[step] + alteration(accidental) + 12 * octave + semitones
+    letter, octave, alter = spelled(pitch)
+    step = LETTERS.index(letter)
+    sounding = SEMITONES[step] + alter + 12 * octave + semitones
     new_octave, new_step = divmod(step + 7 * octave + diatonic, 7)
     alter = sounding - (SEMITONES[new_step] + 12 * new_octave)
     return f"{LETTERS[new_step]}{'#' * alter if alter > 0 else 'b' * -alter}{new_octave}"

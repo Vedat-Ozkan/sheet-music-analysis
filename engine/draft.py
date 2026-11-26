@@ -14,7 +14,7 @@ from pathlib import Path
 from engine import notes as note_list
 from engine.annotations import AnnotationList
 from engine.comparison import FUNCTIONS
-from engine.score import STEPS, Measure, ScoreIndex, alteration, pitch_class
+from engine.score import Measure, ScoreIndex, midi, pitch_class
 
 ROOT = Path(__file__).parent.parent
 ANALYSISGNN_PYTHON = os.environ.get("ANALYSISGNN_PYTHON", str(ROOT / ".venv-agnn/bin/python"))
@@ -196,11 +196,6 @@ def numeral_with_inversion(rn: str, inversion: int) -> str:
     return base + figures + (f"/{target}" if target else "")
 
 
-def _midi(pitch: str) -> int:
-    accidental = pitch[1:-1] if pitch[-2] != "-" else pitch[1:-2]
-    return STEPS[pitch[0]] + alteration(accidental) + 12 * (int(pitch[len(accidental) + 1 :]) + 1)
-
-
 def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
     notes, tasks = raw["notes"], raw["tasks"]
     count = len(notes["measure"])
@@ -293,13 +288,13 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
         measure = index.measures[positions[0][0] - 1]
         if not first or measure.beat_of(positions[0][1]) % 1:
             return 0
-        pcs = {_midi(e.pitch) % 12 for e in first}
-        bass = _midi(min(first, key=lambda e: _midi(e.pitch)).pitch) % 12
+        pcs = {midi(e.pitch) % 12 for e in first}
+        bass = midi(min(first, key=lambda e: midi(e.pitch)).pitch) % 12
         thirds = {(tonic + 3) % 12, (tonic + 4) % 12}
         if bass != (tonic + 7) % 12 or tonic not in pcs or not pcs & thirds or (tonic + 11) % 12 in pcs:
             return 0
         for number, position in enumerate(positions[1:], 1):
-            if (tonic + 11) % 12 in {_midi(e.pitch) % 12 for e in sounding(position)}:
+            if (tonic + 11) % 12 in {midi(e.pitch) % 12 for e in sounding(position)}:
                 return number
         return 0
 
@@ -332,7 +327,7 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
             return 2 if quality in ("minor triad", "minor seventh chord") else -2 if quality in ("major triad", "major seventh chord") else 0
         if degree in MINOR_STEPS:
             tonic = pitch_class(local_key)
-            heard = {_midi(e.pitch) % 12 for p in positions for e in index.measures[p[0] - 1].events if e.onset == p[1] and e.pitch}
+            heard = {midi(e.pitch) % 12 for p in positions for e in index.measures[p[0] - 1].events if e.onset == p[1] and e.pitch}
             as_minor, as_major = (tonic + MINOR_STEPS[degree]) % 12 in heard, (tonic + MAJOR_STEPS[degree]) % 12 in heard
             return as_minor - as_major
         return 0
@@ -371,9 +366,9 @@ def build(raw: dict, index: ScoreIndex, model: str = "analysisgnn") -> Draft:
             for event in index.measures[position[0] - 1].events
             if event.onset == position[1] and event.pitch and not event.grace
         ]
-        lowest = min((e for e in sounding if e.onset == positions[0][1] and e.measure == measure.number), key=lambda e: _midi(e.pitch), default=None)
+        lowest = min((e for e in sounding if e.onset == positions[0][1] and e.measure == measure.number), key=lambda e: midi(e.pitch), default=None)
         names: list[str] = []
-        for event in sorted(sounding, key=lambda e: _midi(e.pitch)):
+        for event in sorted(sounding, key=lambda e: midi(e.pitch)):
             if event.pitch[:-1] not in names:
                 names.append(event.pitch[:-1])
         if degree == "Cad":

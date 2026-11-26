@@ -3,7 +3,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from itertools import groupby
 
-from engine.score import LETTERS, MEI, XML_ID, ScoreIndex, _pitch
+from engine.score import LETTERS, MEI, XML_ID, ScoreIndex, _pitch, spelled
 
 LEDGER_LINES = 3
 MIN_BARS = 2
@@ -58,7 +58,8 @@ def _part_names(root: ET.Element) -> dict[int, str]:
 
 
 def _steps(pitch: str) -> int:
-    return 7 * int(pitch.lstrip("ABCDEFG").lstrip("#b")) + LETTERS.index(pitch[0])
+    letter, octave, _ = spelled(pitch)
+    return 7 * octave + LETTERS.index(letter)
 
 
 def passages(mei: str, index: ScoreIndex, first: int | None = None, last: int | None = None) -> list[tuple[int, int, int, str, str]]:

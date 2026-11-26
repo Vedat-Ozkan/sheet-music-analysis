@@ -110,7 +110,7 @@ def chord(key: str, label: str) -> Chord | None:
 
 
 def _sounding(index: ScoreIndex, start: tuple[int, Fraction], end: tuple[int, Fraction] | None) -> list[list]:
-    from engine.reduce import midi
+    from engine.score import midi
 
     numbers = [m.number for m in index.measures]
     if start[0] not in numbers:

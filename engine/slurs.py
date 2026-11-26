@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from fractions import Fraction
 
-from engine.reduce import midi
+from engine.score import midi
 from engine.score import ScoreIndex
 
 SLUR = re.compile(r'<g id="([^"]+)" class="slur"[^>]*>\s*<path d="M([-\d.]+),([-\d.]+) C([-\d.]+),([-\d.]+) ([-\d.]+),([-\d.]+) ([-\d.]+),([-\d.]+)')

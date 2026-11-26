@@ -24,7 +24,7 @@ import numpy as np
 
 from engine import draft, notes
 from engine.comparison import Label, Timeline, compare, from_draft, from_romantext
-from engine.reduce import midi
+from engine.score import midi
 from engine.render import load_toolkit
 from engine.score import PositionError, ScoreIndex
 from eval import pieces

@@ -19,7 +19,7 @@ from fractions import Fraction
 from music21 import key as m21key
 from music21 import roman
 
-from engine.reduce import midi
+from engine.score import midi
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
 from eval import pieces

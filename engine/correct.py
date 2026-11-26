@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 import io
 import math
-import re
 import xml.etree.ElementTree as ET
 import zipfile
 from collections import Counter
@@ -17,7 +16,7 @@ from engine import notes, tint
 from engine.errors import UserError
 from engine.overlay import Box, PageLayout
 from engine.render import Engraving, incoming_ties, load_toolkit, shorten_ties
-from engine.score import ScoreIndex, alteration
+from engine.score import PITCH, ScoreIndex, spelled
 
 
 class CorrectionError(UserError):
@@ -158,8 +157,8 @@ def _read_voice(body: str, div: int, name: str, label: str) -> tuple[Fraction, l
         names = token.sounding[1:] if grace else token.sounding
         if not grace and duration <= 0:
             raise CorrectionError(f"Bar {name}: note/rest has no duration")
-        if names != "r" and any(not re.fullmatch(r"[A-G](?:#+|b+)?[0-9]~?", n) for n in names.split("+")):
-            raise CorrectionError(f"Bar {name}: invalid pitch {names!r}")
+        if names != "r" and any(not PITCH.fullmatch(n.removesuffix("~")) for n in names.split("+")):
+            raise CorrectionError(notes.not_a_pitch(name, written))
         if grace and names == "r":
             raise CorrectionError("Grace rests are not supported")
         groups.append(Group(names, Fraction(0) if grace else duration, grace, token.slurs_opened, token.slurs_closed,
@@ -376,11 +375,11 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                     if name == "r":
                         ET.SubElement(note, "rest")
                     else:
-                        match = re.fullmatch(r"([A-G])([#b]*)([0-9])", pitch)
+                        letter, octave, alter = spelled(pitch)
                         p = ET.SubElement(note, "pitch")
-                        ET.SubElement(p, "step").text = match[1]
-                        ET.SubElement(p, "alter").text = str(alteration(match[2]))
-                        ET.SubElement(p, "octave").text = match[3]
+                        ET.SubElement(p, "step").text = letter
+                        ET.SubElement(p, "alter").text = str(alter)
+                        ET.SubElement(p, "octave").text = str(octave)
                     if not grace:
                         ET.SubElement(note, "duration").text = str(int(duration * divisions))
                     ties = (["stop"] if pitch in pending else []) + (["start"] if name.endswith("~") else [])

@@ -131,3 +131,14 @@ def test_only_the_tempo_word_in_force_over_the_bars_played_is_asked_about(local_
     app.store.put("scores/MARKED", bars_marked(["Largo", "", "Allegro"]))
     assert "Question for the user: bar 1 is marked 'largo'" in call(app.play, score_id="MARKED", measure_range="2-2").content[0].text
     assert "Question for the user: bar 3 is marked 'allegro'" in call(app.play, score_id="MARKED", measure_range="3-3").content[0].text
+
+
+@pytest.mark.parametrize("written", ["Cx4", "Ck4", "C-4", "D#b4", "C###4", "C10"])
+def test_a_pitch_the_note_list_cannot_hold_is_refused_by_name(local_store, written):
+    sent = f"N1 div=1 ts=4/4 ks=0\nm1 len=4\n1.1: 2 C4 {written}"
+    for tool in (app.draft_from_notes, app.play):
+        result = call(tool, notes=sent)
+        assert result.is_error and f"Bar 1: '{written}' is not a note this list can hold" in result.content[0].text
+    app.store.put("scores/CHOPIN", CHOPIN.read_bytes())
+    corrected = asyncio.run(app.mcp.call_tool("correct_bars", {"score_id": "CHOPIN", "replacement_bars": sent}))
+    assert corrected.is_error and f"Bar 1: '{written}' is not a note this list can hold" in corrected.content[0].text

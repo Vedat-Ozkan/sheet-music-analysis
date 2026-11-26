@@ -10,7 +10,7 @@ from fractions import Fraction
 
 from engine.errors import UserError
 from engine.render import load_toolkit
-from engine.score import LETTERS, MEI, SEMITONES, STEPS, XML_ID, Event, Mark, Measure, ScoreIndex, alteration
+from engine.score import LETTERS, MEI, SEMITONES, XML_ID, Event, Mark, Measure, ScoreIndex, midi, spelled
 
 LEVELS = {"ppp": 30, "pp": 42, "p": 55, "mp": 66, "mf": 78, "f": 92, "ff": 105, "fff": 118}
 ACCENTS = {"sf": 20, "sfz": 20, "sffz": 24, "fz": 18, "rf": 14, "rfz": 16, "z": 16}
@@ -252,12 +252,6 @@ class _Clock:
         return t0 + (q - q0) * 60_000 / bpm
 
 
-def _midi(pitch: str) -> int:
-    accidental = pitch[1:].rstrip("0123456789")
-    octave = int(pitch[1 + len(accidental) :])
-    return 12 * (octave + 1) + STEPS[pitch[0]] + alteration(accidental)
-
-
 def _notes(index: ScoreIndex, starts: dict[int, Fraction], clock: _Clock) -> tuple[list[tuple[Note, Measure]], dict[str, Note]]:
     notes, heads, open_ties, graces, mains = [], {}, {}, {}, {}
     for measure in index.measures:
@@ -268,7 +262,7 @@ def _notes(index: ScoreIndex, starts: dict[int, Fraction], clock: _Clock) -> tup
                 graces.setdefault((id(measure), event.staff, event.onset, event.slashed), []).append(event)
                 continue
             begin, finish = starts[id(measure)] + event.onset, starts[id(measure)] + event.onset + event.duration
-            pitch, tie = _midi(event.pitch), (event.staff, _midi(event.pitch))
+            pitch, tie = midi(event.pitch), (event.staff, midi(event.pitch))
             held = next((entry for entry in open_ties.get(tie, []) if entry[1] == begin), None)
             if held:
                 open_ties[tie].remove(held)
@@ -287,13 +281,13 @@ def _notes(index: ScoreIndex, starts: dict[int, Fraction], clock: _Clock) -> tup
         if slashed:
             for position, event in enumerate(group):
                 start = arrival - (len(group) - position) * SLASHED_GRACE_MS
-                notes.append((Note(start, start + SLASHED_GRACE_MS, _midi(event.pitch)), measure))
+                notes.append((Note(start, start + SLASHED_GRACE_MS, midi(event.pitch)), measure))
             continue
         main = mains.get((measure_id, staff, onset), [])
         span = (main[0].end - main[0].start) / 2 if main else SLASHED_GRACE_MS * len(group)
         for position, event in enumerate(group):
             start = arrival + position * span / len(group)
-            notes.append((Note(start, start + span / len(group), _midi(event.pitch)), measure))
+            notes.append((Note(start, start + span / len(group), midi(event.pitch)), measure))
         for note in main:
             note.start += span
     notes.sort(key=lambda item: item[0].start)
@@ -352,21 +346,16 @@ def _starts_ornaments_above(root: ET.Element) -> bool:
     return any(word in UPPER_NOTE_COMPOSERS for word in re.findall(r"\w+", composers.lower()))
 
 
-def _spelled(pitch: str) -> tuple[str, int, int]:
-    accidental = pitch[1:].rstrip("0123456789")
-    return pitch[0], int(pitch[1 + len(accidental) :]), alteration(accidental)
-
-
 def _neighbour(event: Event, measure: Measure, direction: int, printed: str, key: dict[str, int]) -> int:
-    letter, octave, _ = _spelled(event.pitch)
+    letter, octave, _ = spelled(event.pitch)
     position = LETTERS.index(letter) + direction
     letter, octave = LETTERS[position % 7], octave + position // 7
     if printed in ALTER:
         alteration = ALTER[printed]
     else:
-        earlier = [(other.onset, _spelled(other.pitch)[2]) for other in measure.events
+        earlier = [(other.onset, spelled(other.pitch)[2]) for other in measure.events
                    if other.pitch and other.staff == event.staff and other.onset < event.onset
-                   and _spelled(other.pitch)[:2] == (letter, octave)]
+                   and spelled(other.pitch)[:2] == (letter, octave)]
         alteration = max(earlier)[1] if earlier else key[letter]
     return 12 * (octave + 1) + SEMITONES[LETTERS.index(letter)] + alteration
 

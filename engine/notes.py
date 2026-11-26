@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 
 from engine.errors import UserError
-from engine.score import POSITION_DENOMINATOR, Event, Mark, Measure, ScoreIndex, beat_length, parse_meter
+from engine.score import PITCH, POSITION_DENOMINATOR, Event, Mark, Measure, ScoreIndex, beat_length, parse_meter
 
 VERSION = "N1"
 ORNAMENTS = ("tr", "mu", "ml", "tu", "tl")
@@ -13,7 +13,7 @@ MARK = re.compile(
     r"(?P<pedal>P[du])@(?P<at1>[\d.]+)"
     r"|q=(?P<tempo>[\d.]+|[a-z]+)@(?P<at2>[\d.]+)"
     r"|(?P<hairpin>[<>])@(?P<at3>[\d.]+)\+(?P<length>[\d.]+)"
-    r"|(?P<ornament>" + "|".join(ORNAMENTS) + r")@(?P<at4>[\d.]+):(?P<pitch>[A-G][#b]*\d)(?:\^(?P<upper>[a-z]+))?(?:_(?P<lower>[a-z]+))?"
+    r"|(?P<ornament>" + "|".join(ORNAMENTS) + r")@(?P<at4>[\d.]+):(?P<pitch>" + PITCH.pattern + r")(?:\^(?P<upper>[a-z]+))?(?:_(?P<lower>[a-z]+))?"
     r"|(?P<dynamic>[a-z]+)@(?P<at5>[\d.]+)"
 )
 MAX_CHARS = 200_000
@@ -30,6 +30,11 @@ VOICE_LABEL = re.compile(r"\d+\.\d+")
 
 class NotesError(UserError):
     pass
+
+
+def not_a_pitch(bar: str, written: str) -> str:
+    return (f"Bar {bar}: {written!r} is not a note this list can hold. A pitch is a letter A to G, then # or b "
+            "(or ## or bb) if it has one, then the octave as one digit, such as F#4 or Bb3.")
 
 
 def bar_line_name(line: str) -> str | None:
@@ -269,8 +274,8 @@ def _read_voice(tokens: list[str], measure: Measure, staff: int, layer: int, div
         for name in sounding[1 if grace else 0 :].split("+"):
             tied = name.endswith("~")
             pitch = name.rstrip("~")
-            if pitch[0] not in "ABCDEFG" or not pitch[-1].isdigit():
-                raise ValueError(f"unknown token {written!r}")
+            if not PITCH.fullmatch(pitch):
+                raise NotesError(not_a_pitch(measure.name, written))
             identity = f"{measure.id}-{staff}.{layer}-{len(measure.events)}"
             measure.events.append(
                 Event(identity, measure.number, staff, cursor, Fraction(0) if grace else duration, pitch, grace, layer, tied,

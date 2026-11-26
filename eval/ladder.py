@@ -31,7 +31,7 @@ from multiprocessing import Pool
 from pathlib import Path
 
 from engine.comparison import agreement
-from engine.reduce import midi
+from engine.score import midi
 from engine.render import load_toolkit
 from engine.score import ScoreIndex, parse_meter
 from eval import ceiling, compare, pieces

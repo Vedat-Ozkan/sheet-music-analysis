@@ -10,7 +10,7 @@ from music21 import key as m21key
 from music21 import meter
 from music21 import roman
 
-from engine.reduce import midi
+from engine.score import midi
 from engine.score import BEAT_DENOMINATOR, ScoreIndex, beat_length
 
 FUNCTIONS = {"1": "T", "3": "T", "6": "T", "2": "PD", "4": "PD", "5": "D", "7": "D"}

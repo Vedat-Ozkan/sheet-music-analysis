@@ -16,7 +16,7 @@ from music21.musicxml.m21ToXml import GeneralObjectExporter
 
 from engine.errors import UserError
 from engine.render import load_toolkit
-from engine.score import ScoreIndex, beat_length
+from engine.score import ScoreIndex, beat_length, spelled
 
 PARTS_DO_NOT_LINE_UP = ("A piano version can't be made for this score: its parts don't line up bar for bar, "
                         "which happens when a PDF was read badly. The full score can still be drawn.")
@@ -174,10 +174,8 @@ def _parts(score: bytes, positions: tuple[int, int]) -> dict[str, _Part]:
 
 
 def _m21_pitch(name: str) -> pitch.Pitch:
-    step, rest = name[0], name[1:]
-    octave = rest.lstrip("#b-")
-    accidental = rest[: len(rest) - len(octave)].replace("b", "-")
-    return pitch.Pitch(f"{step}{accidental}{octave}")
+    letter, octave, alter = spelled(name)
+    return pitch.Pitch(f"{letter}{'#' * alter if alter > 0 else '-' * -alter}{octave}")
 
 
 def _attacks(measure: stream.Measure) -> list:
