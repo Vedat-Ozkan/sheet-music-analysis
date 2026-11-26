@@ -14,7 +14,7 @@ MARK = re.compile(
     r"(?P<pedal>P[du])@(?P<at1>[\d.]+)"
     r"|q=(?P<tempo>[\d.]+|[a-z]+)@(?P<at2>[\d.]+)"
     r"|(?P<hairpin>[<>])@(?P<at3>[\d.]+)\+(?P<length>[\d.]+)"
-    r"|(?P<ornament>" + "|".join(ORNAMENTS) + r")@(?P<at4>[\d.]+):(?P<pitch>" + PITCH.pattern + r")(?:\^(?P<upper>[a-z]+))?(?:_(?P<lower>[a-z]+))?"
+    r"|(?P<ornament>" + "|".join(ORNAMENTS) + r")@(?P<at4>[\d.]+):(?P<pitch>[^\s^_]+)(?:\^(?P<upper>[a-z]+))?(?:_(?P<lower>[a-z]+))?"
     r"|(?P<dynamic>[a-z]+)@(?P<at5>[\d.]+)"
 )
 MAX_CHARS = 200_000
@@ -137,6 +137,8 @@ def _read_marks(tokens: list[str], measure: Measure) -> None:
         elif found["hairpin"]:
             measure.marks.append(Mark("hairpin", at, found["hairpin"], Fraction(found["length"]).limit_denominator(POSITION_DENOMINATOR)))
         elif found["ornament"]:
+            if not PITCH.fullmatch(found["pitch"]):
+                raise NotesError(not_a_pitch(measure.name, found["pitch"]))
             measure.marks.append(Mark("ornament", at, found["ornament"], pitch=found["pitch"], upper=found["upper"] or "", lower=found["lower"] or ""))
         else:
             measure.marks.append(Mark("dynamic", at, found["dynamic"]))

@@ -170,3 +170,9 @@ def test_a_transposing_part_whose_double_flat_sounds_three_flats_down_is_drawn_a
     assert not draft.is_error and "Db4@1" in draft.content[0].text
     played = call(app.play, score_id="CLARINET")
     assert not played.is_error and played.structured_content["performance"].split()[2].endswith(".61")
+
+
+@pytest.mark.parametrize("written", ["Cx4", "C-4", "C###4"])
+def test_an_ornament_on_a_pitch_the_note_list_cannot_hold_is_refused_by_name(local_store, written):
+    result = call(app.play, notes=f"N1 div=1 ts=4/4 ks=0\nm1 len=4\nx: tr@0:{written}\n1.1: 4 C4")
+    assert result.is_error and f"Bar 1: '{written}' is not a note this list can hold" in result.content[0].text
