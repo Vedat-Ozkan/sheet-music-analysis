@@ -4616,7 +4616,7 @@ The ChatGPT package's reviewer case and release notes said the same untrue thing
 
 **Seen and left.** A control character in a symbol raises the same uncaught error sung words already do. The format has no staff for a symbol, so all are drawn above the top staff. A word that starts with A to G written on the `c:` line (`D.C.`) would be listed as a chord.
 
-### 215. Engine fixes from the weekly cold review (2026-11-26, branch `cold-review-engine-fixes`)
+### 220. Engine fixes from the weekly cold review (2026-11-26, branch `cold-review-engine-fixes`)
 
 A fresh reviewer read the engine cold and found five faults. One commit each, on top of `plain-tool-texts`.
 
