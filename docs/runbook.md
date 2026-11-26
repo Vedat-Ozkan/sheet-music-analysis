@@ -31,6 +31,7 @@ server/deploy.sh sheet-music-analysis staging    # staging
 - The careful reading of scans is offered only on the platforms the deploy names: `CAREFUL_READING=chatgpt`, `CAREFUL_READING=claude` or `CAREFUL_READING=chatgpt,claude` before `server/deploy.sh`. Every deploy sets it again, so a deploy without it switches the offer off everywhere.
   - A platform not named gets no offer on a scan's result. Claude, not named, is not shown `careful_reading` and `use_careful_reading` at all. ChatGPT always lists both tools and they always work, so OpenAI's reviewer can run them; on every platform the steps `careful_reading` returns begin with the usage warning and a wait for the user's yes, unless the user has already said yes to it in that chat.
   - For ChatGPT the order is: deploy without `chatgpt` in `CAREFUL_READING`, wait until the plugin's MCPs tab at platform.openai.com/plugins lists `careful_reading` and `use_careful_reading` as published (OpenAI scans the server itself, or press "Rescan" there), and only then add `chatgpt`.
+- `CHATGPT_APP_NAME` is the app's name as ChatGPT lists it, used in the note that tells a user in an ordinary turn to pick the app with @; it defaults to Sheet Music Analysis, and `server/deploy.sh` sets sheet-music-staging on staging.
 
 ## Roll back
 
