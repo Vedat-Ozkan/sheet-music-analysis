@@ -49,7 +49,8 @@ def started_server(store, settings):
     env = {**os.environ, "PORT": str(port), "DATA_DIR": str(store), **settings}
     env.pop("BUCKET", None)
     env.pop("K_SERVICE", None)
-    process = subprocess.Popen([sys.executable, "-m", "server.app"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    with (Path(store) / "server-log.jsonl").open("a") as log_file:
+        process = subprocess.Popen([sys.executable, "-m", "server.app"], env=env, stdout=log_file, stderr=subprocess.DEVNULL)
     for _ in range(480):
         if process.poll() is not None:
             return None
@@ -529,3 +530,42 @@ def test_a_file_with_no_notes_that_is_attached_or_linked_is_a_user_error_with_th
     assert (line["outcome"], line["error"], line["reason"]) == ("user_error", "ScoreError", NO_NOTES)
     if name == "draft_analysis":
         assert not list(tmp_path.glob("scores/*")) and not list(tmp_path.glob("limits/*")) and not list(tmp_path.glob("usage/*"))
+
+
+AGENT_TURN = ("openai-mcp/1.0.0 (Codex)",
+              {"callId": "exec-1", "itemId": "item-1", "sessionId": "session-1", "windowId": "window-1",
+               "io.modelcontextprotocol/clientInfo": {"name": "openai-mcp (Codex)", "version": "1.0.0"},
+               "openai/subject": "user-1"})
+ORDINARY_TURN = ("openai-mcp/1.0.0",
+                 {"io.modelcontextprotocol/clientInfo": {"name": "openai-mcp", "version": "1.0.0"},
+                  "openai/locale": "en-US", "openai/userAgent": "Mozilla/5.0", "timezone": "America/New_York",
+                  "timezone_offset_minutes": -300, "openai/subject": "user-1"})
+UNKNOWN_CHATGPT = (CHATGPT, {})
+CLAUDE_CALL = (CLAUDE, {})
+
+
+def logged_lines(store, tool):
+    lines = [json.loads(line) for line in (store / "server-log.jsonl").read_text().splitlines() if line.startswith("{")]
+    return [line for line in lines if line.get("tool") == tool]
+
+
+def test_an_ordinary_chatgpt_turn_is_told_how_to_start_the_careful_reading_and_the_others_get_the_steps(tmp_path):
+    store_a_read_scan(tmp_path)
+    with running_server(tmp_path, CAREFUL_READING="chatgpt,claude") as (url, _):
+        answers = {}
+        for name, (agent, meta) in {"agent": AGENT_TURN, "ordinary": ORDINARY_TURN, "unknown": UNKNOWN_CHATGPT,
+                                    "claude": CLAUDE_CALL}.items():
+            call = {"name": "careful_reading", "arguments": {"score_id": "QUICK1N"}, "_meta": meta}
+            answers[name] = json.loads(as_client(url, agent, "tools/call", call))["result"]["content"][0]["text"]
+    for name in ("agent", "unknown", "claude"):
+        assert "kit/reader.md" in answers[name] and "@Sheet Music Analysis" not in answers[name], name
+    ordinary = answers["ordinary"]
+    assert "kit/" not in ordinary and "curl" not in ordinary
+    assert ('Note for the user: "I can\'t start the careful reading from this message. To start it, type '
+            '@Sheet Music Analysis, choose the app from the list, and say yes again. Setting ChatGPT\'s thinking to '
+            'Medium or higher works too."') in ordinary
+    assert ordinary.endswith("score_id QUICK1N is ready for draft_analysis.")
+    lines = logged_lines(tmp_path, "careful_reading")
+    assert [(line.get("route"), line["answer"]) for line in lines] == [
+        ("agent", "steps"), ("ordinary", "needs_the_agent"), ("unknown", "steps"), (None, "steps")]
+    assert lines[0]["user"] == lines[1]["user"] and len(lines[0]["user"]) == 16

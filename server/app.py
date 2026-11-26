@@ -239,6 +239,28 @@ def client_of(headers) -> str:
     return "claude" if "claude" in agent else "chatgpt" if "openai" in agent else "other"
 
 
+def chatgpt_route(headers, meta: dict) -> str | None:
+    if client_of(headers) != "chatgpt":
+        return None
+    agent = (dict(headers or {}).get("user-agent") or "").lower()
+    client = str((meta.get("io.modelcontextprotocol/clientInfo") or {}).get("name", "")).lower()
+    if "codex" in agent or "codex" in client or "callId" in meta:
+        return "agent"
+    return "ordinary" if "openai/userAgent" in meta else "unknown"
+
+
+def request_parts(ctx: Context | None) -> tuple[dict | None, dict]:
+    try:
+        headers = ctx.headers
+    except Exception:
+        headers = None
+    try:
+        meta = dict(ctx.request_context.meta or {})
+    except Exception:
+        meta = {}
+    return headers, meta
+
+
 PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "sheet-music-analysis")
 STARTED = time.monotonic()
 SEVERITY = {"ok": "INFO", "degraded": "ERROR", "user_error": "WARNING", "limit": "WARNING", "busy": "WARNING", "server_error": "ERROR", "cancelled": "WARNING"}
@@ -341,14 +363,7 @@ def observed(fn):
     @functools.wraps(fn)
     async def wrapper(ctx: Context, *args, **kwargs):
         global calls_served
-        try:
-            headers = ctx.headers
-        except Exception:
-            headers = None
-        try:
-            meta = dict(ctx.request_context.meta or {})
-        except Exception:
-            meta = {}
+        headers, meta = request_parts(ctx)
         span = tracer.start_span(tool)
         request_id = f"{span.get_span_context().trace_id:032x}"
         call = {"event": tool, "tool": tool, "platform": client_of(headers), "request_id": request_id,
@@ -356,6 +371,8 @@ def observed(fn):
                 "logging.googleapis.com/spanId": f"{span.get_span_context().span_id:016x}",
                 "cold": calls_served == 0, "uptime_s": round(time.monotonic() - STARTED),
                 "meta_keys": sorted(meta), "header_names": sorted(dict(headers or {})), "reference": secrets.token_hex(4)}
+        if route := chatgpt_route(headers, meta):
+            call["route"] = route
         if subject := meta.get("openai/subject"):
             try:
                 call["user"] = await anyio.to_thread.run_sync(user_code, str(subject))
@@ -1537,6 +1554,14 @@ ASK_BEFORE_THE_STEPS = (
 )
 NOT_A_SCAN = ("A careful reading is offered only for a scanned PDF that read_pdf or read_fetched_pdf has read, with the "
               "score_id it returned.")
+CHATGPT_APP_NAME = "Sheet Music Analysis"
+NEEDS_THE_AGENT = (
+    "This ChatGPT turn cannot run the careful reading: it needs ChatGPT's agent, whose code sandbox reaches the "
+    "internet and can start helper agents, and this turn's sandbox can do neither. No steps are given.\n"
+    "Note for the user: \"I can't start the careful reading from this message. To start it, type @{app}, choose the "
+    "app from the list, and say yes again. Setting ChatGPT's thinking to Medium or higher works too.\"\n"
+    "Meanwhile the quick reading stays: score_id {score_id} is ready for draft_analysis."
+)
 
 
 def scan_key(score_id: str) -> str:
@@ -2126,9 +2151,13 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
     except ScoreError as error:
         log("careful_reading", platform=source, **logged(error))
         return error_result(str(error))
+    if chatgpt_route(*request_parts(ctx)) == "ordinary":
+        log("careful_reading", platform=source, pages=pages, answer="needs_the_agent")
+        return CallToolResult(content=[TextContent(type="text", text=NEEDS_THE_AGENT.format(
+            app=CHATGPT_APP_NAME, score_id=clean_id(score_id)))])
     hint = await in_turn(signatures_found, score)
     addresses = [f"{PUBLIC_BASE_URL}/kit", *([KIT_ELSEWHERE] if KIT_ELSEWHERE else [])]
-    log("careful_reading", platform=source, pages=pages)
+    log("careful_reading", platform=source, pages=pages, answer="steps")
     ask = ASK_BEFORE_THE_STEPS.format(warning=careful_warning(pages, source), score_id=clean_id(score_id))
     return CallToolResult(content=[TextContent(type="text", text=ask + CAREFUL_STEPS.format(
         pages=page_count(pages), count=pages, score_id=clean_id(score_id), files=" ".join(KIT_FILES), hint=hint,

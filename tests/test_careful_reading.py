@@ -384,3 +384,4 @@ def test_a_correction_of_a_carefully_read_bar_keeps_its_chord_symbols():
     assert after != before and chord_symbols_of(after) == chord_symbols_of(before)
     with pytest.raises(correct.CorrectionError, match="Bar 13: leave out the c: line"):
         correct.replace_bars(before, handed_out.replace("1.1:", "c: C@0\n1.1:"))
+
