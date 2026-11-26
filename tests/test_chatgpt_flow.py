@@ -76,7 +76,7 @@ def test_drawing_with_no_marks_tells_the_model_to_analyse_first(server):
     score_id = score_id_of(call("read_pdf", ATTACHED))
     result = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": []}, "measure_range": "1-4"})
     assert not result.is_error
-    assert "call draft_analysis with score_id" in text_of(result)
+    assert f"The notes for an analysis come from draft_analysis with score_id {score_id}." in text_of(result)
 
 
 def test_marks_that_fit_are_drawn_and_the_rest_are_listed(server):
@@ -287,11 +287,9 @@ def test_a_drawing_with_no_marks_says_so_first_and_skips_the_extra_downloads(ser
 def test_a_whole_score_draft_gives_its_instructions_before_the_method_and_the_notes_last(server):
     score_id = score_id_of(call("read_pdf", ATTACHED))
     text = text_of(call("draft_analysis", {"score_id": score_id}))
-    assert text.index("HOW TO ANALYSE THIS SCORE") < 1000
-    assert text.index("HOW TO ANALYSE THIS SCORE") < text.index("## Method") < text.index("NOTES (one row")
-    guide = text.split("HOW TO ANALYSE THIS SCORE", 1)[1]
-    assert guide.index("I have the notes and am working out the harmony now") < guide.index("Analyse from the NOTES table")
-    assert "Now I'm drawing the analysis on the score." in guide and "not for each passage" in guide
+    assert text.index("HOW THE NOTES ARE USED") < 1000
+    assert text.index("HOW THE NOTES ARE USED") < text.index("## Method") < text.index("NOTES (one row")
+    assert "a short sentence before each says what is happening" in app.INSTRUCTIONS
     assert "ask which bars they want" not in text and "asks which bars" not in text
     assert "do not stop to ask which bars" in text
 
@@ -319,8 +317,8 @@ def test_the_worksheet_is_made_when_first_opened_and_the_other_downloads_with_th
 
 
 @pytest.mark.parametrize("name, plan", [
-    ("chopin_nocturne_op9_no2.mxl", 'for the whole piece pass measure_range "all"'),
-    ("piano/dvorak-9-2.mxl", "passages of at most 80 bars"),
+    ("chopin_nocturne_op9_no2.mxl", 'the whole piece included (measure_range "all"), as one PDF'),
+    ("piano/dvorak-9-2.mxl", "render_analysis draws at most 80 bars of it at a time"),
 ])
 def test_the_draft_says_whether_the_whole_score_can_be_drawn_in_one_call(server, name, plan):
     text = app.make_draft((DATA / name).read_bytes(), "PLAN", None)
@@ -329,8 +327,8 @@ def test_the_draft_says_whether_the_whole_score_can_be_drawn_in_one_call(server,
 
 def test_the_draft_ends_with_the_call_that_draws_the_page(server):
     text = app.make_draft((DATA / "chopin_nocturne_op9_no2.mxl").read_bytes(), "ENDS1", None)
-    assert text.endswith("When you have analysed every bar the user asked for, draw them as this reply says above, with "
-                         "render_analysis and score_id ENDS1; the analysis is not finished until the page is drawn.")
+    assert text.endswith("The analysis of the bars the user asked for is drawn with render_analysis and score_id ENDS1, "
+                         "as described above; the drawn page is the result the user sees.")
 
 
 def test_an_ordinary_score_gets_the_notes_table_and_no_mention_of_a_draft(server):
@@ -595,7 +593,8 @@ SHADE = tuple(round(255 * (1 - float(tint.FLAG_OPACITY)) + int(tint.FLAG_BAR[i:i
 def test_after_a_pdf_read_the_model_goes_straight_on_to_the_analysis(server):
     result = call("read_pdf", ATTACHED)
     text = text_of(result)
-    assert "call draft_analysis with this score_id now" in text
+    assert text.endswith(f"\nscore_id {score_id_of(result)} is ready for draft_analysis.")
+    assert "it needs no check by the user first" in text
     assert "wait" not in text.lower() and "go ahead" not in text.lower() and "check it against your copy" not in text
     assert "(shaded) looks misread" in text
 
@@ -607,10 +606,10 @@ def test_bars_shaded_in_the_reading_stay_shaded_on_the_analysis(server):
     assert len(shaded) == 1 and reading.structured_content["shaded_bars"] == shaded
     marks = [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "i", "key": "e"}]
     drawn = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}})
-    assert f"Shaded bars ({shaded[0]}) may be misread" in text_of(drawn) and drawn.structured_content["shaded_bars"] == shaded
+    assert f"Note for the user: \"The shaded bars ({shaded[0]}) may be misread" in text_of(drawn) and drawn.structured_content["shaded_bars"] == shaded
     assert shaded_pixels(drawn) > 1000
     elsewhere = call("render_analysis", {"score_id": score_id, "annotations": {"annotations": marks}, "measure_range": "1-4"})
-    assert "Shaded bars" not in text_of(elsewhere) and shaded_pixels(elsewhere) == 0
+    assert "shaded bars (" not in text_of(elsewhere) and shaded_pixels(elsewhere) == 0
     assert elsewhere.structured_content["shaded_bars"] == [] and elsewhere.structured_content["caption"] == "Analysis of bars 1–4"
 
 

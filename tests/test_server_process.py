@@ -185,11 +185,11 @@ def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_
         assert careful_tools & listed_tools(url, CLAUDE) == (careful_tools if CLAUDE in offered_to else set())
         for agent in (CHATGPT, CLAUDE):
             offer = read_scan(url, agent, "SCAN1")["content"][-1]["text"]
-            assert "draft_analysis with this score_id now" in offer, agent
+            assert offer.endswith("\nscore_id QUICK1N is ready for draft_analysis."), agent
             if agent in offered_to:
                 assert "Shall I go ahead?" in offer and "careful_reading" in offer, agent
                 assert ("usage allowance" in offer) == (agent == CLAUDE), agent
-                assert offer.index("draft_analysis with this score_id now") < offer.index("Shall I go ahead?"), agent
+                assert offer.index("Offer for the user") < offer.index("Shall I go ahead?"), agent
             else:
                 assert "careful" not in offer.lower() and "Shall I go ahead?" not in offer, agent
         steps = careful_call(url, CHATGPT, "careful_reading", score_id="QUICK1N")
@@ -197,7 +197,7 @@ def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_
         assert not steps.get("isError") and "kit/reader.md" in steps["content"][0]["text"]
         assert not handed_in.get("isError") and handed_in["content"][0]["text"].startswith("score_id: ")
         warning = app.careful_warning(3, "chatgpt")
-        assert steps["content"][0]["text"].startswith("Before any of these steps, ask the user")
+        assert steps["content"][0]["text"].startswith("These steps are for after the user's yes to this question")
         assert f'"{warning}"' in steps["content"][0]["text"].split("\n", 1)[0]
         if CLAUDE in offered_to:
             asked_in_claude = careful_call(url, CLAUDE, "careful_reading", score_id="QUICK1N")["content"][0]["text"].split("\n", 1)[0]
@@ -257,7 +257,7 @@ def test_a_reading_too_large_for_claude_still_ends_with_the_next_step(server, st
     (store / app.card_of(hashlib.sha256(pdf).hexdigest())).write_text(json.dumps(card))
     content = as_claude(server, "tools/call", {"name": "read_fetched_pdf", "arguments": {"pdf_id": pdf_id}})["content"]
     assert "image" in [part["type"] for part in content] and "left out" in content[-2]["text"]
-    assert content[-1]["text"].endswith("\nNow call draft_analysis with this score_id.")
+    assert content[-1]["text"].endswith("\nscore_id READ1N is ready for draft_analysis.")
 
 
 def as_claude(server, method, params):
@@ -283,12 +283,11 @@ def test_the_upload_card_tool_shows_the_card_that_sends_to_this_server(server):
     shown = as_claude(server, "tools/call", {"name": "choose_score", "arguments": {}})
     card = as_claude(server, "resources/read", {"uri": uri})["contents"][0]
     port = server.rsplit(":", 1)[1]
-    assert "choose the same file again in the card below" in listed["choose_score"]["description"]
     code = shown["structuredContent"]["upload_id"]
-    assert not shown.get("isError") and "End your reply here" in shown["content"][0]["text"]
-    assert f"read_fetched_pdf with pdf_id {code}" in shown["content"][0]["text"]
-    assert "you are reading the PDF now" in shown["content"][0]["text"]
-    assert f"draft_analysis with score_id {code}" in shown["content"][0]["text"]
+    assert not shown.get("isError") and "the next step comes with their message" in shown["content"][0]["text"]
+    assert f"{code} is the pdf_id for read_fetched_pdf" in shown["content"][0]["text"]
+    assert f"{code} is the score_id for draft_analysis" in shown["content"][0]["text"]
+    assert "choose the same file again in the card below" in shown["content"][0]["text"]
     assert card["_meta"]["ui"]["domain"].endswith(".claudemcpcontent.com")
     assert card["_meta"]["ui"]["csp"]["connectDomains"] == [f"http://localhost:{port}"]
     assert f'"http://localhost:{port}/upload"' in card["text"]

@@ -82,7 +82,7 @@ def charged(store, kind):
 
 def test_a_musicxml_link_is_drafted_and_counted_like_an_attached_score(server, site):
     fetched = call("fetch_score", {"url": f"{site}/public/moved"})
-    assert not fetched.is_error and "Call draft_analysis" in text_of(fetched)
+    assert not fetched.is_error and "ready for draft_analysis" in text_of(fetched)
     score_id = id_of(fetched, "score_id")
     drafted = call("draft_analysis", {"score_id": score_id, "measure_range": "1-2"})
     assert not drafted.is_error and text_of(drafted).startswith(f"score_id: {score_id}")
@@ -91,11 +91,11 @@ def test_a_musicxml_link_is_drafted_and_counted_like_an_attached_score(server, s
 
 def test_a_pdf_link_is_read_and_its_pages_counted_like_an_attached_pdf(server, site):
     fetched = call("fetch_score", {"url": f"{site}/public/prelude.pdf"})
-    assert "you are reading the PDF now" in text_of(fetched) and "call read_fetched_pdf with this pdf_id" in text_of(fetched)
+    assert "It is a PDF, for read_fetched_pdf" in text_of(fetched)
     read = call("read_fetched_pdf", {"pdf_id": id_of(fetched, "pdf_id")})
     assert not read.is_error and "The score has measures 0 to 24" in text_of(read)
     assert "Slurs are not read" in text_of(read) and "keep_slurs" not in text_of(read)
-    assert "Go straight on to the analysis" in text_of(read) and "stop and wait" not in text_of(read)
+    assert "it needs no check by the user first" in text_of(read) and "stop and wait" not in text_of(read)
     assert charged(server, "pdf_page") == 1 and charged(server, "score") == 1
 
 
@@ -111,7 +111,7 @@ def test_a_pdf_chosen_in_the_card_is_read_and_its_pages_counted_like_an_attached
     assert anyio.run(send).json() == {"kind": "pdf"}
     misrouted = call("draft_analysis", {"score_id": "CARD"})
     read = call("read_fetched_pdf", {"pdf_id": "CARD"})
-    assert misrouted.is_error and "Call read_fetched_pdf with pdf_id CARD" in text_of(misrouted)
+    assert misrouted.is_error and "read_fetched_pdf with pdf_id CARD reads it" in text_of(misrouted)
     assert not read.is_error and "The score has measures 0 to 24" in text_of(read)
     assert charged(server, "pdf_page") == 1 and charged(server, "score") == 1
 
@@ -221,7 +221,7 @@ def test_a_missing_file_reports_the_status(server, site):
 
 def test_a_redirect_to_imslp_is_refused_without_contacting_it(server, site):
     result = call("fetch_score", {"url": f"{site}/public/to-imslp"})
-    assert result.is_error and "download the PDF there" in text_of(result)
+    assert result.is_error and "downloads the PDF there" in text_of(result)
 
 
 @pytest.mark.parametrize("url", [

@@ -52,7 +52,7 @@ def test_the_check_tells_the_chat_model_how_to_answer(local_store):
     assert "second reader" in section and "Start with what the student got right" in section
     assert "both readings are defensible" in section and "the bass" in section
     assert "draft" not in section.lower() and "model" not in section.lower()
-    assert "If there is a STUDENT CHECK section" in text.split("HOW TO ANALYSE", 1)[1]
+    assert "A STUDENT CHECK section means the user wants their own numerals checked" in text.split("HOW THE NOTES ARE USED", 1)[1]
 
 
 def test_draft_analysis_without_answer_has_no_section(local_store):

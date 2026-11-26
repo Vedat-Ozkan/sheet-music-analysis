@@ -75,5 +75,5 @@ def test_a_mostly_doubtful_reading_opens_the_reply_with_a_warning(monkeypatch, t
     result = anyio.run(call)
     text = " ".join(part.text for part in result.content if part.type == "text")
     shaded = len(result.structured_content["shaded_bars"])
-    assert f'Open your reply with the analysis with this warning, before anything else: "Much of this reading is doubtful: {shaded} of its 16 bars' in text
-    assert text.index("Much of this reading is doubtful") < text.index("Go straight on to the analysis")
+    assert f'Warning for the user: "Much of this reading is doubtful: {shaded} of its 16 bars' in text
+    assert text.index("Much of this reading is doubtful") < text.index("Note for the user about the reading")

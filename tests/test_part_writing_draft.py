@@ -27,7 +27,7 @@ def test_draft_analysis_lists_planted_motion_errors(local_store):
     assert '{"measure":13,"beat":1.0,"staff":2,"pitch":"G4"}' in section
     labels = re.findall(r'label "([^"]*)"', section)
     assert "P5" in labels and not any("," in word for word in labels)
-    assert "one sentence offering to check the voice leading" in text.split("HOW TO ANALYSE", 1)[1]
+    assert "A PART-WRITING CHECK section (chorale-style scores only) is an offer for the user" in text.split("HOW THE NOTES ARE USED", 1)[1]
 
 
 def test_draft_analysis_lists_planted_tendency_errors(local_store):

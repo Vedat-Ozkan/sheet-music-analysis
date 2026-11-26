@@ -56,14 +56,14 @@ def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_pa
             "your plan's usage allowance. As a guide, a 10-page piece") in app.careful_warning(3, "claude")
     assert "download and run a small measuring script from Sheet Music Analysis" in offer
     assert "careful_reading" in offer
-    assert "draft_analysis with this score_id now" in offer
-    assert offer.index("draft_analysis with this score_id now") < offer.index(app.careful_warning(3, "other"))
-    assert offer.endswith("\nNow call draft_analysis with this score_id.")
+    assert "it needs no check by the user first" in offer
+    assert offer.index("Offer for the user, after the first analysis of this score:") < offer.index(app.careful_warning(3, "other"))
+    assert offer.endswith("\nscore_id QUICK1 is ready for draft_analysis.")
     assert "do not call draft_analysis yet" not in offer and "Ask before analysing" not in offer
     typeset = text_of(app.pdf_card_result({"score_id": "QUICK1", "pages": 3, "scan": False, "measures": "1 to 25", "bars": 25,
                                            "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf", "other"))
-    assert "careful" not in typeset and "Go straight on" in typeset
-    assert typeset.endswith("\nNow call draft_analysis with this score_id.")
+    assert "careful" not in typeset and "it needs no check by the user first" in typeset
+    assert typeset.endswith("\nscore_id QUICK1 is ready for draft_analysis.")
 
     refused = asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": "QUICK1"}))
     assert refused.is_error
@@ -97,7 +97,7 @@ def test_a_page_that_cannot_be_built_comes_back_with_what_to_fix(tmp_path, monke
     assert broken != PAGES[0]
     result = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": [broken, *PAGES[1:]]}))
     assert result.is_error
-    assert "Page 1: Bar 0, voice 1.1 adds up to 1" in text_of(result) and "call use_careful_reading again" in text_of(result)
+    assert "Page 1: Bar 0, voice 1.1 adds up to 1" in text_of(result) and "a corrected hand-in takes every page again" in text_of(result)
     second = PAGES[1].replace("m1 len=24", "m1 len=20", 1)
     wrong_second = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": [PAGES[0], second, PAGES[2]]}))
     assert wrong_second.is_error and "Page 2: Bar 1, voice 1.1 adds up to" in text_of(wrong_second)

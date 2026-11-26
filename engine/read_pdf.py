@@ -47,7 +47,7 @@ READABLE_INTERLINE = 20
 SHARP_SCAN_INTERLINE = 11
 NOTHING_READ = "No music could be read from this PDF"
 NEXT_STEP = (
-    ". Tell the user plainly, and suggest what may work: a PDF exported from notation software reads best; a scan "
+    ". What may work instead: a PDF exported from notation software reads best; a scan "
     "should be straight, sharp and about 300 dpi; a long PDF can be sent a few pages at a time; a MusicXML file "
     "(.mxl or .musicxml) needs no reading at all."
 )

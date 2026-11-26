@@ -49,16 +49,15 @@ def test_server_correct_real_triplet_and_draft_score_loading(tmp_path, monkeypat
     assert len(images) == 1
     assert base64.b64decode(images[0].data).startswith(b'\x89PNG')
     text = next(item.text for item in result.content if item.type == 'text')
-    assert 'your suggestion' in text
-    assert 'only after confirmation' in text
-    assert 'If they decline, keep using score_id READ18.' in text
+    assert 'the previous one, READ18, is unchanged' in text
+    assert 'Question for the user: do the redrawn bars match their copy?' in text
     tools = asyncio.run(app.mcp.list_tools())
     description = next(tool.description for tool in tools if tool.name == 'correct_bars')
     assert 'read_pdf flagged' in description
     assert 'you can see is misread' in description
     assert 'confident' in description
-    assert 'your suggestion' in description
-    assert 'If they decline, keep using the original score_id.' in description
+    assert 'The original score_id stays unchanged.' in description
+    assert 'presented as its suggestion' in app.INSTRUCTIONS and 'the old one stays in use after a no' in app.INSTRUCTIONS
     after, given = asyncio.run(app.resolve_score(None, data['score_id']))
     assert given == 'score_id'
     check_correction(after)
@@ -108,7 +107,7 @@ def test_server_correct_disjoint_bars_and_no_change(tmp_path, monkeypatch):
     assert not unchanged.is_error
     assert unchanged.structured_content['changed_bars'] == []
     assert unchanged.structured_content['image_urls'] == []
-    assert f"keep using score_id {data['score_id']}" in unchanged.content[0].text
+    assert f"score_id {data['score_id']} stays the one to use" in unchanged.content[0].text
     assert sorted(p.name for p in (tmp_path / 'scores').iterdir()) == stored
 
 
