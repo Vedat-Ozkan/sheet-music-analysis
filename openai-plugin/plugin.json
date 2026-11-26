@@ -126,13 +126,13 @@
               "description": "Asking for the careful reading, same chat as the scanned PDF",
               "prompt": "Please read this scan carefully instead.",
               "tools_triggered": "careful_reading",
-              "expected_behavior": "Nothing is read yet. The reply says that reading a scan carefully takes about 5 minutes a page, that it downloads and runs a small measuring script from Sheet Music Analysis in the chat, and asks whether to go ahead.",
+              "expected_behavior": "Nothing is read yet. The reply says that reading a scan carefully takes about 5 minutes a page, that it downloads and runs a small measuring script from Sheet Music Analysis in the chat, and asks whether to go ahead. On the Instant setting, when the app is not picked in the message, the reply says instead how to start: type @Sheet Music Analysis, choose the app from the list, and say yes again.",
               "file_attachment_urls": [
                 "https://sheetmusicanalysis.com/samples/kinkel-trennung-scan.pdf"
               ]
             },
             {
-              "description": "The careful reading itself, same chat",
+              "description": "The careful reading itself, same chat, with the app picked in the message (type @Sheet Music Analysis and choose it)",
               "prompt": "Yes, go ahead.",
               "tools_triggered": "use_careful_reading, draft_analysis, render_analysis",
               "expected_behavior": "Over about 4 to 10 minutes ChatGPT reads each of the two pages itself and hands its reading in; a card then shows the analysis drawn on that careful reading, and the reply says the page shows its careful reading.",
@@ -160,7 +160,7 @@
         "commerce": false
       },
       "publication": {
-        "release_notes": "The card that shows what was read from your PDF has a button, Analyse this score, for when the analysis has not started by itself.\nA scanned PDF is analysed straight away. The slower, careful reading is offered afterwards; it takes about 5 minutes a page.\nA file with no notes in it is answered with a plain message instead of an empty analysis.\nAfter a reading and after a draft, the chat is told the next step, so fewer analyses stop halfway."
+        "release_notes": "The card that shows what was read from your PDF has a button, Analyse this score, for when the analysis has not started by itself.\nA scanned PDF is analysed straight away. The slower, careful reading is offered afterwards; it takes about 5 minutes a page.\nA file with no notes in it is answered with a plain message instead of an empty analysis.\nIf the careful reading cannot start from your message, the reply says how to start it: type @Sheet Music Analysis, choose the app from the list, and say yes again.\nA page with no marks on it is no longer shown as an analysis."
       }
     }
   }

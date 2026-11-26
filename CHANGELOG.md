@@ -4,7 +4,12 @@ What changed for users, newest first. Numbers in brackets are entries in `docs/e
 
 ## Unreleased
 
-- Not merged yet (branch `go-on-wording`): what the server tells a chat after a reading and after a draft now ends with the next step, so fewer chats stop before the page is drawn [208].
+- Not released yet: what the server's tools say to a chat is written as statements instead of orders, after ChatGPT stopped some calls with a "Suspicious Instruction" warning that quoted our texts. The order of calls is in the server's instructions, results carry labelled lines for the user, and the next-step sentences of [208] are gone. In real ChatGPT chats on staging the warning did not come back [217].
+- Not released yet: ChatGPT calls the server in two ways and only one of them can run a careful reading. A yes that arrives the other way is answered with how to start it (type @Sheet Music Analysis, choose the app, say yes again) instead of steps the chat cannot follow [215].
+- Not released yet: the reading of a scanned PDF no longer mentions the careful reading; the offer comes once, with the first drawn page [217].
+- Not released yet: a drawing with no marks is refused instead of shown as a bare score, and a careful reading handed in for part of a scan says how many of its pages it holds [218].
+- Not released yet: the proxy sends a request once more when Cloud Run refused it before our server saw it; the server marks its own answers so the proxy can tell [219]. The server is released before the proxy.
+- Tried and not kept: running the careful reading's measuring tool on our server did not let ChatGPT's ordinary turns read a scan [216].
 - Not merged yet (branch `go-on-wording`): the note on a scan's reading says the analysis may be wrong where the reading is, instead of asking the user to check carefully [208].
 - Not released yet: in ChatGPT the card that shows what was read from a PDF has a button, "Analyse this score", for when the analysis has not started by itself; Claude does not show it [210, 211].
 - Not released yet: the offer of a careful reading says what it costs in the product the user is in: in Claude it names its helpers (one per page, on Sonnet at medium effort) and the usage allowance, in ChatGPT only the time [212]. ChatGPT package 1.5.1 corrects the same sentence in its texts.
