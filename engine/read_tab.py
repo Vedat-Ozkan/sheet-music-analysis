@@ -41,8 +41,8 @@ SHARP_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 FLAT_NAMES = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"]
 TUNING_TEXT = re.compile(r"(?i:\btuning)\s*:?\s*((?:[A-G][#b♯♭]?\s*){4,7})(?![\w#♯♭])")
 CAPO_TEXT = re.compile(r"^\s*(?i:capo)\s*:?\s*(\d{1,2}|[IVX]{1,5})\b", re.MULTILINE)
-MORE_THAN_ONE_STAFF = ("This tablature can't be read: its lines of music hold more than one staff, and only music written as "
-                       "a single tablature staff per line can be read")
+MORE_THAN_ONE_STAFF = ("This tablature can't be read: each line of music has more than one staff, for example two "
+                       "instruments, and only tablature with one staff per line can be read")
 NO_RHYTHM = ("This tablature can't be read: it shows no rhythm (no stems under the fret numbers), so how long each note "
              "lasts is not on the page")
 NEVER_READ = "Slides, bends, hammer-ons and pull-offs, vibrato, let ring and grace notes are not read from tablature."
@@ -301,9 +301,9 @@ def notice(facts: dict) -> str:
     instrument = "bass" if len(facts["tuning"]) == 4 else "guitar"
     tuning = (f"The notes were read from the fret numbers of the tablature, with the tuning printed on it ({names})."
               if facts["tuning_from"] == "page" else
-              f"The notes were read from the fret numbers of the tablature in standard {instrument} tuning ({names}), which is "
-              "assumed because the page has no tuning line or string names that this reading can follow; if the piece is "
-              "played in another tuning, every note here is off by the same difference.")
+              f"The notes were read from the fret numbers of the tablature, assuming standard {instrument} tuning ({names}), "
+              "because the page gives no tuning this reading can follow. If the piece uses another tuning, the notes on the "
+              "retuned strings are wrong here.")
     capo = f" A capo on fret {facts['capo']} is counted in." if facts["capo"] else " No capo is counted."
     unread = [str(bar) for bar in facts["unread"]]
     if not unread:
