@@ -46,6 +46,7 @@ A4_DRAWN_PIXELS = 8_700_000
 READABLE_INTERLINE = 20
 SHARP_SCAN_INTERLINE = 11
 NOTHING_READ = "No music could be read from this PDF"
+NO_NOTES_READ = "Only empty bars could be read from this PDF, with no notes in them"
 NEXT_STEP = (
     ". What may work instead: a PDF exported from notation software reads best; a scan "
     "should be straight, sharp and about 300 dpi; a long PDF can be sent a few pages at a time; a MusicXML file "
@@ -510,6 +511,8 @@ def _read_with_every_setting(data: bytes, audiveris: str, raw, pages: int, scan:
         found_nothing = bool(passes) and all(record["outcome"] == "no music" and record.get("exit_code") == 0 for record in passes)
         raise ReadError("Reading this PDF took too long" if timed_out else NOTHING_READ, passes, lasting=found_nothing)
     counts = [_pitched_notes(reading[0]) for reading in readings]
+    if not max(counts):
+        raise ReadError(NO_NOTES_READ, passes, lasting=True)
     complete = [reading for reading, count in zip(readings, counts) if count >= MIN_NOTES * max(counts)]
     musicxml, skipped, _ = min(complete, key=lambda reading: (len(reading[1]), len(reading[2])))
     for repair in (infer_tuplet_rests, infer_triplets):
