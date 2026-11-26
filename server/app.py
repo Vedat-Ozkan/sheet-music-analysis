@@ -1531,7 +1531,7 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
     log("read_pdf_work", pages=reading["pages"], scan=reading["scan"], skipped=reading["skipped"], cached=bool(cached),
         passes=passes, bars=bars, bars_shaded=len(uneven),
         **({"tablature": True, "notes": tablature["notes"], "bars_doubtful": len(tablature["doubtful"]),
-            "tuning_printed": tablature["tuning_printed"]} if tablature else {}))
+            "tuning_from": tablature["tuning_from"]} if tablature else {}))
     if reading["scan"]:
         await anyio.to_thread.run_sync(store.put, scan_key(score_id), json.dumps({"pages": reading["pages"]}).encode())
     return {"score_id": score_id, "pages": reading["pages"], "scan": reading["scan"], "measures": measures, "bars": bars, "notice": notice, "image_url": image_url,

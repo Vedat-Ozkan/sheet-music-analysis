@@ -37,9 +37,9 @@ def test_every_note_of_the_generated_tablature_is_read(name):
 
 def test_printed_tuning_and_capo_are_used():
     drop_d = read_tab((DATA / "tabs/bwv245-40-drop-d.pdf").read_bytes())
-    assert (drop_d.tuning[-1], drop_d.tuning_printed) == ("D2", True)
+    assert (drop_d.tuning[-1], drop_d.tuning_from) == ("D2", "page")
     capo = read_tab((DATA / "tabs/bwv336-capo.pdf").read_bytes())
-    assert (capo.capo, capo.tuning_printed) == (2, False)
+    assert (capo.capo, capo.tuning_from) == (2, "standard")
     bass = read_tab((DATA / "tabs/bwv418-bass.pdf").read_bytes())
     assert bass.tuning == ["G2", "D2", "A1", "E1"]
 
@@ -106,3 +106,33 @@ def test_the_tablature_under_the_staff_is_drawn_without_counting_any_note_twice(
 def test_tablature_beside_a_five_line_staff_is_left_to_the_staff_reader():
     assert read_tab((DATA / "tabs/greensleeves-staff-and-tab.pdf").read_bytes()).beside_staff
     assert not read_tab((DATA / "tabs/greensleeves.pdf").read_bytes()).beside_staff
+
+
+REVIEW = DATA / "tabs/review"
+
+
+@pytest.mark.parametrize("name", ["g1-table-3-rules", "g2-table-5-rules", "g3-table-6-rules", "g4-table-text-and-numbers",
+                                  "g5-ascii-tab", "x1-empty", "x2-not-a-pdf", "x3-truncated", "x4-no-pages", "x5-blank-page",
+                                  "x6-encrypted-user-password"])
+def test_a_ruled_table_or_a_broken_pdf_is_not_tablature(name):
+    assert read_tab((REVIEW / "hand" / f"{name}.pdf").read_bytes()) is None
+
+
+@pytest.mark.parametrize("name, bars", [("b13-rest-bar", 8), ("b16-mostly-halves", 8)])
+def test_a_short_last_line_of_tablature_is_read(name, bars):
+    assert notes(read_tab((REVIEW / f"{name}.pdf").read_bytes()).musicxml)[1] == bars
+
+
+@pytest.mark.parametrize("path, tuning, source, capo", [
+    ("f5-drop-c", ["D4", "A3", "F3", "C3", "G2", "C2"], "page", 0),
+    ("hand/h6-drop-c-words", ["D4", "A3", "F3", "C3", "G2", "C2"], "page", 0),
+    ("hand/h8-tuning-words", ["Eb4", "Bb3", "Gb3", "Db3", "Ab2", "Eb2"], "page", 0),
+    ("f6-eb-standard-words", ["E4", "B3", "G3", "D3", "A2", "E2"], "unclear", 0),
+    ("f7-open-g-words", ["E4", "B3", "G3", "D3", "A2", "E2"], "unclear", 0),
+    ("d3-ukulele", ["G2", "D2", "A1", "E1"], "unclear", 0),
+    ("hand/h5-da-capo-words", ["E4", "B3", "G3", "D3", "A2", "E2"], "standard", 0),
+    ("hand/h7-drop-a-story", ["E4", "B3", "G3", "D3", "A2", "E2"], "standard", 0),
+])
+def test_a_tuning_or_capo_is_taken_only_from_a_statement_that_means_nothing_else(path, tuning, source, capo):
+    reading = read_tab((REVIEW / f"{path}.pdf").read_bytes())
+    assert (reading.tuning, reading.tuning_from, reading.capo) == (tuning, source, capo)

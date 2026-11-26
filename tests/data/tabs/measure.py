@@ -156,7 +156,7 @@ def measure(pdf: Path, details: bool) -> dict:
         return {"file": name, "outcome": "refused"}
     read, read_bars = notes(reading.musicxml)
     row = {"file": name, "outcome": "read", "notes read": len(read), "bars read": read_bars, "doubtful": reading.doubtful,
-           "tuning": " ".join(reading.tuning) + (" printed" if reading.tuning_printed else " assumed"),
+           "tuning": " ".join(reading.tuning) + f" {reading.tuning_from}",
            "meter printed": reading.meter_printed, "seconds": round(seconds, 2)}
     if known is None:
         return row
