@@ -2185,6 +2185,19 @@ wheels = [
 ]
 
 [[package]]
+name = "pdfminer-six"
+version = "20260107"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "charset-normalizer" },
+    { name = "cryptography" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/34/a4/5cec1112009f0439a5ca6afa8ace321f0ab2f48da3255b7a1c8953014670/pdfminer_six-20260107.tar.gz", hash = "sha256:96bfd431e3577a55a0efd25676968ca4ce8fd5b53f14565f85716ff363889602", size = 8512094, upload-time = "2026-01-07T13:29:12.937Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/20/8b/28c4eaec9d6b036a52cb44720408f26b1a143ca9bce76cc19e8f5de00ab4/pdfminer_six-20260107-py3-none-any.whl", hash = "sha256:366585ba97e80dffa8f00cebe303d2f381884d8637af4ce422f1df3ef38111a9", size = 6592252, upload-time = "2026-01-07T13:29:10.742Z" },
+]
+
+[[package]]
 name = "pikepdf"
 version = "10.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3116,6 +3129,7 @@ dependencies = [
 [package.optional-dependencies]
 pdf = [
     { name = "cairosvg" },
+    { name = "pdfminer-six" },
     { name = "pikepdf" },
 ]
 
@@ -3143,6 +3157,7 @@ server = [
     { name = "mcp" },
     { name = "opentelemetry-exporter-gcp-trace" },
     { name = "opentelemetry-sdk" },
+    { name = "pdfminer-six" },
     { name = "pikepdf" },
     { name = "python-multipart" },
     { name = "uvicorn" },
@@ -3153,6 +3168,7 @@ requires-dist = [
     { name = "cairosvg", marker = "extra == 'pdf'", specifier = ">=2.7" },
     { name = "fonttools", specifier = ">=4.50" },
     { name = "music21", specifier = ">=10.5" },
+    { name = "pdfminer-six", marker = "extra == 'pdf'", specifier = ">=20260107" },
     { name = "pikepdf", marker = "extra == 'pdf'", specifier = ">=9" },
     { name = "pillow", specifier = ">=11" },
     { name = "pydantic", specifier = ">=2.8" },
@@ -3184,6 +3200,7 @@ server = [
     { name = "mcp", specifier = ">=2.2" },
     { name = "opentelemetry-exporter-gcp-trace", specifier = ">=1.15.0" },
     { name = "opentelemetry-sdk", specifier = ">=1.45.1" },
+    { name = "pdfminer-six", specifier = ">=20260107" },
     { name = "pikepdf", specifier = ">=9" },
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "uvicorn", specifier = ">=0.30" },

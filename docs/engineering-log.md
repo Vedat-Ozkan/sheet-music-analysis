@@ -4690,6 +4690,40 @@ Separately, a careful reading handed in for one page of an eight-page scan was a
 
 **One false start, mine.** The owner's first run of step B stopped at once: staging answered without the mark. I had moved staging's traffic back to the build with the proxy change, but the proof script sets the instance count with `gcloud run services update`, which makes a new revision from the latest deployed build, and that was a build without the change. Setting that build as the service's current one fixed it. Before any such proof, check the mark on the latest revision, not only where traffic points.
 
+### 221. Reading tablature PDFs from their drawing, measured (2026-11-26, branch `read-tab-pdfs`, stage A)
+
+**Why.** On 26 November a ChatGPT user sent a guitar tablature PDF. Our PDF reader spent 48 s on it and returned 40 bars with no notes. Of 112 readings kept from the last 30 days, 2 had no notes, and both were tablature made by notation programs. Their fret numbers are real text and their lines, stems and beams are drawn shapes, so they can be read without image recognition.
+
+**What was built.** `engine/read_tab.py` takes PDF bytes and returns MusicXML in which every note has its sounding pitch and its string and fret, or `None` when the PDF holds no typed tablature. It reads geometry only, with every distance measured in staff-line gaps, and never looks at a program's or font's name. Staves are 4, 6 or 7 evenly spaced long lines. Frets are digits of the most common fret font and size. Stems have one end outside the staff; a stem shorter than three quarters of the usual length is a half note. Beams, flags, dots, rests, tuplet numbers and repeat dots come from the drawing or from SMuFL code points, and anything else is unknown. A voice is snapped to the fuller voice's beat wherever the two share a column, which covers rests a program left undrawn. A bar whose lengths cannot be settled is listed in `doubtful`, for the PDF reader's existing shading. The tuning is the printed one (a "Tuning:" line, letters at the staff's start, or "Drop D"), or standard guitar or bass; a printed capo is applied. The reading records which tuning it used and whether it was printed. Library: `pdfminer.six`. It is one new package (its two dependencies were already in the image), about 9.5 MB installed (7.9 MB of that is CJK character maps), and adds about 50 ms to import.
+
+**Truth set.** `tests/data/tabs/make_tab_pdfs.py` writes MusicXML with a tablature staff and has MuseScore 4 print it: Greensleeves (single line, pickup, dotted notes, rests, repeat; also printed as staff plus tablature), the Spanish Romance (triplets, a held bass with ties, E minor then E major), and Bach chorales already in `tests/data`. BWV 336 is printed with "Capo 2", BWV 386 as four-note chords, BWV 245.40 in drop D with "Tuning: D A D G B E" printed, and BWV 418 as a 4-string bass line with rests. A second program (LilyPond) was NOT RUN: installing it was not permitted on this PC. For the users' files, the truth for the first bars was written by hand from the page picture: Weird (8 bars), the Weiss allemande (pickup and 7 bars) and the Bond theme (7 bars). Those truths sit beside the files in the git-ignored users folder.
+
+**Measure** (`tests/data/tabs/measure.py`). Notes are matched per bar on onset, string and fret; every difference is printed.
+
+| file | notes | found | wrong length | wrong string/fret | wrong onset | missed / extra | other | time per page |
+|---|---|---|---|---|---|---|---|---|
+| greensleeves, and staff plus tab | 36, 36 | all | 0 | 0 | 0 | 0 | | 0.03 s, 0.05 s |
+| romanza | 160 | 160 | 0 | 0 | 0 | 0 | | 0.08 s |
+| bwv336-capo | 76 | 76 | 0 | 0 | 0 | 0 | capo 2 read | 0.04 s |
+| bwv386-chords | 103 | 103 | 0 | 0 | 0 | 0 | 1 tie, 3 spellings | 0.03 s |
+| bwv245-40-drop-d | 238 | 238 | 0 | 0 | 0 | 0 | drop D read, 25 spellings | 0.10 s |
+| bwv418-bass | 74 | 74 | 0 | 0 | 0 | 0 | 3 spellings | 0.04 s |
+| Weird (user, MuseScore) | 160 | 160 | 0 | 0 | 0 | 0 | all 58 bars | 0.09 s |
+| Weiss allemande (user, other program) | 77 | 77 | 1 | 0 | 0 | 0 | all 32 bars | 0.06 s |
+| Bond theme (user, staff plus tab) | 37 | 9 | 9 | 0 | 20 | 8 / 0 | every bar doubtful | 0.03 s |
+
+**Differences left, and why.**
+- Spelling (34 notes): the key is guessed from the notes, and a chromatic note in a flat key is spelled with a flat (G sharp in E flat major comes out as A flat). The pitch is right.
+- One tie in a dense chord (BWV 386, bar 3) is missed.
+- The Weiss length: a three-note chord where the program draws the up stem from the top note and the down stem from the bottom note. Nothing on the page says which voice the middle note belongs to.
+- Bond: the tablature has no stems or beams (the rhythm is printed only on the five-line staff), and the tied continuations are not printed in it. Every bar is therefore doubtful, and the fret numbers are right. Its second guitar's tablature has five lines and is skipped as an ordinary staff.
+
+**Not read at all.** Grace notes (smaller digits), slides, bends, hammer-ons and dead notes ("x"); a time signature drawn as outlines (the Weiss 2/2 is read as an assumed 4/4); time changes a program hides on the tablature (Weird bars 21 and 54 to 56 are shaded); letters at the staff's start and 7-string staves (written, but nothing in the truth set prints them); two tablature staves in one system; rhythm printed only on a five-line staff.
+
+**Mistakes found while measuring, fixed in the design.** Empty bars were dropped, so every later bar number moved (Weird's bars 30 to 46 hold only lyrics); they are now whole-bar rests and the numbers match the page. Tie curves counted as staff lines. A staff's neighbour five-line staff lent it rests and stems, so each staff now reads only its own zone. Music glyphs were placed by their font box instead of their origin. pdfminer's layout analysis took 85% of the time; it is now skipped, and Weird went from 1.17 to 0.09 s per page.
+
+**Refusals.** 673 distinct PDFs in the main checkout that hold no tablature (exports and scans) all returned `None`, with no errors. Saying no takes 0.24 s on average and 4.7 s at most (Clementi op. 42, a long score); stage C must keep that in mind before the slow reader.
+
 ## Reproducing
 
 ```bash
@@ -4712,4 +4746,5 @@ Separately, a careful reading handed in for one page of an eight-page scan was a
 .venv/bin/python -m eval.review --set heldout --only ID --passages 2 --selfcheck --start-from opus-medium-2026-10-24 --tag selfcheck-b   # the reworded check (challenge 74)
 .venv/bin/python -m eval.pdf_compare --kind real                 # plain chats and our setup from the same PDF (entry 85)
 .venv/bin/python tools/robustness.py                               # 31-score robustness run
+PYTHONPATH=. .venv/bin/python tests/data/tabs/measure.py             # tablature reading against its truth set (entry 221)
 ```
