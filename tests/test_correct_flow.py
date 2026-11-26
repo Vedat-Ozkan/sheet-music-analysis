@@ -238,3 +238,13 @@ def test_a_transposing_part_is_refused_as_not_correctable_and_not_as_bars_that_d
     assert result.is_error
     assert result.content[0].text == ('This score cannot be corrected here: corrections of parts written for a transposing '
                                       'instrument are not supported yet. score_id SYMPHONY is unchanged.')
+
+
+def test_a_reading_whose_parts_have_different_bar_counts_is_refused_as_not_correctable(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/STADT', (ROOT / 'tests/data/pdf_warnings/schubert_die_stadt_audiveris.musicxml').read_bytes())
+    result = asyncio.run(app.mcp.call_tool('correct_bars', {
+        'score_id': 'STADT', 'part': 'P1', 'replacement_bars': 'N1 div=1 ts=3/4 ks=0\nm2 len=3\n1.1: 3 r'}))
+    assert result.is_error
+    assert result.content[0].text == ('This score cannot be corrected here: its parts do not all have the same number of bars '
+                                      '(part P1 has 39, part P2 has 40). score_id STADT is unchanged.')

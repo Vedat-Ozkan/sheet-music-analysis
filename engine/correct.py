@@ -72,6 +72,10 @@ def _read(score: bytes, part: str | None):
     index = ScoreIndex(load_toolkit(ET.tostring(isolated)).getMEI())
     bars = selected.findall("measure")
     if [s.index for m in index.measures for s in m.segments] != list(range(1, len(bars) + 1)):
+        lengths = {p.get("id"): len(p.findall("measure")) for p in parts}
+        if len(set(lengths.values())) > 1:
+            raise NotCorrectable("its parts do not all have the same number of bars ("
+                                 + ", ".join(f"part {name} has {count}" for name, count in lengths.items()) + ")")
         raise CorrectionFault("XML measures cannot be mapped to indexed segments")
     if selected.find(".//transpose") is not None:
         raise NotCorrectable("corrections of parts written for a transposing instrument are not supported yet")
