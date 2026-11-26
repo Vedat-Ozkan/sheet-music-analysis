@@ -228,3 +228,13 @@ def test_a_latin1_score_without_an_encoding_line_is_corrected_with_its_title_kep
     assert result.structured_content['changed_bars'] == [1]
     corrected = app.store.get(f"scores/{result.structured_content['score_id']}")
     assert "Pièce à l'étude" in corrected.decode('utf-8')
+
+
+def test_a_transposing_part_is_refused_as_not_correctable_and_not_as_bars_that_do_not_fit(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, 'store', app.LocalStore(tmp_path))
+    app.store.put('scores/SYMPHONY', (ROOT / 'tests/data/piano/mozart-41.mxl').read_bytes())
+    result = asyncio.run(app.mcp.call_tool('correct_bars', {
+        'score_id': 'SYMPHONY', 'part': 'P6', 'replacement_bars': 'N1 div=1 ts=4/4 ks=0\nm1 len=4\n1.1: 4 C5'}))
+    assert result.is_error
+    assert result.content[0].text == ('This score cannot be corrected here: corrections of parts written for a transposing '
+                                      'instrument are not supported yet. score_id SYMPHONY is unchanged.')

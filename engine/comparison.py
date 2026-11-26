@@ -9,6 +9,7 @@ from music21 import harmony
 from music21 import key as m21key
 from music21 import meter
 from music21 import roman
+from music21.exceptions21 import Music21Exception
 
 from engine.score import midi
 from engine.score import BEAT_DENOMINATOR, ScoreIndex, beat_length
@@ -40,7 +41,7 @@ class Sounding:
     family: str | None = None
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=4096)
 def sounding(key: str, figure: str) -> Sounding | None:
     try:
         local = m21key.Key(m21key.convertKeyStringToMusic21KeyString(key))
@@ -50,7 +51,7 @@ def sounding(key: str, figure: str) -> Sounding | None:
         chord = roman.RomanNumeral(figure.replace("ø", "/o"), local, sixthMinor=roman.Minor67Default.CAUTIONARY, seventhMinor=roman.Minor67Default.CAUTIONARY)
         return Sounding(local.tonic.pitchClass, local.mode == "minor", chord.root().pitchClass, frozenset(p.pitchClass for p in chord.pitches), chord.bass().pitchClass,
                         None if chord.secondaryRomanNumeral or chord.scaleDegree == 3 or chord.scaleDegree == 7 and (chord.root().pitchClass - local.tonic.pitchClass) % 12 != 11 else FUNCTIONS.get(str(chord.scaleDegree)))
-    except Exception:
+    except (Music21Exception, ValueError):
         return None
 
 

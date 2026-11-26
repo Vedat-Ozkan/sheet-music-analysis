@@ -2147,6 +2147,9 @@ async def correct_bars(
             if await anyio.to_thread.run_sync(store.get, shaded_key(score_id)) is not None:
                 uneven, _ = await in_turn(pdf_reader.problem_spots, after)
                 await anyio.to_thread.run_sync(store.put, shaded_key(code), json.dumps(uneven).encode())
+    except correct.NotCorrectable as error:
+        log("correct_bars", platform=source, **logged(error))
+        return error_result(f"This score cannot be corrected here: {error}. score_id {score_id} is unchanged.")
     except (correct.CorrectionError, ScoreError, PositionError) as error:
         log("correct_bars", platform=source, **logged(error))
         return error_result("The replacement bars do not fit: " + str(error)

@@ -21,6 +21,14 @@ class CorrectionError(UserError):
     pass
 
 
+class NotCorrectable(CorrectionError):
+    pass
+
+
+class CorrectionFault(Exception):
+    pass
+
+
 ACCIDENTALS = {-3: "triple-flat", -2: "flat-flat", -1: "flat", 0: "natural", 1: "sharp", 2: "double-sharp", 3: "triple-sharp"}
 AFTER_ACCIDENTAL = {"time-modification", "stem", "notehead", "staff", "beam", "notations", "lyric"}
 SLUR_NUMBERS = range(1, 17)
@@ -46,7 +54,7 @@ class Group:
 def _read(score: bytes, part: str | None):
     root = ET.fromstring(musicxml_text(score))
     if root.tag != "score-partwise":
-        raise CorrectionError("Corrections require unnamespaced partwise MusicXML")
+        raise NotCorrectable("its file is not laid out part by part, which corrections cannot handle yet")
     parts = root.findall("part")
     names = {sp.get("id"): sp.findtext("part-name", "").strip() for sp in root.iter("score-part")}
     choices = ", ".join(f"{p.get('id')} {names.get(p.get('id'), '')}".strip() for p in parts)
@@ -64,9 +72,9 @@ def _read(score: bytes, part: str | None):
     index = ScoreIndex(load_toolkit(ET.tostring(isolated)).getMEI())
     bars = selected.findall("measure")
     if [s.index for m in index.measures for s in m.segments] != list(range(1, len(bars) + 1)):
-        raise CorrectionError("XML measures cannot be mapped to indexed segments")
+        raise CorrectionFault("XML measures cannot be mapped to indexed segments")
     if selected.find(".//transpose") is not None:
-        raise CorrectionError("Corrections of transposed parts are not supported")
+        raise NotCorrectable("corrections of parts written for a transposing instrument are not supported yet")
     return root, selected, index
 
 
@@ -300,7 +308,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
             for duration in element.findall("duration") + list(element.iter("offset")):
                 value = Fraction(duration.text) * divisions / old
                 if value.denominator != 1:
-                    raise CorrectionError("Existing durations are not on an integer divisions grid")
+                    raise NotCorrectable("some of its note lengths are written as fractions of its timing unit, which corrections cannot handle yet")
                 duration.text = str(int(value))
         number = position_in_file
         if number not in replacements:
@@ -440,7 +448,7 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
         if original.number in changed_numbers:
             continue
         if timing(original) != timing(after.measure(original.number)):
-            raise CorrectionError("Divisions normalization would change untouched bars' imported timing")
+            raise NotCorrectable(f"applying the correction would change the timing of bar {original.name}, which was not corrected")
         if (following is None or following.number not in changed_numbers) and ties(original) != ties(after.measure(original.number)):
             raise CorrectionError(f"Bar {original.name}: the correction would change ties in this untouched bar")
     return result
@@ -617,7 +625,7 @@ def review_correction(before: bytes, after: bytes, *, part: str | None = None) -
     _, _, old = _read(before, part)
     root, selected, new = _read(after, part)
     if [m.number for m in old.measures] != [m.number for m in new.measures]:
-        raise CorrectionError("A correction review requires the same bars before and after")
+        raise CorrectionFault("A correction review requires the same bars before and after")
 
     def events(bar):
         return (Counter((e.staff, e.onset, e.duration, e.pitch, e.tied)

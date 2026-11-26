@@ -116,7 +116,7 @@ def test_normalization_does_not_change_untouched_imported_timing():
     ET.SubElement(root.find('part'), 'measure', number='2').extend(ET.fromstring('<body>' + note('E', 8, 'whole') + '</body>'))
     original = ET.tostring(root)
     assert index(original).measure(1).events[-1].duration == 4
-    with pytest.raises(correct.CorrectionError, match="untouched bars' imported timing"):
+    with pytest.raises(correct.NotCorrectable, match="would change the timing of bar 1, which was not corrected"):
         correct.replace_bars(original, 'N1 div=2 ts=4/4 ks=0\nm2 len=8\n1.1: 8 F4')
 
 
