@@ -1906,6 +1906,7 @@ INSTRUCTIONS = (
     "Result labels: \"Note for the user\": passed on with the analysis. \"Warning for the user\": opens that reply. "
     "\"Question for the user\": asked before going on. \"Offer for the user\": made once, at the reply's end; acted "
     "on after a yes.\n"
+    "score_id and pdf_id are for tool calls only; replies do not show them to the user.\n"
     "Getting the score: in ChatGPT the user attaches it (MusicXML as draft_analysis's score_file, a PDF to "
     "read_pdf). In Claude, choose_score shows a card for choosing the file and fetch_score takes a link; files "
     "attached to a Claude chat do not reach this server. In Claude, play shows a small piano player for a passage.\n"
