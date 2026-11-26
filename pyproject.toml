@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-pdf = ["cairosvg>=2.7", "pikepdf>=9"]  # engine/render.py PDF output, engine/read_pdf.py
+pdf = ["cairosvg>=2.7", "pdfminer-six>=20260107", "pikepdf>=9"]  # engine/render.py PDF output, engine/read_pdf.py, engine/read_tab.py
 
 [dependency-groups]
 audio-research = [
@@ -40,6 +40,7 @@ server = [
     "pikepdf>=9",
     "opentelemetry-sdk>=1.45.1",
     "opentelemetry-exporter-gcp-trace>=1.15.0",
+    "pdfminer-six>=20260107",
 ]
 
 [build-system]

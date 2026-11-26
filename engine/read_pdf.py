@@ -29,7 +29,8 @@ from music21 import instrument
 from engine import text, tint, verovio_workers
 from engine.errors import UserError
 from engine.overlay import S, Box, PageLayout
-from engine.render import Engraving, ScoreError, load_toolkit
+from engine.read_tab import OutsideScope, read_tab
+from engine.render import SOUNDING_NOTE, Engraving, ScoreError, load_toolkit, xml_text
 from engine.score import NOTE_TYPE_LENGTH, TOLERANCE, ScoreIndex, bar_length, musicxml_meter
 from engine.triplets import infer_triplets
 from engine.tuplet_rests import infer_tuplet_rests
@@ -46,6 +47,7 @@ A4_DRAWN_PIXELS = 8_700_000
 READABLE_INTERLINE = 20
 SHARP_SCAN_INTERLINE = 11
 NOTHING_READ = "No music could be read from this PDF"
+NO_NOTES_READ = "Only empty bars could be read from this PDF, with no notes in them"
 NEXT_STEP = (
     ". What may work instead: a PDF exported from notation software reads best; a scan "
     "should be straight, sharp and about 300 dpi; a long PDF can be sent a few pages at a time; a MusicXML file "
@@ -72,7 +74,7 @@ SETTINGS = [_BASE, _BASE + _SMALL + ["-option", _SWITCH + "implicitTuplets=true"
 THIN_BEAM_SETTINGS = [setting + ["-option", "org.audiveris.omr.sheet.ScaleBuilder.beamMinFraction=0.2"]
                       for setting in SETTINGS]
 _LELAND = ["-option", "org.audiveris.omr.ui.symbol.MusicFont.defaultMusicFamily=Leland"]
-READER = "5.11.0-sma.8-best2-tuplet-rests-eight-leland-ocr-r9-page-size-marks-thin-beams-fingering"
+READER = "5.11.0-sma.8-best2-tuplet-rests-eight-leland-ocr-r9-page-size-marks-thin-beams-fingering-tablature"
 MIN_NOTES = 0.95
 RETRY_ABOVE = 3
 
@@ -95,6 +97,7 @@ class PdfReading:
     skipped: list[int] = field(default_factory=list)
     passes: list[dict] = field(default_factory=list)
     low_resolution: bool = False
+    tablature: dict | None = None
 
 SCAN_TOO_SMALL = ("This scan is too small to read: its staff lines are only about {} apart, and a sharp scan "
                   "has at least {}. Scanning the pages again at a higher resolution should let them be read")
@@ -439,6 +442,12 @@ def uses_leland(pdf: pikepdf.Pdf) -> bool:
 
 def read_pdf(data: bytes, audiveris: str = AUDIVERIS, raw=None) -> PdfReading:
     pdf = open_pdf(data)
+    try:
+        tablature = read_tab(data)
+    except OutsideScope as refusal:
+        raise ReadError(str(refusal), lasting=True) from refusal
+    if tablature:
+        return PdfReading(tablature.musicxml, tablature.pages, False, tablature=tablature.facts())
     pages, scan, leland = len(pdf.pages), is_scan(pdf), uses_leland(pdf)
     data = without_oversize_pages(data)
     deadline = time.monotonic() + TIMEOUT
@@ -510,6 +519,8 @@ def _read_with_every_setting(data: bytes, audiveris: str, raw, pages: int, scan:
         found_nothing = bool(passes) and all(record["outcome"] == "no music" and record.get("exit_code") == 0 for record in passes)
         raise ReadError("Reading this PDF took too long" if timed_out else NOTHING_READ, passes, lasting=found_nothing)
     counts = [_pitched_notes(reading[0]) for reading in readings]
+    if not any(SOUNDING_NOTE.search(xml_text(reading[0])) for reading in readings):
+        raise ReadError(NO_NOTES_READ, passes, lasting=True)
     complete = [reading for reading, count in zip(readings, counts) if count >= MIN_NOTES * max(counts)]
     musicxml, skipped, _ = min(complete, key=lambda reading: (len(reading[1]), len(reading[2])))
     for repair in (infer_tuplet_rests, infer_triplets):

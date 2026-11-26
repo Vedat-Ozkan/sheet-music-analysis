@@ -654,3 +654,19 @@ def test_a_small_scan_whose_enlarged_retry_fails_says_it_is_too_small():
 def test_reading_an_80_dpi_scan_warns_of_many_mistakes():
     reading = read_pdf((Path(__file__).parent / "data" / "chopin-op67-joseffy-80dpi-scan.pdf").read_bytes(), audiveris=AUDIVERIS)
     assert reading.low_resolution
+
+
+def test_a_reading_with_only_empty_bars_is_refused_at_the_reading():
+    empty = Path(__file__).parent / "data/users/weird-tab-only-musescore-staff-reading.musicxml"
+    if not empty.exists():
+        pytest.skip(f"{empty} is a user's file kept out of the repository")
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w") as mxl:
+        mxl.writestr("score.musicxml", empty.read_bytes())
+
+    def raw(data, audiveris, setting, leland, deadline, stop):
+        return RawReading(archive.getvalue(), [], {"outcome": "done"})
+
+    with pytest.raises(ReadError, match="Only empty bars") as refused:
+        read_pdf((Path(__file__).parent / "data/chopin-28-4-mutopia.pdf").read_bytes(), raw=raw)
+    assert refused.value.lasting

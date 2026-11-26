@@ -66,7 +66,7 @@ def export_musicxml(original: bytes, analysis: dict) -> bytes:
 
     candidates = {}
     divisions, staves = 1, 1
-    transposition, octave = {}, {}
+    transposition, octave, tablature = {}, {}, set()
     measure_info = {}
     for position, measure in enumerate(measures, 1):
         bar, segment = segments[position]
@@ -84,6 +84,9 @@ def export_musicxml(original: bytes, analysis: dict) -> bytes:
             if kind == tag('attributes'):
                 divisions = int(element.findtext(tag('divisions'), str(divisions)))
                 staves = int(element.findtext(tag('staves'), str(staves)))
+                for clef in element.findall(tag('clef')):
+                    if clef.findtext(tag('sign')) == 'TAB':
+                        tablature.add(int(clef.get('number', '1')))
                 for transpose in element.findall(tag('transpose')):
                     shift = Fraction(transpose.findtext(tag('chromatic'), '0')) + 12 * int(transpose.findtext(tag('octave-change'), '0'))
                     targets = [int(transpose.get('number'))] if transpose.get('number') else range(1, staves + 1)
@@ -111,8 +114,9 @@ def export_musicxml(original: bytes, analysis: dict) -> bytes:
                     if element.find(tag('grace')) is None:
                         cursor += Fraction(element.findtext(tag('duration'), '0')) / divisions
         shifts.sort(key=lambda item: item[0])
+        labelled = _labelled_staff(staves, tablature)
         for onset, sounding, staff, note in notes:
-            if staff != staves:
+            if staff != labelled:
                 continue
             active = octave.copy()
             for at, target, kind, size in shifts:
@@ -122,7 +126,7 @@ def export_musicxml(original: bytes, analysis: dict) -> bytes:
             candidates.setdefault(bar.number, []).append((segment.start + onset, sounding + active.get(staff, 0), note))
         for _, staff, kind, size in shifts:
             octave[staff] = 0 if kind == 'stop' else 12 * ((size - 1) // 7) * (1 if kind == 'down' else -1)
-        measure_info[position] = (measure, insertion_divisions, staves)
+        measure_info[position] = (measure, insertion_divisions, labelled)
 
     attached, key = {}, None
     for annotation in harmonies:
@@ -149,7 +153,7 @@ def export_musicxml(original: bytes, analysis: dict) -> bytes:
             ET.SubElement(lyric, tag('text')).text = text
         else:
             segment = bar.segment_at(offset)
-            measure, divisions, staves = measure_info[segment.index]
+            measure, divisions, labelled = measure_info[segment.index]
             direction = ET.Element(tag('direction'), placement='below')
             ET.SubElement(ET.SubElement(direction, tag('direction-type')), tag('words')).text = text
             duration = (offset - segment.start) * divisions
@@ -158,10 +162,14 @@ def export_musicxml(original: bytes, analysis: dict) -> bytes:
             else:
                 value = str(duration.numerator)
             ET.SubElement(direction, tag('offset')).text = value
-            ET.SubElement(direction, tag('staff')).text = str(staves)
+            ET.SubElement(direction, tag('staff')).text = str(labelled)
             insertion = next((i for i, child in enumerate(measure) if child.tag in (tag('note'), tag('backup'), tag('forward'))), len(measure))
             measure.insert(insertion, direction)
     return ET.tostring(root, encoding='utf-8', xml_declaration=True)
+
+
+def _labelled_staff(staves: int, tablature: set[int]) -> int:
+    return max((staff for staff in range(1, staves + 1) if staff not in tablature), default=staves)
 
 
 def export_romantext(original: bytes, analysis: dict, measures: tuple[int, int] | None = None) -> bytes | None:

@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="UTF-8"?><museScore version="4.20"><Style><showMeasureNumber>1</showMeasureNumber><measureNumberInterval>1</measureNumberInterval><measureNumberSystem>0</measureNumberSystem></Style></museScore>
