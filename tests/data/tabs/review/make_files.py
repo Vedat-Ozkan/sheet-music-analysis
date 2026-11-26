@@ -276,7 +276,6 @@ def pieces():
     add(piece("a8-multirest", [B(EIGHTS), B(SCALE), {**rest, "multirest": 4}, dict(rest), dict(rest), dict(rest), B(SCALE),
                                B("w:1-0")], style={"createMultiMeasureRests": 1}))
 
-    low = "h.:6-0 q:r"
     add(piece("a9-fingering-stems-up", [B("e:1-0f1 e:1-1f2 e:1-3f3 e:1-5f4 e:1-0f1 e:1-1f2 e:1-3f3 e:1-5f4", "w:6-0"),
                                         B("q:1-0f3 q:1-1f3 q:1-3f3 q:1-5f3", "h:6-0 h:5-0")] * 2))
     add(piece("a10-circles-below", [B(EIGHTS, before=[words("3", circle=True, placement="below")]),
