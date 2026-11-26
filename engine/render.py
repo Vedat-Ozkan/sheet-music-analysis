@@ -507,10 +507,11 @@ def musicxml_file(score: bytes) -> bytes:
                 return archive.read(name)
 
             container = ET.fromstring(member("META-INF/container.xml"))
-            path = next(e.get("full-path") for e in container.iter() if e.tag.endswith("rootfile") and e.get("full-path")
-                        and e.get("media-type") in (None, "application/vnd.recordare.musicxml+xml"))
-            return member(path)
-    except (zipfile.BadZipFile, KeyError, StopIteration, ET.ParseError) as error:
+            rootfiles = [e for e in container.iter() if e.tag.endswith("rootfile") and e.get("full-path")]
+            chosen = next((e for e in rootfiles if e.get("media-type") in (None, "application/vnd.recordare.musicxml+xml")),
+                          rootfiles[0])
+            return member(chosen.get("full-path"))
+    except (zipfile.BadZipFile, KeyError, IndexError, ET.ParseError) as error:
         raise ScoreError("This file is not MusicXML: its .mxl archive could not be read") from error
 
 
