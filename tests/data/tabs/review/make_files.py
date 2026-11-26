@@ -8,6 +8,8 @@ from fractions import Fraction
 from pathlib import Path
 from xml.sax.saxutils import escape
 
+from engine import correct
+
 HERE = Path(__file__).parent
 FILES = HERE
 MUSESCORE = "/mnt/c/Program Files/MuseScore 4/bin/MuseScore4.exe"
@@ -380,6 +382,16 @@ def pieces():
     return found
 
 
+def with_signs(score):
+    root = ET.fromstring(score)
+    for part in root.iter("part"):
+        fifths = 0
+        for measure in part.iter("measure"):
+            fifths = int(measure.findtext("attributes/key/fifths") or fifths)
+            correct._write_accidentals(measure, fifths)
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
 def windows(path):
     return subprocess.run(["wslpath", "-w", str(path)], check=True, capture_output=True, text=True).stdout.strip()
 
@@ -399,8 +411,7 @@ def main(names):
         if names and not any(name.startswith(prefix) for prefix in names):
             continue
         source = FILES / f"{name}.musicxml"
-        source.write_text(score_xml(item))
-        ET.fromstring(source.read_bytes())
+        source.write_bytes(with_signs(score_xml(item)))
         style = None
         if "style" in item:
             style = FILES / f"{name}.mss"
@@ -409,7 +420,6 @@ def main(names):
         target = FILES / f"{name}.pdf"
         target.unlink(missing_ok=True)
         done = convert(source, target, style)
-        convert(source, FILES / f"{name}.png", style)
         print(name, done.returncode, target.stat().st_size if target.exists() else "NO PDF", flush=True)
 
 
