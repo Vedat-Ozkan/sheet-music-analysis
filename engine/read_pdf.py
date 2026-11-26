@@ -30,7 +30,7 @@ from engine import text, tint, verovio_workers
 from engine.errors import UserError
 from engine.overlay import S, Box, PageLayout
 from engine.read_tab import read_tab
-from engine.render import Engraving, ScoreError, load_toolkit
+from engine.render import SOUNDING_NOTE, Engraving, ScoreError, load_toolkit, xml_text
 from engine.score import NOTE_TYPE_LENGTH, TOLERANCE, ScoreIndex, bar_length, musicxml_meter
 from engine.triplets import infer_triplets
 from engine.tuplet_rests import infer_tuplet_rests
@@ -516,7 +516,7 @@ def _read_with_every_setting(data: bytes, audiveris: str, raw, pages: int, scan:
         found_nothing = bool(passes) and all(record["outcome"] == "no music" and record.get("exit_code") == 0 for record in passes)
         raise ReadError("Reading this PDF took too long" if timed_out else NOTHING_READ, passes, lasting=found_nothing)
     counts = [_pitched_notes(reading[0]) for reading in readings]
-    if not max(counts):
+    if not any(SOUNDING_NOTE.search(xml_text(reading[0])) for reading in readings):
         raise ReadError(NO_NOTES_READ, passes, lasting=True)
     complete = [reading for reading, count in zip(readings, counts) if count >= MIN_NOTES * max(counts)]
     musicxml, skipped, _ = min(complete, key=lambda reading: (len(reading[1]), len(reading[2])))
