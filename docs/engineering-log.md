@@ -4616,6 +4616,33 @@ The ChatGPT package's reviewer case and release notes said the same untrue thing
 
 **Seen and left.** A control character in a symbol raises the same uncaught error sung words already do. The format has no staff for a symbol, so all are drawn above the top staff. A word that starts with A to G written on the `c:` line (`D.C.`) would be listed as a chord.
 
+### 215. Engine fixes from the weekly cold review (2026-11-26, branch `cold-review-engine-fixes`)
+
+A fresh reviewer read the engine cold and found five faults. One commit each, on top of `plain-tool-texts`.
+
+**1. The part-writing check took 18 seconds to say "not a chorale".** The check built its table by testing every note of every voice at every onset, built that table before the cheap voice count, and built it four times per draft over the whole score, then threw away the findings outside the asked bars. Now the voice and staff count runs first, the table is one sweep built once, and an asked range does its music work only on its bars plus one bar either side.
+
+| | before | after |
+|---|---|---|
+| Mozart 41 (433 bars), bars 1-8 | 17.8 s | under 0.01 s |
+| BWV 245.40, whole / bars 1-8 | 0.62 / 0.32 s | 0.33 / 0.09 s |
+| BWV 418, whole / bars 1-8 | 0.18 / 0.17 s | 0.14 / 0.08 s |
+| BWV 245.40 repeated to 464 bars, bars 1-8 | 33.6 s | 0.28 s |
+
+The old and new text are identical on 263 whole-piece and 4-bar-range cases (36 chorales). `diff_check partwriting`: 0 of 80 changed.
+
+**2. Note lists had six pitch readers and three grammars.** Decode kept `Cx4`, `Ck4`, `C-4` and `D#b4`. `C-4` was MIDI -36 in the NOTES table and 59 in the player. Now one rule, `score.PITCH` (letter, `#`/`##`/`b`/`bb`, one octave digit, as `kit/reader.md` documents), is used by every reader. Decode, ornament marks and `correct_bars` refuse anything else with one sentence naming the bar and the token. I ran 692 distinct note lists through decode before and after: every list the tests decode, the `.n1` files, the kit's examples and an encoding of every test score. 662 of the 668 that were accepted are still accepted, with the same notes and MIDI numbers; the 6 now refused are the new test's junk tokens.
+
+**3. Tempos no player can use.** `q=0` crashed the player with an internal error. A tempo answer of -60 put notes at negative times. The rule is now 10 to 1000 quarter notes per minute. Note lists and tempo answers outside it are refused. A file's own tempo outside it is ignored, so its tempo word or the default plays.
+
+**4. A Latin-1 MusicXML file drew but could not be corrected.** Four places opened MusicXML files, and only the drawing kept the encoding fallback and the size guard. Now `render.musicxml_file` and `musicxml_text` serve all four. New test data: `tests/data/check_analysis/musescore-roman-latin1.musicxml`.
+
+**5. Our failures were shown as the user's.** `correct_bars` answered every check with "the replacement bars do not fit". Two checks are faults of ours and now get the "something went wrong on our side" answer with a reference. Four are limits of what corrections handle in the stored file (not laid out part by part, a transposing part, fractional durations, a correction that would retime an uncorrected bar). They now answer "This score cannot be corrected here". `comparison.sounding` now catches only music21's parse errors and keeps at most 4096 entries.
+
+**Checks.** New tests fail before and pass after, through the tools (`draft_analysis`, `draft_from_notes`, `play`, `correct_bars`). `diff_check` typed, partwriting, export and render: no changes. NOT RUN: a real chat in either product, and a second model's review.
+
+**Seen and left.** `replace_bars` still turns any `ValueError` raised while parsing the replacement into a user error. `kit/notetool.py` keeps its own copy of the pitch pattern (it runs in the chat's sandbox), and it matches. An unknown tempo word is still refused only at play.
+
 
 ## Reproducing
 
