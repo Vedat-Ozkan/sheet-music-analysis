@@ -11,6 +11,7 @@ CLEF = {'G': 30, 'F': 18, 'C': 24, 'T': 22}
 SURE, DOUBT, GUIDE, MARK = (220, 80, 0), (0, 0, 255), (255, 190, 90), (0, 150, 0)
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 SHEARS = np.arange(-0.05, 0.051, 0.005)
+WIDE_BOX = 'is much wider than most bars on this page: it may hold more than one bar, look in the picture for bar lines inside it'
 
 
 def flat(g, k):
@@ -91,13 +92,13 @@ def bar_lines(wide, wider, blobs, staves, sp):
             for ya, yb in ((s['L'][0], s['L'][4]), (s['L'][0], s['L'][0] + sp / 2), (s['L'][4] - sp / 2, s['L'][4])):
                 ok &= vfrac(wide, ya, yb, shear, top) >= 0.9
             ok &= vfrac(blobs, s['L'][0], s['L'][4], shear, top) < 0.2
-        tries.append((ok, [vfrac(wide, a['L'][4], b['L'][0], shear, top) >= 0.9 for a, b in gaps],
+        tries.append((ok, [vfrac(wide, a['L'][4], b['L'][0], shear, top) for a, b in gaps],
                       [clear(a['L'][4], shear) & clear(b['L'][0] - 1.5 * sp, shear) for a, b in gaps]))
     found = sum(ok for ok, _, _ in tries) > 0
     for k in range(len(gaps)):
-        joined = sum(ok & join[k] for ok, join, _ in tries) > 0
-        for ok, join, apart in tries:
-            ok &= join[k] if joined.sum() > found.sum() / 2 else apart[k]
+        joined = sum(ok & (inked[k] >= 0.9) for ok, inked, _ in tries) > 0
+        for ok, inked, apart in tries:
+            ok &= inked[k] >= 0.75 if joined.sum() > found.sum() / 2 else apart[k]
     found = sum(ok for ok, _, _ in tries) > 0
     xs = [x for x in np.nonzero(found)[0] if staves[0]['x0'] - sp <= x <= staves[0]['x1'] + sp]
     groups = []
@@ -138,6 +139,8 @@ def analyse(path):
             s.update(x0=s['x0'] // z, x1=s['x1'] // z, L=(s['L'][:, ::z] + 0.5) / z - 0.5)
         x0, x1 = min(s['x0'] for s in st), max(s['x1'] for s in st)
         edges = [x0] + [x for x in lines if x0 + 2 * sp < x < x1 - 2 * sp] + [x1]
+        if len(edges) > 2 and x1 - edges[-2] < 6 * sp and not any(x >= x1 - 2 * sp for x in lines):
+            edges.pop()
         out.append(dict(staves=st, x0=x0, x1=x1, lines=lines, bars=list(zip(edges, edges[1:])),
                         sp=np.mean([(s['L'][4] - s['L'][0])[x0:x1].mean() / 4 for s in st])))
     for i, sy in enumerate(out):
@@ -146,7 +149,15 @@ def analyse(path):
         above = 0.6 * (top - out[i - 1]['staves'][-1]['L'][4, mid]) if i else top
         below = 0.6 * (out[i + 1]['staves'][0]['L'][0, mid] - bottom) if i + 1 < len(out) else H - bottom
         sy['pad'] = [min(9, d / sy['sp']) for d in (above, below)]
+    mark_wide_boxes(out)
     return flat(g, int(4 * sp)), out
+
+
+def mark_wide_boxes(systems):
+    widths = [[(q - p) / sy['sp'] - (4 if n == 0 else 0) for n, (p, q) in enumerate(sy['bars'])] for sy in systems]
+    full = [w for ws in widths for w in ws if w > 6]
+    for sy, ws in zip(systems, widths):
+        sy['wide'] = [n for n, w in enumerate(ws, 1) if len(full) > 2 and w > 1.7 * np.median(full)]
 
 
 def layout(a):
@@ -167,11 +178,13 @@ def layout(a):
             cv2.putText(ov, f'{i}.{j}', (max(0, int(s['x0'] * f) - 50), int(ya[2] * f) + 6), FONT, 0.6, SURE, 2)
         print(f"  bar lines ({len(sy['lines'])}): {' '.join(map(str, sy['lines']))}")
         print(f"  bars ({len(sy['bars'])}): " + ', '.join(f'{n}: {p}-{q}' for n, (p, q) in enumerate(sy['bars'], 1)))
+        for n in sy['wide']:
+            print(f"  bar {n} {WIDE_BOX}")
         ya, yb = int(st[0]['L'][0].min() * f) - 12, int(st[-1]['L'][4].max() * f) + 12
         for x in sy['lines']:
             cv2.line(ov, (int(x * f), ya), (int(x * f), yb), DOUBT, 2)
         for n, (p, q) in enumerate(sy['bars'], 1):
-            cv2.putText(ov, str(n), (int((p + q) / 2 * f) - 6, ya - 4), FONT, 0.6, DOUBT, 2)
+            cv2.putText(ov, f'{n} wide?' if n in sy['wide'] else str(n), (int((p + q) / 2 * f) - 6, ya - 4), FONT, 0.6, DOUBT, 2)
     cv2.imwrite(a.out, ov)
 
 
@@ -296,7 +309,7 @@ def label(a):
                     u = int(np.searchsorted(xs, x))
                     cv2.putText(im, f'{i}.{j + 1} clef {c}', (u + 4, int(b - 4.4 * S)), FONT, 0.6, MARK, 2)
             for n, (p, q) in enumerate(sy['bars'], 1):
-                cv2.putText(im, f'bar {n}', (int(np.searchsorted(xs, p)) + 8, 24), FONT, 0.8, MARK, 2)
+                cv2.putText(im, f'bar {n} wide?' if n in sy['wide'] else f'bar {n}', (int(np.searchsorted(xs, p)) + 8, 24), FONT, 0.8, MARK, 2)
 
         full = overlay(R, draw)
         for h in heads:
@@ -324,7 +337,7 @@ def label(a):
                 cv2.imwrite(name, rulers(full[v0:v1, u0:u1], xs[u0:u1], my[v0:v1, u0]))
                 print(f' crop {name}: bars {g[0][0]}-{g[-1][0]}, x {int(g[0][1])}-{int(g[-1][2])}, staves {i}.{j0 + 1}-{i}.{j1 + 1}')
         for n, (p, q) in enumerate(sy['bars'], 1):
-            print(f' bar {n} (x {p}-{q})')
+            print(f' bar {n} (x {p}-{q})' + (f' {WIDE_BOX}' if n in sy['wide'] else ''))
             for j in range(len(st)):
                 chords = []
                 for h in [h for h in heads if h['staff'] == j and p <= h['src'] < q]:

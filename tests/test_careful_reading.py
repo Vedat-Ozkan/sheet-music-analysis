@@ -771,15 +771,31 @@ def test_a_tuplet_the_engraver_cannot_write_is_refused_by_the_rules(count):
     ((RULES / "clarinet-key-change-unstated-page1.n1").read_text(), "0 errors, 0 pitches outside the key signature"),
 ], ids=["bad", "good", "a-staff-in-its-own-key", "its-own-key-changes", "its-own-key-stays-when-the-page-key-changes"])
 def test_the_kit_check_reports_what_the_builder_would_refuse(tmp_path, text, reported):
-    python = next((python for python in (sys.executable, shutil.which("python3")) if python and subprocess.run(
-        [python, "-c", "import cv2, scipy"], capture_output=True).returncode == 0), None)
-    if python is None:
-        pytest.skip("no Python with the kit's image packages on this computer")
     page = tmp_path / "page1.n1"
     page.write_text(text)
+    assert run_kit("check", page).strip().endswith(reported)
+
+
+@pytest.mark.parametrize("scan, bars, marked", [
+    ("chopin-op67-joseffy-two-mazurkas-scan", [5, 5, 6, 5, 6, 5], []),
+    ("chopin-op67-small-page-scan", [5, 5, 6, 5, 6, 5], []),
+    ("chopin-op67-joseffy-80dpi-scan", [5, 5, 6, 5, 6, 4], [(6, 3)]),
+])
+def test_the_kit_finds_the_printed_bars_or_marks_the_box_that_holds_two(tmp_path, scan, bars, marked):
+    run_kit("pages", DATA / f"{scan}.pdf", tmp_path, needs="pypdfium2")
+    systems = run_kit("layout", tmp_path / "page1.png", tmp_path / "overview.png").split("\nsystem ")[1:]
+    assert [int(re.search(r"bars \((\d+)\)", system)[1]) for system in systems] == bars
+    assert [(number, int(box)) for number, system in enumerate(systems, 1)
+            for box in re.findall(r"bar (\d+) is much wider", system)] == marked
+
+
+def run_kit(*command, needs="cv2"):
+    python = next((python for python in (sys.executable, shutil.which("python3")) if python and subprocess.run(
+        [python, "-c", f"import cv2, scipy, {needs}"], capture_output=True).returncode == 0), None)
+    if python is None:
+        pytest.skip("no Python with the kit's image packages on this computer")
     kit = Path(__file__).parent.parent / "kit" / "notetool.py"
-    printed = subprocess.run([python, str(kit), "check", str(page)], capture_output=True, text=True, check=True).stdout
-    assert printed.strip().endswith(reported)
+    return subprocess.run([python, str(kit), *map(str, command)], capture_output=True, text=True, check=True).stdout
 
 
 @pytest.mark.parametrize("voice, sentence", [
@@ -1139,6 +1155,21 @@ def test_a_correction_keeps_the_careful_readings_doubt_shading(scan_of_three_pag
     corrected = asyncio.run(app.mcp.call_tool("correct_bars", {"score_id": code, "replacement_bars": bar_1.replace("4 E4", "4 F4")}))
     assert not corrected.is_error, text_of(corrected)
     assert asyncio.run(app.shaded_bars(corrected.structured_content["score_id"])) == [3, 4]
+
+
+@pytest.mark.parametrize("pages,corrected_bar", [
+    (["mazurka-ends-page1", "pickup-same-signatures-page2"], 3),
+    (["pickup-page2", "does-not-complete-page3"], 4),
+], ids=["a-pickup-inside-the-piece", "a-pickup-at-its-start"])
+def test_a_correction_shades_no_bar_the_careful_reading_left_unshaded(scan_of_three_pages, pages, corrected_bar):
+    code = text_of(hand_in(rules(*pages), careful_id())).split()[1]
+    assert asyncio.run(app.shaded_bars(code)) == []
+    bar = correct.bars_from_musicxml(app.store.get(f"scores/{code}"), corrected_bar)
+    changed = re.sub(r"([A-G])(\d)", lambda note: f"{'D' if note[1] == 'C' else 'C'}{note[2]}", bar, count=1)
+    corrected = asyncio.run(app.mcp.call_tool("correct_bars", {"score_id": code, "replacement_bars": changed}))
+    assert not corrected.is_error, text_of(corrected)
+    assert corrected.structured_content["changed_bars"] == [corrected_bar]
+    assert asyncio.run(app.shaded_bars(corrected.structured_content["score_id"])) == []
 
 
 def test_a_careful_reading_with_several_parts_says_how_to_correct_it(scan_of_three_pages):

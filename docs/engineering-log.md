@@ -4942,6 +4942,23 @@ Time to the question: 1 to 2 ms on the scan and 14 to 16 ms on the typeset PDF. 
 - After `correct_bars` on a careful reading, a pickup in the middle of the score is shaded: the correction marks bars with the quick reading's rule, which knows a pickup only as the first bar. It did so before this change for a pickup inside a page.
 - The two other rules that compare a page with the one before can still meet a new piece: a staff about an octave higher or lower, and a system with other staves.
 
+### 234. A bar line the kit misses no longer takes its bars with it (2026-11-27, branch `careful-review-fixes`)
+
+**Found on staging.** ChatGPT's careful reading of `tests/data/chopin-op67-joseffy-two-mazurkas-scan.pdf` wrote 29 of the 32 bars of page 1, twice. Nothing was shaded and nothing said. The kit's measuring had missed three bar lines and the helper wrote one bar per box.
+
+**Cause.** The three printed lines are broken between the staves, where a dynamic mark stands. In a system whose bar lines run across the gap, the measuring asked for 90% of the gap to be inked; these had 78% to 85%. The fifth box of system 3 was a key signature announced after the double bar.
+
+**Fix** (`kit/notetool.py`).
+- A line counts with 75% of the gap inked. At 66% and below, aligned stems of the same page were taken for a bar line.
+- A last box narrower than 6 staff spaces with no bar line at the system's end is dropped.
+- `layout` and `label` mark a box wider than 1.7 times the page's usual bar (`wide?`): it may hold more than one bar. The two texts of the kit say that bars are counted in the picture.
+
+**Measured** on 149 page pictures (test PDFs and stored trial pages; 147 readable). 16 bar lines added, each a printed one by eye; none lost. 31 end boxes dropped (announced key and time signatures and a repeat sign; none held a bar; a few narrow end boxes remain). 49 boxes are marked wide: 16 hold two or more bars that the measuring still misses, 33 are one long bar.
+
+**Still missed.** The measuring misses bar lines that are faded, that stand at different places on different staves, or that are broken more widely. A box with two bars that is not 1.7 times the usual is not marked. Nothing compares the note list with the page, so a helper that ignores the picture can still drop bars.
+
+**With it.** A correction no longer shades a bar that the careful reading left unshaded and the correction rule had already flagged (a pickup after page 1's start).
+
 ## Reproducing
 
 ```bash
