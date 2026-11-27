@@ -164,14 +164,15 @@ def store_a_read_scan(tmp_path):
     scores.mkdir()
     (scores / "SCAN1.pdf").write_bytes(pdf)
     (scores / "QUICK1N").write_bytes((NOCTURNE.parent / "chopin_prelude_op28_no4_reading.musicxml").read_bytes())
-    (scores / "QUICK1N.scan").write_text(json.dumps({"pages": 3}))
+    (scores / "QUICK1N.reading").write_text(json.dumps({"pages": 3}))
     card = {"score_id": "QUICK1N", "pages": 3, "of_pages": 3, "scan": True, "measures": "1 to 25", "bars": 25, "notice": "", "image_url": "",
             "pdf_url": "", "page_images": []}
     (scores / f"pdf-card-{pdf_reader.READER}-{hashlib.sha256(pdf).hexdigest()}.json").write_text(json.dumps(card))
     typeset = pdf + b"\n"
     (scores / "TYPESET1.pdf").write_bytes(typeset)
+    (scores / "TYPESET1N").write_bytes((scores / "QUICK1N").read_bytes())
     (scores / f"pdf-card-{pdf_reader.READER}-{hashlib.sha256(typeset).hexdigest()}.json").write_text(
-        json.dumps({**card, "scan": False}))
+        json.dumps({**card, "score_id": "TYPESET1N", "scan": False}))
 
 
 CHOPIN_BAR_1 = correct.bars_from_musicxml((NOCTURNE.parent / "chopin_prelude_op28_no4_reading.musicxml").read_bytes(), 1)
@@ -198,7 +199,7 @@ def test_the_careful_reading_is_offered_on_the_first_drawn_page_of_each_reading_
         offered["after the scan is read again"] = drawn_text(url, CHATGPT, "QUICK1N")
         careful = careful_call(url, CHATGPT, "use_careful_reading", score_id="QUICK1N", pages=CAREFUL_PAGES)
         offered["the careful reading"] = drawn_text(url, CHATGPT, careful["content"][0]["text"].split()[1])
-    assert all(("Offer for the user" in text) == ("is a scan, and its reading was a quick one" in text) for text in offered.values())
+    assert all(("Offer for the user" in text) == ("had a quick reading" in text) for text in offered.values())
     offered = {path: "Offer for the user" in text for path, text in offered.items()}
     assert offered == {"corrected before any drawing": True, "the original after that": False, "a few bars again": False,
                        "the piano version": False, "after the scan is read again": True, "the careful reading": False}
@@ -223,14 +224,16 @@ def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_
         assert careful_tools & listed_tools(url, CLAUDE) == (careful_tools if CLAUDE in offered_to else set())
         for agent in (CHATGPT, CLAUDE):
             reading = read_scan(url, agent, "SCAN1")["content"][-1]["text"]
-            assert reading.endswith("\nscore_id QUICK1N is ready for draft_analysis."), agent
             assert "Shall I go ahead?" not in reading and "Offer for the user" not in reading, agent
-            assert reading == read_scan(url, agent, "TYPESET1")["content"][-1]["text"], agent
+            assert ("Question for the user, before any analysis" in reading) == (agent in offered_to), agent
+            assert reading.endswith("\nscore_id QUICK1N is ready for careful_reading after a yes, and for draft_analysis otherwise."
+                                    if agent in offered_to else "\nscore_id QUICK1N is ready for draft_analysis."), agent
+            assert reading == read_scan(url, agent, "TYPESET1")["content"][-1]["text"].replace("TYPESET1N", "QUICK1N"), agent
             first, again = (drawn_text(url, agent, "QUICK1N") for _ in range(2))
             assert "Shall I go ahead?" not in again, agent
             if agent in offered_to:
                 assert "Shall I go ahead?" in first and "careful_reading" in first, agent
-                assert first.index("shown in a card") < first.index("is a scan, and its reading was a quick one") < first.index("Offer for the user"), agent
+                assert first.index("shown in a card") < first.index("had a quick reading") < first.index("Offer for the user"), agent
                 assert ("usage allowance" in first) == (agent == CLAUDE), agent
                 assert first.index("Offer for the user, at the end of the reply with this analysis:") < first.index("Shall I go ahead?"), agent
             else:
@@ -241,10 +244,10 @@ def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_
         assert not handed_in.get("isError") and handed_in["content"][0]["text"].startswith("score_id: ")
         warning = app.careful_warning(3, "chatgpt")
         assert steps["content"][0]["text"].startswith("These steps are for after the user's yes to this question")
-        assert f'"{warning}"' in steps["content"][0]["text"].split("\n", 1)[0]
+        assert f'"{warning} Shall I go ahead?"' in steps["content"][0]["text"].split("\n", 1)[0]
         if CLAUDE in offered_to:
             asked_in_claude = careful_call(url, CLAUDE, "careful_reading", score_id="QUICK1N")["content"][0]["text"].split("\n", 1)[0]
-            assert f'"{app.careful_warning(3, "claude")}"' in asked_in_claude and "usage allowance" in asked_in_claude
+            assert f'"{app.careful_warning(3, "claude")} Shall I go ahead?"' in asked_in_claude and "usage allowance" in asked_in_claude
 
 
 def test_the_chord_symbols_of_pages_handed_in_reach_the_table_of_notes(tmp_path):
@@ -633,3 +636,44 @@ def test_an_ordinary_chatgpt_turn_is_told_how_to_start_the_careful_reading_and_t
         call = {"name": "careful_reading", "arguments": {"score_id": "QUICK1N"}, "_meta": ORDINARY_TURN[1]}
         on_staging = json.loads(as_client(url, ORDINARY_TURN[0], "tools/call", call))["result"]["content"][0]["text"]
     assert "To start it, type @sheet-music-staging, choose the app from the list" in on_staging
+
+
+def called(server, caller, name, **arguments):
+    agent, meta = caller
+    return json.loads(as_client(server, agent, "tools/call", {"name": name, "arguments": arguments, "_meta": meta}))["result"]
+
+
+@pytest.mark.parametrize("pdf, score_id", [("SCAN1", "QUICK1N"), ("TYPESET1", "TYPESET1N")])
+def test_every_pdf_reading_recommends_the_careful_reading_first_and_a_yes_or_a_no_goes_on_from_there(tmp_path, pdf, score_id):
+    store_a_read_scan(tmp_path)
+    callers = {"agent": AGENT_TURN, "ordinary": ORDINARY_TURN, "unknown": UNKNOWN_CHATGPT, "claude": CLAUDE_CALL}
+    with running_server(tmp_path, CAREFUL_READING="chatgpt,claude") as (url, _):
+        for name, caller in callers.items():
+            reading = called(url, caller, "read_fetched_pdf", pdf_id=pdf)["content"][-1]["text"]
+            asked = name != "ordinary"
+            assert ("Question for the user, before any analysis" in reading) == asked, name
+            assert ("To start it, type @Sheet Music Analysis, choose the app from the list, and ask for the careful reading."
+                    in reading) == (not asked), name
+            assert ("usage allowance" in reading) == (name == "claude"), name
+            assert "this piece's 3 pages takes about 15 minutes" in reading, name
+            assert reading.index("Note for the user about the reading") < reading.index("I recommend a careful reading"), name
+
+            steps = called(url, caller, "careful_reading", score_id=score_id)["content"][0]["text"]
+            if not asked:
+                assert "I can't start the careful reading from this message" in steps and "kit/" not in steps
+            else:
+                assert steps.startswith("These steps are for after the user's yes to this question (unless they have "
+                                        "already said yes to a careful reading in this chat)"), name
+                reading_id = re.search(r"use_careful_reading takes this careful reading's own score_id \((\w+)\)", steps)[1]
+                handed_in = called(url, caller, "use_careful_reading", score_id=reading_id, pages=CAREFUL_PAGES)
+                text = handed_in["content"][0]["text"]
+                assert not handed_in.get("isError") and "my careful reading of your PDF" in text, name
+                assert not called(url, caller, "draft_analysis", score_id=text.split()[1]).get("isError"), name
+
+            assert not called(url, caller, "draft_analysis", score_id=score_id).get("isError"), name
+            drawn = [called(url, caller, "render_analysis", score_id=score_id, annotations=CHOPIN_MARK)["content"][-1]["text"]
+                     for _ in range(2)]
+            assert ("Offer for the user" in drawn[0]) == asked and "Offer for the user" not in drawn[1], name
+    reads = logged_lines(tmp_path, "read_fetched_pdf")
+    assert [line.get("route") for line in reads] == ["agent", "ordinary", "unknown", None]
+    assert [line["answer"] for line in logged_lines(tmp_path, "careful_reading")] == ["steps", "needs_the_agent", "steps", "steps"]

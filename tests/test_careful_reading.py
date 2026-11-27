@@ -64,25 +64,30 @@ def notes_of(bar):
 def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
     app.store.put("scores/QUICK1", QUICK_READING.read_bytes())
-    reading = text_of(app.pdf_card_result({"score_id": "QUICK1", "pages": 3, "scan": True, "measures": "1 to 25", "bars": 25,
-                                           "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf", "other"))
-    assert "Offer for the user" not in reading and "Shall I go ahead?" not in reading
+    card = {"score_id": "QUICK1", "pages": 3, "scan": True, "measures": "1 to 25", "bars": 25, "notice": "",
+            "image_url": "", "pdf_url": "", "page_images": []}
+    reading, typeset, ordinary, elsewhere = (text_of(app.pdf_card_result(given, "read_pdf", source, route)) for given, source, route in (
+        (card, "other", None), ({**card, "scan": False}, "other", None), (card, "other", "ordinary"), (card, "claude", None)))
+    assert reading == typeset
+    assert ('Question for the user, before any analysis: "I recommend a careful reading of your PDF: the quick reading makes '
+            'mistakes it cannot see, so they are not shaded. A careful reading of this piece\'s 3 pages takes about 15 minutes '
+            'and runs a small measuring script from Sheet Music Analysis in this chat. Shall I read it carefully, or analyse '
+            'the quick reading now?"') in reading
+    assert reading.index("Note for the user about the reading") < reading.index("Question for the user") < reading.index("PDF of the engraved score")
+    assert reading.endswith("\nscore_id QUICK1 is ready for careful_reading after a yes, and for draft_analysis otherwise.")
+    assert "Question for the user" not in ordinary and ordinary.endswith("\nscore_id QUICK1 is ready for draft_analysis.")
+    assert ('To start it, type @Sheet Music Analysis, choose the app from the list, and ask for the careful reading."') in ordinary
+    assert "careful" not in elsewhere and elsewhere.endswith("\nscore_id QUICK1 is ready for draft_analysis.")
     assert "it needs no check by the user first" in reading
-    assert reading.endswith("\nscore_id QUICK1 is ready for draft_analysis.")
-    typeset = text_of(app.pdf_card_result({"score_id": "QUICK1", "pages": 3, "scan": False, "measures": "1 to 25", "bars": 25,
-                                           "notice": "", "image_url": "", "pdf_url": "", "page_images": []}, "read_pdf", "other"))
-    assert reading == typeset and "careful" not in reading and "quick" not in reading
     assert app.careful_warning(3, "other") in app.CAREFUL_OFFER.format(warning=app.careful_warning(3, "other"))
-    assert "takes about 5 minutes a page. To do it" in app.careful_warning(3, "other")
-    assert "This piece has 3 pages. Shall I go ahead?" in app.careful_warning(3, "other")
     assert "allowance" not in app.careful_warning(3, "other")
-    assert ("takes about 5 minutes a page. I'd start one helper per page, each on Sonnet at medium effort, and that uses a lot of "
-            "your plan's usage allowance. As a guide, a 10-page piece") in app.careful_warning(3, "claude")
-    assert "download and run a small measuring script from Sheet Music Analysis" in app.careful_warning(3, "other")
+    assert ("takes about 15 minutes with one helper per page on Sonnet at medium effort, uses a lot of your plan's usage "
+            "allowance (as a guide, a 10-page piece") in app.careful_warning(3, "claude")
+    assert "this piece's 1 page takes about 5 minutes" in app.careful_warning(1, "other")
 
     refused = asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": "QUICK1"}))
     assert refused.is_error
-    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 3}).encode())
+    app.store.put(app.reading_key("QUICK1"), json.dumps({"pages": 3}).encode())
     steps = text_of(asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": "QUICK1"})))
     assert f"{app.PUBLIC_BASE_URL}/kit/$f" in steps and "kit/reader.md" in steps and "page N of 3" in steps
     assert "time signature 2/2" in steps and "1 sharps" in steps
@@ -90,9 +95,9 @@ def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_pa
     result = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": PAGES}))
     assert not result.is_error and "It holds" not in text_of(result)
     first_page_only = text_of(asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": PAGES[:1]})))
-    assert "It holds page 1 of the scan's 3 pages; a page left out is taken to have no music." in first_page_only
+    assert "It holds page 1 of the PDF's 3 pages; a page left out is taken to have no music." in first_page_only
     assert ('Note for the user, if a page with music cannot be read: "This careful reading covers only page 1 of your '
-            "scan's 3 pages") in first_page_only
+            "PDF's 3 pages") in first_page_only
     code = text_of(result).split("score_id: ")[1].split()[0]
     score = app.store.get(f"scores/{code}")
     index = ScoreIndex(load_toolkit(score).getMEI())
@@ -111,7 +116,7 @@ def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_pa
 
 def test_a_page_that_cannot_be_built_comes_back_with_what_to_fix(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
-    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 3}).encode())
+    app.store.put(app.reading_key("QUICK1"), json.dumps({"pages": 3}).encode())
     broken = PAGES[0].replace("1.1: 2 (G#3+G#4", "1.1: 4 (G#3+G#4", 1)
     assert broken != PAGES[0]
     result = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": [broken, *PAGES[1:]]}))
@@ -123,7 +128,7 @@ def test_a_page_that_cannot_be_built_comes_back_with_what_to_fix(tmp_path, monke
     pickup_as_bar_1 = re.sub(r"^m(\d+)", lambda bar: f"m{int(bar[1]) + 1}", PAGES[0], flags=re.M)
     taken = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": [pickup_as_bar_1]}))
     assert "measures 0 to 16." in text_of(taken)
-    for pages, reason in (([], "No pages"), ([PAGES[0]] * 4, "This scan has 3 pages"),
+    for pages, reason in (([], "No pages"), ([PAGES[0]] * 4, "This PDF has 3 pages"),
                           ([PAGES[0].replace("\n2.1: ", "\n40.1: ")], "Staves are numbered 1 to 32"),
                           ([PAGES[0].replace(" len=", " len=99999", 1)], "longer than 64 quarter notes")):
         refused = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": pages}))
@@ -138,7 +143,7 @@ def test_a_page_that_cannot_be_built_comes_back_with_what_to_fix(tmp_path, monke
 
 def test_a_hand_in_counts_as_a_draft_and_is_refused_at_the_daily_limit(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
-    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 3}).encode())
+    app.store.put(app.reading_key("QUICK1"), json.dumps({"pages": 3}).encode())
     assert not asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": PAGES})).is_error
     usage = next((tmp_path / "usage").glob("*.json"))
     assert json.loads(usage.read_text())["draft"] == 1
@@ -284,7 +289,7 @@ def careful_id(scan="QUICK1"):
 ], ids=["bar-split-across-the-page-turn", "section-pickup-at-the-top-of-a-page"])
 def test_a_later_page_may_begin_with_the_rest_of_a_bar_and_the_two_halves_are_one_bar(tmp_path, monkeypatch, pages, bars):
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
-    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 2}).encode())
+    app.store.put(app.reading_key("QUICK1"), json.dumps({"pages": 2}).encode())
     result = hand_in(pages)
     assert not result.is_error, text_of(result)
     code = text_of(result).split()[1]
@@ -295,7 +300,7 @@ def test_a_later_page_may_begin_with_the_rest_of_a_bar_and_the_two_halves_are_on
 
 def test_a_later_page_that_begins_with_a_short_bar_is_checked_by_its_own_bar_names(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
-    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 2}).encode())
+    app.store.put(app.reading_key("QUICK1"), json.dumps({"pages": 2}).encode())
     first = "N1 page=1 div=4 ts=4/4 ks=0\nm1 len=16\n1.1: 16 C4\nm2 len=8\n1.1: 8 E4"
     for second, bar in (("N1 page=2 div=4 ts=4/4 ks=0\nm1 len=8\n1.1: 4 F4\nm2 len=16\n1.1: 16 G4", "1"),
                         ("N1 page=2 div=4 ts=4/4 ks=0\nm1 len=8\n1.1: 8 F4\nm2 len=16\n1.1: 8 G4", "2")):
@@ -525,43 +530,72 @@ def test_a_careful_reading_covers_every_page_of_a_scan_longer_than_the_quick_rea
         pdf.add_blank_page()
     out = io.BytesIO()
     pdf.save(out)
-    card = asyncio.run(app.read_pdf_data(out.getvalue(), "other", "read_pdf"))
+    card = asyncio.run(app.read_pdf_data(out.getvalue(), "other", None, "read_pdf"))
     score_id = text_of(card).split("score_id: ")[1].split()[0]
     total = pdf_reader.READ_PAGES + 4
     assert pages_read == [pdf_reader.READ_PAGES]
     steps = text_of(asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": score_id})))
-    assert f"This piece has {total} pages." in steps and f"page N of {total}" in steps
+    assert f"A careful reading of this piece's {total} pages" in steps and f"page N of {total}" in steps
     pages = [f"N1 page={bar} div=1 ts=4/4 ks=0\nm{bar} len=4\n1.1: 4 C4" for bar in range(1, total + 1)]
     result = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": score_id, "pages": pages}))
     assert not result.is_error and "It holds" not in text_of(result)
-    assert f"read from their {total}-page PDF" in text_of(card) and "in the first pages, the only ones it read:" in steps
+    assert f"read from their {total}-page PDF" in text_of(card) and f"in its first {pdf_reader.READ_PAGES} pages, the only ones it read:" in steps
     assert (f"Only pages 1-{pdf_reader.READ_PAGES} of the {total} were read, to keep the wait short; to analyse the rest, send those "
             "pages as a separate PDF, or say yes to a careful reading if I offer one.") in text_of(card)
+    assert "reads up to" not in text_of(card)
 
     card_key = app.card_of(hashlib.sha256(out.getvalue()).hexdigest())
     saved = json.loads(app.store.get(card_key))
     del saved["of_pages"]
     app.store.put(card_key, json.dumps(saved).encode())
-    app.store.put(app.scan_key(score_id), json.dumps({"pages": pdf_reader.READ_PAGES}).encode())
-    again = asyncio.run(app.read_pdf_data(out.getvalue(), "other", "read_pdf"))
+    app.store.put(app.reading_key(score_id), json.dumps({"pages": pdf_reader.READ_PAGES}).encode())
+    again = asyncio.run(app.read_pdf_data(out.getvalue(), "other", None, "read_pdf"))
     assert pages_read == [pdf_reader.READ_PAGES] and f"read from their {total}-page PDF" in text_of(again)
-    assert json.loads(app.store.get(app.scan_key(score_id))) == {"pages": total}
+    assert json.loads(app.store.get(app.reading_key(score_id))) == {"pages": total}
 
 
-def test_a_scan_longer_than_the_careful_page_limit_is_offered_and_read_up_to_the_limit(tmp_path, monkeypatch):
+def test_a_pdf_longer_than_the_careful_page_limit_is_read_up_to_its_first_pages_with_music_and_says_what_is_left(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
     app.store.put("scores/QUICK1", QUICK_READING.read_bytes())
     total = app.CAREFUL_PAGES + 6
-    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": total}).encode())
+    app.store.put(app.reading_key("QUICK1"), json.dumps({"pages": total}).encode())
     offer = app.careful_warning(total, "other")
-    assert f"This piece has {total} pages; a careful reading takes its first {app.CAREFUL_PAGES}. Shall I go ahead?" in offer
+    assert f"A careful reading of the first {app.CAREFUL_PAGES} pages with music of this piece's {total} pages takes about 100 minutes" in offer
     steps = text_of(asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": "QUICK1"})))
-    assert offer in steps and f"page N of {app.CAREFUL_PAGES}" in steps and f"first {app.CAREFUL_PAGES} of them" in steps
-    pages = [f"N1 page={bar} div=1 ts=4/4 ks=0\nm{bar} len=4\n1.1: 4 C4" for bar in range(1, total + 1)]
-    result = text_of(asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": pages})))
-    assert f"measures 1 to {app.CAREFUL_PAGES}." in result
-    assert (f'"This careful reading covers the first {app.CAREFUL_PAGES} pages of your scan\'s {total} pages, as many as a '
-            "careful reading takes, so the rest of the piece is not in it.\"") in result
+    assert offer in steps and f"page N of {total} pages" in steps
+    assert (f"A careful reading takes the first {app.CAREFUL_PAGES} pages that have music: a helper is started for each of "
+            f"pages 1 to {app.CAREFUL_PAGES}, and for each helper that writes NO MUSIC, one more for the next page") in steps
+    pages = [f"N1 page={page} div=1 ts=4/4 ks=0\nm{page} len=4\n1.1: 4 C4" for page in range(1, total + 1)]
+
+    def handed_in(numbers):
+        return text_of(asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": [pages[n - 1] for n in numbers]})))
+
+    whole = handed_in(range(1, total + 1))
+    assert f"measures 1 to {app.CAREFUL_PAGES}." in whole and "It holds" not in whole
+    assert (f"A careful reading takes at most {app.CAREFUL_PAGES} pages with music, so pages {app.CAREFUL_PAGES + 1} to {total} "
+            "of the PDF are not in it.") in whole
+    assert (f'"This careful reading covers pages 1 to {app.CAREFUL_PAGES} of your PDF\'s {total} pages, as many pages with music '
+            f'as a careful reading takes, so pages {app.CAREFUL_PAGES + 1} to {total} are not in it."') in whole
+    after_a_title = handed_in(range(3, app.CAREFUL_PAGES + 3))
+    assert f"measures 1 to {app.CAREFUL_PAGES}." in after_a_title
+    assert f"It holds pages 3 to {app.CAREFUL_PAGES + 2} of the PDF's {total} pages; a page left out is taken to have no music." in after_a_title
+    assert "handing it in with the others" not in after_a_title
+    assert f"so pages {app.CAREFUL_PAGES + 3} to {total} of the PDF are not in it." in after_a_title
+    late = handed_in([app.CAREFUL_PAGES + 1])
+    assert "measures 1 to 1." in late and "handing it in with the others gives the whole piece" in late
+
+
+def test_a_short_pdf_s_hint_does_not_claim_that_only_some_pages_were_read_and_a_reading_id_says_what_it_is(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    app.store.put("scores/QUICK1", QUICK_READING.read_bytes())
+    app.store.put(app.reading_key("QUICK1"), json.dumps({"pages": 3}).encode())
+    steps = text_of(asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": "QUICK1"})))
+    assert "these key signatures in order: " in steps and "only ones it read" not in steps
+    reading_id = re.search(r"careful reading's own score_id \((\w+)\)", steps)[1]
+    for tool, arguments in (("draft_analysis", {}), ("careful_reading", {}),
+                            ("render_analysis", {"annotations": {"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "i", "key": "e"}]}})):
+        refused = asyncio.run(app.mcp.call_tool(tool, {"score_id": reading_id, **arguments}))
+        assert refused.is_error and text_of(refused) == app.A_CAREFUL_READING_ID, tool
 
 
 BAR = "N1 page=1 div=4 ts=4/4 ks=0\nm1 len=16\n"
@@ -766,7 +800,7 @@ def events_of(score):
 def test_two_pages_that_disagree_are_sent_back_once_then_taken_with_the_doubtful_bars_shaded(tmp_path, monkeypatch, caplog):
     pages = trial_pages("c0306c", 1, 2)
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
-    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 4}).encode())
+    app.store.put(app.reading_key("QUICK1"), json.dumps({"pages": 4}).encode())
     caplog.set_level("WARNING", logger="engine.output_checks")
     reading = careful_id()
     first = hand_in(pages, reading)
@@ -811,7 +845,7 @@ def with_names(page, kept, line="i: concert"):
 def test_a_later_page_that_leaves_out_resting_staves_and_names_its_instruments_is_taken(tmp_path, monkeypatch):
     fourth, fifth = trial_pages("4a3d12", 4, 5)
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
-    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 6}).encode())
+    app.store.put(app.reading_key("QUICK1"), json.dumps({"pages": 6}).encode())
     resting = [staff for staff in range(1, 27) if not re.search(rf"^{staff}\.\d+: .*[A-G][#b]*\d", fifth, re.M)]
     kept = [staff for staff in range(1, 27) if staff not in resting[:6]]
     unnamed = hand_in([with_names(fourth, range(1, 27), ""), with_names(fifth, kept, "")], careful_id())
@@ -888,7 +922,7 @@ def parts_of(score):
 @pytest.fixture
 def scan_of_three_pages(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
-    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 3}).encode())
+    app.store.put(app.reading_key("QUICK1"), json.dumps({"pages": 3}).encode())
 
 
 def test_a_page_that_disagrees_is_sent_back_once_then_shaded_and_named_by_its_pdf_page(scan_of_three_pages):
@@ -925,7 +959,7 @@ def test_one_page_alone_keeps_its_page_number_and_logs_no_second_reading_of_a_pa
     caplog.set_level("WARNING", logger="engine.output_checks")
     caplog.clear()
     alone = text_of(hand_in(rules("octave-apart-page2"), reading))
-    assert "It holds page 2 of the scan's 3 pages; a page left out is taken to have no music." in alone
+    assert "It holds page 2 of the PDF's 3 pages; a page left out is taken to have no music." in alone
     assert [record.getMessage() for record in caplog.records] == []
 
 
@@ -1003,7 +1037,7 @@ def test_a_short_first_bar_is_a_pickup_on_the_lowest_page_and_completes_the_bar_
 
 def test_a_hand_in_without_its_title_page_names_the_pages_it_holds(scan_of_three_pages):
     result = text_of(hand_in(rules("pickup-page2", "completes-the-turn-page3")))
-    assert "measures 0 to 3." in result and "It holds pages 2 and 3 of the scan's 3 pages; a page left out is taken to have no music." in result
+    assert "measures 0 to 3." in result and "It holds pages 2 and 3 of the PDF's 3 pages; a page left out is taken to have no music." in result
 
 
 def test_a_correction_keeps_the_careful_readings_doubt_shading(scan_of_three_pages):

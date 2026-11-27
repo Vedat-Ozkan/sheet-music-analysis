@@ -145,7 +145,7 @@ def test_a_message_written_for_the_user_still_reaches_them_as_a_user_error(local
 
 def test_the_log_holds_the_sentence_of_an_error_only_when_nothing_in_it_comes_from_the_score_or_the_chat(local_store, capsys):
     app.store.put("scores/CHORALE", CHORALE.read_bytes())
-    app.store.put(app.scan_key("SCAN01"), json.dumps({"pages": 1}).encode())
+    app.store.put(app.reading_key("SCAN01"), json.dumps({"pages": 1}).encode())
     unknown = asyncio.run(call("draft_analysis", {"score_id": "Moonlight Sonata.mxl"}))
     beyond = asyncio.run(call("draft_analysis", {"score_id": "CHORALE", "measure_range": "900-901"}))
     misread = asyncio.run(call("use_careful_reading", {"score_id": "SCAN01", "pages": ["N1 page=1 div=24 ts=4/4 ks=0\nm la la la"]}))
