@@ -1,0 +1,6 @@
+N1 page=1 div=1 ts=4/4 ks=2f
+i: 1=Clarinet in Bb 2=Piano 3=Piano
+m1 len=4
+1.1: clef=G 4 D5
+2.1: clef=G 4 Bb4
+3.1: clef=F 4 Bb2

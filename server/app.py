@@ -1613,6 +1613,14 @@ async def careful_offer(score_id: str, source: str) -> str:
     return QUICK_READING_OF_A_SCAN + CAREFUL_OFFER.format(warning=careful_warning(scan["pages"], source)) + CAREFUL_MEANS
 
 
+def pages_named(numbers: list[int]) -> str:
+    if len(numbers) == 1:
+        return f"page {numbers[0]}"
+    if len(numbers) > 2 and numbers == list(range(numbers[0], numbers[-1] + 1)):
+        return f"pages {numbers[0]} to {numbers[-1]}"
+    return f"pages {', '.join(map(str, numbers[:-1]))} and {numbers[-1]}"
+
+
 def page_count(pages: int) -> str:
     return "1 page" if pages == 1 else f"{pages} pages"
 
@@ -2219,9 +2227,9 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
 
 
 PART_OF_THE_SCAN = (
-    " It holds only {given} of the scan's {scan}, so the rest of the piece is not in it; handing in every page, in "
-    "order, gives the whole piece.\n"
-    "Note for the user, if the other pages cannot be read: \"This careful reading covers only {given} of your "
+    " It holds {given} of the scan's {scan}; a page left out is taken to have no music. If a page left out has music, "
+    "handing it in with the others gives the whole piece.\n"
+    "Note for the user, if a page with music cannot be read: \"This careful reading covers only {given} of your "
     "scan's {scan}, so the rest of the piece is not in it.\""
 )
 
@@ -2239,8 +2247,7 @@ SENT_BACK = (
     "Each of these pages is read again by a new helper, whose brief adds the reason above, and then every page is handed "
     "in again with use_careful_reading and score_id {score_id}. A page handed in a second time is taken as it is."
 )
-STILL_IN_DOUBT = ("Note for the user: \"Page {page} of my careful reading did not agree with page {against}: {said}, and "
-                  "{checked}. Its bars ({first} to {last}) are shaded because they may be misread.\"\n")
+STILL_IN_DOUBT = "Note for the user: \"{said}, and {checked}. Its bars ({first} to {last}) are shaded because they may be misread.\"\n"
 READ_AGAIN, NOT_READ_AGAIN = "a second reading did not change that", "I could not check it again"
 SEVERAL_PARTS = ("It has {parts} parts, so a correction with correct_bars names the part it is for (part=), and a part "
                  "printed in another key than it sounds cannot be corrected.\n")
@@ -2281,7 +2288,7 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
         return error_result((CANNOT_BE_BUILT if isinstance(error, from_notes.WholePieceError) else BUILD_REFUSED) + str(error))
     sent_back, rechecked = record.get("sent_back", {}), set(record.get("rechecked", []))
     for page, rules in sent_back.items():
-        if page not in rechecked:
+        if page not in rechecked and int(page) in built.bars:
             for rule in rules:
                 output_checks.recheck(rule, int(page), any(doubt.rule == rule and doubt.page == int(page) for doubt in built.doubts))
             rechecked.add(page)
@@ -2307,13 +2314,14 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
     await anyio.to_thread.run_sync(store.put, doubted_key(code), json.dumps(shaded).encode())
     log("use_careful_reading", platform=source, pages=len(pages), scan_pages=scan_pages, bars=len(bars),
         chars_in=sum(map(len, pages)), bars_shaded=len(shaded))
-    last = max(built.bars)
-    part_only = ("" if last == scan_pages else
-                 (FIRST_PAGES_OF_THE_SCAN if last == CAREFUL_PAGES else PART_OF_THE_SCAN).format(given=page_count(len(built.bars)), scan=page_count(scan_pages)))
+    missing = [number for number in range(1, min(scan_pages, CAREFUL_PAGES) + 1) if number not in built.bars]
+    part_only = (PART_OF_THE_SCAN.format(given=pages_named(sorted(built.bars)), scan=page_count(scan_pages)) if missing else
+                 FIRST_PAGES_OF_THE_SCAN.format(given=page_count(CAREFUL_PAGES), scan=page_count(scan_pages)) if scan_pages > CAREFUL_PAGES else "")
     parts = len(ET.fromstring(built.score).findall("part"))
-    in_doubt = "".join(STILL_IN_DOUBT.format(page=page, against=doubt.against, said=doubt.said, first=built.bars[page][0],
-                                             last=built.bars[page][-1], checked=READ_AGAIN if str(page) in rechecked else NOT_READ_AGAIN)
+    in_doubt = "".join(STILL_IN_DOUBT.format(said=doubt.said, first=built.bars[page][0], last=built.bars[page][-1],
+                                             checked=READ_AGAIN if str(page) in rechecked else NOT_READ_AGAIN)
                        for page, doubt in sorted(doubtful.items()) if built.bars[page])
+    in_doubt += "".join(f"Note for the user: \"{said}\"\n" for said in built.notes)
     return CallToolResult(content=[TextContent(type="text", text=(
         f"score_id: {code}\nThe careful reading is stored: measures {bars[0]} to {bars[-1]}.{part_only}\nIt is "
         "analysed and drawn as an attached MusicXML file is.\n" + (SEVERAL_PARTS.format(parts=parts) if parts > 1 else "") +

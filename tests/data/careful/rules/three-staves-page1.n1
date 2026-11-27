@@ -1,0 +1,6 @@
+N1 page=1 div=1 ts=3/4 ks=1s
+i: 1=Flute 2=Violin 3=Cello
+m1 len=3
+1.1: clef=G 3 D5
+2.1: clef=G 3 B4
+3.1: clef=F 3 G2

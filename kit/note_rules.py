@@ -13,6 +13,7 @@ BAR_LINE = re.compile(r"m(0|[1-9][0-9]*) len=([0-9]+)((?: (?:ts|ks|rep|ending)=\
 REPEATS = ("start", "end", "both")
 ENDING = re.compile(r"[1-9]")
 INSTRUMENT = re.compile(r"([1-9][0-9]*)=(\S.*)")
+TRANSPOSED = re.compile(r"t: ([1-9][0-9]*) ks=(\S+)(?: sounds=(0|[-+]?[1-9][0-9]?))?")
 METER = re.compile(r"[1-9][0-9]*/[1-9][0-9]*")
 KEY = re.compile(r"0|[1-7][sf]")
 VOICE_LABEL = re.compile(r"([0-9]+)\.([0-9]+)")
@@ -125,7 +126,7 @@ def problems(text: str) -> list[str]:
     found = _signature_problems(head[3], head[5])
     if found:
         return found
-    meter, bars, named = head[3], [], None
+    meter, bars, named, transposed = head[3], [], None, set()
     for number, line in numbered[1:]:
         if line.startswith("m"):
             bar = BAR_LINE.fullmatch(line)
@@ -141,6 +142,13 @@ def problems(text: str) -> list[str]:
             if named is None:
                 return found + [f"Line {number}: the instruments line looks like 'i: 1=Flute 2=Clarinet in Bb', one "
                                 f"number=name for each staff, numbered 1 to {MAX_STAVES} from the top"]
+        elif not bars and line.startswith("t:"):
+            stated = TRANSPOSED.fullmatch(line)
+            if not stated or not KEY.fullmatch(stated[2]) or int(stated[1]) > MAX_STAVES or stated[1] in transposed:
+                return found + [f"Line {number}: a transposition line looks like 't: 2 ks=0 sounds=-2', one for each staff "
+                                "printed in another key than ks=: the staff, the key signature printed on it, and how many "
+                                "semitones it sounds above (+) or below (-) where it is written"]
+            transposed.add(stated[1])
         elif not bars:
             kind = {"x:": "a marks line", "c:": "a chord symbol line"}.get(line[:2], "a voice line")
             found.append(f"Line {number}: {kind} needs a bar line like 'm3 len=96' before it")
@@ -169,6 +177,28 @@ def instruments(line: str) -> dict[int, str] | None:
     if not all(entries) or len({entry[1] for entry in entries}) != len(entries) or any(int(entry[1]) > MAX_STAVES for entry in entries):
         return None
     return {int(entry[1]): " ".join(entry[2].split()) for entry in entries}
+
+
+def transpositions(text: str) -> dict[int, tuple[str, int | None]]:
+    stated = {}
+    for line in text.splitlines():
+        if line.strip().startswith("m"):
+            break
+        if found := TRANSPOSED.fullmatch(line.strip()):
+            stated[int(found[1])] = (found[2], None if found[3] is None else int(found[3]))
+    return stated
+
+
+def fifths(key: str) -> int:
+    return 0 if key in ("0", "") else int(key[:-1]) * (1 if key.endswith("s") else -1)
+
+
+def staff_key(key: str, opening: str, stated: str) -> str:
+    if stated == "0" and opening != "0":
+        return "0"
+    shifted = fifths(key) + fifths(stated) - fifths(opening)
+    shifted += -12 if shifted > 7 else 12 if shifted < -7 else 0
+    return "0" if not shifted else f"{abs(shifted)}{'s' if shifted > 0 else 'f'}"
 
 
 def clef_octaves(clef: re.Match) -> int:
@@ -251,7 +281,7 @@ def _bar_problems(bars: list[dict], div: int) -> list[str]:
         if length != full and (not length or (length * 32).denominator != 1):
             found.append(f"Bar {name}: len= gives a length no bar can have")
         voices, written = {}, set()
-        lines = bar["lines"]
+        lines, printed = bar["lines"], dict(bar["lines"])
         played = [position for position, (label, _) in enumerate(lines) if VOICE_LABEL.fullmatch(label)]
         for position, (label, tokens) in zip(played, as_sounding([lines[position] for position in played], div, octaves)):
             lines = lines[:position] + [(label, tokens)] + lines[position + 1:]
@@ -291,7 +321,7 @@ def _bar_problems(bars: list[dict], div: int) -> list[str]:
                 if staff > staves:
                     found.append(f"Bar {name}: include all {staves} staves")
                 written.add(staff)
-                total, groups, problems_here = _read_voice(tokens, div, name, length)
+                total, groups, problems_here = _read_voice(tokens, printed[label], div, name, length)
                 found += problems_here
                 if not problems_here and total != length:
                     found.append(f"Bar {name}, voice {staff}.{number} adds up to {total}; expected {length} quarter notes")
@@ -337,9 +367,12 @@ def _pitched(token: str) -> bool:
     return not token.isdigit() and not CLEF.fullmatch(token) and not OCTAVE_LINE.fullmatch(token) and MARKED.fullmatch(token)[2] != "r"
 
 
-def _read_voice(tokens: list[str], div: int, name: str, length: Fraction):
+def _read_voice(tokens: list[str], printed: list[str], div: int, name: str, length: Fraction):
     duration, total, groups, found = None, Fraction(0), [], []
-    for written in tokens:
+    for written, as_printed in zip(tokens, [token for token in printed if not OCTAVE_LINE.fullmatch(token)]):
+        if (glued := OCTAVE_LINE.search(as_printed)) and not written.isdigit():
+            found.append(f"Bar {name}: write {glued[0]} as an entry of its own, with a space before and after it, not {as_printed!r}")
+            continue
         if written.isdigit():
             duration = Fraction(int(written), div)
             if not duration:
@@ -354,7 +387,8 @@ def _read_voice(tokens: list[str], div: int, name: str, length: Fraction):
             found.append("Grace rests are not supported")
             continue
         if names != "r" and any(not PITCH.fullmatch(pitch) for pitch in names.split("+")):
-            found.append(f"Bar {name}: invalid pitch {names!r}")
+            sounding = f" (it sounds as {written}, with the clef's 8 and the octave lines)" if written != as_printed else ""
+            found.append(f"Bar {name}: invalid pitch {as_printed!r}{sounding}")
             continue
         if not grace and duration is None:
             found.append(f"Bar {name}: note/rest has no duration")

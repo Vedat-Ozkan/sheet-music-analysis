@@ -373,7 +373,10 @@ def check(a):
         def key(ks):
             return {} if ks == '0' else {l: '#b'[ks[1] == 'f'] for l in ('FCGDAEB' if ks[1] == 's' else 'BEADGCF')[:int(ks[0])]}
 
-        full, sig, bar = div * 4 * int(head[2]) // int(head[3]), key(head[4]), None
+        full, opening, bar = div * 4 * int(head[2]) // int(head[3]), head[4], None
+        stated = {staff: given for staff, (given, _) in note_rules.transpositions(text).items()}
+        keys = {staff: key(note_rules.staff_key(opening, opening, given)) for staff, given in stated.items()}
+        sig = key(opening)
         for line in filter(None, map(str.strip, lines[1:])):
             m = re.fullmatch(r'(m\d+) len=(\d+)((?: (?:ts=[1-9]\d*/[1-9]\d*|ks=(?:0|[1-7][sf])|rep=\S+|ending=\S+))*)', line)
             if m:
@@ -381,6 +384,7 @@ def check(a):
                 for kind, value in re.findall(r'(ts|ks)=(\S+)', m[3]):
                     if kind == 'ks':
                         sig = key(value)
+                        keys = {staff: key(note_rules.staff_key(value, opening, given)) for staff, given in stated.items()}
                     else:
                         full = div * 4 * int(value.split('/')[0]) // int(value.split('/')[1])
                 if length != full:
@@ -389,9 +393,10 @@ def check(a):
             m = re.fullmatch(r'(\d+\.\d+):(.*)', line)
             if not m or bar is None:
                 continue
+            staff_sig = keys.get(int(m[1].split('.')[0]), sig)
             for t in m[2].split():
                 for letter, acc, octave in re.findall(r'([A-G])(##?|bb?)?(\d)', t):
-                    if acc != sig.get(letter, ''):
+                    if acc != staff_sig.get(letter, ''):
                         print(f'{bar} {m[1]}: {letter}{acc}{octave} departs from the key signature: find its printed accidental')
                         notes += 1
     print(f'{len(found)} errors, {notes} pitches outside the key signature')

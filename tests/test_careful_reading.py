@@ -88,10 +88,10 @@ def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_pa
     assert "time signature 2/2" in steps and "1 sharps" in steps
 
     result = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": PAGES}))
-    assert not result.is_error and "It holds only" not in text_of(result)
+    assert not result.is_error and "It holds" not in text_of(result)
     first_page_only = text_of(asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": PAGES[:1]})))
-    assert "It holds only 1 page of the scan's 3 pages, so the rest of the piece is not in it;" in first_page_only
-    assert ('Note for the user, if the other pages cannot be read: "This careful reading covers only 1 page of your '
+    assert "It holds page 1 of the scan's 3 pages; a page left out is taken to have no music." in first_page_only
+    assert ('Note for the user, if a page with music cannot be read: "This careful reading covers only page 1 of your '
             "scan's 3 pages") in first_page_only
     code = text_of(result).split("score_id: ")[1].split()[0]
     score = app.store.get(f"scores/{code}")
@@ -533,7 +533,7 @@ def test_a_careful_reading_covers_every_page_of_a_scan_longer_than_the_quick_rea
     assert f"This piece has {total} pages." in steps and f"page N of {total}" in steps
     pages = [f"N1 page={bar} div=1 ts=4/4 ks=0\nm{bar} len=4\n1.1: 4 C4" for bar in range(1, total + 1)]
     result = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": score_id, "pages": pages}))
-    assert not result.is_error and "It holds only" not in text_of(result)
+    assert not result.is_error and "It holds" not in text_of(result)
     assert f"read from their {total}-page PDF" in text_of(card) and "in the first pages, the only ones it read:" in steps
     assert (f"Only pages 1-{pdf_reader.READ_PAGES} of the {total} were read, to keep the wait short; to analyse the rest, send those "
             "pages as a separate PDF, or say yes to a careful reading if I offer one.") in text_of(card)
@@ -617,7 +617,7 @@ BAD_PAGES = [
      "after the last note under it"),
     (BAR + "1.1: 16 C4 )8va", "Bar 1, staff 1: an octave line ends here that was never started; write 8va( before the first "
      "note under it"),
-    (BAR + "1.1: clef=G^15 16 C8", "Bar 1: invalid pitch 'C10'"),
+    (BAR + "1.1: clef=G^15 16 C8", "Bar 1: invalid pitch 'C8' (it sounds as C10, with the clef's 8 and the octave lines)"),
 ]
 RULES_ONLY = {"Staves are numbered 1 to 32 from the top and voices 1 to 8", "The note list has 1001 bars; at most 1000 can be built",
               "Bar 1: len= makes this bar longer than 64 quarter notes",
@@ -727,7 +727,9 @@ def test_a_tuplet_the_engraver_cannot_write_is_refused_by_the_rules(count):
 @pytest.mark.parametrize("text, reported", [
     (BAR + "1.1: 12 C4", "Bar 1, voice 1.1 adds up to 3; expected 4 quarter notes\n1 errors, 0 pitches outside the key signature"),
     (BAR + "1.1: 16 F#4", "0 errors, 1 pitches outside the key signature"),
-], ids=["bad", "good"])
+    ("N1 page=1 div=4 ts=4/4 ks=2f\nt: 1 ks=0 sounds=-2\nm1 len=16\n1.1: 16 E5\n2.1: 16 Eb4",
+     "0 errors, 0 pitches outside the key signature"),
+], ids=["bad", "good", "a-staff-in-its-own-key"])
 def test_the_kit_check_reports_what_the_builder_would_refuse(tmp_path, text, reported):
     python = next((python for python in (sys.executable, shutil.which("python3")) if python and subprocess.run(
         [python, "-c", "import cv2, scipy"], capture_output=True).returncode == 0), None)
@@ -738,6 +740,16 @@ def test_the_kit_check_reports_what_the_builder_would_refuse(tmp_path, text, rep
     kit = Path(__file__).parent.parent / "kit" / "notetool.py"
     printed = subprocess.run([python, str(kit), "check", str(page)], capture_output=True, text=True, check=True).stdout
     assert printed.strip().endswith(reported)
+
+
+@pytest.mark.parametrize("voice, sentence", [
+    ("clef=G^8 8va( 8 F5>~ )8va 8 F5", "Bar 1: invalid pitch 'F5>~' (it sounds as F7>~, with the clef's 8 and the octave lines)"),
+    ("8va( 8 (E5 F5))8va 8 r", "Bar 1: write )8va as an entry of its own, with a space before and after it, not 'F5))8va'"),
+], ids=["names-what-was-written", "octave-line-stuck-to-a-slur"])
+def test_a_check_message_quotes_what_the_helper_wrote(voice, sentence):
+    assert note_rules.problems(BAR + "1.1: " + voice)[0] == sentence
+    with pytest.raises(notes.NotesError, match=re.escape(sentence)):
+        from_notes.score_from_pages([BAR + "1.1: " + voice])
 
 
 def trial_pages(case, *numbers):
@@ -855,16 +867,156 @@ def test_an_octave_clef_and_an_octave_line_turn_printed_pitches_into_sounding_on
     assert clefs == [("G", "1"), ("F", "-1"), ("G", None)]
 
 
-def test_named_transposing_instruments_sound_where_they_should():
-    page = ("N1 page=1 div=4 ts=4/4 ks=0\ni: 1=Clarinet in Bb 2=Horn in F 2 3=Double bass 4=Guitar 5=Piano 6=Piano\nm1 len=16\n"
-            "1.1: clef=G 16 D5\n2.1: clef=G 16 G4\n3.1: clef=F 16 C3\n4.1: clef=G_8 16 E4\n5.1: clef=G 16 C5\n6.1: clef=F 16 C3")
-    score = from_notes.score_from_pages([page])
-    assert events_of(score) == [("1", 1, "C5"), ("1", 2, "C4"), ("1", 3, "C2"), ("1", 4, "E3"), ("1", 5, "C5"), ("1", 6, "C3")]
+RULES = DATA / "careful/rules"
+
+
+def rules(*names):
+    return [(RULES / f"{name}.n1").read_text() for name in names]
+
+
+def stored(result):
+    return app.store.get(f"scores/{text_of(result).split()[1]}")
+
+
+def parts_of(score):
     root = ET.fromstring(score)
-    assert [part.findtext("part-name") for part in root.iter("score-part")] == ["Clarinet in Bb", "Horn in F 2", "Double bass", "Guitar", "Piano"]
-    assert [part.findtext("measure/attributes/key/fifths") for part in root.iter("part")] == ["2", "1", "0", "0", "0"]
-    concert = from_notes.score_from_pages([page.replace("i: ", "i: concert ")])
-    assert events_of(concert)[:3] == [("1", 1, "D5"), ("1", 2, "G4"), ("1", 3, "C3")]
+    return [(name.findtext("part-name"), part.findtext("measure/attributes/key/fifths"), part.findtext("measure/attributes/transpose/chromatic"),
+             part.findtext("measure/attributes/transpose/octave-change"))
+            for name, part in zip(root.iter("score-part"), root.iter("part"))]
+
+
+@pytest.fixture
+def scan_of_three_pages(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 3}).encode())
+
+
+def test_a_page_that_disagrees_is_sent_back_once_then_shaded_and_named_by_its_pdf_page(scan_of_three_pages):
+    reading = careful_id()
+    first = text_of(hand_in(rules("octave-apart-page2", "octave-apart-page3"), reading))
+    assert "not stored yet" in first and "Page 2 has staff 1 around G4, page 3 has it around G5 in the same clef" in first
+    assert f"score_id {reading}" in first
+    assert not list(app.store.folder.glob("usage/*.json"))
+    second = hand_in(rules("octave-apart-page2", "octave-apart-page3"), reading)
+    assert ('Note for the user: "Page 3 of my careful reading did not agree with page 2: staff 1 sounds about an octave away '
+            'from page 2, and a second reading did not change that. Its bars (3 to 4) are shaded') in text_of(second)
+    assert asyncio.run(app.shaded_bars(text_of(second).split()[1])) == [3, 4]
+    assert json.loads(next(app.store.folder.glob("usage/*.json")).read_text())["draft"] == 1
+
+
+def test_a_hand_in_with_the_pdfs_score_id_is_shaded_at_once_and_says_it_was_not_checked_again(scan_of_three_pages):
+    result = text_of(hand_in(rules("octave-apart-page2", "octave-apart-page3")))
+    assert "not stored yet" not in result
+    assert "staff 1 sounds about an octave away from page 2, and I could not check it again. Its bars (3 to 4)" in result
+    assert app.store.get(app.careful_key("QUICK1")) is None
+
+
+def test_two_chats_with_one_pdf_each_get_their_own_reading_and_send_back(scan_of_three_pages):
+    first_chat, second_chat = careful_id(), careful_id()
+    assert first_chat != second_chat
+    assert "not stored yet" in text_of(hand_in(rules("octave-apart-page2", "octave-apart-page3"), first_chat))
+    assert "not stored yet" in text_of(hand_in(rules("octave-apart-page2", "octave-apart-page3"), second_chat))
+    assert "a second reading did not change that" in text_of(hand_in(rules("octave-apart-page2", "octave-apart-page3"), first_chat))
+
+
+def test_one_page_alone_keeps_its_page_number_and_logs_no_second_reading_of_a_page_it_does_not_hold(scan_of_three_pages, caplog):
+    reading = careful_id()
+    hand_in(rules("octave-apart-page2", "octave-apart-page3"), reading)
+    caplog.set_level("WARNING", logger="engine.output_checks")
+    caplog.clear()
+    alone = text_of(hand_in(rules("octave-apart-page2"), reading))
+    assert "It holds page 2 of the scan's 3 pages; a page left out is taken to have no music." in alone
+    assert [record.getMessage() for record in caplog.records] == []
+
+
+def test_a_page_with_fewer_staves_is_matched_by_the_names_it_shares_with_the_page_with_most_staves(scan_of_three_pages):
+    score = stored(hand_in(rules("three-staves-page1", "violin-rests-page2"), careful_id()))
+    assert [name for name, *_ in parts_of(score)] == ["Flute", "Violin", "Cello"]
+    assert sorted(events_of(score)) == [("1", 1, "D5"), ("1", 2, "B4"), ("1", 3, "G2"), ("2", 1, "E5"), ("2", 3, "C3")]
+
+
+def test_pages_with_the_same_number_of_staves_are_matched_by_position_whatever_their_names(scan_of_three_pages):
+    result = hand_in(rules("three-staves-page1", "other-spellings-page2"), careful_id())
+    assert "score_id:" in text_of(result) and "shaded" not in text_of(result)
+    assert [name for name, *_ in parts_of(stored(result))] == ["Flute", "Violin", "Cello"]
+
+
+def test_a_page_with_fewer_unnamed_staves_is_sent_back_with_the_names_then_shaded_without_a_new_part(scan_of_three_pages):
+    reading = careful_id()
+    first = text_of(hand_in(rules("three-staves-page1", "two-staves-unnamed-page2"), reading))
+    assert ("Page 2 has 2 staves in a system and page 1 has 3 staves: count the staves again. Page 1 names these staves: "
+            "Flute, Violin, Cello; write your i: line with these names for the staves your page shows.") in first
+    second = hand_in(rules("three-staves-page1", "two-staves-unnamed-page2"), reading)
+    assert "Page 2 of my careful reading did not agree with page 1: it has 2 staves where page 1 has 3 staves" in text_of(second)
+    assert [name for name, *_ in parts_of(stored(second))] == ["Flute", "Violin", "Cello"]
+
+
+def test_a_time_signature_written_with_a_question_mark_gives_way_to_the_one_in_force_when_the_bars_are_as_long():
+    pages = rules("meter-printed-page1", "meter-assumed-page2", "meter-printed-page3", "meter-assumed-page4")
+    built = from_notes.hand_in(pages)
+    meters = [measure.meter for measure in ScoreIndex(load_toolkit(built.score).getMEI()).measures]
+    assert meters == ["6/8"] * 4 + ["2/2"] * 4 and built.doubts == []
+
+
+def test_a_bar_split_by_a_repeat_sign_is_one_bar_8_and_8a_and_two_endings_stay_two_bars(scan_of_three_pages):
+    result = hand_in(rules("repeat-and-endings-page1"))
+    score = stored(result)
+    bar_2 = correct.bars_from_musicxml(score, 2)
+    assert bar_2.splitlines()[1:] == ["m2 len=4", "1.1: 3 D5 1 E5"]
+    corrected = asyncio.run(app.mcp.call_tool("correct_bars", {"score_id": text_of(result).split()[1],
+                                                               "replacement_bars": bar_2.replace("3 D5", "3 F5")}))
+    assert not corrected.is_error and "Bar 2: D5 changed to F5." in text_of(corrected)
+    drawn = ET.fromstring(score).find("part").findall("measure")
+    assert [measure.get("number") for measure in drawn] == ["1", "2", "2a", "3", "4", "5"]
+    assert [(measure.get("number"), line.get("location"), line.find("repeat").get("direction"))
+            for measure in drawn for line in measure.iter("barline") if line.find("repeat") is not None] == [
+        ("1", "left", "forward"), ("2", "right", "backward"), ("3", "left", "forward"), ("4", "right", "backward")]
+    assert [measure.number for measure in ScoreIndex(load_toolkit(score).getMEI()).measures] == [1, 2, 3, 4, 5]
+
+
+@pytest.mark.parametrize("name, parts, doubted, said", [
+    ("clarinet-stated", [("Clarinet in Bb", "0", "-2", "0"), ("Piano", "-2", None, None)], False, []),
+    ("clarinet-misstated", [("Clarinet in Bb", "1", None, None), ("Piano", "-2", None, None)], True, []),
+    ("clarinet-unstated", [("Clarinet in Bb", "-2", None, None), ("Piano", "-2", None, None)], True, []),
+    ("horn-and-timpani", [("Horn in F", "0", "-7", "0"), ("Timpani", "0", None, None), ("Cello", "-2", None, None)], False,
+     ["The Horn in F part is printed without a key signature, so I transposed it 7 semitones down, as its page states it "
+      "sounds: check it against your copy."]),
+])
+def test_a_staff_printed_in_another_key_sounds_as_its_t_line_states_or_is_shaded_as_printed(name, parts, doubted, said):
+    built = from_notes.hand_in(rules(f"{name}-page1"))
+    assert parts_of(built.score) == parts and built.notes == said
+    assert [doubt.rule for doubt in built.doubts] == ([from_notes.TRANSPOSED] if doubted else [])
+    if doubted:
+        assert built.doubts[0].said.startswith("The Clarinet in Bb part of my careful reading is shown as printed, not at the pitch it sounds")
+    assert events_of(built.score)[0][2] == ("C5" if name == "clarinet-stated" else "C4" if name == "horn-and-timpani" else "D5")
+
+
+def test_a_short_first_bar_is_a_pickup_on_the_lowest_page_and_completes_the_bar_before_on_a_later_page():
+    built = from_notes.hand_in(rules("pickup-page2", "completes-the-turn-page3"))
+    bars = ScoreIndex(load_toolkit(built.score).getMEI()).measures
+    assert [(measure.number, measure.length) for measure in bars] == [(0, 1), (1, 4), (2, 4), (3, 4)] and bars[0].is_pickup
+    assert built.doubts == [] and built.bars == {2: [0, 1, 2], 3: [2, 3]}
+    short = from_notes.hand_in(rules("pickup-page2", "does-not-complete-page3"))
+    assert [(doubt.rule, doubt.page) for doubt in short.doubts] == [(from_notes.OPENING, 3)]
+    assert short.doubts[0].said.startswith("Page 3 of my careful reading did not agree with page 2: its first bar is shorter")
+
+
+def test_a_hand_in_without_its_title_page_names_the_pages_it_holds(scan_of_three_pages):
+    result = text_of(hand_in(rules("pickup-page2", "completes-the-turn-page3")))
+    assert "measures 0 to 3." in result and "It holds pages 2 and 3 of the scan's 3 pages; a page left out is taken to have no music." in result
+
+
+def test_a_correction_keeps_the_careful_readings_doubt_shading(scan_of_three_pages):
+    code = text_of(hand_in(rules("octave-apart-page2", "octave-apart-page3"))).split()[1]
+    bar_1 = correct.bars_from_musicxml(app.store.get(f"scores/{code}"), 1)
+    corrected = asyncio.run(app.mcp.call_tool("correct_bars", {"score_id": code, "replacement_bars": bar_1.replace("4 E4", "4 F4")}))
+    assert not corrected.is_error, text_of(corrected)
+    assert asyncio.run(app.shaded_bars(corrected.structured_content["score_id"])) == [3, 4]
+
+
+def test_a_careful_reading_with_several_parts_says_how_to_correct_it(scan_of_three_pages):
+    result = text_of(hand_in(rules("three-staves-page1")))
+    assert "It has 3 parts, so a correction with correct_bars names the part it is for (part=)" in result
 
 
 def test_first_and_second_endings_become_brackets_over_their_bars():
@@ -884,3 +1036,12 @@ def test_the_bench_pages_still_build():
     assert len(pages) == 8
     for page in pages:
         from_notes.score_from_pages([paged_file(page)])
+
+
+def test_a_whole_piece_over_a_limit_is_not_offered_a_corrected_hand_in(scan_of_three_pages):
+    pages = [f"N1 page={page} div=1 ts=1/4 ks=0\n" + "\n".join(f"m{bar} len=1\n1.1: 1 C4" for bar in range(1, 601)) for page in (1, 2)]
+    refused = hand_in(pages)
+    assert refused.is_error and text_of(refused) == ("The careful reading cannot be built: The pages have 1200 bars together; "
+                                                     "at most 1000 can be built")
+    one_page = hand_in([BAR + "1.1: 12 C4"])
+    assert text_of(one_page).startswith("A page does not fit; a corrected hand-in takes every page again: Page 1: Bar 1,")
