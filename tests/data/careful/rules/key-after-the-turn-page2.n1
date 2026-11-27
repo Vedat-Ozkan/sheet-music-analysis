@@ -1,0 +1,8 @@
+N1 page=2 div=1 ts=4/4 ks=2f
+t: 1 ks=1f
+m1 len=2
+1.1: clef=G 2 F5
+2.1: clef=F 2 D3
+m2 len=4
+1.1: 4 G5
+2.1: 4 Eb3

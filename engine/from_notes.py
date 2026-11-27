@@ -19,6 +19,7 @@ BAR_LINE = re.compile(r"m\d+ len=(?P<length>\d+)(?P<changes>(?: (?:ts|ks|rep|end
 CHORD_NAME = re.compile(r"(?P<root>[A-G])(?P<sign>[#b♯♭]?)(?P<kind>.*?)(?:/(?P<bass>[A-G])(?P<bass_sign>[#b♯♭]?))?")
 TRANSPOSING_NAME = re.compile(r"\bin (?:b[b♭]|b[- ]flat|a|f|e[b♭]|e[- ]flat)\b|\bhorns?\b|\bsaxophones?\b|\bcor anglais\b",
                               re.IGNORECASE)
+UNTRANSPOSED_NAME = re.compile(r"\b(?:timpani|timp|pauken)\b", re.IGNORECASE)
 REGISTER_JUMP = 11
 PITCH_NAMES = ("C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B")
 STAVES, REGISTER, TIME, OPENING = (
@@ -292,27 +293,35 @@ def _join(pages: list[str]) -> _Joined:
     names = _bar_names(bars, div, meter)
     numbers = [int(name.rstrip("a")) for name in names]
     concert = any(re.match(r"i:\s*concert\b", line.strip()) for page in pages for line in page.splitlines())
-    keys, printed_apart = _staff_keys(bars, key)
+    keys, printed_apart, split = _staff_keys(bars, key, instruments)
     doubts += opening + _register_doubts(bars, [page.number for page in read])
-    shown_as_printed = sorted(printed_apart | (set() if concert else {
-        place for place, name in instruments.items() if TRANSPOSING_NAME.search(name)}))
+    transposing = set() if concert else {place for place, name in instruments.items() if TRANSPOSING_NAME.search(name)}
+    shown_as_printed = sorted(place for place in transposing | {place for place in printed_apart if instruments.get(place) not in split}
+                              if not UNTRANSPOSED_NAME.search(instruments.get(place, "")))
+    said = [_as_printed(instruments, shown_as_printed)] if shown_as_printed else []
     return _Joined(_bars_as_text(bars, div, meter, key), names, instruments, keys, doubts,
                    {page.number: sorted({number for number, bar in zip(numbers, bars) if page.number in bar.pages}) for page in read},
-                   [_as_printed(instruments, shown_as_printed)] if shown_as_printed else [])
+                   said + [DRAWN_WITH_THE_TOP_KEY.format(name=name) for name in split])
 
 
 def _disagreed(page: int, against: int, said: str) -> str:
     return f"Page {page} of my careful reading did not agree with page {against}: {said}"
 
 
-def _staff_keys(bars: list[_Bar], key: str) -> tuple[list[dict[int, str]], set[int]]:
-    own, in_force, apart = {}, [], set()
+def _staff_keys(bars: list[_Bar], key: str, instruments: dict[int, str]) -> tuple[list[dict[int, str]], set[int], list[str]]:
+    own, in_force, apart, split = {}, [], set(), {}
     for bar in bars:
         key = bar.changes.get("ks", key)
         own = (({} if bar.opens_page else own) | bar.keys)
         in_force.append(own)
         apart |= {staff for staff, printed in own.items() if printed not in (key, "0")}
-    return in_force, apart
+        split |= {name: True for staff, name in sorted(instruments.items())
+                  if instruments.get(staff - 1) == name and note_rules.fifths(own.get(staff, key)) != note_rules.fifths(own.get(staff - 1, key))}
+    return in_force, apart, list(split)
+
+
+DRAWN_WITH_THE_TOP_KEY = ("The staves of the {name} part print different key signatures. My reading draws them all with the "
+                          "top staff's key signature, and their notes keep their printed pitches.")
 
 
 def _as_printed(instruments: dict[int, str], places: list[int]) -> str:

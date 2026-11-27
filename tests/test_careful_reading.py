@@ -1054,13 +1054,45 @@ CLARINET_SHOWN_AS_PRINTED = ("The Clarinet in Bb part is written for an instrume
     (["unnamed-staff-own-key-page1"], [("", ["1"], False), ("", ["-2"], False)], ["D5"],
      ["The part on staff 1 is written for an instrument that sounds at a different pitch than printed. My reading shows it "
       "as printed, so chords that include it may be named wrong."]),
+    (["timpani-with-a-tuning-page1"], [("Timpani in A", ["-2"], False), ("Cello", ["-2"], False)], ["A2"], []),
+    (["concert-horn-page1"], [("Horn in F", ["-2"], False), ("Cello", ["-2"], False)], ["G4"], []),
+    (["piano-staves-differ-page1"], [("Piano", ["-2"], False)], ["B4"],
+     ["The staves of the Piano part print different key signatures. My reading draws them all with the top staff's key "
+      "signature, and their notes keep their printed pitches."]),
+    (["key-before-the-turn-page1", "key-after-the-turn-page2"],
+     [("Clarinet in Bb", ["0", "-1", None], False), ("Cello", ["-2", None, None], False)], ["D5", "E5", "F5", "G5"],
+     [CLARINET_SHOWN_AS_PRINTED]),
 ], ids=["own-key-and-its-change", "change-not-stated", "named-only", "old-sounds", "each-page-its-own", "octave-instruments",
-        "horn-by-name-timpani-not", "unnamed"])
+        "horn-by-name-timpani-not", "unnamed", "timpani-with-a-tuning", "concert-pitch", "staves-of-one-part-differ",
+        "key-stated-after-a-bar-split-by-the-turn"])
 def test_every_staff_is_written_as_printed_in_the_key_signature_its_page_states_and_named_once_when_it_may_sound_elsewhere(
         names, parts, pitches, said):
     built = from_notes.hand_in(rules(*names))
     assert keys_of_parts(built.score) == parts and built.notes == said and built.doubts == []
     assert [pitch for bar, staff, pitch in events_of(built.score) if staff == 1] == pitches
+
+
+def test_a_staff_key_line_for_a_staff_the_page_does_not_have_is_refused_by_the_rules_and_the_builder():
+    page = "N1 page=1 div=1 ts=4/4 ks=2f\ni: 1=Flute\nt: 7 ks=2s\nm1 len=4\n1.1: 4 D5"
+    said = ("Line 3: this staff key line is for staff 7, and the highest staff with a voice line or a name on this page "
+            "is 1")
+    assert note_rules.problems(page) == [said]
+    with pytest.raises(notes.NotesError, match=f"Page 1: {said}"):
+        from_notes.hand_in([page])
+
+
+def test_a_correction_of_a_part_shown_as_printed_takes_the_printed_pitches(scan_of_three_pages):
+    code = text_of(hand_in(rules("clarinet-named-only-page1"), careful_id())).split()[1]
+    bar = correct.bars_from_musicxml(app.store.get(f"scores/{code}"), 1, part="Clarinet in Bb")
+    assert "D5" in bar
+    corrected = asyncio.run(app.mcp.call_tool("correct_bars", {"score_id": code, "part": "Clarinet in Bb",
+                                                               "replacement_bars": bar.replace("D5", "E5")}))
+    assert not corrected.is_error, text_of(corrected)
+    score = app.store.get(f"scores/{corrected.structured_content['score_id']}")
+    assert [pitch for number, staff, pitch in events_of(score) if staff == 1] == ["E5"]
+    assert [part[2] for part in keys_of_parts(score)] == [False, False]
+    listed = {tool.name: tool.description for tool in asyncio.run(app.mcp.list_tools())}
+    assert "a careful reading, which shows every part as printed and takes the printed pitches" in listed["correct_bars"]
 
 
 def test_a_page_may_name_only_the_staves_it_prints_names_for():

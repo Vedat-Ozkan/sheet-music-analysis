@@ -126,7 +126,7 @@ def problems(text: str) -> list[str]:
     found = _signature_problems(head[3], head[5])
     if found:
         return found
-    meter, bars, named, keyed = head[3], [], None, set()
+    meter, bars, named, keyed, key_lines = head[3], [], None, set(), []
     for number, line in numbered[1:]:
         if line.startswith("m"):
             bar = BAR_LINE.fullmatch(line)
@@ -150,6 +150,7 @@ def problems(text: str) -> list[str]:
                                 f"another key signature than the bar line's: the staff, numbered 1 to {MAX_STAVES}, and the "
                                 "key signature printed on it"]
             keyed.add(stated[0])
+            key_lines.append((number, stated[0]))
         elif not bars:
             kind = {"x:": "a marks line", "c:": "a chord symbol line"}.get(line[:2], "a voice line")
             found.append(f"Line {number}: {kind} needs a bar line like 'm3 len=96' before it")
@@ -165,6 +166,10 @@ def problems(text: str) -> list[str]:
         return found or ["The note list has no measures"]
     if len(bars) > MAX_BARS:
         found.append(f"The note list has {len(bars)} bars; at most {MAX_BARS} can be built")
+    staves = max([*(named or {}), *(int(voice[1]) for bar in bars for label, _ in bar["lines"]
+                                    if (voice := VOICE_LABEL.fullmatch(label)))], default=1)
+    found += [f"Line {number}: this staff key line is for staff {staff}, and the highest staff with a voice line or a name "
+              f"on this page is {staves}" for number, staff in key_lines if staff > staves]
     found += _bar_problems(bars, div)
     return found
 
