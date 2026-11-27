@@ -1065,9 +1065,12 @@ CLARINET_SHOWN_AS_PRINTED = shown_as_printed("the Clarinet in Bb part")
     (["key-before-the-turn-page1", "key-after-the-turn-page2"],
      [("Clarinet in Bb", ["0", "-1", None], False), ("Cello", ["-2", None, None], False)], ["D5", "E5", "F5", "G5"],
      [CLARINET_SHOWN_AS_PRINTED]),
+    (["transposing-names-alone-page1"],
+     [("Horn", ["0"], False), ("Alto Saxophone", ["-2"], False), ("Cor anglais", ["-2"], False), ("Cello", ["-2"], False)], ["G4"],
+     [shown_as_printed("the Horn part, the Alto Saxophone part and the Cor anglais part")]),
 ], ids=["own-key-and-its-change", "change-not-stated", "named-only", "old-sounds", "each-page-its-own", "octave-instruments",
         "horn-by-name-timpani-not", "unnamed", "timpani-with-a-tuning", "concert-pitch", "staves-of-one-part-differ",
-        "key-stated-after-a-bar-split-by-the-turn"])
+        "key-stated-after-a-bar-split-by-the-turn", "named-alone-without-in"])
 def test_every_staff_is_written_as_printed_in_the_key_signature_its_page_states_and_named_once_when_it_may_sound_elsewhere(
         names, parts, pitches, said):
     built = from_notes.hand_in(rules(*names))

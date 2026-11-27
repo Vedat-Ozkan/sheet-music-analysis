@@ -17,7 +17,8 @@ REST_TYPES = ("whole", "half", "quarter", "eighth", "16th", "32nd", "64th", "128
 DIVISIONS = 32
 BAR_LINE = re.compile(r"m\d+ len=(?P<length>\d+)(?P<changes>(?: (?:ts|ks|rep|ending)=\S+)*)")
 CHORD_NAME = re.compile(r"(?P<root>[A-G])(?P<sign>[#b♯♭]?)(?P<kind>.*?)(?:/(?P<bass>[A-G])(?P<bass_sign>[#b♯♭]?))?")
-TRANSPOSING_NAME = re.compile(r"\bin [a-g](?:[b#♭♯]|[- ](?:flat|sharp))?\b", re.IGNORECASE)
+TRANSPOSING_NAME = re.compile(r"\bin [a-g](?:[b#♭♯]|[- ](?:flat|sharp))?\b|\bhorns?\b|\bsaxophones?\b|\bcor anglais\b",
+                              re.IGNORECASE)
 REGISTER_JUMP = 11
 PITCH_NAMES = ("C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B")
 STAVES, REGISTER, TIME, OPENING = (
