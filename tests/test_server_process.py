@@ -433,6 +433,24 @@ def test_a_request_without_the_key_gets_the_whole_refusal_while_its_body_is_stil
     assert all(answer.startswith("HTTP/1.1 403") and "mcp.sheetmusicanalysis.com" in answer for answer in answers)
 
 
+def test_a_read_meant_for_another_machine_gets_the_whole_refusal_while_its_upload_is_still_arriving(tmp_path):
+    size = 2_000_000
+    asked = f"POST /read-work HTTP/1.1\r\nHost: x\r\nConnection: close\r\nx-read-machine: {app.MACHINE}\r\nContent-Length: {size}\r\n\r\n"
+
+    def refused(port):
+        with socket.create_connection(("127.0.0.1", port), timeout=10) as connection:
+            connection.sendall(asked.encode())
+            connection.sendall(b"x" * size)
+            answer = b""
+            while part := connection.recv(4096):
+                answer += part
+            return answer.decode()
+
+    with running_server(tmp_path) as (address, _):
+        answers = [refused(int(address.rsplit(":", 1)[1])) for _ in range(10)]
+    assert all(answer.startswith("HTTP/1.1 409") for answer in answers)
+
+
 def test_a_request_without_the_key_whose_body_never_ends_is_refused_after_a_short_wait_and_holds_no_one_up(tmp_path):
     with running_server(tmp_path, PROXY_KEY="the key of this test") as (locked, _):
         with socket.create_connection(("127.0.0.1", int(locked.rsplit(":", 1)[1])), timeout=30) as stalled:
