@@ -41,7 +41,7 @@ def one_note(duration: Fraction) -> bool:
     return duration in ONE_NOTE
 
 
-def rest_length(duration: Fraction) -> bool:
+def tied_length(duration: Fraction) -> bool:
     return (duration * 16).denominator == 1
 
 
@@ -298,7 +298,7 @@ def _read_voice(tokens: list[str], div: int, name: str, length: Fraction):
         groups.append((names, grace, len(opened), len(closed)))
         if not grace:
             total += duration
-            if duration and not (one_note(duration) or duration == length or names == "r" and rest_length(duration)):
+            if duration and not (one_note(duration) or duration == length or tied_length(duration)):
                 found.append(f"Bar {name}: a duration of {duration * div} at div={div} cannot be written as one note; use "
                              "plain or dotted note values, notes of a simple tuplet such as a triplet, or tied notes")
     return total, groups, list(dict.fromkeys(found))

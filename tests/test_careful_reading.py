@@ -533,8 +533,6 @@ BAD_PAGES = [
     (BAR + "1.1: C4 16 C4", "Bar 1: note/rest has no duration"),
     ("N1 div=5 ts=4/4 ks=0\nm1 len=20\n1.1: 7 C4 3 D4 10 E4", "Bar 1: a duration of 7 at div=5 cannot be written as one "
      "note; use plain or dotted note values, notes of a simple tuplet such as a triplet, or tied notes"),
-    (BAR + "1.1: 5 C4 3 D4 8 E4", "Bar 1: a duration of 5 at div=4 cannot be written as one note; use plain or dotted "
-     "note values, notes of a simple tuplet such as a triplet, or tied notes"),
     (BAR + "1.1: 12 C4", "Bar 1, voice 1.1 adds up to 3; expected 4 quarter notes"),
     (BAR + "1.1w: la\n1.1: 16 C4", "Bar 1: the words line 1.1w needs its voice line 1.1 before it"),
     (BAR + "1.1: 16 C4\n1.1w: la la", "Bar 1, 1.1w: 2 entries for 1 sung notes; write one entry for each note that is not "
@@ -559,7 +557,6 @@ BAD_PAGES = [
 ]
 RULES_ONLY = {"Staves are numbered 1 to 32 from the top and voices 1 to 8", "The note list has 1001 bars; at most 1000 can be built",
               "Bar 1: len= makes this bar longer than 64 quarter notes", BAD_PAGES[16][1],
-              next(sentence for page, sentence in BAD_PAGES if "a duration of 5 at div=4" in sentence),
               "Bar 1: include all 1 staves", "A repeat sign is written rep=start, rep=end or rep=both, not rep=twice",
               "An ending is written ending=1, ending=2 and so on, not ending=a"}
 
@@ -632,8 +629,8 @@ def test_a_duration_the_rules_take_as_one_note_is_one_note_for_the_engraver():
     assert len(one_note) == 56
     assert [duration for duration in one_note if written[duration].type in ("inexpressible", "complex")
             or any(t.durationNormal.type != written[duration].type for t in written[duration].tuplets)] == []
-    rests = {duration for duration in durations if note_rules.rest_length(duration)}
-    assert [duration for duration in rests if written[duration].type == "inexpressible" or written[duration].tuplets] == []
+    tied = {duration for duration in durations if note_rules.tied_length(duration)}
+    assert [duration for duration in tied if written[duration].type == "inexpressible" or written[duration].tuplets] == []
 
 
 @pytest.mark.parametrize("text, reported", [
@@ -727,7 +724,6 @@ def test_a_later_page_that_leaves_out_resting_staves_and_names_its_instruments_i
 
 def test_a_page_that_takes_its_time_signature_follows_the_one_in_force_at_the_end_of_the_page_before():
     pages = trial_pages("831deb/whole", *range(1, 9))
-    pages[2] = pages[2].replace("1.1: 27 C4~ 9 C4", "1.1: 24 C4~ 3 C4~ 9 C4").replace("2.2: 54 Ab2 18 Ab1", "2.2: 36 Ab2~ 18 Ab2 Ab1")
     taken = [pages[0]] + [re.sub(r"ts=(\S+) ks", r"ts=\1? ks", page, count=1) for page in pages[1:]]
     joined = from_notes.hand_in(taken)
     meters = {measure.number: measure.meter for measure in ScoreIndex(load_toolkit(joined.score).getMEI()).measures}
