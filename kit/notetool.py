@@ -361,11 +361,11 @@ def zoom(a):
 
 def check(a):
     text = open(a.file).read()
-    found = note_rules.problems(text, not re.fullmatch(r'page([2-9]|\d\d+)\.n1', os.path.basename(a.file)))
+    found = note_rules.problems(text)
     for problem in found:
         print(problem)
     lines = text.splitlines()
-    head = re.fullmatch(r'N1 div=([1-9]\d*) ts=([1-9]\d*)/([1-9]\d*)\?? ks=(0|[1-7][sf])', lines[0].strip()) if lines else None
+    head = re.fullmatch(r'N1 page=[1-9]\d* div=([1-9]\d*) ts=([1-9]\d*)/([1-9]\d*)\?? ks=(0|[1-7][sf])', lines[0].strip()) if lines else None
     notes = 0
     if head:
         div = int(head[1])
@@ -384,7 +384,7 @@ def check(a):
                     else:
                         full = div * 4 * int(value.split('/')[0]) // int(value.split('/')[1])
                 if length != full:
-                    print(f'{bar}: NOTE len={length} but a full bar is {full}; only a pickup or its closing bar may be shorter')
+                    print(f'{bar}: NOTE len={length} but a full bar is {full}; only a pickup, a bar split by a repeat sign or a bar split by the page turn may be shorter')
                 continue
             m = re.fullmatch(r'(\d+\.\d+):(.*)', line)
             if not m or bar is None:

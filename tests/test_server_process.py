@@ -165,7 +165,7 @@ def store_a_read_scan(tmp_path):
     (scores / "SCAN1.pdf").write_bytes(pdf)
     (scores / "QUICK1N").write_bytes((NOCTURNE.parent / "chopin_prelude_op28_no4_reading.musicxml").read_bytes())
     (scores / "QUICK1N.scan").write_text(json.dumps({"pages": 3}))
-    card = {"score_id": "QUICK1N", "pages": 3, "scan": True, "measures": "1 to 25", "bars": 25, "notice": "", "image_url": "",
+    card = {"score_id": "QUICK1N", "pages": 3, "of_pages": 3, "scan": True, "measures": "1 to 25", "bars": 25, "notice": "", "image_url": "",
             "pdf_url": "", "page_images": []}
     (scores / f"pdf-card-{pdf_reader.READER}-{hashlib.sha256(pdf).hexdigest()}.json").write_text(json.dumps(card))
     typeset = pdf + b"\n"

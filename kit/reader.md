@@ -11,12 +11,13 @@ Rules of the task:
 
 ## The N1 format
 
-First line: `N1 div=D ts=N/M ks=K`
+First line: `N1 page=P div=D ts=N/M ks=K`
+- `page` is your page's number in the PDF, as your task gives it: `page=4` for page 4.
 - `div` is the number of units in a quarter note. Choose it so every duration in the music is a whole number: 4 lets you write sixteenths (1 unit), 12 also allows eighth and sixteenth triplets, 24 or 48 for finer values.
 - `ts` is the time signature at the start, for example `ts=3/4`. If none is printed at the start of your page, write the one you take with a `?`: `ts=3/4?`.
 - `ks` is the key signature at the start: `0` for none, `3s` for three sharps, `2f` for two flats.
 
-If instrument names are printed at the left of the staves, the second line names them: `i: 1=Flute 2=Clarinet in Bb 3=Violin 1`, one number=name for each staff on your page, from the top. Write each name in full (`Clarinet in Bb`, not `Cl.`), as a first page would print it; two staves of one instrument (piano, harp) get the same name twice. A staff the page leaves out because it rests is not written. If the score is printed at concert pitch (it says "in C", or a clarinet, horn or trumpet staff has the same key signature as the strings), start with `concert`: `i: concert 1=Flute 2=Clarinet in Bb`.
+If instrument names are printed at the left of the staves, the second line names them: `i: 1=Flute 2=Clarinet in Bb 3=Violin 1`, one number=name for each staff on your page, from the top. Write each name in full (`Clarinet in Bb`, not `Cl.`); two staves of one instrument (piano, harp) get the same name twice. A staff the page leaves out because it rests is not written. If the score is printed at concert pitch (it says "in C", or a clarinet, horn or trumpet staff has the same key signature as the strings), start with `concert`: `i: concert 1=Flute 2=Clarinet in Bb`.
 
 Then, for each bar, one bar line followed by one line per voice:
 - Bar line: `m5 len=L`, where L is the bar's length in units (a 3/4 bar with div=12 has len=36). Add `ts=6/8` or `ks=2s` on the bar line where the time or key signature changes. A repeat sign goes on the bar line too: `rep=start` for a bar that begins with one, `rep=end` for a bar that ends with one, `rep=both`; and `ending=1` on every bar under a first-ending bracket, `ending=2` under a second: `m12 len=16 rep=end ending=1`. A bar that a repeat sign splits in two is written as two bars, as printed.
@@ -36,7 +37,7 @@ Then, for each bar, one bar line followed by one line per voice:
 Example (a different piece; a pickup bar, grace notes, chords, rests):
 
 ```
-N1 div=4 ts=3/4 ks=2s
+N1 page=1 div=4 ts=3/4 ks=2s
 m0 len=4
 1.1: clef=G 4 (D4+F#4
 2.1: clef=F 4 D3+A3.

@@ -1,4 +1,4 @@
-N1 div=4 ts=6/8 ks=4s
+N1 page=1 div=4 ts=6/8 ks=4s
 m0 len=2
 1.1: 2 (G#3+G#4
 2.1: 2 r

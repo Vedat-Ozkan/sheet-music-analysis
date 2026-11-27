@@ -66,7 +66,7 @@ After every system:
 The check uses the same rules as the server that builds the score from your file. Each error says where it is and what to fix; fix every one.
 
 - `adds up to`: the voice does not fill its bar. Read the rhythm again. Never change `len` to make it fit.
-- `NOTE len=…`: allowed only for a pickup bar and the bar that completes it.
+- `NOTE len=…`: allowed only for a pickup bar, the two parts of a bar that a repeat sign splits, and a bar that the page turn splits (at the end or the start of your page).
 - `departs from the key signature`: point to the printed accidental for each one (on the note or earlier in the bar). If there is none, the pitch is wrong.
 - `entries for … sung notes`: the words line does not have one entry for each sung note of its voice. Count again.
 - `cannot be written as one note`: no single printed note has that length. Read the note value again; a note held across a beat is written as tied notes.

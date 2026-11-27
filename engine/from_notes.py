@@ -15,7 +15,6 @@ from kit import note_rules
 
 REST_TYPES = ("whole", "half", "quarter", "eighth", "16th", "32nd", "64th", "128th")
 DIVISIONS = 32
-HEADER = re.compile(notes.VERSION + r" div=(?P<div>[1-9]\d*) ts=(?P<meter>[^\s?]*)(?P<assumed>\??) ks=(?P<key>\S+)")
 BAR_LINE = re.compile(r"m\d+ len=(?P<length>\d+)(?P<changes>(?: (?:ts|ks|rep|ending)=\S+)*)")
 CHORD_NAME = re.compile(r"(?P<root>[A-G])(?P<sign>[#b♯♭]?)(?P<kind>.*?)(?:/(?P<bass>[A-G])(?P<bass_sign>[#b♯♭]?))?")
 NUMBERED = re.compile(r"\s+(?:[0-9]+|[ivx]+)(?:\s*[.,&/-]?\s*(?:[0-9]+|[ivx]+))*$")
@@ -28,13 +27,19 @@ TRANSPOSITIONS = {
 }
 REGISTER_JUMP = 11
 PITCH_NAMES = ("C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B")
-STAVES, REGISTER, TIME = "pages agree on their staves", "a staff keeps its register over a page turn", "an assumed time signature fits the page before"
+STAVES, REGISTER, TIME, OPENING = ("pages agree on their staves", "a staff keeps its register over a page turn",
+                                   "an assumed time signature fits the page before", "a short first bar completes the page before")
+
+
+class WholePieceError(notes.NotesError):
+    pass
 
 
 @dataclass(frozen=True)
 class Doubt:
     rule: str
     page: int
+    against: int
     reason: str
     said: str
 
@@ -53,19 +58,36 @@ def score_from_pages(pages: list[str]) -> bytes:
 def hand_in(pages: list[str]) -> HandIn:
     if not pages:
         raise notes.NotesError("No pages were handed in")
-    for number, page in enumerate(pages, 1):
-        if found := note_rules.problems(page, number == 1):
-            raise notes.NotesError(f"Page {number}: {found[0]}")
+    numbered: dict[int, str] = {}
+    for position, page in enumerate(pages, 1):
+        number = note_rules.page_number(page)
+        if found := note_rules.problems(page):
+            raise notes.NotesError(f"{f'Page {number}' if number else f'Note list {position}'}: {found[0]}")
+        if number in numbered:
+            raise notes.NotesError(f"Two note lists say page={number}; hand in each page once")
+        numbered[number] = page
     if found := note_rules.join_problems(pages):
-        raise notes.NotesError(found[0])
-    pages = _clefs_moved(pages)
-    for number, page in enumerate(pages, 1):
+        raise WholePieceError(found[0])
+    numbers = sorted(numbered)
+    pages = _clefs_moved([numbered[number] for number in numbers])
+    for position, (number, page) in enumerate(zip(numbers, pages)):
         try:
-            score_from_notes(join_pages([page]), after_a_rest_bar=number > 1)
+            score_from_notes(join_pages([page]), after_a_rest_bar=position > 0)
         except UserError as error:
             raise notes.NotesError(f"Page {number}: {error}") from error
     joined = _join(pages)
-    return HandIn(_with_instruments(joined.text, joined.instruments, joined.concert), joined.doubts, joined.bars)
+    return HandIn(_named_bars(_with_instruments(joined.text, joined.instruments, joined.concert), joined.names),
+                  joined.doubts, joined.bars)
+
+
+def _named_bars(score: bytes, names: list[str]) -> bytes:
+    if all(name.isdigit() for name in names):
+        return score
+    root = ET.fromstring(score)
+    for part in root.iter("part"):
+        for measure, name in zip(part.findall("measure"), names):
+            measure.set("number", name)
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
 def score_from_notes(text: str, *, after_a_rest_bar: bool = False) -> bytes:
@@ -201,7 +223,6 @@ def _rest_bar_before(first: Measure) -> Measure:
 
 @dataclass
 class _Bar:
-    written_number: int
     length: int
     changes: dict[str, str]
     voices: dict[str, str] = field(default_factory=dict)
@@ -209,11 +230,29 @@ class _Bar:
     chord_symbols: list[tuple[str, int]] = field(default_factory=list)
     other: list[str] = field(default_factory=list)
     pages: set[int] = field(default_factory=set)
+    continues: bool = False
+
+
+@dataclass
+class _Page:
+    number: int
+    div: int
+    meter: str
+    assumed: bool
+    key: str
+    named: dict[int, str]
+    lines: list[str]
+    bars: list[_Bar] = field(default_factory=list)
+
+    @property
+    def staves(self) -> int:
+        return max([*self.named, *(int(label.split(".")[0]) for bar in self.bars for label in bar.voices)], default=1)
 
 
 @dataclass
 class _Joined:
     text: str
+    names: list[str]
     instruments: dict[int, str]
     concert: bool
     doubts: list[Doubt]
@@ -225,69 +264,79 @@ def join_pages(pages: list[str]) -> str:
 
 
 def _join(pages: list[str]) -> _Joined:
-    read = [_page_heading(number, text) for number, text in enumerate(pages, 1)]
-    div = math.lcm(*(own for own, *_ in read))
-    meter, key = read[0][1], read[0][3]
-    instruments: dict[int, str] = {}
-    doubts, read_pages, in_force, first_staves = [], [], meter, None
-    for number, (own, page_meter, assumed, page_key, named, lines) in enumerate(read, 1):
-        if assumed and number > 1 and page_meter != in_force:
+    read = [_page_heading(text) for text in pages]
+    div = math.lcm(*(page.div for page in read))
+    meter, key = read[0].meter, read[0].key
+    doubts, in_force, before = [], meter, None
+    for page in read:
+        page_meter = page.meter
+        if page.assumed and before and page_meter != in_force:
             if _units_in_bar(page_meter, div) == _units_in_bar(in_force, div):
                 page_meter = in_force
             else:
-                doubts.append(Doubt(TIME, number, f"Page {number} takes the time signature {page_meter} without one "
-                                    f"printed, but page {number - 1} ends in {in_force}, with bars of another length: "
-                                    f"look again for a time signature printed on page {number}.",
-                                    f"its time signature does not follow from page {number - 1}"))
-        bars = _page_bars(number, lines, div // own, page_meter, page_key)
-        staves = max((int(label.split(".")[0]) for bar in bars for label in bar.voices), default=1)
-        known = dict(instruments)
-        places, unknown = _staff_places(instruments, named)
-        if first_staves is None:
-            first_staves = staves
-        elif unknown:
-            doubts.append(Doubt(STAVES, number, f"Page {number} names {', '.join(unknown)}, which page 1 does not name; "
-                                f"page 1 names {', '.join(known.values())}: write each staff's name as page 1 does.",
-                                "it names instruments the first page does not have"))
-        elif staves != first_staves and not (named and known):
-            doubts.append(Doubt(STAVES, number, f"Page {number} has {_staves(staves)} in a system and page 1 has "
-                                f"{_staves(first_staves)}: count the staves again; if the page leaves out instruments that "
-                                "rest, name each staff's instrument in an i: line.", "it has a different number of staves"))
-        read_pages.append([_placed(bar, places) for bar in bars])
-        for bar in bars:
+                doubts.append(Doubt(TIME, page.number, before.number,
+                                    f"Page {page.number} takes the time signature {page_meter} without one printed, but "
+                                    f"page {before.number} ends in {in_force}, with bars of another length: look again for "
+                                    f"a time signature printed on page {page.number}.",
+                                    f"its time signature does not follow from page {before.number}"))
+        page.bars = _page_bars(page.number, page.lines, div // page.div, page_meter, page.key)
+        for bar in page.bars:
             in_force = bar.changes.get("ts", in_force)
-    bars = _joined(read_pages, div, meter, key)
+        before = page
+    reference = max(read, key=lambda page: (page.staves, -page.number))
+    instruments = reference.named or next((page.named for page in read if page.staves == reference.staves and page.named), {})
+    for page in read:
+        places, unmatched = _staff_places(page, reference, instruments)
+        if unmatched:
+            doubts.append(_staves_doubt(page, reference, instruments, unmatched))
+        page.bars = [_placed(bar, places) for bar in page.bars]
+    bars, opening = _joined(read, div, meter, key)
     _sounding(bars, div)
-    numbers = range(bars[0].written_number, bars[0].written_number + len(bars)) if bars else range(0)
-    doubts += _register_doubts(bars)
+    names = _bar_names(bars, div, meter)
+    numbers = [int(name.rstrip("a")) for name in names]
+    doubts += opening + _register_doubts(bars, [page.number for page in read])
     concert = any(re.match(r"i:\s*concert\b", line.strip()) for page in pages for line in page.splitlines())
-    return _Joined(_bars_as_text(bars, div, meter, key), instruments, concert, doubts,
-                   {page: [number for number, bar in zip(numbers, bars) if page in bar.pages] for page in range(1, len(pages) + 1)})
+    return _Joined(_bars_as_text(bars, div, meter, key), names, instruments, concert, doubts,
+                   {page.number: sorted({number for number, bar in zip(numbers, bars) if page.number in bar.pages}) for page in read})
 
 
-def _page_heading(number: int, text: str) -> tuple[int, str, bool, str, dict[int, str], list[str]]:
+def _page_heading(text: str) -> _Page:
     lines = [line.strip() for line in text.splitlines() if line.strip()]
-    head = HEADER.fullmatch(lines[0]) if lines else None
+    head = note_rules.HEADER.fullmatch(lines[0]) if lines else None
     if not head:
-        raise notes.NotesError(f'Page {number}: the note list must start with a "{notes.VERSION} div=… ts=… ks=…" line')
+        raise notes.NotesError(note_rules.HEADING)
     named = note_rules.instruments(lines[1]) if len(lines) > 1 and lines[1].startswith("i:") else None
-    return int(head["div"]), head["meter"], bool(head["assumed"]), head["key"], named or {}, lines[2 if named else 1:]
+    return _Page(int(head[1]), int(head[2]), head[3], bool(head[4]), head[5], named or {}, lines[2 if named else 1:])
 
 
-def _staff_places(instruments: dict[int, str], named: dict[int, str]) -> tuple[dict[int, int], list[str]]:
-    if not named or not instruments:
-        for staff, name in named.items():
-            instruments.setdefault(staff, name)
+def _staff_places(page: _Page, reference: _Page, instruments: dict[int, str]) -> tuple[dict[int, int], list[int]]:
+    if page.staves == reference.staves:
         return {}, []
-    places, unknown = {}, []
-    for staff, name in sorted(named.items()):
-        free = [place for place, known in sorted(instruments.items()) if _plain(known) == _plain(name) and place not in places.values()]
-        if not free:
-            unknown.append(name)
-            free = [max(instruments) + 1]
-            instruments[free[0]] = name
-        places[staff] = free[0]
-    return places, unknown
+    free, places, unmatched = dict(instruments), {}, []
+    for staff in range(1, page.staves + 1):
+        name = page.named.get(staff)
+        place = next((place for place, known in sorted(free.items()) if name and _plain(known) == _plain(name)), None)
+        if place is None:
+            unmatched.append(staff)
+        else:
+            places[staff] = place
+            del free[place]
+    open_places = [place for place in range(1, reference.staves + 1) if place not in places.values()]
+    return places | dict(zip(unmatched, open_places)), unmatched
+
+
+def _staves_doubt(page: _Page, reference: _Page, instruments: dict[int, str], unmatched: list[int]) -> Doubt:
+    named = [page.named[staff] for staff in unmatched if staff in page.named]
+    reason = (f"Page {page.number} has {_staves(page.staves)} in a system and page {reference.number} has "
+              f"{_staves(reference.staves)}: count the staves again.")
+    if named:
+        reason += f" Page {reference.number} does not name {', '.join(named)}."
+    if instruments:
+        reason += (f" Page {reference.number} names these staves: {', '.join(instruments[staff] for staff in sorted(instruments))}; "
+                   "write your i: line with these names for the staves your page shows.")
+    return Doubt(STAVES, page.number, reference.number, reason,
+                 f"it has {_staves(page.staves)} where page {reference.number} has {_staves(reference.staves)}, and not every "
+                 f"staff could be matched to one of page {reference.number}'s")
 
 
 def _placed(bar: _Bar, places: dict[int, int]) -> _Bar:
@@ -313,7 +362,7 @@ def _page_bars(number: int, lines: list[str], scale: int, meter: str, key: str) 
             opening = {"ts": meter, "ks": key} if not bars else {}
             changes = {name: value for name, value in opening.items() if value} | dict(
                 part.split("=", 1) for part in found["changes"].split())
-            bars.append(_Bar(int(line.split()[0][1:]), int(found["length"]) * scale, changes, pages={number}))
+            bars.append(_Bar(int(found["length"]) * scale, changes, pages={number}))
         elif not bars:
             raise notes.NotesError(f"Page {number}: a voice line needs a bar line like 'm3 len=96' before it")
         elif label == "x":
@@ -328,19 +377,51 @@ def _page_bars(number: int, lines: list[str], scale: int, meter: str, key: str) 
     return bars
 
 
-def _joined(pages: list[list[_Bar]], div: int, meter: str, key: str) -> list[_Bar]:
-    bars = []
+def _joined(pages: list[_Page], div: int, meter: str, key: str) -> tuple[list[_Bar], list[Doubt]]:
+    bars, doubts, before = [], [], None
     for page in pages:
-        for position, bar in enumerate(page):
-            if bars and _completes(bars[-1], bar, div, meter, key):
-                bars[-1] = _one_bar(bars[-2] if len(bars) > 1 else None, bars[-1], bar, div)
+        for position, bar in enumerate(page.bars):
+            turn = position == 0 and bool(bars)
+            if bars and (turn or _repeat_between(bars[-1], bar)) and _completes(bars[-1], bar, div, meter, key):
+                if _repeat_between(bars[-1], bar):
+                    bars.append(replace(bar, continues=True))
+                else:
+                    bars[-1] = _one_bar(bars[-2] if len(bars) > 1 else None, bars[-1], bar, div)
                 continue
-            if position == 0 and bars:
+            if turn and _short(bar, div, meter):
+                doubts.append(Doubt(OPENING, page.number, before.number,
+                                    f"Page {page.number} begins with a bar shorter than its time signature, and the last bar "
+                                    f"of page {before.number} does not make up the rest: count the beats of the first bar of "
+                                    f"page {page.number} again, and look for a time signature printed on it.",
+                                    "its first bar is shorter than its time signature and does not complete the last bar "
+                                    f"of page {before.number}"))
+            if turn:
                 bar = replace(bar, words={label: _words_after_the_turn(bars[-1].voices.get(label), bar.voices.get(label), words, div)
                                           for label, words in bar.words.items()})
             meter, key = bar.changes.get("ts", meter), bar.changes.get("ks", key)
             bars.append(bar)
-    return bars
+        before = page
+    return bars, doubts
+
+
+def _repeat_between(before: _Bar, after: _Bar) -> bool:
+    return before.changes.get("rep") in ("end", "both") or after.changes.get("rep") in ("start", "both")
+
+
+def _short(bar: _Bar, div: int, meter: str) -> bool:
+    full = _units_in_bar(bar.changes.get("ts", meter), div)
+    return full is not None and bar.length < full
+
+
+def _bar_names(bars: list[_Bar], div: int, meter: str) -> list[str]:
+    names, number = [], 0 if bars and _short(bars[0], div, meter) else 1
+    for bar in bars:
+        if bar.continues:
+            names.append(f"{names[-1]}a")
+        else:
+            names.append(str(number))
+            number += 1
+    return names
 
 
 def _sounding(bars: list[_Bar], div: int) -> None:
@@ -350,7 +431,7 @@ def _sounding(bars: list[_Bar], div: int) -> None:
         bar.voices = {label: " ".join(tokens) for label, tokens in voices}
 
 
-def _register_doubts(bars: list[_Bar]) -> list[Doubt]:
+def _register_doubts(bars: list[_Bar], numbers: list[int]) -> list[Doubt]:
     pitches: dict[tuple[int, int], list[int]] = {}
     clefs: dict[tuple[int, int], list[str]] = {}
     in_force: dict[int, str] = {}
@@ -365,16 +446,17 @@ def _register_doubts(bars: list[_Bar]) -> list[Doubt]:
                         pitches.setdefault((page, staff), []).extend(midi(name.rstrip("~")) for name in sounding.split("+"))
                         clefs.setdefault((page, staff), [in_force.get(staff, "")] * 2)[1] = in_force.get(staff, "")
     doubts = []
+    previous = dict(zip(numbers[1:], numbers))
     for (page, staff), heard in sorted(pitches.items()):
-        before = pitches.get((page - 1, staff))
-        if not before or clefs[(page - 1, staff)][1] != clefs[(page, staff)][0]:
+        before = pitches.get((previous.get(page), staff))
+        if not before or clefs[(previous[page], staff)][1] != clefs[(page, staff)][0]:
             continue
         was, now = statistics.median(before), statistics.median(heard)
         if abs(now - was) >= REGISTER_JUMP:
-            doubts.append(Doubt(REGISTER, page, f"Page {page - 1} has staff {staff} around {_pitch_name(was)}, page {page} "
-                                f"has it around {_pitch_name(now)} in the same clef: look at the clef of page {page} again; "
-                                "is there a small 8 on it, or an octave line?",
-                                f"staff {staff} sounds about an octave away from page {page - 1}"))
+            doubts.append(Doubt(REGISTER, page, previous[page], f"Page {previous[page]} has staff {staff} around "
+                                f"{_pitch_name(was)}, page {page} has it around {_pitch_name(now)} in the same clef: look at "
+                                f"the clef of page {page} again; is there a small 8 on it, or an octave line?",
+                                f"staff {staff} sounds about an octave away from page {previous[page]}"))
     return doubts
 
 
@@ -389,7 +471,9 @@ def _pitch_name(number: float) -> str:
 def _completes(before: _Bar, after: _Bar, div: int, meter: str, key: str) -> bool:
     full = _units_in_bar(meter, div)
     unchanged = after.changes.get("ts", meter) == meter and after.changes.get("ks", key) == key
-    return unchanged and full is not None and before.length < full and before.length + after.length == full
+    one_ending = before.changes.get("ending") == after.changes.get("ending")
+    return (unchanged and one_ending and not before.continues and full is not None and before.length < full
+            and before.length + after.length == full)
 
 
 def _one_bar(previous: _Bar | None, before: _Bar, after: _Bar, div: int) -> _Bar:
@@ -408,7 +492,7 @@ def _one_bar(previous: _Bar | None, before: _Bar, after: _Bar, div: int) -> _Bar
     sides = (before.changes.get("rep") in ("start", "both"), after.changes.get("rep") in ("end", "both"))
     changes = {name: value for name, value in before.changes.items() if name != "rep"} | (
         {"rep": {(True, True): "both", (True, False): "start", (False, True): "end"}[sides]} if any(sides) else {})
-    return _Bar(before.written_number, before.length + after.length, changes, voices, words, chord_symbols,
+    return _Bar(before.length + after.length, changes, voices, words, chord_symbols,
                 before.other + after.other, before.pages | after.pages)
 
 
@@ -425,7 +509,7 @@ def _unsung(body: str | None, div: int, tied_into: bool) -> str:
 
 def _bars_as_text(bars: list[_Bar], div: int, meter: str, key: str) -> str:
     lines = [f"{notes.VERSION} div={div} ts={meter} ks={key}"]
-    for number, bar in enumerate(bars, bars[0].written_number if bars else 0):
+    for number, bar in enumerate(bars, 0 if bars and _short(bars[0], div, meter) else 1):
         line = f"m{number} len={bar.length}"
         if bar.changes.get("ts", meter) != meter:
             meter = bar.changes["ts"]

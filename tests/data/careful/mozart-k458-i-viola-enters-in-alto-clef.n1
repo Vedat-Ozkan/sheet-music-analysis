@@ -1,4 +1,4 @@
-N1 div=4 ts=6/8 ks=2f
+N1 page=1 div=4 ts=6/8 ks=2f
 m0 len=2
 1.1: clef=G 2 F5
 2.1: clef=G 2 D5

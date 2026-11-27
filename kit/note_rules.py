@@ -7,8 +7,8 @@ MAX_VOICES = 8
 MAX_BARS = 1000
 MAX_BAR_LENGTH = 64
 MAX_OPEN_SLURS = 16
-HEADING = 'The note list must start with a "N1 div=… ts=… ks=…" line'
-HEADER = re.compile(r"N1 div=([1-9][0-9]*) ts=([^\s?]*)(\??) ks=(\S+)")
+HEADING = 'The note list must start with a "N1 page=… div=… ts=… ks=…" line, where page= is the page\'s number in the PDF'
+HEADER = re.compile(r"N1 page=([1-9][0-9]*) div=([1-9][0-9]*) ts=([^\s?]*)(\??) ks=(\S+)")
 BAR_LINE = re.compile(r"m(0|[1-9][0-9]*) len=([0-9]+)((?: (?:ts|ks|rep|ending)=\S+)*)")
 REPEATS = ("start", "end", "both")
 ENDING = re.compile(r"[1-9]")
@@ -32,20 +32,87 @@ MARK = re.compile(
     r"|(?P<dynamic>[a-z]+)@(?P<at5>[\d.]+)"
 )
 NOT_TEXT = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff￾￿]")
-TUPLETS = (1, Fraction(2, 3), Fraction(4, 5), Fraction(4, 7))
-ONE_NOTE = {Fraction(4, 2 ** power) * (2 - Fraction(1, 2 ** dots)) * ratio
-            for power in range(7) for dots, ratios in ((0, TUPLETS), (1, TUPLETS), (2, (1,))) for ratio in ratios}
+NOTE_TYPES = ("duplex-maxima", "maxima", "longa", "breve", "whole", "half", "quarter", "eighth", "16th", "32nd", "64th",
+              "128th", "256th", "512th", "1024th", "2048th")
+TYPE_LENGTHS = {name: Fraction(64, 2 ** power) for power, name in enumerate(NOTE_TYPES)}
+TUPLET_NUMBERS = (3, 5, 7, 11, 13)
+INEXPRESSIBLE = ([("inexpressible", 0)], None)
 
 
-def one_note(duration: Fraction) -> bool:
-    return duration in ONE_NOTE
+def written_as(duration: Fraction) -> tuple[list[tuple[str, int]], tuple[int, int, str, int] | None]:
+    if exact := _dotted_type(duration, 0):
+        return [exact], None
+    if dotted := _dotted_type(duration, 4):
+        return [dotted], None
+    smaller = _type_below(duration)
+    if smaller is None or smaller[0] == NOTE_TYPES[0]:
+        return INEXPRESSIBLE
+    if tuplet := _tuplet(duration):
+        return [tuplet[2:]], tuplet
+    parts, left = [(smaller[0], 0)], duration - TYPE_LENGTHS[smaller[0]]
+    for _ in range(8):
+        if dotted := _dotted_type(left, 4):
+            return parts + [dotted], None
+        if (smaller := _type_below(left)) is None:
+            break
+        left -= TYPE_LENGTHS[smaller[0]]
+        parts.append((smaller[0], 0))
+    ratio = (1 / duration).limit_denominator(65535)
+    spread = ratio
+    while spread.numerator < spread.denominator:
+        spread *= 2
+    while spread.numerator > spread.denominator * 2:
+        spread /= 2
+    unit = _type_below(duration / spread.denominator)
+    if unit is None:
+        return INEXPRESSIBLE
+    shown = _dotted_type(spread / ratio, 4) or INEXPRESSIBLE[0][0]
+    return [shown], (spread.numerator, spread.denominator, unit[0], 0)
 
 
-def tied_length(duration: Fraction) -> bool:
-    return (duration * 16).denominator == 1
+def _dotted_length(name: str, dots: int) -> Fraction:
+    return TYPE_LENGTHS[name] * (2 - Fraction(1, 2 ** dots))
 
 
-def problems(text: str, first_page: bool) -> list[str]:
+def _type_below(duration: Fraction) -> tuple[str, bool] | None:
+    if not duration:
+        return None
+    if exact := next((name for name, length in TYPE_LENGTHS.items() if length == duration), None):
+        return exact, True
+    if below := next((name for name, length in TYPE_LENGTHS.items() if duration / 2 < length < duration), None):
+        return below, False
+    return (NOTE_TYPES[0], False) if duration > 128 else None
+
+
+def _dotted_type(duration: Fraction, most_dots: int) -> tuple[str, int] | None:
+    for dots in range(most_dots + 1):
+        found = _type_below(duration / (2 - Fraction(1, 2 ** dots)))
+        if found and found[1]:
+            return found[0], dots
+    return None
+
+
+def _tuplet(duration: Fraction) -> tuple[int, int, str, int] | None:
+    for name in reversed(NOTE_TYPES):
+        for notes in TUPLET_NUMBERS:
+            for taken in range(1, notes):
+                for dots in (0, 1):
+                    if _dotted_length(name, dots) / notes * taken == duration:
+                        return notes, taken, name, dots
+    return None
+
+
+def writable(duration: Fraction) -> bool:
+    shapes, tuplet = written_as(duration)
+    return shapes[0][0] != "inexpressible" and (tuplet is None or tuplet[2] == shapes[0][0])
+
+
+def page_number(text: str) -> int | None:
+    head = HEADER.fullmatch(next((line.strip() for line in text.splitlines() if line.strip()), ""))
+    return int(head[1]) if head else None
+
+
+def problems(text: str) -> list[str]:
     if len(text) > MAX_CHARS:
         return ["The note list is too long"]
     if NOT_TEXT.search(text):
@@ -54,11 +121,11 @@ def problems(text: str, first_page: bool) -> list[str]:
     head = HEADER.fullmatch(numbered[0][1]) if numbered else None
     if not head:
         return [HEADING]
-    div = int(head[1])
-    found = _signature_problems(head[2], head[4])
+    div = int(head[2])
+    found = _signature_problems(head[3], head[5])
     if found:
         return found
-    meter, bars, named = head[2], [], None
+    meter, bars, named = head[3], [], None
     for number, line in numbered[1:]:
         if line.startswith("m"):
             bar = BAR_LINE.fullmatch(line)
@@ -89,7 +156,7 @@ def problems(text: str, first_page: bool) -> list[str]:
         return found or ["The note list has no measures"]
     if len(bars) > MAX_BARS:
         found.append(f"The note list has {len(bars)} bars; at most {MAX_BARS} can be built")
-    found += _bar_problems(bars, div, first_page)
+    found += _bar_problems(bars, div)
     if named is not None:
         found += [f"Staff {staff} has no name in the i: line; name every staff of the page there"
                   for staff in sorted({int(label.split(".")[0]) for bar in bars for label, _ in bar["lines"]
@@ -168,7 +235,7 @@ def _full(meter: str) -> Fraction:
     return Fraction(4 * int(beats), int(unit))
 
 
-def _bar_problems(bars: list[dict], div: int, first_page: bool) -> list[str]:
+def _bar_problems(bars: list[dict], div: int) -> list[str]:
     found = []
     previous = None
     staves = max([int(VOICE_LABEL.fullmatch(label)[1]) for bar in bars for label, tokens in bar["lines"]
@@ -183,9 +250,6 @@ def _bar_problems(bars: list[dict], div: int, first_page: bool) -> list[str]:
             found.append(f"Bar {name}: len= makes this bar longer than {MAX_BAR_LENGTH} quarter notes")
         if length != full and (not length or (length * 32).denominator != 1):
             found.append(f"Bar {name}: len= gives a length no bar can have")
-        if bar is bars[0] and first_page and name != "0" and length < full:
-            found.append(f"Bar {name}: len= makes the first bar shorter than its time signature; only a pickup is "
-                         "shorter, and a pickup is written m0")
         voices, written = {}, set()
         lines = bar["lines"]
         played = [position for position, (label, _) in enumerate(lines) if VOICE_LABEL.fullmatch(label)]
@@ -298,7 +362,7 @@ def _read_voice(tokens: list[str], div: int, name: str, length: Fraction):
         groups.append((names, grace, len(opened), len(closed)))
         if not grace:
             total += duration
-            if duration and not (one_note(duration) or duration == length or tied_length(duration)):
+            if duration and not (writable(duration) or duration == length):
                 found.append(f"Bar {name}: a duration of {duration * div} at div={div} cannot be written as one note; use "
                              "plain or dotted note values, notes of a simple tuplet such as a triplet, or tied notes")
     return total, groups, list(dict.fromkeys(found))

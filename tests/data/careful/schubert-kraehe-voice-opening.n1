@@ -1,4 +1,4 @@
-N1 div=24 ts=2/4 ks=3f
+N1 page=1 div=24 ts=2/4 ks=3f
 m1 len=48
 1.1: 48 r
 m2 len=48

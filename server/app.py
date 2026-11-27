@@ -19,6 +19,7 @@ import threading
 import time
 import traceback
 import uuid
+import xml.etree.ElementTree as ET
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
@@ -58,6 +59,7 @@ from engine.errors import UserError
 from engine.export import export_midi, export_musicxml, export_romantext
 from engine.render import ScoreError, load_toolkit, parse_measures, require_notes, xml_text
 from engine.score import PositionError, ScoreIndex
+from kit import note_rules
 from server import IMPORTS_BEGUN, SERVER_FILES
 
 PORT = int(os.environ.get("PORT", "8080"))
@@ -1561,13 +1563,13 @@ CAREFUL_STEPS = (
     "on. Use only the first {count} of them.\n"
     "4. One reader for each page: a separate helper (a subagent) for each page, all at the same time where "
     "possible. {helpers} Each helper's brief: \"Read kit/reader.md and do exactly what it says. Your page is "
-    "pages/pageN.png, page N of {count}. Write your result to pageN.n1. {hint}\" Where no helpers can be started, "
+    "pages/pageN.png, page N of {count}, so your first line says page=N. Write your result to pageN.n1. {hint}\" Where no helpers can be started, "
     "the pages are read in the chat itself, one at a time, following kit/reader.md for each, and the user is told "
     "that no helpers were available. Only what is printed counts: the reading uses neither a web search for the "
     "piece nor a remembered version of it.\n"
-    "5. Hand in: when every page file exists, use_careful_reading takes this score_id ({score_id}) and, as pages, "
-    "the full text of page1.n1, page2.n1 and so on, in order and unchanged, without any page whose helper wrote "
-    "NO MUSIC. It returns a new score_id for the careful reading."
+    "5. Hand in: when every page file exists, use_careful_reading takes this careful reading's own score_id "
+    "({score_id}) and, as pages, the full text of page1.n1, page2.n1 and so on, unchanged, without any page whose "
+    "helper wrote NO MUSIC. It returns a new score_id for the careful reading."
 )
 HELPER_SETTINGS = {"claude": "Each helper runs on the Sonnet model at medium effort.",
                    "other": "Each helper runs at the highest thinking setting available."}
@@ -2155,7 +2157,10 @@ async def correct_bars(
                     {"pages": scan["pages"], "read_as": scan.get("read_as", clean_id(score_id))}).encode())
             if await anyio.to_thread.run_sync(store.get, shaded_key(score_id)) is not None:
                 uneven, _ = await in_turn(pdf_reader.problem_spots, after)
-                await anyio.to_thread.run_sync(store.put, shaded_key(code), json.dumps(uneven).encode())
+                doubted = json.loads(await anyio.to_thread.run_sync(store.get, doubted_key(score_id)) or b"[]")
+                await anyio.to_thread.run_sync(store.put, shaded_key(code), json.dumps(sorted({*uneven, *doubted})).encode())
+                if doubted:
+                    await anyio.to_thread.run_sync(store.put, doubted_key(code), json.dumps(doubted).encode())
     except (correct.CorrectionError, ScoreError, PositionError) as error:
         log("correct_bars", platform=source, **logged(error))
         return error_result("The replacement bars do not fit: " + str(error)
@@ -2203,10 +2208,12 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
         return CallToolResult(content=[TextContent(type="text", text=NEEDS_THE_AGENT.format(app=CHATGPT_APP_NAME))])
     hint = await in_turn(signatures_found, score)
     addresses = [f"{PUBLIC_BASE_URL}/kit", *([KIT_ELSEWHERE] if KIT_ELSEWHERE else [])]
+    reading = secrets.token_hex(8).upper()
+    await anyio.to_thread.run_sync(store.put, careful_key(reading), json.dumps({"scan": clean_id(score_id)}).encode())
     log("careful_reading", platform=source, pages=pages, answer="steps")
     ask = ASK_BEFORE_THE_STEPS.format(warning=careful_warning(pages, source), score_id=clean_id(score_id))
     return CallToolResult(content=[TextContent(type="text", text=ask + CAREFUL_STEPS.format(
-        pages=page_count(pages), count=min(pages, CAREFUL_PAGES), score_id=clean_id(score_id), files=" ".join(KIT_FILES), hint=hint,
+        pages=page_count(pages), count=min(pages, CAREFUL_PAGES), score_id=reading, files=" ".join(KIT_FILES), hint=hint,
         download=" || ".join(f"curl -fsSL {address}/$f -o kit/$f" for address in addresses),
         helpers=for_product(HELPER_SETTINGS, source)))])
 
@@ -2228,12 +2235,16 @@ FIRST_PAGES_OF_THE_SCAN = (
 
 
 SENT_BACK = (
-    "The careful reading is not stored yet: these pages do not agree with the page before them.\n{reasons}\n"
+    "The careful reading is not stored yet: these pages do not agree with the rest of the reading.\n{reasons}\n"
     "Each of these pages is read again by a new helper, whose brief adds the reason above, and then every page is handed "
     "in again with use_careful_reading and score_id {score_id}. A page handed in a second time is taken as it is."
 )
-STILL_IN_DOUBT = ("Note for the user: \"Page {page} of my careful reading did not agree with page {before}: {said}, and a "
-                  "second reading did not change that. Its bars ({first} to {last}) are shaded because they may be misread.\"\n")
+STILL_IN_DOUBT = ("Note for the user: \"Page {page} of my careful reading did not agree with page {against}: {said}, and "
+                  "{checked}. Its bars ({first} to {last}) are shaded because they may be misread.\"\n")
+READ_AGAIN, NOT_READ_AGAIN = "a second reading did not change that", "I could not check it again"
+SEVERAL_PARTS = ("It has {parts} parts, so a correction with correct_bars names the part it is for (part=), and a part "
+                 "printed in another key than it sounds cannot be corrected.\n")
+BUILD_REFUSED, CANNOT_BE_BUILT = "A page does not fit; a corrected hand-in takes every page again: ", "The careful reading cannot be built: "
 
 
 @mcp.tool(
@@ -2248,27 +2259,26 @@ STILL_IN_DOUBT = ("Note for the user: \"Page {page} of my careful reading did no
 @observed
 async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> CallToolResult:
     source = platform(ctx)
-    scan = await anyio.to_thread.run_sync(store.get, scan_key(score_id))
+    record = json.loads(await anyio.to_thread.run_sync(store.get, careful_key(score_id)) or b"{}")
+    remembered = "scan" in record
+    scan = await anyio.to_thread.run_sync(store.get, scan_key(record.get("scan", score_id)))
     if scan is None:
         log("use_careful_reading", platform=source, error="ScoreError", reason=NOT_A_SCAN)
         return error_result(NOT_A_SCAN)
     scan_pages = json.loads(scan)["pages"]
-    if len(pages) > scan_pages:
-        too_many = f"This scan has {page_count(scan_pages)}; hand in one note list for each page, not {len(pages)}."
+    numbers = [note_rules.page_number(page) or 0 for page in pages]
+    if len(pages) > scan_pages or max(numbers, default=0) > scan_pages:
+        too_many = f"This scan has {page_count(scan_pages)}; hand in one note list for each of its pages, with its page number."
         log("use_careful_reading", platform=source, error="ScoreError", reason=too_many, pages=len(pages), outcome="user_error")
         return error_result(too_many)
-    pages = pages[:CAREFUL_PAGES]
-    if not await take("draft", source):
-        log("limit", tool="use_careful_reading", platform=source)
-        return error_result(LIMIT_MESSAGE)
+    pages = [page for page, number in zip(pages, numbers) if number <= CAREFUL_PAGES]
     try:
         with stage("parse"):
             built = await in_turn(lambda: from_notes.hand_in(pages))
             bars = await in_turn(lambda: [measure.name for measure in ScoreIndex(load_toolkit(built.score).getMEI()).measures])
     except UserError as error:
         log("use_careful_reading", platform=source, **logged(error), pages=len(pages), outcome="user_error")
-        return error_result("A page does not fit; a corrected hand-in takes every page again: " + str(error))
-    record = json.loads(await anyio.to_thread.run_sync(store.get, careful_key(score_id)) or b"{}")
+        return error_result((CANNOT_BE_BUILT if isinstance(error, from_notes.WholePieceError) else BUILD_REFUSED) + str(error))
     sent_back, rechecked = record.get("sent_back", {}), set(record.get("rechecked", []))
     for page, rules in sent_back.items():
         if page not in rechecked:
@@ -2279,28 +2289,41 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
     for doubt in new:
         output_checks.report(doubt.rule, [doubt.page])
         sent_back.setdefault(str(doubt.page), []).append(doubt.rule)
-    await anyio.to_thread.run_sync(store.put, careful_key(score_id), json.dumps({"sent_back": sent_back, "rechecked": sorted(rechecked)}).encode())
-    if new:
+    if remembered:
+        await anyio.to_thread.run_sync(store.put, careful_key(score_id), json.dumps(
+            {**record, "sent_back": sent_back, "rechecked": sorted(rechecked)}).encode())
+    if new and remembered:
         log("use_careful_reading", platform=source, pages=len(pages), answer="sent_back", sent_back=sorted({doubt.page for doubt in new}))
         return CallToolResult(content=[TextContent(type="text", text=SENT_BACK.format(
             reasons="\n".join(f"- {doubt.reason}" for doubt in new), score_id=clean_id(score_id)))])
+    if not await take("draft", source):
+        log("limit", tool="use_careful_reading", platform=source)
+        return error_result(LIMIT_MESSAGE)
     doubtful = {doubt.page: doubt for doubt in built.doubts}
-    shaded = sorted({int(bar) for page in doubtful for bar in built.bars[page]})
+    shaded = sorted({bar for page in doubtful for bar in built.bars[page]})
     code = secrets.token_hex(8).upper()
     await anyio.to_thread.run_sync(store.put, f"scores/{code}", built.score)
     await anyio.to_thread.run_sync(store.put, shaded_key(code), json.dumps(shaded).encode())
+    await anyio.to_thread.run_sync(store.put, doubted_key(code), json.dumps(shaded).encode())
     log("use_careful_reading", platform=source, pages=len(pages), scan_pages=scan_pages, bars=len(bars),
         chars_in=sum(map(len, pages)), bars_shaded=len(shaded))
-    part_only = ("" if len(pages) == scan_pages else
-                 (FIRST_PAGES_OF_THE_SCAN if len(pages) == CAREFUL_PAGES else PART_OF_THE_SCAN).format(given=page_count(len(pages)), scan=page_count(scan_pages)))
-    in_doubt = "".join(STILL_IN_DOUBT.format(page=page, before=page - 1, said=doubt.said, first=built.bars[page][0], last=built.bars[page][-1])
+    last = max(built.bars)
+    part_only = ("" if last == scan_pages else
+                 (FIRST_PAGES_OF_THE_SCAN if last == CAREFUL_PAGES else PART_OF_THE_SCAN).format(given=page_count(len(built.bars)), scan=page_count(scan_pages)))
+    parts = len(ET.fromstring(built.score).findall("part"))
+    in_doubt = "".join(STILL_IN_DOUBT.format(page=page, against=doubt.against, said=doubt.said, first=built.bars[page][0],
+                                             last=built.bars[page][-1], checked=READ_AGAIN if str(page) in rechecked else NOT_READ_AGAIN)
                        for page, doubt in sorted(doubtful.items()) if built.bars[page])
     return CallToolResult(content=[TextContent(type="text", text=(
         f"score_id: {code}\nThe careful reading is stored: measures {bars[0]} to {bars[-1]}.{part_only}\nIt is "
-        "analysed and drawn as an attached MusicXML file is.\n"
+        "analysed and drawn as an attached MusicXML file is.\n" + (SEVERAL_PARTS.format(parts=parts) if parts > 1 else "") +
         "Note for the user: \"The page shows my careful reading of your scan. It can still contain mistakes, so check "
         f"it against your copy.\"\n{in_doubt}"
         f"score_id {code} is ready for draft_analysis."))])
+
+
+def doubted_key(score_id: str) -> str:
+    return f"scores/{clean_id(score_id)}.doubted"
 
 
 def careful_key(score_id: str) -> str:
