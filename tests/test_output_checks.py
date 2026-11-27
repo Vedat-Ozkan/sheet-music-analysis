@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -57,3 +58,16 @@ def test_printing_a_real_analysis_never_takes_more_pages_than_its_layout_before_
                                                   lambda given: annotate.by_number(given, index))
     printed = engraving.print_pages()
     assert len(printed) <= laid_out[0]
+
+
+@pytest.mark.parametrize("path", CORPUS, ids=lambda path: path.stem)
+def test_no_system_break_is_drawn_inside_an_ending(path, monkeypatch):
+    balanced, laid_out = annotate._balance_systems, []
+
+    def balance(toolkit, *rest):
+        balanced(toolkit, *rest)
+        laid_out.append(toolkit.getMEI())
+
+    monkeypatch.setattr(annotate, "_balance_systems", balance)
+    annotate.render(path.read_bytes(), AnnotationList(annotations=[]))
+    assert laid_out and not re.search(r"<ending\b[^>]*>\s*<sb\b", laid_out[0])

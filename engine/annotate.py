@@ -488,6 +488,8 @@ def _balance_systems(toolkit, index: ScoreIndex, measures: tuple[int, int] | Non
     for position in starts:
         start = mei.index(f'xml:id="{bars[position][0]}"')
         start = mei.rindex("<measure", 0, start)
+        if opening := re.search(r"<ending\b[^>]*>\s*\Z", mei[:start]):
+            start = opening.start()
         mei = mei[:start] + "<sb />" + mei[start:]
     toolkit.setOptions({"breaks": "smart" if measures else "line", "breaksSmartSb": 0.3, "minLastJustification": 0})
     toolkit.loadData(mei)
