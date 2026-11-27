@@ -986,8 +986,21 @@ def test_a_page_with_fewer_unnamed_staves_is_sent_back_with_the_names_then_shade
     assert ("Page 2 has 2 staves in a system and page 1 has 3 staves: count the staves again. Page 1 names these staves: "
             "Flute, Violin, Cello; write your i: line with these names for the staves your page shows.") in first
     second = hand_in(rules("three-staves-page1", "two-staves-unnamed-page2"), reading)
-    assert "Page 2 of my careful reading did not agree with page 1: it has 2 staves where page 1 has 3 staves" in text_of(second)
+    assert ("Page 2 of my careful reading did not agree with page 1: it has 2 staves where page 1 has 3 staves, and its "
+            "staves 1 and 2 could not be matched to one of page 1's, so their music is left out, and a second reading did not "
+            "change that. Its bars (2 to 2)") in text_of(second)
     assert [name for name, *_ in parts_of(stored(second))] == ["Flute", "Violin", "Cello"]
+    assert [event for event in events_of(stored(second)) if event[0] == "2"] == []
+
+
+def test_a_staff_that_matches_no_staff_of_the_page_with_most_staves_is_put_on_none(scan_of_three_pages):
+    reading = careful_id()
+    first = text_of(hand_in(rules("three-staves-page1", "flute-and-abbreviated-cello-page2"), reading))
+    assert "Page 1 does not name Vc.. Page 1 names these staves: Flute, Violin, Cello" in first
+    second = text_of(hand_in(rules("three-staves-page1", "flute-and-abbreviated-cello-page2"), reading))
+    assert "its staff 2 (Vc.) could not be matched to one of page 1's, so its music is left out" in second
+    assert [event for event in events_of(stored(hand_in(rules("three-staves-page1", "flute-and-abbreviated-cello-page2"), reading)))
+            if event[0] == "2"] == [("2", 1, "E5")]
 
 
 def test_a_time_signature_written_with_a_question_mark_gives_way_to_the_one_in_force_when_the_bars_are_as_long():

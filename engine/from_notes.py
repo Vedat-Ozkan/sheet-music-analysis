@@ -286,7 +286,7 @@ def _join(pages: list[str]) -> _Joined:
         page.places, unmatched = _staff_places(page, reference, instruments)
         if unmatched:
             doubts.append(_staves_doubt(page, reference, instruments, unmatched))
-        page.bars = [_placed(bar, page.places) for bar in page.bars]
+        page.bars = [_placed(bar, page.places, set(unmatched)) for bar in page.bars]
     bars, opening = _joined(read, div, meter, key)
     _sounding(bars, div)
     names = _bar_names(bars, div, meter)
@@ -350,8 +350,7 @@ def _staff_places(page: _Page, reference: _Page, instruments: dict[int, str]) ->
         else:
             places[staff] = place
             del free[place]
-    open_places = [place for place in range(1, reference.staves + 1) if place not in places.values()]
-    return places | dict(zip(unmatched, open_places)), unmatched
+    return places, unmatched
 
 
 def _staves_doubt(page: _Page, reference: _Page, instruments: dict[int, str], unmatched: list[int]) -> Doubt:
@@ -363,22 +362,28 @@ def _staves_doubt(page: _Page, reference: _Page, instruments: dict[int, str], un
     if instruments:
         reason += (f" Page {reference.number} names these staves: {', '.join(instruments[staff] for staff in sorted(instruments))}; "
                    "write your i: line with these names for the staves your page shows.")
+    listed = [f"{staff} ({page.named[staff]})" if staff in page.named else str(staff) for staff in unmatched]
+    left_out = listed[0] if len(listed) == 1 else f"{', '.join(listed[:-1])} and {listed[-1]}"
     return Doubt(STAVES, page.number, reason, _disagreed(
         page.number, reference.number, f"it has {_staves(page.staves)} where page {reference.number} has "
-        f"{_staves(reference.staves)}, and not every staff could be matched to one of page {reference.number}'s"))
+        f"{_staves(reference.staves)}, and its {'staff' if len(unmatched) == 1 else 'staves'} {left_out} could not be "
+        f"matched to one of page {reference.number}'s, so {'its' if len(unmatched) == 1 else 'their'} music is left out"))
 
 
-def _placed(bar: _Bar, places: dict[int, int]) -> _Bar:
-    if not places:
+def _placed(bar: _Bar, places: dict[int, int], left_out: set[int]) -> _Bar:
+    if not places and not left_out:
         return bar
 
     def moved(label: str) -> str:
         staff, _, rest = label.partition(".")
         return f"{places.get(int(staff), int(staff))}.{rest}"
 
-    return replace(bar, voices={moved(label): body for label, body in bar.voices.items()},
-                   words={moved(label): body for label, body in bar.words.items()},
-                   keys={places.get(staff, staff): key for staff, key in bar.keys.items()})
+    def kept(label: str) -> bool:
+        return int(label.partition(".")[0]) not in left_out
+
+    return replace(bar, voices={moved(label): body for label, body in bar.voices.items() if kept(label)},
+                   words={moved(label): body for label, body in bar.words.items() if kept(label)},
+                   keys={places.get(staff, staff): key for staff, key in bar.keys.items() if staff not in left_out})
 
 
 def _page_bars(number: int, lines: list[str], scale: int, meter: str, key: str) -> list[_Bar]:
