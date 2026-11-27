@@ -67,6 +67,6 @@ The check uses the same rules as the server that builds the score from your file
 
 - `adds up to`: the voice does not fill its bar. Read the rhythm again. Never change `len` to make it fit.
 - `NOTE len=…`: allowed only for a pickup bar, the two parts of a bar that a repeat sign splits, and a bar that the page turn splits (at the end or the start of your page).
-- `departs from the key signature`: point to the printed accidental for each one (on the note or earlier in the bar). Each staff is compared with its own key signature, the one its `t:` line gives or else `ks=`. If there is no accidental, the pitch is wrong, or the staff prints another key signature and needs its `t:` line (reader.md).
+- `departs from the key signature`: point to the printed accidental for each one (on the note or earlier in the bar). Each staff is compared with its own key signature, the one its latest `t:` line gives or else `ks=`. If there is no accidental, the pitch is wrong, or the staff prints another key signature and needs its `t:` line (reader.md).
 - `entries for … sung notes`: the words line does not have one entry for each sung note of its voice. Count again.
 - `cannot be written as one note`: no single printed note has that length. Read the note value again; a note held across a beat is written as tied notes.

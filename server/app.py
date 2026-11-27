@@ -2285,8 +2285,7 @@ SENT_BACK = (
 )
 STILL_IN_DOUBT = "Note for the user: \"{said}, and {checked}. Its bars ({first} to {last}) are shaded because they may be misread.\"\n"
 READ_AGAIN, NOT_READ_AGAIN = "a second reading did not change that", "I could not check it again"
-SEVERAL_PARTS = ("It has {parts} parts, so a correction with correct_bars names the part it is for (part=), and a part "
-                 "printed in another key than it sounds cannot be corrected.\n")
+SEVERAL_PARTS = "It has {parts} parts, so a correction with correct_bars names the part it is for (part=).\n"
 BUILD_REFUSED, CANNOT_BE_BUILT = "A page does not fit; a corrected hand-in takes every page again: ", "The careful reading cannot be built: "
 
 

@@ -28,6 +28,7 @@ from server import app
 from tests.test_chord_symbols import LEAD_SHEET, PRINTED, printed_symbols
 
 DATA = Path(__file__).parent / "data"
+RULES = DATA / "careful/rules"
 PAGES = [(DATA / f"careful/dvorak-silhouette-1-page{number}.n1").read_text() for number in (1, 2, 3)]
 QUICK_READING = DATA / "chopin_prelude_op28_no4_reading.musicxml"
 LEAD_SHEET_PAGE = (DATA / "chord_symbols/amazing-grace-lead-sheet-page.n1").read_text()
@@ -599,6 +600,8 @@ def test_a_short_pdf_s_hint_does_not_claim_that_only_some_pages_were_read_and_a_
 
 
 BAR = "N1 page=1 div=4 ts=4/4 ks=0\nm1 len=16\n"
+STAFF_KEY_LINE = ("Line {line}: a staff key line looks like 't: 2 ks=0', once for a staff where it prints another key "
+                  "signature than the bar line's: the staff, numbered 1 to 32, and the key signature printed on it")
 BAD_PAGES = [
     (BAR + "1.1: 16 C4" + " " * note_rules.MAX_CHARS, "The note list is too long"),
     (BAR + "1.1: 16 C4\n1.1w: la\x01", "The note list holds a control character; write only plain text"),
@@ -645,8 +648,8 @@ BAD_PAGES = [
     (BAR.replace("len=16", "len=16 ending=a") + "1.1: 16 C4", "An ending is written ending=1, ending=2 and so on, not ending=a"),
     ("N1 page=1 div=4 ts=4/4 ks=0\ni: Flute\n" + BAR[28:] + "1.1: 16 C4", "Line 2: the instruments line looks like 'i: 1=Flute "
      "2=Clarinet in Bb', one number=name for each staff, numbered 1 to 32 from the top"),
-    ("N1 page=1 div=4 ts=4/4 ks=0\ni: 1=Flute\n" + BAR[28:] + "1.1: 16 C4\n2.1: 16 C3",
-     "Staff 2 has no name in the i: line; name every staff of the page there"),
+    ("N1 page=1 div=4 ts=4/4 ks=0\nt: 1 ks=flat\n" + BAR[28:] + "1.1: 16 C4", STAFF_KEY_LINE.format(line=2)),
+    (BAR + "t: 1 ks=1f\nt: 1 ks=2f\n1.1: 16 C4", STAFF_KEY_LINE.format(line=4)),
     (BAR + "1.1: 8va( 16 C4", "An octave line starts in staff 1 and never ends; close it with )8va (or )8vb, )15ma, )15mb) "
      "after the last note under it"),
     (BAR + "1.1: 16 C4 )8va", "Bar 1, staff 1: an octave line ends here that was never started; write 8va( before the first "
@@ -761,9 +764,11 @@ def test_a_tuplet_the_engraver_cannot_write_is_refused_by_the_rules(count):
 @pytest.mark.parametrize("text, reported", [
     (BAR + "1.1: 12 C4", "Bar 1, voice 1.1 adds up to 3; expected 4 quarter notes\n1 errors, 0 pitches outside the key signature"),
     (BAR + "1.1: 16 F#4", "0 errors, 1 pitches outside the key signature"),
-    ("N1 page=1 div=4 ts=4/4 ks=2f\nt: 1 ks=0 sounds=-2\nm1 len=16\n1.1: 16 E5\n2.1: 16 Eb4",
+    ("N1 page=1 div=4 ts=4/4 ks=2f\nt: 1 ks=0\nm1 len=16\n1.1: 16 E5\n2.1: 16 Eb4",
      "0 errors, 0 pitches outside the key signature"),
-], ids=["bad", "good", "a-staff-in-its-own-key"])
+    ((RULES / "clarinet-own-key-page1.n1").read_text(), "0 errors, 0 pitches outside the key signature"),
+    ((RULES / "clarinet-key-change-unstated-page1.n1").read_text(), "0 errors, 0 pitches outside the key signature"),
+], ids=["bad", "good", "a-staff-in-its-own-key", "its-own-key-changes", "its-own-key-stays-when-the-page-key-changes"])
 def test_the_kit_check_reports_what_the_builder_would_refuse(tmp_path, text, reported):
     python = next((python for python in (sys.executable, shutil.which("python3")) if python and subprocess.run(
         [python, "-c", "import cv2, scipy"], capture_output=True).returncode == 0), None)
@@ -901,7 +906,6 @@ def test_an_octave_clef_and_an_octave_line_turn_printed_pitches_into_sounding_on
     assert clefs == [("G", "1"), ("F", "-1"), ("G", None)]
 
 
-RULES = DATA / "careful/rules"
 
 
 def rules(*names):
@@ -1008,21 +1012,48 @@ def test_a_bar_split_by_a_repeat_sign_is_one_bar_8_and_8a_and_two_endings_stay_t
     assert [measure.number for measure in ScoreIndex(load_toolkit(score).getMEI()).measures] == [1, 2, 3, 4, 5]
 
 
-@pytest.mark.parametrize("name, parts, doubted, said", [
-    ("clarinet-stated", [("Clarinet in Bb", "0", "-2", "0"), ("Piano", "-2", None, None)], False, []),
-    ("clarinet-misstated", [("Clarinet in Bb", "1", None, None), ("Piano", "-2", None, None)], True, []),
-    ("clarinet-unstated", [("Clarinet in Bb", "-2", None, None), ("Piano", "-2", None, None)], True, []),
-    ("horn-and-timpani", [("Horn in F", "0", "-7", "0"), ("Timpani", "0", None, None), ("Cello", "-2", None, None)], False,
-     ["The Horn in F part is printed without a key signature, so I transposed it 7 semitones down, as its page states it "
-      "sounds: check it against your copy."]),
-])
-def test_a_staff_printed_in_another_key_sounds_as_its_t_line_states_or_is_shaded_as_printed(name, parts, doubted, said):
-    built = from_notes.hand_in(rules(f"{name}-page1"))
-    assert parts_of(built.score) == parts and built.notes == said
-    assert [doubt.rule for doubt in built.doubts] == ([from_notes.TRANSPOSED] if doubted else [])
-    if doubted:
-        assert built.doubts[0].said.startswith("The Clarinet in Bb part of my careful reading is shown as printed, not at the pitch it sounds")
-    assert events_of(built.score)[0][2] == ("C5" if name == "clarinet-stated" else "C4" if name == "horn-and-timpani" else "D5")
+def keys_of_parts(score):
+    return [(name.findtext("part-name"), [bar.findtext("attributes/key/fifths") for bar in part.findall("measure")],
+             part.find(".//transpose") is not None)
+            for name, part in zip(ET.fromstring(score).iter("score-part"), ET.fromstring(score).iter("part"))]
+
+
+CLARINET_SHOWN_AS_PRINTED = ("The Clarinet in Bb part is written for an instrument that sounds at a different pitch than printed. "
+                             "My reading shows it as printed, so chords that include it may be named wrong.")
+
+
+@pytest.mark.parametrize("names, parts, pitches, said", [
+    (["clarinet-own-key-page1"], [("Clarinet in Bb", ["0", "-1"], False), ("Piano", ["-2", "-3"], False)],
+     ["D5", "Bb4"], [CLARINET_SHOWN_AS_PRINTED]),
+    (["clarinet-key-change-unstated-page1"], [("Clarinet in Bb", ["0", None], False), ("Piano", ["-2", "-3"], False)],
+     ["D5", "B4"], [CLARINET_SHOWN_AS_PRINTED]),
+    (["clarinet-named-only-page1"], [("Clarinet in Bb", ["-2"], False), ("Piano", ["-2"], False)], ["D5"],
+     [CLARINET_SHOWN_AS_PRINTED]),
+    (["clarinet-with-sounds-page1"], [("Clarinet in Bb", ["0"], False), ("Piano", ["-2"], False)], ["D5"],
+     [CLARINET_SHOWN_AS_PRINTED]),
+    (["clarinet-own-key-page1", "clarinet-in-a-page2", "clarinet-unstated-page3"],
+     [("Clarinet in Bb", ["0", "-1", "1", "-2"], False), ("Piano", ["-2", "-3", "-2", None], False)],
+     ["D5", "Bb4", "E5", "D5"], [CLARINET_SHOWN_AS_PRINTED]),
+    (["octave-instruments-page1"], [("Piccolo", ["0"], False), ("Guitar", ["0"], False), ("Double bass", ["0"], False)],
+     ["C6"], []),
+    (["horn-and-timpani-page1"], [("Horn in F", ["0"], False), ("Timpani", ["0"], False), ("Cello", ["-2"], False)], ["G4"],
+     ["The Horn in F part is written for an instrument that sounds at a different pitch than printed. My reading shows it as "
+      "printed, so chords that include it may be named wrong."]),
+    (["unnamed-staff-own-key-page1"], [("", ["1"], False), ("", ["-2"], False)], ["D5"],
+     ["The part on staff 1 is written for an instrument that sounds at a different pitch than printed. My reading shows it "
+      "as printed, so chords that include it may be named wrong."]),
+], ids=["own-key-and-its-change", "change-not-stated", "named-only", "old-sounds", "each-page-its-own", "octave-instruments",
+        "horn-by-name-timpani-not", "unnamed"])
+def test_every_staff_is_written_as_printed_in_the_key_signature_its_page_states_and_named_once_when_it_may_sound_elsewhere(
+        names, parts, pitches, said):
+    built = from_notes.hand_in(rules(*names))
+    assert keys_of_parts(built.score) == parts and built.notes == said and built.doubts == []
+    assert [pitch for bar, staff, pitch in events_of(built.score) if staff == 1] == pitches
+
+
+def test_a_page_may_name_only_the_staves_it_prints_names_for():
+    built = from_notes.hand_in(rules("one-name-of-three-page1"))
+    assert [name for name, *_ in keys_of_parts(built.score)] == ["Flute", "", ""]
 
 
 def test_a_short_first_bar_is_a_pickup_on_the_lowest_page_and_completes_the_bar_before_on_a_later_page():
@@ -1118,3 +1149,16 @@ def test_pages_are_joined_in_page_order_whatever_order_they_are_handed_in():
     bars = ScoreIndex(load_toolkit(built.score).getMEI()).measures
     assert [(measure.number, measure.length) for measure in bars] == [(0, 1), (1, 4), (2, 4), (3, 4)]
     assert built.doubts == [] and built.bars == {2: [0, 1, 2], 3: [2, 3]}
+
+
+def test_a_misprinted_beat_keeps_its_printed_values_with_the_last_note_made_up_and_is_no_tuplet():
+    score = from_notes.hand_in(rules("misprinted-beat-page1")).score
+    durations = [int(note.findtext("duration")) for note in ET.fromstring(score).iter("note")]
+    assert durations == [4, 4, 4, 4, 4, 4, 2, 6, 32]
+    assert not list(ET.fromstring(score).iter("time-modification"))
+
+
+def test_notes_under_an_optional_octave_line_are_written_where_they_are_printed():
+    score = from_notes.hand_in(rules("octave-line-ad-lib-page2")).score
+    assert [pitch for _, _, pitch in events_of(score)] == ["C5", "D5", "E5", "F5", "G5"]
+    assert not list(ET.fromstring(score).iter("octave-shift"))

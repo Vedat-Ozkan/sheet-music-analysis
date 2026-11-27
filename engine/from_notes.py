@@ -21,9 +21,9 @@ TRANSPOSING_NAME = re.compile(r"\bin (?:b[b♭]|b[- ]flat|a|f|e[b♭]|e[- ]flat)
                               re.IGNORECASE)
 REGISTER_JUMP = 11
 PITCH_NAMES = ("C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B")
-STAVES, REGISTER, TIME, OPENING, TRANSPOSED = (
+STAVES, REGISTER, TIME, OPENING = (
     "pages agree on their staves", "a staff keeps its register over a page turn", "an assumed time signature fits the page before",
-    "a short first bar completes the page before", "a staff printed in another key states how it sounds")
+    "a short first bar completes the page before")
 
 
 class WholePieceError(notes.NotesError):
@@ -36,13 +36,6 @@ class Doubt:
     page: int
     reason: str
     said: str
-
-
-@dataclass(frozen=True)
-class Transposition:
-    key: str
-    opening: str
-    sounds: int
 
 
 @dataclass
@@ -78,7 +71,7 @@ def hand_in(pages: list[str]) -> HandIn:
         except UserError as error:
             raise notes.NotesError(f"Page {number}: {error}") from error
     joined = _join(pages)
-    return HandIn(_named_bars(_with_instruments(joined.text, joined.instruments, joined.transposed), joined.names),
+    return HandIn(_named_bars(_with_instruments(joined.text, joined.instruments, joined.keys), joined.names),
                   joined.doubts, joined.bars, joined.notes)
 
 
@@ -103,22 +96,24 @@ def score_from_notes(text: str, *, after_a_rest_bar: bool = False) -> bytes:
     return correct.replace_bars(_empty_score(measures, marks, staves, _opening_clefs(text)), _with_every_staff(text, staves))
 
 
-def _with_instruments(text: str, instruments: dict[int, str], transposed: dict[int, Transposition]) -> bytes:
-    if not instruments and not transposed:
+def _with_instruments(text: str, instruments: dict[int, str], keys: list[dict[int, str]]) -> bytes:
+    own = {staff for in_force in keys for staff in in_force}
+    if not instruments and not own:
         return score_from_notes(text)
     staves = max([*instruments, *(int(label.split(".")[0]) for line in text.splitlines()
                                    if (label := line.partition(":")[0].strip()) and notes.VOICE_LABEL.fullmatch(label))])
     groups: list[list[int]] = []
     for staff in range(1, staves + 1):
-        if groups and instruments.get(staff) and instruments.get(staff) == instruments.get(groups[-1][-1]):
+        named_alike = instruments.get(staff) and instruments.get(staff) == instruments.get(groups[-1][-1]) if groups else False
+        unnamed_alike = groups and not instruments and staff not in own and groups[-1][-1] not in own
+        if named_alike or unnamed_alike:
             groups[-1].append(staff)
         else:
             groups.append([staff])
     root = None
     for number, group in enumerate(groups, 1):
         name = instruments.get(group[0], "")
-        stated = transposed.get(group[0])
-        built = ET.fromstring(score_from_notes(_part_text(text, group, stated)))
+        built = ET.fromstring(score_from_notes(_part_text(text, group, keys)))
         part = built.find("part")
         part.set("id", f"P{number}")
         if root is None:
@@ -126,10 +121,6 @@ def _with_instruments(text: str, instruments: dict[int, str], transposed: dict[i
             root.remove(part)
             root.find("part-list").clear()
         ET.SubElement(ET.SubElement(root.find("part-list"), "score-part", id=f"P{number}"), "part-name").text = name
-        if stated and stated.sounds:
-            transpose = ET.SubElement(part.find("measure/attributes"), "transpose")
-            for tag, value in zip(("diatonic", "chromatic", "octave-change"), _interval(stated.sounds)):
-                ET.SubElement(transpose, tag).text = str(value)
         root.append(part)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
@@ -138,20 +129,23 @@ def _plain(name: str) -> str:
     return " ".join(name.lower().replace("♭", "b").replace("-flat", "b").replace(" flat", "b").split())
 
 
-def _interval(sounds: int) -> tuple[int, int, int]:
-    octaves = int(sounds / 12)
-    left = sounds - 12 * octaves
-    return (1 if left > 0 else -1) * round(abs(left) * 7 / 12), left, octaves
-
-
-def _part_text(text: str, staves: list[int], stated: Transposition | None = None) -> str:
+def _part_text(text: str, staves: list[int], keys: list[dict[int, str]]) -> str:
     places = {staff: position for position, staff in enumerate(staves, 1)}
-    lines = []
+    lines, page_key, shown, bar = [], "0", None, -1
     for line in filter(None, map(str.strip, text.splitlines())):
         label, _, body = line.partition(":")
         voice = notes.voice_label(label.rstrip("w"))
-        if line.startswith(("N1 ", "m")):
-            lines.append(re.sub(r"(?<= ks=)\S+", lambda key: note_rules.staff_key(key[0], stated.opening, stated.key) if stated else key[0], line))
+        if line.startswith("N1 "):
+            page_key = re.search(r" ks=(\S+)", line)[1]
+            shown = keys[0].get(staves[0], page_key) if keys else page_key
+            lines.append(re.sub(r"(?<= ks=)\S+", shown, line))
+        elif line.startswith("m"):
+            bar += 1
+            page_key = found[1] if (found := re.search(r" ks=(\S+)", line)) else page_key
+            key = keys[bar].get(staves[0], page_key)
+            line = re.sub(r" ks=\S+", "", line)
+            lines.append(f"{line} ks={key}" if key != shown and bar else line)
+            shown = key
         elif voice and voice[0] in places:
             lines.append(f"{places[voice[0]]}.{voice[1]}{'w' if label.endswith('w') else ''}:{body}")
         elif not voice and 1 in places:
@@ -230,6 +224,8 @@ class _Bar:
     other: list[str] = field(default_factory=list)
     pages: set[int] = field(default_factory=set)
     continues: bool = False
+    keys: dict[int, str] = field(default_factory=dict)
+    opens_page: bool = False
 
 
 @dataclass
@@ -240,7 +236,6 @@ class _Page:
     assumed: bool
     key: str
     named: dict[int, str]
-    transposed: dict[int, tuple[str, int | None]]
     lines: list[str]
     bars: list[_Bar] = field(default_factory=list)
     places: dict[int, int] = field(default_factory=dict)
@@ -255,7 +250,7 @@ class _Joined:
     text: str
     names: list[str]
     instruments: dict[int, str]
-    transposed: dict[int, Transposition]
+    keys: list[dict[int, str]]
     doubts: list[Doubt]
     bars: dict[int, list[int]]
     notes: list[str]
@@ -297,62 +292,39 @@ def _join(pages: list[str]) -> _Joined:
     names = _bar_names(bars, div, meter)
     numbers = [int(name.rstrip("a")) for name in names]
     concert = any(re.match(r"i:\s*concert\b", line.strip()) for page in pages for line in page.splitlines())
-    transposed, transposing, said = _transpositions(read, instruments, concert)
-    doubts += opening + _register_doubts(bars, [page.number for page in read]) + transposing
-    return _Joined(_bars_as_text(bars, div, meter, key), names, instruments, transposed, doubts,
+    keys, printed_apart = _staff_keys(bars, key)
+    doubts += opening + _register_doubts(bars, [page.number for page in read])
+    shown_as_printed = sorted(printed_apart | (set() if concert else {
+        place for place, name in instruments.items() if TRANSPOSING_NAME.search(name)}))
+    return _Joined(_bars_as_text(bars, div, meter, key), names, instruments, keys, doubts,
                    {page.number: sorted({number for number, bar in zip(numbers, bars) if page.number in bar.pages}) for page in read},
-                   said)
+                   [_as_printed(instruments, shown_as_printed)] if shown_as_printed else [])
 
 
 def _disagreed(page: int, against: int, said: str) -> str:
     return f"Page {page} of my careful reading did not agree with page {against}: {said}"
 
 
-def _transpositions(read: list[_Page], instruments: dict[int, str], concert: bool) -> tuple[dict[int, Transposition], list[Doubt], list[str]]:
-    transposed, as_written, doubts, said = {}, {}, [], []
-    for page in read:
-        for staff, (key, sounds) in sorted(page.transposed.items()):
-            place, name = page.places.get(staff, staff), _part_name(instruments, page.places.get(staff, staff))
-            expected = (note_rules.fifths(page.key) - note_rules.fifths(key)) * 7 % 12
-            if sounds is None or (sounds % 12 != expected and key != "0"):
-                as_written.setdefault(place, Transposition(key, page.key, 0))
-            if sounds is None:
-                doubts.append(Doubt(TRANSPOSED, page.number, f"Page {page.number}: the t: line of staff {staff} has no sounds=; "
-                                    "write how many semitones the staff sounds above (+) or below (-) where it is written.",
-                                    _read_as_written(name)))
-            elif sounds % 12 != expected and key != "0":
-                doubts.append(Doubt(TRANSPOSED, page.number, f"Page {page.number}: the t: line of staff {staff} says ks={key} "
-                                    f"sounds={sounds}, but a staff printed in ks={key} on a page in ks={page.key} sounds "
-                                    f"{expected} or {expected - 12} semitones from where it is written, or that and whole "
-                                    "octaves: count both key signatures again and read the interval from the part's name.",
-                                    _read_as_written(name)))
-            elif place not in transposed:
-                transposed[place] = Transposition(key, page.key, sounds)
-                if sounds % 12 != expected and sounds:
-                    said.append(f"The {name} part is printed without a key signature, so I transposed it "
-                                f"{abs(sounds)} semitones {'down' if sounds < 0 else 'up'}, as its page states it sounds: check it "
-                                "against your copy.")
-    transposed = as_written | transposed
-    for page in [] if concert else read:
-        for staff in range(1, page.staves + 1):
-            place = page.places.get(staff, staff)
-            if place not in transposed and staff not in page.transposed and TRANSPOSING_NAME.search(instruments.get(place, "")):
-                doubts.append(Doubt(TRANSPOSED, page.number, f"Page {page.number}: staff {staff} is named "
-                                    f"{instruments[place]}, which is usually printed in another key than it sounds, and has no "
-                                    f"t: line: write 't: {staff} ks=… sounds=…' with the key signature printed on that staff and "
-                                    "how many semitones it sounds from where it is written, or "
-                                    f"'t: {staff} ks={page.key} sounds=0' if it is printed as it sounds.",
-                                    _read_as_written(instruments[place])))
-    return transposed, doubts, said
+def _staff_keys(bars: list[_Bar], key: str) -> tuple[list[dict[int, str]], set[int]]:
+    own, in_force, apart = {}, [], set()
+    for bar in bars:
+        key = bar.changes.get("ks", key)
+        own = (({} if bar.opens_page else own) | bar.keys)
+        in_force.append(own)
+        apart |= {staff for staff, printed in own.items() if printed not in (key, "0")}
+    return in_force, apart
 
 
-def _part_name(instruments: dict[int, str], place: int) -> str:
-    return instruments.get(place) or f"staff {place}"
-
-
-def _read_as_written(name: str) -> str:
-    return (f"The {name} part of my careful reading is shown as printed, not at the pitch it sounds, because I could not "
-            "tell how it is transposed")
+def _as_printed(instruments: dict[int, str], places: list[int]) -> str:
+    names = [instruments.get(place, f"staff {place}") for place in places]
+    named = [f"the {name} {'parts' if names.count(name) > 1 else 'part'}" if name in instruments.values() else f"the part on {name}"
+             for name in dict.fromkeys(names)]
+    listed = named[0] if len(named) == 1 else f"{', '.join(named[:-1])} and {named[-1]}"
+    if len(places) == 1:
+        return (f"{listed[0].upper()}{listed[1:]} is written for an instrument that sounds at a different pitch than printed. "
+                "My reading shows it as printed, so chords that include it may be named wrong.")
+    return (f"{listed[0].upper()}{listed[1:]} are written for instruments that sound at a different pitch than printed. "
+            "My reading shows them as printed, so chords that include them may be named wrong.")
 
 
 def _page_heading(text: str) -> _Page:
@@ -362,8 +334,8 @@ def _page_heading(text: str) -> _Page:
         raise notes.NotesError(note_rules.HEADING)
     opening = next((position for position, line in enumerate(lines) if line.startswith("m")), len(lines))
     named = next((note_rules.instruments(line) for line in lines[1:opening] if line.startswith("i:")), None)
-    kept = [line for position, line in enumerate(lines[1:], 1) if position >= opening or not line.startswith(("i:", "t:"))]
-    return _Page(int(head[1]), int(head[2]), head[3], bool(head[4]), head[5], named or {}, note_rules.transpositions(text), kept)
+    kept = [line for position, line in enumerate(lines[1:], 1) if position >= opening or not line.startswith("i:")]
+    return _Page(int(head[1]), int(head[2]), head[3], bool(head[4]), head[5], named or {}, kept)
 
 
 def _staff_places(page: _Page, reference: _Page, instruments: dict[int, str]) -> tuple[dict[int, int], list[int]]:
@@ -405,21 +377,25 @@ def _placed(bar: _Bar, places: dict[int, int]) -> _Bar:
         return f"{places.get(int(staff), int(staff))}.{rest}"
 
     return replace(bar, voices={moved(label): body for label, body in bar.voices.items()},
-                   words={moved(label): body for label, body in bar.words.items()})
+                   words={moved(label): body for label, body in bar.words.items()},
+                   keys={places.get(staff, staff): key for staff, key in bar.keys.items()})
 
 
 def _page_bars(number: int, lines: list[str], scale: int, meter: str, key: str) -> list[_Bar]:
-    bars = []
+    bars, opening_keys = [], {}
     for line in lines:
         label, _, body = line.partition(":")
-        if line.startswith("m"):
+        if stated := note_rules.staff_key(line):
+            (bars[-1].keys if bars else opening_keys)[stated[0]] = stated[1]
+        elif line.startswith("m"):
             found = BAR_LINE.fullmatch(line)
             if not found:
                 raise notes.NotesError(f"Page {number}: a bar line looks like 'm3 len=96', not {line!r}")
             opening = {"ts": meter, "ks": key} if not bars else {}
             changes = {name: value for name, value in opening.items() if value} | dict(
                 part.split("=", 1) for part in found["changes"].split())
-            bars.append(_Bar(int(found["length"]) * scale, changes, pages={number}))
+            bars.append(_Bar(int(found["length"]) * scale, changes, pages={number},
+                             keys=opening_keys if not bars else {}, opens_page=not bars))
         elif not bars:
             raise notes.NotesError(f"Page {number}: a voice line needs a bar line like 'm3 len=96' before it")
         elif label == "x":
@@ -550,7 +526,8 @@ def _one_bar(previous: _Bar | None, before: _Bar, after: _Bar, div: int) -> _Bar
     changes = {name: value for name, value in before.changes.items() if name != "rep"} | (
         {"rep": {(True, True): "both", (True, False): "start", (False, True): "end"}[sides]} if any(sides) else {})
     return _Bar(before.length + after.length, changes, voices, words, chord_symbols,
-                before.other + after.other, before.pages | after.pages)
+                before.other + after.other, before.pages | after.pages, keys=before.keys | after.keys,
+                opens_page=before.opens_page or after.opens_page)
 
 
 def _words_after_the_turn(before: str | None, after: str | None, words: str, div: int) -> str:

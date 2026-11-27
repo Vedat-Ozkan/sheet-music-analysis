@@ -374,17 +374,17 @@ def check(a):
             return {} if ks == '0' else {l: '#b'[ks[1] == 'f'] for l in ('FCGDAEB' if ks[1] == 's' else 'BEADGCF')[:int(ks[0])]}
 
         full, opening, bar = div * 4 * int(head[2]) // int(head[3]), head[4], None
-        stated = {staff: given for staff, (given, _) in note_rules.transpositions(text).items()}
-        keys = {staff: key(note_rules.staff_key(opening, opening, given)) for staff, given in stated.items()}
-        sig = key(opening)
+        keys, sig = {}, key(opening)
         for line in filter(None, map(str.strip, lines[1:])):
+            if stated := note_rules.staff_key(line):
+                keys[stated[0]] = key(stated[1])
+                continue
             m = re.fullmatch(r'(m\d+) len=(\d+)((?: (?:ts=[1-9]\d*/[1-9]\d*|ks=(?:0|[1-7][sf])|rep=\S+|ending=\S+))*)', line)
             if m:
                 bar, length = m[1], int(m[2])
                 for kind, value in re.findall(r'(ts|ks)=(\S+)', m[3]):
                     if kind == 'ks':
                         sig = key(value)
-                        keys = {staff: key(note_rules.staff_key(value, opening, given)) for staff, given in stated.items()}
                     else:
                         full = div * 4 * int(value.split('/')[0]) // int(value.split('/')[1])
                 if length != full:

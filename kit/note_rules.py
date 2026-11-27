@@ -13,7 +13,7 @@ BAR_LINE = re.compile(r"m(0|[1-9][0-9]*) len=([0-9]+)((?: (?:ts|ks|rep|ending)=\
 REPEATS = ("start", "end", "both")
 ENDING = re.compile(r"[1-9]")
 INSTRUMENT = re.compile(r"([1-9][0-9]*)=(\S.*)")
-TRANSPOSED = re.compile(r"t: ([1-9][0-9]*) ks=(\S+)(?: sounds=(0|[-+]?[1-9][0-9]?))?")
+STAFF_KEY = re.compile(r"t: ([1-9][0-9]*) ks=(\S+)(?: sounds=[-+]?[0-9]+)?")
 METER = re.compile(r"[1-9][0-9]*/[1-9][0-9]*")
 KEY = re.compile(r"0|[1-7][sf]")
 VOICE_LABEL = re.compile(r"([0-9]+)\.([0-9]+)")
@@ -126,7 +126,7 @@ def problems(text: str) -> list[str]:
     found = _signature_problems(head[3], head[5])
     if found:
         return found
-    meter, bars, named, transposed = head[3], [], None, set()
+    meter, bars, named, keyed = head[3], [], None, set()
     for number, line in numbered[1:]:
         if line.startswith("m"):
             bar = BAR_LINE.fullmatch(line)
@@ -136,19 +136,20 @@ def problems(text: str) -> list[str]:
             if signatures := _signature_problems(changes.get("ts", meter), changes.get("ks", "0")) + _bar_line_problems(changes):
                 return found + signatures
             meter = changes.get("ts", meter)
+            keyed = set()
             bars.append({"name": bar[1], "units": int(bar[2]), "meter": meter, "lines": []})
         elif not bars and line.startswith("i:") and named is None:
             named = instruments(line)
             if named is None:
                 return found + [f"Line {number}: the instruments line looks like 'i: 1=Flute 2=Clarinet in Bb', one "
                                 f"number=name for each staff, numbered 1 to {MAX_STAVES} from the top"]
-        elif not bars and line.startswith("t:"):
-            stated = TRANSPOSED.fullmatch(line)
-            if not stated or not KEY.fullmatch(stated[2]) or int(stated[1]) > MAX_STAVES or stated[1] in transposed:
-                return found + [f"Line {number}: a transposition line looks like 't: 2 ks=0 sounds=-2', one for each staff "
-                                "printed in another key than ks=: the staff, the key signature printed on it, and how many "
-                                "semitones it sounds above (+) or below (-) where it is written"]
-            transposed.add(stated[1])
+        elif line.startswith("t:"):
+            stated = staff_key(line)
+            if not stated or stated[0] in keyed:
+                return found + [f"Line {number}: a staff key line looks like 't: 2 ks=0', once for a staff where it prints "
+                                f"another key signature than the bar line's: the staff, numbered 1 to {MAX_STAVES}, and the "
+                                "key signature printed on it"]
+            keyed.add(stated[0])
         elif not bars:
             kind = {"x:": "a marks line", "c:": "a chord symbol line"}.get(line[:2], "a voice line")
             found.append(f"Line {number}: {kind} needs a bar line like 'm3 len=96' before it")
@@ -165,10 +166,6 @@ def problems(text: str) -> list[str]:
     if len(bars) > MAX_BARS:
         found.append(f"The note list has {len(bars)} bars; at most {MAX_BARS} can be built")
     found += _bar_problems(bars, div)
-    if named is not None:
-        found += [f"Staff {staff} has no name in the i: line; name every staff of the page there"
-                  for staff in sorted({int(label.split(".")[0]) for bar in bars for label, _ in bar["lines"]
-                                       if VOICE_LABEL.fullmatch(label)} - set(named))]
     return found
 
 
@@ -179,26 +176,15 @@ def instruments(line: str) -> dict[int, str] | None:
     return {int(entry[1]): " ".join(entry[2].split()) for entry in entries}
 
 
-def transpositions(text: str) -> dict[int, tuple[str, int | None]]:
-    stated = {}
-    for line in text.splitlines():
-        if line.strip().startswith("m"):
-            break
-        if found := TRANSPOSED.fullmatch(line.strip()):
-            stated[int(found[1])] = (found[2], None if found[3] is None else int(found[3]))
-    return stated
+def staff_key(line: str) -> tuple[int, str] | None:
+    found = STAFF_KEY.fullmatch(line.strip())
+    if not found or not KEY.fullmatch(found[2]) or int(found[1]) > MAX_STAVES:
+        return None
+    return int(found[1]), found[2]
 
 
 def fifths(key: str) -> int:
     return 0 if key in ("0", "") else int(key[:-1]) * (1 if key.endswith("s") else -1)
-
-
-def staff_key(key: str, opening: str, stated: str) -> str:
-    if stated == "0" and opening != "0":
-        return "0"
-    shifted = fifths(key) + fifths(stated) - fifths(opening)
-    shifted += -12 if shifted > 7 else 12 if shifted < -7 else 0
-    return "0" if not shifted else f"{abs(shifted)}{'s' if shifted > 0 else 'f'}"
 
 
 def clef_octaves(clef: re.Match) -> int:
