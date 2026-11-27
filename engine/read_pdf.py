@@ -325,11 +325,11 @@ def open_pdf(data: bytes) -> pikepdf.Pdf:
         raise ReadError("This file could not be opened as a PDF", lasting=True) from error
 
 
-def unread_pages(read: int, total: int) -> str:
+def unread_pages(read: int, total: int, scan: bool) -> str:
     if total <= read:
         return ""
     return (f" Only pages 1-{read} of the {total} were read, to keep the wait short; to analyse the rest, "
-            "send those pages as a separate PDF.")
+            "send those pages as a separate PDF" + (", or say yes to a careful reading if I offer one." if scan else "."))
 
 
 def first_pages(data: bytes, count: int) -> bytes:

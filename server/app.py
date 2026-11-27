@@ -56,7 +56,7 @@ from engine.performance import marked_index, performance_text, unclear_tempos
 from engine.annotations import AnnotationList, view_named
 from engine.errors import UserError
 from engine.export import export_midi, export_musicxml, export_romantext
-from engine.render import ScoreError, engrave, load_toolkit, parse_measures, require_notes, xml_text
+from engine.render import ScoreError, load_toolkit, parse_measures, require_notes, xml_text
 from engine.score import PositionError, ScoreIndex
 from server import IMPORTS_BEGUN, SERVER_FILES
 
@@ -1174,8 +1174,9 @@ async def read_pdf_data(data: bytes, source: str, tool: str) -> CallToolResult:
     if card := await anyio.to_thread.run_sync(store.get, card_key):
         card = json.loads(card)
         log(tool, platform=source, pages=card["pages"], cached="card")
+        card.setdefault("of_pages", len((await anyio.to_thread.run_sync(pdf_reader.open_pdf, data)).pages))
         if card.get("scan"):
-            await anyio.to_thread.run_sync(store.put, scan_key(card["score_id"]), json.dumps({"pages": card.get("of_pages", card["pages"])}).encode())
+            await anyio.to_thread.run_sync(store.put, scan_key(card["score_id"]), json.dumps({"pages": card["of_pages"]}).encode())
         return pdf_card_result(card, tool, source)
     failed = json.loads(await anyio.to_thread.run_sync(store.get, failure_of(card_key)) or b"{}")
     if (unread := failed.get("unread")) and unread["final"]:
@@ -1496,16 +1497,16 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
     score = await in_turn(pdf_reader.without_slurs, score)
     await anyio.to_thread.run_sync(store.put, f"scores/{score_id}", score)
 
-    def render():
+    def card_drawings():
         spots = pdf_reader.problem_spots(score)
         index = ScoreIndex(load_toolkit(score).getMEI())
         named = ([index.measure(bar).printed for bar in spots[0]], spots[1])
-        return (pdf_reader.preview(score, spots=spots), engrave(score),
-                pdf_reader.notice(score, reading["scan"], reading["skipped"], named, reading.get("low_resolution", False), opening=READING_SHOWN) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"])),
+        return (pdf_reader.preview(score, spots=spots), render(score, AnnotationList(annotations=[])),
+                pdf_reader.notice(score, reading["scan"], reading["skipped"], named, reading.get("low_resolution", False), opening=READING_SHOWN) + pdf_reader.unread_pages(reading["pages"], reading.get("of_pages", reading["pages"]), reading["scan"]),
                 index.name_span, len(index.measures), spots[0], named[0])
 
     with stage("render"):
-        shaded, engraving, notice, measures, bars, uneven, uneven_named = await in_turn(render)
+        shaded, engraving, notice, measures, bars, uneven, uneven_named = await in_turn(card_drawings)
     await anyio.to_thread.run_sync(store.put, shaded_key(score_id), json.dumps(uneven).encode())
     more_pages = shaded.page_count > CARD_PAGES
     if more_pages:
@@ -1533,6 +1534,7 @@ CAREFUL_COST = {"claude": ". I'd start one helper per page, each on Sonnet at me
                           "usage allowance. As a guide, a 10-page piece can use most of a five-hour allowance on a standard "
                           "paid plan.",
                 "other": "."}
+CAREFUL_PAGES = 20
 CAREFUL_WARNING = ("Reading this scan carefully takes about 5 minutes a page{cost} "
                    "To do it I download and run a small measuring script from Sheet Music Analysis in this chat. "
                    "This piece has {pages}. Shall I go ahead?")
@@ -1614,7 +1616,8 @@ def page_count(pages: int) -> str:
 
 
 def careful_warning(pages: int, source: str) -> str:
-    return CAREFUL_WARNING.format(cost=for_product(CAREFUL_COST, source), pages=page_count(pages))
+    limit = f"; a careful reading takes its first {CAREFUL_PAGES}" if pages > CAREFUL_PAGES else ""
+    return CAREFUL_WARNING.format(cost=for_product(CAREFUL_COST, source), pages=page_count(pages) + limit)
 
 
 def signatures_found(score: bytes) -> str:
@@ -1625,7 +1628,7 @@ def signatures_found(score: bytes) -> str:
             keys.append(measure.key_signature)
     spoken = [("no sharps or flats" if key == "0" else f"{key[:-1]} {'sharps' if key.endswith('s') else 'flats'}") for key in keys]
     return (f"An automatic reader found the time signature {index.meter} at the start of the piece, and these key "
-            f"signatures in order through the piece: {', then '.join(spoken)}.")
+            f"signatures in order in the first pages, the only ones it read: {', then '.join(spoken)}.")
 
 
 def doubtful_reading(card: dict) -> str:
@@ -1639,8 +1642,8 @@ def doubtful_reading(card: dict) -> str:
 
 def pdf_card_result(card: dict, tool: str, source: str) -> CallToolResult:
     more_pages = card.get("more_pages")
-    shown = (f"the first {CARD_PAGES} pages of the engraved score read from their {card['pages']}-page PDF; the PDF has every bar"
-             if more_pages else f"every bar of the engraved score read from their {card['pages']}-page PDF, in one image")
+    shown = (f"the first {CARD_PAGES} pages of the engraved score read from their {card.get('of_pages', card['pages'])}-page PDF; the PDF has every bar"
+             if more_pages else f"every bar of the engraved score read from their {card.get('of_pages', card['pages'])}-page PDF, in one image")
     text = (
         f"score_id: {card['score_id']}\n"
         f"The card shows the user {shown}. "
@@ -2203,7 +2206,7 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
     log("careful_reading", platform=source, pages=pages, answer="steps")
     ask = ASK_BEFORE_THE_STEPS.format(warning=careful_warning(pages, source), score_id=clean_id(score_id))
     return CallToolResult(content=[TextContent(type="text", text=ask + CAREFUL_STEPS.format(
-        pages=page_count(pages), count=pages, score_id=clean_id(score_id), files=" ".join(KIT_FILES), hint=hint,
+        pages=page_count(pages), count=min(pages, CAREFUL_PAGES), score_id=clean_id(score_id), files=" ".join(KIT_FILES), hint=hint,
         download=" || ".join(f"curl -fsSL {address}/$f -o kit/$f" for address in addresses),
         helpers=for_product(HELPER_SETTINGS, source)))])
 
@@ -2213,6 +2216,14 @@ PART_OF_THE_SCAN = (
     "order, gives the whole piece.\n"
     "Note for the user, if the other pages cannot be read: \"This careful reading covers only {given} of your "
     "scan's {scan}, so the rest of the piece is not in it.\""
+)
+
+
+FIRST_PAGES_OF_THE_SCAN = (
+    " It holds the first {given} of the scan's {scan}, as many as a careful reading takes, so the rest of the piece is "
+    "not in it.\n"
+    "Note for the user: \"This careful reading covers the first {given} of your scan's {scan}, as many as a careful "
+    "reading takes, so the rest of the piece is not in it.\""
 )
 
 
@@ -2246,6 +2257,7 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
         too_many = f"This scan has {page_count(scan_pages)}; hand in one note list for each page, not {len(pages)}."
         log("use_careful_reading", platform=source, error="ScoreError", reason=too_many, pages=len(pages), outcome="user_error")
         return error_result(too_many)
+    pages = pages[:CAREFUL_PAGES]
     if not await take("draft", source):
         log("limit", tool="use_careful_reading", platform=source)
         return error_result(LIMIT_MESSAGE)
@@ -2279,7 +2291,8 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
     await anyio.to_thread.run_sync(store.put, shaded_key(code), json.dumps(shaded).encode())
     log("use_careful_reading", platform=source, pages=len(pages), scan_pages=scan_pages, bars=len(bars),
         chars_in=sum(map(len, pages)), bars_shaded=len(shaded))
-    part_only = PART_OF_THE_SCAN.format(given=page_count(len(pages)), scan=page_count(scan_pages)) if len(pages) < scan_pages else ""
+    part_only = ("" if len(pages) == scan_pages else
+                 (FIRST_PAGES_OF_THE_SCAN if len(pages) == CAREFUL_PAGES else PART_OF_THE_SCAN).format(given=page_count(len(pages)), scan=page_count(scan_pages)))
     in_doubt = "".join(STILL_IN_DOUBT.format(page=page, before=page - 1, said=doubt.said, first=built.bars[page][0], last=built.bars[page][-1])
                        for page, doubt in sorted(doubtful.items()) if built.bars[page])
     return CallToolResult(content=[TextContent(type="text", text=(

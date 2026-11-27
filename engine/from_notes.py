@@ -173,24 +173,24 @@ def _clefs_moved(pages: list[str]) -> list[str]:
 
 def _opening_clefs(text: str) -> dict[int, str]:
     opening: dict[int, str] = {}
-    seen: set[int] = set()
-    started: set[int] = set()
+    sounded: set[int] = set()
+    sounding: set[int] = set()
     for line in text.splitlines():
         if BAR_LINE.match(line):
-            seen |= started
-            started = set()
+            sounded |= sounding
             continue
         label, _, body = line.partition(":")
         if not notes.VOICE_LABEL.fullmatch(label.strip()):
             continue
         staff = int(label.split(".")[0])
-        if staff in seen:
+        if staff in sounded or staff in opening:
             continue
-        started.add(staff)
         for written in body.split():
             if change := notes.CLEF.fullmatch(written):
-                opening.setdefault(staff, change[1])
-            elif not written.isdigit():
+                opening[staff] = change[1]
+                break
+            if not written.isdigit() and notes.token(written).sounding != "r":
+                sounding.add(staff)
                 break
     return opening
 

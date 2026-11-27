@@ -11,6 +11,7 @@ import pikepdf
 from mcp.client.client import Client
 from PIL import Image
 
+from engine import output_checks
 from engine import read_pdf as pdf_reader
 from server import app
 
@@ -188,6 +189,15 @@ def test_the_reading_card_of_a_short_score_shows_every_bar(monkeypatch, tmp_path
     result = reading_card(monkeypatch, tmp_path, READING)
     assert result.structured_content["caption"] == "What I read from your PDF, every bar"
     assert "download the PDF" not in text_of(result)
+
+
+def test_the_reading_cards_pdf_is_printed_by_the_same_path_as_an_analysis_with_its_page_check(monkeypatch, tmp_path):
+    checked = []
+    monkeypatch.setattr(output_checks, "report", lambda rule, pages: checked.append((rule, pages)))
+    result = reading_card(monkeypatch, tmp_path, READING)
+    assert checked == [(output_checks.SYSTEM_INSIDE_PAGE, [])]
+    printed = pikepdf.open(io.BytesIO(stored(result.structured_content["pdf_url"])))
+    assert [round(float(value)) for value in printed.pages[0].mediabox] == [0, 0, 612, 792]
 
 
 def waiter_outcome(monkeypatch, tmp_path, capsys, failure_error, text):

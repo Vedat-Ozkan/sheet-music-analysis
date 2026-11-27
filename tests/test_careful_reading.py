@@ -1,6 +1,8 @@
 import asyncio
 import copy
+import hashlib
 import io
+import itertools
 import json
 import re
 import shutil
@@ -424,54 +426,73 @@ def _note_list_pieces():
     return pieces
 
 
-def _stated_opening_clefs(text: str) -> dict[str, tuple]:
-    div = int(re.search(r"div=(\d+)", text)[1])
-    stated, done, bar = {}, set(), "0"
-    for line in text.splitlines():
-        if bar_line := re.match(r"m(\S+) ", line):
-            done |= {staff for staff in stated}
-            bar = bar_line[1]
-            continue
-        label, _, body = line.partition(":")
-        if not notes.VOICE_LABEL.fullmatch(label.strip()) or label.split(".")[0] in done:
-            continue
-        groups = correct._read_voice(body, div, bar, label)[1]
-        if groups:
-            staff = label.split(".")[0]
-            clef = notes.CLEFS[groups[0].clef] if groups[0].clef else None
-            if clef or staff not in stated:
-                stated[staff] = clef
-    return stated
+def _written_clefs(texts: list[str]) -> dict[str, list[tuple]]:
+    written = {}
+    for page, text in enumerate(texts):
+        div = int(re.search(r"div=(\d+)", text)[1])
+        bar, name = -1, "0"
+        for line in text.splitlines():
+            if bar_line := re.match(r"m(\S+) ", line):
+                bar, name = bar + 1, bar_line[1]
+                continue
+            label, _, body = line.partition(":")
+            if not notes.VOICE_LABEL.fullmatch(label.strip()):
+                continue
+            onset = Fraction(0)
+            for group in correct._read_voice(body, div, name, label)[1]:
+                if group.clef:
+                    written.setdefault(label.split(".")[0], []).append(((page, bar, onset), notes.CLEFS[group.clef]))
+                if group.names != "r":
+                    written.setdefault(label.split(".")[0], []).append(((page, bar, onset), "note"))
+                onset += group.duration
+    return {staff: sorted(found, key=lambda event: (event[0], event[1] == "note")) for staff, found in written.items()}
 
 
-@pytest.mark.parametrize("pages", list(_note_list_pieces().values()), ids=list(_note_list_pieces()))
-def test_every_staff_starts_in_the_clef_its_first_note_is_written_in(pages):
-    texts = [page.read_text() for page in pages]
-    mei = ET.fromstring(load_toolkit(from_notes.score_from_pages(texts)).getMEI())
+def _clefs_a_staff_shows(events: list[tuple], default: tuple) -> list[tuple]:
+    before_the_first_note = [clef for _, clef in itertools.takewhile(lambda event: event[1] != "note", events)]
+    shown = [(before_the_first_note or [default])[0]]
+    for _, clef in events:
+        if clef != "note" and clef != shown[-1]:
+            shown.append(clef)
+    return shown
+
+
+def _drawn_clefs(mei: ET.Element) -> dict[str, list[tuple]]:
+    def clef_of(element, prefix=""):
+        shape, line, octave = (element.get(f"{prefix}{name}") for name in ("shape", "line", "dis"))
+        sign = 1 if element.get(f"{prefix}dis.place") == "above" else -1
+        return shape, int(line), sign * {"8": 1, "15": 2}[octave] if octave else 0
+
     drawn = {}
     for definition in mei.iter(f"{MEI_NS}staffDef"):
         clef = definition.find(f"{MEI_NS}clef")
-        shape, line = (clef.get("shape"), clef.get("line")) if clef is not None else (definition.get("clef.shape"), definition.get("clef.line"))
-        octave = (clef if clef is not None else definition).get("clef.dis" if clef is None else "dis")
-        drawn.setdefault(definition.get("n"), (shape, int(line), -1 if octave else 0))
-    stated = _stated_opening_clefs(texts[0])
-    staves = len(drawn)
-    wanted = {staff: clef or notes.CLEFS["F" if int(staff) == staves > 1 else "G"] for staff, clef in stated.items()}
-    assert {staff: drawn[staff] for staff in wanted} == wanted
-    measures = list(mei.iter(f"{MEI_NS}measure"))
-    staves = {staff.get("n") for measure in measures for staff in measure.iter(f"{MEI_NS}staff")}
-    changed_before_first_note = []
-    for number in staves:
-        for measure in measures:
-            staff = next((staff for staff in measure.iter(f"{MEI_NS}staff") if staff.get("n") == number), None)
-            kinds = [element.tag for element in (staff.iter() if staff is not None else [])
-                     if element.tag in (f"{MEI_NS}clef", f"{MEI_NS}note")]
-            if f"{MEI_NS}note" in kinds:
-                if f"{MEI_NS}clef" in kinds[:kinds.index(f"{MEI_NS}note")]:
-                    changed_before_first_note.append(number)
-                break
-    assert changed_before_first_note == []
+        drawn.setdefault(definition.get("n"), [clef_of(clef) if clef is not None else clef_of(definition, "clef.")])
+    for measure in mei.iter(f"{MEI_NS}measure"):
+        for staff in measure.iter(f"{MEI_NS}staff"):
+            for clef in staff.iter(f"{MEI_NS}clef"):
+                if clef.get("sameas") is None and clef_of(clef) != drawn[staff.get("n")][-1]:
+                    drawn[staff.get("n")].append(clef_of(clef))
+    return drawn
 
+
+@pytest.mark.parametrize("pages", list(_note_list_pieces().values()), ids=list(_note_list_pieces()))
+def test_every_staff_shows_the_clefs_its_note_list_states_from_its_first_note_on(pages):
+    texts = [page.read_text() for page in pages]
+    drawn = _drawn_clefs(ET.fromstring(load_toolkit(from_notes.score_from_pages(texts)).getMEI()))
+    written = _written_clefs(texts)
+    wanted = {staff: _clefs_a_staff_shows(events, notes.CLEFS["F" if int(staff) == len(drawn) > 1 else "G"])
+              for staff, events in written.items()}
+    assert {staff: drawn[staff] for staff in wanted} == wanted
+
+
+
+def test_a_clef_stated_on_a_bar_where_every_staff_rests_is_drawn_from_there_on():
+    heading, *lines = (DATA / "careful/schubert-kraehe-voice-opening.n1").read_text().splitlines()
+    turn = lines.index("m4 len=48")
+    pages = [heading + "\n" + "\n".join(lines[:turn]).replace("1.1: 48 r", "1.1: clef=F 48 r", 1),
+             heading + "\n" + "\n".join(lines[turn:]).replace("1.1: 48 r", "1.1: clef=G 48 r", 1)]
+    drawn = _drawn_clefs(ET.fromstring(load_toolkit(from_notes.score_from_pages(pages)).getMEI()))
+    assert drawn == {"1": _clefs_a_staff_shows(_written_clefs(pages)["1"], notes.CLEFS["G"])} == {"1": [notes.CLEFS["F"], notes.CLEFS["G"]]}
 
 def test_a_careful_reading_covers_every_page_of_a_scan_longer_than_the_quick_reading(tmp_path, monkeypatch):
     import pikepdf
@@ -497,6 +518,34 @@ def test_a_careful_reading_covers_every_page_of_a_scan_longer_than_the_quick_rea
     pages = [f"N1 div=1 ts=4/4 ks=0\nm{bar} len=4\n1.1: 4 C4" for bar in range(1, total + 1)]
     result = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": score_id, "pages": pages}))
     assert not result.is_error and "It holds only" not in text_of(result)
+    assert f"read from their {total}-page PDF" in text_of(card) and "in the first pages, the only ones it read:" in steps
+    assert (f"Only pages 1-{pdf_reader.READ_PAGES} of the {total} were read, to keep the wait short; to analyse the rest, send those "
+            "pages as a separate PDF, or say yes to a careful reading if I offer one.") in text_of(card)
+
+    card_key = app.card_of(hashlib.sha256(out.getvalue()).hexdigest())
+    saved = json.loads(app.store.get(card_key))
+    del saved["of_pages"]
+    app.store.put(card_key, json.dumps(saved).encode())
+    app.store.put(app.scan_key(score_id), json.dumps({"pages": pdf_reader.READ_PAGES}).encode())
+    again = asyncio.run(app.read_pdf_data(out.getvalue(), "other", "read_pdf"))
+    assert pages_read == [pdf_reader.READ_PAGES] and f"read from their {total}-page PDF" in text_of(again)
+    assert json.loads(app.store.get(app.scan_key(score_id))) == {"pages": total}
+
+
+def test_a_scan_longer_than_the_careful_page_limit_is_offered_and_read_up_to_the_limit(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    app.store.put("scores/QUICK1", QUICK_READING.read_bytes())
+    total = app.CAREFUL_PAGES + 6
+    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": total}).encode())
+    offer = app.careful_warning(total, "other")
+    assert f"This piece has {total} pages; a careful reading takes its first {app.CAREFUL_PAGES}. Shall I go ahead?" in offer
+    steps = text_of(asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": "QUICK1"})))
+    assert offer in steps and f"page N of {app.CAREFUL_PAGES}" in steps and f"first {app.CAREFUL_PAGES} of them" in steps
+    pages = [f"N1 div=1 ts=4/4 ks=0\nm{bar} len=4\n1.1: 4 C4" for bar in range(1, total + 1)]
+    result = text_of(asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": pages})))
+    assert f"measures 1 to {app.CAREFUL_PAGES}." in result
+    assert (f'"This careful reading covers the first {app.CAREFUL_PAGES} pages of your scan\'s {total} pages, as many as a '
+            "careful reading takes, so the rest of the piece is not in it.\"") in result
 
 
 BAR = "N1 div=4 ts=4/4 ks=0\nm1 len=16\n"

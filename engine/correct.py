@@ -236,7 +236,8 @@ def replace_bars(score: bytes, corrected: str, *, part: str | None = None) -> by
                 return [(e.staff, e.layer, e.onset, e.duration, e.pitch, e.grace, e.tied, e.attack) for e in bar.events]
             canonical_voices = {line.split(":", 1)[0] for line in canonical.splitlines() if ":" in line}
             if (signature(supplied) == signature(reference) and supplied.length == reference.length
-                    and {f"{staff}.{voice}" for staff, voice in voices} == canonical_voices):
+                    and {f"{staff}.{voice}" for staff, voice in voices} == canonical_voices
+                    and not any(group.clef for _, groups in voices.values() for group in groups)):
                 unchanged.add(number)
                 continue
             for segment in original.segments:
