@@ -330,7 +330,7 @@ def unread_pages(read: int, total: int, careful: int) -> str:
         return ""
     reach = "" if total <= careful else f", which reads up to {careful} pages with music"
     return (f" Only pages 1-{read} of the {total} were read, to keep the wait short; to analyse the rest, "
-            f"send those pages as a separate PDF, or say yes to a careful reading if I offer one{reach}.")
+            f"send those pages as a separate PDF, or ask for the careful reading if I offered it{reach}.")
 
 
 def first_pages(data: bytes, count: int) -> bytes:

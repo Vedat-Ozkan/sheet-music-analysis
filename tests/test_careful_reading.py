@@ -69,29 +69,23 @@ def test_a_scan_is_offered_a_careful_reading_and_the_pages_become_a_score(tmp_pa
             "image_url": "", "pdf_url": "", "page_images": []}
     reading, typeset, ordinary, elsewhere = (text_of(app.pdf_card_result(given, "read_pdf", source, route)) for given, source, route in (
         (card, "other", None), ({**card, "scan": False}, "other", None), (card, "other", "ordinary"), (card, "claude", None)))
-    assert reading == typeset
-    assert ('Question for the user, before any analysis: "I recommend a careful reading of your PDF: the quick reading makes '
-            'mistakes it cannot see, so they are not shaded. A careful reading of this piece\'s 3 pages takes about 15 minutes '
-            'and runs a small measuring script from Sheet Music Analysis in this chat. Shall I read it carefully, or analyse '
-            'the quick reading now?"') in reading
-    assert reading.index("Note for the user about the reading") < reading.index("Question for the user") < reading.index("PDF of the engraved score")
-    assert reading.endswith("\nscore_id QUICK1 is ready for careful_reading after a yes, and for draft_analysis otherwise.")
-    assert "Question for the user" not in ordinary and ordinary.endswith("\nscore_id QUICK1 is ready for draft_analysis.")
-    assert ('To start it, type @Sheet Music Analysis, choose the app from the list, and ask for the careful reading."') in ordinary
-    assert "careful" not in elsewhere and elsewhere.endswith("\nscore_id QUICK1 is ready for draft_analysis.")
+    assert reading == typeset == elsewhere
+    assert "careful" not in reading and reading.endswith("\nscore_id QUICK1 is ready for draft_analysis.")
+    assert ('Note for the user: "This was the quick reading of your PDF, which makes more mistakes, and not all of them are '
+            'shaded. The careful reading is more accurate: the chat reads each page itself. A careful reading of this piece\'s 3 '
+            'pages is slower than the quick one, uses your own plan\'s usage, and runs a small measuring script from Sheet Music '
+            'Analysis in this chat. To start it, type @Sheet Music Analysis, choose the app from the list, and ask for the '
+            'careful reading."') in ordinary and ordinary.endswith("\nscore_id QUICK1 is ready for draft_analysis.")
     assert "it needs no check by the user first" in reading
-    assert app.careful_warning(3, "other") in app.CAREFUL_OFFER.format(warning=app.careful_warning(3, "other"))
-    assert "allowance" not in app.careful_warning(3, "other")
-    assert ("takes about 15 minutes with one helper per page on Sonnet at medium effort, uses a lot of your plan's usage "
+    assert ("takes about 10 minutes with one helper per page on Sonnet at medium effort, uses a lot of your plan's usage "
             "allowance (as a guide, a 10-page piece") in app.careful_warning(3, "claude")
-    assert "this piece's 1 page takes about 5 minutes" in app.careful_warning(1, "other")
 
     refused = asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": "QUICK1"}))
     assert refused.is_error
     app.store.put(app.reading_key("QUICK1"), json.dumps({"pages": 3}).encode())
     steps = text_of(asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": "QUICK1"})))
     assert f"{app.PUBLIC_BASE_URL}/kit/$f" in steps and "kit/reader.md" in steps and "page N of 3" in steps
-    assert "time signature 2/2" in steps and "1 sharps" in steps
+    assert "automatic reader" not in steps and "If they say no, the quick reading stays: score_id QUICK1 is ready" in steps
 
     result = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": "QUICK1", "pages": PAGES}))
     assert not result.is_error and "It holds" not in text_of(result)
@@ -531,6 +525,8 @@ def test_a_careful_reading_covers_every_page_of_a_scan_longer_than_the_quick_rea
         pdf.add_blank_page()
     out = io.BytesIO()
     pdf.save(out)
+    asked = text_of(asyncio.run(app.read_pdf_data(out.getvalue(), "other", None, "read_pdf")))
+    assert f"it has {pdf_reader.READ_PAGES + 4} pages, " in asked and pages_read == []
     card = asyncio.run(app.read_pdf_data(out.getvalue(), "other", None, "read_pdf"))
     score_id = text_of(card).split("score_id: ")[1].split()[0]
     total = pdf_reader.READ_PAGES + 4
@@ -540,9 +536,9 @@ def test_a_careful_reading_covers_every_page_of_a_scan_longer_than_the_quick_rea
     pages = [f"N1 page={bar} div=1 ts=4/4 ks=0\nm{bar} len=4\n1.1: 4 C4" for bar in range(1, total + 1)]
     result = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": score_id, "pages": pages}))
     assert not result.is_error and "It holds" not in text_of(result)
-    assert f"read from their {total}-page PDF" in text_of(card) and f"in its first {pdf_reader.READ_PAGES} pages, the only ones it read:" in steps
+    assert f"read from their {total}-page PDF" in text_of(card)
     assert (f"Only pages 1-{pdf_reader.READ_PAGES} of the {total} were read, to keep the wait short; to analyse the rest, send those "
-            "pages as a separate PDF, or say yes to a careful reading if I offer one.") in text_of(card)
+            "pages as a separate PDF, or ask for the careful reading if I offered it.") in text_of(card)
     assert "reads up to" not in text_of(card)
 
     card_key = app.card_of(hashlib.sha256(out.getvalue()).hexdigest())
@@ -561,7 +557,7 @@ def test_a_pdf_longer_than_the_careful_page_limit_is_read_up_to_its_first_pages_
     total = app.CAREFUL_PAGES + 6
     app.store.put(app.reading_key("QUICK1"), json.dumps({"pages": total}).encode())
     offer = app.careful_warning(total, "other")
-    assert f"A careful reading of the first {app.CAREFUL_PAGES} pages with music of this piece's {total} pages takes about 100 minutes" in offer
+    assert f"A careful reading of the first {app.CAREFUL_PAGES} pages with music of this piece's {total} pages is slower" in offer
     steps = text_of(asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": "QUICK1"})))
     assert offer in steps and f"page N of {total} pages" in steps
     assert (f"A careful reading takes the first {app.CAREFUL_PAGES} pages that have music: a helper is started for each of "
@@ -586,17 +582,22 @@ def test_a_pdf_longer_than_the_careful_page_limit_is_read_up_to_its_first_pages_
     assert "measures 1 to 1." in late and "handing it in with the others gives the whole piece" in late
 
 
-def test_a_short_pdf_s_hint_does_not_claim_that_only_some_pages_were_read_and_a_reading_id_says_what_it_is(tmp_path, monkeypatch):
+def test_a_careful_reading_id_says_what_it_is(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
     app.store.put("scores/QUICK1", QUICK_READING.read_bytes())
     app.store.put(app.reading_key("QUICK1"), json.dumps({"pages": 3}).encode())
     steps = text_of(asyncio.run(app.mcp.call_tool("careful_reading", {"score_id": "QUICK1"})))
-    assert "these key signatures in order: " in steps and "only ones it read" not in steps
     reading_id = re.search(r"careful reading's own score_id \((\w+)\)", steps)[1]
     for tool, arguments in (("draft_analysis", {}), ("careful_reading", {}),
                             ("render_analysis", {"annotations": {"annotations": [{"type": "harmony", "at": {"measure": 1, "beat": 1}, "label": "i", "key": "e"}]}})):
         refused = asyncio.run(app.mcp.call_tool(tool, {"score_id": reading_id, **arguments}))
         assert refused.is_error and text_of(refused) == app.A_CAREFUL_READING_ID, tool
+
+
+@pytest.mark.parametrize("pages, minutes", [(1, 10), (3, 10), (4, 20), (10, 20), (11, 35), (20, 35), (26, 35)])
+def test_the_time_named_for_a_careful_reading_in_claude_is_the_measured_one_for_its_pages(pages, minutes):
+    assert f"takes about {minutes} minutes with one helper per page" in app.careful_warning(pages, "claude")
+    assert "minutes" not in app.careful_warning(pages, "chatgpt")
 
 
 BAR = "N1 page=1 div=4 ts=4/4 ks=0\nm1 len=16\n"

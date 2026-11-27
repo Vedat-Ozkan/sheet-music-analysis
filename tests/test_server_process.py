@@ -134,7 +134,7 @@ def test_claude_is_offered_the_upload_card_score_links_and_cards_on_its_own_doma
 
 
 def test_a_chat_can_download_the_careful_reading_kit(server):
-    opening = {"notetool.py": "import argparse", "note_rules.py": "import re", "tool.md": "# Reading notes with notetool.py", "reader.md": "# Read one page of scanned music"}
+    opening = {"notetool.py": "import argparse", "note_rules.py": "import re", "tool.md": "# Reading notes with notetool.py", "reader.md": "# Read one page of printed music"}
     for name, first_words in opening.items():
         assert urllib.request.urlopen(f"{server}/kit/{name}", timeout=30).read().decode().startswith(first_words)
     with pytest.raises(urllib.error.HTTPError) as refused:
@@ -185,28 +185,6 @@ def drawn_text(server, agent, score_id, **arguments):
     return drawn["content"][-1]["text"]
 
 
-def test_the_careful_reading_is_offered_on_the_first_drawn_page_of_each_reading_of_a_scan(tmp_path):
-    store_a_read_scan(tmp_path)
-    with running_server(tmp_path, CAREFUL_READING="chatgpt") as (url, _):
-        read_scan(url, CHATGPT, "SCAN1")
-        corrected = careful_call(url, CHATGPT, "correct_bars", score_id="QUICK1N",
-                                 replacement_bars=CHOPIN_BAR_1.replace("24 C5", "24 D5"))["structuredContent"]["score_id"]
-        offered = {"corrected before any drawing": drawn_text(url, CHATGPT, corrected),
-                   "the original after that": drawn_text(url, CHATGPT, "QUICK1N"),
-                   "a few bars again": drawn_text(url, CHATGPT, "QUICK1N", measure_range="1-4"),
-                   "the piano version": drawn_text(url, CHATGPT, "QUICK1N", piano=True)}
-        read_scan(url, CHATGPT, "SCAN1")
-        offered["after the scan is read again"] = drawn_text(url, CHATGPT, "QUICK1N")
-        careful = careful_call(url, CHATGPT, "use_careful_reading", score_id="QUICK1N", pages=CAREFUL_PAGES)
-        offered["the careful reading"] = drawn_text(url, CHATGPT, careful["content"][0]["text"].split()[1])
-    assert all(("Offer for the user" in text) == ("had a quick reading" in text) for text in offered.values())
-    offered = {path: "Offer for the user" in text for path, text in offered.items()}
-    assert offered == {"corrected before any drawing": True, "the original after that": False, "a few bars again": False,
-                       "the piano version": False, "after the scan is read again": True, "the careful reading": False}
-    lines = logged_lines(tmp_path, "render_analysis")
-    assert [line.get("careful_offer") for line in lines] == [True, None, None, None, True, None]
-
-
 def test_only_chatgpt_is_offered_the_analyse_button_on_a_reading(tmp_path):
     store_a_read_scan(tmp_path)
     with running_server(tmp_path) as (url, _):
@@ -223,21 +201,11 @@ def test_the_careful_reading_is_offered_only_on_the_platforms_it_is_switched_on_
         assert careful_tools <= listed_tools(url, CHATGPT)
         assert careful_tools & listed_tools(url, CLAUDE) == (careful_tools if CLAUDE in offered_to else set())
         for agent in (CHATGPT, CLAUDE):
-            reading = read_scan(url, agent, "SCAN1")["content"][-1]["text"]
-            assert "Shall I go ahead?" not in reading and "Offer for the user" not in reading, agent
-            assert ("Question for the user, before any analysis" in reading) == (agent in offered_to), agent
-            assert reading.endswith("\nscore_id QUICK1N is ready for careful_reading after a yes, and for draft_analysis otherwise."
-                                    if agent in offered_to else "\nscore_id QUICK1N is ready for draft_analysis."), agent
-            assert reading == read_scan(url, agent, "TYPESET1")["content"][-1]["text"].replace("TYPESET1N", "QUICK1N"), agent
-            first, again = (drawn_text(url, agent, "QUICK1N") for _ in range(2))
-            assert "Shall I go ahead?" not in again, agent
-            if agent in offered_to:
-                assert "Shall I go ahead?" in first and "careful_reading" in first, agent
-                assert first.index("shown in a card") < first.index("had a quick reading") < first.index("Offer for the user"), agent
-                assert ("usage allowance" in first) == (agent == CLAUDE), agent
-                assert first.index("Offer for the user, at the end of the reply with this analysis:") < first.index("Shall I go ahead?"), agent
-            else:
-                assert "careful" not in first.lower() and "Shall I go ahead?" not in first, agent
+            first = read_scan(url, agent, "SCAN1")["content"][-1]["text"]
+            assert ("Question for the user, before any reading" in first) == (agent in offered_to), agent
+            reading = read_scan(url, agent, "SCAN1")["content"][-1]["text"] if agent in offered_to else first
+            assert "Question for the user" not in reading and reading.endswith("\nscore_id QUICK1N is ready for draft_analysis."), agent
+            assert "careful" not in drawn_text(url, agent, "QUICK1N").lower(), agent
         steps = careful_call(url, CHATGPT, "careful_reading", score_id="QUICK1N")
         handed_in = careful_call(url, CHATGPT, "use_careful_reading", score_id="QUICK1N", pages=CAREFUL_PAGES)
         assert not steps.get("isError") and "kit/reader.md" in steps["content"][0]["text"]
@@ -643,37 +611,66 @@ def called(server, caller, name, **arguments):
     return json.loads(as_client(server, agent, "tools/call", {"name": name, "arguments": arguments, "_meta": meta}))["result"]
 
 
-@pytest.mark.parametrize("pdf, score_id", [("SCAN1", "QUICK1N"), ("TYPESET1", "TYPESET1N")])
-def test_every_pdf_reading_recommends_the_careful_reading_first_and_a_yes_or_a_no_goes_on_from_there(tmp_path, pdf, score_id):
-    store_a_read_scan(tmp_path)
-    callers = {"agent": AGENT_TURN, "ordinary": ORDINARY_TURN, "unknown": UNKNOWN_CHATGPT, "claude": CLAUDE_CALL}
+PDFS = {"scan": NOCTURNE.parent / "chopin-op67-small-page-scan.pdf", "typeset": NOCTURNE.parent / "chopin-28-4-mutopia.pdf"}
+ROUTES = {"agent": AGENT_TURN, "ordinary": ORDINARY_TURN, "unknown": UNKNOWN_CHATGPT, "claude": CLAUDE_CALL}
+
+
+def store_pdfs_per_route(tmp_path, kind):
+    scores = tmp_path / "scores"
+    scores.mkdir()
+    for number, route in enumerate(ROUTES, 1):
+        for answer, extra in (("yes", b"\n" * number), ("no", b" " * number)):
+            pdf = PDFS[kind].read_bytes() + extra
+            (scores / f"{route.upper()}{answer.upper()}.pdf").write_bytes(pdf)
+            if answer == "no":
+                code = f"QUICK{route.upper()}N"
+                (scores / code).write_bytes((NOCTURNE.parent / "chopin_prelude_op28_no4_reading.musicxml").read_bytes())
+                card = {"score_id": code, "pages": 1, "of_pages": 1, "scan": kind == "scan", "measures": "1 to 25", "bars": 25,
+                        "notice": "", "image_url": "", "pdf_url": "", "page_images": []}
+                (scores / f"pdf-card-{pdf_reader.READER}-{hashlib.sha256(pdf).hexdigest()}.json").write_text(json.dumps(card))
+
+
+@pytest.mark.parametrize("kind", PDFS)
+def test_every_route_that_can_read_carefully_asks_before_any_reading_and_a_yes_or_a_no_goes_on_from_there(tmp_path, kind):
+    store_pdfs_per_route(tmp_path, kind)
     with running_server(tmp_path, CAREFUL_READING="chatgpt,claude") as (url, _):
-        for name, caller in callers.items():
-            reading = called(url, caller, "read_fetched_pdf", pdf_id=pdf)["content"][-1]["text"]
+        for name, caller in ROUTES.items():
             asked = name != "ordinary"
-            assert ("Question for the user, before any analysis" in reading) == asked, name
+            if asked:
+                question = called(url, caller, "read_fetched_pdf", pdf_id=f"{name.upper()}YES")
+                text = question["content"][-1]["text"]
+                assert question["structuredContent"] == {"status": app.QUESTION_STATUS} and "score_id:" not in text, name
+                assert f"This PDF is not read yet: it has 1 page, {'a scan' if kind == 'scan' else 'typeset'}." in text, name
+                assert ("takes about 10 minutes with one helper per page" in text) == (name == "claude"), name
+                assert ("is slower than the quick one, uses your own plan's usage" in text) == (name != "claude"), name
+                reading = re.search(r"careful_reading with the reading id (\w+)\.", text)[1]
+                refused = called(url, caller, "draft_analysis", score_id=reading)
+                assert refused["isError"] and "This id names a PDF that is not read yet" in refused["content"][0]["text"], name
+                steps = called(url, caller, "careful_reading", score_id=reading)["content"][0]["text"]
+                assert ("If they say no, the quick reading follows: read_fetched_pdf again with the same pdf_id reads the PDF."
+                        in steps), name
+                own = re.search(r"use_careful_reading takes this careful reading's own score_id \((\w+)\)", steps)[1]
+                handed_in = called(url, caller, "use_careful_reading", score_id=own, pages=CAREFUL_PAGES[:1])
+                stored = handed_in["content"][0]["text"]
+                assert not handed_in.get("isError") and "my careful reading of your PDF" in stored, (name, stored)
+                assert not called(url, caller, "draft_analysis", score_id=stored.split()[1]).get("isError"), name
+            pdf_id = f"{name.upper()}NO"
+            first = called(url, caller, "read_fetched_pdf", pdf_id=pdf_id)["content"][-1]["text"]
+            assert ("Question for the user, before any reading" in first) == asked, name
+            read = called(url, caller, "read_fetched_pdf", pdf_id=pdf_id)["content"][-1]["text"] if asked else first
+            assert read.endswith(f"\nscore_id QUICK{name.upper()}N is ready for draft_analysis."), name
             assert ("To start it, type @Sheet Music Analysis, choose the app from the list, and ask for the careful reading."
-                    in reading) == (not asked), name
-            assert ("usage allowance" in reading) == (name == "claude"), name
-            assert "this piece's 3 pages takes about 15 minutes" in reading, name
-            assert reading.index("Note for the user about the reading") < reading.index("I recommend a careful reading"), name
-
-            steps = called(url, caller, "careful_reading", score_id=score_id)["content"][0]["text"]
-            if not asked:
-                assert "I can't start the careful reading from this message" in steps and "kit/" not in steps
-            else:
-                assert steps.startswith("These steps are for after the user's yes to this question (unless they have "
-                                        "already said yes to a careful reading in this chat)"), name
-                reading_id = re.search(r"use_careful_reading takes this careful reading's own score_id \((\w+)\)", steps)[1]
-                handed_in = called(url, caller, "use_careful_reading", score_id=reading_id, pages=CAREFUL_PAGES)
-                text = handed_in["content"][0]["text"]
-                assert not handed_in.get("isError") and "my careful reading of your PDF" in text, name
-                assert not called(url, caller, "draft_analysis", score_id=text.split()[1]).get("isError"), name
-
-            assert not called(url, caller, "draft_analysis", score_id=score_id).get("isError"), name
-            drawn = [called(url, caller, "render_analysis", score_id=score_id, annotations=CHOPIN_MARK)["content"][-1]["text"]
-                     for _ in range(2)]
-            assert ("Offer for the user" in drawn[0]) == asked and "Offer for the user" not in drawn[1], name
-    reads = logged_lines(tmp_path, "read_fetched_pdf")
-    assert [line.get("route") for line in reads] == ["agent", "ordinary", "unknown", None]
-    assert [line["answer"] for line in logged_lines(tmp_path, "careful_reading")] == ["steps", "needs_the_agent", "steps", "steps"]
+                    in read) == (not asked), name
+            assert "careful" not in called(url, caller, "render_analysis", score_id=f"QUICK{name.upper()}N",
+                                           annotations=CHOPIN_MARK)["content"][-1]["text"].lower(), name
+    lines = [json.loads(line) for line in (tmp_path / "server-log.jsonl").read_text().splitlines() if line.startswith("{")]
+    assert not [line for line in lines if line.get("event") == "read_pdf_work"]
+    assert len(list((tmp_path / "scores").glob("pdf-card-*"))) == 4
+    reads = [(line.get("route"), line.get("careful"), line.get("cached")) for line in lines if line.get("tool") == "read_fetched_pdf"]
+    assert reads == [("agent", "asked", None), ("agent", "asked", None), ("agent", "no", "card"), ("ordinary", None, "card"),
+                     ("unknown", "asked", None), ("unknown", "asked", None), ("unknown", "no", "card"),
+                     (None, "asked", None), (None, "asked", None), (None, "no", "card")]
+    assert [line.get("careful") for line in lines if line.get("tool") == "careful_reading"] == ["yes", "yes", "yes"]
+    waits = [line["timings_ms"]["total"] for line in lines if line.get("tool") == "read_fetched_pdf" and line.get("careful") == "asked"]
+    print(f"{kind}: time to the question, ms: {waits}")
+    assert max(waits) < 2000

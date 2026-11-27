@@ -284,7 +284,7 @@ def test_a_whole_score_draft_gives_its_instructions_before_the_method_and_the_no
     assert text.index("HOW THE NOTES ARE USED") < 1000
     assert text.index("HOW THE NOTES ARE USED") < text.index("## Method") < text.index("NOTES (one row")
     assert "a short sentence before each says what is happening" in app.INSTRUCTIONS
-    assert app.INSTRUCTIONS.index("acted on after a yes.") < 512
+    assert app.INSTRUCTIONS.index("asked before going on.") < 512
     assert "score_id and pdf_id are for tool calls only; replies do not show them to the user." in app.INSTRUCTIONS
     assert "ask which bars they want" not in text and "asks which bars" not in text
     assert "do not stop to ask which bars" in text
