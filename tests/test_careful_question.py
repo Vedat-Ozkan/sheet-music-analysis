@@ -11,9 +11,11 @@ from mcp.client.client import Client
 
 from engine import read_pdf as pdf_reader
 from server import app
-from tests.test_chatgpt_flow import ATTACHED, PDF, call, charged, counted_for, score_id_of, server, text_of
+from tests import test_chatgpt_flow
+from tests.test_chatgpt_flow import ATTACHED, PDF, call, charged, counted_for, score_id_of, text_of
 
 PAGE = (Path(__file__).parent / "data/careful/dvorak-silhouette-1-page1.n1").read_text()
+server = test_chatgpt_flow.server
 
 
 @pytest.fixture(autouse=True)
