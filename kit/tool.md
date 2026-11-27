@@ -16,7 +16,7 @@ View `overview.png`. Staves are traced in blue and named SYSTEM.STAFF (`2.1` is 
 
     python3 kit/notetool.py label IMAGE crops --clefs G,F --change 2.2@1450=G,3.2@900=F
 
-`--clefs` names the clef of each staff of a system from top to bottom: `G` treble, `F` bass, `C` alto, `T` tenor, `G8` treble sounding an octave lower. `--change SYSTEM.STAFF@X=CLEF` switches a staff to another clef from that x on. A change stays in force in the following systems until the next change, as in print. The first printed line of each system shows the clefs used: compare them with the clef printed at the start of that system.
+`--clefs` names the clef of each staff of a system from top to bottom: `G` treble, `F` bass, `C` alto, `T` tenor. For a clef with a small 8 or 15, give the plain clef: the labels name the printed line or space, and the 8 goes into the note list as its own sign (`clef=G_8`). `--change SYSTEM.STAFF@X=CLEF` switches a staff to another clef from that x on. A change stays in force in the following systems until the next change, as in print. The first printed line of each system shows the clefs used: compare them with the clef printed at the start of that system.
 
 The tool writes enlarged crops (`crops/s1_1.png`, …) and prints, for each bar and staff, the filled note heads from left to right, for example `x1242 D4+D5 | x1356 E4?(touching)+E5`. Heads joined by `+` are at the same x (a chord, or two voices). `x` is the position in the original image. On the crops, faint blue lines mark the ledger positions.
 

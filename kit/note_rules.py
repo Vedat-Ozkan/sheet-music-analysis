@@ -8,14 +8,20 @@ MAX_BARS = 1000
 MAX_BAR_LENGTH = 64
 MAX_OPEN_SLURS = 16
 HEADING = 'The note list must start with a "N1 div=… ts=… ks=…" line'
-HEADER = re.compile(r"N1 div=([1-9][0-9]*) ts=(\S*) ks=(\S+)")
-BAR_LINE = re.compile(r"m(0|[1-9][0-9]*) len=([0-9]+)((?: (?:ts|ks)=\S+)*)")
+HEADER = re.compile(r"N1 div=([1-9][0-9]*) ts=([^\s?]*)(\??) ks=(\S+)")
+BAR_LINE = re.compile(r"m(0|[1-9][0-9]*) len=([0-9]+)((?: (?:ts|ks|rep|ending)=\S+)*)")
+REPEATS = ("start", "end", "both")
+ENDING = re.compile(r"[1-9]")
+INSTRUMENT = re.compile(r"([1-9][0-9]*)=(\S.*)")
 METER = re.compile(r"[1-9][0-9]*/[1-9][0-9]*")
 KEY = re.compile(r"0|[1-7][sf]")
 VOICE_LABEL = re.compile(r"([0-9]+)\.([0-9]+)")
 WORDS_LABEL = re.compile(r"([0-9]+)\.([0-9]+)w")
 CHORD_ENTRY = re.compile(r"[^@\s]+@([0-9]+)")
-CLEF = re.compile(r"clef=(G|F|C|T|G8)")
+CLEF = re.compile(r"clef=(G|F|C|T)(?:([_^])(8|15))?")
+OCTAVE_LINE = re.compile(r"(8va|8vb|15ma|15mb)\(|\)(8va|8vb|15ma|15mb)")
+LINE_OCTAVES = {"8va": 1, "8vb": -1, "15ma": 2, "15mb": -2}
+NAMED_PITCH = re.compile(r"([A-G](?:#+|b+)?)([0-9])")
 MARKED = re.compile(r"(\(*)(.+?)([.>]*)(\)*)")
 PITCH = re.compile(r"[A-G](?:#+|b+)?[0-9]~?")
 MARK = re.compile(
@@ -49,20 +55,25 @@ def problems(text: str, first_page: bool) -> list[str]:
     if not head:
         return [HEADING]
     div = int(head[1])
-    found = _signature_problems(head[2], head[3])
+    found = _signature_problems(head[2], head[4])
     if found:
         return found
-    meter, bars = head[2], []
+    meter, bars, named = head[2], [], None
     for number, line in numbered[1:]:
         if line.startswith("m"):
             bar = BAR_LINE.fullmatch(line)
             if not bar:
                 return found + [f"a bar line looks like 'm3 len=96', not {line!r}"]
             changes = dict(change.split("=", 1) for change in bar[3].split())
-            if signatures := _signature_problems(changes.get("ts", meter), changes.get("ks", "0")):
+            if signatures := _signature_problems(changes.get("ts", meter), changes.get("ks", "0")) + _bar_line_problems(changes):
                 return found + signatures
             meter = changes.get("ts", meter)
             bars.append({"name": bar[1], "units": int(bar[2]), "meter": meter, "lines": []})
+        elif not bars and line.startswith("i:") and named is None:
+            named = instruments(line)
+            if named is None:
+                return found + [f"Line {number}: the instruments line looks like 'i: 1=Flute 2=Clarinet in Bb', one "
+                                f"number=name for each staff, numbered 1 to {MAX_STAVES} from the top"]
         elif not bars:
             kind = {"x:": "a marks line", "c:": "a chord symbol line"}.get(line[:2], "a voice line")
             found.append(f"Line {number}: {kind} needs a bar line like 'm3 len=96' before it")
@@ -78,7 +89,61 @@ def problems(text: str, first_page: bool) -> list[str]:
         return found or ["The note list has no measures"]
     if len(bars) > MAX_BARS:
         found.append(f"The note list has {len(bars)} bars; at most {MAX_BARS} can be built")
-    return found + _bar_problems(bars, div, first_page)
+    found += _bar_problems(bars, div, first_page)
+    if named is not None:
+        found += [f"Staff {staff} has no name in the i: line; name every staff of the page there"
+                  for staff in sorted({int(label.split(".")[0]) for bar in bars for label, _ in bar["lines"]
+                                       if VOICE_LABEL.fullmatch(label)} - set(named))]
+    return found
+
+
+def instruments(line: str) -> dict[int, str] | None:
+    entries = [INSTRUMENT.fullmatch(entry) for entry in re.split(r"\s+(?=[0-9]+=)", re.sub(r"^concert\s+", "", line[2:].strip()))]
+    if not all(entries) or len({entry[1] for entry in entries}) != len(entries) or any(int(entry[1]) > MAX_STAVES for entry in entries):
+        return None
+    return {int(entry[1]): " ".join(entry[2].split()) for entry in entries}
+
+
+def clef_octaves(clef: re.Match) -> int:
+    return 0 if not clef[2] else (1 if clef[3] == "8" else 2) * (1 if clef[2] == "^" else -1)
+
+
+def as_sounding(voices: list[tuple[str, list[str]]], div: int, octaves: dict[int, tuple[int, int]]) -> list[tuple[str, list[str]]]:
+    changes, placed = {}, []
+    for label, tokens in voices:
+        staff, cursor, duration, kept = int(label.split(".")[0]), 0, 0, []
+        for token in tokens:
+            if token.isdigit():
+                duration = int(token)
+            elif clef := CLEF.fullmatch(token):
+                changes.setdefault(staff, []).append((cursor, 0, clef_octaves(clef)))
+            elif line := OCTAVE_LINE.fullmatch(token):
+                changes.setdefault(staff, []).append((cursor, 1, LINE_OCTAVES.get(line[1], 0)))
+                continue
+            else:
+                kept.append((cursor, token))
+                cursor += 0 if token.lstrip("(").startswith(("g", "u")) else duration
+                continue
+            kept.append((None, token))
+        placed.append((label, staff, kept))
+    sounding = []
+    for label, staff, kept in placed:
+        tokens = []
+        for onset, token in kept:
+            if onset is not None:
+                state = list(octaves.get(staff, (0, 0)))
+                for at, kind, value in sorted(changes.get(staff, []), key=lambda change: change[0]):
+                    if at <= onset:
+                        state[kind] = value
+                token = NAMED_PITCH.sub(lambda pitch: f"{pitch[1]}{int(pitch[2]) + sum(state)}", token) if sum(state) else token
+            tokens.append(token)
+        sounding.append((label, tokens))
+    for staff, found in changes.items():
+        state = list(octaves.get(staff, (0, 0)))
+        for _, kind, value in sorted(found, key=lambda change: change[0]):
+            state[kind] = value
+        octaves[staff] = tuple(state)
+    return sounding
 
 
 def join_problems(pages: list[str]) -> list[str]:
@@ -108,7 +173,7 @@ def _bar_problems(bars: list[dict], div: int, first_page: bool) -> list[str]:
     previous = None
     staves = max([int(VOICE_LABEL.fullmatch(label)[1]) for bar in bars for label, tokens in bar["lines"]
                   if VOICE_LABEL.fullmatch(label) and any(_pitched(token) for token in tokens)] or [1])
-    held, open_slurs, taken = {}, {}, 0
+    held, open_slurs, taken, octaves, open_lines = {}, {}, 0, {}, {}
     for bar in bars:
         name, length, full = bar["name"], Fraction(bar["units"], div), _full(bar["meter"])
         if previous is not None and int(name) <= int(previous):
@@ -122,7 +187,19 @@ def _bar_problems(bars: list[dict], div: int, first_page: bool) -> list[str]:
             found.append(f"Bar {name}: len= makes the first bar shorter than its time signature; only a pickup is "
                          "shorter, and a pickup is written m0")
         voices, written = {}, set()
-        for label, tokens in bar["lines"]:
+        lines = bar["lines"]
+        played = [position for position, (label, _) in enumerate(lines) if VOICE_LABEL.fullmatch(label)]
+        for position, (label, tokens) in zip(played, as_sounding([lines[position] for position in played], div, octaves)):
+            lines = lines[:position] + [(label, tokens)] + lines[position + 1:]
+            staff = int(label.split(".")[0])
+            for token in bar["lines"][position][1]:
+                if line := OCTAVE_LINE.fullmatch(token):
+                    open_lines[staff] = open_lines.get(staff, 0) + (1 if line[1] else -1)
+                    if open_lines[staff] < 0:
+                        found.append(f"Bar {name}, staff {staff}: an octave line ends here that was never started; "
+                                     "write 8va( before the first note under it")
+                        open_lines[staff] = 0
+        for label, tokens in lines:
             if label == "x":
                 found += _mark_problems(tokens)
             elif label == "c":
@@ -178,11 +255,22 @@ def _bar_problems(bars: list[dict], div: int, first_page: bool) -> list[str]:
                         open_slurs[voice] -= 1
     found += [f"A slur starts in voice {staff}.{number} and never ends; close it with ) after its last note"
               for (staff, number), count in open_slurs.items() if count]
+    found += [f"An octave line starts in staff {staff} and never ends; close it with )8va (or )8vb, )15ma, )15mb) "
+              "after the last note under it" for staff, count in open_lines.items() if count]
+    return found
+
+
+def _bar_line_problems(changes: dict[str, str]) -> list[str]:
+    found = []
+    if changes.get("rep", "start") not in REPEATS:
+        found.append(f"A repeat sign is written rep=start, rep=end or rep=both, not rep={changes['rep']}")
+    if not ENDING.fullmatch(changes.get("ending", "1")):
+        found.append(f"An ending is written ending=1, ending=2 and so on, not ending={changes['ending']}")
     return found
 
 
 def _pitched(token: str) -> bool:
-    return not token.isdigit() and not CLEF.fullmatch(token) and MARKED.fullmatch(token)[2] != "r"
+    return not token.isdigit() and not CLEF.fullmatch(token) and not OCTAVE_LINE.fullmatch(token) and MARKED.fullmatch(token)[2] != "r"
 
 
 def _read_voice(tokens: list[str], div: int, name: str, length: Fraction):

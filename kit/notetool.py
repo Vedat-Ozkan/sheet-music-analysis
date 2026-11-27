@@ -7,7 +7,7 @@ import note_rules
 
 S = 40
 PAGE_WIDTH = 2480
-CLEF = {'G': 30, 'F': 18, 'C': 24, 'T': 22, 'G8': 23}
+CLEF = {'G': 30, 'F': 18, 'C': 24, 'T': 22}
 SURE, DOUBT, GUIDE, MARK = (220, 80, 0), (0, 0, 255), (255, 190, 90), (0, 150, 0)
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 SHEARS = np.arange(-0.05, 0.051, 0.005)
@@ -270,7 +270,7 @@ def label(a):
     clefs = a.clefs.split(',')
     changes = sorted((int(i), int(j), int(x), c) for i, j, x, c in re.findall(r'(\d+)\.(\d+)@(\d+)=(\w+)', a.change))
     if len(changes) != len(a.change.split(',')) - (not a.change) or ({c for *_, c in changes} | set(clefs)) - set(CLEF):
-        raise SystemExit('clefs are G F C T G8; write changes as SYSTEM.STAFF@X=CLEF, for example 2.2@1450=G')
+        raise SystemExit('clefs are G F C T; write changes as SYSTEM.STAFF@X=CLEF, for example 2.2@1450=G')
     os.makedirs(a.outdir, exist_ok=True)
     for i, sy in enumerate(systems, 1):
         st = sy['staves']
@@ -365,7 +365,7 @@ def check(a):
     for problem in found:
         print(problem)
     lines = text.splitlines()
-    head = re.fullmatch(r'N1 div=([1-9]\d*) ts=([1-9]\d*)/([1-9]\d*) ks=(0|[1-7][sf])', lines[0].strip()) if lines else None
+    head = re.fullmatch(r'N1 div=([1-9]\d*) ts=([1-9]\d*)/([1-9]\d*)\?? ks=(0|[1-7][sf])', lines[0].strip()) if lines else None
     notes = 0
     if head:
         div = int(head[1])
@@ -375,7 +375,7 @@ def check(a):
 
         full, sig, bar = div * 4 * int(head[2]) // int(head[3]), key(head[4]), None
         for line in filter(None, map(str.strip, lines[1:])):
-            m = re.fullmatch(r'(m\d+) len=(\d+)((?: (?:ts=[1-9]\d*/[1-9]\d*|ks=(?:0|[1-7][sf])))*)', line)
+            m = re.fullmatch(r'(m\d+) len=(\d+)((?: (?:ts=[1-9]\d*/[1-9]\d*|ks=(?:0|[1-7][sf])|rep=\S+|ending=\S+))*)', line)
             if m:
                 bar, length = m[1], int(m[2])
                 for kind, value in re.findall(r'(ts|ks)=(\S+)', m[3]):
@@ -416,7 +416,7 @@ if __name__ == '__main__':
         for arg in args:
             p.add_argument(arg, type=int if arg[0] in 'xy' else str)
         p.set_defaults(run=run)
-    sub.choices['label'].add_argument('--clefs', required=True, help='one clef per staff of a system, top to bottom: G F C T G8, e.g. G,F')
+    sub.choices['label'].add_argument('--clefs', required=True, help='one clef per staff of a system, top to bottom: G F C T, e.g. G,F')
     sub.choices['label'].add_argument('--change', default='', help='clef changes SYSTEM.STAFF@X=CLEF separated by commas, e.g. 2.2@1450=G,3.2@900=F')
     sub.choices['zoom'].add_argument('--clef', choices=list(CLEF))
     a = ap.parse_args()

@@ -17,8 +17,9 @@ MARK = re.compile(
     r"|(?P<dynamic>[a-z]+)@(?P<at5>[\d.]+)"
 )
 MAX_CHARS = 200_000
-CLEFS = {"G": ("G", 2, 0), "F": ("F", 4, 0), "C": ("C", 3, 0), "T": ("C", 4, 0), "G8": ("G", 2, -1)}
-CLEF = re.compile(r"clef=(" + "|".join(CLEFS) + ")")
+CLEFS = {name + mark: (sign, line, octave) for name, (sign, line) in {"G": ("G", 2), "F": ("F", 4), "C": ("C", 3), "T": ("C", 4)}.items()
+         for mark, octave in {"": 0, "^8": 1, "_8": -1, "^15": 2, "_15": -2}.items()}
+CLEF = re.compile(r"clef=(" + "|".join(re.escape(name) for name in CLEFS) + ")")
 WORDS_LABEL = re.compile(r"\d+\.\d+w")
 CHORD_ENTRY = re.compile(r"(?P<symbol>[^@\s]+)@(?P<at>\d+)")
 MARKED = re.compile(r"(?P<opened>\(*)(?P<sounding>.+?)(?P<signs>[.>]*)(?P<closed>\)*)")
