@@ -4889,10 +4889,10 @@ Time to the question: 1 to 2 ms on the scan and 14 to 16 ms on the typeset PDF. 
 - Several public texts still said a PDF is read on the first call; `correct_bars` asked for sounding pitches in scores that now show printed ones.
 
 **What changed.**
-- One record per question, under the reading id. Platform, person, the chosen file or card and the PDF decide the id. It holds the pages, when it was asked, how this caller reads the PDF again, the answer, and the careful reading's score_id. A reading id given to any tool now says which score_id to use.
+- One record per question, under the reading id. Platform, person, the chosen file or card and the PDF decide the id. It holds the pages, when it was asked and how this caller reads the PDF again; the answers and the careful reading's score_id are kept beside it, each in its own entry. A reading id given to any tool now says which score_id to use.
 - Only what a caller's own record led to stops the question. Another person, product or card with the same PDF is asked, even when a reading of it is stored.
 - A careful reading takes one score unit for a PDF the user attached, once per PDF, person and day, when the hand-in is stored. No PDF-page units. A quick reading of the same PDF later the same day takes no second score unit. `careful_reading` refuses with the limit sentence, taking nothing, when the score or draft limit is used up. Making it free again is one line (`score_unit_due`). The owner has not yet decided.
-- Timpani never get the sentence. A `t:` line for a staff with no voice line or name on its page is refused by the shared rule file, so the kit's check and the builder both say it. Two staves of one part with different printed signatures are drawn with the top staff's, and a sentence says so (a signature per staff would have meant changing the note builder).
+- The sentence about pitch has been replaced (second review, below). A `t:` line for a staff with no voice line or name on its page is refused by the shared rule file, so the kit's check and the builder both say it. Two staves of one part with different printed signatures are drawn with the top staff's, and a sentence says so (a signature per staff would have meant changing the note builder).
 - `open_pdf` turns a locked PDF into the same refusal as any unreadable one. Any failure of the first look leaves the PDF to the ordinary reading path.
 - `kit/reader.md` now allows what the send-back asks: on a page sent back with another page's names, the `i:` line takes them for the staves shown.
 
@@ -4900,7 +4900,12 @@ Time to the question: 1 to 2 ms on the scan and 14 to 16 ms on the typeset PDF. 
 
 **NOT RUN:** staging; any real chat; correct_bars with a model; the benchmark pages with the new `kit/reader.md` sentence.
 
+**Second review (a fresh Opus agent, on 14973ce).** The first version of this entry said timpani never get the sentence; "Tympani in A" and "Timbales en La" got it, and piano staves in a key of their own were called a transposing instrument. The release does not know which instruments transpose, so the sentence now says only what was done and what follows if one does: "My reading shows ... as printed: where an instrument is a transposing one, its notes sound at a different pitch than shown, and the analysis across the parts may be off there." One trigger: a name with "in" and a note letter, or a staff key signature (other than none) that differs from the page's. A score marked `concert` gets no sentence. The horn, saxophone and cor anglais names no longer trigger it by themselves, and the timpani list is gone. Also: writing an answer no longer rewrites the question's record, so a hand-in and another call at once cannot undo each other; a failed first look is named on the log line (`first_look`); after a quick reading failed for good, no text says calling again gives one. Of the 337 stored lists, the parts named changed only for the two test lists above. Nine further rules, reverted one at a time, each fail a test.
+
+**Usage counting is open.** The second review showed that on `main` a PDF read once is free for everyone afterwards, so "once per PDF, person and day" charges a careful reading where a quick resend is free, can charge twice when two hand-ins arrive at once, and charges every hand-in without a caller. It waits for the owner's answer.
+
 **Known limits.**
+- A caller who was never answered is still asked about a PDF whose quick reading failed for good for someone else, and the question describes the quick reading.
 - (6) A second chat with the same PDF and the same file, within the hour, cannot be told from the answer "quick", so it is read without the question. Two calls at the same moment are both asked.
 - (6a) A page with as many staves as the fullest page but other instruments is matched by position (entry 230).
 - (9) A page that prints no names and shows fewer staves loses its music unless its second reading names the staves; it is said and its bars are shaded.
