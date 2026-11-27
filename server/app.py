@@ -1090,6 +1090,8 @@ for uri, name, card in [(CARD_URI, "Analysis card", "card.html"), (PDF_CARD_URI,
     )
 
 PDF_WAIT = "a PDF usually takes a minute or two to read; a long one can take several minutes"
+PDF_NEXT = ("its first result may be a question about how to read the PDF; a quick reading usually takes a minute or two, "
+            "and a long one can take several minutes")
 BUSY_MESSAGE = (
     f"The service is busy: another PDF is being read right now, and {PDF_WAIT}. The user's PDF can be sent again "
     "in a few minutes."
@@ -1146,7 +1148,8 @@ claiming = asyncio.Lock()
     description=(
         "Reads the music from a PDF of printed sheet music (born-digital or scanned) that the user attached, and shows "
         "the user the engraved result in a card, with bars that may be misread shaded. Returns a score_id for "
-        f"draft_analysis and a note about the reading for the user. Only the first {pdf_reader.READ_PAGES} pages are "
+        "draft_analysis and a note about the reading for the user; a PDF's first result may instead be a question about "
+        f"how to read it, without a score_id. Only the first {pdf_reader.READ_PAGES} pages are "
         "read. Slurs are not read, because they are often misread from PDFs."
     ),
     annotations=stores("Read a PDF of sheet music", again=True),
@@ -1724,8 +1727,9 @@ def pdf_card_result(card: dict, tool: str, source: str, route: str | None) -> Ca
     description=(
         "Reads the music from a PDF that choose_score or fetch_score gave a pdf_id for, and shows the user the engraved "
         "result in a card, with bars that may be misread shaded. Returns a score_id for draft_analysis and a note about "
-        f"the reading for the user. Only the first {pdf_reader.READ_PAGES} pages are read. Slurs are not read, because "
-        "they are often misread from PDFs."
+        "the reading for the user; a PDF's first result may instead be a question about how to read it, without a "
+        f"score_id. Only the first {pdf_reader.READ_PAGES} pages are read. Slurs are not read, because they are often "
+        "misread from PDFs."
     ),
     annotations=stores("Read a chosen PDF of sheet music", again=True),
 )
@@ -1958,7 +1962,7 @@ async def choose_score(ctx: Context) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=(
         f"The user now sees a card in which to choose their score file, which will be kept under the id {code}. "
         "The file arrives when the user chooses it in the card, so the next step comes with their message that "
-        f"they have chosen it. For a file name ending in .pdf, {code} is the pdf_id for read_fetched_pdf ({PDF_WAIT}); "
+        f"they have chosen it. For a file name ending in .pdf, {code} is the pdf_id for read_fetched_pdf ({PDF_NEXT}); "
         f"otherwise it is MusicXML, and {code} is the score_id for draft_analysis.\n"
         f"Note for the user, if they attached their score to the chat: \"{ATTACHED_FILE_SENTENCE}\""
     ))], structuredContent={"upload_id": code})
@@ -1976,8 +1980,8 @@ apps.add_html_resource(
 
 INSTRUCTIONS = (
     "Harmonic analysis of sheet music, drawn on the score. Usual sequence, in one turn: a score_id (PDFs: read_pdf "
-    "or read_fetched_pdf first), draft_analysis, render_analysis. A PDF reading is analysed at once, unchecked by "
-    "the user, after any question in its result.\n"
+    "or read_fetched_pdf first), draft_analysis, render_analysis. A PDF's first result may be a question; a reading "
+    "is analysed at once, unchecked by the user.\n"
     "Result labels: \"Note for the user\": passed on with the analysis. \"Warning for the user\": opens that reply. "
     "\"Question for the user\": asked before going on.\n"
     "No bars named: the whole piece, drawn in one call.\n"
@@ -1985,8 +1989,8 @@ INSTRUCTIONS = (
     "Getting the score: in ChatGPT the user attaches it (MusicXML as draft_analysis's score_file, a PDF to "
     "read_pdf). In Claude, choose_score shows a card for choosing the file and fetch_score takes a link; files "
     "attached to a Claude chat do not reach this server. In Claude, play shows a small piano player for a passage.\n"
-    "Reading a PDF and analysing each take a minute or more and the user sees nothing meanwhile, so a short "
-    "sentence before each says what is happening. A reading still in progress is picked up by calling the same "
+    "Analysing takes a minute or more, and so does reading a PDF once any question about it is answered; the user "
+    "sees nothing meanwhile, so a short sentence before each says what is happening. A reading still in progress is picked up by calling the same "
     "tool again with the same file or pdf_id.\n"
     "Once per conversation: the card's downloads, by the card's names; for a score with more than four staves, "
     "after the original is drawn, the offer of a piano reduction (piano=true).\n"
@@ -2147,7 +2151,8 @@ CORRECT_BARS_DESCRIPTION = (
     "N1 div=24 ts=4/4 ks=0\nm3 len=96\n1.1: 24 C4 D4 48 E4\n"
     "div is units per quarter note; m3 is printed bar 3 (m16a is the bar the draft names 16a); len is its length in those units. "
     "Each staff.voice line uses numbers to set the duration for following tokens, + for chords, r for rests, "
-    "g for grace notes (u for slashed ones) and ~ for ties to the next note; pitches are sounding pitches (e.g. F#4, Bb3). "
+    "g for grace notes (u for slashed ones) and ~ for ties to the next note; pitches are sounding pitches (e.g. F#4, Bb3), "
+    "except in a careful reading, which shows every part as printed and takes the printed pitches. "
     "Each voice fills the whole existing bar, rests included. A bar line may also carry ts= or ks= where the meter or key signature changes. Header and bar-line key/meter do not change the score. "
     "part (a part id or name) is for a score with multiple parts; staff numbers count within that part. Returns a new score_id, PNGs of only the changed bars "
     "and a note per bar; runs no model. The original score_id stays unchanged."
@@ -2470,7 +2475,7 @@ async def keep_score(data: bytes, kind: str, code: str | None = None) -> str:
 
 def next_step(kind: str, code: str) -> str:
     if kind == "pdf":
-        return f"pdf_id: {code}\nIt is a PDF, for read_fetched_pdf ({PDF_WAIT})."
+        return f"pdf_id: {code}\nIt is a PDF, for read_fetched_pdf ({PDF_NEXT})."
     return f"score_id: {code}\nIt is a MusicXML score, ready for draft_analysis."
 
 

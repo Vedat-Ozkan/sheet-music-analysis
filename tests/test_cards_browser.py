@@ -184,8 +184,8 @@ def test_upload_card_sends_a_pdf_and_puts_the_message_in_the_reply_box(page, upl
     card.locator("#file").set_input_files(str(PDF))
     status = card.get_by_role("status")
     expect(status.locator("strong")).to_have_text(
-        f"Got {PDF.name}. Press Enter to send the message in your reply box and start reading it.")
-    expect(status).to_contain_text("A PDF usually takes a minute or two to read")
+        f"Got {PDF.name}. Press Enter to send the message in your reply box and go on with your PDF.")
+    expect(status).to_contain_text("A quick reading usually takes a minute or two")
     expect(status).to_contain_text("If your reply box is empty, type \"I've chosen it\" and send that.")
     expect(card.locator("#status")).to_have_class("got")
     expect(card.locator("#choose")).to_be_hidden()

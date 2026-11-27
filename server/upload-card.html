@@ -104,8 +104,8 @@
       show(body.error, true);
       return;
     }
-    showGot(file.name, "Press Enter to send the message in your reply box " + (body.kind === "pdf" ? "and start reading it." : "and start the analysis."),
-            (body.kind === "pdf" ? "A PDF usually takes a minute or two to read; a long one can take several minutes. " : "") + "If your reply box is empty, type \"I've chosen it\" and send that.");
+    showGot(file.name, "Press Enter to send the message in your reply box " + (body.kind === "pdf" ? "and go on with your PDF." : "and start the analysis."),
+            (body.kind === "pdf" ? "Claude may first ask how you want it read. A quick reading usually takes a minute or two, sometimes several. " : "") + "If your reply box is empty, type \"I've chosen it\" and send that.");
     const sent = await request("ui/message", { role: "user", content: [{ type: "text", text: "I've chosen my score: " + file.name }] });
     if (sent.error) showGot(file.name, "Now tell Claude in the chat that you have chosen it.", "");
   });
