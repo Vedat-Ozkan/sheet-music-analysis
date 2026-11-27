@@ -2459,9 +2459,9 @@ async def upload(request: Request) -> Response:
 
 @mcp.custom_route("/read-work", methods=["POST"])
 async def read_work(request: Request) -> Response:
-    if request.headers.get("x-read-machine", MACHINE) != MACHINE:
-        return Response(status_code=ANOTHER_MACHINE)
     data, asked = await request.body(), request.headers
+    if asked.get("x-read-machine", MACHINE) != MACHINE:
+        return Response(status_code=ANOTHER_MACHINE)
     digest = hashlib.sha256(data).hexdigest()
     card_key = card_of(digest)
     held = json.loads(await anyio.to_thread.run_sync(store.get, marker_of(card_key)) or b"{}")
