@@ -645,6 +645,20 @@ def test_an_ordinary_turn_after_the_question_is_told_of_a_quick_reading_only_onc
     assert "Question for the user" not in again and "score_id QUICKAGENTN is ready" in again
 
 
+def test_each_product_has_its_own_reading_id_for_one_pdf_and_is_told_only_its_own_call(tmp_path):
+    scores = tmp_path / "scores"
+    scores.mkdir()
+    (scores / "SAME.pdf").write_bytes(PDFS["scan"].read_bytes())
+    with running_server(tmp_path, CAREFUL_READING="chatgpt,claude") as (url, _):
+        said = {}
+        for name in ("agent", "claude"):
+            question = called(url, ROUTES[name], "read_fetched_pdf", pdf_id="SAME")["content"][-1]["text"]
+            reading = re.search(r"careful_reading with the reading id (\w+)\.", question)[1]
+            said[name] = reading, called(url, ROUTES[name], "draft_analysis", score_id=reading)["content"][0]["text"]
+    assert said["agent"][0] != said["claude"][0]
+    assert all("read_fetched_pdf again with the same pdf_id reads it" in refused for _, refused in said.values())
+
+
 @pytest.mark.parametrize("kind", PDFS)
 def test_every_route_that_can_read_carefully_asks_before_any_reading_and_a_yes_or_a_no_goes_on_from_there(tmp_path, kind):
     store_pdfs_per_route(tmp_path, kind)

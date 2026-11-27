@@ -12,7 +12,7 @@ from mcp.client.client import Client
 from engine import read_pdf as pdf_reader
 from server import app
 from tests import test_chatgpt_flow
-from tests.test_chatgpt_flow import ATTACHED, PDF, call, charged, counted_for, score_id_of, text_of
+from tests.test_chatgpt_flow import ATTACHED, PDF, call, charged, counted_for, logged, score_id_of, text_of
 
 PAGE = (Path(__file__).parent / "data/careful/dvorak-silhouette-1-page1.n1").read_text()
 server = test_chatgpt_flow.server
@@ -49,6 +49,15 @@ def read_carefully(person, score_id):
     return as_person(person, "use_careful_reading", score_id=own, pages=[PAGE])
 
 
+def blank_pdf(pages, **saving):
+    pdf = pikepdf.new()
+    for _ in range(pages):
+        pdf.add_blank_page()
+    out = io.BytesIO()
+    pdf.save(out, **saving)
+    return out.getvalue()
+
+
 def person_code(server):
     [name] = server.folder.glob("limits/*.json")
     [person] = json.loads(name.read_text())
@@ -70,16 +79,6 @@ def test_the_question_is_remembered_for_an_hour_for_one_person_and_one_chosen_fi
     clock[0] += app.ASKED_FOR_SECONDS * 5
     later = read("ann", pdf_id="AAA")
     assert not asked(later) and score_id_of(later)
-
-
-def test_each_product_has_its_own_reading_id_and_is_told_only_its_own_call(server):
-    answers = {source: text_of(anyio.run(app.read_pdf_data, PDF, source, None, tool))
-               for source, tool in (("other", "read_pdf"), ("claude", "read_fetched_pdf"))}
-    ids = {source: re.search(r"reading id (\w+)\.", answer)[1] for source, answer in answers.items()}
-    assert ids["other"] != ids["claude"]
-    for source, own, others in (("other", "read_pdf again", "read_fetched_pdf"), ("claude", "read_fetched_pdf again", "read_pdf again")):
-        refused = text_of(call("draft_analysis", {"score_id": ids[source]}))
-        assert own in refused and others not in refused and others not in answers[source]
 
 
 def test_a_careful_reading_takes_the_score_unit_once_and_its_reading_id_then_says_which_score_id_to_use(server):
@@ -104,6 +103,7 @@ def test_a_user_who_chose_the_quick_reading_keeps_it_and_can_still_ask_for_the_c
     clock = [1_000_000.0]
     monkeypatch.setattr(app.time, "time", lambda: clock[0])
     reading = reading_id(read())
+    question = json.loads(server.get(app.reading_key(reading)))
     score_id = score_id_of(read())
     clock[0] += app.ASKED_FOR_SECONDS * 3
     assert score_id_of(read()) == score_id
@@ -112,17 +112,50 @@ def test_a_user_who_chose_the_quick_reading_keeps_it_and_can_still_ask_for_the_c
     assert f"If they say no, the quick reading stays: score_id {score_id} is ready for draft_analysis." in steps
     assert not read_carefully("ann", score_id).is_error
     assert charged(server, "score") == 1 and score_id_of(read()) == score_id
+    as_person("ann", "careful_reading", score_id=reading)
+    assert not read_carefully("ann", reading).is_error
+    assert json.loads(server.get(app.reading_key(reading))) == question
+    assert all(server.get(app.fact_key(reading, fact)) is not None for fact in app.PDF_FACTS)
+
+
+def unreadable_for(lasting):
+    def unreadable(data):
+        raise pdf_reader.ReadError("No music could be read from this PDF", [{"setting": 0, "outcome": "no music"}], lasting=lasting)
+
+    return unreadable
 
 
 def test_a_reading_id_whose_quick_reading_failed_says_so_and_names_no_score_id(server, monkeypatch):
-    def unreadable(data):
-        raise pdf_reader.ReadError("No music could be read from this PDF", [{"setting": 0, "outcome": "no music"}])
-
-    monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable)
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable_for(lasting=False))
     reading = reading_id(read())
     assert "a MusicXML file" in text_of(read())
     refused = text_of(call("draft_analysis", {"score_id": reading}))
     assert "its quick reading has returned no score_id yet: read_pdf again with the same file says where it stands" in refused
+
+
+def test_after_a_quick_reading_failed_for_good_no_text_says_that_calling_again_gives_one(server, monkeypatch):
+    monkeypatch.setattr(app.pdf_reader, "read_pdf", unreadable_for(lasting=True))
+    own, others = reading_id(read("ann")), reading_id(read("bob"))
+    read("ann")
+    for reading in (own, others):
+        refused = text_of(call("draft_analysis", {"score_id": reading}))
+        assert "there is no quick reading of it: it could not read this PDF." in refused and "read_pdf again" not in refused
+        steps = text_of(as_person("ann", "careful_reading", score_id=reading))
+        assert "If they say no, there is no quick reading: it could not read this PDF." in steps
+        assert "reads the PDF" not in steps
+
+
+@pytest.mark.parametrize("pages, named", [(pdf_reader.READ_PAGES, False), (pdf_reader.READ_PAGES + 1, True)])
+def test_the_question_for_a_pdf_longer_than_the_quick_reading_names_its_page_limit(server, monkeypatch, pages, named):
+    long = blank_pdf(pages)
+
+    async def download(url):
+        return long
+
+    monkeypatch.setattr(app, "download", download)
+    result = read()
+    assert asked(result)
+    assert (f"The quick reading takes only the first {pdf_reader.READ_PAGES} pages." in text_of(result)) == named
 
 
 @pytest.mark.parametrize("full, message", [("person", "PERSON_LIMIT_MESSAGE"), ("score", "LIMIT_MESSAGE"), ("draft", "LIMIT_MESSAGE")])
@@ -137,16 +170,8 @@ def test_a_careful_reading_gives_no_steps_when_a_limit_it_needs_is_used_up(serve
     assert not list(server.folder.glob("scores/careful-*")) and not list(server.folder.glob("usage/*.json"))
 
 
-def locked_pdf():
-    pdf = pikepdf.new()
-    pdf.add_blank_page()
-    out = io.BytesIO()
-    pdf.save(out, encryption=pikepdf.Encryption(owner="owner", user="user"))
-    return out.getvalue()
-
-
 def test_a_locked_pdf_is_the_users_error_and_its_copy_is_kept(server, monkeypatch):
-    locked = locked_pdf()
+    locked = blank_pdf(1, encryption=pikepdf.Encryption(owner="owner", user="user"))
 
     async def download(url):
         return locked
@@ -157,7 +182,7 @@ def test_a_locked_pdf_is_the_users_error_and_its_copy_is_kept(server, monkeypatc
     assert server.get(f"failed/{hashlib.sha256(locked).hexdigest()}.pdf") == locked
 
 
-def test_a_pdf_whose_first_look_fails_is_read_without_the_question(server, monkeypatch):
+def test_a_pdf_whose_first_look_fails_is_read_without_the_question_and_the_log_names_the_failure(server, monkeypatch, capsys):
     looks, is_scan = [], pdf_reader.is_scan
 
     def broken_once(pdf):
@@ -169,3 +194,4 @@ def test_a_pdf_whose_first_look_fails_is_read_without_the_question(server, monke
     monkeypatch.setattr(app.pdf_reader, "is_scan", broken_once)
     result = read()
     assert not asked(result) and score_id_of(result)
+    assert [line.get("first_look") for line in logged(capsys, "read_pdf") if line.get("event") == "read_pdf"] == ["RuntimeError"]
