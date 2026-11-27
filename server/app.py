@@ -1733,15 +1733,13 @@ async def question_first(data: bytes, digest: str, source: str, route: str | Non
     if asks and "careful" in record:
         log(tool, platform=source, cached="careful")
         return reading_status(READ_CAREFULLY.format(score_id=record["careful"]), READ_CAREFULLY_STATUS)
-    if "quick" in record:
+    if await anyio.to_thread.run_sync(store.get, fact_key(reading, "quick")) is not None:
         return None
     call = current_call.get() or {}
-    if record and (not asks or "yes" in record or time.time() - record["asked"] < ASKED_FOR_SECONDS):
+    if not asks or "yes" in record or time.time() - record.get("asked", 0) < ASKED_FOR_SECONDS:
         if asks:
             call["careful"] = "no"
         await keep_fact(reading, "quick")
-        return None
-    if not asks:
         return None
     try:
         pdf = await anyio.to_thread.run_sync(pdf_reader.open_pdf, data)

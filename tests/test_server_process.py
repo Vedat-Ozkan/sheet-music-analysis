@@ -645,6 +645,15 @@ def test_an_ordinary_turn_after_the_question_is_told_of_a_quick_reading_only_onc
     assert "Question for the user" not in again and "score_id QUICKAGENTN is ready" in again
 
 
+def test_a_read_started_by_an_ordinary_turn_is_the_callers_quick_reading_and_the_next_agent_turn_is_not_asked(tmp_path):
+    store_pdfs_per_route(tmp_path, "scan")
+    with running_server(tmp_path, CAREFUL_READING="chatgpt") as (url, _):
+        answers = [called(url, turn, "read_fetched_pdf", pdf_id="AGENTNO")["content"][-1]["text"]
+                   for turn in (ORDINARY_TURN, AGENT_TURN)]
+    assert all(answer.endswith("\nscore_id QUICKAGENTN is ready for draft_analysis.") for answer in answers)
+    assert not any("Question for the user, before any reading" in answer for answer in answers)
+
+
 def test_each_product_has_its_own_reading_id_for_one_pdf_and_is_told_only_its_own_call(tmp_path):
     scores = tmp_path / "scores"
     scores.mkdir()
