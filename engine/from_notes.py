@@ -9,13 +9,10 @@ from fractions import Fraction
 from engine import correct, notes
 from engine.errors import UserError
 from engine.score import Measure, alteration
+from kit import note_rules
 
 REST_TYPES = ("whole", "half", "quarter", "eighth", "16th", "32nd", "64th", "128th")
 DIVISIONS = 32
-MAX_STAVES = 32
-MAX_VOICES = 8
-MAX_BARS = 1000
-MAX_BAR_LENGTH = 64
 HEADER = re.compile(notes.VERSION + r" div=(?P<div>[1-9]\d*) ts=(?P<meter>\S*) ks=(?P<key>\S+)")
 BAR_LINE = re.compile(r"m\d+ len=(?P<length>\d+)(?P<changes>(?: (?:ts|ks)=\S+)*)")
 CHORD_NAME = re.compile(r"(?P<root>[A-G])(?P<sign>[#b♯♭]?)(?P<kind>.*?)(?:/(?P<bass>[A-G])(?P<bass_sign>[#b♯♭]?))?")
@@ -24,6 +21,12 @@ CHORD_NAME = re.compile(r"(?P<root>[A-G])(?P<sign>[#b♯♭]?)(?P<kind>.*?)(?:/(
 def score_from_pages(pages: list[str]) -> bytes:
     if not pages:
         raise notes.NotesError("No pages were handed in")
+    for number, page in enumerate(pages, 1):
+        if found := note_rules.problems(page, number == 1):
+            raise notes.NotesError(f"Page {number}: {found[0]}")
+    if found := note_rules.join_problems(pages):
+        raise notes.NotesError(found[0])
+    pages = _clefs_moved(pages)
     for number, page in enumerate(pages, 1):
         try:
             score_from_notes(page, after_a_rest_bar=number > 1)
@@ -36,19 +39,41 @@ def score_from_notes(text: str, *, after_a_rest_bar: bool = False) -> bytes:
     index = notes.decode(text)
     events = [event for measure in index.measures for event in measure.events]
     staves = max((event.staff for event in events), default=1)
-    if staves > MAX_STAVES or max((event.layer for event in events), default=1) > MAX_VOICES:
-        raise notes.NotesError(f"Staves are numbered 1 to {MAX_STAVES} from the top and voices 1 to {MAX_VOICES}")
-    if len(index.measures) > MAX_BARS:
-        raise notes.NotesError(f"The note list has {len(index.measures)} bars; at most {MAX_BARS} can be built")
-    for measure in index.measures:
-        if measure.length > MAX_BAR_LENGTH:
-            raise notes.NotesError(f"Bar {measure.number}: len= makes this bar longer than {MAX_BAR_LENGTH} quarter notes")
     first = index.measures[0] if index.measures else None
-    if first and not after_a_rest_bar and first.number != 0 and first.length < _full_length(first):
-        raise notes.NotesError(f"Bar {first.name}: len= makes the first bar shorter than its time signature; only a "
-                               "pickup is shorter, and a pickup is written m0")
     measures = [_rest_bar_before(first), *index.measures] if first and after_a_rest_bar else index.measures
     return correct.replace_bars(_empty_score(measures, staves, _opening_clefs(text)), _with_every_staff(text, staves))
+
+
+def _clefs_moved(pages: list[str]) -> list[str]:
+    pending: dict[int, tuple[int, list[str]]] = {}
+    moved = []
+    for page in pages:
+        bars = [[]]
+        for line in page.splitlines():
+            if line.strip().startswith("m"):
+                bars.append([])
+            bars[-1].append(line)
+        for bar in bars[1:]:
+            voices = [(position, voice) for position, line in enumerate(bar)
+                      if (voice := notes.voice_label(line.partition(":")[0].strip()))]
+            for staff, (layer, clefs) in list(pending.items()):
+                lines = [position for position, voice in voices if voice[0] == staff]
+                if lines:
+                    target = next((position for position, voice in voices if voice == (staff, layer)), lines[0])
+                    label, _, body = bar[target].partition(":")
+                    bar[target] = f"{label}: {' '.join(clefs)} {body.strip()}"
+                    del pending[staff]
+            for position, (staff, layer) in voices:
+                label, _, body = bar[position].partition(":")
+                tokens = body.split()
+                end = max((at for at, token in enumerate(tokens) if not token.isdigit() and not notes.CLEF.fullmatch(token)),
+                          default=-1) + 1
+                if trailing := [token for token in tokens[end:] if notes.CLEF.fullmatch(token)]:
+                    kept = [token for token in tokens[end:] if not notes.CLEF.fullmatch(token)]
+                    bar[position] = f"{label}: {' '.join(tokens[:end] + kept)}"
+                    pending[staff] = (layer, trailing)
+        moved.append("\n".join(line for bar in bars for line in bar))
+    return moved
 
 
 def _opening_clefs(text: str) -> dict[int, str]:

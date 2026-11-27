@@ -1,6 +1,9 @@
-import argparse, os, re
+import argparse, os, re, sys
 import numpy as np, cv2
 from scipy.ndimage import median_filter, uniform_filter1d
+
+sys.path.insert(0, os.path.dirname(__file__))
+import note_rules
 
 S = 40
 PAGE_WIDTH = 2480
@@ -357,81 +360,41 @@ def zoom(a):
 
 
 def check(a):
-    lines = open(a.file).read().splitlines()
-    head = re.fullmatch(r'N1 div=(\d+) ts=(\d+)/(\d+) ks=(0|[1-7][sf])', lines[0].strip())
-    if not head:
-        raise SystemExit('BAD first line, expected: N1 div=D ts=N/M ks=K')
-    div = int(head[1])
+    text = open(a.file).read()
+    found = note_rules.problems(text, not re.fullmatch(r'page([2-9]|\d\d+)\.n1', os.path.basename(a.file)))
+    for problem in found:
+        print(problem)
+    lines = text.splitlines()
+    head = re.fullmatch(r'N1 div=([1-9]\d*) ts=([1-9]\d*)/([1-9]\d*) ks=(0|[1-7][sf])', lines[0].strip()) if lines else None
+    notes = 0
+    if head:
+        div = int(head[1])
 
-    def key(ks):
-        return {} if ks == '0' else {l: '#b'[ks[1] == 'f'] for l in ('FCGDAEB' if ks[1] == 's' else 'BEADGCF')[:int(ks[0])]}
+        def key(ks):
+            return {} if ks == '0' else {l: '#b'[ks[1] == 'f'] for l in ('FCGDAEB' if ks[1] == 's' else 'BEADGCF')[:int(ks[0])]}
 
-    full, sig, bar, errors, notes = div * 4 * int(head[2]) // int(head[3]), key(head[4]), None, 0, 0
-    sung, tied, open_slurs = {}, {}, {}
-    for line in filter(None, map(str.strip, lines[1:])):
-        m = re.fullmatch(r'(m\d+) len=(\d+)((?: (?:ts=\d+/\d+|ks=(?:0|[1-7][sf])))*)', line)
-        if m:
-            bar, length = m[1], int(m[2])
-            for kind, value in re.findall(r'(ts|ks)=(\S+)', m[3]):
-                if kind == 'ks':
-                    sig = key(value)
-                else:
-                    full = div * 4 * int(value.split('/')[0]) // int(value.split('/')[1])
-            if length != full:
-                print(f'{bar}: NOTE len={length} but a full bar is {full}; only a pickup or its closing bar may be shorter')
-            continue
-        m = re.fullmatch(r'c:(.*)', line)
-        if m and bar is not None:
-            for entry in m[1].split():
-                at = re.fullmatch(r'[^@]+@(\d+)', entry)
-                if not at or int(at[1]) >= length:
-                    print(f'{bar} c: CHORDS {entry}: write symbol@position, without spaces, with a position below len={length}')
-                    errors += 1
-            continue
-        m = re.fullmatch(r'(\d+\.\d+)w:(.*)', line)
-        if m and bar is not None:
-            if len(m[2].split()) != sung.get(m[1]):
-                print(f'{bar} {m[1]}w: WORDS {len(m[2].split())} syllables for {sung.get(m[1], 0)} notes; write _ under a note that has no syllable')
-                errors += 1
-            continue
-        m = re.fullmatch(r'(\d+\.\d+):(.*)', line)
-        if not m or bar is None:
-            print(f'BAD line: {line}')
-            errors += 1
-            continue
-        dur, total, sung[m[1]], held = None, 0, 0, tied.get(m[1], False)
-        for t in m[2].split():
-            if t.isdigit():
-                dur = int(t)
+        full, sig, bar = div * 4 * int(head[2]) // int(head[3]), key(head[4]), None
+        for line in filter(None, map(str.strip, lines[1:])):
+            m = re.fullmatch(r'(m\d+) len=(\d+)((?: (?:ts=[1-9]\d*/[1-9]\d*|ks=(?:0|[1-7][sf])))*)', line)
+            if m:
+                bar, length = m[1], int(m[2])
+                for kind, value in re.findall(r'(ts|ks)=(\S+)', m[3]):
+                    if kind == 'ks':
+                        sig = key(value)
+                    else:
+                        full = div * 4 * int(value.split('/')[0]) // int(value.split('/')[1])
+                if length != full:
+                    print(f'{bar}: NOTE len={length} but a full bar is {full}; only a pickup or its closing bar may be shorter')
                 continue
-            if re.fullmatch('clef=(%s)' % '|'.join(CLEF), t):
+            m = re.fullmatch(r'(\d+\.\d+):(.*)', line)
+            if not m or bar is None:
                 continue
-            for c in t:
-                if c in '()':
-                    open_slurs[m[1]] = open_slurs.get(m[1], 0) + (1 if c == '(' else -1)
-            t = t.lstrip('(').rstrip(')')
-            grace = t[0] in 'gu'
-            if not grace and dur is None or not re.fullmatch(r'[gu]?[A-G](##?|bb?)?\d~?(\+[A-G](##?|bb?)?\d~?)*[.>]*|r', t):
-                print(f'{bar} {m[1]}: BAD token {t}')
-                errors += 1
-                continue
-            total += 0 if grace else dur
-            if not grace and t != 'r':
-                sung[m[1]] += not held
-                held = '~' in t
-            tied[m[1]] = held
-            for letter, acc, octave in re.findall(r'([A-G])(##?|bb?)?(\d)', t):
-                if acc != sig.get(letter, ''):
-                    print(f'{bar} {m[1]}: {letter}{acc}{octave} departs from the key signature: find its printed accidental')
-                    notes += 1
-        if total != length:
-            print(f'{bar} {m[1]}: LENGTH {total}, bar is {length}')
-            errors += 1
-    for voice, n in open_slurs.items():
-        if n:
-            print(f'{voice}: SLURS {abs(n)} more {"(" if n > 0 else ")"} than {")" if n > 0 else "("} in this voice over the whole file')
-            errors += 1
-    print(f'{errors} errors, {notes} pitches outside the key signature')
+            for t in m[2].split():
+                for letter, acc, octave in re.findall(r'([A-G])(##?|bb?)?(\d)', t):
+                    if acc != sig.get(letter, ''):
+                        print(f'{bar} {m[1]}: {letter}{acc}{octave} departs from the key signature: find its printed accidental')
+                        notes += 1
+    print(f'{len(found)} errors, {notes} pitches outside the key signature')
 
 
 def pages(a):

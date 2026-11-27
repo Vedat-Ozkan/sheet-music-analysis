@@ -63,10 +63,10 @@ After every system:
 
     python3 kit/notetool.py check YOUR_FILE
 
-- `LENGTH`: the voice does not fill its bar. Read the rhythm again. Never change `len` to make it fit.
+The check uses the same rules as the server that builds the score from your file. Each error says where it is and what to fix; fix every one.
+
+- `adds up to`: the voice does not fill its bar. Read the rhythm again. Never change `len` to make it fit.
 - `NOTE len=…`: allowed only for a pickup bar and the bar that completes it.
 - `departs from the key signature`: point to the printed accidental for each one (on the note or earlier in the bar). If there is none, the pitch is wrong.
-- `BAD`: fix the syntax.
-- `WORDS`: the words line does not have one entry for each sung note of its voice. Count again.
-- `CHORDS`: an entry of a `c:` line has no position, or a position that is not below the bar's `len`.
-- `SLURS`: a slur was opened and not closed, or closed and not opened, in that voice.
+- `entries for … sung notes`: the words line does not have one entry for each sung note of its voice. Count again.
+- `cannot be written as one note`: no single printed note has that length. Read the note value again; a note held across a beat is written as tied notes.

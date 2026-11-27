@@ -3,6 +3,9 @@ import copy
 import io
 import json
 import re
+import shutil
+import subprocess
+import sys
 import xml.etree.ElementTree as ET
 import zipfile
 from fractions import Fraction
@@ -14,6 +17,8 @@ from engine import correct, from_notes, notes
 from engine import read_pdf as pdf_reader
 from engine.render import load_toolkit
 from engine.score import ScoreIndex
+from kit import note_rules
+from music21.duration import Duration
 from server import app
 from tests.test_chord_symbols import LEAD_SHEET, PRINTED, printed_symbols
 
@@ -160,10 +165,28 @@ def test_a_later_page_without_a_time_signature_keeps_the_one_before():
     assert from_notes.join_pages([PAGES[0], later]) == from_notes.join_pages(PAGES[:2])
 
 
-def test_a_clef_written_after_the_last_note_is_refused_with_where_to_put_it():
-    voice_line = next(line for line in PAGES[0].splitlines() if line.startswith("2.1:"))
-    with pytest.raises(correct.CorrectionError, match="clef=F is written after the last note"):
-        from_notes.score_from_notes(PAGES[0].replace(voice_line, voice_line + " clef=F", 1))
+def clefs_in_bars(score):
+    bars = []
+    for bar in ET.fromstring(score).find("part").findall("measure"):
+        elements = list(bar)
+        first_notes = {}
+        for position, element in enumerate(elements):
+            if element.tag == "note":
+                first_notes.setdefault(element.findtext("staff"), position)
+        bars.append([(clef.get("number"), clef.findtext("sign"), position < first_notes[clef.get("number")])
+                     for position, element in enumerate(elements) for clef in element.findall("clef")])
+    return bars
+
+
+@pytest.mark.parametrize("pages", [
+    ["N1 div=4 ts=4/4 ks=0\nm1 len=16\n1.1: 16 C5\n2.1: clef=G 16 C4 clef=F\nm2 len=16\n1.1: 16 D5\n2.1: 16 D3"],
+    ["N1 div=4 ts=4/4 ks=0\nm1 len=16\n1.1: 16 C5\n2.1: clef=G 16 C4 clef=F",
+     "N1 div=4 ts=4/4 ks=0\nm2 len=16\n1.1: 16 D5\n2.1: 16 D3"],
+], ids=["next-bar", "next-page"])
+def test_a_clef_printed_at_the_end_of_a_bar_starts_the_next_bar_in_that_clef(pages):
+    assert all(note_rules.problems(page, number == 1) == [] for number, page in enumerate(pages, 1))
+    bars = clefs_in_bars(from_notes.score_from_pages(pages))
+    assert bars[0] == [("1", "G", True), ("2", "G", True)] and bars[1] == [("2", "F", True)]
 
 
 def test_a_clef_change_is_written_where_it_is_printed():
@@ -474,3 +497,143 @@ def test_a_careful_reading_covers_every_page_of_a_scan_longer_than_the_quick_rea
     pages = [f"N1 div=1 ts=4/4 ks=0\nm{bar} len=4\n1.1: 4 C4" for bar in range(1, total + 1)]
     result = asyncio.run(app.mcp.call_tool("use_careful_reading", {"score_id": score_id, "pages": pages}))
     assert not result.is_error and "It holds only" not in text_of(result)
+
+
+BAR = "N1 div=4 ts=4/4 ks=0\nm1 len=16\n"
+BAD_PAGES = [
+    (BAR + "1.1: 16 C4" + " " * note_rules.MAX_CHARS, "The note list is too long"),
+    (BAR + "1.1: 16 C4\n1.1w: la\x01", "The note list holds a control character; write only plain text"),
+    ("N1 div=4 ts=4/4\nm1 len=16\n1.1: 16 C4", note_rules.HEADING),
+    ("N1 div=4 ts=4-4 ks=0\nm1 len=16\n1.1: 16 C4", "A time signature looks like ts=3/4, not ts=4-4"),
+    ("N1 div=4 ts= ks=0\nm1 len=16\n1.1: 16 C4", "A time signature looks like ts=3/4, not ts="),
+    ("N1 div=4 ts=4/4 ks=8s\nm1 len=16\n1.1: 16 C4", "A key signature looks like ks=0, ks=2s or ks=3f, not ks=8s"),
+    ("N1 div=4 ts=4/4 ks=0\nm1 len=16 foo\n1.1: 16 C4", "a bar line looks like 'm3 len=96', not 'm1 len=16 foo'"),
+    ("N1 div=4 ts=4/4 ks=0\nm1 len=16 ts=x\n1.1: 16 C4", "A time signature looks like ts=3/4, not ts=x"),
+    ("N1 div=4 ts=4/4 ks=0\n1.1: 16 C4\n" + BAR[21:] + "1.1: 16 C4", "Line 2: a voice line needs a bar line like 'm3 len=96' before it"),
+    ("N1 div=4 ts=4/4 ks=0\nx: f@0\n" + BAR[21:] + "1.1: 16 C4", "Line 2: a marks line needs a bar line like 'm3 len=96' before it"),
+    ("N1 div=4 ts=4/4 ks=0\nc: C@0\n" + BAR[21:] + "1.1: 16 C4", "Line 2: a chord symbol line needs a bar line like 'm3 len=96' before it"),
+    ("N1 div=4 ts=4/4 ks=0", "The note list has no measures"),
+    ("N1 div=1 ts=1/4 ks=0\n" + "\n".join(f"m{bar} len=1\n1.1: 1 C4" for bar in range(1, note_rules.MAX_BARS + 2)),
+     "The note list has 1001 bars; at most 1000 can be built"),
+    ("N1 div=4 ts=4/4 ks=0\nm5 len=16\n1.1: 16 C4\nm3 len=16\n1.1: 16 D4",
+     "Bar 3: bar numbers go up from one bar to the next, and m5 comes before it"),
+    ("N1 div=4 ts=4/4 ks=0\nm1 len=260\n1.1: 260 C4", "Bar 1: len= makes this bar longer than 64 quarter notes"),
+    ("N1 div=3 ts=4/4 ks=0\nm1 len=12\n1.1: 12 C4\nm2 len=5\n1.1: 4 C4 1 D4", "Bar 2: len= gives a length no bar can have"),
+    (BAR.replace("len=16", "len=8") + "1.1: 8 C4",
+     "Bar 1: len= makes the first bar shorter than its time signature; only a pickup is shorter, and a pickup is written m0"),
+    (BAR + "1-1: 16 C4", "Line 3: expected 'staff.voice: tokens', e.g. '1.1: 24 C4'"),
+    (BAR + "40.1: 16 C4", "Staves are numbered 1 to 32 from the top and voices 1 to 8"),
+    (BAR + "0.1: 16 C4", "Bar 1: invalid or repeated voice 0.1"),
+    (BAR + "1.1: 16 C4\n1.1: 16 D4", "Bar 1: invalid or repeated voice 1.1"),
+    (BAR + "1.1: 16 C4\n2.1: 16 r", "Bar 1: include all 1 staves"),
+    (BAR + "1.1: 16 H4", "Bar 1: invalid pitch 'H4'"),
+    (BAR + "1.1: 16 C10", "Bar 1: invalid pitch 'C10'"),
+    (BAR + "1.1: gr 16 C4", "Grace rests are not supported"),
+    (BAR + "1.1: 0 C4 16 C4", "Bar 1: duration must be positive"),
+    (BAR + "1.1: C4 16 C4", "Bar 1: note/rest has no duration"),
+    ("N1 div=5 ts=4/4 ks=0\nm1 len=20\n1.1: 7 C4 3 D4 10 E4", "Bar 1: a duration of 7 at div=5 cannot be written as one "
+     "note; use plain or dotted note values, notes of a simple tuplet such as a triplet, or tied notes"),
+    (BAR + "1.1: 5 C4 3 D4 8 E4", "Bar 1: a duration of 5 at div=4 cannot be written as one note; use plain or dotted "
+     "note values, notes of a simple tuplet such as a triplet, or tied notes"),
+    (BAR + "1.1: 12 C4", "Bar 1, voice 1.1 adds up to 3; expected 4 quarter notes"),
+    (BAR + "1.1w: la\n1.1: 16 C4", "Bar 1: the words line 1.1w needs its voice line 1.1 before it"),
+    (BAR + "1.1: 16 C4\n1.1w: la la", "Bar 1, 1.1w: 2 entries for 1 sung notes; write one entry for each note that is not "
+     "a rest, a grace note or the continuation of a tie, and _ where no syllable is printed"),
+    (BAR + "c: C@16\n1.1: 16 C4", "Bar 1: a chord symbol is written as symbol@position, without spaces, with the position "
+     "in units from the start of the bar and below its len, e.g. D7@0, not 'C@16'"),
+    (BAR + "x: zz\n1.1: 16 C4", "The note list could not be read: unknown mark 'zz'"),
+    (BAR + "1.1: 16 C4)", "Bar 1, voice 1.1: a slur ends here that was never started; write ( before its first note"),
+    (BAR + "1.1: 16 " + "(" * 17 + "C4" + ")" * 16, "Bar 1, voice 1.1: more than 16 slurs are open at once"),
+    (BAR + "1.1: 16 (C4", "A slur starts in voice 1.1 and never ends; close it with ) after its last note"),
+]
+RULES_ONLY = {"Staves are numbered 1 to 32 from the top and voices 1 to 8", "The note list has 1001 bars; at most 1000 can be built",
+              "Bar 1: len= makes this bar longer than 64 quarter notes", BAD_PAGES[16][1],
+              next(sentence for page, sentence in BAD_PAGES if "a duration of 5 at div=4" in sentence)}
+
+
+def builds_without_the_rules(page):
+    try:
+        from_notes.score_from_notes(from_notes.join_pages([page]))
+        from_notes.score_from_notes(page)
+    except Exception:
+        return False
+    return True
+
+
+@pytest.mark.parametrize("page, sentence", BAD_PAGES, ids=[sentence[:50] for _, sentence in BAD_PAGES])
+def test_every_page_the_builder_refuses_gets_the_rules_sentence_first(page, sentence):
+    assert note_rules.problems(page, True) == [sentence]
+    with pytest.raises(notes.NotesError) as refused:
+        from_notes.score_from_pages([page])
+    assert str(refused.value) == "Page 1: " + sentence
+    assert builds_without_the_rules(page) == (sentence in RULES_ONLY)
+
+
+@pytest.mark.parametrize("pages, sentence", [
+    (["N1 div=1 ts=1/4 ks=0\n" + "\n".join(f"m{bar} len=1\n1.1: 1 C4" for bar in range(1, 601))] * 2,
+     "The pages have 1200 bars together; at most 1000 can be built"),
+    ([BAR + "1.1: 16 C4" + " " * (note_rules.MAX_CHARS // 2)] * 2, "The pages are longer than 200000 characters together"),
+], ids=["bars", "characters"])
+def test_pages_too_big_together_are_refused_before_they_are_joined(pages, sentence):
+    assert note_rules.join_problems(pages) == [sentence]
+    with pytest.raises(notes.NotesError, match=f"^{re.escape(sentence)}$"):
+        from_notes.score_from_pages(pages)
+
+
+BENCH = TRIAL / "bench"
+REAL_PAGES = sorted(DATA.rglob("*.n1")) + sorted(TRIAL.glob("*/page*.n1")) + sorted(BENCH.glob("codex/*/page*.n1")) + \
+    sorted(BENCH.glob("sonnet/*/page*.n1"))
+
+
+def page_alone(page, first):
+    if first:
+        return [page]
+    div, beats, unit, key = re.match(r"N1 div=(\d+) ts=(\d+)/(\d+) ks=(\S+)", page).groups()
+    full = 4 * int(beats) * int(div) // int(unit)
+    return [f"N1 div={div} ts={beats}/{unit} ks={key}\nm1 len={full}\n1.1: {full} r", page]
+
+
+@pytest.mark.parametrize("page, first", [(path.read_text(), not re.fullmatch(r"page([2-9]|\d\d+)", path.stem)) for path in REAL_PAGES]
+                         + [(page, True) for page, _ in BAD_PAGES],
+                         ids=[str(path.relative_to(path.parents[2])) for path in REAL_PAGES] + [s[:50] for _, s in BAD_PAGES])
+def test_the_rules_pass_a_page_exactly_when_it_builds(page, first):
+    found = note_rules.problems(page, first)
+    try:
+        from_notes.score_from_pages(page_alone(page, first))
+    except notes.NotesError as refused:
+        assert found and str(refused).endswith(found[0])
+    else:
+        assert found == []
+
+
+def test_the_real_pages_are_all_in_the_sweep():
+    if not TRIAL.exists():
+        pytest.skip("the trial's pages are not on this computer")
+    assert len(list(BENCH.glob("codex/*/page*.n1"))) == len(list(BENCH.glob("sonnet/*/page*.n1"))) == 4
+
+
+def test_a_duration_the_rules_take_as_one_note_is_one_note_for_the_engraver():
+    durations = {Fraction(units, div) for div in range(1, 97) for units in range(1, 8 * div + 1)}
+    one_note = {duration for duration in durations if note_rules.one_note(duration)}
+    written = {duration: Duration(duration) for duration in durations}
+    assert len(one_note) == 56
+    assert [duration for duration in one_note if written[duration].type in ("inexpressible", "complex")
+            or any(t.durationNormal.type != written[duration].type for t in written[duration].tuplets)] == []
+    rests = {duration for duration in durations if note_rules.rest_length(duration)}
+    assert [duration for duration in rests if written[duration].type == "inexpressible" or written[duration].tuplets] == []
+
+
+@pytest.mark.parametrize("text, reported", [
+    (BAR + "1.1: 12 C4", "Bar 1, voice 1.1 adds up to 3; expected 4 quarter notes\n1 errors, 0 pitches outside the key signature"),
+    (BAR + "1.1: 16 F#4", "0 errors, 1 pitches outside the key signature"),
+], ids=["bad", "good"])
+def test_the_kit_check_reports_what_the_builder_would_refuse(tmp_path, text, reported):
+    python = next((python for python in (sys.executable, shutil.which("python3")) if python and subprocess.run(
+        [python, "-c", "import cv2, scipy"], capture_output=True).returncode == 0), None)
+    if python is None:
+        pytest.skip("no Python with the kit's image packages on this computer")
+    page = tmp_path / "page1.n1"
+    page.write_text(text)
+    kit = Path(__file__).parent.parent / "kit" / "notetool.py"
+    printed = subprocess.run([python, str(kit), "check", str(page)], capture_output=True, text=True, check=True).stdout
+    assert printed.strip().endswith(reported)

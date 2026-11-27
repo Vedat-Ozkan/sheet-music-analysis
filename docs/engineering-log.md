@@ -4690,6 +4690,18 @@ Separately, a careful reading handed in for one page of an eight-page scan was a
 
 **One false start, mine.** The owner's first run of step B stopped at once: staging answered without the mark. I had moved staging's traffic back to the build with the proxy change, but the proof script sets the instance count with `gcloud run services update`, which makes a new revision from the latest deployed build, and that was a build without the change. Setting that build as the service's current one fixed it. Before any such proof, check the mark on the latest revision, not only where traffic points.
 
+### 220. The kit's check and the score builder share one rule file (2026-11-26, branch `careful-reading-whole`)
+
+**Why.** A careful reading's helpers check each page with `kit/notetool.py check`, a separate copy of the rules. It passed pages the builder then refused: on the trial, four Codex pages and one Sonnet page had every note right, the check said "0 errors", and the builder refused a clef written after the last note of a bar.
+
+**What changed.** `kit/note_rules.py` (standard library only) holds every rule a page must pass, in the builder's sentences. The server serves it in the kit, the kit's check prints its problems, and `score_from_pages` runs it on every page before building, so the check and the builder cannot disagree. The limits (staves, voices, bars, bar length) and the short-first-bar rule now live only there. A clef printed at the end of a bar is now accepted: the builder moves it to the start of the same staff's next bar, across a page turn too. Durations have an explicit rule: plain or dotted (up to two dots) whole to 64th notes, and these with one dot or none in triplets, quintuplets and septuplets (56 values of n/div for div up to 96, all of them single notes to the engraver); a rest may be any length down to 64ths, since the builder splits it into rests (one trial page has rests of 3 3/8 and 5/4 quarters).
+
+**Checks.** A table of 37 bad pages, one per builder refusal; a sweep over the 34 real note lists (test data, the trial, the Codex and Sonnet bench pages): each builds exactly when the rules pass it, and all 34 do. Random edits of real pages, 8,600 single pages and 2,500 page sets, before and after the change: no page passed the rules and was refused by the builder.
+
+**Stricter than before, on no real page:** a note (not a rest) whose length is not one printed note (the builder used to tie it silently), rest-only bars whose rests do not fill the bar, bar numbers that do not go up, an empty `ts=`.
+
+**Not covered:** the joined score can still pass 200,000 characters when the pages are under it together (renumbered bars and a common `div` make it longer); the rules refuse pages over that total, not the joined text.
+
 ## Reproducing
 
 ```bash

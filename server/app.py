@@ -1570,7 +1570,7 @@ CAREFUL_STEPS = (
 HELPER_SETTINGS = {"claude": "Each helper runs on the Sonnet model at medium effort.",
                    "other": "Each helper runs at the highest thinking setting available."}
 KIT = HERE.parent / "kit"
-KIT_FILES = ("notetool.py", "tool.md", "reader.md")
+KIT_FILES = ("notetool.py", "note_rules.py", "tool.md", "reader.md")
 KIT_ELSEWHERE = os.environ.get("KIT_ELSEWHERE", "").rstrip("/")
 CAREFUL_PLATFORMS = set(os.environ.get("CAREFUL_READING", "").split(","))
 CAREFUL_TOOLS = {"careful_reading", "use_careful_reading"}

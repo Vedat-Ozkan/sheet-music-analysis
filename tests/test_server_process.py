@@ -134,7 +134,7 @@ def test_claude_is_offered_the_upload_card_score_links_and_cards_on_its_own_doma
 
 
 def test_a_chat_can_download_the_careful_reading_kit(server):
-    opening = {"notetool.py": "import argparse", "tool.md": "# Reading notes with notetool.py", "reader.md": "# Read one page of scanned music"}
+    opening = {"notetool.py": "import argparse", "note_rules.py": "import re", "tool.md": "# Reading notes with notetool.py", "reader.md": "# Read one page of scanned music"}
     for name, first_words in opening.items():
         assert urllib.request.urlopen(f"{server}/kit/{name}", timeout=30).read().decode().startswith(first_words)
     with pytest.raises(urllib.error.HTTPError) as refused:
