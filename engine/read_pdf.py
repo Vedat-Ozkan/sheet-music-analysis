@@ -321,7 +321,7 @@ def without_slurs(score: bytes) -> bytes:
 def open_pdf(data: bytes) -> pikepdf.Pdf:
     try:
         return pikepdf.open(io.BytesIO(data))
-    except pikepdf.PdfError as error:
+    except (pikepdf.PdfError, pikepdf.PasswordError) as error:
         raise ReadError("This file could not be opened as a PDF", lasting=True) from error
 
 

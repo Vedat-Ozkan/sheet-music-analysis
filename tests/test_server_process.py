@@ -630,6 +630,21 @@ def store_pdfs_per_route(tmp_path, kind):
                 (scores / f"pdf-card-{pdf_reader.READER}-{hashlib.sha256(pdf).hexdigest()}.json").write_text(json.dumps(card))
 
 
+def test_an_ordinary_turn_after_the_question_is_told_of_a_quick_reading_only_once_there_is_one(tmp_path):
+    store_pdfs_per_route(tmp_path, "scan")
+    with running_server(tmp_path, CAREFUL_READING="chatgpt") as (url, _):
+        question = called(url, AGENT_TURN, "read_fetched_pdf", pdf_id="AGENTNO")["content"][-1]["text"]
+        reading = re.search(r"careful_reading with the reading id (\w+)\.", question)[1]
+        before = called(url, ORDINARY_TURN, "careful_reading", score_id=reading)["content"][0]["text"]
+        called(url, ORDINARY_TURN, "read_fetched_pdf", pdf_id="AGENTNO")
+        after = called(url, ORDINARY_TURN, "careful_reading", score_id=reading)["content"][0]["text"]
+        again = called(url, AGENT_TURN, "read_fetched_pdf", pdf_id="AGENTNO")["content"][-1]["text"]
+    assert before.endswith("Meanwhile there is no quick reading to use yet: read_fetched_pdf again with the same pdf_id gives it.")
+    assert "stays" not in before
+    assert after.endswith("Meanwhile the quick reading stays: score_id QUICKAGENTN is ready for draft_analysis.")
+    assert "Question for the user" not in again and "score_id QUICKAGENTN is ready" in again
+
+
 @pytest.mark.parametrize("kind", PDFS)
 def test_every_route_that_can_read_carefully_asks_before_any_reading_and_a_yes_or_a_no_goes_on_from_there(tmp_path, kind):
     store_pdfs_per_route(tmp_path, kind)

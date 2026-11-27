@@ -442,8 +442,11 @@ async def take(kind: str, source: str, amount: int = 1) -> bool:
 
 
 async def room_left(kind: str) -> bool:
-    counts = json.loads(await anyio.to_thread.run_sync(store.get, f"usage/{today()}.json") or b"{}")
-    return counts.get(kind, 0) < DAILY_LIMITS[kind]
+    return await below(f"usage/{today()}.json", kind, DAILY_LIMITS[kind])
+
+
+async def below(key: str, name: str, limit: int) -> bool:
+    return json.loads(await anyio.to_thread.run_sync(store.get, key) or b"{}").get(name, 0) < limit
 
 
 async def take_for(person: str | None, amount: int = 1) -> bool:
@@ -476,6 +479,35 @@ async def sent_before(person: str | None, data: bytes) -> str | None:
 async def remember_sent(person: str | None, data: bytes, code: str) -> None:
     if person:
         await anyio.to_thread.run_sync(store.put, sent_key(person, data), code.encode())
+
+
+CHARGED_BY_QUICK, CHARGED_BY_CAREFUL = b"quick", b"careful"
+
+
+def charged_key(person: str, digest: str) -> str:
+    return f"scores/charged-{pseudonym(f'{today()}/{person}/{digest}')}"
+
+
+async def charge_mark(person: str | None, digest: str) -> bytes | None:
+    return await anyio.to_thread.run_sync(store.get, charged_key(person, digest)) if person else None
+
+
+async def mark_charged(person: str | None, digest: str, mark: bytes) -> None:
+    if person:
+        await anyio.to_thread.run_sync(store.put, charged_key(person, digest), mark)
+
+
+async def score_unit_due(pdf: dict) -> bool:
+    return pdf.get("arrived", False) and not await charge_mark(caller(), pdf["digest"])
+
+
+async def careful_limit(pdf: dict) -> str | None:
+    if await score_unit_due(pdf):
+        if (person := caller()) and not await below(f"limits/{today()}.json", person, PERSON_SCORE_LIMIT):
+            return PERSON_LIMIT_MESSAGE
+        if not await room_left("score"):
+            return LIMIT_MESSAGE
+    return None if await room_left("draft") else LIMIT_MESSAGE
 
 
 def caller() -> str | None:
@@ -673,8 +705,8 @@ async def fetch_given_score(score_file: AttachedFile | None, score_id: str | Non
                     raise NotChosenYet(NOT_CHOSEN_YET)
                 if await anyio.to_thread.run_sync(store.get, careful_key(code)) is not None:
                     raise ScoreError(A_CAREFUL_READING_ID)
-                if (unread := await anyio.to_thread.run_sync(store.get, reading_key(code))) is not None:
-                    raise ScoreError(PDF_NOT_READ_YET.format(again=json.loads(unread)["again"]))
+                if "digest" in (pdf := await pdf_record(code)):
+                    raise ScoreError(await pdf_id_answer(pdf))
                 raise ScoreError("No score has that id; scores are kept for 30 days")
             return data, "score_id"
     raise ScoreError(for_product(NO_SCORE_GIVEN, source))
@@ -1481,6 +1513,7 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
             log("read_pdf_work", busy=True)
             return busy()
         async with pdf_lock:
+            arrived = arrived and await charge_mark(person, digest) != CHARGED_BY_CAREFUL
             refused = await take_score(person, source) if arrived else None
             if not refused and not await take("pdf_page", source, read):
                 if arrived:
@@ -1489,6 +1522,8 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
             if refused:
                 log("read_pdf_work", limit=refused, pages=read)
                 return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
+            if arrived:
+                await mark_charged(person, digest, CHARGED_BY_QUICK)
             log("read_pdf_work", **await anyio.to_thread.run_sync(pdf_reader.file_facts, data))
             try:
                 with stage("omr"):
@@ -1498,6 +1533,7 @@ async def read_pdf_card(data: bytes, digest: str, source: str, arrived: bool, pe
             except Exception:
                 if arrived:
                     await give_back_score(person, source)
+                    await mark_charged(person, digest, b"")
                 raise
         passes = result.passes
         reading = {"score_id": secrets.token_hex(8).upper(), "pages": result.pages, "scan": result.scan,
@@ -1552,12 +1588,16 @@ CAREFUL_QUESTION = (
     "This PDF is not read yet: it has {count}, {kind}. No score_id exists for it yet.\n"
     "Question for the user, before any reading: \"Your PDF can be read in two ways. The careful reading is more "
     "accurate: the chat reads each page itself. {warning} The quick reading takes about a minute a page or less, but it "
-    "makes more mistakes, and not all of them are shaded. Shall I read it carefully, or quickly?\"\n"
+    "makes more mistakes, and not all of them are shaded.{first_only} Shall I read it carefully, or quickly?\"\n"
     "A yes to the careful reading is the user's request for careful_reading with the reading id {reading}. Any other "
     "answer is a request for the quick reading: {again} reads the PDF. In a chat without a code sandbox the quick "
     "reading follows at once."
 )
 QUESTION_STATUS = "Your PDF is not read yet: the chat asks whether to read it carefully or quickly."
+QUICK_FIRST_PAGES = " The quick reading takes only the first {count} pages."
+READ_CAREFULLY = ("This PDF has been read carefully already: score_id {score_id} is that reading, ready for "
+                  "draft_analysis.")
+READ_CAREFULLY_STATUS = "Your PDF has already been read carefully."
 CAREFUL_HOW_TO_START = (
     "Note for the user: \"This was the quick reading of your PDF, which makes more mistakes, and not all of them are "
     "shaded. The careful reading is more accurate: the chat reads each page itself. {warning} To start it, type @{app}, "
@@ -1565,6 +1605,9 @@ CAREFUL_HOW_TO_START = (
 )
 PDF_NOT_READ_YET = ("This id names a PDF that is not read yet, not a score: careful_reading takes it after the user's "
                     "yes to the careful reading; otherwise {again} reads it and returns a score_id.")
+PDF_ID_HAS_A_READING = "This id names a PDF, not a score: its {kind} reading is score_id {score_id}, the one the tools take."
+PDF_ID_WITHOUT_A_SCORE = ("This id names a PDF, not a score, and its quick reading has returned no score_id yet: {again} "
+                          "says where it stands.")
 ASKED_FOR_SECONDS = 3600
 CAREFUL_STEPS = (
     "Steps for the careful reading of the user's PDF ({pages}), in order, in the chat's code sandbox.\n"
@@ -1601,12 +1644,15 @@ CAREFUL_TOOLS = {"careful_reading", "use_careful_reading"}
 ASK_BEFORE_THE_STEPS = (
     "These steps are for after the user's yes to this question (unless they have already said yes to a careful "
     "reading in this chat), since they download and run a script and start helper agents: \"{warning} Shall I go "
-    "ahead?\" If they say no, {quick}.\n"
+    "ahead?\" If they say no, {otherwise}.\n"
 )
 QUICK_STAYS, QUICK_FOLLOWS = ("the quick reading stays: score_id {score_id} is ready for draft_analysis",
                               "the quick reading follows: {again} reads the PDF")
-NOT_A_PDF_READING = ("A careful reading is possible only for a PDF that read_pdf or read_fetched_pdf has read, with the "
-                     "score_id it returned.")
+NO_QUICK_READING = "there is no quick reading to use yet: {again} gives it"
+CAREFUL_STAYS = "the earlier careful reading stays: score_id {score_id} is ready for draft_analysis"
+QUICK_AS_IT_IS = "the quick reading stays as it is"
+NOT_A_PDF_READING = ("A careful reading is possible only for a PDF that has been sent to be read here, with that PDF's "
+                     "reading id or the score_id of its quick reading.")
 A_CAREFUL_READING_ID = ("This id names a careful reading in progress, not a score: use_careful_reading takes it with the "
                         "pages the helpers read and returns the careful reading's score_id for analysis.")
 CHATGPT_APP_NAME = os.environ.get("CHATGPT_APP_NAME") or "Sheet Music Analysis"
@@ -1615,7 +1661,7 @@ NEEDS_THE_AGENT = (
     "internet and can start helper agents, and this turn's sandbox can do neither. No steps are given.\n"
     "Note for the user: \"I can't start the careful reading from this message. To start it, type @{app}, choose the "
     "app from the list, and say yes again.\"\n"
-    "Meanwhile the quick reading stays as it is."
+    "Meanwhile {meanwhile}."
 )
 
 
@@ -1633,34 +1679,61 @@ def asks_first(source: str, route: str | None) -> bool:
     return source in CAREFUL_PLATFORMS and route != "ordinary"
 
 
-def asked_key(source: str, person: str | None, chosen: str, digest: str) -> str:
-    return f"scores/asked-{pseudonym('/'.join((source, person or '', chosen, digest)))}"
+def question_id(source: str, person: str | None, chosen: str, digest: str) -> str:
+    return pseudonym("/".join(("pdf", source, person or "", chosen, digest))).upper()
 
 
-def pdf_reading_id(digest: str) -> str:
-    return pseudonym(f"pdf/{digest}").upper()
+async def pdf_record(code: str) -> dict:
+    return json.loads(await anyio.to_thread.run_sync(store.get, reading_key(code)) or b"{}")
+
+
+async def keep_pdf_record(code: str, record: dict) -> None:
+    await anyio.to_thread.run_sync(store.put, reading_key(code), json.dumps(record).encode())
+
+
+async def quick_score_id(pdf: dict) -> str | None:
+    card = "quick" in pdf and await anyio.to_thread.run_sync(store.get, card_of(pdf["digest"]))
+    return json.loads(card)["score_id"] if card else None
+
+
+async def pdf_id_answer(pdf: dict) -> str:
+    if "careful" in pdf:
+        return PDF_ID_HAS_A_READING.format(kind="careful", score_id=pdf["careful"])
+    if score_id := await quick_score_id(pdf):
+        return PDF_ID_HAS_A_READING.format(kind="quick", score_id=score_id)
+    return (PDF_ID_WITHOUT_A_SCORE if "quick" in pdf else PDF_NOT_READ_YET).format(again=pdf["again"])
 
 
 async def question_first(data: bytes, digest: str, source: str, route: str | None, tool: str, chosen: str) -> CallToolResult | None:
-    if not asks_first(source, route):
+    if source not in CAREFUL_PLATFORMS:
         return None
-    key = asked_key(source, caller(), chosen, digest)
-    asked = json.loads(await anyio.to_thread.run_sync(store.get, key) or b"{}")
+    asks = asks_first(source, route)
+    reading = await anyio.to_thread.run_sync(question_id, source, caller(), chosen, digest)
+    record = await pdf_record(reading)
+    if asks and "careful" in record:
+        log(tool, platform=source, cached="careful")
+        return reading_status(READ_CAREFULLY.format(score_id=record["careful"]), READ_CAREFULLY_STATUS)
+    if "quick" in record:
+        return None
     call = current_call.get() or {}
-    if time.time() - asked.get("at", 0) < ASKED_FOR_SECONDS:
-        call["careful"] = "no"
+    if record and (not asks or "yes" in record or time.time() - record["asked"] < ASKED_FOR_SECONDS):
+        if asks:
+            call["careful"] = "no"
+        await keep_pdf_record(reading, {**record, "quick": True})
+        return None
+    if not asks:
         return None
     try:
         pdf = await anyio.to_thread.run_sync(pdf_reader.open_pdf, data)
         pages, scan = len(pdf.pages), await anyio.to_thread.run_sync(pdf_reader.is_scan, pdf)
-    except pdf_reader.ReadError:
+    except Exception:
         return None
-    reading = pdf_reading_id(digest)
-    await anyio.to_thread.run_sync(store.put, reading_key(reading), json.dumps({"pages": pages, "again": CALL_AGAIN[tool]}).encode())
-    await anyio.to_thread.run_sync(store.put, key, json.dumps({"at": time.time()}).encode())
+    await keep_pdf_record(reading, {"pages": pages, "again": CALL_AGAIN[tool], "digest": digest,
+                                    "arrived": tool == "read_pdf", "asked": time.time()})
     call.update(careful="asked", pages=pages, scan=scan)
+    first_only = QUICK_FIRST_PAGES.format(count=pdf_reader.READ_PAGES) if pages > pdf_reader.READ_PAGES else ""
     text = CAREFUL_QUESTION.format(count=page_count(pages), kind="a scan" if scan else "typeset", reading=reading,
-                                   warning=careful_warning(pages, source), again=CALL_AGAIN[tool])
+                                   warning=careful_warning(pages, source), first_only=first_only, again=CALL_AGAIN[tool])
     return CallToolResult(content=[TextContent(type="text", text=text)], structured_content={"status": QUESTION_STATUS})
 
 
@@ -2246,8 +2319,8 @@ async def correct_bars(
 @observed
 async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
     source = platform(ctx)
-    pdf = await anyio.to_thread.run_sync(store.get, reading_key(score_id))
-    if pdf is None:
+    pdf = await pdf_record(score_id)
+    if not pdf:
         try:
             await fetch_given_score(None, score_id, source)
         except ScoreError as error:
@@ -2255,19 +2328,26 @@ async def careful_reading(ctx: Context, score_id: str) -> CallToolResult:
             return error_result(str(error))
         log("careful_reading", platform=source, error="ScoreError", reason=NOT_A_PDF_READING)
         return error_result(NOT_A_PDF_READING)
-    pdf = json.loads(pdf)
     pages = pdf["pages"]
+    quick_id = await quick_score_id(pdf) if "digest" in pdf else clean_id(score_id)
+    kept = (QUICK_STAYS.format(score_id=quick_id) if quick_id
+            else CAREFUL_STAYS.format(score_id=pdf["careful"]) if "careful" in pdf else None)
     if chatgpt_route(*request_parts(ctx)) == "ordinary":
         log("careful_reading", platform=source, pages=pages, answer="needs_the_agent")
-        return CallToolResult(content=[TextContent(type="text", text=NEEDS_THE_AGENT.format(app=CHATGPT_APP_NAME))])
-    if "again" in pdf:
+        meanwhile = kept or NO_QUICK_READING.format(again=pdf["again"]) if "digest" in pdf else QUICK_AS_IT_IS
+        return CallToolResult(content=[TextContent(type="text", text=NEEDS_THE_AGENT.format(app=CHATGPT_APP_NAME, meanwhile=meanwhile))])
+    if limit := await careful_limit(pdf):
+        log("limit", tool="careful_reading", platform=source)
+        return error_result(limit)
+    if "digest" in pdf:
         (current_call.get() or {})["careful"] = "yes"
+        await keep_pdf_record(clean_id(score_id), {**pdf, "yes": True})
     addresses = [f"{PUBLIC_BASE_URL}/kit", *([KIT_ELSEWHERE] if KIT_ELSEWHERE else [])]
     reading = secrets.token_hex(8).upper()
     await anyio.to_thread.run_sync(store.put, careful_key(reading), json.dumps({"pdf": clean_id(score_id)}).encode())
     log("careful_reading", platform=source, pages=pages, answer="steps")
-    quick = QUICK_FOLLOWS.format(again=pdf["again"]) if "again" in pdf else QUICK_STAYS.format(score_id=clean_id(score_id))
-    ask = ASK_BEFORE_THE_STEPS.format(warning=careful_warning(pages, source), quick=quick)
+    ask = ASK_BEFORE_THE_STEPS.format(warning=careful_warning(pages, source),
+                                      otherwise=kept or QUICK_FOLLOWS.format(again=pdf["again"]))
     return CallToolResult(content=[TextContent(type="text", text=ask + CAREFUL_STEPS.format(
         pages=page_count(pages), limit=FIRST_PAGES_WITH_MUSIC.format(count=CAREFUL_PAGES) if pages > CAREFUL_PAGES else "", score_id=reading, files=" ".join(KIT_FILES),
         download=" || ".join(f"curl -fsSL {address}/$f -o kit/$f" for address in addresses),
@@ -2312,14 +2392,15 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
     source = platform(ctx)
     record = json.loads(await anyio.to_thread.run_sync(store.get, careful_key(score_id)) or b"{}")
     remembered = "pdf" in record
-    pdf = await anyio.to_thread.run_sync(store.get, reading_key(record.get("pdf", score_id)))
-    if pdf is None:
+    pdf_id = record.get("pdf", score_id)
+    pdf = await pdf_record(pdf_id)
+    if not pdf:
         log("use_careful_reading", platform=source, error="ScoreError", reason=NOT_A_PDF_READING)
         return error_result(NOT_A_PDF_READING)
-    if not await room_left("draft"):
+    if limit := await careful_limit(pdf):
         log("limit", tool="use_careful_reading", platform=source)
-        return error_result(LIMIT_MESSAGE)
-    pdf_pages = json.loads(pdf)["pages"]
+        return error_result(limit)
+    pdf_pages = pdf["pages"]
     numbers = [note_rules.page_number(page) or 0 for page in pages]
     if len(pages) > pdf_pages or max(numbers, default=0) > pdf_pages:
         too_many = f"This PDF has {page_count(pdf_pages)}; hand in one note list for each of its pages, with its page number."
@@ -2354,14 +2435,24 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
         log("use_careful_reading", platform=source, pages=len(pages), answer="sent_back", sent_back=sorted({doubt.page for doubt in new}))
         return CallToolResult(content=[TextContent(type="text", text=SENT_BACK.format(
             reasons="\n".join(f"- {doubt.reason}" for doubt in new), score_id=clean_id(score_id)))])
+    due = await score_unit_due(pdf)
+    if due and (refused := await take_score(caller(), source)):
+        log("limit", tool="use_careful_reading", platform=source, per=refused)
+        return error_result(PERSON_LIMIT_MESSAGE if refused == "person" else LIMIT_MESSAGE)
     if not await take("draft", source):
+        if due:
+            await give_back_score(caller(), source)
         log("limit", tool="use_careful_reading", platform=source)
         return error_result(LIMIT_MESSAGE)
+    if due:
+        await mark_charged(caller(), pdf["digest"], CHARGED_BY_CAREFUL)
     shaded = sorted({bar for doubt in built.doubts for bar in built.bars[doubt.page]})
     code = secrets.token_hex(8).upper()
     await anyio.to_thread.run_sync(store.put, f"scores/{code}", built.score)
     await anyio.to_thread.run_sync(store.put, shaded_key(code), json.dumps(shaded).encode())
     await anyio.to_thread.run_sync(store.put, doubted_key(code), json.dumps(shaded).encode())
+    if "digest" in pdf:
+        await keep_pdf_record(pdf_id, {**await pdf_record(pdf_id), "careful": code})
     log("use_careful_reading", platform=source, pages=len(pages), pdf_pages=pdf_pages, bars=len(bars),
         chars_in=sum(map(len, pages)), bars_shaded=len(shaded))
     full = len(kept) == CAREFUL_PAGES
