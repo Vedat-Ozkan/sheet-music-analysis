@@ -21,9 +21,8 @@ TRANSPOSING_NAME = re.compile(r"\bin [a-g](?:[b#♭♯]|[- ](?:flat|sharp))?\b|\
                               re.IGNORECASE)
 REGISTER_JUMP = 11
 PITCH_NAMES = ("C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B")
-STAVES, REGISTER, TIME, OPENING = (
-    "pages agree on their staves", "a staff keeps its register over a page turn", "an assumed time signature fits the page before",
-    "a short first bar completes the page before")
+STAVES, REGISTER, TIME = (
+    "pages agree on their staves", "a staff keeps its register over a page turn", "an assumed time signature fits the page before")
 
 
 class WholePieceError(notes.NotesError):
@@ -287,13 +286,13 @@ def _join(pages: list[str]) -> _Joined:
         if unmatched:
             doubts.append(_staves_doubt(page, reference, instruments, unmatched))
         page.bars = [_placed(bar, page.places, set(unmatched)) for bar in page.bars]
-    bars, opening = _joined(read, div, meter, key)
+    bars = _joined(read, div, meter, key)
     _sounding(bars, div)
     names = _bar_names(bars, div, meter)
     numbers = [int(name.rstrip("a")) for name in names]
     concert = any(re.match(r"i:\s*concert\b", line.strip()) for page in pages for line in page.splitlines())
     keys, printed_apart, split = _staff_keys(bars, key, instruments)
-    doubts += opening + _register_doubts(bars, [page.number for page in read])
+    doubts += _register_doubts(bars, [page.number for page in read])
     apart = printed_apart | {place for place, name in instruments.items() if TRANSPOSING_NAME.search(name)}
     said = [] if concert or not apart else [_as_printed(instruments, sorted(apart))]
     return _Joined(_bars_as_text(bars, div, meter, key), names, instruments, keys, doubts,
@@ -419,8 +418,8 @@ def _page_bars(number: int, lines: list[str], scale: int, meter: str, key: str) 
     return bars
 
 
-def _joined(pages: list[_Page], div: int, meter: str, key: str) -> tuple[list[_Bar], list[Doubt]]:
-    bars, doubts, before = [], [], None
+def _joined(pages: list[_Page], div: int, meter: str, key: str) -> list[_Bar]:
+    bars = []
     for page in pages:
         for position, bar in enumerate(page.bars):
             turn = position == 0 and bool(bars)
@@ -430,20 +429,12 @@ def _joined(pages: list[_Page], div: int, meter: str, key: str) -> tuple[list[_B
                 else:
                     bars[-1] = _one_bar(bars[-2] if len(bars) > 1 else None, bars[-1], bar, div)
                 continue
-            if turn and _short(bar, div, meter):
-                doubts.append(Doubt(OPENING, page.number,
-                                    f"Page {page.number} begins with a bar shorter than its time signature, and the last bar "
-                                    f"of page {before.number} does not make up the rest: count the beats of the first bar of "
-                                    f"page {page.number} again, and look for a time signature printed on it.",
-                                    _disagreed(page.number, before.number, "its first bar is shorter than its time signature "
-                                               f"and does not complete the last bar of page {before.number}")))
             if turn:
                 bar = replace(bar, words={label: _words_after_the_turn(bars[-1].voices.get(label), bar.voices.get(label), words, div)
                                           for label, words in bar.words.items()})
             meter, key = bar.changes.get("ts", meter), bar.changes.get("ks", key)
             bars.append(bar)
-        before = page
-    return bars, doubts
+    return bars
 
 
 def _repeat_between(before: _Bar, after: _Bar) -> bool:

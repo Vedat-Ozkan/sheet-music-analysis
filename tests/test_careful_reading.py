@@ -1111,9 +1111,21 @@ def test_a_short_first_bar_is_a_pickup_on_the_lowest_page_and_completes_the_bar_
     bars = ScoreIndex(load_toolkit(built.score).getMEI()).measures
     assert [(measure.number, measure.length) for measure in bars] == [(0, 1), (1, 4), (2, 4), (3, 4)] and bars[0].is_pickup
     assert built.doubts == [] and built.bars == {2: [0, 1, 2], 3: [2, 3]}
-    short = from_notes.hand_in(rules("pickup-page2", "does-not-complete-page3"))
-    assert [(doubt.rule, doubt.page) for doubt in short.doubts] == [(from_notes.OPENING, 3)]
-    assert short.doubts[0].said.startswith("Page 3 of my careful reading did not agree with page 2: its first bar is shorter")
+
+
+@pytest.mark.parametrize("pages,numbered", [
+    (["mazurka-ends-page1", "mazurka-opens-page2"], [(1, 3), (2, 1), (3, 3), (4, 3)]),
+    (["mazurka-ends-page1", "pickup-same-signatures-page2"], [(1, 3), (2, 1), (3, 3)]),
+    (["mazurka-ends-page1", "pickup-new-time-page2"], [(1, 3), (2, 1), (3, 2)]),
+    (["pickup-page2", "does-not-complete-page3"], [(0, 1), (1, 4), (2, 2), (3, 1), (4, 4)]),
+], ids=["new-piece-in-a-new-key", "same-signatures", "new-time", "the-bar-before-short-by-another-amount"])
+def test_a_later_page_that_opens_with_a_pickup_is_stored_at_once_unshaded_and_counted_on(scan_of_three_pages, pages, numbered):
+    said = text_of(hand_in(rules(*pages), careful_id()))
+    assert "not stored yet" not in said and "shaded" not in said
+    code = said.split()[1]
+    bars = ScoreIndex(load_toolkit(app.store.get(f"scores/{code}")).getMEI()).measures
+    assert [(bar.number, bar.length) for bar in bars] == numbered
+    assert json.loads(app.store.get(app.doubted_key(code))) == []
 
 
 def test_a_hand_in_without_its_title_page_names_the_pages_it_holds(scan_of_three_pages):
@@ -1165,16 +1177,15 @@ def test_a_whole_piece_over_a_limit_is_not_offered_a_corrected_hand_in(scan_of_t
 def test_every_doubt_of_a_page_reaches_the_user_and_only_a_doubt_sent_back_is_said_to_have_been_read_again(scan_of_three_pages):
     reading = careful_id()
     first = text_of(hand_in(rules("octave-apart-page2", "octave-apart-page3"), reading))
-    assert "not stored yet" in first and "begins with a bar shorter" not in first
-    second = text_of(hand_in(rules("octave-apart-page2", "octave-apart-and-short-page3"), reading))
+    assert "not stored yet" in first and "without one printed" not in first
+    second = text_of(hand_in(rules("octave-apart-page2", "octave-apart-and-assumed-meter-page3"), reading))
     assert ("staff 1 sounds about an octave away from page 2, and a second reading did not change that. Its bars (3 to 4)"
             in second)
-    assert ("its first bar is shorter than its time signature and does not complete the last bar of page 2, and I could not "
-            "check it again. Its bars (3 to 4)") in second
+    assert "its time signature does not follow from page 2, and I could not check it again. Its bars (3 to 4)" in second
 
 
 def test_both_doubts_of_one_page_are_said_when_the_page_was_not_sent_back(scan_of_three_pages):
-    said = text_of(hand_in(rules("octave-apart-page2", "octave-apart-and-short-page3")))
+    said = text_of(hand_in(rules("octave-apart-page2", "octave-apart-and-assumed-meter-page3")))
     assert said.count("and I could not check it again. Its bars (3 to 4)") == 2
 
 

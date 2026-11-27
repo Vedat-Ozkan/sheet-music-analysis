@@ -4925,6 +4925,23 @@ Time to the question: 1 to 2 ms on the scan and 14 to 16 ms on the typeset PDF. 
 
 **What this does not show.** Nothing here is measured on Cloud Run yet: how often the balancer sends the repeated request to the same wrong instance, and what the bill does, will come from the request log after the next staging round and release (the same script, `breakdown.py` and `mcp_split.py`, kept outside the repo with the cost notes). A call that the chat sends again while a read runs can still land on the other instance and wait there; this change does not touch that. A refusal by Cloud Run itself with status 500 ("waiting too long for an available instance") is still booked as a lost read, as before; up to five tries can now meet it instead of one, and nothing here changes that. A read now holds both request slots of its instance more often (entry 219), so a third request meets a full instance more often; the proxy's second try from entry 219 is what answers it.
 
+### 233. A page that opens with a pickup is taken as it is (2026-11-27, branch `careful-review-fixes`)
+
+**Found on staging.** Two careful readings of the two-mazurkas scan in ChatGPT had page 2 sent back: page 1 ends the first mazurka on a full bar, page 2 opens the second with a one-beat pickup. One chat rewrote the page boundary itself to get through; the other handed the page in a second time, every bar of page 2 was shaded (25 of 54), and the user was told of a rhythm problem. Nothing was misread.
+
+**Cause.** The join doubted any later page whose first bar was short and did not complete the last bar of the page before (the rule "a short first bar completes the page before", entry 225). A pickup at the start of a new piece, or after a double bar, is exactly that.
+
+**What changed.** The rule is removed; no kit text changed. A short opening bar still becomes the second half of the bar before when the two add up and time, key and ending agree. Otherwise it is kept as printed, with no doubt, no send-back and no shading. It is numbered as the next bar, not 0 and not "30a": the quick reading numbers the second mazurka's pickup the same way (both stored copies of the scan, read here).
+
+**Checks.** Tests through the tool on committed note lists (the bars on both sides of the real page turn, the same with unchanged signatures and with a new time signature, and a bar before that is short by another amount); all four fail with the rule restored. 378 stored note lists and 12 pieces of several pages build with the same bars, doubts and notes as before; none of them had met this rule.
+
+**Given up.** A first bar on a later page that is short because the helper miscounted it or missed a new time signature is no longer sent back or shaded. A short bar inside a page was never checked this way.
+
+**Not fixed.**
+- A new piece whose pickup is exactly what the last bar of the piece before is short by, in the same time and key, is joined with it into one bar. The note list has no sign for a final bar line.
+- After `correct_bars` on a careful reading, a pickup in the middle of the score is shaded: the correction marks bars with the quick reading's rule, which knows a pickup only as the first bar. It did so before this change for a pickup inside a page.
+- The two other rules that compare a page with the one before can still meet a new piece: a staff about an octave higher or lower, and a system with other staves.
+
 ## Reproducing
 
 ```bash
