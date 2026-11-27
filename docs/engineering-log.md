@@ -4911,6 +4911,23 @@ Time to the question: 1 to 2 ms on the scan and 14 to 16 ms on the typeset PDF. 
 - (9) A page that prints no names and shows fewer staves loses its music unless its second reading names the staves; it is said and its bars are shaded.
 - Two hand-ins of one PDF arriving at the same moment could each take a score unit.
 
+### 233. A page that opens with a pickup is taken as it is (2026-11-27, branch `careful-review-fixes`)
+
+**Found on staging.** Two careful readings of the two-mazurkas scan in ChatGPT had page 2 sent back: page 1 ends the first mazurka on a full bar, page 2 opens the second with a one-beat pickup. One chat rewrote the page boundary itself to get through; the other handed the page in a second time, every bar of page 2 was shaded (25 of 54), and the user was told of a rhythm problem. Nothing was misread.
+
+**Cause.** The join doubted any later page whose first bar was short and did not complete the last bar of the page before (the rule "a short first bar completes the page before", entry 225). A pickup at the start of a new piece, or after a double bar, is exactly that.
+
+**What changed.** The rule is removed; no kit text changed. A short opening bar still becomes the second half of the bar before when the two add up and time, key and ending agree. Otherwise it is kept as printed, with no doubt, no send-back and no shading. It is numbered as the next bar, not 0 and not "30a": the quick reading numbers the second mazurka's pickup the same way (both stored copies of the scan, read here).
+
+**Checks.** Tests through the tool on committed note lists (the bars on both sides of the real page turn, the same with unchanged signatures and with a new time signature, and a bar before that is short by another amount); all four fail with the rule restored. 378 stored note lists and 12 pieces of several pages build with the same bars, doubts and notes as before; none of them had met this rule.
+
+**Given up.** A first bar on a later page that is short because the helper miscounted it or missed a new time signature is no longer sent back or shaded. A short bar inside a page was never checked this way.
+
+**Not fixed.**
+- A new piece whose pickup is exactly what the last bar of the piece before is short by, in the same time and key, is joined with it into one bar. The note list has no sign for a final bar line.
+- After `correct_bars` on a careful reading, a pickup in the middle of the score is shaded: the correction marks bars with the quick reading's rule, which knows a pickup only as the first bar. It did so before this change for a pickup inside a page.
+- The two other rules that compare a page with the one before can still meet a new piece: a staff about an octave higher or lower, and a system with other staves.
+
 ## Reproducing
 
 ```bash
