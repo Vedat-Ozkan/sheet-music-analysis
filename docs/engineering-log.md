@@ -4875,6 +4875,8 @@ Time to the question: 1 to 2 ms on the scan and 14 to 16 ms on the typeset PDF. 
 - Test: the committed `flute-and-abbreviated-cello-page2` list; it fails with the first-free-staff code.
 - Effect on the stored lists: c0306c's old pages 1-2, where page 2 has one unnamed staff against two, now have page 2's music left out on the second hand-in: 156 of 297 pitches, bars 17 to 32, shaded and said. Before, it was put on staff 1, where the register check also flagged it an octave off. No other stored multi-page set has fewer staves on a page.
 
+**Checks.** Full suite at b33a357 with the PDF reader (sma8 build), 8 workers: 2,564 passed, 5 skipped, 2 expected failures, 3 failed. The three failures are lists from a deliberately cut-off efficiency run written into the trial folder tonight (two unclosed slurs and a bar that does not add up), refused the same way at 6b21c79. `tools/diff_check.py --base 6b21c79 pdfwarn render export`: 80, 28 and 6 inputs, 0 changed. `uvx ruff@0.14.5 check`: clean.
+
 **NOT RUN** (entries 227 to 230): staging; any real chat with the question or the new kit text; the benchmark rerun without the hint (Sonnet's); the wider ending sweep.
 
 ## Reproducing
