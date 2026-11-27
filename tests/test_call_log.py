@@ -148,7 +148,7 @@ def test_the_log_holds_the_sentence_of_an_error_only_when_nothing_in_it_comes_fr
     app.store.put(app.scan_key("SCAN01"), json.dumps({"pages": 1}).encode())
     unknown = asyncio.run(call("draft_analysis", {"score_id": "Moonlight Sonata.mxl"}))
     beyond = asyncio.run(call("draft_analysis", {"score_id": "CHORALE", "measure_range": "900-901"}))
-    misread = asyncio.run(call("use_careful_reading", {"score_id": "SCAN01", "pages": ["N1 div=24 ts=4/4 ks=0\nm la la la"]}))
+    misread = asyncio.run(call("use_careful_reading", {"score_id": "SCAN01", "pages": ["N1 page=1 div=24 ts=4/4 ks=0\nm la la la"]}))
     no_pdf = asyncio.run(call("read_fetched_pdf", {"pdf_id": "My Waltz.pdf"}))
     lines = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")]
     no_score, no_bar, bad_page, unknown_pdf = (line for line in lines if "tool" in line)
