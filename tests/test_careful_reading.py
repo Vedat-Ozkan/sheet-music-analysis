@@ -545,10 +545,23 @@ BAD_PAGES = [
     (BAR + "1.1: 16 C4)", "Bar 1, voice 1.1: a slur ends here that was never started; write ( before its first note"),
     (BAR + "1.1: 16 " + "(" * 17 + "C4" + ")" * 16, "Bar 1, voice 1.1: more than 16 slurs are open at once"),
     (BAR + "1.1: 16 (C4", "A slur starts in voice 1.1 and never ends; close it with ) after its last note"),
+    (BAR.replace("len=16", "len=16 rep=twice") + "1.1: 16 C4", "A repeat sign is written rep=start, rep=end or rep=both, not rep=twice"),
+    (BAR.replace("len=16", "len=16 ending=a") + "1.1: 16 C4", "An ending is written ending=1, ending=2 and so on, not ending=a"),
+    ("N1 div=4 ts=4/4 ks=0\ni: Flute\n" + BAR[21:] + "1.1: 16 C4", "Line 2: the instruments line looks like 'i: 1=Flute "
+     "2=Clarinet in Bb', one number=name for each staff, numbered 1 to 32 from the top"),
+    ("N1 div=4 ts=4/4 ks=0\ni: 1=Flute\n" + BAR[21:] + "1.1: 16 C4\n2.1: 16 C3",
+     "Staff 2 has no name in the i: line; name every staff of the page there"),
+    (BAR + "1.1: 8va( 16 C4", "An octave line starts in staff 1 and never ends; close it with )8va (or )8vb, )15ma, )15mb) "
+     "after the last note under it"),
+    (BAR + "1.1: 16 C4 )8va", "Bar 1, staff 1: an octave line ends here that was never started; write 8va( before the first "
+     "note under it"),
+    (BAR + "1.1: clef=G^15 16 C8", "Bar 1: invalid pitch 'C10'"),
 ]
 RULES_ONLY = {"Staves are numbered 1 to 32 from the top and voices 1 to 8", "The note list has 1001 bars; at most 1000 can be built",
               "Bar 1: len= makes this bar longer than 64 quarter notes", BAD_PAGES[16][1],
-              next(sentence for page, sentence in BAD_PAGES if "a duration of 5 at div=4" in sentence)}
+              next(sentence for page, sentence in BAD_PAGES if "a duration of 5 at div=4" in sentence),
+              "Bar 1: include all 1 staves", "A repeat sign is written rep=start, rep=end or rep=both, not rep=twice",
+              "An ending is written ending=1, ending=2 and so on, not ending=a"}
 
 
 def builds_without_the_rules(page):
@@ -637,3 +650,144 @@ def test_the_kit_check_reports_what_the_builder_would_refuse(tmp_path, text, rep
     kit = Path(__file__).parent.parent / "kit" / "notetool.py"
     printed = subprocess.run([python, str(kit), "check", str(page)], capture_output=True, text=True, check=True).stdout
     assert printed.strip().endswith(reported)
+
+
+def trial_pages(case, *numbers):
+    if not (TRIAL / case).exists():
+        pytest.skip("the trial's pages are not on this computer")
+    return [(TRIAL / case / f"page{number}.n1").read_text() for number in numbers]
+
+
+def events_of(score):
+    return [(measure.name, event.staff, event.pitch) for measure in ScoreIndex(load_toolkit(score).getMEI()).measures
+            for event in measure.events if event.pitch]
+
+
+def test_two_pages_that_disagree_are_sent_back_once_then_taken_with_the_doubtful_bars_shaded(tmp_path, monkeypatch, caplog):
+    pages = trial_pages("c0306c", 1, 2)
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 4}).encode())
+    caplog.set_level("WARNING", logger="engine.output_checks")
+    first = hand_in(pages)
+    assert not first.is_error and "score_id:" not in text_of(first)
+    assert "The careful reading is not stored yet" in text_of(first)
+    assert "Page 2 has 1 staff in a system and page 1 has 2 staves: count the staves again" in text_of(first)
+    assert "Page 1 has staff 1 around Eb5, page 2 has it around D6 in the same clef" in text_of(first)
+    assert [record.getMessage() for record in caplog.records] == [
+        "output check failed: pages agree on their staves (pages 2)",
+        "output check failed: a staff keeps its register over a page turn (pages 2)"]
+    caplog.clear()
+    second = hand_in(pages)
+    assert not second.is_error, text_of(second)
+    assert ('Note for the user: "Page 2 of my careful reading did not agree with page 1: staff 1 sounds about an octave '
+            'away from page 1, and a second reading did not change that. Its bars (17 to 32) are shaded because they may '
+            'be misread."') in text_of(second)
+    code = text_of(second).split()[1]
+    assert asyncio.run(app.shaded_bars(code)) == list(range(17, 33))
+    assert [record.getMessage() for record in caplog.records] == [
+        "output check on a second reading: pages agree on their staves (page 2) confirmed",
+        "output check on a second reading: a staff keeps its register over a page turn (page 2) confirmed"]
+
+
+ORCHESTRA = ["Flute 1", "Flute 2", "Oboe 1", "Oboe 2", "Clarinet in Bb 1", "Clarinet in Bb 2", "Bassoon 1", "Bassoon 2",
+             "Horn in F 1.3", "Horn in F 2.4", "Trumpet in Bb 1", "Trumpet in Bb 2", "Trombone 1", "Trombone 2", "Tuba",
+             "Timpani", "Snare drum", "Bass drum", "Cymbals", "Harp", "Harp", "Violins 1", "Violins 2", "Violas", "Cellos",
+             "Double bass"]
+
+
+def with_names(page, kept, line="i: concert"):
+    places = {old: new for new, old in enumerate(kept, 1)}
+    lines = page.splitlines()
+    named = [lines[0], line + " " + " ".join(f"{places[staff]}={ORCHESTRA[staff - 1]}" for staff in kept)] if line else [lines[0]]
+    for text in lines[1:]:
+        voice = re.fullmatch(r"(\d+)\.(\d+)(w?):(.*)", text)
+        if voice and int(voice[1]) not in places:
+            continue
+        named.append(f"{places[int(voice[1])]}.{voice[2]}{voice[3]}:{voice[4]}" if voice else text)
+    return "\n".join(named)
+
+
+def test_a_later_page_that_leaves_out_resting_staves_and_names_its_instruments_is_taken(tmp_path, monkeypatch):
+    fourth, fifth = trial_pages("4a3d12", 4, 5)
+    monkeypatch.setattr(app, "store", app.LocalStore(tmp_path))
+    app.store.put(app.scan_key("QUICK1"), json.dumps({"pages": 6}).encode())
+    resting = [staff for staff in range(1, 27) if not re.search(rf"^{staff}\.\d+: .*[A-G][#b]*\d", fifth, re.M)]
+    kept = [staff for staff in range(1, 27) if staff not in resting[:6]]
+    unnamed = hand_in([with_names(fourth, range(1, 27), ""), with_names(fifth, kept, "")])
+    assert "Page 2 has 20 staves in a system and page 1 has 26 staves" in text_of(unnamed)
+    taken = hand_in([with_names(fourth, range(1, 27)), with_names(fifth, kept)])
+    assert "score_id:" in text_of(taken) and "shaded" not in text_of(taken), text_of(taken)
+    score = app.store.get(f"scores/{text_of(taken).split()[1]}")
+    root = ET.fromstring(score)
+    assert [part.findtext("part-name") for part in root.iter("score-part")] == list(dict.fromkeys(ORCHESTRA))
+    assert root.find(".//transpose") is None
+    fifth_page = {(name, staff) for name, staff, _ in events_of(score) if int(name) > 7}
+    assert {staff for _, staff in fifth_page} == {staff for staff in range(1, 27) if staff not in resting}
+
+
+def test_a_page_that_takes_its_time_signature_follows_the_one_in_force_at_the_end_of_the_page_before():
+    pages = trial_pages("831deb/whole", *range(1, 9))
+    pages[2] = pages[2].replace("1.1: 27 C4~ 9 C4", "1.1: 24 C4~ 3 C4~ 9 C4").replace("2.2: 54 Ab2 18 Ab1", "2.2: 36 Ab2~ 18 Ab2 Ab1")
+    taken = [pages[0]] + [re.sub(r"ts=(\S+) ks", r"ts=\1? ks", page, count=1) for page in pages[1:]]
+    joined = from_notes.hand_in(taken)
+    meters = {measure.number: measure.meter for measure in ScoreIndex(load_toolkit(joined.score).getMEI()).measures}
+    assert (meters[93], meters[94], meters[95], meters[122], meters[123], meters[198]) == ("6/8", "6/8", "2/2", "2/2", "2/2", "2/2")
+    assert joined.doubts == []
+    as_printed = ScoreIndex(load_toolkit(from_notes.score_from_pages(pages)).getMEI())
+    assert (as_printed.measure(94).meter, as_printed.measure(123).meter) == ("3/4", "4/4")
+
+
+def test_an_assumed_time_signature_with_bars_of_another_length_is_a_doubt():
+    first = "N1 div=2 ts=6/8 ks=0\nm1 len=6\n1.1: 6 C4\nm2 len=6\n1.1: 6 D4"
+    doubts = from_notes.hand_in([first, "N1 div=2 ts=4/4? ks=0\nm1 len=8\n1.1: 8 E4"]).doubts
+    assert [(doubt.rule, doubt.page) for doubt in doubts] == [(from_notes.TIME, 2)]
+    assert doubts[0].reason.startswith("Page 2 takes the time signature 4/4 without one printed, but page 1 ends in 6/8")
+
+
+def test_a_bar_split_by_a_repeat_sign_counts_as_one_bar_as_printed():
+    pages = trial_pages("04fc05", 1, 2)
+    bars = ScoreIndex(load_toolkit(from_notes.score_from_pages(pages)).getMEI()).measures
+    assert [measure.number for measure in bars] == list(range(21)) and bars[8].length == 4
+    marked = pages[0].replace("m8 len=180", "m8 len=180 rep=end").replace("m10 len=192", "m10 len=192 rep=end", 1)
+    lines = [ET.tostring(line, encoding="unicode") for line in ET.fromstring(from_notes.score_from_pages([marked, pages[1]])).iter("barline")]
+    assert len(lines) == 1 and 'direction="backward"' in lines[0]
+
+
+def test_an_octave_clef_and_an_octave_line_turn_printed_pitches_into_sounding_ones_and_the_clef_is_drawn_as_printed():
+    page = ("N1 div=4 ts=4/4 ks=0\nm1 len=16\n1.1: clef=G^8 8 C5 8va( E5 )8va\n2.1: clef=F_8 16 C3\n"
+            "m2 len=16\n1.1: 8 C5 clef=G 8 C5\n2.1: 8vb( 16 C3 )8vb")
+    score = from_notes.score_from_pages([page])
+    assert sorted(events_of(score)) == [("1", 1, "C6"), ("1", 1, "E7"), ("1", 2, "C2"), ("2", 1, "C5"), ("2", 1, "C6"), ("2", 2, "C1")]
+    clefs = [(clef.findtext("sign"), clef.findtext("clef-octave-change")) for clef in ET.fromstring(score).iter("clef")]
+    assert clefs == [("G", "1"), ("F", "-1"), ("G", None)]
+
+
+def test_named_transposing_instruments_sound_where_they_should():
+    page = ("N1 div=4 ts=4/4 ks=0\ni: 1=Clarinet in Bb 2=Horn in F 2 3=Double bass 4=Guitar 5=Piano 6=Piano\nm1 len=16\n"
+            "1.1: clef=G 16 D5\n2.1: clef=G 16 G4\n3.1: clef=F 16 C3\n4.1: clef=G_8 16 E4\n5.1: clef=G 16 C5\n6.1: clef=F 16 C3")
+    score = from_notes.score_from_pages([page])
+    assert events_of(score) == [("1", 1, "C5"), ("1", 2, "C4"), ("1", 3, "C2"), ("1", 4, "E3"), ("1", 5, "C5"), ("1", 6, "C3")]
+    root = ET.fromstring(score)
+    assert [part.findtext("part-name") for part in root.iter("score-part")] == ["Clarinet in Bb", "Horn in F 2", "Double bass", "Guitar", "Piano"]
+    assert [part.findtext("measure/attributes/key/fifths") for part in root.iter("part")] == ["2", "1", "0", "0", "0"]
+    concert = from_notes.score_from_pages([page.replace("i: ", "i: concert ")])
+    assert events_of(concert)[:3] == [("1", 1, "D5"), ("1", 2, "G4"), ("1", 3, "C3")]
+
+
+def test_first_and_second_endings_become_brackets_over_their_bars():
+    page = ("N1 div=1 ts=4/4 ks=0\nm1 len=4 rep=start\n1.1: 4 C5\nm2 len=4 ending=1\n1.1: 4 D5\nm3 len=4 ending=1 rep=end\n"
+            "1.1: 4 E5\nm4 len=4 ending=2\n1.1: 4 F5")
+    bars = ET.fromstring(from_notes.score_from_pages([page])).find("part").findall("measure")
+    found = [(bar.get("number"), line.get("location"), line.findtext("repeat") is not None or line.find("repeat") is not None,
+              [(ending.get("number"), ending.get("type")) for ending in line.findall("ending")]) for bar in bars for line in bar.findall("barline")]
+    assert found == [("1", "left", True, []), ("2", "left", False, [("1", "start")]), ("3", "right", True, [("1", "stop")]),
+                     ("4", "left", False, [("2", "start")]), ("4", "right", False, [("2", "stop")])]
+
+
+def test_the_bench_pages_still_build():
+    pages = sorted(BENCH.glob("*/*/page*.n1"))
+    if not pages:
+        pytest.skip("the trial's pages are not on this computer")
+    assert len(pages) == 8
+    for page in pages:
+        from_notes.score_from_pages([page.read_text()])
