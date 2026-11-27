@@ -1,9 +1,12 @@
+import json
 from pathlib import Path
 
 import pytest
 
 from engine import annotate, output_checks
 from engine.annotations import AnnotationList
+from engine.render import load_toolkit
+from engine.score import ScoreIndex
 from tests.test_awkward import SCORES
 
 DATA = Path(__file__).parent / "data"
@@ -13,8 +16,8 @@ CORPUS = sorted({*SCORES.values(), *DATA.glob("*.mxl"), *DATA.glob("*.musicxml")
 
 def printed_with_checks(path: Path, monkeypatch) -> tuple[list[list[int]], list[tuple[str, list[int]]]]:
     found, reported = [], []
-    check = output_checks.systems_off_the_page
-    monkeypatch.setattr(output_checks, "systems_off_the_page", lambda layouts: found.append(check(layouts)) or found[-1])
+    tallest = output_checks.tallest_system
+    monkeypatch.setattr(output_checks, "tallest_system", lambda layouts: found.append(output_checks.systems_off_the_page(layouts)) or tallest(layouts))
     monkeypatch.setattr(output_checks, "report", lambda rule, pages: reported.append((rule, pages)))
     annotate.render(path.read_bytes(), AnnotationList(annotations=[])).print_pages()
     return found, reported
@@ -33,3 +36,24 @@ def test_a_system_taller_than_the_page_is_fitted_onto_it(name, monkeypatch):
         pytest.skip(f"{path} is a user's file kept out of the repository")
     found, reported = printed_with_checks(path, monkeypatch)
     assert found[0] != [] and reported == [(output_checks.SYSTEM_INSIDE_PAGE, [])]
+
+
+ANALYSED = {
+    "mozart-k545-1": (DATA / "mozart-k545-1-simulated-scan-reading.musicxml", DATA / "analyses" / "mozart-k545-1-sonnet.json"),
+    "bach-bwv404": (DATA / "part_writing_bwv404.musicxml", DATA / "check_display" / "bach-reviewed.json"),
+}
+
+
+@pytest.mark.parametrize("name", list(ANALYSED))
+def test_printing_a_real_analysis_never_takes_more_pages_than_its_layout_before_the_fit(name, monkeypatch):
+    score_path, analysis_path = ANALYSED[name]
+    score = score_path.read_bytes()
+    index = ScoreIndex(load_toolkit(score).getMEI())
+    annotations = AnnotationList.model_validate({"annotations": json.loads(analysis_path.read_text())["annotations"]})
+    laid_out = []
+    tallest = output_checks.tallest_system
+    monkeypatch.setattr(output_checks, "tallest_system", lambda layouts: laid_out.append(len(layouts)) or tallest(layouts))
+    engraving, _, _ = annotate.leave_out_rejected(lambda kept: annotate.render(score, kept, key=True), annotations,
+                                                  lambda given: annotate.by_number(given, index))
+    printed = engraving.print_pages()
+    assert len(printed) <= laid_out[0]
