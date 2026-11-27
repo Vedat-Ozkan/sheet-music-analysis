@@ -6,9 +6,10 @@ The tool measures; you look and write. Do not write your own image code. Follow 
 
     python3 kit/notetool.py layout IMAGE overview.png
 
-View `overview.png`. Staves are traced in blue and named SYSTEM.STAFF (`2.1` is the top staff of system 2). Bar lines are red, and each bar of a system has a red number.
+View `overview.png`. Staves are traced in blue and named SYSTEM.STAFF (`2.1` is the top staff of system 2). The bar lines the tool found are red, and each box between them has a red number.
 
-- Check that every staff is traced and that every printed bar line is red. A bar line can be missed where signs crowd it, and a stem can be taken for one. If the count is wrong, use your own count and remember which tool bar holds two real bars.
+- Check that every staff is traced and that every printed bar line is red. The tool misses bar lines and can take a stem for one, so a box is not always one bar: it can hold two or more. Count the bars of each system in the picture, by the printed bar lines, and write every one of them, each with its own notes. Remember which box holds more than one.
+- A box marked `wide?` (the printed list says so too) is much wider than most bars on the page. Look in the picture for bar lines inside it. A single bar can be long: count more than one only where you see a bar line.
 - The tool numbers bars from 1 in every system, and its bar 1 starts at the left edge (clef and key signature included). Your own bar numbers run on across systems and images; a pickup is m0.
 - Write down for each system: the clef of each staff, the key signature (count the sharps or flats), the time signature, and any clef that changes inside a staff, with the x where the new clef is printed.
 

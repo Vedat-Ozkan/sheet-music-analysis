@@ -5,7 +5,7 @@ You are given an image of one page of printed music. Look at the page first: cou
 Rules of the task:
 - Work only from the image. Do not search for the piece, do not read any file other than the ones named in your task, and do not rely on memory of the music: write what is printed.
 - Go one system at a time, one bar at a time, one staff at a time. For every note, find its line or space against the clef, then apply the key signature and any accidental earlier in the same bar.
-- Count the bars in each system by its bar lines, and transcribe every bar. Number bars 1, 2, 3 … in order across the systems of your page, whatever the page's number in the piece. If the piece opens on your page with a pickup (an incomplete first bar), call it m0.
+- Count the bars in each system by the bar lines printed in the picture, and transcribe every bar. The measuring tool's boxes only help: it misses bar lines, so one box can hold two or more bars. Number bars 1, 2, 3 … in order across the systems of your page, whatever the page's number in the piece. If the piece opens on your page with a pickup (an incomplete first bar), call it m0.
 - Ignore dynamics, fingering numbers and pedal marks. Do read ties, grace notes, rests, clef changes (they change which pitch a position means), octave lines, repeat signs and endings, and changes of key or time signature. Also read slurs, staccato dots and accents, the words printed under a sung staff, and the chord symbols printed above a staff.
 - If something is unreadable, write your best reading; do not leave a bar out.
 
@@ -78,4 +78,4 @@ On a page after the first, the time signature is usually not printed again. Use 
 
 ## What to deliver
 
-Write the complete transcription, in N1 only (no commentary inside the file), to the file you were told to write. If your page has no music on it at all (a title page, a page of text), write only the two words `NO MUSIC` to that file and say so in your reply. Then reply with: whether the tool's staves and bar lines were right, the number of bars you wrote per system, and a short list of the spots you were least sure of. Before you reply, run the tool's `check` on your file one last time and fix what it reports.
+Write the complete transcription, in N1 only (no commentary inside the file), to the file you were told to write. If your page has no music on it at all (a title page, a page of text), write only the two words `NO MUSIC` to that file and say so in your reply. Then reply with: whether the tool's staves and bar lines were right, the number of bars you wrote per system, how many bars the picture shows in each box the tool marked `wide?`, and a short list of the spots you were least sure of. Before you reply, run the tool's `check` on your file one last time and fix what it reports.

@@ -2300,8 +2300,10 @@ async def correct_bars(
                 reading = json.loads(reading)
                 await anyio.to_thread.run_sync(store.put, reading_key(code), json.dumps(
                     {"pages": reading["pages"]}).encode())
-            if await anyio.to_thread.run_sync(store.get, shaded_key(score_id)) is not None:
+            if (shaded := await anyio.to_thread.run_sync(store.get, shaded_key(score_id))) is not None:
                 uneven, _ = await in_turn(pdf_reader.problem_spots, after)
+                flagged, _ = await in_turn(pdf_reader.problem_spots, before)
+                uneven = set(uneven) - (set(flagged) - set(json.loads(shaded)))
                 doubted = json.loads(await anyio.to_thread.run_sync(store.get, doubted_key(score_id)) or b"[]")
                 await anyio.to_thread.run_sync(store.put, shaded_key(code), json.dumps(sorted({*uneven, *doubted})).encode())
                 if doubted:
