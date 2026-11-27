@@ -4799,6 +4799,84 @@ Separately, a careful reading handed in for one page of an eight-page scan was a
 
 **NOT RUN.** Full suite; staging; any real chat, in either product, with the question; whether a chat in an ordinary ChatGPT turn passes the note on, and whether users then pick the app; the "about 5 minutes a page" rate for more than two pages (measured careful readings took 2 min 42 s to 3 min 55 s for two pages, with helpers working at the same time, so the sentence may overstate the time for longer pieces); the Claude allowance for this piece's page count (only the 10-page guide exists, entry 212).
 
+### 227. Third pass on the careful reading: every doubt said, the daily limit checked first, and the two card PDF questions answered (2026-11-27, branch `careful-reading-whole`)
+
+**Why.** What was left of Sonnet's review of b47a350 (REVIEW-B2 findings 4, 5b, 8, 10) and two differences it saw in the card PDF without a cause.
+
+**Every doubt reaches the user (finding 4).** `use_careful_reading` kept the doubts in a dict keyed by page, so of two doubts on one page only the last was said. Now every doubt gets its own note. Looked for the same pattern in the careful-reading code: the only other per-page memory was the send-back one (next point). Test: the committed `octave-apart-and-short-page3` list, whose page 3 is both an octave off and short at its start: before, one note; after, two.
+
+**"A second reading did not change that" only where true (finding 5b).** The memory said a page had been sent back, not for what. A doubt first raised by the second hand-in was said to have survived a second reading. Now it is said so only when the page was read again and that doubt's own rule was the one sent back; otherwise "I could not check it again". Same test: the register doubt sent back and still there is "a second reading did not change that"; the short first bar raised only by the second hand-in is "I could not check it again".
+
+**The daily limit before anything is built (finding 8).** The unit is still taken when a hand-in is stored (the owner's decision, entry 225), but `room_left("draft")` now checks without taking at the start, so a hand-in at the limit is refused before it is built or sent back. Nothing else about counting changed. Test: a hand-in at the limit gets the limit message and its reading keeps no send-back memory.
+
+**Two rules without a test (finding 10).** Committed tests that fail when split bars may merge anywhere (`(turn or _repeat_between(...))` replaced by `True`: two short bars inside a page became one) and when pages are joined in hand-in order (sorting removed: the page 3, page 2 hand-in loses its pickup). Each test was run against its revert.
+
+**Card PDF: the Chopin first ending reads "(1)" without its hook.** Our code, not the engraver. `_balance_systems` inserts its system break just before `<measure>`. When the bar is the first inside an `<ending>`, that puts the break inside the ending, and the engraver draws an ending carried over from the system before, labelled "(1)". The analysed page has had it since ce6e271 (10 October, phrase-aware line breaks); main's analysed pages show "(1)" too; the card PDF took it over on this branch when it moved to the shared print path (entry 224). Fixed in entry 230.
+
+**Card PDF: whole-bar rest counts differ (82/95, 94/119, 352/330).** Display only. Notes, other rests and bars are identical by element id on all three tall scores. Scores with more than 5 staves get `optimize="true"`, which hides staves empty for a whole system, and the new path breaks systems elsewhere (4a3d12's first system holds 4 bars instead of 3), so other staves are hidden. The extra or missing whole-bar rests match the staves shown on only one side exactly (4a3d12: 5 old-only and 18 new-only; 5e1094: 125 and 103; 9315e5: 0 and 25 rests against 0 and 27 staves). No fix.
+
+### 228. Transposition out: every staff is written as printed (2026-11-27, branch `careful-reading-whole`)
+
+**Why.** Two designs for transposing instruments failed review on this code: the name table, then the per-page `t: STAFF ks=K sounds=S` line (REVIEW-B2 findings 1, 2, 3, 5a and 7: piccolo, double bass and guitar an octave wrong without a word; a later page's own statement ignored; a staff printed without a key signature never getting one back after a key change, so the kit flagged its right notes; a misstated octave accepted). The owner moved instruments to the next release, where they get their own design: one instrument list for the piece.
+
+**The rule now.** The builder never moves a pitch for an instrument. `t: STAFF ks=K` means only "this is the key signature printed on this staff". It goes before the first bar for the start of the page, and under the bar line of each bar where that staff's printed key changes. Each page starts fresh: a staff without a `t:` line follows the page's `ks=`. When the page's key changes, a staff with its own key keeps it until its own `t:` line changes it. No staff's key is derived from another's (the root of finding 3). The `<transpose>` element, the transposition doubts and their two sentences are gone, and so is the clause "a part printed in another key than it sounds cannot be corrected". An old list with `sounds=` still builds; the value is ignored.
+
+**One sentence per reading.** "The Clarinet in Bb parts and the Horn in F part are written for instruments that sound at a different pitch than printed. My reading shows them as printed, so chords that include them may be named wrong." It is said for a staff whose own key signature is not none and differs from the page's, named or not (an unnamed one by its staff number), and for a staff whose name says a transposing instrument (the existing guess; `concert` turns it off). A staff whose own signature is none is decided by its name alone: a horn is named, timpani and percussion are not (without that, the concert-pitch 4a3d12 was told its snare drum, bass drum and cymbals sound at another pitch). Piccolo, double bass and guitar: as printed, nothing said. A miss costs a missing sentence, never a wrong pitch.
+
+**Kit text.** reader.md's title is "Read one page of printed music". The `i:` line may name only the staves that print a name: in Sonnet's fourth trial a page printed one name of six, the check refused the partial line, and the helper dropped the line. The `t:` paragraph is shorter. From the same trial's part 2: a beamed group of equal values that does not fit its beat is a tuplet; one of unequal values that does not fit is read again, and if the print really is short or long, its printed values are kept and its last note made up (04fc05 bar 15 had become a septuplet with all eight lengths wrong). The check and the builder then take that bar as an ordinary full bar. An octave line marked as optional ("8va ad lib.", or in brackets) is not written. reader.md went from 2,222 to 2,210 words.
+
+**Tests.** Eight cases of one test on committed lists: a clarinet's own key and its change; a page key change that the clarinet's line does not restate (it keeps its own); a clarinet named only; an old list with `sounds=`; three pages, Clarinet in Bb, in A and unstated, each page on its own statement; piccolo, guitar and double bass; horn and timpani without key signatures; an unnamed staff in its own key. Also a page naming one staff of three, two kit-check cases (a key change on a staff in its own key, and a page key change that does not move it), a misprinted beat, and notes under an optional octave line.
+
+**Every stored note list, built at 6b21c79 and now** (196 builds of the 229 lists in /home/kema/sheet-music-gate and tests/data/careful; multi-page folders built as one piece): 184 unchanged. Changed: 8cb9dc pages 1-2 of Sonnet's fourth trial now as printed (63 of 117 and 98 of 176 pitches back at written pitch: both clarinets and the horn) with the sentence. Page 2 alone has no names, so its staves 3, 4 and 6 are named by number, and its unnamed flute and oboe, neither in a key of its own, are now one two-staff part as an unnamed page without `t:` lines always was. Nine of my own rules lists changed as designed. c0306c's old pages changed through entry 230. Errors: the same six lists fail before and after (unfinished efficiency runs and tab-spike lists); the two that failed only before are new-syntax rules lists. Nothing that built before is refused.
+
+### 229. The question comes before any reading on the server (2026-11-27, branch `careful-reading-whole`)
+
+**Why.** The owner: "ask if they want to use a more careful approach to reading scans/pdf that's more accurate but uses their usage, before we do serverside work". Entry 226 asked after the quick reading: median 77 s, over four minutes for most 8-page PDFs.
+
+**What it does.** `read_pdf` and `read_fetched_pdf` (the Claude card route goes through `read_fetched_pdf`) open the file first. That gives the page count and whether it is a scan, in 2 to 16 ms on the test PDFs. On a platform named in `CAREFUL_READING`, on any route but an ordinary ChatGPT turn, they answer at once with the question and a reading id for the PDF. The card shows a status line. No daily unit is taken and no reading starts. The id is derived from the PDF's digest, and its record `scores/{id}.reading` holds the page count and the call that reads it.
+- A yes is `careful_reading` with that id: the steps, the helpers, the hand-in. No quick reading ever runs.
+- Any other answer is the same reading call again. The server remembers for an hour that it asked (`scores/asked-…`, keyed by platform, person, the card's or fetch's own pdf_id, and the file), and the second call reads.
+- An ordinary ChatGPT turn reads at once, as before, with the note on how to start the careful reading.
+- With `CAREFUL_READING` unset for a platform, nothing changes for it.
+
+**Odd cases.**
+- A chat that repeats the call without an answer gets the reading, as for a no.
+- The same PDF in a new chat the next day is asked again.
+- Two people with the same file are each asked: ChatGPT by person; Claude, which sends no person, by the pdf_id each chat's card or link gets.
+- An answer after the hour: a yes still works (the record lasts like scores); a no is asked once more.
+- `draft_analysis` and the other tools given the reading id answer "This id names a PDF that is not read yet, not a score: careful_reading takes it after the user's yes to the careful reading; otherwise read_fetched_pdf again with the same pdf_id reads it and returns a score_id."
+- A chat holding the released tool texts expects a score_id and gets the question. If it goes on to `draft_analysis` with the reading id, it is told to call the read again. The released Claude skill says to go straight on, so its users may skip the question and get the quick reading.
+- A PDF read before the release has its record under the old `.scan` key, which is not read: `careful_reading` with the old quick score_id gets "possible only for a PDF that read_pdf or read_fetched_pdf has read". Reading the PDF again asks the question, whose yes works.
+
+**What went.** The second offer on the first drawn page, with its code (`careful_offer`, the `offered` and `read_as` fields, the "Offer for the user" label in the server instructions). It was asked once already, before the reading. The key and time hint in the helpers' brief (`signatures_found`) went too: without a quick reading there is none. Sonnet reruns the benchmark pages without it.
+
+**Wording, for the owner** (Claude, 3 pages): "Your PDF can be read in two ways. The careful reading is more accurate: the chat reads each page itself. A careful reading of this piece's 3 pages takes about 10 minutes with one helper per page on Sonnet at medium effort, uses a lot of your plan's usage allowance (as a guide, a 10-page piece can use most of a five-hour allowance on a standard paid plan), and runs a small measuring script from Sheet Music Analysis in this chat. The quick reading takes about a minute a page or less, but it makes more mistakes, and not all of them are shaded. Shall I read it carefully, or quickly?" The minutes are Sonnet's measured bands (REPORT.md, "## Times": 3.4 minutes a page per helper, four at once, with the chat's own steps on top): up to 3 pages 10, up to 10 pages 20, up to 20 pages 35. No careful reading has been timed in ChatGPT, so there it says "is slower than the quick one, uses your own plan's usage", with no minutes. "About a minute a page or less" for the quick reading rests on entry 226's production figures (1 page median 43 s, 8 pages median 255 s).
+
+**Log.** The reading call's line carries `careful=asked`, or `careful=no` on the call after a question; `careful_reading` with a reading id carries `careful=yes`. The yes rate is yes over asked.
+
+**Proof.** One test through the running server, for a scan (chopin-op67-small-page-scan) and a typeset PDF (chopin-28-4-mutopia), on the ChatGPT agent, ordinary and unknown routes and in Claude:
+- the question arrives, with no `read_pdf_work` line anywhere in the log;
+- a yes leads to a stored careful reading and its analysis, with no card made;
+- a no leads to the reading on the second call;
+- the ordinary turn reads at once with the note;
+- no drawn page mentions a careful reading;
+- the log's asked, no and yes values come in the expected order.
+Time to the question: 1 to 2 ms on the scan and 14 to 16 ms on the typeset PDF. With the real PDF reader in process (the sma8 build): question in 19 ms, then on the second call a real reading of the scan in 27 s and of the typeset PDF in 17 s.
+
+### 230. A system break before an ending, and a staff that matches nothing goes on no staff (2026-11-27, branch `careful-reading-whole`)
+
+**The ending.** `_balance_systems` now inserts a system break before an `<ending>` whose first measure starts the system (entry 227 has the cause). New corpus check: no drawing of the 42 corpus scores has a break inside an ending. Before the fix it failed on 1 (the Chopin prelude reading); after, 0. Looked at: the Chopin page shows "1" with its hook at bar 5. `tools/diff_check.py --base 594fd52 render export`: 28 and 6 inputs, 0 changed; none of the render inputs has a first ending at a system start. So on main today the defect reaches analysed pages of scores like the Chopin reading, 1 of the 42 corpus scores. A wider sweep over every test-data file was NOT RUN to the end (the engraver crashes the process on some broken user files).
+
+**Staff identity, the half that removes a guess.**
+- A page with fewer staves than the fullest is matched by the names that page prints, as before, and sent back once with the fullest page's names.
+- A staff that still matches none is now put on no staff: its music is left out, the page's bars are shaded, and the note says which staff of which page it is ("its staff 2 (Vc.) could not be matched to one of page 1's, so its music is left out ... Its bars (2 to 2) are shaded"). Before, it went to the first free staff, which put the cello line on the violin staff (REVIEW-B2 6b).
+- Pages with as many staves as the fullest are still matched by position with no comparison of names. Comparing names there would send back every orchestral page that abbreviates ("Fl." after "Flute").
+- **Known limit:** two pages with as many staves but different instruments (Flute, Violin, then Oboe, Violin: REVIEW-B2 6a) are joined by position without a word. It waits for the next release's instrument list for the piece.
+- Test: the committed `flute-and-abbreviated-cello-page2` list; it fails with the first-free-staff code.
+- Effect on the stored lists: c0306c's old pages 1-2, where page 2 has one unnamed staff against two, now have page 2's music left out on the second hand-in: 156 of 297 pitches, bars 17 to 32, shaded and said. Before, it was put on staff 1, where the register check also flagged it an octave off. No other stored multi-page set has fewer staves on a page.
+
+**NOT RUN** (entries 227 to 230): staging; any real chat with the question or the new kit text; the benchmark rerun without the hint (Sonnet's); the wider ending sweep.
+
 ## Reproducing
 
 ```bash
