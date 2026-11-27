@@ -1106,6 +1106,9 @@ WAITING_FOR_TURN_STATUS = "Your previous PDF is still being read; this one is re
 BUSY_STATUS = "Another PDF is being read right now. Send yours again in a few minutes."
 LOST_TURN = "lost the turn"
 READ_NOT_TAKEN = {401, 403, 404, 429}
+MACHINE = secrets.token_hex(8)
+ANOTHER_MACHINE = 409
+OWN_MACHINE_TRIES = 4
 CALL_AGAIN = {"read_pdf": "read_pdf again with the same file", "read_fetched_pdf": "read_fetched_pdf again with the same pdf_id"}
 
 
@@ -1378,7 +1381,12 @@ async def read_in_its_own_request(data: bytes, source: str, token: str, arrived:
              **({"x-read-person": person} if person else {}), **({"x-proxy-key": PROXY_KEYS[0].decode()} if PROXY_KEYS else {})}
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(REQUEST_SECONDS, connect=10)) as client:
-            answer = await client.post(f"{OWN_ADDRESS}/read-work", content=data, headers=asked)
+            for _ in range(OWN_MACHINE_TRIES):
+                answer = await client.post(f"{OWN_ADDRESS}/read-work", content=data, headers={**asked, "x-read-machine": MACHINE})
+                if answer.status_code != ANOTHER_MACHINE:
+                    break
+            else:
+                answer = await client.post(f"{OWN_ADDRESS}/read-work", content=data, headers=asked)
     except (httpx.ConnectError, httpx.ConnectTimeout, httpx.UnsupportedProtocol, httpx.InvalidURL) as error:
         raise ReadNotTaken(type(error).__name__) from error
     if answer.status_code in READ_NOT_TAKEN:
@@ -2451,6 +2459,8 @@ async def upload(request: Request) -> Response:
 
 @mcp.custom_route("/read-work", methods=["POST"])
 async def read_work(request: Request) -> Response:
+    if request.headers.get("x-read-machine", MACHINE) != MACHINE:
+        return Response(status_code=ANOTHER_MACHINE)
     data, asked = await request.body(), request.headers
     digest = hashlib.sha256(data).hexdigest()
     card_key = card_of(digest)

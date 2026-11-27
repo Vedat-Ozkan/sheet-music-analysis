@@ -64,6 +64,22 @@ def answering(response):
 READ_WORK = [Route("/read-work", app.read_work, methods=["POST"])]
 
 
+def two_machines(sent_to_the_other_first):
+    asked = []
+
+    async def balanced(request):
+        asked.append(request.headers.get("x-read-machine"))
+        if len(asked) > sent_to_the_other_first:
+            return await app.read_work(request)
+        here, app.MACHINE = app.MACHINE, "the other machine"
+        try:
+            return await app.read_work(request)
+        finally:
+            app.MACHINE = here
+
+    return [Route("/read-work", balanced, methods=["POST"])], asked
+
+
 def reader(monkeypatch, tmp_path, open_requests=(), reading=None):
     reads = []
 
@@ -112,6 +128,29 @@ def test_a_read_started_by_a_call_runs_inside_a_request_of_its_own(monkeypatch, 
     assert app.store.get(app.marker_of(CARD_KEY)) is None and app.reads_held == {}
     call = next(line for line in lines_of(capsys) if line.get("tool") == "read_pdf")
     assert call["outcome"] == "ok" and "omr" in call["timings_ms"]
+
+
+def test_a_read_sent_to_the_other_machine_first_is_asked_again_until_its_own_machine_takes_it(monkeypatch, tmp_path):
+    routes, asked = two_machines(sent_to_the_other_first=2)
+    with serving(routes) as (address, open_requests):
+        reads = reader(monkeypatch, tmp_path, open_requests, READING)
+        monkeypatch.setattr(app, "OWN_ADDRESS", address)
+        result = read_the_pdf()
+    assert asked == [app.MACHINE] * 3
+    assert reads == [["/read-work"]]
+    assert "score_id:" in text_of(result)
+
+
+def test_a_read_its_own_machine_never_gets_is_read_by_the_other_machine(monkeypatch, tmp_path):
+    routes, asked = two_machines(sent_to_the_other_first=app.OWN_MACHINE_TRIES + 1)
+    with serving(routes) as (address, open_requests):
+        reads = reader(monkeypatch, tmp_path, open_requests, READING)
+        monkeypatch.setattr(app, "OWN_ADDRESS", address)
+        result = read_the_pdf()
+    assert asked == [app.MACHINE] * app.OWN_MACHINE_TRIES + [None]
+    assert reads == [["/read-work"]]
+    assert "score_id:" in text_of(result)
+    assert app.store.get(app.marker_of(CARD_KEY)) is None and app.reads_held == {}
 
 
 def test_a_read_in_a_request_of_its_own_is_counted_once_for_the_person_who_sent_it(monkeypatch, tmp_path):

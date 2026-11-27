@@ -4690,6 +4690,18 @@ Separately, a careful reading handed in for one page of an eight-page scan was a
 
 **One false start, mine.** The owner's first run of step B stopped at once: staging answered without the mark. I had moved staging's traffic back to the build with the proxy change, but the proof script sets the instance count with `gcloud run services update`, which makes a new revision from the latest deployed build, and that was a build without the change. Setting that build as the service's current one fixed it. Before any such proof, check the mark on the latest revision, not only where traffic points.
 
+### 223. A PDF read stays on the instance that got the call (2026-11-26, branch `read-on-own-machine`)
+
+**Why.** The owner asked whether the processor time on the bill could be lowered. Production's request log from 23 November 12:50 to 27 November 02:08 UTC (20,000 requests, 9,147 billed instance-seconds) had a request in flight for 7,076 seconds: 3,652 s of them a PDF read (28 reads), and 1,136 s (16%) a chat's call waiting on one instance while its read ran on the other. Both instances are billed for that time, at 4 processors each, and the waiting one does nothing.
+
+**Cause.** Since entry 173 a read runs inside a request of its own, which the server sends to its own address so that the read keeps its processor when the chat's call ends early. Google's balancer chooses the instance for that request, and when both instances are up it chose the other one for about a quarter of the read time measured (1,136 s of 4,564 s of reads with a long call waiting).
+
+**Change** (built by the architect session). The reading request names the instance that sent it. An instance that is not the one named answers 409 before it reads the upload, and the sender asks again, at most four times; after that it sends the request without a name and any instance takes it, as before. Nothing else in the read changes.
+
+**Checks.** Two new tests beside the existing ones for the request of its own: a request that reaches the other instance twice is asked a third time and read once, on its own instance; a request that never reaches its own instance is read once by the other. `tests/test_read_in_own_request.py`: 15 passed.
+
+**What this does not show.** Nothing here is measured on Cloud Run yet: how often the balancer sends the repeated request to the same wrong instance, and what the bill does, will come from the request log after the next staging round and release (the same script, `breakdown.py` and `mcp_split.py`, kept outside the repo with the cost notes). A call that the chat sends again while a read runs can still land on the other instance and wait there; this change does not touch that. A read now holds both request slots of its instance more often (entry 219), so a third request meets a full instance more often; the proxy's second try from entry 219 is what answers it.
+
 ## Reproducing
 
 ```bash
