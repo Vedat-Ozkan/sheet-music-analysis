@@ -4879,6 +4879,33 @@ Time to the question: 1 to 2 ms on the scan and 14 to 16 ms on the typeset PDF. 
 
 **NOT RUN** (entries 227 to 230): staging; any real chat with the question or the new kit text; the benchmark rerun without the hint (Sonnet's); the wider ending sweep.
 
+### 231. Final review fixes: one record per question, a careful reading counts as a score, and texts that no longer held (2026-11-27, branch `careful-review-fixes`)
+
+**What the review of `9df8732` found** (the texts by reading, the rest by running):
+- The id and text of a question were shared by everyone with the same PDF, while the memory of having asked was a second record keyed by person. A ChatGPT user could be told to call `read_fetched_pdf`, which ChatGPT does not have; "this PDF is not read yet" was said of PDFs that had been read; an ordinary turn was told a quick reading existed when none did.
+- A careful reading took no per-person or shared score unit. On `main` a quick reading always came first and took one; the branch dropped that without anyone deciding it.
+- "Written as printed" was said of timpani named with their tuning, of a staff the page did not have, and of two piano staves with different key signatures.
+- A password-locked PDF failed before its copy was kept.
+- Several public texts still said a PDF is read on the first call; `correct_bars` asked for sounding pitches in scores that now show printed ones.
+
+**What changed.**
+- One record per question, under the reading id. Platform, person, the chosen file or card and the PDF decide the id. It holds the pages, when it was asked, how this caller reads the PDF again, the answer, and the careful reading's score_id. A reading id given to any tool now says which score_id to use.
+- Only what a caller's own record led to stops the question. Another person, product or card with the same PDF is asked, even when a reading of it is stored.
+- A careful reading takes one score unit for a PDF the user attached, once per PDF, person and day, when the hand-in is stored. No PDF-page units. A quick reading of the same PDF later the same day takes no second score unit. `careful_reading` refuses with the limit sentence, taking nothing, when the score or draft limit is used up. Making it free again is one line (`score_unit_due`). The owner has not yet decided.
+- Timpani never get the sentence. A `t:` line for a staff with no voice line or name on its page is refused by the shared rule file, so the kit's check and the builder both say it. Two staves of one part with different printed signatures are drawn with the top staff's, and a sentence says so (a signature per staff would have meant changing the note builder).
+- `open_pdf` turns a locked PDF into the same refusal as any unreadable one. Any failure of the first look leaves the PDF to the ordinary reading path.
+- `kit/reader.md` now allows what the send-back asks: on a page sent back with another page's names, the `i:` line takes them for the staves shown.
+
+**Checks.** New tests in `tests/test_careful_question.py` and beside the existing ones. Each of 19 rules was reverted one at a time and made at least one test fail. All 337 note lists in `tests/data` and the trial folder, built before and after, gave the same sentences, key signatures, doubts and errors, apart from the two new lists written for these faults. Of 406 stored lists, the 16 with a `t:` line (the only ones the new rule can touch) pass or fail the rule file as before. `tools/diff_check.py --base 9df8732 pdfwarn render export`: 80, 28 and 6 inputs, 0 changed. `uvx ruff@0.14.5 check`: clean. Full suite with the PDF reader (sma8 build), 8 workers: 2,647 passed, 5 skipped, 2 expected failures.
+
+**NOT RUN:** staging; any real chat; correct_bars with a model; the benchmark pages with the new `kit/reader.md` sentence.
+
+**Known limits.**
+- (6) A second chat with the same PDF and the same file, within the hour, cannot be told from the answer "quick", so it is read without the question. Two calls at the same moment are both asked.
+- (6a) A page with as many staves as the fullest page but other instruments is matched by position (entry 230).
+- (9) A page that prints no names and shows fewer staves loses its music unless its second reading names the staves; it is said and its bars are shaded.
+- Two hand-ins of one PDF arriving at the same moment could each take a score unit.
+
 ## Reproducing
 
 ```bash
