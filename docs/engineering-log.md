@@ -4702,6 +4702,30 @@ Separately, a careful reading handed in for one page of an eight-page scan was a
 
 **Not covered:** the joined score can still pass 200,000 characters when the pages are under it together (renumbered bars and a common `div` make it longer); the rules refuse pages over that total, not the joined text.
 
+### 222. The note list carries octave clefs, instruments and repeats, and pages must agree before they are joined (2026-11-27, branch `careful-reading-whole`)
+
+**Why.** Sonnet's trial of the careful reading (twelve failed PDFs, then two whole pieces) found the helpers reading notes almost perfectly, and the failures around them: two helpers chose opposite octaves for a treble clef with a small 8 above it (c0306c), one wrote a two-staff page as one staff, and the server joined both without a word; a page that prints no time signature took the piece's first one (831deb: bar 94 came out 3/4 instead of 6/8, and bars 123 to the end 4/4 instead of cut time); the note list had no way to write an 8 on a clef, an octave line, an instrument name or a repeat sign.
+
+**Which source to trust.** Before building the rule for disagreements, each page-level fact of the trial's 21 helper pages was judged against the print, and the same for the quick reading (our own reader) on the same pages: the helpers were right on 119 of 126 judged items (staves 20/21, clefs 17/21, octave 19/21, key 21/21, time 21/21, bars 21/21), the quick reading on 72 of 112 (staves 13/19, clefs 10/19, octave 11/17, key 14/19, time 11/19, bars 13/19). Detail: /home/kema/sheet-music-gate/careful-whole/source-agreement.md. So a careful page always wins over the quick reading, which is not used to check it.
+
+**What a page can now say** (kit/reader.md, one or two lines each, every one checked by `kit/note_rules.py` and built by the builder):
+- Pitches are written where they are printed. A clef with a small 8 or 15 is `clef=G^8`, `clef=F_8` and so on; an octave line is `8va(` before its first note and `)8va` after its last (also `8vb`, `15ma`, `15mb`). The builder turns printed pitch into sounding pitch, staff by staff in time order, and draws the clef with its 8. The old `clef=G8` (an octave clef with sounding pitches) is gone.
+- `i: 1=Flute 2=Clarinet in Bb …` names the staves. Named staves become parts with their names; a small table gives clarinet in B flat and A, trumpet in B flat, horn in F, English horn, alto and tenor saxophone, piccolo, double bass and guitar their transposition, so they sound where they should and are drawn in their own key. An octave already shown by an 8 on the clef is not counted twice. `i: concert …` says the score is printed at sounding pitch (4a3d12 is). A named page may leave out staves that rest; they are matched by name.
+- Repeated-chord and tremolo shorthand is written out as the notes played (one sentence; no new sign).
+- `rep=start`, `rep=end`, `rep=both` and `ending=1`, `ending=2` on a bar line become repeat bar lines and ending brackets. Two short bars that add up to one full bar count as one bar, by the rule that already joined a bar split at a page turn: 04fc05 now has bars 0 to 20 as printed, not 0 to 21. A repeat sign in the middle of such a bar is not drawn (drawing it needs two drawn measures for one numbered bar).
+- `ts=3/4?` says the time signature is not printed on the page. It then gives way to the one in force at the end of the page before when the bars are as long (6/8 and 3/4; 2/2 and 4/4): 831deb's eight pages with `?` give 6/8 at bar 94 and cut time from bar 123 to the end.
+
+**Pages must agree.** Before joining, the server looks at every page against the page before it. A page with another number of staves (unless it names its instruments and every name is known from page 1), a staff whose median pitch over the whole page is 11 or more semitones from the previous page's in the same clef shape, or an assumed time signature whose bars are another length, is sent back to the chat once with a plain reason for the helper (no score is stored). The second hand-in of that page is taken as it is: if the doubt is still there, every bar of that page is shaded on the drawn pages through the same path as the quick reading's shaded bars, and the result has one sentence for the user. Each alarm is logged through `output_checks.report` with the rule's name and page, and the next hand-in logs whether the second reading changed or confirmed it. c0306c's two pages as the trial handed them in: sent back (one staff against two; staff 1 around Eb5 then D6), then taken with bars 17 to 32 shaded.
+
+**The threshold.** /home/kema/sheet-music-gate/careful-whole/turns/turns.py measured the jump in a staff's median pitch at 105 correct page turns of real scores: 2 reached 11 semitones. The one real fault, c0306c, measures 11.0.
+
+**NOT PROVEN.**
+- Rule 3's detection rests on one real fault, and its threshold sits exactly on it. The alarm log lines in production will show the real false-alarm rate.
+- How well helpers follow the new reader.md text is unmeasured until the trial is rerun on this branch.
+- The transposition table and instrument matching are tested on made-up note lists and on the 4a3d12 pages with names added by hand; no helper has written an `i:` line yet. Names must match page 1's exactly (case and spacing aside).
+- A pitch that an octave clef or line pushes outside octaves 0 to 9 is refused by the rules as an invalid pitch, with the sounding name.
+- Corrections (correct_bars) of a transposing part are still refused, as for any transposed score.
+
 ## Reproducing
 
 ```bash
