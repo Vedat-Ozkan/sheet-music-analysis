@@ -1030,8 +1030,12 @@ def keys_of_parts(score):
             for name, part in zip(ET.fromstring(score).iter("score-part"), ET.fromstring(score).iter("part"))]
 
 
-CLARINET_SHOWN_AS_PRINTED = ("The Clarinet in Bb part is written for an instrument that sounds at a different pitch than printed. "
-                             "My reading shows it as printed, so chords that include it may be named wrong.")
+def shown_as_printed(parts):
+    return (f"My reading shows {parts} as printed: where an instrument is a transposing one, its notes sound at a different "
+            "pitch than shown, and the analysis across the parts may be off there.")
+
+
+CLARINET_SHOWN_AS_PRINTED = shown_as_printed("the Clarinet in Bb part")
 
 
 @pytest.mark.parametrize("names, parts, pitches, said", [
@@ -1049,15 +1053,14 @@ CLARINET_SHOWN_AS_PRINTED = ("The Clarinet in Bb part is written for an instrume
     (["octave-instruments-page1"], [("Piccolo", ["0"], False), ("Guitar", ["0"], False), ("Double bass", ["0"], False)],
      ["C6"], []),
     (["horn-and-timpani-page1"], [("Horn in F", ["0"], False), ("Timpani", ["0"], False), ("Cello", ["-2"], False)], ["G4"],
-     ["The Horn in F part is written for an instrument that sounds at a different pitch than printed. My reading shows it as "
-      "printed, so chords that include it may be named wrong."]),
+     [shown_as_printed("the Horn in F part")]),
     (["unnamed-staff-own-key-page1"], [("", ["1"], False), ("", ["-2"], False)], ["D5"],
-     ["The part on staff 1 is written for an instrument that sounds at a different pitch than printed. My reading shows it "
-      "as printed, so chords that include it may be named wrong."]),
-    (["timpani-with-a-tuning-page1"], [("Timpani in A", ["-2"], False), ("Cello", ["-2"], False)], ["A2"], []),
+     [shown_as_printed("the part on staff 1")]),
+    (["timpani-with-a-tuning-page1"], [("Timpani in A", ["-2"], False), ("Cello", ["-2"], False)], ["A2"],
+     [shown_as_printed("the Timpani in A part")]),
     (["concert-horn-page1"], [("Horn in F", ["-2"], False), ("Cello", ["-2"], False)], ["G4"], []),
     (["piano-staves-differ-page1"], [("Piano", ["-2"], False)], ["B4"],
-     ["The staves of the Piano part print different key signatures. My reading draws them all with the top staff's key "
+     [shown_as_printed("the Piano part"), "The staves of the Piano part print different key signatures. My reading draws them all with the top staff's key "
       "signature, and their notes keep their printed pitches."]),
     (["key-before-the-turn-page1", "key-after-the-turn-page2"],
      [("Clarinet in Bb", ["0", "-1", None], False), ("Cello", ["-2", None, None], False)], ["D5", "E5", "F5", "G5"],

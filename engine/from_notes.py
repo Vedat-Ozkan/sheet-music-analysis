@@ -17,9 +17,7 @@ REST_TYPES = ("whole", "half", "quarter", "eighth", "16th", "32nd", "64th", "128
 DIVISIONS = 32
 BAR_LINE = re.compile(r"m\d+ len=(?P<length>\d+)(?P<changes>(?: (?:ts|ks|rep|ending)=\S+)*)")
 CHORD_NAME = re.compile(r"(?P<root>[A-G])(?P<sign>[#b♯♭]?)(?P<kind>.*?)(?:/(?P<bass>[A-G])(?P<bass_sign>[#b♯♭]?))?")
-TRANSPOSING_NAME = re.compile(r"\bin (?:b[b♭]|b[- ]flat|a|f|e[b♭]|e[- ]flat)\b|\bhorns?\b|\bsaxophones?\b|\bcor anglais\b",
-                              re.IGNORECASE)
-UNTRANSPOSED_NAME = re.compile(r"\b(?:timpani|timp|pauken)\b", re.IGNORECASE)
+TRANSPOSING_NAME = re.compile(r"\bin [a-g](?:[b#♭♯]|[- ](?:flat|sharp))?\b", re.IGNORECASE)
 REGISTER_JUMP = 11
 PITCH_NAMES = ("C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B")
 STAVES, REGISTER, TIME, OPENING = (
@@ -295,10 +293,8 @@ def _join(pages: list[str]) -> _Joined:
     concert = any(re.match(r"i:\s*concert\b", line.strip()) for page in pages for line in page.splitlines())
     keys, printed_apart, split = _staff_keys(bars, key, instruments)
     doubts += opening + _register_doubts(bars, [page.number for page in read])
-    transposing = set() if concert else {place for place, name in instruments.items() if TRANSPOSING_NAME.search(name)}
-    shown_as_printed = sorted(place for place in transposing | {place for place in printed_apart if instruments.get(place) not in split}
-                              if not UNTRANSPOSED_NAME.search(instruments.get(place, "")))
-    said = [_as_printed(instruments, shown_as_printed)] if shown_as_printed else []
+    apart = printed_apart | {place for place, name in instruments.items() if TRANSPOSING_NAME.search(name)}
+    said = [] if concert or not apart else [_as_printed(instruments, sorted(apart))]
     return _Joined(_bars_as_text(bars, div, meter, key), names, instruments, keys, doubts,
                    {page.number: sorted({number for number, bar in zip(numbers, bars) if page.number in bar.pages}) for page in read},
                    said + [DRAWN_WITH_THE_TOP_KEY.format(name=name) for name in split])
@@ -320,6 +316,8 @@ def _staff_keys(bars: list[_Bar], key: str, instruments: dict[int, str]) -> tupl
     return in_force, apart, list(split)
 
 
+SHOWN_AS_PRINTED = ("My reading shows {parts} as printed: where an instrument is a transposing one, its notes sound at a "
+                    "different pitch than shown, and the analysis across the parts may be off there.")
 DRAWN_WITH_THE_TOP_KEY = ("The staves of the {name} part print different key signatures. My reading draws them all with the "
                           "top staff's key signature, and their notes keep their printed pitches.")
 
@@ -329,11 +327,7 @@ def _as_printed(instruments: dict[int, str], places: list[int]) -> str:
     named = [f"the {name} {'parts' if names.count(name) > 1 else 'part'}" if name in instruments.values() else f"the part on {name}"
              for name in dict.fromkeys(names)]
     listed = named[0] if len(named) == 1 else f"{', '.join(named[:-1])} and {named[-1]}"
-    if len(places) == 1:
-        return (f"{listed[0].upper()}{listed[1:]} is written for an instrument that sounds at a different pitch than printed. "
-                "My reading shows it as printed, so chords that include it may be named wrong.")
-    return (f"{listed[0].upper()}{listed[1:]} are written for instruments that sound at a different pitch than printed. "
-            "My reading shows them as printed, so chords that include them may be named wrong.")
+    return SHOWN_AS_PRINTED.format(parts=listed)
 
 
 def _page_heading(text: str) -> _Page:
