@@ -32,3 +32,7 @@ def systems_off_the_page(layouts: list[PageLayout]) -> list[int]:
 def report(rule: str, pages: list[int]) -> None:
     if pages:
         log.warning("output check failed: %s (pages %s)", rule, ", ".join(map(str, pages)))
+
+
+def recheck(rule: str, page: int, confirmed: bool) -> None:
+    log.warning("output check on a second reading: %s (page %s) %s", rule, page, "confirmed" if confirmed else "changed")

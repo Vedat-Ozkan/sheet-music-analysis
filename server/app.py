@@ -50,7 +50,7 @@ from starlette.responses import JSONResponse, Response
 from engine import correct, draft, from_notes, read_ahead, verovio_workers
 from engine import notes as note_list
 from engine import read_pdf as pdf_reader
-from engine import check_analysis, ledger, part_writing, reduce
+from engine import check_analysis, ledger, output_checks, part_writing, reduce
 from engine.annotate import AnnotationError, by_number, leave_out_rejected, render
 from engine.performance import marked_index, performance_text, unclear_tempos
 from engine.annotations import AnnotationList, view_named
@@ -2216,6 +2216,15 @@ PART_OF_THE_SCAN = (
 )
 
 
+SENT_BACK = (
+    "The careful reading is not stored yet: these pages do not agree with the page before them.\n{reasons}\n"
+    "Each of these pages is read again by a new helper, whose brief adds the reason above, and then every page is handed "
+    "in again with use_careful_reading and score_id {score_id}. A page handed in a second time is taken as it is."
+)
+STILL_IN_DOUBT = ("Note for the user: \"Page {page} of my careful reading did not agree with page {before}: {said}, and a "
+                  "second reading did not change that. Its bars ({first} to {last}) are shaded because they may be misread.\"\n")
+
+
 @mcp.tool(
     title="Use a careful reading",
     description=(
@@ -2242,22 +2251,47 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
         return error_result(LIMIT_MESSAGE)
     try:
         with stage("parse"):
-            score = await in_turn(lambda: from_notes.score_from_pages(pages))
-            bars = await in_turn(lambda: [measure.name for measure in ScoreIndex(load_toolkit(score).getMEI()).measures])
+            built = await in_turn(lambda: from_notes.hand_in(pages))
+            bars = await in_turn(lambda: [measure.name for measure in ScoreIndex(load_toolkit(built.score).getMEI()).measures])
     except UserError as error:
         log("use_careful_reading", platform=source, **logged(error), pages=len(pages), outcome="user_error")
         return error_result("A page does not fit; a corrected hand-in takes every page again: " + str(error))
+    record = json.loads(await anyio.to_thread.run_sync(store.get, careful_key(score_id)) or b"{}")
+    sent_back, rechecked = record.get("sent_back", {}), set(record.get("rechecked", []))
+    for page, rules in sent_back.items():
+        if page not in rechecked:
+            for rule in rules:
+                output_checks.recheck(rule, int(page), any(doubt.rule == rule and doubt.page == int(page) for doubt in built.doubts))
+            rechecked.add(page)
+    new = [doubt for doubt in built.doubts if str(doubt.page) not in sent_back]
+    for doubt in new:
+        output_checks.report(doubt.rule, [doubt.page])
+        sent_back.setdefault(str(doubt.page), []).append(doubt.rule)
+    await anyio.to_thread.run_sync(store.put, careful_key(score_id), json.dumps({"sent_back": sent_back, "rechecked": sorted(rechecked)}).encode())
+    if new:
+        log("use_careful_reading", platform=source, pages=len(pages), answer="sent_back", sent_back=sorted({doubt.page for doubt in new}))
+        return CallToolResult(content=[TextContent(type="text", text=SENT_BACK.format(
+            reasons="\n".join(f"- {doubt.reason}" for doubt in new), score_id=clean_id(score_id)))])
+    doubtful = {doubt.page: doubt for doubt in built.doubts}
+    shaded = sorted({int(bar) for page in doubtful for bar in built.bars[page]})
     code = secrets.token_hex(8).upper()
-    await anyio.to_thread.run_sync(store.put, f"scores/{code}", score)
+    await anyio.to_thread.run_sync(store.put, f"scores/{code}", built.score)
+    await anyio.to_thread.run_sync(store.put, shaded_key(code), json.dumps(shaded).encode())
     log("use_careful_reading", platform=source, pages=len(pages), scan_pages=scan_pages, bars=len(bars),
-        chars_in=sum(map(len, pages)))
+        chars_in=sum(map(len, pages)), bars_shaded=len(shaded))
     part_only = PART_OF_THE_SCAN.format(given=page_count(len(pages)), scan=page_count(scan_pages)) if len(pages) < scan_pages else ""
+    in_doubt = "".join(STILL_IN_DOUBT.format(page=page, before=page - 1, said=doubt.said, first=built.bars[page][0], last=built.bars[page][-1])
+                       for page, doubt in sorted(doubtful.items()) if built.bars[page])
     return CallToolResult(content=[TextContent(type="text", text=(
         f"score_id: {code}\nThe careful reading is stored: measures {bars[0]} to {bars[-1]}.{part_only}\nIt is "
         "analysed and drawn as an attached MusicXML file is.\n"
         "Note for the user: \"The page shows my careful reading of your scan. It can still contain mistakes, so check "
-        "it against your copy.\"\n"
+        f"it against your copy.\"\n{in_doubt}"
         f"score_id {code} is ready for draft_analysis."))])
+
+
+def careful_key(score_id: str) -> str:
+    return f"scores/{clean_id(score_id)}.careful"
 
 
 LINK_NOT_A_SCORE = (
