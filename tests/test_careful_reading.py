@@ -813,21 +813,19 @@ def test_two_pages_that_disagree_are_sent_back_once_then_taken_with_the_doubtful
     assert not first.is_error and "score_id:" not in text_of(first)
     assert "The careful reading is not stored yet" in text_of(first)
     assert "Page 2 has 1 staff in a system and page 1 has 2 staves: count the staves again" in text_of(first)
-    assert "Page 1 has staff 1 around Eb5, page 2 has it around D6 in the same clef" in text_of(first)
-    assert [record.getMessage() for record in caplog.records] == [
-        "output check failed: pages agree on their staves (pages 2)",
-        "output check failed: a staff keeps its register over a page turn (pages 2)"]
+    assert "around" not in text_of(first)
+    assert [record.getMessage() for record in caplog.records] == ["output check failed: pages agree on their staves (pages 2)"]
     caplog.clear()
     second = hand_in(pages, reading)
     assert not second.is_error, text_of(second)
-    assert ('Note for the user: "Page 2 of my careful reading did not agree with page 1: staff 1 sounds about an octave '
-            'away from page 1, and a second reading did not change that. Its bars (17 to 32) are shaded because they may '
-            'be misread."') in text_of(second)
+    assert ('Note for the user: "Page 2 of my careful reading did not agree with page 1: it has 1 staff where page 1 has 2 '
+            "staves, and its staff 1 could not be matched to one of page 1's, so its music is left out, and a second reading "
+            'did not change that. Its bars (17 to 32) are shaded because they may be misread."') in text_of(second)
     code = text_of(second).split()[1]
     assert asyncio.run(app.shaded_bars(code)) == list(range(17, 33))
+    assert [event for event in events_of(app.store.get(f"scores/{code}")) if int(event[0]) >= 17] == []
     assert [record.getMessage() for record in caplog.records] == [
-        "output check on a second reading: pages agree on their staves (page 2) confirmed",
-        "output check on a second reading: a staff keeps its register over a page turn (page 2) confirmed"]
+        "output check on a second reading: pages agree on their staves (page 2) confirmed"]
 
 
 ORCHESTRA = ["Flute 1", "Flute 2", "Oboe 1", "Oboe 2", "Clarinet in Bb 1", "Clarinet in Bb 2", "Bassoon 1", "Bassoon 2",
