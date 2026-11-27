@@ -1079,3 +1079,42 @@ def test_a_whole_piece_over_a_limit_is_not_offered_a_corrected_hand_in(scan_of_t
                                                      "at most 1000 can be built")
     one_page = hand_in([BAR + "1.1: 12 C4"])
     assert text_of(one_page).startswith("A page does not fit; a corrected hand-in takes every page again: Page 1: Bar 1,")
+
+
+def test_every_doubt_of_a_page_reaches_the_user_and_only_a_doubt_sent_back_is_said_to_have_been_read_again(scan_of_three_pages):
+    reading = careful_id()
+    first = text_of(hand_in(rules("octave-apart-page2", "octave-apart-page3"), reading))
+    assert "not stored yet" in first and "begins with a bar shorter" not in first
+    second = text_of(hand_in(rules("octave-apart-page2", "octave-apart-and-short-page3"), reading))
+    assert ("staff 1 sounds about an octave away from page 2, and a second reading did not change that. Its bars (3 to 4)"
+            in second)
+    assert ("its first bar is shorter than its time signature and does not complete the last bar of page 2, and I could not "
+            "check it again. Its bars (3 to 4)") in second
+
+
+def test_both_doubts_of_one_page_are_said_when_the_page_was_not_sent_back(scan_of_three_pages):
+    said = text_of(hand_in(rules("octave-apart-page2", "octave-apart-and-short-page3")))
+    assert said.count("and I could not check it again. Its bars (3 to 4)") == 2
+
+
+def test_a_hand_in_at_the_daily_limit_is_refused_before_it_is_built_or_sent_back(scan_of_three_pages):
+    reading = careful_id()
+    usage = app.store.folder / f"usage/{app.today()}.json"
+    usage.parent.mkdir(parents=True, exist_ok=True)
+    usage.write_text(json.dumps({"draft": app.DAILY_LIMITS["draft"]}))
+    refused = hand_in(rules("octave-apart-page2", "octave-apart-page3"), reading)
+    assert refused.is_error and text_of(refused) == app.LIMIT_MESSAGE
+    assert "sent_back" not in json.loads(app.store.get(app.careful_key(reading)))
+
+
+def test_two_short_bars_inside_a_page_without_a_repeat_sign_stay_two_bars():
+    page = "N1 page=1 div=1 ts=4/4 ks=0\nm1 len=4\n1.1: clef=G 4 C5\nm2 len=3\n1.1: 3 D5\nm3 len=1\n1.1: 1 E5\nm4 len=4\n1.1: 4 F5"
+    measures = ScoreIndex(load_toolkit(from_notes.hand_in([page]).score).getMEI()).measures
+    assert [(measure.name, measure.length) for measure in measures] == [("1", 4), ("2", 3), ("3", 1), ("4", 4)]
+
+
+def test_pages_are_joined_in_page_order_whatever_order_they_are_handed_in():
+    built = from_notes.hand_in(rules("completes-the-turn-page3", "pickup-page2"))
+    bars = ScoreIndex(load_toolkit(built.score).getMEI()).measures
+    assert [(measure.number, measure.length) for measure in bars] == [(0, 1), (1, 4), (2, 4), (3, 4)]
+    assert built.doubts == [] and built.bars == {2: [0, 1, 2], 3: [2, 3]}

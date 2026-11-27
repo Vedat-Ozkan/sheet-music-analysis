@@ -441,6 +441,11 @@ async def take(kind: str, source: str, amount: int = 1) -> bool:
     return await count(f"usage/{today()}.json", kind, amount, DAILY_LIMITS[kind], f"{kind}:{source}")
 
 
+async def room_left(kind: str) -> bool:
+    counts = json.loads(await anyio.to_thread.run_sync(store.get, f"usage/{today()}.json") or b"{}")
+    return counts.get(kind, 0) < DAILY_LIMITS[kind]
+
+
 async def take_for(person: str | None, amount: int = 1) -> bool:
     return person is None or await count(f"limits/{today()}.json", person, amount, PERSON_SCORE_LIMIT)
 
@@ -2303,6 +2308,9 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
     if pdf is None:
         log("use_careful_reading", platform=source, error="ScoreError", reason=NOT_A_PDF_READING)
         return error_result(NOT_A_PDF_READING)
+    if not await room_left("draft"):
+        log("limit", tool="use_careful_reading", platform=source)
+        return error_result(LIMIT_MESSAGE)
     pdf_pages = json.loads(pdf)["pages"]
     numbers = [note_rules.page_number(page) or 0 for page in pages]
     if len(pages) > pdf_pages or max(numbers, default=0) > pdf_pages:
@@ -2324,6 +2332,9 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
             for rule in rules:
                 output_checks.recheck(rule, int(page), any(doubt.rule == rule and doubt.page == int(page) for doubt in built.doubts))
             rechecked.add(page)
+    def read_again(doubt: from_notes.Doubt) -> bool:
+        return str(doubt.page) in rechecked and doubt.rule in sent_back[str(doubt.page)]
+
     new = [doubt for doubt in built.doubts if str(doubt.page) not in sent_back]
     for doubt in new:
         output_checks.report(doubt.rule, [doubt.page])
@@ -2338,8 +2349,7 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
     if not await take("draft", source):
         log("limit", tool="use_careful_reading", platform=source)
         return error_result(LIMIT_MESSAGE)
-    doubtful = {doubt.page: doubt for doubt in built.doubts}
-    shaded = sorted({bar for page in doubtful for bar in built.bars[page]})
+    shaded = sorted({bar for doubt in built.doubts for bar in built.bars[doubt.page]})
     code = secrets.token_hex(8).upper()
     await anyio.to_thread.run_sync(store.put, f"scores/{code}", built.score)
     await anyio.to_thread.run_sync(store.put, shaded_key(code), json.dumps(shaded).encode())
@@ -2356,9 +2366,9 @@ async def use_careful_reading(ctx: Context, score_id: str, pages: list[str]) -> 
                  + (BEYOND_THE_LIMIT.format(count=CAREFUL_PAGES, beyond=pages_named(beyond), given=given, of=of,
                                             verb="is" if len(beyond) == 1 else "are") if beyond else ""))
     parts = len(ET.fromstring(built.score).findall("part"))
-    in_doubt = "".join(STILL_IN_DOUBT.format(said=doubt.said, first=built.bars[page][0], last=built.bars[page][-1],
-                                             checked=READ_AGAIN if str(page) in rechecked else NOT_READ_AGAIN)
-                       for page, doubt in sorted(doubtful.items()) if built.bars[page])
+    in_doubt = "".join(STILL_IN_DOUBT.format(said=doubt.said, first=built.bars[doubt.page][0], last=built.bars[doubt.page][-1],
+                                             checked=READ_AGAIN if read_again(doubt) else NOT_READ_AGAIN)
+                       for doubt in sorted(built.doubts, key=lambda doubt: doubt.page) if built.bars[doubt.page])
     in_doubt += "".join(f"Note for the user: \"{said}\"\n" for said in built.notes)
     return CallToolResult(content=[TextContent(type="text", text=(
         f"score_id: {code}\nThe careful reading is stored: measures {bars[0]} to {bars[-1]}.{part_only}\nIt is "
